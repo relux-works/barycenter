@@ -1,0 +1,6 @@
+# CocoaSkill
+.agents/
+.claude/skills/
+.codex/skills/
+.cursor/rules/
+.gemini/skills/

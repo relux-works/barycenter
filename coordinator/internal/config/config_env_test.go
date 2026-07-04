@@ -44,13 +44,18 @@ telegram:
 	}
 }
 
-// Empty env + empty tokens must fail loudly (Coolify logs show the reason).
-func TestContainerConfigFailsWithoutEnv(t *testing.T) {
+// v2.1: empty tokens are legal (new installs mint everything via /create +
+// /pair) — the container config boots with zero env. Garbage tokens still die.
+func TestContainerConfigWithoutEnv(t *testing.T) {
 	yml := "listen: \"0.0.0.0:8080\"\ndb_path: /tmp/d.db\nmedia_dir: /tmp/m\nnodes:\n  a: { token: \"\" }\n  b: { token: \"\" }\n"
 	p := filepath.Join(t.TempDir(), "c.yml")
 	os.WriteFile(p, []byte(yml), 0o600)
-	_, err := Load(p)
-	if err == nil || !strings.Contains(err.Error(), "token") {
-		t.Fatalf("want loud token error, got %v", err)
+	if _, err := Load(p); err != nil {
+		t.Fatalf("empty tokens must be legal in v2.1: %v", err)
+	}
+	bad := strings.Replace(yml, "a: { token: \"\" }", "a: { token: \"short\" }", 1)
+	os.WriteFile(p, []byte(bad), 0o600)
+	if _, err := Load(p); err == nil || !strings.Contains(err.Error(), "64 hex") {
+		t.Fatalf("garbage token must fail loudly, got %v", err)
 	}
 }

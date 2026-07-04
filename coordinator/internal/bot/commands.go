@@ -33,6 +33,15 @@ const (
 	KindOffset     CommandKind = "offset"
 	KindOffsetTest CommandKind = "offset_test"
 	KindIgnore     CommandKind = "ignore" // plain chatter: stay silent (spec 9.2)
+
+	// v2.1 multi-tenant onboarding & orbit administration
+	KindStart       CommandKind = "start"        // /start [invite payload]
+	KindCreate      CommandKind = "create"       // /create — new orbit
+	KindShare       CommandKind = "share"        // /share — member invite link
+	KindPairCode    CommandKind = "pair"         // /pair — node pairing code
+	KindMakePrimary CommandKind = "make_primary" // /make_primary [tg id]
+	KindRevoke      CommandKind = "revoke"       // /revoke <slot>
+	KindOrbit       CommandKind = "orbit"        // /orbit — members & slots
 )
 
 type Command struct {
@@ -77,6 +86,35 @@ func Parse(text string) (Command, error) {
 	args := fields[1:]
 
 	switch cmd {
+	case "/start":
+		payload := ""
+		if len(args) > 0 {
+			payload = args[0]
+		}
+		return Command{Kind: KindStart, Target: payload}, nil
+	case "/create":
+		return Command{Kind: KindCreate, Target: strings.Join(args, " ")}, nil
+	case "/share":
+		return Command{Kind: KindShare}, nil
+	case "/pair":
+		return Command{Kind: KindPairCode}, nil
+	case "/make_primary":
+		if len(args) == 0 {
+			return Command{Kind: KindMakePrimary}, nil
+		}
+		id, err := strconv.Atoi(args[0])
+		if err != nil {
+			return Command{}, ErrReply{"так: /make_primary <id участника> (список в /orbit)"}
+		}
+		return Command{Kind: KindMakePrimary, Number: id}, nil
+	case "/revoke":
+		if len(args) != 1 {
+			return Command{}, ErrReply{"так: /revoke <слот> (слоты в /orbit)"}
+		}
+		return Command{Kind: KindRevoke, Target: strings.ToLower(args[0])}, nil
+	case "/orbit":
+		return Command{Kind: KindOrbit}, nil
+
 	case "/playnow":
 		if len(args) == 0 {
 			return Command{}, ErrReply{"нужна ссылка: /playnow <ссылка на трек>"}
@@ -190,15 +228,16 @@ func Parse(text string) (Command, error) {
 		}
 		return Command{Kind: KindOffset, Number: ms, Target: target}, nil
 
-	case "/start", "/help":
+	case "/help":
 		return Command{}, ErrReply{helpText}
 	}
 
 	return Command{}, ErrReply{"не знаю такой команды. /help покажет список"}
 }
 
-const helpText = `duet: общий эфир на два дома.
-Ссылка на трек — в очередь; плейлист/альбом — общий поток. Голосовое — вставка после текущего трека («лично» — только партнёру).
+const helpText = `Барицентр: общий музыкальный эфир на несколько домов.
+Ссылка на трек — в очередь; плейлист/альбом — общий поток. Голосовое — вставка после текущего трека («лично» — только адресату).
+/orbit — участники и дома; /share — пригласить; /pair — код для своего Пульсара
 /periastron — сближение: общий эфир; /apoastron — каждый своё (/inject подкидывает партнёру)
 /playnow <ссылка> — немедленно; /queue, /cancel N; /skip, /pause, /resume, /sync
 /vol 0-100 [a|b]; /now, /status; /takeover user|coordinator — кто главнее при вмешательстве с телефона
@@ -207,4 +246,11 @@ const helpText = `duet: общий эфир на два дома.
 // IsPersonalCaption: the "лично" caption on a voice message (spec 9.1).
 func IsPersonalCaption(caption string) bool {
 	return strings.EqualFold(strings.TrimSpace(caption), "лично")
+}
+
+// IsBroadcastCaption: the "всем" caption forces a broadcast voice insert
+// over the orbit's personal-by-default setting (design §5).
+func IsBroadcastCaption(caption string) bool {
+	c := strings.TrimSpace(caption)
+	return strings.EqualFold(c, "всем") || strings.EqualFold(c, "all")
 }

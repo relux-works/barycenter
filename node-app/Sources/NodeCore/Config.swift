@@ -85,18 +85,25 @@ public struct ConfigError: Error, CustomStringConvertible {
 }
 
 public enum ConfigLoader {
-    public static func load(path: String) throws -> NodeConfig {
+    public static func load(path: String, credentials: NodeCredentials? = nil) throws -> NodeConfig {
         let text: String
         do {
             text = try String(contentsOfFile: path, encoding: .utf8)
         } catch {
             throw ConfigError(problems: ["cannot read \(path): \(error.localizedDescription)"])
         }
-        let cfg: NodeConfig
+        var cfg: NodeConfig
         do {
             cfg = try YAMLDecoder().decode(NodeConfig.self, from: text)
         } catch {
             throw ConfigError(problems: ["\(path) is not a valid node.yml: \(error)"])
+        }
+        // Pairing credentials override the yml (v2.1 M1): the file appears
+        // after `NodeApp --pair CODE` and carries url+token+slot.
+        if let creds = credentials {
+            cfg.coordinator.url = creds.wsUrl
+            cfg.coordinator.token = creds.token
+            cfg.nodeId = creds.slot
         }
         try validate(cfg)
         return cfg
@@ -105,8 +112,9 @@ public enum ConfigLoader {
     public static func validate(_ c: NodeConfig) throws {
         var problems: [String] = []
 
-        if c.nodeId != "a" && c.nodeId != "b" {
-            problems.append("node_id is \"\(c.nodeId)\", must be \"a\" or \"b\"")
+        // v2.1: slots are single letters a..z (orbit-assigned at pairing).
+        if c.nodeId.count != 1 || !("a"..."z").contains(c.nodeId) {
+            problems.append("node_id is \"\(c.nodeId)\", must be a single slot letter (a…z)")
         }
         if let url = URL(string: c.coordinator.url), let scheme = url.scheme {
             if scheme != "ws" && scheme != "wss" {

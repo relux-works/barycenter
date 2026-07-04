@@ -66,7 +66,12 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("store: init schema: %w", err)
 	}
-	return &Store{db: db}, nil
+	s := &Store{db: db}
+	if err := s.initOrbits(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init orbit schema: %w", err)
+	}
+	return s, nil
 }
 
 func (s *Store) Close() error { return s.db.Close() }
@@ -83,18 +88,18 @@ type SessionSnapshot struct {
 	Playlist        *session.Playlist `json:"playlist,omitempty"` // U10 base layer
 }
 
-func (s *Store) SaveSession(snap SessionSnapshot) error {
+func (s *Store) SaveSession(orbitID int64, snap SessionSnapshot) error {
 	raw, err := json.Marshal(snap)
 	if err != nil {
 		return err
 	}
-	return s.SetSetting("session_state", string(raw))
+	return s.SetSetting(fmt.Sprintf("session_state_%d", orbitID), string(raw))
 }
 
 // LoadSession restores the snapshot; a PLAYING/ARMED/LOADING session comes
 // back as PAUSED (spec 7.2 restart rule). Returns nil if nothing was saved.
-func (s *Store) LoadSession() (*SessionSnapshot, error) {
-	val, err := s.GetSetting("session_state")
+func (s *Store) LoadSession(orbitID int64) (*SessionSnapshot, error) {
+	val, err := s.GetSetting(fmt.Sprintf("session_state_%d", orbitID))
 	if err != nil {
 		return nil, err
 	}

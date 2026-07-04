@@ -62,7 +62,7 @@ private func loadFromString(_ yaml: String) throws -> NodeConfig {
     @Test func badNodeIdAndSchemeCollectBothProblems() {
         do {
             _ = try loadFromString(validYAML
-                .replacingOccurrences(of: "node_id: a", with: "node_id: c")
+                .replacingOccurrences(of: "node_id: a", with: "node_id: home1")
                 .replacingOccurrences(of: "ws://coord:8080/ws", with: "http://coord:8080/ws"))
             Issue.record("must throw")
         } catch let err as ConfigError {

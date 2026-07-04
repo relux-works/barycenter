@@ -20,26 +20,21 @@ import (
 	"relux.works/duet/coordinator/internal/ulid"
 )
 
-// nodeSender abstracts the ws-hub for loop tests (integration tests drive
-// every phase-1 bot command against the real FSM with a fake transport).
+// nodeSender abstracts the ws-hub for loop tests.
 type nodeSender interface {
-	Send(node protocol.NodeID, msgType string, payload any) bool
-	Online() map[protocol.NodeID]bool
+	Send(key hub.NodeKey, msgType string, payload any) bool
+	Online(orbitID int64) map[protocol.NodeID]bool
 }
 
-// loop serializes every session-affecting event: node messages, bot commands,
-// media completions, ready timeouts (spec 7.2: the FSM is single-threaded).
-type loop struct {
-	log  *slog.Logger
-	cfg  *config.Config
-	hub  nodeSender
-	sess *session.Session
-	st   *store.Store
-	bot  *bot.Bot        // nil when telegram is disabled (dev mode)
-	sp   *spotify.Client // nil when spotify app creds are not configured (U10)
+// orbitState is everything the loop tracks per orbit (v2.1 multi-tenant):
+// one FSM session plus its knobs, timers and last-seen node telemetry.
+type orbitState struct {
+	id    int64
+	title string
+	sess  *session.Session
 
-	// takeoverPolicy: "user" | "coordinator" (U9), persisted in settings.
-	takeoverPolicy string
+	takeoverPolicy string // user | coordinator (per-orbit, orbits table)
+	voiceDefault   string // personal | broadcast
 
 	volumes  map[protocol.NodeID]int
 	offsets  map[protocol.NodeID]int64
@@ -52,12 +47,32 @@ type loop struct {
 
 	readyTimer   *time.Timer
 	timerElement string
-	timeouts     chan string
-	mediaCh      chan mediaDone
-	playlistCh   chan playlistDone
+}
+
+// loop serializes every session-affecting event across all orbits
+// (spec 7.2: the FSM is single-threaded; one goroutine, many orbits).
+type loop struct {
+	log *slog.Logger
+	cfg *config.Config
+	hub nodeSender
+	st  *store.Store
+	bot *bot.Bot        // nil when telegram is disabled (dev mode)
+	sp  *spotify.Client // nil when spotify app creds are not configured (U10)
+
+	states map[int64]*orbitState
+
+	timeouts   chan orbitTimeout
+	mediaCh    chan mediaDone
+	playlistCh chan playlistDone
+}
+
+type orbitTimeout struct {
+	orbit     int64
+	elementID string
 }
 
 type playlistDone struct {
+	orbit  int64
 	uri    string
 	title  string
 	tracks []string
@@ -66,8 +81,10 @@ type playlistDone struct {
 }
 
 type mediaDone struct {
+	orbit    int64
 	mediaID  string
-	from     protocol.NodeID
+	from     int64  // tg user id of the sender
+	fromName string
 	personal bool
 	result   media.Result
 	err      error
@@ -75,63 +92,86 @@ type mediaDone struct {
 }
 
 func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store, b *bot.Bot, sp *spotify.Client) *loop {
-	s := session.New()
-	s.StartMarginMS = int64(cfg.Timings.StartMarginMS)
 	return &loop{
-		log:            log,
-		cfg:            cfg,
-		hub:            h,
-		sess:           s,
-		st:             st,
-		bot:            b,
-		sp:             sp,
-		takeoverPolicy: "user", // customer default 2026-07-03: the phone wins
-		volumes:        map[protocol.NodeID]int{protocol.NodeA: 80, protocol.NodeB: 80},
-		offsets:        map[protocol.NodeID]int64{},
-		lastSeen:       map[protocol.NodeID]*protocol.StatePayload{},
-		versions:       map[protocol.NodeID]string{},
-		timeouts:       make(chan string, 4),
-		mediaCh:        make(chan mediaDone, 8),
-		playlistCh:     make(chan playlistDone, 4),
+		log:        log,
+		cfg:        cfg,
+		hub:        h,
+		st:         st,
+		bot:        b,
+		sp:         sp,
+		states:     map[int64]*orbitState{},
+		timeouts:   make(chan orbitTimeout, 8),
+		mediaCh:    make(chan mediaDone, 8),
+		playlistCh: make(chan playlistDone, 4),
 	}
 }
 
-// restore pulls the persisted session and settings (spec 7.2 restart rule).
-func (l *loop) restore() {
-	for _, n := range []protocol.NodeID{protocol.NodeA, protocol.NodeB} {
-		if v, _ := l.st.GetSetting("volume_" + string(n)); v != "" {
+// orbit returns the live state for an orbit, restoring it from the store on
+// first touch (session snapshot, knobs, per-orbit settings).
+func (l *loop) orbit(id int64) *orbitState {
+	if o, ok := l.states[id]; ok {
+		return o
+	}
+	o := &orbitState{
+		id:             id,
+		title:          "Барицентр",
+		sess:           session.New(),
+		takeoverPolicy: "user",
+		voiceDefault:   "personal",
+		volumes:        map[protocol.NodeID]int{},
+		offsets:        map[protocol.NodeID]int64{},
+		lastSeen:       map[protocol.NodeID]*protocol.StatePayload{},
+		versions:       map[protocol.NodeID]string{},
+	}
+	o.sess.StartMarginMS = int64(l.cfg.Timings.StartMarginMS)
+	if rec, err := l.st.GetOrbit(id); err == nil && rec != nil {
+		o.title = rec.Title
+		o.takeoverPolicy = rec.TakeoverPolicy
+		o.voiceDefault = rec.VoiceDefault
+	}
+	slots, _ := l.st.ActiveSlots(id)
+	for _, sl := range slots {
+		n := protocol.NodeID(sl)
+		o.volumes[n] = 80
+		if v, _ := l.st.GetSetting(fmt.Sprintf("volume_%d_%s", id, sl)); v != "" {
 			if i, err := strconv.Atoi(v); err == nil {
-				l.volumes[n] = i
+				o.volumes[n] = i
 			}
 		}
-		if v, _ := l.st.GetSetting("offset_" + string(n)); v != "" {
+		if v, _ := l.st.GetSetting(fmt.Sprintf("offset_%d_%s", id, sl)); v != "" {
 			if i, err := strconv.ParseInt(v, 10, 64); err == nil {
-				l.offsets[n] = i
+				o.offsets[n] = i
 			}
 		}
 	}
-	if v, _ := l.st.GetSetting("takeover_policy"); v == "user" || v == "coordinator" {
-		l.takeoverPolicy = v
+	if snap, err := l.st.LoadSession(id); err == nil && snap != nil {
+		o.sess.Mode = snap.Mode
+		o.sess.State = snap.State
+		o.sess.Current = snap.Current
+		o.sess.SavedPositionMS = snap.SavedPositionMS
+		o.sess.Queue = snap.Queue
+		o.sess.Playlist = snap.Playlist
+		if snap.State == session.StatePaused && snap.Current != nil {
+			o.restoredPaused = true
+			l.notify(o, "координатор перезапустился: эфир на паузе, /resume чтобы продолжить")
+		}
+		l.log.Info("session restored", "orbit", id, "state", snap.State, "queue_len", len(snap.Queue))
 	}
-	snap, err := l.st.LoadSession()
+	l.states[id] = o
+	return o
+}
+
+// warmup restores every known orbit at startup.
+func (l *loop) warmup() {
+	ids, err := l.st.OrbitIDs()
 	if err != nil {
-		l.log.Error("session restore failed, starting fresh", "err", err)
+		l.log.Error("orbit warmup failed", "err", err)
 		return
 	}
-	if snap == nil {
-		return
+	for _, id := range ids {
+		l.orbit(id)
 	}
-	l.sess.Mode = snap.Mode
-	l.sess.State = snap.State
-	l.sess.Current = snap.Current
-	l.sess.SavedPositionMS = snap.SavedPositionMS
-	l.sess.Queue = snap.Queue
-	l.sess.Playlist = snap.Playlist
-	if snap.State == session.StatePaused && snap.Current != nil {
-		l.restoredPaused = true
-		l.notify("координатор перезапустился: эфир на паузе, /resume чтобы продолжить")
-	}
-	l.log.Info("session restored", "mode", snap.Mode, "state", snap.State, "queue_len", len(snap.Queue))
+	l.log.Info("orbits warmed up", "count", len(ids))
 }
 
 func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
@@ -145,8 +185,9 @@ func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 			return
 		case ev := <-nodeEvents:
 			l.handleNode(ev)
-		case elementID := <-l.timeouts:
-			l.apply(l.sess.OnReadyTimeout(elementID))
+		case to := <-l.timeouts:
+			o := l.orbit(to.orbit)
+			l.apply(o, o.sess.OnReadyTimeout(to.elementID))
 		case ev := <-botEvents:
 			l.handleBot(ev)
 		case done := <-l.mediaCh:
@@ -163,27 +204,37 @@ func (l *loop) handlePlaylistDone(d playlistDone) {
 		d.reply(fmt.Sprintf("не смог раскрыть плейлист: %v", d.err))
 		return
 	}
-	l.apply(l.sess.SetPlaylist(d.uri, d.title, d.tracks))
+	o := l.orbit(d.orbit)
+	l.apply(o, o.sess.SetPlaylist(d.uri, d.title, d.tracks))
 }
 
-func (l *loop) notify(text string) {
-	if l.bot != nil {
-		l.bot.Notify(text)
+// notify DMs every member of the orbit (group chat binding comes in M4).
+func (l *loop) notify(o *orbitState, text string) {
+	l.log.Info("notify", "orbit", o.id, "text", text)
+	if l.bot == nil {
+		return
 	}
-	l.log.Info("notify", "text", text)
+	members, err := l.st.Members(o.id)
+	if err != nil {
+		l.log.Error("members lookup failed", "orbit", o.id, "err", err)
+		return
+	}
+	for _, m := range members {
+		l.bot.SendTo(m.TGUserID, text)
+	}
 }
 
-func (l *loop) persist() {
-	err := l.st.SaveSession(store.SessionSnapshot{
-		Mode:            l.sess.Mode,
-		State:           l.sess.State,
-		Current:         l.sess.Current,
-		SavedPositionMS: l.sess.SavedPositionMS,
-		Queue:           l.sess.Queue,
-		Playlist:        l.sess.Playlist,
+func (l *loop) persist(o *orbitState) {
+	err := l.st.SaveSession(o.id, store.SessionSnapshot{
+		Mode:            o.sess.Mode,
+		State:           o.sess.State,
+		Current:         o.sess.Current,
+		SavedPositionMS: o.sess.SavedPositionMS,
+		Queue:           o.sess.Queue,
+		Playlist:        o.sess.Playlist,
 	})
 	if err != nil {
-		l.log.Error("persist failed", "err", err)
+		l.log.Error("persist failed", "orbit", o.id, "err", err)
 	}
 }
 
@@ -192,127 +243,220 @@ func (l *loop) persist() {
 func (l *loop) handleNode(ev hub.Event) {
 	switch e := ev.(type) {
 	case hub.EvRegistered:
-		l.log.Info("node registered", "node", e.Node, "app", e.AppVersion, "librespot", e.LibrespotVersion)
-		l.versions[e.Node] = e.AppVersion + "/librespot " + e.LibrespotVersion
-		snap := l.sess.Snapshot(l.volumes[e.Node])
-		l.hub.Send(e.Node, protocol.TypeWelcome, &protocol.WelcomePayload{SessionSnapshot: snap})
-		if off, ok := l.offsets[e.Node]; ok {
-			l.hub.Send(e.Node, protocol.TypeSetOffset, &protocol.SetOffsetPayload{OffsetMS: off})
+		o := l.orbit(e.Key.Orbit)
+		l.log.Info("node registered", "orbit", e.Key.Orbit, "slot", e.Key.Slot, "app", e.AppVersion, "librespot", e.LibrespotVersion)
+		o.versions[e.Key.Slot] = e.AppVersion + "/librespot " + e.LibrespotVersion
+		vol, ok := o.volumes[e.Key.Slot]
+		if !ok {
+			vol = 80
+			o.volumes[e.Key.Slot] = vol
+		}
+		snap := o.sess.Snapshot(vol)
+		l.hub.Send(e.Key, protocol.TypeWelcome, &protocol.WelcomePayload{SessionSnapshot: snap})
+		if off, ok := o.offsets[e.Key.Slot]; ok {
+			l.hub.Send(e.Key, protocol.TypeSetOffset, &protocol.SetOffsetPayload{OffsetMS: off})
 		}
 	case hub.EvOnline:
-		l.apply(l.sess.OnNodeBack(e.Node))
+		o := l.orbit(e.Key.Orbit)
+		l.apply(o, o.sess.OnNodeBack(e.Key.Slot))
 	case hub.EvOffline:
-		l.log.Warn("node offline", "node", e.Node)
-		l.st.LogEvent(string(e.Node), "offline", nil)
-		l.apply(l.sess.OnNodeOffline(e.Node))
+		o := l.orbit(e.Key.Orbit)
+		l.log.Warn("node offline", "orbit", e.Key.Orbit, "slot", e.Key.Slot)
+		l.st.LogEvent(string(e.Key.Slot), "offline", nil)
+		l.apply(o, o.sess.OnNodeOffline(e.Key.Slot))
 	case hub.EvMessage:
 		l.handleNodeMessage(e)
 	}
 }
 
 func (l *loop) handleNodeMessage(m hub.EvMessage) {
+	o := l.orbit(m.Key.Orbit)
+	slot := m.Key.Slot
 	now := time.Now().UnixMilli()
 	switch p := m.Payload.(type) {
 	case *protocol.StatePayload:
-		l.lastSeen[m.Node] = p
-		l.volumes[m.Node] = p.Volume
-		l.apply(l.sess.OnHeartbeat(m.Node, p.PositionMS, p.RTTMS))
-		if l.restoredPaused {
-			l.sess.RefreshSavedPosition()
+		o.lastSeen[slot] = p
+		o.volumes[slot] = p.Volume
+		l.apply(o, o.sess.OnHeartbeat(slot, p.PositionMS, p.RTTMS))
+		if o.restoredPaused {
+			o.sess.RefreshSavedPosition()
 		}
 	case *protocol.ReadyPayload:
-		l.apply(l.sess.OnReady(now, m.Node, p.ElementID))
+		l.apply(o, o.sess.OnReady(now, slot, p.ElementID))
 	case *protocol.StartedPayload:
-		l.apply(l.sess.OnStarted(m.Node, p.ElementID, p.TFirstSampleCoordMS))
+		l.apply(o, o.sess.OnStarted(slot, p.ElementID, p.TFirstSampleCoordMS))
 	case *protocol.EndedPayload:
-		l.apply(l.sess.OnEnded(m.Node, p.ElementID, p.Reason))
+		l.apply(o, o.sess.OnEnded(slot, p.ElementID, p.Reason))
 	case *protocol.VoiceStartedPayload:
-		l.log.Info("voice started", "node", m.Node, "element", p.ElementID)
+		l.log.Info("voice started", "orbit", o.id, "slot", slot, "element", p.ElementID)
 	case *protocol.VoiceEndedPayload:
-		l.apply(l.sess.OnVoiceEnded(m.Node, p.ElementID))
+		l.apply(o, o.sess.OnVoiceEnded(slot, p.ElementID))
 	case *protocol.WaitEndedPayload:
-		l.apply(l.sess.OnWaitEnded(m.Node, p.ElementID))
+		l.apply(o, o.sess.OnWaitEnded(slot, p.ElementID))
 	case *protocol.ErrorPayload:
-		l.log.Warn("node error", "node", m.Node, "code", p.Code, "msg", p.Message, "element", p.ElementID)
-		l.st.LogEvent(string(m.Node), "node_error", p)
-		l.apply(l.sess.OnNodeError(m.Node, p.Code, p.ElementID))
+		l.log.Warn("node error", "orbit", o.id, "slot", slot, "code", p.Code, "msg", p.Message, "element", p.ElementID)
+		l.st.LogEvent(string(slot), "node_error", p)
+		l.apply(o, o.sess.OnNodeError(slot, p.Code, p.ElementID))
 	case *protocol.ExternalPlaybackPayload:
-		l.handleExternalPlayback(m.Node, p.URI)
+		l.handleExternalPlayback(o, slot, p.URI)
 	default:
-		l.log.Debug("unhandled message", "node", m.Node, "type", m.Env.Type)
+		l.log.Debug("unhandled message", "slot", slot, "type", m.Env.Type)
 	}
 }
 
-// handleExternalPlayback applies the takeover policy (U9): the partner's
-// phone started its own playback on a node while the session is shared.
-func (l *loop) handleExternalPlayback(node protocol.NodeID, uri string) {
-	if l.sess.Mode != session.ModeShared {
+// handleExternalPlayback applies the takeover policy (U9).
+func (l *loop) handleExternalPlayback(o *orbitState, slot protocol.NodeID, uri string) {
+	if o.sess.Mode != session.ModeShared {
 		return
 	}
-	l.st.LogEvent(string(node), "external_playback", map[string]string{"uri": uri, "policy": l.takeoverPolicy})
-	if l.takeoverPolicy == "user" {
-		l.notify(fmt.Sprintf("дом %s забрал управление (играет с телефона) — режим solo", node))
-		l.apply(l.sess.SetModeSolo())
+	l.st.LogEvent(string(slot), "external_playback", map[string]string{"uri": uri, "policy": o.takeoverPolicy})
+	if o.takeoverPolicy == "user" {
+		l.notify(o, fmt.Sprintf("дом %s забрал управление (играет с телефона) — режим solo", slot))
+		l.apply(o, o.sess.SetModeSolo())
 		return
 	}
-	l.notify(fmt.Sprintf("дом %s вмешался с телефона — эфир восстановлен", node))
-	if l.sess.State == session.StatePlaying {
-		l.apply(l.sess.CmdSync()) // restart current element in both homes at the live position
+	l.notify(o, fmt.Sprintf("дом %s вмешался с телефона — эфир восстановлен", slot))
+	if o.sess.State == session.StatePlaying {
+		l.apply(o, o.sess.CmdSync())
 		return
 	}
-	// Broadcast is not playing a track right now: just silence the intruder.
-	l.hub.Send(node, protocol.TypeStop, &protocol.StopPayload{})
+	l.hub.Send(hub.NodeKey{Orbit: o.id, Slot: slot}, protocol.TypeStop, &protocol.StopPayload{})
 }
 
-// --- Bot events (spec ch. 9) ---
+// --- Bot events: onboarding, roles, commands (spec ch. 9 + v2.1 M1) ---
+
+const strangerHello = `Привет! Я Барицентр — общий музыкальный эфир на несколько домов: синхронное звучание, очередь треков из этого чата, голосовые вставки между песнями.
+
+/create — создать свой барицентр
+Или открой инвайт-ссылку от того, кто уже в системе.`
 
 func (l *loop) handleBot(ev bot.Event) {
-	if ev.Voice != nil {
-		l.handleVoice(ev)
+	member, err := l.st.MemberOf(ev.FromUserID)
+	if err != nil {
+		l.log.Error("membership lookup failed", "err", err)
 		return
 	}
-	from := protocol.NodeID(ev.From)
-	cmd := ev.Command
-	switch cmd.Kind {
+	if member == nil {
+		l.handleStranger(ev)
+		return
+	}
+	o := l.orbit(member.OrbitID)
 
-	case bot.KindLink:
-		if l.sess.Mode != session.ModeShared {
-			ev.Reply("сейчас режим solo: /inject подкинет трек партнёру, /mode shared вернёт общий эфир")
+	if ev.Voice != nil {
+		if member.Role == "satellite" && false { // satellites may voice: allowed by design
 			return
 		}
-		el := l.newTrackElement(cmd.URI, from)
+		l.handleVoice(o, ev)
+		return
+	}
+
+	cmd := ev.Command
+
+	// Role gate: satellites contribute (tracks, voices, info) but do not
+	// steer the air (design §2).
+	if member.Role == "satellite" {
+		switch cmd.Kind {
+		case bot.KindLink, bot.KindQueue, bot.KindNow, bot.KindStatus,
+			bot.KindStart, bot.KindShare, bot.KindOrbit, bot.KindPairCode:
+		default:
+			ev.Reply("это управление эфиром — оно у companion'ов. Твоё оружие: треки и голосовые")
+			return
+		}
+	}
+
+	switch cmd.Kind {
+
+	case bot.KindStart:
+		ev.Reply(fmt.Sprintf("ты уже в орбите «%s». /help — команды, /orbit — участники", o.title))
+
+	case bot.KindCreate:
+		ev.Reply(fmt.Sprintf("у тебя уже есть орбит «%s» — вторая вселенная пока не положена (M4)", o.title))
+
+	case bot.KindShare:
+		code, err := l.st.NewInvite(o.id, ev.FromUserID)
+		if err != nil {
+			ev.Reply("не смог создать приглашение")
+			return
+		}
+		link := fmt.Sprintf("https://t.me/%s?start=%s", l.botUsername(), code)
+		ev.Reply(fmt.Sprintf("приглашение в «%s» (48 часов, одноразовое):\n%s", o.title, link))
+
+	case bot.KindPairCode:
+		code, err := l.st.NewPairCode(o.id, ev.FromUserID)
+		if err != nil {
+			ev.Reply("не смог создать код")
+			return
+		}
+		ev.Reply(fmt.Sprintf("код для твоего Пульсара (5 минут):\n\n%s\n\nВведи его в приложении Pulsar при первом запуске — и твой дом подключится к эфиру", code))
+
+	case bot.KindOrbit:
+		ev.Reply(l.orbitText(o))
+
+	case bot.KindMakePrimary:
+		if member.Role != "primary" {
+			ev.Reply("передать главную звезду может только primary")
+			return
+		}
+		if cmd.Number == 0 {
+			ev.Reply(l.orbitText(o) + "\n\n/make_primary <id> передаст титул")
+			return
+		}
+		if err := l.st.TransferPrimary(o.id, int64(cmd.Number)); err != nil {
+			ev.Reply("этот id не из нашего орбита (/orbit покажет список)")
+			return
+		}
+		l.notify(o, "главная звезда орбита теперь "+strconv.Itoa(cmd.Number))
+
+	case bot.KindRevoke:
+		if member.Role != "primary" {
+			ev.Reply("отзывать дома может только primary")
+			return
+		}
+		if err := l.st.RevokeSlot(o.id, cmd.Target); err != nil {
+			ev.Reply("не получилось")
+			return
+		}
+		ev.Reply(fmt.Sprintf("токен дома %s отозван: нода отключится при следующей проверке; /pair выдаст новый код", cmd.Target))
+
+	case bot.KindLink:
+		if o.sess.Mode != session.ModeShared {
+			ev.Reply("сейчас режим solo: /inject подкинет трек партнёру, /periastron вернёт общий эфир")
+			return
+		}
+		el := l.newTrackElement(cmd.URI, ev.FromName)
 		l.st.InsertElement(el)
-		l.apply(l.sess.EnqueueTrack(el))
-		if l.sess.Current != nil && l.sess.Current.ID == el.ID {
+		l.apply(o, o.sess.EnqueueTrack(el))
+		if o.sess.Current != nil && o.sess.Current.ID == el.ID {
 			ev.Reply("очередь пуста — ставлю сразу: " + trackLabel(el))
 		} else {
-			ev.Reply(fmt.Sprintf("добавил в очередь под номером %d: %s", l.sess.QueueLen(), trackLabel(el)))
+			ev.Reply(fmt.Sprintf("добавил в очередь под номером %d: %s", o.sess.QueueLen(), trackLabel(el)))
 		}
 
 	case bot.KindPlayNow:
-		if l.sess.Mode != session.ModeShared {
+		if o.sess.Mode != session.ModeShared {
 			ev.Reply("/playnow работает в shared. Сейчас solo")
 			return
 		}
-		el := l.newTrackElement(cmd.URI, from)
+		el := l.newTrackElement(cmd.URI, ev.FromName)
 		l.st.InsertElement(el)
-		l.apply(l.sess.CmdPlayNow(el))
+		l.apply(o, o.sess.CmdPlayNow(el))
 		ev.Reply("врубаю немедленно: " + trackLabel(el))
 
 	case bot.KindPlaylist:
-		if l.sess.Mode != session.ModeShared {
+		if o.sess.Mode != session.ModeShared {
 			ev.Reply("общий плейлист — фича shared-режима. Сейчас solo")
 			return
 		}
 		if l.sp == nil {
-			ev.Reply("плейлисты заработают после настройки Spotify-приложения: client_id/client_secret в coordinator.yml (developer.spotify.com)")
+			ev.Reply("плейлисты заработают после настройки Spotify-приложения на сервере")
 			return
 		}
 		ev.Reply("раскрываю плейлист…")
 		uri := cmd.URI
-		kind := cmd.Target // "playlist" | "album"
+		kind := cmd.Target
 		id := uri[strings.LastIndex(uri, ":")+1:]
 		reply := ev.Reply
+		orbitID := o.id
 		go func() {
 			var exp *spotify.Expansion
 			var err error
@@ -321,7 +465,7 @@ func (l *loop) handleBot(ev bot.Event) {
 			} else {
 				exp, err = l.sp.ExpandPlaylist(id)
 			}
-			d := playlistDone{uri: uri, err: err, reply: reply}
+			d := playlistDone{orbit: orbitID, uri: uri, err: err, reply: reply}
 			if exp != nil {
 				d.title = exp.Title
 				d.tracks = exp.Tracks
@@ -330,66 +474,71 @@ func (l *loop) handleBot(ev bot.Event) {
 		}()
 
 	case bot.KindTakeover:
-		l.takeoverPolicy = cmd.Target
-		l.st.SetSetting("takeover_policy", cmd.Target)
+		o.takeoverPolicy = cmd.Target
+		l.st.SetOrbitSetting(o.id, "takeover_policy", cmd.Target)
 		if cmd.Target == "user" {
-			ev.Reply("политика: телефон главнее — вмешательство переключает систему в solo (с уведомлением)")
+			ev.Reply("политика: телефон главнее — вмешательство переключает орбит в solo (с уведомлением)")
 		} else {
 			ev.Reply("политика: эфир главнее — вмешательство с телефона откатывается (с уведомлением)")
 		}
 
 	case bot.KindQueue:
-		ev.Reply(l.queueText())
+		ev.Reply(l.queueText(o))
 
 	case bot.KindCancel:
-		if _, err := l.sess.Cancel(cmd.Number); err != nil {
-			ev.Reply(fmt.Sprintf("в очереди %d элементов, номера %d нет", l.sess.QueueLen(), cmd.Number))
+		if _, err := o.sess.Cancel(cmd.Number); err != nil {
+			ev.Reply(fmt.Sprintf("в очереди %d элементов, номера %d нет", o.sess.QueueLen(), cmd.Number))
 			return
 		}
-		l.persist()
-		ev.Reply(fmt.Sprintf("убрал элемент %d, в очереди осталось %d", cmd.Number, l.sess.QueueLen()))
+		l.persist(o)
+		ev.Reply(fmt.Sprintf("убрал элемент %d, в очереди осталось %d", cmd.Number, o.sess.QueueLen()))
 
 	case bot.KindSkip:
-		if effs := l.sess.CmdSkip(); effs != nil {
-			l.apply(effs)
+		if effs := o.sess.CmdSkip(); effs != nil {
+			l.apply(o, effs)
 			ev.Reply("пропустил")
 		} else {
 			ev.Reply("нечего пропускать")
 		}
 
 	case bot.KindPause:
-		if effs := l.sess.CmdPause(); effs != nil {
-			l.apply(effs)
+		if effs := o.sess.CmdPause(); effs != nil {
+			l.apply(o, effs)
 			ev.Reply("пауза")
 		} else {
 			ev.Reply("и так не играет")
 		}
 
 	case bot.KindResume:
-		if effs := l.sess.CmdResume(); effs != nil {
-			l.restoredPaused = false
-			l.apply(effs)
+		if effs := o.sess.CmdResume(); effs != nil {
+			o.restoredPaused = false
+			l.apply(o, effs)
 			ev.Reply("продолжаю")
 		} else {
 			ev.Reply("нечего продолжать — пришли ссылку на трек")
 		}
 
 	case bot.KindSync:
-		if effs := l.sess.CmdSync(); effs != nil {
-			l.apply(effs)
+		if effs := o.sess.CmdSync(); effs != nil {
+			l.apply(o, effs)
 			ev.Reply("пересинхронизирую с текущей позиции")
 		} else {
 			ev.Reply("/sync работает во время игры трека")
 		}
 
 	case bot.KindVol:
-		target := from
-		if cmd.Target != "" {
-			target = protocol.NodeID(cmd.Target)
+		target := protocol.NodeID(cmd.Target)
+		if cmd.Target == "" {
+			slot, _ := l.st.SlotOf(o.id, ev.FromUserID)
+			if slot == "" {
+				ev.Reply("у тебя нет своего дома в орбите — укажи слот: /vol " + strconv.Itoa(cmd.Number) + " a")
+				return
+			}
+			target = protocol.NodeID(slot)
 		}
-		l.volumes[target] = cmd.Number
-		l.st.SetSetting("volume_"+string(target), strconv.Itoa(cmd.Number))
-		if !l.hub.Send(target, protocol.TypeSetVolume, &protocol.SetVolumePayload{Volume: cmd.Number}) {
+		o.volumes[target] = cmd.Number
+		l.st.SetSetting(fmt.Sprintf("volume_%d_%s", o.id, target), strconv.Itoa(cmd.Number))
+		if !l.hub.Send(hub.NodeKey{Orbit: o.id, Slot: target}, protocol.TypeSetVolume, &protocol.SetVolumePayload{Volume: cmd.Number}) {
 			ev.Reply(fmt.Sprintf("дом %s офлайн, громкость применю при подключении", target))
 			return
 		}
@@ -398,57 +547,54 @@ func (l *loop) handleBot(ev bot.Event) {
 	case bot.KindMode:
 		var effs []session.Effect
 		if cmd.Target == "solo" {
-			effs = l.sess.SetModeSolo()
+			effs = o.sess.SetModeSolo()
 		} else {
-			effs = l.sess.SetModeShared()
+			effs = o.sess.SetModeShared()
 		}
 		if effs == nil {
 			ev.Reply("уже в этом режиме")
 			return
 		}
-		l.apply(effs)
+		l.apply(o, effs)
 
 	case bot.KindNow:
-		ev.Reply(l.nowText())
+		ev.Reply(l.nowText(o))
 
 	case bot.KindStatus:
-		ev.Reply(l.statusText())
+		ev.Reply(l.statusText(o))
 
 	case bot.KindOffset:
 		target := protocol.NodeID(cmd.Target)
-		l.offsets[target] = int64(cmd.Number)
-		l.st.SetSetting("offset_"+string(target), strconv.Itoa(cmd.Number))
-		l.hub.Send(target, protocol.TypeSetOffset, &protocol.SetOffsetPayload{OffsetMS: int64(cmd.Number)})
+		o.offsets[target] = int64(cmd.Number)
+		l.st.SetSetting(fmt.Sprintf("offset_%d_%s", o.id, target), strconv.Itoa(cmd.Number))
+		l.hub.Send(hub.NodeKey{Orbit: o.id, Slot: target}, protocol.TypeSetOffset, &protocol.SetOffsetPayload{OffsetMS: int64(cmd.Number)})
 		ev.Reply(fmt.Sprintf("offset дома %s = %d мс, действует со следующего старта", target, cmd.Number))
 
 	case bot.KindOffsetTest:
 		t := time.Now().UnixMilli() + 2000
 		payload := &protocol.OffsetTestPayload{TCoordMS: t, Clicks: 5, IntervalMS: 1000}
-		okA := l.hub.Send(protocol.NodeA, protocol.TypeOffsetTest, payload)
-		okB := l.hub.Send(protocol.NodeB, protocol.TypeOffsetTest, payload)
-		if !okA || !okB {
-			ev.Reply("обе ноды должны быть онлайн для клик-теста (/status покажет)")
+		slots, _ := l.st.ActiveSlots(o.id)
+		sent := 0
+		for _, sl := range slots {
+			if l.hub.Send(hub.NodeKey{Orbit: o.id, Slot: protocol.NodeID(sl)}, protocol.TypeOffsetTest, payload) {
+				sent++
+			}
+		}
+		if sent < len(slots) || sent == 0 {
+			ev.Reply("все ноды орбита должны быть онлайн для клик-теста (/status покажет)")
 			return
 		}
 		ev.Reply("5 синхронных кликов через 2 секунды — слушайте")
 
 	case bot.KindInject:
-		if l.sess.Mode != session.ModeSolo {
+		if o.sess.Mode != session.ModeSolo {
 			ev.Reply("в shared просто кинь ссылку в чат; /inject — для solo")
 			return
 		}
-		targets := []protocol.NodeID{otherHome(from)}
-		switch cmd.Target {
-		case "a":
-			targets = []protocol.NodeID{protocol.NodeA}
-		case "b":
-			targets = []protocol.NodeID{protocol.NodeB}
-		case "both":
-			targets = []protocol.NodeID{protocol.NodeA, protocol.NodeB}
-		}
+		targets := l.injectTargets(o, ev.FromUserID, cmd.Target)
 		sent := 0
 		for _, t := range targets {
-			if l.hub.Send(t, protocol.TypeSoloInject, &protocol.SoloInjectPayload{URI: cmd.URI}) {
+			if l.hub.Send(hub.NodeKey{Orbit: o.id, Slot: t}, protocol.TypeSoloInject, &protocol.SoloInjectPayload{URI: cmd.URI}) {
 				sent++
 			}
 		}
@@ -460,11 +606,80 @@ func (l *loop) handleBot(ev bot.Event) {
 	}
 }
 
+// handleStranger is the zero-context onboarding path (design §4).
+func (l *loop) handleStranger(ev bot.Event) {
+	if ev.Voice != nil {
+		return // strangers' voices are ignored silently
+	}
+	switch ev.Command.Kind {
+	case bot.KindStart:
+		payload := ev.Command.Target
+		if strings.HasPrefix(payload, "inv") {
+			orbitID, _, err := l.st.ConsumeInvite(payload, "member")
+			if err != nil || orbitID == 0 {
+				ev.Reply("ссылка-приглашение истекла или уже использована — попроси новую (/share у любого участника)")
+				return
+			}
+			if err := l.st.AddMember(orbitID, ev.FromUserID, "companion"); err != nil {
+				ev.Reply("не смог добавить в орбит (возможно, он полон)")
+				return
+			}
+			o := l.orbit(orbitID)
+			l.notify(o, fmt.Sprintf("%s теперь в орбите", ev.FromName))
+			ev.Reply(fmt.Sprintf("добро пожаловать в «%s»! Кидай ссылки на треки прямо сюда.\nСвой дом в эфире: поставь приложение Pulsar и набери /pair — дам код", o.title))
+			return
+		}
+		ev.Reply(strangerHello)
+	case bot.KindCreate:
+		title := strings.TrimSpace(ev.Command.Target)
+		if title == "" {
+			title = "Барицентр " + ev.FromName
+		}
+		o, err := l.st.CreateOrbit(title, ev.FromUserID)
+		if err != nil {
+			ev.Reply("не смог создать орбит")
+			return
+		}
+		code, _ := l.st.NewPairCode(o.ID, ev.FromUserID)
+		ev.Reply(fmt.Sprintf("орбит «%s» создан, ты — primary.\n\nКод для твоего Пульсара (5 минут): %s\n\n/share пригласит партнёра, /pair выдаст новый код, /help — всё остальное", o.Title, code))
+	default:
+		ev.Reply("это приватная система общих эфиров. /start расскажет, /create создаст твою собственную")
+	}
+}
+
+func (l *loop) botUsername() string {
+	if l.bot != nil && l.bot.Username != "" {
+		return l.bot.Username
+	}
+	return "barycenter_bot"
+}
+
+// injectTargets: explicit slot, "both"=every active slot, default = every
+// active slot except the sender's own home.
+func (l *loop) injectTargets(o *orbitState, from int64, target string) []protocol.NodeID {
+	slots, _ := l.st.ActiveSlots(o.id)
+	switch target {
+	case "", "both":
+		mine := ""
+		if target == "" {
+			mine, _ = l.st.SlotOf(o.id, from)
+		}
+		var out []protocol.NodeID
+		for _, sl := range slots {
+			if sl != mine {
+				out = append(out, protocol.NodeID(sl))
+			}
+		}
+		return out
+	default:
+		return []protocol.NodeID{protocol.NodeID(target)}
+	}
+}
+
 // --- Voice flow (spec ch. 10) ---
 
-func (l *loop) handleVoice(ev bot.Event) {
+func (l *loop) handleVoice(o *orbitState, ev bot.Event) {
 	v := ev.Voice
-	from := protocol.NodeID(ev.From)
 	if v.Duration > l.cfg.Media.MaxVoiceS {
 		ev.Reply(fmt.Sprintf("голосовое длиннее %d минут, не возьму", l.cfg.Media.MaxVoiceS/60))
 		return
@@ -486,8 +701,16 @@ func (l *loop) handleVoice(ev bot.Event) {
 		ev.Reply("внутренняя ошибка, голосовое не принято")
 		return
 	}
-	personal := v.Personal
+	// Personal is the orbit default (design §5): an explicit «лично» caption
+	// forces it; «всем» forces broadcast.
+	personal := v.Personal || (o.voiceDefault == "personal" && !v.Broadcast)
+	if v.Broadcast {
+		personal = false
+	}
 	reply := ev.Reply
+	orbitID := o.id
+	from := ev.FromUserID
+	fromName := ev.FromName
 	go func() {
 		oga := filepath.Join(l.cfg.MediaDir, mediaID+".oga")
 		wav := filepath.Join(l.cfg.MediaDir, mediaID+".wav")
@@ -497,9 +720,9 @@ func (l *loop) handleVoice(ev bot.Event) {
 			res, err = media.Process(oga, wav, media.Preset(l.cfg.Media.Preset))
 		}
 		if err == nil {
-			os.Remove(oga) // spec 5.3: source deleted after successful processing
+			os.Remove(oga)
 		}
-		l.mediaCh <- mediaDone{mediaID: mediaID, from: from, personal: personal, result: res, err: err, reply: reply}
+		l.mediaCh <- mediaDone{orbit: orbitID, mediaID: mediaID, from: from, fromName: fromName, personal: personal, result: res, err: err, reply: reply}
 	}()
 }
 
@@ -510,43 +733,60 @@ func (l *loop) handleMediaDone(d mediaDone) {
 		d.reply("не смог обработать голосовое, оставил исходник для разбора")
 		return
 	}
+	o := l.orbit(d.orbit)
 	l.st.UpdateMedia(store.MediaRecord{
 		ID: d.mediaID, DurationMS: d.result.DurationMS,
 		PathWAV: d.result.WAVPath, LoudnormJSON: d.result.LoudnormJSON, Status: "ready",
 	})
+	// Personal target: every active slot except the sender's own home.
+	// In a two-home orbit that is exactly the partner (design §5).
 	target := "both"
 	if d.personal {
-		target = string(otherHome(d.from))
+		mine, _ := l.st.SlotOf(o.id, d.from)
+		slots, _ := l.st.ActiveSlots(o.id)
+		var others []string
+		for _, sl := range slots {
+			if sl != mine {
+				others = append(others, sl)
+			}
+		}
+		if len(others) == 1 {
+			target = others[0]
+		} else if len(others) == 0 {
+			d.reply("в орбите пока только твой дом — отправлю всем, когда появятся другие")
+			return
+		}
+		// >1 recipients for a personal voice: M1 keeps it simple — broadcast
+		// to others is not expressible per-element yet, ship to all.
 	}
 	el := session.Element{
 		ID:          ulid.NewElementID(time.Now()),
 		Kind:        session.KindVoice,
 		MediaID:     d.mediaID,
 		DurationMS:  d.result.DurationMS,
-		RequestedBy: d.from,
+		RequestedBy: protocol.NodeID(d.fromName),
 		Target:      target,
 		CreatedAt:   time.Now().UnixMilli(),
 	}
 	l.st.InsertElement(el)
 
-	if l.sess.Mode == session.ModeShared {
-		l.apply(l.sess.EnqueueVoice(el))
-		if d.personal {
+	if o.sess.Mode == session.ModeShared {
+		l.apply(o, o.sess.EnqueueVoice(el))
+		if target != "both" {
 			d.reply("личная вставка встанет после текущего трека")
 		} else {
 			d.reply("вставка встанет после текущего трека")
 		}
 		return
 	}
-	// Solo: deliver to the target node(s) for boundary interception (spec 4.2).
 	payload := &protocol.SoloVoicePayload{ElementID: el.ID, FileURL: l.mediaURL(d.mediaID)}
-	targets := []protocol.NodeID{protocol.NodeA, protocol.NodeB}
+	targets, _ := l.st.ActiveSlots(o.id)
 	if target != "both" {
-		targets = []protocol.NodeID{protocol.NodeID(target)}
+		targets = []string{target}
 	}
 	sent := 0
 	for _, t := range targets {
-		if l.hub.Send(t, protocol.TypeSoloVoice, payload) {
+		if l.hub.Send(hub.NodeKey{Orbit: o.id, Slot: protocol.NodeID(t)}, protocol.TypeSoloVoice, payload) {
 			sent++
 		}
 	}
@@ -566,67 +806,69 @@ func (l *loop) mediaURL(mediaID string) string {
 
 // --- Effects ---
 
-func (l *loop) apply(effs []session.Effect) {
+func (l *loop) apply(o *orbitState, effs []session.Effect) {
+	key := func(to protocol.NodeID) hub.NodeKey { return hub.NodeKey{Orbit: o.id, Slot: to} }
 	for _, eff := range effs {
 		switch e := eff.(type) {
 		case session.EffLoad:
-			l.hub.Send(e.To, protocol.TypeLoad, &protocol.LoadPayload{ElementID: e.ElementID, URI: e.URI, PositionMS: e.PositionMS})
+			l.hub.Send(key(e.To), protocol.TypeLoad, &protocol.LoadPayload{ElementID: e.ElementID, URI: e.URI, PositionMS: e.PositionMS})
 		case session.EffResumeAt:
-			l.hub.Send(e.To, protocol.TypeResumeAt, &protocol.ResumeAtPayload{ElementID: e.ElementID, TCoordMS: e.TCoordMS})
+			l.hub.Send(key(e.To), protocol.TypeResumeAt, &protocol.ResumeAtPayload{ElementID: e.ElementID, TCoordMS: e.TCoordMS})
 		case session.EffPause:
-			l.hub.Send(e.To, protocol.TypePause, &protocol.PausePayload{ElementID: e.ElementID, FadeMS: e.FadeMS})
+			l.hub.Send(key(e.To), protocol.TypePause, &protocol.PausePayload{ElementID: e.ElementID, FadeMS: e.FadeMS})
 		case session.EffPlayVoice:
-			l.hub.Send(e.To, protocol.TypePlayVoice, &protocol.PlayVoicePayload{
+			l.hub.Send(key(e.To), protocol.TypePlayVoice, &protocol.PlayVoicePayload{
 				ElementID: e.ElementID,
 				FileURL:   l.mediaURL(e.MediaID),
 			})
 		case session.EffWait:
-			l.hub.Send(e.To, protocol.TypeWait, &protocol.WaitPayload{ElementID: e.ElementID, DurationMS: e.DurationMS})
+			l.hub.Send(key(e.To), protocol.TypeWait, &protocol.WaitPayload{ElementID: e.ElementID, DurationMS: e.DurationMS})
 		case session.EffStop:
-			l.hub.Send(e.To, protocol.TypeStop, &protocol.StopPayload{})
+			l.hub.Send(key(e.To), protocol.TypeStop, &protocol.StopPayload{})
 		case session.EffSetMode:
-			l.hub.Send(e.To, protocol.TypeSetMode, &protocol.SetModePayload{Mode: string(e.Mode)})
+			l.hub.Send(key(e.To), protocol.TypeSetMode, &protocol.SetModePayload{Mode: string(e.Mode)})
 		case session.EffNotify:
-			l.notify(e.Text)
+			l.notify(o, e.Text)
 		case session.EffArmReadyTimer:
-			l.armReadyTimer(e.ElementID)
+			l.armReadyTimer(o, e.ElementID)
 		case session.EffCancelReadyTimer:
-			l.cancelReadyTimer()
+			l.cancelReadyTimer(o)
 		case session.EffLogDesync:
-			l.lastDesyncMS = e.DeltaMS
-			l.log.Info("start desync measured", "delta_ms", e.DeltaMS)
-			l.st.LogEvent("session", "desync", map[string]int64{"delta_ms": e.DeltaMS})
+			o.lastDesyncMS = e.DeltaMS
+			l.log.Info("start desync measured", "orbit", o.id, "delta_ms", e.DeltaMS)
+			l.st.LogEvent("session", "desync", map[string]int64{"delta_ms": e.DeltaMS, "orbit": o.id})
 		case session.EffElementDone:
 			l.st.MarkElementDone(e.Element.ID, e.Status, time.Now().UnixMilli())
 		case session.EffPersist:
-			l.persist()
+			l.persist(o)
 		}
 	}
 }
 
-func (l *loop) armReadyTimer(elementID string) {
-	l.cancelReadyTimer()
-	l.timerElement = elementID
+func (l *loop) armReadyTimer(o *orbitState, elementID string) {
+	l.cancelReadyTimer(o)
+	o.timerElement = elementID
 	d := time.Duration(l.cfg.Timings.ReadyTimeoutS) * time.Second
-	l.readyTimer = time.AfterFunc(d, func() { l.timeouts <- elementID })
+	orbitID := o.id
+	o.readyTimer = time.AfterFunc(d, func() { l.timeouts <- orbitTimeout{orbit: orbitID, elementID: elementID} })
 }
 
-func (l *loop) cancelReadyTimer() {
-	if l.readyTimer != nil {
-		l.readyTimer.Stop()
-		l.readyTimer = nil
-		l.timerElement = ""
+func (l *loop) cancelReadyTimer(o *orbitState) {
+	if o.readyTimer != nil {
+		o.readyTimer.Stop()
+		o.readyTimer = nil
+		o.timerElement = ""
 	}
 }
 
-// --- Status texts (spec 9.1 /now /queue /status) ---
+// --- Status texts (spec 9.1 /now /queue /status /orbit) ---
 
-func (l *loop) newTrackElement(uri string, from protocol.NodeID) session.Element {
+func (l *loop) newTrackElement(uri string, fromName string) session.Element {
 	return session.Element{
 		ID:          ulid.NewElementID(time.Now()),
 		Kind:        session.KindTrack,
 		URI:         uri,
-		RequestedBy: from,
+		RequestedBy: protocol.NodeID(fromName),
 		Target:      "both",
 		CreatedAt:   time.Now().UnixMilli(),
 	}
@@ -636,14 +878,7 @@ func trackLabel(el session.Element) string {
 	if el.Title != "" {
 		return el.Title
 	}
-	return el.URI // spec 9.1: before load, showing the id is acceptable
-}
-
-func otherHome(n protocol.NodeID) protocol.NodeID {
-	if n == protocol.NodeA {
-		return protocol.NodeB
-	}
-	return protocol.NodeA
+	return el.URI
 }
 
 func fmtMS(ms int64) string {
@@ -651,20 +886,50 @@ func fmtMS(ms int64) string {
 	return fmt.Sprintf("%02d:%02d", s/60, s%60)
 }
 
-func (l *loop) queueText() string {
+func (l *loop) orbitText(o *orbitState) string {
 	var b strings.Builder
-	if cur := l.sess.Current; cur != nil {
+	fmt.Fprintf(&b, "орбит «%s»\n", o.title)
+	members, _ := l.st.Members(o.id)
+	for _, m := range members {
+		slot, _ := l.st.SlotOf(o.id, m.TGUserID)
+		home := "без дома"
+		if slot != "" {
+			home = "дом " + slot
+		}
+		fmt.Fprintf(&b, "· %d — %s (%s)\n", m.TGUserID, m.Role, home)
+	}
+	slots, _ := l.st.ActiveSlots(o.id)
+	online := l.hub.Online(o.id)
+	var parts []string
+	for _, sl := range slots {
+		mark := "офлайн"
+		if online[protocol.NodeID(sl)] {
+			mark = "в сети"
+		}
+		parts = append(parts, sl+": "+mark)
+	}
+	if len(parts) > 0 {
+		fmt.Fprintf(&b, "пульсары: %s", strings.Join(parts, ", "))
+	} else {
+		b.WriteString("пульсаров пока нет — /pair выдаст код")
+	}
+	return b.String()
+}
+
+func (l *loop) queueText(o *orbitState) string {
+	var b strings.Builder
+	if cur := o.sess.Current; cur != nil {
 		fmt.Fprintf(&b, "сейчас: %s\n", elementLabel(*cur))
 	}
-	if l.sess.QueueLen() == 0 {
+	if o.sess.QueueLen() == 0 {
 		b.WriteString("очередь вставок пуста")
 	} else {
 		b.WriteString("очередь:\n")
-		for i, el := range l.sess.Queue {
+		for i, el := range o.sess.Queue {
 			fmt.Fprintf(&b, "%d. %s (от %s)\n", i+1, elementLabel(el), el.RequestedBy)
 		}
 	}
-	if p := l.sess.Playlist; p != nil {
+	if p := o.sess.Playlist; p != nil {
 		if p.Cursor < len(p.Tracks) {
 			fmt.Fprintf(&b, "\nплейлист: «%s», дальше трек %d/%d", p.Title, p.Cursor+1, len(p.Tracks))
 		} else {
@@ -676,38 +941,39 @@ func (l *loop) queueText() string {
 
 func elementLabel(el session.Element) string {
 	if el.Kind == session.KindVoice {
-		who := "обоим"
+		who := "всем"
 		if el.Target != "both" {
-			who = "лично " + el.Target
+			who = "лично в дом " + el.Target
 		}
 		return fmt.Sprintf("голосовое %s (%s)", fmtMS(el.DurationMS), who)
 	}
 	return trackLabel(el)
 }
 
-func (l *loop) nowText() string {
-	if l.sess.Mode == session.ModeSolo {
+func (l *loop) nowText(o *orbitState) string {
+	if o.sess.Mode == session.ModeSolo {
 		var b strings.Builder
-		b.WriteString("режим solo\n")
-		for _, n := range []protocol.NodeID{protocol.NodeA, protocol.NodeB} {
-			st := l.lastSeen[n]
+		b.WriteString("апоастрон: каждый слушает своё\n")
+		slots, _ := l.st.ActiveSlots(o.id)
+		for _, sl := range slots {
+			st := o.lastSeen[protocol.NodeID(sl)]
 			if st == nil || st.URI == nil {
-				fmt.Fprintf(&b, "дом %s: тишина\n", n)
+				fmt.Fprintf(&b, "дом %s: тишина\n", sl)
 				continue
 			}
-			fmt.Fprintf(&b, "дом %s: %s @ %s\n", n, *st.URI, fmtMS(st.PositionMS))
+			fmt.Fprintf(&b, "дом %s: %s @ %s\n", sl, *st.URI, fmtMS(st.PositionMS))
 		}
 		return strings.TrimRight(b.String(), "\n")
 	}
-	if cur := l.sess.Current; cur != nil {
-		return fmt.Sprintf("сейчас: %s @ %s (%s)", elementLabel(*cur), fmtMS(l.livePosition()), l.sess.State)
+	if cur := o.sess.Current; cur != nil {
+		return fmt.Sprintf("сейчас: %s @ %s (%s)", elementLabel(*cur), fmtMS(l.livePosition(o)), o.sess.State)
 	}
 	return "тишина — пришли ссылку на трек"
 }
 
-func (l *loop) livePosition() int64 {
+func (l *loop) livePosition(o *orbitState) int64 {
 	var best int64
-	for _, st := range l.lastSeen {
+	for _, st := range o.lastSeen {
 		if st != nil && st.PositionMS > best {
 			best = st.PositionMS
 		}
@@ -715,16 +981,18 @@ func (l *loop) livePosition() int64 {
 	return best
 }
 
-func (l *loop) statusText() string {
+func (l *loop) statusText(o *orbitState) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "режим %s, состояние %s\n", l.sess.Mode, l.sess.State)
-	online := l.hub.Online()
-	for _, n := range []protocol.NodeID{protocol.NodeA, protocol.NodeB} {
+	fmt.Fprintf(&b, "«%s»: режим %s, состояние %s\n", o.title, o.sess.Mode, o.sess.State)
+	online := l.hub.Online(o.id)
+	slots, _ := l.st.ActiveSlots(o.id)
+	for _, sl := range slots {
+		n := protocol.NodeID(sl)
 		if !online[n] {
 			fmt.Fprintf(&b, "дом %s: офлайн\n", n)
 			continue
 		}
-		st := l.lastSeen[n]
+		st := o.lastSeen[n]
 		if st == nil {
 			fmt.Fprintf(&b, "дом %s: онлайн, ждём heartbeat\n", n)
 			continue
@@ -742,13 +1010,13 @@ func (l *loop) statusText() string {
 			speakers = append(speakers, sp.Name+c)
 		}
 		fmt.Fprintf(&b, "дом %s: онлайн%s, поз %s, громкость %d, rtt %d мс, offset %d мс, колонки: %s\n",
-			n, mark, fmtMS(st.PositionMS), st.Volume, st.RTTMS, l.offsets[n], strings.Join(speakers, " "))
+			n, mark, fmtMS(st.PositionMS), st.Volume, st.RTTMS, o.offsets[n], strings.Join(speakers, " "))
 	}
-	if l.lastDesyncMS > 0 {
-		fmt.Fprintf(&b, "рассинхрон последнего старта: %d мс\n", l.lastDesyncMS)
+	if o.lastDesyncMS > 0 {
+		fmt.Fprintf(&b, "рассинхрон последнего старта: %d мс\n", o.lastDesyncMS)
 	}
 	fmt.Fprintf(&b, "координатор %s", version)
-	for n, v := range l.versions {
+	for n, v := range o.versions {
 		fmt.Fprintf(&b, ", нода %s %s", n, v)
 	}
 	return b.String()

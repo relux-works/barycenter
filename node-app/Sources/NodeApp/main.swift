@@ -33,6 +33,8 @@ app.mainMenu = mainMenu
 
 func parseArgs() -> String {
     var configPath = ("~/duet/node.yml" as NSString).expandingTildeInPath
+    var pairCode: String?
+    var coordinatorBase = "https://barycenter.relux.works"
     var args = ArraySlice(CommandLine.arguments.dropFirst())
     while let arg = args.popFirst() {
         switch arg {
@@ -42,12 +44,42 @@ func parseArgs() -> String {
                 exit(2)
             }
             configPath = (value as NSString).expandingTildeInPath
+        case "--pair":
+            guard let value = args.popFirst() else {
+                FileHandle.standardError.write(Data("--pair requires the code from the bot\n".utf8))
+                exit(2)
+            }
+            pairCode = value
+        case "--coordinator":
+            guard let value = args.popFirst() else {
+                FileHandle.standardError.write(Data("--coordinator requires a base URL\n".utf8))
+                exit(2)
+            }
+            coordinatorBase = value
         case "--version":
             print(appVersion)
             exit(0)
         default:
-            FileHandle.standardError.write(Data("unknown argument \(arg)\nusage: NodeApp [--config path/to/node.yml] [--version]\n".utf8))
+            FileHandle.standardError.write(Data("unknown argument \(arg)\nusage: NodeApp [--config path] [--pair CODE [--coordinator https://…]] [--version]\n".utf8))
             exit(2)
+        }
+    }
+    // Pairing mode (design §4): exchange the bot code for credentials,
+    // store them beside the config, exit. The normal start picks them up.
+    if let code = pairCode {
+        switch pairNode(code: code.uppercased(), coordinatorBase: coordinatorBase) {
+        case .success(let creds):
+            do {
+                try creds.save(besideConfig: configPath)
+            } catch {
+                FileHandle.standardError.write(Data("не смог сохранить креды: \(error)\n".utf8))
+                exit(1)
+            }
+            print("спарено: орбит \(creds.orbitId), дом \(creds.slot) — запускай NodeApp как обычно")
+            exit(0)
+        case .failure(let err):
+            FileHandle.standardError.write(Data((err.description + "\n").utf8))
+            exit(1)
         }
     }
     return configPath
@@ -71,7 +103,11 @@ func failConfig(_ text: String) -> Never {
 
 let config: NodeConfig
 do {
-    config = try ConfigLoader.load(path: configPath)
+    // Pairing credentials (node-credentials.json beside the yml) override the
+    // yml's coordinator section — after `--pair` nobody edits configs.
+    config = try ConfigLoader.load(
+        path: configPath,
+        credentials: NodeCredentials.load(besideConfig: configPath))
 } catch let err as ConfigError {
     failConfig(err.description)
 } catch {

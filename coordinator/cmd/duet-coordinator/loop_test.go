@@ -18,7 +18,7 @@ import (
 )
 
 type sentMsg struct {
-	node    protocol.NodeID
+	node    protocol.NodeID // slot within the test orbit
 	msgType string
 	payload any
 }
@@ -27,12 +27,12 @@ type fakeSender struct {
 	sent []sentMsg
 }
 
-func (f *fakeSender) Send(node protocol.NodeID, msgType string, payload any) bool {
-	f.sent = append(f.sent, sentMsg{node, msgType, payload})
+func (f *fakeSender) Send(key hub.NodeKey, msgType string, payload any) bool {
+	f.sent = append(f.sent, sentMsg{key.Slot, msgType, payload})
 	return true
 }
 
-func (f *fakeSender) Online() map[protocol.NodeID]bool {
+func (f *fakeSender) Online(orbitID int64) map[protocol.NodeID]bool {
 	return map[protocol.NodeID]bool{protocol.NodeA: true, protocol.NodeB: true}
 }
 
@@ -61,6 +61,7 @@ func testConfig(t *testing.T) *config.Config {
 			"a": {Token: strings.Repeat("a", 64)},
 			"b": {Token: strings.Repeat("b", 64)},
 		},
+		Telegram: config.Telegram{Users: map[int64]string{111: "a", 222: "b"}},
 		Timings: config.Timings{ReadyTimeoutS: 8, StartMarginMS: 500, OfflineAfterS: 12, NearEndMS: 400},
 		Media:   config.Media{MaxVoiceS: 180, RetentionDays: 30, Preset: "default"},
 	}
@@ -75,11 +76,17 @@ func newTestLoop(t *testing.T) (*loop, *fakeSender) {
 	}
 	t.Cleanup(func() { st.Close() })
 	fake := &fakeSender{}
+	if _, err := st.BootstrapLegacyOrbit(
+		map[string]string{"a": cfg.Nodes["a"].Token, "b": cfg.Nodes["b"].Token},
+		cfg.Telegram.Users); err != nil {
+		t.Fatal(err)
+	}
 	l := newLoop(slog.Default(), cfg, fake, st, nil, nil)
+	l.warmup()
 	// Both homes online — the real path is hub EvOnline on registration
 	// (the offline gate parks broadcasts otherwise).
-	l.handleNode(hub.EvOnline{Node: protocol.NodeA})
-	l.handleNode(hub.EvOnline{Node: protocol.NodeB})
+	l.handleNode(hub.EvOnline{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}})
+	l.handleNode(hub.EvOnline{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}})
 	return l, fake
 }
 
@@ -95,13 +102,16 @@ func (r *replies) last(t *testing.T) string {
 	return r.texts[len(r.texts)-1]
 }
 
+// homes: "a" is user 111 (Ivan), "b" is user 222 (Katya) — see testConfig.
+var testUsers = map[string]int64{"a": 111, "b": 222}
+
 func cmdEvent(t *testing.T, from, text string, r *replies) bot.Event {
 	t.Helper()
 	cmd, err := bot.Parse(text)
 	if err != nil {
 		t.Fatalf("parse %q: %v", text, err)
 	}
-	return bot.Event{From: from, Command: cmd, Reply: r.fn}
+	return bot.Event{FromUserID: testUsers[from], FromName: "user-" + from, Command: cmd, Reply: r.fn}
 }
 
 const link = "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
@@ -113,8 +123,8 @@ func TestPhase1BotCommandsEndToEnd(t *testing.T) {
 	r := &replies{}
 
 	// Heartbeats give the scheduler RTTs and positions.
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeA, Payload: &protocol.StatePayload{PositionMS: 0, RTTMS: 40, Volume: 80}})
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeB, Payload: &protocol.StatePayload{PositionMS: 0, RTTMS: 60, Volume: 80}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}, Payload: &protocol.StatePayload{PositionMS: 0, RTTMS: 40, Volume: 80}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}, Payload: &protocol.StatePayload{PositionMS: 0, RTTMS: 60, Volume: 80}})
 	fake.drain()
 
 	// Link on idle -> load both immediately.
@@ -125,7 +135,7 @@ func TestPhase1BotCommandsEndToEnd(t *testing.T) {
 	if !strings.Contains(r.last(t), "ставлю сразу") {
 		t.Fatalf("reply: %q", r.last(t))
 	}
-	elID := l.sess.Current.ID
+	elID := l.orbit(1).sess.Current.ID
 	fake.drain()
 
 	// Second link queues up.
@@ -141,24 +151,24 @@ func TestPhase1BotCommandsEndToEnd(t *testing.T) {
 	}
 
 	// ready/started full cycle.
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeA, Payload: &protocol.ReadyPayload{ElementID: elID}})
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeB, Payload: &protocol.ReadyPayload{ElementID: elID}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}, Payload: &protocol.ReadyPayload{ElementID: elID}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}, Payload: &protocol.ReadyPayload{ElementID: elID}})
 	if got := fake.ofType(protocol.TypeResumeAt); len(got) != 2 {
 		t.Fatalf("resume_at to both, sent: %+v", fake.sent)
 	}
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeA, Payload: &protocol.StartedPayload{ElementID: elID, TFirstSampleCoordMS: 1000}})
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeB, Payload: &protocol.StartedPayload{ElementID: elID, TFirstSampleCoordMS: 1034}})
-	if l.lastDesyncMS != 34 {
-		t.Fatalf("desync = %d", l.lastDesyncMS)
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}, Payload: &protocol.StartedPayload{ElementID: elID, TFirstSampleCoordMS: 1000}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}, Payload: &protocol.StartedPayload{ElementID: elID, TFirstSampleCoordMS: 1034}})
+	if l.orbit(1).lastDesyncMS != 34 {
+		t.Fatalf("desync = %d", l.orbit(1).lastDesyncMS)
 	}
-	if l.sess.State != session.StatePlaying {
-		t.Fatalf("state = %s", l.sess.State)
+	if l.orbit(1).sess.State != session.StatePlaying {
+		t.Fatalf("state = %s", l.orbit(1).sess.State)
 	}
 	fake.drain()
 
 	// /pause -> pause both; /resume -> reload from saved position.
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeA, Payload: &protocol.StatePayload{PositionMS: 63000, RTTMS: 40, Volume: 80}})
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeB, Payload: &protocol.StatePayload{PositionMS: 62950, RTTMS: 60, Volume: 80}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}, Payload: &protocol.StatePayload{PositionMS: 63000, RTTMS: 40, Volume: 80}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}, Payload: &protocol.StatePayload{PositionMS: 62950, RTTMS: 60, Volume: 80}})
 	l.handleBot(cmdEvent(t, "a", "/pause", r))
 	if got := fake.ofType(protocol.TypePause); len(got) != 2 {
 		t.Fatalf("pause both, sent: %+v", fake.sent)
@@ -176,7 +186,7 @@ func TestPhase1BotCommandsEndToEnd(t *testing.T) {
 	if got := fake.ofType(protocol.TypeSetVolume); len(got) != 1 || got[0].node != protocol.NodeA {
 		t.Fatalf("vol to own node, sent: %+v", fake.sent)
 	}
-	if v, _ := l.st.GetSetting("volume_a"); v != "55" {
+	if v, _ := l.st.GetSetting("volume_1_a"); v != "55" {
 		t.Fatalf("volume_a persisted = %q", v)
 	}
 	l.handleBot(cmdEvent(t, "a", "/vol 40 b", r))
@@ -192,7 +202,7 @@ func TestPhase1BotCommandsEndToEnd(t *testing.T) {
 	if len(offs) != 1 || offs[0].node != protocol.NodeB || offs[0].payload.(*protocol.SetOffsetPayload).OffsetMS != 250 {
 		t.Fatalf("set_offset, sent: %+v", fake.sent)
 	}
-	if v, _ := l.st.GetSetting("offset_b"); v != "250" {
+	if v, _ := l.st.GetSetting("offset_1_b"); v != "250" {
 		t.Fatalf("offset_b persisted = %q", v)
 	}
 	fake.drain()
@@ -221,11 +231,11 @@ func TestPhase1BotCommandsEndToEnd(t *testing.T) {
 	fake.drain()
 
 	// /sync during play restarts current.
-	elID2 := l.sess.Current.ID
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeA, Payload: &protocol.ReadyPayload{ElementID: elID2}})
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeB, Payload: &protocol.ReadyPayload{ElementID: elID2}})
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeA, Payload: &protocol.StartedPayload{ElementID: elID2, TFirstSampleCoordMS: 2000}})
-	l.handleNodeMessage(hub.EvMessage{Node: protocol.NodeB, Payload: &protocol.StartedPayload{ElementID: elID2, TFirstSampleCoordMS: 2010}})
+	elID2 := l.orbit(1).sess.Current.ID
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}, Payload: &protocol.ReadyPayload{ElementID: elID2}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}, Payload: &protocol.ReadyPayload{ElementID: elID2}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}, Payload: &protocol.StartedPayload{ElementID: elID2, TFirstSampleCoordMS: 2000}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}, Payload: &protocol.StartedPayload{ElementID: elID2, TFirstSampleCoordMS: 2010}})
 	fake.drain()
 	l.handleBot(cmdEvent(t, "b", "/sync", r))
 	if got := fake.ofType(protocol.TypeLoad); len(got) != 2 {
@@ -248,7 +258,7 @@ func TestPhase1BotCommandsEndToEnd(t *testing.T) {
 
 	// /now and /status always answer.
 	l.handleBot(cmdEvent(t, "a", "/now", r))
-	if !strings.Contains(r.last(t), "solo") {
+	if !strings.Contains(r.last(t), "апоастрон") {
 		t.Fatalf("now text: %q", r.last(t))
 	}
 	l.handleBot(cmdEvent(t, "b", "/status", r))
@@ -269,8 +279,10 @@ func TestPersonalVoiceRouting(t *testing.T) {
 	l, fake := newTestLoop(t)
 	r := &replies{}
 	l.handleMediaDone(mediaDone{
+		orbit:    1,
 		mediaID:  "m_test1",
-		from:     protocol.NodeA,
+		from:     111, // Ivan owns slot a
+		fromName: "user-a",
 		personal: true,
 		result:   media.Result{DurationMS: 12_400, WAVPath: "/tmp/x.wav", LoudnormJSON: "{}"},
 		reply:    r.fn,
@@ -298,9 +310,15 @@ func TestRestartRestoresPausedSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	fake := &fakeSender{}
+	if _, err := st.BootstrapLegacyOrbit(
+		map[string]string{"a": cfg.Nodes["a"].Token, "b": cfg.Nodes["b"].Token},
+		cfg.Telegram.Users); err != nil {
+		t.Fatal(err)
+	}
 	l := newLoop(slog.Default(), cfg, fake, st, nil, nil)
-	l.handleNode(hub.EvOnline{Node: protocol.NodeA})
-	l.handleNode(hub.EvOnline{Node: protocol.NodeB})
+	l.warmup()
+	l.handleNode(hub.EvOnline{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}})
+	l.handleNode(hub.EvOnline{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}})
 	r := &replies{}
 	l.handleBot(cmdEvent(t, "a", link, r))
 	l.handleBot(cmdEvent(t, "b", link2, r))
@@ -313,17 +331,17 @@ func TestRestartRestoresPausedSession(t *testing.T) {
 	defer st2.Close()
 	fake2 := &fakeSender{}
 	l2 := newLoop(slog.Default(), cfg, fake2, st2, nil, nil)
-	l2.restore()
+	l2.warmup()
 
-	if l2.sess.State != session.StatePaused || l2.sess.Current == nil {
-		t.Fatalf("restored state=%s current=%v", l2.sess.State, l2.sess.Current)
+	if l2.orbit(1).sess.State != session.StatePaused || l2.orbit(1).sess.Current == nil {
+		t.Fatalf("restored state=%s current=%v", l2.orbit(1).sess.State, l2.orbit(1).sess.Current)
 	}
-	if l2.sess.QueueLen() != 1 {
-		t.Fatalf("queue len = %d", l2.sess.QueueLen())
+	if l2.orbit(1).sess.QueueLen() != 1 {
+		t.Fatalf("queue len = %d", l2.orbit(1).sess.QueueLen())
 	}
 	// Fresh heartbeats refresh the resume position (restoredPaused path).
-	l2.handleNodeMessage(hub.EvMessage{Node: protocol.NodeA, Payload: &protocol.StatePayload{PositionMS: 42_000, RTTMS: 40}})
-	l2.handleNodeMessage(hub.EvMessage{Node: protocol.NodeB, Payload: &protocol.StatePayload{PositionMS: 41_900, RTTMS: 60}})
+	l2.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}, Payload: &protocol.StatePayload{PositionMS: 42_000, RTTMS: 40}})
+	l2.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}, Payload: &protocol.StatePayload{PositionMS: 41_900, RTTMS: 60}})
 	l2.handleBot(cmdEvent(t, "a", "/resume", r))
 	loads := fake2.ofType(protocol.TypeLoad)
 	if len(loads) != 2 || loads[0].payload.(*protocol.LoadPayload).PositionMS != 41_900 {

@@ -4,7 +4,6 @@
 package hub
 
 import (
-	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -26,20 +25,29 @@ const (
 
 type Event any
 
+// NodeKey identifies a connected pulsar: orbit + slot (v2.1 multi-tenant).
+type NodeKey struct {
+	Orbit int64
+	Slot  protocol.NodeID
+}
+
 type (
 	EvRegistered struct {
-		Node             protocol.NodeID
+		Key              NodeKey
 		AppVersion       string
 		LibrespotVersion string
 	}
-	EvOnline  struct{ Node protocol.NodeID }
-	EvOffline struct{ Node protocol.NodeID }
+	EvOnline  struct{ Key NodeKey }
+	EvOffline struct{ Key NodeKey }
 	EvMessage struct {
-		Node    protocol.NodeID
+		Key     NodeKey
 		Env     protocol.Envelope
 		Payload any
 	}
 )
+
+// TokenLookup resolves a node token to its orbit and slot (store-backed).
+type TokenLookup func(token string) (orbitID int64, slot string, ok bool)
 
 type conn struct {
 	ws   *websocket.Conn
@@ -57,26 +65,26 @@ func (c *conn) close() {
 
 type Hub struct {
 	log          *slog.Logger
-	tokens       map[protocol.NodeID]string
+	lookup       TokenLookup
 	offlineAfter time.Duration
 
 	Events chan Event
 
 	mu       sync.Mutex
-	conns    map[protocol.NodeID]*conn
-	lastSeen map[protocol.NodeID]time.Time
-	online   map[protocol.NodeID]bool
+	conns    map[NodeKey]*conn
+	lastSeen map[NodeKey]time.Time
+	online   map[NodeKey]bool
 }
 
-func New(log *slog.Logger, tokens map[protocol.NodeID]string, offlineAfter time.Duration) *Hub {
+func New(log *slog.Logger, lookup TokenLookup, offlineAfter time.Duration) *Hub {
 	return &Hub{
 		log:          log,
-		tokens:       tokens,
+		lookup:       lookup,
 		offlineAfter: offlineAfter,
 		Events:       make(chan Event, 64),
-		conns:        map[protocol.NodeID]*conn{},
-		lastSeen:     map[protocol.NodeID]time.Time{},
-		online:       map[protocol.NodeID]bool{},
+		conns:        map[NodeKey]*conn{},
+		lastSeen:     map[NodeKey]time.Time{},
+		online:       map[NodeKey]bool{},
 	}
 }
 
@@ -90,10 +98,10 @@ func (h *Hub) Run(stop <-chan struct{}) {
 			return
 		case now := <-t.C:
 			h.mu.Lock()
-			for node, seen := range h.lastSeen {
-				if h.online[node] && now.Sub(seen) > h.offlineAfter {
-					h.online[node] = false
-					h.emitLocked(EvOffline{Node: node})
+			for key, seen := range h.lastSeen {
+				if h.online[key] && now.Sub(seen) > h.offlineAfter {
+					h.online[key] = false
+					h.emitLocked(EvOffline{Key: key})
 				}
 			}
 			h.mu.Unlock()
@@ -109,28 +117,42 @@ func (h *Hub) emitLocked(ev Event) {
 	}
 }
 
-// Online reports current node liveness (for /healthz and /status).
-func (h *Hub) Online() map[protocol.NodeID]bool {
+// Online reports slot liveness for one orbit (for /status texts).
+func (h *Hub) Online(orbit int64) map[protocol.NodeID]bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	out := map[protocol.NodeID]bool{}
-	for n := range h.tokens {
-		out[n] = h.online[n]
+	for key, on := range h.online {
+		if key.Orbit == orbit {
+			out[key.Slot] = on
+		}
 	}
 	return out
+}
+
+// Stats: totals for /healthz.
+func (h *Hub) Stats() (connected int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, on := range h.online {
+		if on {
+			connected++
+		}
+	}
+	return
 }
 
 // Send wraps payload into an envelope and queues it to the node.
 // Returns false if the node has no live connection (spec 8.6: no delivery
 // guarantee; confirmation loops live in the session layer).
-func (h *Hub) Send(node protocol.NodeID, msgType string, payload any) bool {
+func (h *Hub) Send(key NodeKey, msgType string, payload any) bool {
 	env, err := protocol.NewEnvelope(ulid.NewMessageID(time.Now()), time.Now().UnixMilli(), msgType, payload)
 	if err != nil {
 		h.log.Error("encode outgoing", "type", msgType, "err", err)
 		return false
 	}
 	h.mu.Lock()
-	c := h.conns[node]
+	c := h.conns[key]
 	h.mu.Unlock()
 	if c == nil {
 		return false
@@ -157,7 +179,7 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	node, reg, ok := h.awaitRegister(ws)
+	key, reg, ok := h.awaitRegister(ws)
 	if !ok {
 		return // awaitRegister closed the socket
 	}
@@ -165,52 +187,55 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	c := &conn{ws: ws, send: make(chan protocol.Envelope, 32), stop: make(chan struct{})}
 
 	h.mu.Lock()
-	if old := h.conns[node]; old != nil {
-		h.log.Info("replacing connection (last-write-wins)", "node", node)
+	if old := h.conns[key]; old != nil {
+		h.log.Info("replacing connection (last-write-wins)", "orbit", key.Orbit, "slot", key.Slot)
 		old.close()
 	}
-	h.conns[node] = c
-	h.lastSeen[node] = time.Now()
-	wasOnline := h.online[node]
-	h.online[node] = true
+	h.conns[key] = c
+	h.lastSeen[key] = time.Now()
+	wasOnline := h.online[key]
+	h.online[key] = true
 	h.mu.Unlock()
 
-	h.Events <- EvRegistered{Node: node, AppVersion: reg.AppVersion, LibrespotVersion: reg.LibrespotVersion}
+	h.Events <- EvRegistered{Key: key, AppVersion: reg.AppVersion, LibrespotVersion: reg.LibrespotVersion}
 	if !wasOnline {
-		h.Events <- EvOnline{Node: node}
+		h.Events <- EvOnline{Key: key}
 	}
 
-	go h.writer(node, c)
-	h.reader(node, c)
+	go h.writer(key, c)
+	h.reader(key, c)
 }
 
-func (h *Hub) awaitRegister(ws *websocket.Conn) (protocol.NodeID, *protocol.RegisterPayload, bool) {
+func (h *Hub) awaitRegister(ws *websocket.Conn) (NodeKey, *protocol.RegisterPayload, bool) {
 	ws.SetReadDeadline(time.Now().Add(registerDeadline))
 	_, raw, err := ws.ReadMessage()
 	if err != nil {
 		ws.Close()
-		return "", nil, false
+		return NodeKey{}, nil, false
 	}
 	var env protocol.Envelope
 	if err := json.Unmarshal(raw, &env); err != nil || env.Type != protocol.TypeRegister {
 		h.closeWithCode(ws, closeInvalidAuth, "first message must be register")
-		return "", nil, false
+		return NodeKey{}, nil, false
 	}
 	payload, err := protocol.DecodePayload(env)
 	if err != nil {
 		h.closeWithCode(ws, closeInvalidAuth, "malformed register")
-		return "", nil, false
+		return NodeKey{}, nil, false
 	}
 	reg := payload.(*protocol.RegisterPayload)
-	node := protocol.NodeID(reg.NodeID)
-	want, known := h.tokens[node]
-	if !known || subtle.ConstantTimeCompare([]byte(want), []byte(reg.Token)) != 1 {
-		h.log.Warn("register rejected", "node_id", reg.NodeID)
+	orbitID, slot, ok := h.lookup(reg.Token)
+	if !ok {
+		h.log.Warn("register rejected", "claimed_slot", reg.NodeID)
 		h.closeWithCode(ws, closeInvalidAuth, "invalid token")
-		return "", nil, false
+		return NodeKey{}, nil, false
+	}
+	if reg.NodeID != slot {
+		// The token decides; a stale config claiming another slot is noted.
+		h.log.Warn("register slot mismatch, token wins", "claimed", reg.NodeID, "actual", slot)
 	}
 	ws.SetReadDeadline(time.Time{})
-	return node, reg, true
+	return NodeKey{Orbit: orbitID, Slot: protocol.NodeID(slot)}, reg, true
 }
 
 func (h *Hub) closeWithCode(ws *websocket.Conn, code int, text string) {
@@ -219,7 +244,7 @@ func (h *Hub) closeWithCode(ws *websocket.Conn, code int, text string) {
 	ws.Close()
 }
 
-func (h *Hub) writer(node protocol.NodeID, c *conn) {
+func (h *Hub) writer(key NodeKey, c *conn) {
 	for {
 		select {
 		case <-c.stop:
@@ -227,21 +252,21 @@ func (h *Hub) writer(node protocol.NodeID, c *conn) {
 		case env := <-c.send:
 			c.ws.SetWriteDeadline(time.Now().Add(writeDeadline))
 			if err := c.ws.WriteJSON(env); err != nil {
-				h.log.Warn("write failed", "node", node, "err", err)
+				h.log.Warn("write failed", "orbit", key.Orbit, "slot", key.Slot, "err", err)
 				c.close()
 				return
 			}
-			h.log.Debug("sent", "node", node, "type", env.Type, "id", env.ID)
+			h.log.Debug("sent", "orbit", key.Orbit, "slot", key.Slot, "type", env.Type, "id", env.ID)
 		}
 	}
 }
 
-func (h *Hub) reader(node protocol.NodeID, c *conn) {
+func (h *Hub) reader(key NodeKey, c *conn) {
 	defer func() {
 		c.close()
 		h.mu.Lock()
-		if h.conns[node] == c {
-			delete(h.conns, node)
+		if h.conns[key] == c {
+			delete(h.conns, key)
 		}
 		h.mu.Unlock()
 	}()
@@ -251,7 +276,7 @@ func (h *Hub) reader(node protocol.NodeID, c *conn) {
 			select {
 			case <-c.stop: // replaced by a newer connection: not a liveness signal
 			default:
-				h.log.Info("connection lost", "node", node, "err", err)
+				h.log.Info("connection lost", "orbit", key.Orbit, "slot", key.Slot, "err", err)
 			}
 			return
 		}
@@ -259,25 +284,25 @@ func (h *Hub) reader(node protocol.NodeID, c *conn) {
 
 		var env protocol.Envelope
 		if err := json.Unmarshal(raw, &env); err != nil {
-			h.log.Warn("bad frame", "node", node, "err", err)
+			h.log.Warn("bad frame", "slot", key.Slot, "err", err)
 			continue
 		}
 		if !protocol.KnownType(env.Type) {
-			h.log.Warn("unknown message type ignored", "node", node, "type", env.Type) // spec 8.6
+			h.log.Warn("unknown message type ignored", "slot", key.Slot, "type", env.Type) // spec 8.6
 			continue
 		}
 		payload, err := protocol.DecodePayload(env)
 		if err != nil {
-			h.log.Warn("bad payload", "node", node, "type", env.Type, "err", err)
+			h.log.Warn("bad payload", "slot", key.Slot, "type", env.Type, "err", err)
 			continue
 		}
 
 		h.mu.Lock()
-		h.lastSeen[node] = time.Now()
-		cameBack := !h.online[node]
-		h.online[node] = true
+		h.lastSeen[key] = time.Now()
+		cameBack := !h.online[key]
+		h.online[key] = true
 		if cameBack {
-			h.emitLocked(EvOnline{Node: node})
+			h.emitLocked(EvOnline{Key: key})
 		}
 		h.mu.Unlock()
 
@@ -296,9 +321,9 @@ func (h *Hub) reader(node protocol.NodeID, c *conn) {
 			continue
 		}
 
-		h.log.Debug("received", "node", node, "type", env.Type, "id", env.ID)
+		h.log.Debug("received", "orbit", key.Orbit, "slot", key.Slot, "type", env.Type, "id", env.ID)
 		select {
-		case h.Events <- EvMessage{Node: node, Env: env, Payload: payload}:
+		case h.Events <- EvMessage{Key: key, Env: env, Payload: payload}:
 		case <-c.stop:
 			return
 		}

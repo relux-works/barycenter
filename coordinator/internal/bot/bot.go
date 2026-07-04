@@ -12,11 +12,15 @@ import (
 	"time"
 )
 
-// Event is what the session loop receives from the bot.
+// Event is what the session loop receives from the bot. Membership and
+// roles are resolved by the loop against the store (v2.1 multi-tenant);
+// the bot is a pure transport + parser.
 type Event struct {
-	From    string  // "a" | "b" (home of the sender)
-	Command Command // for text messages
-	Voice   *VoiceEvent
+	ChatID     int64
+	FromUserID int64
+	FromName   string
+	Command    Command // for text messages
+	Voice      *VoiceEvent
 	// Reply sends a response into the chat the message came from.
 	Reply func(text string)
 }
@@ -26,6 +30,7 @@ type VoiceEvent struct {
 	Duration  int // seconds, from Telegram metadata
 	SizeBytes int64
 	Personal  bool // caption "лично" (spec 9.1)
+	Broadcast bool // caption "всем" — forces broadcast over the orbit default
 }
 
 // API abstracts the Telegram Bot HTTP API for tests.
@@ -34,6 +39,7 @@ type API interface {
 	SendMessage(chatID int64, text string) error
 	FileURL(fileID string) (string, error)
 	Download(fileURL, destPath string) error
+	GetMe() (username string, err error)
 }
 
 // Update mirrors the subset of Telegram's Update we need.
@@ -52,7 +58,8 @@ type Message struct {
 }
 
 type User struct {
-	ID int64 `json:"id"`
+	ID        int64  `json:"id"`
+	FirstName string `json:"first_name"`
 }
 
 type Chat struct {
@@ -66,27 +73,31 @@ type Voice struct {
 }
 
 type Bot struct {
-	api    API
-	log    *slog.Logger
-	users  map[int64]string // telegram user id -> "a"|"b" (spec 9.2 allowlist)
-	chatID int64            // notification chat (the shared group)
-	Events chan Event
+	api API
+	log *slog.Logger
+	// Username of the bot account (@…), used to build invite deep links.
+	Username string
+	Events   chan Event
 }
 
-func New(api API, log *slog.Logger, users map[int64]string, chatID int64) *Bot {
-	return &Bot{
+func New(api API, log *slog.Logger) *Bot {
+	b := &Bot{
 		api:    api,
 		log:    log,
-		users:  users,
-		chatID: chatID,
 		Events: make(chan Event, 16),
 	}
+	if u, err := api.GetMe(); err == nil {
+		b.Username = u
+	} else {
+		log.Warn("getMe failed, invite links will use the default username", "err", err)
+	}
+	return b
 }
 
-// Notify posts to the shared group (session events, spec 9.2).
-func (b *Bot) Notify(text string) {
-	if err := b.api.SendMessage(b.chatID, text); err != nil {
-		b.log.Warn("notify failed", "err", err)
+// SendTo posts to any chat (orbit notifications go to each member's DM).
+func (b *Bot) SendTo(chatID int64, text string) {
+	if err := b.api.SendMessage(chatID, text); err != nil {
+		b.log.Warn("send failed", "chat", chatID, "err", err)
 	}
 }
 
@@ -119,10 +130,6 @@ func (b *Bot) handleUpdate(u Update) {
 	if msg == nil || msg.From == nil {
 		return
 	}
-	home, allowed := b.users[msg.From.ID]
-	if !allowed {
-		return // spec 9.2: silence for strangers
-	}
 	chatID := msg.Chat.ID
 	reply := func(text string) {
 		if err := b.api.SendMessage(chatID, text); err != nil {
@@ -132,12 +139,15 @@ func (b *Bot) handleUpdate(u Update) {
 
 	if msg.Voice != nil {
 		b.Events <- Event{
-			From: home,
+			ChatID:     chatID,
+			FromUserID: msg.From.ID,
+			FromName:   msg.From.FirstName,
 			Voice: &VoiceEvent{
 				TGFileID:  msg.Voice.FileID,
 				Duration:  msg.Voice.Duration,
 				SizeBytes: msg.Voice.FileSize,
 				Personal:  IsPersonalCaption(msg.Caption),
+				Broadcast: IsBroadcastCaption(msg.Caption),
 			},
 			Reply: reply,
 		}
@@ -154,7 +164,7 @@ func (b *Bot) handleUpdate(u Update) {
 	if cmd.Kind == KindIgnore {
 		return
 	}
-	b.Events <- Event{From: home, Command: cmd, Reply: reply}
+	b.Events <- Event{ChatID: chatID, FromUserID: msg.From.ID, FromName: msg.From.FirstName, Command: cmd, Reply: reply}
 }
 
 // DownloadVoice fetches the raw voice file (ogg/opus) to destPath.
@@ -203,6 +213,16 @@ func (a *HTTPAPI) call(method string, params url.Values, out any) error {
 		return json.Unmarshal(wrapper.Result, out)
 	}
 	return nil
+}
+
+func (a *HTTPAPI) GetMe() (string, error) {
+	var me struct {
+		Username string `json:"username"`
+	}
+	if err := a.call("getMe", url.Values{}, &me); err != nil {
+		return "", err
+	}
+	return me.Username, nil
 }
 
 func (a *HTTPAPI) GetUpdates(offset int64, timeoutS int) ([]Update, error) {

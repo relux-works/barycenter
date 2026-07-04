@@ -16,38 +16,35 @@ func (m *mockAPI) SendMessage(chatID int64, text string) error {
 }
 func (m *mockAPI) FileURL(fileID string) (string, error)   { return "http://x/" + fileID, nil }
 func (m *mockAPI) Download(fileURL, destPath string) error { return nil }
+func (m *mockAPI) GetMe() (string, error)                  { return "barycenter_bot", nil }
 
 func newTestBot() (*Bot, *mockAPI) {
 	api := &mockAPI{}
-	b := New(api, slog.Default(), map[int64]string{111: "a", 222: "b"}, -100500)
+	b := New(api, slog.Default())
 	return b, api
 }
 
 func msgFrom(userID int64, text string) Update {
 	return Update{UpdateID: 1, Message: &Message{
-		From: &User{ID: userID}, Chat: Chat{ID: -100500}, Text: text,
+		From: &User{ID: userID, FirstName: "U"}, Chat: Chat{ID: -100500}, Text: text,
 	}}
 }
 
-func TestStrangerSilentlyIgnored(t *testing.T) {
-	b, api := newTestBot()
+// v2.1: the bot is a pure transport — every sender reaches the loop, which
+// resolves membership. Strangers are the loop's business now.
+func TestEverySenderProducesEvent(t *testing.T) {
+	b, _ := newTestBot()
 	b.handleUpdate(msgFrom(999, "/skip"))
-	select {
-	case ev := <-b.Events:
-		t.Fatalf("stranger produced event %+v (spec 9.2)", ev)
-	default:
-	}
-	if len(api.sent) != 0 {
-		t.Fatalf("stranger got replies: %v", api.sent)
+	ev := <-b.Events
+	if ev.FromUserID != 999 || ev.Command.Kind != KindSkip || ev.ChatID != -100500 {
+		t.Fatalf("ev = %+v", ev)
 	}
 }
 
-func TestCommandMapsSenderToHome(t *testing.T) {
+func TestUsernameFromGetMe(t *testing.T) {
 	b, _ := newTestBot()
-	b.handleUpdate(msgFrom(222, "/skip"))
-	ev := <-b.Events
-	if ev.From != "b" || ev.Command.Kind != KindSkip {
-		t.Fatalf("ev = %+v", ev)
+	if b.Username != "barycenter_bot" {
+		t.Fatalf("username = %q", b.Username)
 	}
 }
 
@@ -72,15 +69,24 @@ func TestParseErrorRepliesInChat(t *testing.T) {
 	}
 }
 
-func TestVoicePersonalFlag(t *testing.T) {
+func TestVoiceFlags(t *testing.T) {
 	b, _ := newTestBot()
 	b.handleUpdate(Update{UpdateID: 2, Message: &Message{
-		From: &User{ID: 111}, Chat: Chat{ID: -100500},
+		From: &User{ID: 111, FirstName: "Ivan"}, Chat: Chat{ID: -100500},
 		Caption: "Лично",
 		Voice:   &Voice{FileID: "f1", Duration: 12, FileSize: 30000},
 	}})
 	ev := <-b.Events
-	if ev.Voice == nil || !ev.Voice.Personal || ev.From != "a" || ev.Voice.TGFileID != "f1" {
+	if ev.Voice == nil || !ev.Voice.Personal || ev.Voice.Broadcast || ev.FromUserID != 111 || ev.Voice.TGFileID != "f1" {
 		t.Fatalf("ev = %+v voice=%+v", ev, ev.Voice)
+	}
+	b.handleUpdate(Update{UpdateID: 3, Message: &Message{
+		From: &User{ID: 111, FirstName: "Ivan"}, Chat: Chat{ID: -100500},
+		Caption: "всем",
+		Voice:   &Voice{FileID: "f2", Duration: 5, FileSize: 10000},
+	}})
+	ev = <-b.Events
+	if ev.Voice == nil || ev.Voice.Personal || !ev.Voice.Broadcast {
+		t.Fatalf("broadcast caption: %+v", ev.Voice)
 	}
 }

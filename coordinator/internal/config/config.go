@@ -165,19 +165,17 @@ func (c *Config) Validate() error {
 		add("media_dir is required (e.g. /var/lib/duet/media)")
 	}
 
-	for _, id := range []string{"a", "b"} {
-		n, ok := c.Nodes[id]
-		if !ok {
-			add("nodes.%s is missing (both homes a and b must be configured)", id)
+	// v2.1 M1: node tokens/users in the config are LEGACY seeds — they only
+	// feed the one-time orbit #1 bootstrap. New installs run with none and
+	// mint everything through /create + /pair. A non-empty token that is not
+	// 64-hex is always a mistake.
+	for id, n := range c.Nodes {
+		if id != "a" && id != "b" {
+			add("nodes.%s: unknown node id, only a and b exist in legacy seeding", id)
 			continue
 		}
-		if !hexToken.MatchString(n.Token) {
+		if n.Token != "" && !hexToken.MatchString(n.Token) {
 			add("nodes.%s.token must be 64 hex chars (32 random bytes), got %d chars", id, len(n.Token))
-		}
-	}
-	for id := range c.Nodes {
-		if id != "a" && id != "b" {
-			add("nodes.%s: unknown node id, only a and b exist", id)
 		}
 	}
 	if a, okA := c.Nodes["a"]; okA {
@@ -185,22 +183,9 @@ func (c *Config) Validate() error {
 			add("nodes.a.token and nodes.b.token must differ")
 		}
 	}
-
-	// Telegram is optional in dev (bot disabled with a warning); if partially
-	// configured, demand consistency.
-	if c.Telegram.BotToken != "" {
-		if c.Telegram.ChatID == 0 {
-			add("telegram.chat_id is required when bot_token is set")
-		}
-		homes := map[string]int{}
-		for uid, home := range c.Telegram.Users {
-			if home != "a" && home != "b" {
-				add("telegram.users.%d maps to %q, must be \"a\" or \"b\"", uid, home)
-			}
-			homes[home]++
-		}
-		if len(c.Telegram.Users) != 2 || homes["a"] != 1 || homes["b"] != 1 {
-			add("telegram.users must map exactly two user ids, one to \"a\" and one to \"b\"")
+	for uid, home := range c.Telegram.Users {
+		if home != "a" && home != "b" {
+			add("telegram.users.%d maps to %q, must be \"a\" or \"b\"", uid, home)
 		}
 	}
 

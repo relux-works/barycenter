@@ -4,7 +4,6 @@
 package main
 
 import (
-	"crypto/subtle"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -18,7 +17,6 @@ import (
 	"relux.works/duet/coordinator/internal/bot"
 	"relux.works/duet/coordinator/internal/config"
 	"relux.works/duet/coordinator/internal/hub"
-	"relux.works/duet/coordinator/internal/protocol"
 	"relux.works/duet/coordinator/internal/spotify"
 	"relux.works/duet/coordinator/internal/store"
 )
@@ -71,17 +69,30 @@ func main() {
 	}
 	defer st.Close()
 
-	tokens := map[protocol.NodeID]string{
-		protocol.NodeA: cfg.Nodes["a"].Token,
-		protocol.NodeB: cfg.Nodes["b"].Token,
+	// Legacy migration (v2.1 M1): env/yml tokens+users become orbit #1 once,
+	// so a pre-multi-tenant node keeps working without re-pairing.
+	legacyTokens := map[string]string{"a": cfg.Nodes["a"].Token, "b": cfg.Nodes["b"].Token}
+	if o, err := st.BootstrapLegacyOrbit(legacyTokens, cfg.Telegram.Users); err != nil {
+		log.Error("legacy orbit bootstrap failed", "err", err)
+	} else if o != nil {
+		log.Info("legacy orbit bootstrapped from config", "orbit", o.ID)
 	}
-	h := hub.New(log, tokens, time.Duration(cfg.Timings.OfflineAfterS)*time.Second)
+
+	lookup := func(token string) (int64, string, bool) {
+		orbitID, slot, ok, err := st.LookupToken(token)
+		if err != nil {
+			log.Error("token lookup failed", "err", err)
+			return 0, "", false
+		}
+		return orbitID, slot, ok
+	}
+	h := hub.New(log, lookup, time.Duration(cfg.Timings.OfflineAfterS)*time.Second)
 	stop := make(chan struct{})
 	go h.Run(stop)
 
 	var tgBot *bot.Bot
 	if cfg.TelegramEnabled() {
-		tgBot = bot.New(bot.NewHTTPAPI(cfg.Telegram.BotToken), log, cfg.Telegram.Users, cfg.Telegram.ChatID)
+		tgBot = bot.New(bot.NewHTTPAPI(cfg.Telegram.BotToken), log)
 		go tgBot.Run(stop)
 	} else {
 		log.Warn("telegram.bot_token is empty: bot disabled (dev mode), chat notifications go to the log")
@@ -93,7 +104,7 @@ func main() {
 	}
 
 	l := newLoop(log, cfg, h, st, tgBot, sp)
-	l.restore()
+	l.warmup()
 	go l.run(stop, h.Events)
 
 	go retentionSweep(log, st, stop)
@@ -101,14 +112,17 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", h.HandleWS)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		orbits, _ := st.OrbitIDs()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
-			"status":  "ok",
-			"version": version,
-			"nodes":   h.Online(),
+			"status":          "ok",
+			"version":         version,
+			"orbits":          len(orbits),
+			"nodes_connected": h.Stats(),
 		})
 	})
-	mux.HandleFunc("/media/", mediaHandler(st, tokens))
+	mux.HandleFunc("/pair", pairHandler(log, st, cfg))
+	mux.HandleFunc("/media/", mediaHandler(st))
 
 	log.Info("listening", "addr", cfg.Listen)
 	if err := http.ListenAndServe(cfg.Listen, mux); err != nil {
@@ -117,16 +131,57 @@ func main() {
 	}
 }
 
-// mediaHandler serves GET /media/{id}.wav to authenticated nodes (spec 10.3).
-func mediaHandler(st *store.Store, tokens map[protocol.NodeID]string) http.HandlerFunc {
+// pairHandler is POST /pair {code} -> {orbit_id, slot, token, ws_url}
+// (design §4: the app exchanges a bot-issued one-time code for credentials).
+func pairHandler(log *slog.Logger, st *store.Store, cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST only", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Code string `json:"code"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || req.Code == "" {
+			http.Error(w, "body must be {\"code\": \"...\"}", http.StatusBadRequest)
+			return
+		}
+		orbitID, issuedBy, err := st.ConsumeInvite(strings.ToUpper(strings.TrimSpace(req.Code)), "pair")
+		if err != nil {
+			http.Error(w, "internal", http.StatusInternalServerError)
+			return
+		}
+		if orbitID == 0 {
+			http.Error(w, "code invalid or expired", http.StatusForbidden)
+			return
+		}
+		slot, token, err := st.PairSlot(orbitID, issuedBy)
+		if err != nil {
+			log.Error("pair slot failed", "orbit", orbitID, "err", err)
+			http.Error(w, "orbit is full", http.StatusConflict)
+			return
+		}
+		wsURL := "ws://" + cfg.Listen + "/ws"
+		if cfg.PublicURL != "" {
+			wsURL = strings.Replace(strings.TrimRight(cfg.PublicURL, "/"), "https://", "wss://", 1) + "/ws"
+		}
+		log.Info("node paired", "orbit", orbitID, "slot", slot)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"orbit_id": orbitID,
+			"slot":     slot,
+			"token":    token,
+			"ws_url":   wsURL,
+		})
+	}
+}
+
+// mediaHandler serves GET /media/{id}.wav to authenticated nodes (spec 10.3):
+// any valid (non-revoked) node token grants access.
+func mediaHandler(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		auth := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		authorized := false
-		for _, tok := range tokens {
-			if subtle.ConstantTimeCompare([]byte(auth), []byte(tok)) == 1 {
-				authorized = true
-			}
-		}
+		_, _, authorized, _ := st.LookupToken(auth)
 		if !authorized {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

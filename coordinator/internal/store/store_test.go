@@ -20,12 +20,12 @@ func openTemp(t *testing.T) *Store {
 func TestSessionRoundTripAndPausedRule(t *testing.T) {
 	s := openTemp(t)
 
-	if snap, err := s.LoadSession(); err != nil || snap != nil {
+	if snap, err := s.LoadSession(1); err != nil || snap != nil {
 		t.Fatalf("fresh db: snap=%v err=%v", snap, err)
 	}
 
 	el := session.Element{ID: "el1", Kind: session.KindTrack, URI: "spotify:track:X", Target: "both", DurationMS: 200000}
-	err := s.SaveSession(SessionSnapshot{
+	err := s.SaveSession(1, SessionSnapshot{
 		Mode:            session.ModeShared,
 		State:           session.StatePlaying, // must come back as paused
 		Current:         &el,
@@ -36,7 +36,7 @@ func TestSessionRoundTripAndPausedRule(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	snap, err := s.LoadSession()
+	snap, err := s.LoadSession(1)
 	if err != nil {
 		t.Fatal(err)
 	}

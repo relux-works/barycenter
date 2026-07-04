@@ -48,14 +48,9 @@ type Element struct {
 	CreatedAt   int64
 }
 
-var bothNodes = []protocol.NodeID{protocol.NodeA, protocol.NodeB}
-
-func otherNode(n protocol.NodeID) protocol.NodeID {
-	if n == protocol.NodeA {
-		return protocol.NodeB
-	}
-	return protocol.NodeA
-}
+// defaultPeers keeps two-home behavior for sessions created before the
+// orbit's slot list is applied (M2: peers are set from the slots table).
+var defaultPeers = []protocol.NodeID{protocol.NodeA, protocol.NodeB}
 
 // --- Effects: what the caller must do after an event ---
 
@@ -142,6 +137,10 @@ type Session struct {
 	nodePos map[protocol.NodeID]int64 // audible position from heartbeats
 	nodeRTT map[protocol.NodeID]int64
 
+	// Peers: the orbit's pulsars (slots). The broadcast machinery runs over
+	// this set (M2: N homes, not two).
+	Peers []protocol.NodeID
+
 	// StartMarginMS: extra margin in resume_at scheduling (spec 7.1 scheduler).
 	StartMarginMS int64
 }
@@ -157,19 +156,91 @@ func New() *Session {
 		online:        map[protocol.NodeID]bool{},
 		nodePos:       map[protocol.NodeID]int64{},
 		nodeRTT:       map[protocol.NodeID]int64{},
+		Peers:         append([]protocol.NodeID{}, defaultPeers...),
 		StartMarginMS: 500,
 	}
 }
 
-func (s *Session) targetNodes(el *Element) []protocol.NodeID {
-	switch el.Target {
-	case "a":
-		return []protocol.NodeID{protocol.NodeA}
-	case "b":
-		return []protocol.NodeID{protocol.NodeB}
-	default:
-		return bothNodes
+// SetPeers replaces the peer set (orbit slots at restore/creation time).
+func (s *Session) SetPeers(slots []string) {
+	s.Peers = s.Peers[:0]
+	for _, sl := range slots {
+		s.Peers = append(s.Peers, protocol.NodeID(sl))
 	}
+}
+
+// EnsurePeer adds a newly paired slot to the set (offline until it talks).
+func (s *Session) EnsurePeer(n protocol.NodeID) {
+	for _, p := range s.Peers {
+		if p == n {
+			return
+		}
+	}
+	s.Peers = append(s.Peers, n)
+}
+
+// RemovePeer drops a revoked slot and re-evaluates everything the missing
+// peer might have been blocking (gate, ready, ended, voice completion).
+func (s *Session) RemovePeer(nowMS int64, n protocol.NodeID) []Effect {
+	kept := s.Peers[:0]
+	for _, p := range s.Peers {
+		if p != n {
+			kept = append(kept, p)
+		}
+	}
+	s.Peers = kept
+	delete(s.online, n)
+	delete(s.ready, n)
+	delete(s.started, n)
+	delete(s.ended, n)
+	delete(s.voiceDone, n)
+	delete(s.nodePos, n)
+	delete(s.nodeRTT, n)
+
+	switch s.State {
+	case StateDegraded:
+		if s.allOnline() {
+			if s.Current == nil && s.hasUpcoming() {
+				return append([]Effect{EffNotify{Text: "все дома в сети — поехали"}}, s.advance()...)
+			}
+			if s.Current == nil {
+				s.State = StateIdle
+				return []Effect{EffPersist{}}
+			}
+			s.State = StatePaused
+			return []Effect{EffNotify{Text: "оставшиеся дома в сети. /resume чтобы продолжить"}, EffPersist{}}
+		}
+	case StateLoading:
+		if s.Current != nil {
+			return s.checkAllReady(nowMS, s.Current.ID)
+		}
+	case StatePlaying:
+		if s.Current != nil && len(s.ended) > 0 && s.endedConditionMet() {
+			return s.finishCurrent("eof")
+		}
+	case StateVoice:
+		if s.Current != nil && s.voiceCompleteAcrossPeers() {
+			return s.finishCurrent("eof")
+		}
+	}
+	return []Effect{EffPersist{}}
+}
+
+func (s *Session) peersExcept(n protocol.NodeID) []protocol.NodeID {
+	var out []protocol.NodeID
+	for _, p := range s.Peers {
+		if p != n {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func (s *Session) targetNodes(el *Element) []protocol.NodeID {
+	if el.Target != "" && el.Target != "both" {
+		return []protocol.NodeID{protocol.NodeID(el.Target)}
+	}
+	return s.Peers
 }
 
 func (s *Session) resetElementTracking() {
@@ -215,8 +286,18 @@ func (s *Session) maybeAdvanceFromIdle() []Effect {
 	return s.advance()
 }
 
-func (s *Session) bothOnline() bool {
-	return s.online[protocol.NodeA] && s.online[protocol.NodeB]
+// allOnline: every peer online. An orbit with no paired pulsars is never
+// "all online" — queued material waits for the first home to pair.
+func (s *Session) allOnline() bool {
+	if len(s.Peers) == 0 {
+		return false
+	}
+	for _, n := range s.Peers {
+		if !s.online[n] {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Session) hasUpcoming() bool {
@@ -237,17 +318,20 @@ func (s *Session) hasUpcoming() bool {
 func (s *Session) advance() []Effect {
 	s.resetElementTracking()
 	s.SavedPositionMS = 0
-	if s.hasUpcoming() && !s.bothOnline() {
+	if s.hasUpcoming() && !s.allOnline() {
 		s.Current = nil
 		s.State = StateDegraded
 		missing := ""
-		for _, n := range bothNodes {
+		for _, n := range s.Peers {
 			if !s.online[n] {
 				missing += " " + string(n)
 			}
 		}
+		if missing == "" {
+			missing = " (ни одного пульсара не подключено)"
+		}
 		return []Effect{
-			EffNotify{Text: fmt.Sprintf("эфир подождёт: дом%s не в сети — продолжу, как только оба дома подключатся", missing)},
+			EffNotify{Text: fmt.Sprintf("эфир подождёт: дом%s не в сети — продолжу, как только все дома подключатся", missing)},
 			EffPersist{},
 		}
 	}
@@ -305,7 +389,7 @@ func (s *Session) loadCurrent(positionMS int64) []Effect {
 	s.State = StateLoading
 	s.SavedPositionMS = positionMS
 	effs := []Effect{EffPersist{}}
-	for _, n := range bothNodes {
+	for _, n := range s.Peers {
 		effs = append(effs, EffLoad{To: n, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: positionMS})
 	}
 	effs = append(effs, EffArmReadyTimer{ElementID: s.Current.ID})
@@ -322,7 +406,7 @@ func (s *Session) startVoice() []Effect {
 		targetSet[n] = true
 		effs = append(effs, EffPlayVoice{To: n, ElementID: el.ID, MediaID: el.MediaID})
 	}
-	for _, n := range bothNodes {
+	for _, n := range s.Peers {
 		if !targetSet[n] {
 			effs = append(effs, EffWait{To: n, ElementID: el.ID, DurationMS: el.DurationMS})
 		}
@@ -343,16 +427,28 @@ func (s *Session) OnReady(nowMS int64, node protocol.NodeID, elementID string) [
 		return nil // idempotency (spec 7.2)
 	}
 	s.ready[node] = true
-	for _, n := range bothNodes {
+	return s.checkAllReady(nowMS, elementID)
+}
+
+// checkAllReady arms the synchronized start once every peer reported ready:
+// T = now + 2*max(rtt over peers) + margin (spec 7.1, N-wise in M2).
+func (s *Session) checkAllReady(nowMS int64, elementID string) []Effect {
+	if s.State != StateLoading || !s.isCurrent(elementID) {
+		return nil
+	}
+	var maxRTT int64
+	for _, n := range s.Peers {
 		if !s.ready[n] {
 			return nil
 		}
+		if s.nodeRTT[n] > maxRTT {
+			maxRTT = s.nodeRTT[n]
+		}
 	}
 	s.State = StateArmed
-	maxRTT := max(s.nodeRTT[protocol.NodeA], s.nodeRTT[protocol.NodeB])
 	t := nowMS + 2*maxRTT + s.StartMarginMS
 	effs := []Effect{EffCancelReadyTimer{}, EffPersist{}}
-	for _, n := range bothNodes {
+	for _, n := range s.Peers {
 		effs = append(effs, EffResumeAt{To: n, ElementID: elementID, TCoordMS: t})
 	}
 	return effs
@@ -363,17 +459,22 @@ func (s *Session) OnStarted(node protocol.NodeID, elementID string, tFirstSample
 		return nil
 	}
 	s.started[node] = tFirstSampleMS
-	a, okA := s.started[protocol.NodeA]
-	b, okB := s.started[protocol.NodeB]
-	if !okA || !okB {
-		return nil
+	var earliest, latest int64
+	for i, n := range s.Peers {
+		t, ok := s.started[n]
+		if !ok {
+			return nil
+		}
+		if i == 0 || t < earliest {
+			earliest = t
+		}
+		if i == 0 || t > latest {
+			latest = t
+		}
 	}
 	s.State = StatePlaying
-	delta := a - b
-	if delta < 0 {
-		delta = -delta
-	}
-	return []Effect{EffLogDesync{DeltaMS: delta}, EffPersist{}}
+	// Desync = worst pairwise skew across the orbit (max - min).
+	return []Effect{EffLogDesync{DeltaMS: latest - earliest}, EffPersist{}}
 }
 
 // OnEnded implements: ended from both, or ended from one while the other's
@@ -389,16 +490,21 @@ func (s *Session) OnEnded(node protocol.NodeID, elementID string, reason string)
 	return nil
 }
 
+// endedConditionMet: every peer ended, or at least one ended while every
+// laggard's position is within 1 s of the end (spec 7.2, N-wise).
 func (s *Session) endedConditionMet() bool {
-	a, b := s.ended[protocol.NodeA], s.ended[protocol.NodeB]
-	if a && b {
-		return true
-	}
 	dur := s.Current.DurationMS
-	nearEnd := func(n protocol.NodeID) bool {
-		return dur > 0 && s.nodePos[n] >= dur-1000
+	anyEnded := false
+	for _, n := range s.Peers {
+		if s.ended[n] {
+			anyEnded = true
+			continue
+		}
+		if dur <= 0 || s.nodePos[n] < dur-1000 {
+			return false
+		}
 	}
-	return (a && nearEnd(protocol.NodeB)) || (b && nearEnd(protocol.NodeA))
+	return anyEnded
 }
 
 func (s *Session) finishCurrent(status string) []Effect {
@@ -413,7 +519,7 @@ func (s *Session) OnHeartbeat(node protocol.NodeID, positionMS int64, rttMS int6
 	if rttMS > 0 {
 		s.nodeRTT[node] = rttMS
 	}
-	if s.State == StatePlaying && s.Current != nil && (s.ended[protocol.NodeA] || s.ended[protocol.NodeB]) && s.endedConditionMet() {
+	if s.State == StatePlaying && s.Current != nil && len(s.ended) > 0 && s.endedConditionMet() {
 		return s.finishCurrent("eof")
 	}
 	return nil
@@ -432,12 +538,19 @@ func (s *Session) onVoicePartDone(node protocol.NodeID, elementID string) []Effe
 		return nil
 	}
 	s.voiceDone[node] = true
-	for _, n := range bothNodes {
-		if !s.voiceDone[n] {
-			return nil
-		}
+	if !s.voiceCompleteAcrossPeers() {
+		return nil
 	}
 	return s.finishCurrent("eof")
+}
+
+func (s *Session) voiceCompleteAcrossPeers() bool {
+	for _, n := range s.Peers {
+		if !s.voiceDone[n] {
+			return false
+		}
+	}
+	return true
 }
 
 // OnReadyTimeout: one retry, then skip with a chat message (spec 7.2).
@@ -448,7 +561,7 @@ func (s *Session) OnReadyTimeout(elementID string) []Effect {
 	if !s.retried {
 		s.retried = true
 		effs := []Effect{EffPersist{}}
-		for _, n := range bothNodes {
+		for _, n := range s.Peers {
 			if !s.ready[n] {
 				effs = append(effs, EffLoad{To: n, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: s.SavedPositionMS})
 			}
@@ -498,12 +611,21 @@ func (s *Session) OnNodeError(node protocol.NodeID, code string, elementID strin
 }
 
 func (s *Session) currentPositionEstimate() int64 {
-	// Safest: the minimum of last heartbeat positions (a little repeat beats a skip).
-	a, b := s.nodePos[protocol.NodeA], s.nodePos[protocol.NodeB]
-	if a < b {
-		return a
+	// Safest: the minimum of known heartbeat positions across peers
+	// (a little repeat beats a skip). Peers that never reported are skipped.
+	first := true
+	var best int64
+	for _, n := range s.Peers {
+		pos, ok := s.nodePos[n]
+		if !ok {
+			continue
+		}
+		if first || pos < best {
+			best = pos
+			first = false
+		}
 	}
-	return b
+	return best
 }
 
 func (s *Session) pauseBoth(fadeMS int64) []Effect {
@@ -511,7 +633,7 @@ func (s *Session) pauseBoth(fadeMS int64) []Effect {
 		return nil
 	}
 	var effs []Effect
-	for _, n := range bothNodes {
+	for _, n := range s.Peers {
 		effs = append(effs, EffPause{To: n, ElementID: s.Current.ID, FadeMS: fadeMS})
 	}
 	return effs
@@ -609,11 +731,24 @@ func (s *Session) OnNodeOffline(node protocol.NodeID) []Effect {
 	if s.State == StateIdle || s.State == StateDegraded {
 		return nil
 	}
-	s.SavedPositionMS = s.nodePos[otherNode(node)]
+	// Freeze the air at the position of the survivors (minimum across them).
 	s.State = StateDegraded
+	first := true
+	for _, n := range s.peersExcept(node) {
+		pos, ok := s.nodePos[n]
+		if !ok {
+			continue
+		}
+		if first || pos < s.SavedPositionMS {
+			s.SavedPositionMS = pos
+			first = false
+		}
+	}
 	effs := []Effect{EffCancelReadyTimer{}}
 	if s.Current != nil {
-		effs = append(effs, EffPause{To: otherNode(node), ElementID: s.Current.ID, FadeMS: 0})
+		for _, n := range s.peersExcept(node) {
+			effs = append(effs, EffPause{To: n, ElementID: s.Current.ID, FadeMS: 0})
+		}
 	}
 	effs = append(effs, EffNotify{Text: fmt.Sprintf("дом %s пропал из сети, ставлю эфир на паузу", node)}, EffPersist{})
 	return effs
@@ -625,16 +760,14 @@ func (s *Session) OnNodeBack(node protocol.NodeID) []Effect {
 	if s.Mode != ModeShared || s.State != StateDegraded || !wasOffline {
 		return nil
 	}
-	// Both online again?
-	for _, n := range bothNodes {
-		if !s.online[n] {
-			return nil
-		}
+	// Everyone online again?
+	if !s.allOnline() {
+		return nil
 	}
 	// A broadcast interrupted mid-element waits for a human /resume
 	// (spec 7.2); one that never started (offline gate) starts itself.
 	if s.Current == nil && s.hasUpcoming() {
-		effs := []Effect{EffNotify{Text: "оба дома в сети — поехали"}}
+		effs := []Effect{EffNotify{Text: "все дома в сети — поехали"}}
 		return append(effs, s.advance()...)
 	}
 	if s.Current == nil {
@@ -660,7 +793,7 @@ func (s *Session) SetModeSolo() []Effect {
 	}
 	s.State = StateIdle
 	effs := []Effect{EffCancelReadyTimer{}}
-	for _, n := range bothNodes {
+	for _, n := range s.Peers {
 		effs = append(effs, EffStop{To: n}, EffSetMode{To: n, Mode: ModeSolo})
 	}
 	return append(effs, EffNotify{Text: "апоастрон: орбиты расходятся, каждый слушает своё (/inject подкидывает партнёру)"}, EffPersist{})
@@ -672,7 +805,7 @@ func (s *Session) SetModeShared() []Effect {
 	}
 	s.Mode = ModeShared
 	effs := []Effect{}
-	for _, n := range bothNodes {
+	for _, n := range s.Peers {
 		effs = append(effs, EffStop{To: n}, EffSetMode{To: n, Mode: ModeShared})
 	}
 	if s.Current != nil {

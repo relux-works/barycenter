@@ -130,6 +130,8 @@ func (l *loop) orbit(id int64) *orbitState {
 		o.voiceDefault = rec.VoiceDefault
 	}
 	slots, _ := l.st.ActiveSlots(id)
+	// M2: the broadcast machinery runs over the orbit's real slot set.
+	o.sess.SetPeers(slots)
 	for _, sl := range slots {
 		n := protocol.NodeID(sl)
 		o.volumes[n] = 80
@@ -244,6 +246,7 @@ func (l *loop) handleNode(ev hub.Event) {
 	switch e := ev.(type) {
 	case hub.EvRegistered:
 		o := l.orbit(e.Key.Orbit)
+		o.sess.EnsurePeer(e.Key.Slot) // a slot paired after orbit warm-up
 		l.log.Info("node registered", "orbit", e.Key.Orbit, "slot", e.Key.Slot, "app", e.AppVersion, "librespot", e.LibrespotVersion)
 		o.versions[e.Key.Slot] = e.AppVersion + "/librespot " + e.LibrespotVersion
 		vol, ok := o.volumes[e.Key.Slot]
@@ -416,7 +419,10 @@ func (l *loop) handleBot(ev bot.Event) {
 			ev.Reply("не получилось")
 			return
 		}
-		ev.Reply(fmt.Sprintf("токен дома %s отозван: нода отключится при следующей проверке; /pair выдаст новый код", cmd.Target))
+		// The revoked slot leaves the peer set immediately so it stops
+		// blocking ready barriers and offline gates (M2).
+		l.apply(o, o.sess.RemovePeer(time.Now().UnixMilli(), protocol.NodeID(cmd.Target)))
+		ev.Reply(fmt.Sprintf("токен дома %s отозван; /pair выдаст новый код", cmd.Target))
 
 	case bot.KindLink:
 		if o.sess.Mode != session.ModeShared {

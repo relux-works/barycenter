@@ -139,3 +139,17 @@ func TestLegacyBootstrap(t *testing.T) {
 		t.Fatal("bootstrap must be idempotent")
 	}
 }
+
+// A container config with empty token placeholders must not create a ghost
+// orbit (prod regression 2026-07-04).
+func TestLegacyBootstrapIgnoresEmptyTokens(t *testing.T) {
+	s := openTemp(t)
+	o, err := s.BootstrapLegacyOrbit(map[string]string{"a": "", "b": ""}, nil)
+	if err != nil || o != nil {
+		t.Fatalf("ghost orbit: %v %v", o, err)
+	}
+	ids, _ := s.OrbitIDs()
+	if len(ids) != 0 {
+		t.Fatalf("orbits created: %v", ids)
+	}
+}

@@ -357,7 +357,15 @@ func (s *Store) BootstrapLegacyOrbit(tokens map[string]string, users map[int64]s
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM orbits`).Scan(&n); err != nil {
 		return nil, err
 	}
-	if n > 0 || len(tokens) == 0 {
+	// Seed only when a real (non-empty) legacy token exists — a container
+	// config ships empty placeholders and must NOT spawn a ghost orbit.
+	seeded := false
+	for _, t := range tokens {
+		if t != "" {
+			seeded = true
+		}
+	}
+	if n > 0 || !seeded {
 		return nil, nil
 	}
 	now := time.Now().UnixMilli()

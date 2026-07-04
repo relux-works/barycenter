@@ -1,0 +1,39 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  coordinator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: coordinator/go.mod
+      - name: Reproducible build (CGO off)
+        run: |
+          mkdir -p dist
+          cd coordinator
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH=$arch \
+              go build -trimpath \
+              -ldflags="-s -w -buildid= -X main.version=${GITHUB_REF_NAME}" \
+              -o ../dist/duet-coordinator-linux-$arch ./cmd/duet-coordinator
+          done
+          cd ../dist && shasum -a 256 * > SHA256SUMS
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/duet-coordinator-*
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

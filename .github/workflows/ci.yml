@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  coordinator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: coordinator/go.mod
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: cd coordinator && go vet ./... && go test ./...
+
+  node-core:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: cd node-app && swift test

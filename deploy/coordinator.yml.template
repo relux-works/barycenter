@@ -1,0 +1,21 @@
+listen: "__TAILSCALE_IP__:8080"         # tailscale address of this VPS; never a public IP
+db_path: /var/lib/duet/duet.db
+media_dir: /var/lib/duet/media
+nodes:
+  a: { token: "__TOKEN_A__" }           # openssl rand -hex 32
+  b: { token: "__TOKEN_B__" }
+telegram:
+  bot_token: "__BOT_TOKEN__"            # from BotFather; empty string = bot disabled (dev)
+  chat_id: __CHAT_ID__                  # the shared group, e.g. -100XXXXXXXXXX
+  users:
+    __USER_ID_A__: a
+    __USER_ID_B__: b
+timings:
+  ready_timeout_s: 8
+  start_margin_extra_ms: 500
+  offline_after_s: 12
+  near_end_ms: 400
+media:
+  max_voice_s: 180
+  retention_days: 30
+  preset: default                       # default | radio

@@ -1,0 +1,19 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C00000000000000000F",
+  "ts": 1751500000000,
+  "type": "state",
+  "payload": {
+    "playback": "playing",
+    "uri": "spotify:track:4cOdK2wGLETKBW3PvgPWqT",
+    "position_ms": 63012,
+    "volume": 80,
+    "degraded": false,
+    "underruns": 0,
+    "rtt_ms": 42,
+    "speakers": [
+      { "name": "Гостиная", "connected": true },
+      { "name": "Кухня", "connected": false }
+    ]
+  }
+}

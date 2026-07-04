@@ -1,0 +1,24 @@
+node_id: __NODE_ID__                    # "a" or "b"
+coordinator:
+  url: ws://coord:8080/ws               # MagicDNS name in the tailnet
+  token: "__NODE_TOKEN__"               # 64 hex chars, must match coordinator.yml nodes.<id>.token
+audio:
+  fifo_path: __DUET_HOME__/spotify.fifo
+  sample_rate: 44100
+  format: f32le
+  output_latency_offset_ms: 0           # calibrated later (spec ch. 14, runbook)
+  ring_buffer_ms: 1000
+  output_device: "__OUTPUT_DEVICE__"    # direct mode: device name as in Control Center
+airfoil:
+  enabled: false                        # true only on macOS 15 Sequoia (spec v1.3)
+  app_path: /Applications/Airfoil.app
+  speakers: ["__SPEAKER_1__"]           # names exactly as in Airfoil's list (when enabled)
+  poll_s: 10
+librespot:
+  binary: /opt/homebrew/bin/go-librespot
+  api_port: 3678
+  device_name: "__DEVICE_NAME__"        # shown in the Spotify device list
+cache_dir: __DUET_HOME__/cache
+log:
+  level: info
+  path: __DUET_HOME__/nodeapp.log

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>works.relux.duet.nodeapp</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__DUET_HOME__/NodeApp.app/Contents/MacOS/NodeApp</string>
+    <string>--config</string>
+    <string>__DUET_HOME__/node.yml</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>LimitLoadToSessionType</key><string>Aqua</string>
+  <key>StandardOutPath</key><string>__DUET_HOME__/nodeapp.out.log</string>
+  <key>StandardErrorPath</key><string>__DUET_HOME__/nodeapp.err.log</string>
+</dict></plist>

@@ -7,5 +7,16 @@
     "codex_cli",
     "claude_code"
   ],
-  "skills": []
+  "skills": [
+    {
+      "name": "ios-app-manager",
+      "branch": "main",
+      "git": "git@github.com:relux-works/skill-ios-app-manager.git"
+    },
+    {
+      "name": "ios-testing-tools",
+      "branch": "main",
+      "git": "git@github.com:relux-works/skill-ios-testing-tools.git"
+    }
+  ]
 }

@@ -1,0 +1,19 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C000000000000000001",
+  "ts": 1751500000000,
+  "type": "welcome",
+  "payload": {
+    "session_snapshot": {
+      "mode": "shared",
+      "state": "paused",
+      "current": {
+        "element_id": "el_01JZB0C000000000000000010",
+        "kind": "track",
+        "uri": "spotify:track:4cOdK2wGLETKBW3PvgPWqT",
+        "position_ms": 63000
+      },
+      "volume": 80
+    }
+  }
+}

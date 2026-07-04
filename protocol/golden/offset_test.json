@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C00000000000000000S",
+  "ts": 1751500000000,
+  "type": "offset_test",
+  "payload": {
+    "t_coord_ms": 1751500002000,
+    "clicks": 5,
+    "interval_ms": 1000
+  }
+}

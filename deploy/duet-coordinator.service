@@ -1,0 +1,16 @@
+[Unit]
+Description=duet coordinator
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/duet-coordinator --config /etc/duet/coordinator.yml
+Restart=always
+RestartSec=3
+User=duet
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/duet
+
+[Install]
+WantedBy=multi-user.target

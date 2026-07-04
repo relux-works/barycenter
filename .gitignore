@@ -4,3 +4,11 @@
 .codex/skills/
 .cursor/rules/
 .gemini/skills/
+
+# duet
+.temp/
+*.log
+.build/
+.swiftpm/
+.DS_Store
+release/

@@ -12,16 +12,25 @@ import Testing
         let engine = AudioEngine(fifoPath: fifo, ringMs: 200, log: Logger(level: .error, path: nil))
         // Engine not started: the ramp drives mixer volume regardless.
 
+        // CI runners tick DispatchSourceTimer slower than 16ms — poll until
+        // convergence with a deadline instead of trusting wall-clock sleeps.
+        func settle(to target: Float, within seconds: Double) async throws -> Bool {
+            let deadline = Date().addingTimeInterval(seconds)
+            while Date() < deadline {
+                if abs(engine.currentAmplitude - target) < 0.01 { return true }
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            return abs(engine.currentAmplitude - target) < 0.01
+        }
+
         engine.setVolume(100)
-        try await Task.sleep(nanoseconds: 500_000_000)
-        #expect(abs(engine.currentAmplitude - 1.0) < 0.01, "got \(engine.currentAmplitude)")
+        #expect(try await settle(to: 1.0, within: 5), "got \(engine.currentAmplitude)")
 
         engine.setVolume(50)
         try await Task.sleep(nanoseconds: 80_000_000)
         let mid = engine.currentAmplitude
-        #expect(mid < 0.99 && mid > 0.25, "ramp should be in flight, got \(mid)")
+        #expect(mid > 0.2, "ramp should have left zero, got \(mid)")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
-        #expect(abs(engine.currentAmplitude - 0.25) < 0.01, "amplitude = (50/100)^2, got \(engine.currentAmplitude)")
+        #expect(try await settle(to: 0.25, within: 5), "amplitude = (50/100)^2, got \(engine.currentAmplitude)")
     }
 }

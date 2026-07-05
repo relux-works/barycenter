@@ -168,7 +168,14 @@ public final class PlayerCore {
                 for _ in 0..<20 where !(await self.librespot.playbackReady()) {
                     try await Task.sleep(nanoseconds: 500_000_000)
                 }
-                try await self.librespot.playPaused(uri: p.uri)
+                do {
+                    try await self.librespot.playPaused(uri: p.uri)
+                } catch {
+                    // One local retry: transient daemon stalls (transfer storms)
+                    // must not surface as track_unavailable.
+                    try await Task.sleep(nanoseconds: 2_000_000_000)
+                    try await self.librespot.playPaused(uri: p.uri)
+                }
                 if p.positionMs > 0 {
                     try await self.librespot.seek(positionMS: p.positionMs)
                 }

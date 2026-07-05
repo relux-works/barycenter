@@ -48,7 +48,9 @@ public final class LibrespotClient {
         base = URL(string: "http://127.0.0.1:\(apiPort)")!
         self.log = log
         let cfg = URLSessionConfiguration.default
-        cfg.timeoutIntervalForRequest = 5
+        // Context loads can exceed 5 s on a cold cache or right after a phone
+        // transfer storm (R0 prod finding: -1001 -> false track_unavailable).
+        cfg.timeoutIntervalForRequest = 30
         session = URLSession(configuration: cfg)
     }
 

@@ -6,7 +6,9 @@ let package = Package(
     platforms: [.macOS(.v14)],
     dependencies: [
         // The single external library the spec allows (6.1): YAML config.
-        .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0")
+        .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0"),
+        // goal v2 D6: auto-updates for the notarized channel.
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
     ],
     targets: [
         // C shim: acquire/release atomics for the SPSC ring buffer indices.
@@ -19,7 +21,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "NodeApp",
-            dependencies: ["NodeCore"],
+            dependencies: ["NodeCore", .product(name: "Sparkle", package: "Sparkle")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(

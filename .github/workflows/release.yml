@@ -43,6 +43,15 @@ jobs:
           ln -s /Applications dmg-root/Applications
           hdiutil create -volname "Pulsar" -srcfolder dmg-root -ov -format UDZO "dist/Pulsar-${GITHUB_REF_NAME}-arm64.dmg"
           shasum -a 256 dist/*.dmg > dist/SHA256SUMS.pulsar
+      - name: Generate Sparkle appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          GEN=$(find node-app/.build/artifacts -name generate_appcast -type f | head -1)
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > /tmp/ed_key
+          "$GEN" --ed-key-file /tmp/ed_key -o dist/appcast.xml dist/
+          rm -f /tmp/ed_key
+          grep -c "<item>" dist/appcast.xml
       - name: Attest dmg provenance
         uses: actions/attest-build-provenance@v2
         with:

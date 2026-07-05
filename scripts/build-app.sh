@@ -9,6 +9,11 @@
 set -euo pipefail
 
 VERSION="${VERSION:-0.1.0-dev}"
+# Sparkle compares CFBundleVersion: derive a clean semver and a monotonic build.
+SHORT_VERSION="$(echo "$VERSION" | sed -E 's/^v//; s/[-+].*$//')"
+BUILD_NUMBER="${BUILD_NUMBER:-$(git -C "$(dirname "$0")/.." rev-list --count HEAD 2>/dev/null || echo 1)}"
+SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-tx8SLAmqME/ldUthxRV5PFQiUt1MX65blT29cA8My1U=}"
+SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-https://github.com/relux-works/barycenter/releases/latest/download/appcast.xml}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${OUT_DIR:-$ROOT/.temp/build}"
 # v2 naming (docs/v2-direction.md): the app is Pulsar. Old id
@@ -53,8 +58,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>NodeApp</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
-  <key>CFBundleShortVersionString</key><string>${VERSION#v}</string>
-  <key>CFBundleVersion</key><string>${VERSION#v}</string>
+  <key>CFBundleShortVersionString</key><string>${SHORT_VERSION}</string>
+  <key>CFBundleVersion</key><string>${BUILD_NUMBER}</string>
+  <key>SUFeedURL</key><string>${SPARKLE_FEED_URL}</string>
+  <key>SUPublicEDKey</key><string>${SPARKLE_PUBLIC_KEY}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <!-- Regular app (Dock icon and all): Airfoil lists only regular running

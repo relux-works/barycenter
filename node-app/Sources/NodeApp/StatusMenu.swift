@@ -3,6 +3,7 @@
 
 import AppKit
 import ServiceManagement
+import Sparkle
 import NodeCore
 
 final class StatusMenuController: NSObject, NSMenuDelegate {
@@ -11,6 +12,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     // Wired after the core starts; nil while onboarding.
     var player: PlayerCore?
+    var updater: SPUUpdater?
     var coordinatorConnected: () -> Bool = { false }
     var orbitLabel: String = ""
 
@@ -64,6 +66,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.addItem(login)
 
         menu.addItem(.separator())
+        if updater != nil {
+            let upd = NSMenuItem(title: "Проверить обновления…", action: #selector(checkUpdates), keyEquivalent: "")
+            upd.target = self
+            menu.addItem(upd)
+        }
         menu.addItem(disabled("Pulsar \(appVersion)"))
         let quit = NSMenuItem(title: "Выйти", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quit)
@@ -85,6 +92,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             _ = DirectOutputMonitor.setDefaultOutput(named: name)
             UserDefaults.standard.set(name, forKey: "outputDevice")
         }
+    }
+
+    @objc private func checkUpdates() {
+        updater?.checkForUpdates()
     }
 
     @objc private func toggleLogin() {

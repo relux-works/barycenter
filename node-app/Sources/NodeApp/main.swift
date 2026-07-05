@@ -5,6 +5,7 @@
 import AppKit
 import Foundation
 import NodeCore
+import Sparkle
 
 let appVersion = "0.3.0-dev"
 
@@ -238,6 +239,10 @@ final class CoreRuntime {
 var runtime: CoreRuntime?
 let statusMenu = StatusMenuController()
 let onboarding = OnboardingWindowController()
+// Sparkle: feed URL + EdDSA public key live in Info.plist (build-app.sh).
+// Bare-binary runs (dev/CLI) have no bundle keys — the controller stays idle.
+let updater = SPUStandardUpdaterController(startingUpdater: Bundle.main.bundleIdentifier != nil,
+                                           updaterDelegate: nil, userDriverDelegate: nil)
 
 func materializeSupportTree(_ config: NodeConfig) {
     for dir in [ConfigLoader.supportDir, config.cacheDir,
@@ -256,6 +261,7 @@ func startCore(with config: NodeConfig) {
         let rt = try CoreRuntime.start(config: config)
         runtime = rt
         statusMenu.player = rt.player
+        statusMenu.updater = updater.updater
         statusMenu.coordinatorConnected = { true } // refined by heartbeat later
         app.setActivationPolicy(config.airfoil.isEnabled ? .regular : .accessory)
     } catch let err as ConfigError {

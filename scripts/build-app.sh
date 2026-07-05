@@ -15,13 +15,13 @@ OUT_DIR="${OUT_DIR:-$ROOT/.temp/build}"
 # works.relux.duet.nodeapp retired before anyone reached production.
 BUNDLE_ID="works.relux.pulsar"
 
-BIN="$ROOT/node-app/.build/release/NodeApp"
+BIN="${NODEAPP_BIN:-$ROOT/node-app/.build/release/NodeApp}"
 if [[ ! -x "$BIN" ]]; then
     echo "error: $BIN not built; run 'make build' first" >&2
     exit 1
 fi
 
-APP="$OUT_DIR/NodeApp.app"
+APP="$OUT_DIR/${APP_NAME:-NodeApp}.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/NodeApp"

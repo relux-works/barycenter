@@ -10,6 +10,48 @@ permissions:
   attestations: write
 
 jobs:
+  pulsar-dmg:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: relux-works/go-librespot
+          path: fork
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: fork/go.mod
+      - name: Build universal daemon (fork, reproducible)
+        run: |
+          cd fork
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="-s -w -buildid=" -o ../daemon-arm64 ./cmd/daemon
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o ../daemon-amd64 ./cmd/daemon
+          cd .. && lipo -create -output daemon-universal daemon-arm64 daemon-amd64
+      - name: Build universal Pulsar
+        run: |
+          cd node-app
+          swift build -c release --arch arm64 --arch x86_64
+      - name: Bundle Pulsar.app + dmg
+        run: |
+          export VERSION="${GITHUB_REF_NAME}"
+          export NODEAPP_BIN="$PWD/node-app/.build/apple/Products/Release/NodeApp"
+          export LIBRESPOT_BIN="$PWD/daemon-universal"
+          export APP_NAME=Pulsar
+          bash scripts/build-app.sh
+          mkdir -p dist dmg-root
+          cp -R .temp/build/Pulsar.app dmg-root/
+          ln -s /Applications dmg-root/Applications
+          hdiutil create -volname "Pulsar" -srcfolder dmg-root -ov -format UDZO "dist/Pulsar-${GITHUB_REF_NAME}.dmg"
+          shasum -a 256 dist/*.dmg > dist/SHA256SUMS.pulsar
+      - name: Attest dmg provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/Pulsar-*.dmg
+      - name: Upload dmg to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
   coordinator:
     runs-on: ubuntu-latest
     steps:

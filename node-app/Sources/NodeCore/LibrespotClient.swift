@@ -132,12 +132,36 @@ public final class LibrespotClient {
 
     private func connectEvents() {
         guard !eventsStopped else { return }
+        eventsTask?.cancel()
         var comps = URLComponents(url: base.appendingPathComponent("/events"), resolvingAgainstBaseURL: false)!
         comps.scheme = "ws"
         let task = session.webSocketTask(with: comps.url!)
         eventsTask = task
         task.resume()
         receiveEvents()
+        schedulePing(task)
+    }
+
+    // A half-dead socket (daemon dropped without a close frame) hangs
+    // receive() forever — the reconnect loop never fires and takeover
+    // detection goes blind (R0 prod finding). Ping every 10 s; a failed
+    // pong forces a reconnect.
+    private func schedulePing(_ task: URLSessionWebSocketTask) {
+        queue.asyncAfter(deadline: .now() + 10) { [weak self] in
+            guard let self, !self.eventsStopped, self.eventsTask === task else { return }
+            task.sendPing { [weak self] error in
+                guard let self else { return }
+                self.queue.async {
+                    guard !self.eventsStopped, self.eventsTask === task else { return }
+                    if error != nil {
+                        self.log.warn("librespot events stream dead, reconnecting", [:])
+                        self.connectEvents()
+                    } else {
+                        self.schedulePing(task)
+                    }
+                }
+            }
+        }
     }
 
     private func receiveEvents() {

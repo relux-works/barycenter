@@ -26,6 +26,21 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/NodeApp"
 
+# R1: bundle the go-librespot daemon (relux-works fork) so the app is
+# self-contained — no brew. Override with LIBRESPOT_BIN; falls back to the
+# local fork build, then brew; warns if none found (dev-only bundle).
+LIBRESPOT_BIN="${LIBRESPOT_BIN:-}"
+if [[ -z "$LIBRESPOT_BIN" ]]; then
+  for cand in "$ROOT/.temp/go-librespot-fork/daemon-fork"               /opt/homebrew/opt/go-librespot/bin/go-librespot; do
+    [[ -x "$cand" ]] && LIBRESPOT_BIN="$cand" && break
+  done
+fi
+if [[ -n "$LIBRESPOT_BIN" ]]; then
+  cp "$LIBRESPOT_BIN" "$APP/Contents/MacOS/go-librespot"
+else
+  echo "WARN: no go-librespot binary found to bundle (app will rely on brew)" >&2
+fi
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -55,10 +70,17 @@ CERT_HASH="$(security find-certificate -c "$SIGN_CN" -Z 2>/dev/null | awk '/SHA-
 
 if [[ -n "$CERT_HASH" ]]; then
     security unlock-keychain -p "duet-signing-local" "$KEYCHAIN" 2>/dev/null || true
+    # Nested code first: the bundled daemon must carry its own signature.
+    if [[ -x "$APP/Contents/MacOS/go-librespot" ]]; then
+      codesign --force --sign "$CERT_HASH" --identifier "works.relux.pulsar.librespot" --timestamp=none "$APP/Contents/MacOS/go-librespot"
+    fi
     codesign --force --sign "$CERT_HASH" --identifier "$BUNDLE_ID" --timestamp=none "$APP"
 else
     echo "WARNING: identity '$SIGN_CN' not found (run scripts/setup-signing.sh);" >&2
     echo "         signing ad-hoc — TCC Automation will NOT survive updates (goal DoD-2)" >&2
+    if [[ -x "$APP/Contents/MacOS/go-librespot" ]]; then
+      codesign --force --sign - --identifier "works.relux.pulsar.librespot" "$APP/Contents/MacOS/go-librespot"
+    fi
     codesign --force --sign - --identifier "$BUNDLE_ID" "$APP"
 fi
 

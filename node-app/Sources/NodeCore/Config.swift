@@ -37,7 +37,10 @@ public struct NodeConfig: Codable, Equatable {
         }
     }
     public struct Librespot: Codable, Equatable {
-        public var binary: String
+        /// Daemon binary. Empty/absent = resolve automatically: bundled
+        /// go-librespot inside Pulsar.app, then the brew path (R1: the app
+        /// is self-contained; explicit value is a dev override).
+        public var binary: String?
         public var apiPort: Int
         /// Spotify Connect device name. Optional: defaults to "Pulsar A"/"Pulsar B"
         /// by node_id — each user only sees their own node in their home Wi-Fi.
@@ -55,6 +58,21 @@ public struct NodeConfig: Codable, Equatable {
     public struct Log: Codable, Equatable {
         public var level: String
         public var path: String
+    }
+
+    /// Effective daemon binary path: explicit config -> bundled -> brew.
+    public var effectiveLibrespotBinary: String {
+        if let b = librespot.binary, !b.isEmpty { return b }
+        if let bundled = Bundle.main.path(forAuxiliaryExecutable: "go-librespot"),
+           FileManager.default.isExecutableFile(atPath: bundled) {
+            return bundled
+        }
+        // Unbundled (CLI/dev) fallback: next to our own executable.
+        if let exe = Bundle.main.executablePath {
+            let sibling = (exe as NSString).deletingLastPathComponent + "/go-librespot"
+            if FileManager.default.isExecutableFile(atPath: sibling) { return sibling }
+        }
+        return "/opt/homebrew/opt/go-librespot/bin/go-librespot"
     }
 
     /// Effective Spotify Connect name: explicit config or "Pulsar A"/"Pulsar B".
@@ -85,7 +103,43 @@ public struct ConfigError: Error, CustomStringConvertible {
 }
 
 public enum ConfigLoader {
+    /// Support directory for the zero-config mode (R1): everything the node
+    /// needs lives under ~/Library/Application Support/Pulsar.
+    public static var supportDir: String {
+        (NSSearchPathForDirectoriesInDomains(.applicationSupportDirectory, .userDomainMask, true).first
+            ?? NSHomeDirectory() + "/Library/Application Support") + "/Pulsar"
+    }
+
+    /// defaults: the built-in config used when no yml exists (R1 zero-yml).
+    /// Coordinator url/token stay empty — pairing credentials fill them.
+    public static func defaults() -> NodeConfig {
+        let dir = supportDir
+        return NodeConfig(
+            nodeId: "a",
+            coordinator: .init(url: "", token: ""),
+            audio: .init(fifoPath: dir + "/spotify.fifo", sampleRate: 44100,
+                         format: "f32le", outputLatencyOffsetMs: 0,
+                         ringBufferMs: 1000, outputDevice: nil),
+            airfoil: .init(enabled: false, appPath: "/Applications/Airfoil.app",
+                           speakers: [], pollS: 10),
+            librespot: .init(binary: nil, apiPort: 3678, deviceName: nil,
+                             configDir: dir + "/librespot"),
+            cacheDir: dir + "/cache",
+            log: .init(level: "info", path: dir + "/pulsar.log"))
+    }
+
     public static func load(path: String, credentials: NodeCredentials? = nil) throws -> NodeConfig {
+        if !FileManager.default.fileExists(atPath: path) {
+            // Zero-yml mode (R1): built-in defaults + pairing credentials.
+            var cfg = defaults()
+            if let creds = credentials {
+                cfg.coordinator.url = creds.wsUrl
+                cfg.coordinator.token = creds.token
+                cfg.nodeId = creds.slot
+            }
+            try validate(cfg)
+            return cfg
+        }
         let text: String
         do {
             text = try String(contentsOfFile: path, encoding: .utf8)
@@ -116,16 +170,21 @@ public enum ConfigLoader {
         if c.nodeId.count != 1 || !("a"..."z").contains(c.nodeId) {
             problems.append("node_id is \"\(c.nodeId)\", must be a single slot letter (a…z)")
         }
-        if let url = URL(string: c.coordinator.url), let scheme = url.scheme {
-            if scheme != "ws" && scheme != "wss" {
-                problems.append("coordinator.url scheme is \(scheme)://, must be ws:// or wss://")
+        // Unpaired state (R1): empty url+token together is legal — the app
+        // starts into onboarding and asks for a pairing code instead.
+        let unpaired = c.coordinator.url.isEmpty && c.coordinator.token.isEmpty
+        if !unpaired {
+            if let url = URL(string: c.coordinator.url), let scheme = url.scheme {
+                if scheme != "ws" && scheme != "wss" {
+                    problems.append("coordinator.url scheme is \(scheme)://, must be ws:// or wss://")
+                }
+            } else {
+                problems.append("coordinator.url \"\(c.coordinator.url)\" is not a URL (expected ws://coord:8080/ws)")
             }
-        } else {
-            problems.append("coordinator.url \"\(c.coordinator.url)\" is not a URL (expected ws://coord:8080/ws)")
-        }
-        let hex = CharacterSet(charactersIn: "0123456789abcdefABCDEF")
-        if c.coordinator.token.count != 64 || c.coordinator.token.unicodeScalars.contains(where: { !hex.contains($0) }) {
-            problems.append("coordinator.token must be 64 hex chars (32 random bytes), got \(c.coordinator.token.count) chars")
+            let hex = CharacterSet(charactersIn: "0123456789abcdefABCDEF")
+            if c.coordinator.token.count != 64 || c.coordinator.token.unicodeScalars.contains(where: { !hex.contains($0) }) {
+                problems.append("coordinator.token must be 64 hex chars (32 random bytes), got \(c.coordinator.token.count) chars")
+            }
         }
         if c.audio.fifoPath.isEmpty {
             problems.append("audio.fifo_path is required (e.g. /Users/duet/duet/spotify.fifo)")

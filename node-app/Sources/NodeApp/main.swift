@@ -70,10 +70,10 @@ func parseArgs() -> String {
         switch pairNode(code: code.uppercased(), coordinatorBase: coordinatorBase) {
         case .success(let creds):
             do {
-                try creds.save(besideConfig: configPath)
+                try CredentialsStore.save(creds)
             } catch {
-                FileHandle.standardError.write(Data("не смог сохранить креды: \(error)\n".utf8))
-                exit(1)
+                // Headless keychain (rare): fall back to the legacy file.
+                try? creds.save(besideConfig: configPath)
             }
             print("спарено: орбит \(creds.orbitId), дом \(creds.slot) — запускай NodeApp как обычно")
             exit(0)
@@ -103,15 +103,36 @@ func failConfig(_ text: String) -> Never {
 
 let config: NodeConfig
 do {
-    // Pairing credentials (node-credentials.json beside the yml) override the
-    // yml's coordinator section — after `--pair` nobody edits configs.
+    // Pairing credentials (keychain; legacy json migrates on first read)
+    // override the yml's coordinator section — nobody edits configs (R1).
     config = try ConfigLoader.load(
         path: configPath,
-        credentials: NodeCredentials.load(besideConfig: configPath))
+        credentials: CredentialsStore.load(besideConfig: configPath))
 } catch let err as ConfigError {
     failConfig(err.description)
 } catch {
     failConfig("config load failed: \(error)")
+}
+
+// Zero-config mode: materialize the support tree and the FIFO (R1).
+for dir in [ConfigLoader.supportDir, config.cacheDir,
+            config.librespot.configDir ?? ConfigLoader.supportDir + "/librespot",
+            (config.log.path as NSString).deletingLastPathComponent] {
+    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+}
+if !FileManager.default.fileExists(atPath: config.audio.fifoPath) {
+    mkfifo(config.audio.fifoPath, 0o600)
+}
+
+if config.coordinator.token.isEmpty {
+    failConfig("""
+    Пульсар ещё не спарен с Барицентром.
+
+    1. В Telegram: @barycenter_bot → /pair (или /create для нового барицентра)
+    2. В терминале: NodeApp --pair КОД
+
+    (Окно онбординга приедет в следующем обновлении — R2.)
+    """)
 }
 
 let log = Logger(level: Logger.Level(name: config.log.level), path: config.log.path)
@@ -144,7 +165,7 @@ do {
 // --- go-librespot supervision + API client ---
 
 let supervisor = LibrespotSupervisor(
-    binary: config.librespot.binary,
+    binary: config.effectiveLibrespotBinary,
     configDir: config.librespot.configDir ?? LibrespotConfigRenderer.defaultConfigDir,
     log: log
 )

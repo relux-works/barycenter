@@ -108,14 +108,4 @@ private func loadFromString(_ yaml: String) throws -> NodeConfig {
         #expect(cfg.airfoil.isEnabled == false)
     }
 
-    @Test func missingFileExplainsItself() {
-        do {
-            _ = try ConfigLoader.load(path: "/nonexistent/duet/node.yml")
-            Issue.record("must throw")
-        } catch let err as ConfigError {
-            #expect(err.description.contains("cannot read"))
-        } catch {
-            Issue.record("wrong error type: \(error)")
-        }
-    }
 }

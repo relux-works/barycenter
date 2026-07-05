@@ -31,6 +31,21 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN" "$APP/Contents/MacOS/NodeApp"
 
+# Sparkle is a dynamic framework (binary xcframework): ship it in
+# Contents/Frameworks and point the executable's rpath there. Missing this
+# = dyld crash at launch ("cannot be opened because of a problem").
+SPARKLE_FW="$(dirname "$BIN")/Sparkle.framework"
+if [[ ! -d "$SPARKLE_FW" ]]; then
+  SPARKLE_FW="$ROOT/node-app/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+fi
+if [[ -d "$SPARKLE_FW" ]]; then
+  mkdir -p "$APP/Contents/Frameworks"
+  cp -R "$SPARKLE_FW" "$APP/Contents/Frameworks/"
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/NodeApp" 2>/dev/null || true
+else
+  echo "WARN: Sparkle.framework not found — updater will crash the app" >&2
+fi
+
 # R1: bundle the go-librespot daemon (relux-works fork) so the app is
 # self-contained — no brew. Override with LIBRESPOT_BIN; falls back to the
 # local fork build, then brew; warns if none found (dev-only bundle).
@@ -81,12 +96,18 @@ if [[ -n "$CERT_HASH" ]]; then
     if [[ -x "$APP/Contents/MacOS/go-librespot" ]]; then
       codesign --force --sign "$CERT_HASH" --identifier "works.relux.pulsar.librespot" --timestamp=none "$APP/Contents/MacOS/go-librespot"
     fi
+    if [[ -d "$APP/Contents/Frameworks/Sparkle.framework" ]]; then
+      codesign --force --deep --sign "$CERT_HASH" --timestamp=none "$APP/Contents/Frameworks/Sparkle.framework"
+    fi
     codesign --force --sign "$CERT_HASH" --identifier "$BUNDLE_ID" --timestamp=none "$APP"
 else
     echo "WARNING: identity '$SIGN_CN' not found (run scripts/setup-signing.sh);" >&2
     echo "         signing ad-hoc — TCC Automation will NOT survive updates (goal DoD-2)" >&2
     if [[ -x "$APP/Contents/MacOS/go-librespot" ]]; then
       codesign --force --sign - --identifier "works.relux.pulsar.librespot" "$APP/Contents/MacOS/go-librespot"
+    fi
+    if [[ -d "$APP/Contents/Frameworks/Sparkle.framework" ]]; then
+      codesign --force --deep --sign - "$APP/Contents/Frameworks/Sparkle.framework"
     fi
     codesign --force --sign - --identifier "$BUNDLE_ID" "$APP"
 fi

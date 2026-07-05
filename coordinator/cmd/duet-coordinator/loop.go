@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -207,7 +208,7 @@ func (l *loop) handlePlaylistDone(d playlistDone) {
 		return
 	}
 	o := l.orbit(d.orbit)
-	l.apply(o, o.sess.SetPlaylist(d.uri, d.title, d.tracks))
+	l.apply(o, o.sess.SetPlaylist(d.uri, esc(d.title), d.tracks))
 }
 
 // notify DMs every member of the orbit (group chat binding comes in M4).
@@ -328,10 +329,11 @@ func (l *loop) handleExternalPlayback(o *orbitState, slot protocol.NodeID, uri s
 
 // --- Bot events: onboarding, roles, commands (spec ch. 9 + v2.1 M1) ---
 
-const strangerHello = `Привет! Я Барицентр — общий музыкальный эфир на несколько домов: синхронное звучание, очередь треков из этого чата, голосовые вставки между песнями.
+const strangerHello = `Привет! Я <b>Барицентр</b> — общий музыкальный эфир на несколько домов: одна и та же музыка звучит синхронно у всех, очередью управляет этот чат, а голосовые встают между песнями.
 
+<b>Как начать</b>
 /create — создать свой барицентр
-Или открой инвайт-ссылку от того, кто уже в системе.`
+…или открой инвайт-ссылку от того, кто уже в системе.`
 
 func (l *loop) handleBot(ev bot.Event) {
 	member, err := l.st.MemberOf(ev.FromUserID)
@@ -370,10 +372,10 @@ func (l *loop) handleBot(ev bot.Event) {
 	switch cmd.Kind {
 
 	case bot.KindStart:
-		ev.Reply(fmt.Sprintf("ты уже в орбите «%s». /help — команды, /orbit — участники", o.title))
+		ev.Reply(fmt.Sprintf("ты уже в орбите <b>«%s»</b>.\n/help — команды · /orbit — участники", esc(o.title)))
 
 	case bot.KindCreate:
-		ev.Reply(fmt.Sprintf("у тебя уже есть орбит «%s» — вторая вселенная пока не положена (M4)", o.title))
+		ev.Reply(fmt.Sprintf("у тебя уже есть орбит <b>«%s»</b> — вторая вселенная пока не положена", esc(o.title)))
 
 	case bot.KindShare:
 		code, err := l.st.NewInvite(o.id, ev.FromUserID)
@@ -382,7 +384,7 @@ func (l *loop) handleBot(ev bot.Event) {
 			return
 		}
 		link := fmt.Sprintf("https://t.me/%s?start=%s", l.botUsername(), code)
-		ev.Reply(fmt.Sprintf("приглашение в «%s» (48 часов, одноразовое):\n%s", o.title, link))
+		ev.Reply(fmt.Sprintf("приглашение в <b>«%s»</b> — одноразовое, живёт 48 часов:\n\n%s", esc(o.title), link))
 
 	case bot.KindPairCode:
 		code, err := l.st.NewPairCode(o.id, ev.FromUserID)
@@ -390,7 +392,7 @@ func (l *loop) handleBot(ev bot.Event) {
 			ev.Reply("не смог создать код")
 			return
 		}
-		ev.Reply(fmt.Sprintf("код для твоего Пульсара (5 минут):\n\n%s\n\nВведи его в приложении Pulsar при первом запуске — и твой дом подключится к эфиру", code))
+		ev.Reply(fmt.Sprintf("код для твоего Пульсара — живёт 5 минут:\n\n<code>%s</code>\n\nВведи его в приложении Pulsar при первом запуске, и твой дом подключится к эфиру.", code))
 
 	case bot.KindOrbit:
 		ev.Reply(l.orbitText(o))
@@ -632,7 +634,7 @@ func (l *loop) handleStranger(ev bot.Event) {
 			}
 			o := l.orbit(orbitID)
 			l.notify(o, fmt.Sprintf("%s теперь в орбите", ev.FromName))
-			ev.Reply(fmt.Sprintf("добро пожаловать в «%s»! Кидай ссылки на треки прямо сюда.\nСвой дом в эфире: поставь приложение Pulsar и набери /pair — дам код", o.title))
+			ev.Reply(fmt.Sprintf("добро пожаловать в <b>«%s»</b>! Кидай ссылки на треки прямо сюда.\n\nХочешь, чтобы эфир звучал и у тебя дома — поставь приложение Pulsar и набери /pair, дам код.", esc(o.title)))
 			return
 		}
 		ev.Reply(strangerHello)
@@ -647,7 +649,7 @@ func (l *loop) handleStranger(ev bot.Event) {
 			return
 		}
 		code, _ := l.st.NewPairCode(o.ID, ev.FromUserID)
-		ev.Reply(fmt.Sprintf("орбит «%s» создан, ты — primary.\n\nКод для твоего Пульсара (5 минут): %s\n\n/share пригласит партнёра, /pair выдаст новый код, /help — всё остальное", o.Title, code))
+		ev.Reply(fmt.Sprintf("орбит <b>«%s»</b> создан, ты — primary ⭐\n\nКод для твоего Пульсара — живёт 5 минут:\n<code>%s</code>\n\n/share — пригласить партнёра\n/pair — новый код\n/help — всё остальное", esc(o.Title), code))
 	default:
 		ev.Reply("это приватная система общих эфиров. /start расскажет, /create создаст твою собственную")
 	}
@@ -882,9 +884,14 @@ func (l *loop) newTrackElement(uri string, fromName string) session.Element {
 
 func trackLabel(el session.Element) string {
 	if el.Title != "" {
-		return el.Title
+		return esc(el.Title)
 	}
-	return el.URI
+	return esc(el.URI)
+}
+
+// esc escapes user-controlled text for Telegram HTML parse mode.
+func esc(s string) string {
+	return html.EscapeString(s)
 }
 
 func fmtMS(ms int64) string {
@@ -894,7 +901,7 @@ func fmtMS(ms int64) string {
 
 func (l *loop) orbitText(o *orbitState) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "орбит «%s»\n", o.title)
+	fmt.Fprintf(&b, "<b>орбит «%s»</b>\n", esc(o.title))
 	members, _ := l.st.Members(o.id)
 	for _, m := range members {
 		slot, _ := l.st.SlotOf(o.id, m.TGUserID)
@@ -932,14 +939,14 @@ func (l *loop) queueText(o *orbitState) string {
 	} else {
 		b.WriteString("очередь:\n")
 		for i, el := range o.sess.Queue {
-			fmt.Fprintf(&b, "%d. %s (от %s)\n", i+1, elementLabel(el), el.RequestedBy)
+			fmt.Fprintf(&b, "%d. %s <i>(от %s)</i>\n", i+1, elementLabel(el), esc(string(el.RequestedBy)))
 		}
 	}
 	if p := o.sess.Playlist; p != nil {
 		if p.Cursor < len(p.Tracks) {
-			fmt.Fprintf(&b, "\nплейлист: «%s», дальше трек %d/%d", p.Title, p.Cursor+1, len(p.Tracks))
+			fmt.Fprintf(&b, "\nплейлист <b>«%s»</b>, дальше трек %d/%d", esc(p.Title), p.Cursor+1, len(p.Tracks))
 		} else {
-			fmt.Fprintf(&b, "\nплейлист «%s» доигран", p.Title)
+			fmt.Fprintf(&b, "\nплейлист <b>«%s»</b> доигран", esc(p.Title))
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")
@@ -967,7 +974,7 @@ func (l *loop) nowText(o *orbitState) string {
 				fmt.Fprintf(&b, "дом %s: тишина\n", sl)
 				continue
 			}
-			fmt.Fprintf(&b, "дом %s: %s @ %s\n", sl, *st.URI, fmtMS(st.PositionMS))
+			fmt.Fprintf(&b, "дом %s: %s @ %s\n", sl, esc(*st.URI), fmtMS(st.PositionMS))
 		}
 		return strings.TrimRight(b.String(), "\n")
 	}
@@ -989,7 +996,7 @@ func (l *loop) livePosition(o *orbitState) int64 {
 
 func (l *loop) statusText(o *orbitState) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "«%s»: режим %s, состояние %s\n", o.title, o.sess.Mode, o.sess.State)
+	fmt.Fprintf(&b, "<b>«%s»</b> — режим %s, состояние %s\n", esc(o.title), o.sess.Mode, o.sess.State)
 	online := l.hub.Online(o.id)
 	slots, _ := l.st.ActiveSlots(o.id)
 	for _, sl := range slots {

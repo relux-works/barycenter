@@ -40,6 +40,7 @@ type API interface {
 	FileURL(fileID string) (string, error)
 	Download(fileURL, destPath string) error
 	GetMe() (username string, err error)
+	SetMyCommands(commandsJSON string) error
 }
 
 // Update mirrors the subset of Telegram's Update we need.
@@ -91,8 +92,28 @@ func New(api API, log *slog.Logger) *Bot {
 	} else {
 		log.Warn("getMe failed, invite links will use the default username", "err", err)
 	}
+	if err := api.SetMyCommands(commandMenuJSON); err != nil {
+		log.Warn("setMyCommands failed", "err", err)
+	}
 	return b
 }
+
+// commandMenuJSON is the Telegram client command menu (the "/" button).
+const commandMenuJSON = `[
+{"command":"create","description":"создать свой барицентр"},
+{"command":"orbit","description":"участники и дома"},
+{"command":"share","description":"пригласить в орбит"},
+{"command":"pair","description":"код для своего Пульсара"},
+{"command":"now","description":"что играет"},
+{"command":"queue","description":"очередь"},
+{"command":"skip","description":"пропустить"},
+{"command":"pause","description":"пауза"},
+{"command":"resume","description":"продолжить"},
+{"command":"periastron","description":"общий эфир"},
+{"command":"apoastron","description":"каждый слушает своё"},
+{"command":"status","description":"состояние системы"},
+{"command":"help","description":"все команды"}
+]`
 
 // SendTo posts to any chat (orbit notifications go to each member's DM).
 func (b *Bot) SendTo(chatID int64, text string) {
@@ -239,9 +260,16 @@ func (a *HTTPAPI) GetUpdates(offset int64, timeoutS int) ([]Update, error) {
 
 func (a *HTTPAPI) SendMessage(chatID int64, text string) error {
 	return a.call("sendMessage", url.Values{
-		"chat_id": {strconv.FormatInt(chatID, 10)},
-		"text":    {text},
+		"chat_id":                  {strconv.FormatInt(chatID, 10)},
+		"text":                     {text},
+		"parse_mode":               {"HTML"},
+		"disable_web_page_preview": {"true"},
 	}, nil)
+}
+
+// SetMyCommands registers the command menu shown by Telegram clients.
+func (a *HTTPAPI) SetMyCommands(commandsJSON string) error {
+	return a.call("setMyCommands", url.Values{"commands": {commandsJSON}}, nil)
 }
 
 func (a *HTTPAPI) FileURL(fileID string) (string, error) {

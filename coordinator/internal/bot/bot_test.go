@@ -90,3 +90,5 @@ func TestVoiceFlags(t *testing.T) {
 		t.Fatalf("broadcast caption: %+v", ev.Voice)
 	}
 }
+
+func (m *mockAPI) SetMyCommands(string) error { return nil }

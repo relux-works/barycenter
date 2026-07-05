@@ -1,0 +1,19 @@
+name: uptime
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  healthz:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe prod healthz
+        run: |
+          out=$(curl -sf -m 15 https://barycenter.relux.works/healthz)
+          echo "$out"
+          echo "$out" | grep -q '"status":"ok"'

@@ -97,3 +97,20 @@ func TestPairRejectsNonPost(t *testing.T) {
 		t.Fatalf("GET must 405, got %d", resp.StatusCode)
 	}
 }
+
+// Coordinator policy defends only a BUSY broadcast; an empty air always
+// yields to the phone (customer R0 finding).
+func TestCoordinatorPolicyYieldsWhenIdle(t *testing.T) {
+	l, fake := newTestLoop(t)
+	o := l.orbit(1)
+	o.takeoverPolicy = "coordinator"
+	l.handleExternalPlayback(o, "a", "spotify:track:X")
+	for _, m := range fake.ofType("stop") {
+		if m.node == "a" {
+			t.Fatalf("empty air must not stop the phone's node: %+v", fake.sent)
+		}
+	}
+	if o.sess.Mode != "solo" {
+		t.Fatalf("empty air yields to apoastron, mode=%s", o.sess.Mode)
+	}
+}

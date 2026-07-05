@@ -314,8 +314,13 @@ func (l *loop) handleExternalPlayback(o *orbitState, slot protocol.NodeID, uri s
 		return
 	}
 	l.st.LogEvent(string(slot), "external_playback", map[string]string{"uri": uri, "policy": o.takeoverPolicy})
-	if o.takeoverPolicy == "user" {
-		l.notify(o, fmt.Sprintf("дом %s забрал управление (играет с телефона) — режим solo", slot))
+	// The policy arbitrates a CONFLICT over a busy broadcast. An empty air
+	// has nothing to defend: the phone is always welcome, both policies
+	// step aside into apoastron (customer finding, R0 prod 2026-07-05).
+	busy := o.sess.Current != nil || o.sess.QueueLen() > 0 ||
+		(o.sess.Playlist != nil && o.sess.Playlist.Cursor < len(o.sess.Playlist.Tracks))
+	if o.takeoverPolicy == "user" || !busy {
+		l.notify(o, fmt.Sprintf("дом %s слушает своё — апоастрон", slot))
 		l.apply(o, o.sess.SetModeSoloKeeping(slot))
 		return
 	}

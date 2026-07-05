@@ -285,10 +285,18 @@ func startCore(with config: NodeConfig) {
 
 func bootstrap() {
     statusMenu.install()
-    let creds = CredentialsStore.load(besideConfig: configPath)
+    // An explicit yml with its own coordinator.token wins over keychain
+    // credentials (sandbox/dev nodes must not steal the paired slot).
     let config: NodeConfig
     do {
-        config = try ConfigLoader.load(path: configPath, credentials: creds)
+        let plain = try ConfigLoader.load(path: configPath)
+        if plain.coordinator.token.isEmpty {
+            config = try ConfigLoader.load(
+                path: configPath,
+                credentials: CredentialsStore.load(besideConfig: configPath))
+        } else {
+            config = plain
+        }
     } catch let err as ConfigError {
         failConfig(err.description)
     } catch {

@@ -162,6 +162,12 @@ public final class PlayerCore {
 
         Task {
             do {
+                // The daemon needs seconds after (re)start to authenticate;
+                // a load racing that window must wait, not fail as
+                // "track unavailable" (R0 finding, prod 2026-07-05).
+                for _ in 0..<20 where !(await self.librespot.playbackReady()) {
+                    try await Task.sleep(nanoseconds: 500_000_000)
+                }
                 try await self.librespot.playPaused(uri: p.uri)
                 if p.positionMs > 0 {
                     try await self.librespot.seek(positionMS: p.positionMs)

@@ -112,6 +112,9 @@ const commandMenuJSON = `[
 {"command":"periastron","description":"общий эфир"},
 {"command":"apoastron","description":"каждый слушает своё"},
 {"command":"status","description":"состояние системы"},
+{"command":"takeover","description":"кто главнее при вмешательстве с телефона"},
+{"command":"playnow","description":"включить немедленно"},
+{"command":"vol","description":"громкость дома"},
 {"command":"help","description":"все команды"}
 ]`
 

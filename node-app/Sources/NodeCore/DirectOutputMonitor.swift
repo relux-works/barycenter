@@ -104,6 +104,32 @@ public final class DirectOutputMonitor {
         return cf as String
     }
 
+    /// Lists the names of all output-capable devices (menu-bar picker, R2).
+    public static func listOutputDevices() -> [String] {
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var size = UInt32(0)
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size) == noErr else { return [] }
+        var devs = [AudioDeviceID](repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &devs) == noErr else { return [] }
+        var out: [String] = []
+        for dev in devs {
+            var streamsAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyStreams,
+                mScope: kAudioObjectPropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain)
+            var ssize = UInt32(0)
+            AudioObjectGetPropertyDataSize(dev, &streamsAddr, 0, nil, &ssize)
+            guard ssize > 0 else { continue }
+            if let name = deviceName(dev), !out.contains(name) {
+                out.append(name)
+            }
+        }
+        return out
+    }
+
     /// Sets the system default output to the device with this exact name.
     /// Returns false when the device is not present (e.g. speaker still off).
     public static func setDefaultOutput(named target: String) -> Bool {

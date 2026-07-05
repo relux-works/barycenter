@@ -97,6 +97,7 @@ public struct NodeConfig: Codable, Equatable {
 
 public struct ConfigError: Error, CustomStringConvertible {
     public let problems: [String]
+    public init(problems: [String]) { self.problems = problems }
     public var description: String {
         "config invalid:\n  - " + problems.joined(separator: "\n  - ")
     }

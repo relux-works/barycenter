@@ -21,6 +21,20 @@ public final class PlayerCore {
     // Coordinator link is set after init (mutual wiring).
     public weak var coordinator: CoordinatorClient?
 
+    /// MenuStatus is a thread-safe snapshot for the menu bar (R2).
+    public struct MenuStatus {
+        public let mode: String
+        public let playback: String
+        public let uri: String?
+        public let volume: Int
+    }
+
+    public func menuStatus() -> MenuStatus {
+        queue.sync {
+            MenuStatus(mode: mode, playback: "\(playback)", uri: currentURI, volume: volume)
+        }
+    }
+
     public private(set) var mode = "shared"
     public private(set) var playback = Playback.stopped
     public private(set) var currentElementID: String?

@@ -148,3 +148,18 @@ func TestRemovePeerUnblocksReady(t *testing.T) {
 		t.Fatalf("pair must arm after c is gone: %#v %s", effs, s.State)
 	}
 }
+
+// Policy user: the takeover initiator's node must NOT receive stop —
+// stopping it kills the playback the user just started (prod R0 finding).
+func TestSoloKeepingInitiator(t *testing.T) {
+	s := trioSession()
+	effs := s.SetModeSoloKeeping("a")
+	for _, e := range of[EffStop](t, effs) {
+		if e.To == "a" {
+			t.Fatalf("initiator a must keep playing: %#v", effs)
+		}
+	}
+	if len(of[EffStop](t, effs)) != 2 || len(of[EffSetMode](t, effs)) != 3 {
+		t.Fatalf("others stop, everyone gets set_mode: %#v", effs)
+	}
+}

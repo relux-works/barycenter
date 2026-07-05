@@ -784,6 +784,17 @@ func (s *Session) OnNodeBack(node protocol.NodeID) []Effect {
 // --- Mode switching (spec 4.3) ---
 
 func (s *Session) SetModeSolo() []Effect {
+	return s.setModeSolo("")
+}
+
+// SetModeSoloKeeping switches to solo without stopping the initiator's
+// node — a phone takeover (policy user) must not kill the very playback
+// the user just started (R0 finding, prod 2026-07-05).
+func (s *Session) SetModeSoloKeeping(keep protocol.NodeID) []Effect {
+	return s.setModeSolo(keep)
+}
+
+func (s *Session) setModeSolo(keep protocol.NodeID) []Effect {
 	if s.Mode == ModeSolo {
 		return nil
 	}
@@ -794,7 +805,10 @@ func (s *Session) SetModeSolo() []Effect {
 	s.State = StateIdle
 	effs := []Effect{EffCancelReadyTimer{}}
 	for _, n := range s.Peers {
-		effs = append(effs, EffStop{To: n}, EffSetMode{To: n, Mode: ModeSolo})
+		if n != keep {
+			effs = append(effs, EffStop{To: n})
+		}
+		effs = append(effs, EffSetMode{To: n, Mode: ModeSolo})
 	}
 	return append(effs, EffNotify{Text: "апоастрон: орбиты расходятся, каждый слушает своё (/inject подкидывает партнёру)"}, EffPersist{})
 }

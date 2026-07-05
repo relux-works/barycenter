@@ -316,7 +316,7 @@ func (l *loop) handleExternalPlayback(o *orbitState, slot protocol.NodeID, uri s
 	l.st.LogEvent(string(slot), "external_playback", map[string]string{"uri": uri, "policy": o.takeoverPolicy})
 	if o.takeoverPolicy == "user" {
 		l.notify(o, fmt.Sprintf("дом %s забрал управление (играет с телефона) — режим solo", slot))
-		l.apply(o, o.sess.SetModeSolo())
+		l.apply(o, o.sess.SetModeSoloKeeping(slot))
 		return
 	}
 	l.notify(o, fmt.Sprintf("дом %s вмешался с телефона — эфир восстановлен", slot))

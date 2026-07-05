@@ -126,7 +126,7 @@ public enum ConfigLoader {
             librespot: .init(binary: nil, apiPort: 3678, deviceName: nil,
                              configDir: dir + "/librespot"),
             cacheDir: dir + "/cache",
-            log: .init(level: "info", path: dir + "/pulsar.log"))
+            log: .init(level: "debug", path: dir + "/pulsar.log"))
     }
 
     public static func load(path: String, credentials: NodeCredentials? = nil) throws -> NodeConfig {

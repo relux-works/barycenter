@@ -90,3 +90,14 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
+      # --- Notarization (enable when ASC secrets land) ---
+      # Requires: gh secret set ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8 (base64 .p8)
+      # - name: Notarize + staple
+      #   env:
+      #     ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      #     ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      #   run: |
+      #     echo "${{ secrets.ASC_KEY_P8 }}" | base64 -d > /tmp/asc.p8
+      #     xcrun notarytool submit dist/Pulsar-*.dmg --key /tmp/asc.p8 \
+      #       --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" --wait
+      #     xcrun stapler staple dist/Pulsar-*.dmg

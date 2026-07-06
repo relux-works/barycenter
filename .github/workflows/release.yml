@@ -60,7 +60,8 @@ jobs:
           hdiutil create -volname "Pulsar" -srcfolder dmg-root -ov -format UDZO "dist/Pulsar-${GITHUB_REF_NAME}-arm64.dmg"
           shasum -a 256 dist/*.dmg > dist/SHA256SUMS.pulsar
       - name: Sign the dmg container
-        run: codesign --force --sign "Developer ID Application: Relux Works, LLC (262RZ595FP)" --timestamp dist/Pulsar-*.dmg
+        run: |
+          codesign --force --sign "Developer ID Application: Relux Works, LLC (262RZ595FP)" --timestamp dist/Pulsar-*.dmg
       - name: Notarize + staple
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}

@@ -125,17 +125,32 @@ node (Keychain).
 4. Orbit limits: soft-configured (global env + per-orbit override), defaults
    5 pulsars / 10 members — NOT hardcoded (customer).
 
-## 12. Orbit merge & binary-system periastron (Timur's beta finding, 2026-07-07)
+## 12. Personal barycenters & approaches (CANON, customer decision 2026-07-07)
 
-Problem: two people both run /create and become primaries of separate orbits;
-neither can join the other. Accepted direction (customer):
-- **M-merge (near-term)**: opening a member-invite link while ALREADY a member
-  elsewhere offers a move: "перенести твой дом в этот барицентр?" — transfers
-  membership+slot (node re-pairs automatically), deletes the old orbit if it
-  ends up empty. Confirmation inline in the bot.
-- **M-link (epic, "double systems")**: two orbits dynamically join a shared
-  periastron and part again: both primaries must consent via the bot; while
-  linked, the union behaves as one broadcast across all homes (peer-set FSM
-  already N-wise); options offered on link: "общий эфир для всех" vs "новый
-  эфир только для инициаторов". Astronomy holds: binary stars form
-  hierarchical multiple systems.
+An orbit (barycenter) is a PERSONAL, permanent space — like an account: your
+pulsars, your settings, your solo music. It never dies, merges or gets
+absorbed. Togetherness is an APPROACH (сближение) — a separate link entity
+between barycenters. Periastron thereby becomes literally correct astronomy:
+the closest point of TWO systems, not a mode inside one.
+
+Consequences:
+- /create for everyone is the NORM, not a mistake (the two-hosts problem
+  dissolves). An invite becomes a proposal to approach, accepted mutually.
+- Breaking up is painless: the link dissolves, each side keeps everything.
+- Poly/friend groups = a graph of links between personal systems.
+- companion/satellite roles remain for guests INSIDE a personal barycenter.
+
+Mechanics (L1 — link of two):
+- store: links(id, orbit_a, orbit_b, state proposed|active, proposed_by);
+  one active link per orbit in L1.
+- While a link is active, ONE shared session lives at the link level; its
+  peer set = union of both orbits' slots (M2 peer-set FSM is already N-wise).
+  Peer ids are composite "orbit:slot" inside the session; bot texts render
+  them as "дом a@<primary name>".
+- Bot flow: /approach -> one-time approach code; the other primary sends
+  /approach CODE -> the initiator gets an inline confirmation -> both said
+  yes -> sessions of both orbits stop, the link session starts (shared,
+  idle) with a notify to everyone. /apart (either side) breaks the link:
+  the group session ends, each orbit returns to its own solo session.
+- Phases: L1 pair link; L2 groups >2 (link graph -> one session per
+  connected component); L3 guest members inside a personal barycenter.

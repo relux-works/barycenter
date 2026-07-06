@@ -51,6 +51,7 @@ func main() {
 		"ready_timeout_s", cfg.Timings.ReadyTimeoutS,
 		"offline_after_s", cfg.Timings.OfflineAfterS,
 		"media_preset", cfg.Media.Preset,
+		"providers", cfg.Providers,
 	)
 
 	if err := os.MkdirAll(cfg.MediaDir, 0o750); err != nil {
@@ -104,6 +105,14 @@ func main() {
 	}
 
 	l := newLoop(log, cfg, h, st, tgBot, sp)
+	if cfg.Providers {
+		// Provider layer (spec-providers, DUET_PROVIDERS=1): resolve cascade
+		// clients; secrets stay in the environment, only presence is logged.
+		l.resolveTrack = newResolveTrackFn(log, sp)
+		log.Info("provider layer enabled",
+			"yandex_token_set", os.Getenv("DUET_YANDEX_TOKEN") != "",
+			"odesli_key_set", os.Getenv("DUET_ODESLI_KEY") != "")
+	}
 	l.warmup()
 	go l.run(stop, h.Events)
 

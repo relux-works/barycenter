@@ -37,9 +37,12 @@ const (
 
 // Element is the unit of airtime (spec 5.1).
 type Element struct {
-	ID          string
-	Kind        Kind
-	URI         string // kind=track
+	ID   string
+	Kind Kind
+	URI  string // kind=track
+	// CTID references the canonical track (spec-providers §2). Set only when
+	// the provider layer is on; URI stays the denormalized origin ref.
+	CTID        string `json:"ctid,omitempty"`
 	MediaID     string // kind=voice
 	Title       string
 	DurationMS  int64

@@ -42,13 +42,18 @@ const (
 	KindMakePrimary CommandKind = "make_primary" // /make_primary [tg id]
 	KindRevoke      CommandKind = "revoke"       // /revoke <slot>
 	KindOrbit       CommandKind = "orbit"        // /orbit — members & slots
+
+	// Provider layer (spec-providers, behind DUET_PROVIDERS)
+	KindProvider CommandKind = "provider" // /provider <slot> <spotify|yandex> (§6.3)
+	KindResolve  CommandKind = "resolve"  // /resolve — manual mapping repair (reserved)
 )
 
 type Command struct {
-	Kind   CommandKind
-	URI    string // link, playnow, inject
-	Number int    // cancel position, vol value, offset ms
-	Target string // "a" | "b" | "both" | "" (vol/inject/offset target)
+	Kind     CommandKind
+	URI      string // link, playnow, inject
+	Number   int    // cancel position, vol value, offset ms
+	Target   string // "a" | "b" | "both" | "" (vol/inject/offset target, provider slot)
+	Provider string // /provider service id: "spotify" | "yandex"
 }
 
 // ErrReply: parsing failed in a way the user should hear about.
@@ -227,6 +232,21 @@ func Parse(text string) (Command, error) {
 			return Command{}, ErrReply{fmt.Sprintf("«%s» не похоже на миллисекунды", args[1])}
 		}
 		return Command{Kind: KindOffset, Number: ms, Target: target}, nil
+
+	case "/provider":
+		if len(args) != 2 {
+			return Command{}, ErrReply{"так: /provider <дом> <spotify|yandex>"}
+		}
+		p := strings.ToLower(args[1])
+		if p != "spotify" && p != "yandex" {
+			return Command{}, ErrReply{fmt.Sprintf("провайдера «%s» нет, есть spotify и yandex", args[1])}
+		}
+		return Command{Kind: KindProvider, Target: strings.ToLower(args[0]), Provider: p}, nil
+
+	case "/resolve":
+		// Reserved (spec-providers §8): argument parsing arrives with the
+		// ctid queues; for now the loop answers with a stub.
+		return Command{Kind: KindResolve}, nil
 
 	case "/help":
 		return Command{}, ErrReply{helpText}

@@ -90,6 +90,62 @@ func (c *Client) getJSON(rawURL string, out any) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
+// Track is the canonical metadata subset the provider layer reads
+// (spec-providers §2): external_ids.isrc feeds the ISRC cascade step.
+type Track struct {
+	URI        string
+	Title      string
+	Artists    []string
+	DurationMS int64
+	ISRC       string
+}
+
+// TrackByRef fetches track metadata for a "spotify:track:<id>" ref.
+func (c *Client) TrackByRef(ref string) (*Track, error) {
+	id := strings.TrimPrefix(ref, "spotify:track:")
+	if id == ref || id == "" {
+		return nil, fmt.Errorf("not a spotify track ref: %q", ref)
+	}
+	var body struct {
+		Name       string `json:"name"`
+		DurationMS int64  `json:"duration_ms"`
+		Artists    []struct {
+			Name string `json:"name"`
+		} `json:"artists"`
+		ExternalIDs struct {
+			ISRC string `json:"isrc"`
+		} `json:"external_ids"`
+	}
+	if err := c.getJSON("https://api.spotify.com/v1/tracks/"+id, &body); err != nil {
+		return nil, err
+	}
+	t := &Track{URI: ref, Title: body.Name, DurationMS: body.DurationMS, ISRC: body.ExternalIDs.ISRC}
+	for _, a := range body.Artists {
+		t.Artists = append(t.Artists, a.Name)
+	}
+	return t, nil
+}
+
+// SearchISRC resolves an ISRC code to "spotify:track:<id>" via Web API
+// search ("" when nothing matches) — cascade step A of spec-providers §3.
+func (c *Client) SearchISRC(isrc string) (string, error) {
+	q := url.Values{"q": {"isrc:" + isrc}, "type": {"track"}, "limit": {"1"}}
+	var body struct {
+		Tracks struct {
+			Items []struct {
+				URI string `json:"uri"`
+			} `json:"items"`
+		} `json:"tracks"`
+	}
+	if err := c.getJSON("https://api.spotify.com/v1/search?"+q.Encode(), &body); err != nil {
+		return "", err
+	}
+	if len(body.Tracks.Items) == 0 {
+		return "", nil
+	}
+	return body.Tracks.Items[0].URI, nil
+}
+
 // Expansion holds an expanded playlist/album.
 type Expansion struct {
 	Title  string

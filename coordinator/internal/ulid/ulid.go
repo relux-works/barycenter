@@ -64,3 +64,6 @@ func NewElementID(t time.Time) string { return "el_" + New(t) }
 
 // NewMediaID returns "m_<ULID>".
 func NewMediaID(t time.Time) string { return "m_" + New(t) }
+
+// NewCTID returns "ct_<ULID>" — a canonical track id (spec-providers §2).
+func NewCTID(t time.Time) string { return "ct_" + New(t) }

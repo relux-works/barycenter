@@ -60,6 +60,10 @@ type loop struct {
 	bot *bot.Bot        // nil when telegram is disabled (dev mode)
 	sp  *spotify.Client // nil when spotify app creds are not configured (U10)
 
+	// resolveTrack runs the provider cascade for one track (providers.go).
+	// nil while the provider layer is off; tests stub it directly.
+	resolveTrack resolveTrackFn
+
 	states map[int64]*orbitState
 
 	timeouts   chan orbitTimeout
@@ -84,7 +88,7 @@ type playlistDone struct {
 type mediaDone struct {
 	orbit    int64
 	mediaID  string
-	from     int64  // tg user id of the sender
+	from     int64 // tg user id of the sender
 	fromName string
 	personal bool
 	result   media.Result
@@ -432,11 +436,20 @@ func (l *loop) handleBot(ev bot.Event) {
 		ev.Reply(fmt.Sprintf("токен дома %s отозван; /pair выдаст новый код", cmd.Target))
 
 	case bot.KindLink:
+		// Provider layer off: non-spotify refs keep the pre-provider answer
+		// (flag inertness — the parser recognizes yandex links regardless).
+		if !l.cfg.Providers && !strings.HasPrefix(cmd.URI, "spotify:") {
+			ev.Reply("такие ссылки не поддерживаю — кидай трек, плейлист или альбом")
+			return
+		}
 		if o.sess.Mode != session.ModeShared {
 			ev.Reply("сейчас режим solo: /inject подкинет трек партнёру, /periastron вернёт общий эфир")
 			return
 		}
 		el := l.newTrackElement(cmd.URI, ev.FromName)
+		if l.cfg.Providers && !l.resolveElement(o, &el, ev.Reply) {
+			return // P1 strict air: rejection already replied (spec-providers §4.2)
+		}
 		l.st.InsertElement(el)
 		l.apply(o, o.sess.EnqueueTrack(el))
 		if o.sess.Current != nil && o.sess.Current.ID == el.ID {
@@ -616,6 +629,43 @@ func (l *loop) handleBot(ev bot.Event) {
 			return
 		}
 		ev.Reply("подкинул в очередь")
+
+	case bot.KindProvider:
+		if !l.cfg.Providers {
+			ev.Reply("провайдерский слой ещё не включён")
+			return
+		}
+		provs, err := l.st.SlotProviders(o.id)
+		if err != nil {
+			l.log.Error("slot providers lookup failed", "orbit", o.id, "err", err)
+			ev.Reply("не смог прочитать дома орбита")
+			return
+		}
+		if provs[cmd.Target] == "" {
+			ev.Reply(fmt.Sprintf("дома %s нет в орбите (/orbit покажет слоты)", cmd.Target))
+			return
+		}
+		if err := l.st.SetSlotProvider(o.id, cmd.Target, cmd.Provider); err != nil {
+			l.log.Error("set slot provider failed", "orbit", o.id, "slot", cmd.Target, "err", err)
+			ev.Reply("не получилось сохранить провайдера")
+			return
+		}
+		// Push to the node (spec-providers §6.3): offline nodes learn the
+		// provider from the slots table on their next connect.
+		if !l.hub.Send(hub.NodeKey{Orbit: o.id, Slot: protocol.NodeID(cmd.Target)},
+			protocol.TypeSetProvider, &protocol.SetProviderPayload{Provider: cmd.Provider}) {
+			ev.Reply(fmt.Sprintf("дом %s офлайн — провайдер %s сохранён, нода узнает при подключении", cmd.Target, providerName(cmd.Provider)))
+			return
+		}
+		ev.Reply(fmt.Sprintf("дом %s теперь на %s", cmd.Target, providerName(cmd.Provider)))
+
+	case bot.KindResolve:
+		if !l.cfg.Providers {
+			ev.Reply("провайдерский слой ещё не включён")
+			return
+		}
+		// Reserved (spec-providers §8): manual repair needs ctid queues.
+		ev.Reply("ручная починка маппинга приедет вместе с очередями на ctid")
 	}
 }
 

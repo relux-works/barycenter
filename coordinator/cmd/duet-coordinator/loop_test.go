@@ -62,8 +62,8 @@ func testConfig(t *testing.T) *config.Config {
 			"b": {Token: strings.Repeat("b", 64)},
 		},
 		Telegram: config.Telegram{Users: map[int64]string{111: "a", 222: "b"}},
-		Timings: config.Timings{ReadyTimeoutS: 8, StartMarginMS: 500, OfflineAfterS: 12, NearEndMS: 400},
-		Media:   config.Media{MaxVoiceS: 180, RetentionDays: 30, Preset: "default"},
+		Timings:  config.Timings{ReadyTimeoutS: 8, StartMarginMS: 500, OfflineAfterS: 12, NearEndMS: 400},
+		Media:    config.Media{MaxVoiceS: 180, RetentionDays: 30, Preset: "default"},
 	}
 }
 
@@ -348,4 +348,3 @@ func TestRestartRestoresPausedSession(t *testing.T) {
 		t.Fatalf("resume position must follow heartbeats, sent: %+v", fake2.sent)
 	}
 }
-

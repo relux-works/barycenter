@@ -6,9 +6,9 @@ package store
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/json"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"

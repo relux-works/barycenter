@@ -44,6 +44,11 @@ func TestParse(t *testing.T) {
 		{"takeover coordinator", "/takeover coordinator", Command{Kind: KindTakeover, Target: "coordinator"}},
 		{"periastron = shared", "/periastron", Command{Kind: KindMode, Target: "shared"}},
 		{"apoastron = solo", "/apoastron", Command{Kind: KindMode, Target: "solo"}},
+		{"provider switch", "/provider b yandex", Command{Kind: KindProvider, Target: "b", Provider: "yandex"}},
+		{"provider case folded", "/provider A Spotify", Command{Kind: KindProvider, Target: "a", Provider: "spotify"}},
+		{"resolve reserved", "/resolve " + trackURL, Command{Kind: KindResolve}},
+		{"yandex track link", "https://music.yandex.ru/album/1193829/track/10994777",
+			Command{Kind: KindLink, URI: "yandex:track:10994777:1193829"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -70,6 +75,8 @@ func TestParseUserErrors(t *testing.T) {
 		{"vol bad node", "/vol 50 c"},
 		{"mode unknown", "/mode party"},
 		{"offset missing args", "/offset a"},
+		{"provider missing args", "/provider b"},
+		{"provider unknown service", "/provider b tidal"},
 		{"unknown command", "/dance"},
 		{"help", "/help"},
 	}

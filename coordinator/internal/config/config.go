@@ -45,17 +45,20 @@ type Spotify struct {
 }
 
 type Config struct {
-	Listen   string          `yaml:"listen"`
+	Listen string `yaml:"listen"`
 	// PublicURL: external base (https://barycenter.relux.works) used in URLs
 	// handed to nodes (media downloads) when running behind a proxy (v2).
-	PublicURL string         `yaml:"public_url"`
-	DBPath   string          `yaml:"db_path"`
-	MediaDir string          `yaml:"media_dir"`
-	Nodes    map[string]Node `yaml:"nodes"`
-	Telegram Telegram        `yaml:"telegram"`
-	Timings  Timings         `yaml:"timings"`
-	Media    Media           `yaml:"media"`
-	Spotify  Spotify         `yaml:"spotify"`
+	PublicURL string          `yaml:"public_url"`
+	DBPath    string          `yaml:"db_path"`
+	MediaDir  string          `yaml:"media_dir"`
+	Nodes     map[string]Node `yaml:"nodes"`
+	Telegram  Telegram        `yaml:"telegram"`
+	Timings   Timings         `yaml:"timings"`
+	Media     Media           `yaml:"media"`
+	Spotify   Spotify         `yaml:"spotify"`
+	// Providers is the master switch of the multi-provider layer
+	// (docs/spec-providers.md). Off = pre-provider behavior everywhere.
+	Providers bool `yaml:"providers"`
 }
 
 var hexToken = regexp.MustCompile(`^[0-9a-fA-F]{64}$`)
@@ -94,6 +97,11 @@ func applyEnv(c *Config) {
 	set(&c.Telegram.BotToken, "DUET_TELEGRAM_BOT_TOKEN")
 	set(&c.Spotify.ClientID, "DUET_SPOTIFY_CLIENT_ID")
 	set(&c.Spotify.ClientSecret, "DUET_SPOTIFY_CLIENT_SECRET")
+	// DUET_PROVIDERS=1 turns the provider layer on (spec-providers); any
+	// other non-empty value forces it off, unset keeps the yml value.
+	if v := os.Getenv("DUET_PROVIDERS"); v != "" {
+		c.Providers = v == "1"
+	}
 
 	if v := os.Getenv("DUET_NODE_A_TOKEN"); v != "" {
 		n := c.Nodes["a"]

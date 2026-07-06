@@ -19,10 +19,21 @@ struct OnboardingView: View {
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(.tint)
             Text("Пульсар").font(.title2).bold()
-            Text("Общий музыкальный эфир для ваших домов.\nКод выдаёт телеграм-бот @barycenter_bot:\n/create — свой барицентр, /pair — код для этого мака.")
-                .font(.callout)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Пульсар — общий музыкальный эфир для ваших домов. Чтобы подключить этот мак, нужен код из телеграм-бота:")
+                Text("1. Открой бота и напиши /create — если создаёшь свой барицентр.")
+                Text("2. Или открой инвайт-ссылку от партнёра и напиши /pair.")
+                Text("3. Введи код сюда — и музыка дома.")
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .frame(width: 320, alignment: .leading)
+
+            HStack(spacing: 10) {
+                Link("Открыть @barycenter_bot", destination: URL(string: "https://t.me/barycenter_bot")!)
+                Link("barycenter.live", destination: URL(string: "https://barycenter.live")!)
+            }
+            .font(.callout)
 
             TextField("КОД ИЗ БОТА", text: $code)
                 .textFieldStyle(.roundedBorder)

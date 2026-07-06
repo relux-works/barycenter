@@ -124,3 +124,18 @@ node (Keychain).
 3. RESOLVED: satellites (bot-only) in M1.
 4. Orbit limits: soft-configured (global env + per-orbit override), defaults
    5 pulsars / 10 members — NOT hardcoded (customer).
+
+## 12. Orbit merge & binary-system periastron (Timur's beta finding, 2026-07-07)
+
+Problem: two people both run /create and become primaries of separate orbits;
+neither can join the other. Accepted direction (customer):
+- **M-merge (near-term)**: opening a member-invite link while ALREADY a member
+  elsewhere offers a move: "перенести твой дом в этот барицентр?" — transfers
+  membership+slot (node re-pairs automatically), deletes the old orbit if it
+  ends up empty. Confirmation inline in the bot.
+- **M-link (epic, "double systems")**: two orbits dynamically join a shared
+  periastron and part again: both primaries must consent via the bot; while
+  linked, the union behaves as one broadcast across all homes (peer-set FSM
+  already N-wise); options offered on link: "общий эфир для всех" vs "новый
+  эфир только для инициаторов". Astronomy holds: binary stars form
+  hierarchical multiple systems.

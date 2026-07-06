@@ -123,7 +123,17 @@ public final class DirectOutputMonitor {
             var ssize = UInt32(0)
             AudioObjectGetPropertyDataSize(dev, &streamsAddr, 0, nil, &ssize)
             guard ssize > 0 else { continue }
-            if let name = deviceName(dev), !out.contains(name) {
+            // System-private aggregates (CADefaultDeviceAggregate-…) are
+            // plumbing, not speakers a person would pick (Timur, beta).
+            var ttAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyTransportType,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain)
+            var tt = UInt32(0)
+            var ttSize = UInt32(MemoryLayout<UInt32>.size)
+            AudioObjectGetPropertyData(dev, &ttAddr, 0, nil, &ttSize, &tt)
+            if tt == kAudioDeviceTransportTypeAggregate { continue }
+            if let name = deviceName(dev), !out.contains(name), !name.hasPrefix("CADefault") {
                 out.append(name)
             }
         }

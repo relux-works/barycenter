@@ -24,3 +24,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cd node-app && swift test
+
+  # EPIC B blind build: no Windows runner needed — the portable parts (golden
+  # round-trip, clock sync, ring, ws client, supervisor, player) test on
+  # linux via the !windows audio stub; the Windows-only legs (winio pipe +
+  # WASAPI) are gated by the cross-compile.
+  pulsar-win:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: pulsar-win/go.mod
+      - name: Unit tests (portable, audio stub)
+        run: cd pulsar-win && go vet ./... && go test ./...
+      - name: Cross-compile for Windows (blind-build gate)
+        run: cd pulsar-win && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./...

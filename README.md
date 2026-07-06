@@ -22,6 +22,7 @@ Full specification (Russian, source of truth): [docs/spec.md](docs/spec.md) — 
 | `protocol/golden/` | 23 golden JSON files — the wire contract, tested from both sides |
 | `node-app/` | NodeApp — Swift/SwiftPM executable + NodeCore library for the home Macs |
 | `coordinator/` | Coordinator — Go service for the VPS |
+| `pulsar-win/` | Pulsar for Windows — Go shell skeleton (EPIC B blind build: portable parts unit-tested, WASAPI/named-pipe legs compile-gated via `GOOS=windows`; wire protocol mirrored from `coordinator/internal/protocol`, pinned by golden tests) |
 | `scripts/` | build-app.sh (.app bundle), setup-signing.sh (stable TCC-safe identity), spike-live-probes.sh |
 | `deploy/` | launchd plist + systemd unit + config templates + idempotent installers |
 | `spike/` | Phase 0 prototypes (throwaway quality, findings promoted to spec/report) |

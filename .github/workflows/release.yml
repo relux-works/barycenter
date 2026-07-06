@@ -33,18 +33,44 @@ jobs:
         run: |
           cd node-app
           swift build -c release
+      - name: Import Developer ID identity
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+        run: |
+          echo "$MACOS_CERT_P12" | base64 -d > /tmp/devid.p12
+          security create-keychain -p ci-temp ci.keychain
+          security set-keychain-settings -lut 21600 ci.keychain
+          security unlock-keychain -p ci-temp ci.keychain
+          security import /tmp/devid.p12 -k ci.keychain -P "" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci-temp ci.keychain
+          security list-keychains -d user -s ci.keychain login.keychain
+          rm /tmp/devid.p12
       - name: Bundle Pulsar.app + dmg
         run: |
           export VERSION="${GITHUB_REF_NAME}"
           export NODEAPP_BIN="$PWD/node-app/.build/release/NodeApp"
           export LIBRESPOT_BIN="$PWD/daemon-arm64"
           export APP_NAME=Pulsar
+          export SIGN_CN="Developer ID Application: Relux Works, LLC (262RZ595FP)"
+          export HARDENED=1
           bash scripts/build-app.sh
           mkdir -p dist dmg-root
           cp -R .temp/build/Pulsar.app dmg-root/
           ln -s /Applications dmg-root/Applications
           hdiutil create -volname "Pulsar" -srcfolder dmg-root -ov -format UDZO "dist/Pulsar-${GITHUB_REF_NAME}-arm64.dmg"
           shasum -a 256 dist/*.dmg > dist/SHA256SUMS.pulsar
+      - name: Notarize + staple
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          echo "$ASC_KEY_P8" | base64 -d > /tmp/asc.p8
+          xcrun notarytool submit dist/Pulsar-*.dmg --key /tmp/asc.p8 \
+            --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" --wait
+          rm /tmp/asc.p8
+          xcrun stapler staple dist/Pulsar-*.dmg
+          spctl -a -t open --context context:primary-signature -v dist/Pulsar-*.dmg || true
       - name: Generate Sparkle appcast
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
@@ -117,14 +143,3 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
-      # --- Notarization (enable when ASC secrets land) ---
-      # Requires: gh secret set ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8 (base64 .p8)
-      # - name: Notarize + staple
-      #   env:
-      #     ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-      #     ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      #   run: |
-      #     echo "${{ secrets.ASC_KEY_P8 }}" | base64 -d > /tmp/asc.p8
-      #     xcrun notarytool submit dist/Pulsar-*.dmg --key /tmp/asc.p8 \
-      #       --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" --wait
-      #     xcrun stapler staple dist/Pulsar-*.dmg

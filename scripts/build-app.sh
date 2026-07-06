@@ -86,20 +86,24 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict></plist>
 PLIST
 
-SIGN_CN="duet-nodeapp"
+SIGN_CN="${SIGN_CN:-duet-nodeapp}"
 KEYCHAIN="$HOME/Library/Keychains/duet-signing.keychain-db"
 CERT_HASH="$(security find-certificate -c "$SIGN_CN" -Z 2>/dev/null | awk '/SHA-1/ {print $NF}' || true)"
 
 if [[ -n "$CERT_HASH" ]]; then
     security unlock-keychain -p "duet-signing-local" "$KEYCHAIN" 2>/dev/null || true
     # Nested code first: the bundled daemon must carry its own signature.
+    # SIGN_OPTS: dev identity keeps --timestamp=none; Developer ID (CI, R3)
+    # needs hardened runtime + secure timestamp for notarization.
+    SIGN_OPTS=(--timestamp=none)
+    if [[ "${HARDENED:-}" == "1" ]]; then SIGN_OPTS=(--options runtime --timestamp); fi
     if [[ -x "$APP/Contents/MacOS/go-librespot" ]]; then
-      codesign --force --sign "$CERT_HASH" --identifier "works.relux.pulsar.librespot" --timestamp=none "$APP/Contents/MacOS/go-librespot"
+      codesign --force --sign "$CERT_HASH" --identifier "works.relux.pulsar.librespot" "${SIGN_OPTS[@]}" "$APP/Contents/MacOS/go-librespot"
     fi
     if [[ -d "$APP/Contents/Frameworks/Sparkle.framework" ]]; then
-      codesign --force --deep --sign "$CERT_HASH" --timestamp=none "$APP/Contents/Frameworks/Sparkle.framework"
+      codesign --force --deep --sign "$CERT_HASH" "${SIGN_OPTS[@]}" "$APP/Contents/Frameworks/Sparkle.framework"
     fi
-    codesign --force --sign "$CERT_HASH" --identifier "$BUNDLE_ID" --timestamp=none "$APP"
+    codesign --force --sign "$CERT_HASH" --identifier "$BUNDLE_ID" "${SIGN_OPTS[@]}" "$APP"
 else
     echo "WARNING: identity '$SIGN_CN' not found (run scripts/setup-signing.sh);" >&2
     echo "         signing ad-hoc — TCC Automation will NOT survive updates (goal DoD-2)" >&2

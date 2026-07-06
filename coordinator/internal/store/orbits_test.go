@@ -153,3 +153,53 @@ func TestLegacyBootstrapIgnoresEmptyTokens(t *testing.T) {
 		t.Fatalf("orbits created: %v", ids)
 	}
 }
+
+func TestProviderLayerStore(t *testing.T) {
+	s := openTemp(t)
+	o, _ := s.CreateOrbit("O", 111)
+	slot, _, _ := s.PairSlot(o.ID, 111)
+
+	// slots.provider default + switch
+	provs, _ := s.SlotProviders(o.ID)
+	if provs[slot] != "spotify" {
+		t.Fatalf("default provider: %v", provs)
+	}
+	s.SetSlotProvider(o.ID, slot, "yandex")
+	provs, _ = s.SlotProviders(o.ID)
+	if provs[slot] != "yandex" {
+		t.Fatalf("switched provider: %v", provs)
+	}
+
+	// canonical track + refs
+	err := s.UpsertTrack(Track{CTID: "ct_1", Title: "T", Artists: []string{"A"},
+		DurationMS: 214000, ISRC: "X", OriginProv: "spotify", OriginRef: "spotify:track:s1",
+		ResolveMethod: "odesli", ResolveScore: 0.97},
+		map[string]struct {
+			Ref        string
+			DurationMS int64
+		}{
+			"spotify": {"spotify:track:s1", 214000},
+			"yandex":  {"111:222", 213800},
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ctid, _ := s.CTIDByRef("yandex", "111:222"); ctid != "ct_1" {
+		t.Fatalf("reverse lookup: %q", ctid)
+	}
+	if ref, dur, _ := s.TrackRef("ct_1", "yandex"); ref != "111:222" || dur != 213800 {
+		t.Fatalf("ref lookup: %q %d", ref, dur)
+	}
+	if ref, _, _ := s.TrackRef("ct_1", "tidal"); ref != "" {
+		t.Fatalf("unresolved provider must be empty, got %q", ref)
+	}
+
+	// availability cache with TTL
+	s.SetAvailability(o.ID, slot, "yandex", "111:222", true)
+	if ok, known, _ := s.Availability(o.ID, slot, "yandex", "111:222", 60_000); !ok || !known {
+		t.Fatal("fresh availability must be known+ok")
+	}
+	if _, known, _ := s.Availability(o.ID, slot, "yandex", "111:222", -1); known {
+		t.Fatal("expired availability must be unknown")
+	}
+}

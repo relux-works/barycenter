@@ -47,6 +47,8 @@ const (
 	TypePing         = "ping"
 	// U9: node saw daemon playback not belonging to the broadcast (phone).
 	TypeExternalPlayback = "external_playback"
+	// v1.1 (spec-providers §7): switch a node's active provider.
+	TypeSetProvider = "set_provider"
 )
 
 type Envelope struct {
@@ -79,8 +81,13 @@ type WelcomePayload struct {
 
 type LoadPayload struct {
 	ElementID  string `json:"element_id"`
-	URI        string `json:"uri"`
+	URI        string `json:"uri"` // stays = spotify ref for pre-v1.1 nodes
 	PositionMS int64  `json:"position_ms"`
+	// v1.1 additive (spec-providers §7); absent provider = "spotify".
+	Provider   string  `json:"provider,omitempty"`
+	Ref        string  `json:"ref,omitempty"`
+	DurationMS int64   `json:"duration_ms,omitempty"`
+	GainDB     float64 `json:"gain_db,omitempty"` // loudness fallback (S5 option c)
 }
 
 type ResumeAtPayload struct {
@@ -121,6 +128,10 @@ type StopPayload struct{}
 
 type SoloInjectPayload struct {
 	URI string `json:"uri"`
+	// v1.1 additive:
+	Provider string `json:"provider,omitempty"`
+	Ref      string `json:"ref,omitempty"`
+	CTID     string `json:"ctid,omitempty"`
 }
 
 type SoloVoicePayload struct {
@@ -167,6 +178,8 @@ type StatePayload struct {
 	Underruns  int64     `json:"underruns"`
 	RTTMS      int64     `json:"rtt_ms"`
 	Speakers   []Speaker `json:"speakers"`
+	// v1.1: the node's active provider ("" = spotify).
+	Provider string `json:"provider,omitempty"`
 }
 
 type ReadyPayload struct {
@@ -207,4 +220,8 @@ type PingPayload struct {
 
 type ExternalPlaybackPayload struct {
 	URI string `json:"uri"`
+}
+
+type SetProviderPayload struct {
+	Provider string `json:"provider"`
 }

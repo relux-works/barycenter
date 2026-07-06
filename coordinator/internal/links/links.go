@@ -21,11 +21,18 @@ var base62ID = regexp.MustCompile(`^[0-9A-Za-z]{22}$`)
 
 var uriRe = regexp.MustCompile(`spotify:([a-z]+):([0-9A-Za-z]{22})`)
 
-// Ref is any recognized Spotify reference (U10: playlists/albums join tracks).
+var (
+	yandexAlbumTrackRe = regexp.MustCompile(`music\.yandex\.(?:ru|com)/album/(\d+)/track/(\d+)`)
+	yandexTrackRe      = regexp.MustCompile(`music\.yandex\.(?:ru|com)/track/(\d+)`)
+)
+
+// Ref is any recognized track/collection reference across providers
+// (spec-providers §3: spotify + yandex links enter the same queue).
 type Ref struct {
-	Kind string // "track" | "playlist" | "album"
-	ID   string
-	URI  string // canonical spotify:<kind>:<id>
+	Provider string // "spotify" | "yandex"
+	Kind     string // "track" | "playlist" | "album"
+	ID       string // spotify: base62; yandex track: "<track_id>:<album_id>" (album may be empty)
+	URI      string // canonical: spotify:<kind>:<id> | yandex:<kind>:<id>
 }
 
 // ParseRef extracts the first track/playlist/album reference from free text.
@@ -36,9 +43,18 @@ func ParseRef(text string) (Ref, error) {
 	consider := func(kind, id string) (Ref, bool) {
 		switch kind {
 		case "track", "playlist", "album":
-			return Ref{Kind: kind, ID: id, URI: "spotify:" + kind + ":" + id}, true
+			return Ref{Provider: "spotify", Kind: kind, ID: id, URI: "spotify:" + kind + ":" + id}, true
 		}
 		return Ref{}, false
+	}
+	// Yandex Music links (spec-providers §3): album/<A>/track/<T> or track/<T>.
+	if m := yandexAlbumTrackRe.FindStringSubmatch(text); m != nil {
+		id := m[2] + ":" + m[1]
+		return Ref{Provider: "yandex", Kind: "track", ID: id, URI: "yandex:track:" + id}, nil
+	}
+	if m := yandexTrackRe.FindStringSubmatch(text); m != nil {
+		id := m[1] + ":"
+		return Ref{Provider: "yandex", Kind: "track", ID: id, URI: "yandex:track:" + id}, nil
 	}
 
 	if m := uriRe.FindStringSubmatch(text); m != nil {

@@ -143,7 +143,8 @@ public final class PlayerCore {
                 // Phase 2 (goal §8): boundary interception lands with solo scope.
                 self.log.warn("solo_voice not implemented until phase 2", ["element": p.elementId])
             case .welcome, .pong, .register, .state, .ready, .started, .ended,
-                 .voiceStarted, .voiceEnded, .waitEnded, .error, .ping, .externalPlayback:
+                 .voiceStarted, .voiceEnded, .waitEnded, .error, .ping, .externalPlayback,
+                 .setProvider:
                 self.log.debug("ignoring non-command", ["type": head.type])
             }
         }

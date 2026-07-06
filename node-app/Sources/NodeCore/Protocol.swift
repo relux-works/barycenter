@@ -63,8 +63,12 @@ public struct LoadPayload: Codable, Equatable {
     public var elementId: String
     public var uri: String
     public var positionMs: Int64
+    public var provider: String?
+    public var ref: String?
+    public var durationMs: Int64?
+    public var gainDb: Double?
     enum CodingKeys: String, CodingKey {
-        case elementId = "element_id", uri, positionMs = "position_ms"
+        case elementId = "element_id", provider, ref, durationMs = "duration_ms", gainDb = "gain_db", uri, positionMs = "position_ms"
     }
 }
 
@@ -302,6 +306,13 @@ public struct ExternalPlaybackPayload: Codable, Equatable {
     enum CodingKeys: String, CodingKey { case uri }
 }
 
+/// v1.1 (spec-providers §7): switch the node's active provider.
+public struct SetProviderPayload: Codable, Equatable {
+    public var provider: String
+    public init(provider: String) { self.provider = provider }
+    enum CodingKeys: String, CodingKey { case provider }
+}
+
 // MARK: - Message
 
 public enum Message {
@@ -331,6 +342,7 @@ public enum Message {
     case error(ErrorPayload)
     case ping(PingPayload)
     case externalPlayback(ExternalPlaybackPayload)
+    case setProvider(SetProviderPayload)
 
     public var typeName: String {
         switch self {
@@ -360,6 +372,7 @@ public enum Message {
         case .error: return "error"
         case .ping: return "ping"
         case .externalPlayback: return "external_playback"
+        case .setProvider: return "set_provider"
         }
     }
 }
@@ -414,6 +427,7 @@ public enum ProtocolCodec {
         case "error": message = .error(try p(ErrorPayload.self))
         case "ping": message = .ping(try p(PingPayload.self))
         case "external_playback": message = .externalPlayback(try p(ExternalPlaybackPayload.self))
+        case "set_provider": message = .setProvider(try p(SetProviderPayload.self))
         default: throw ProtocolError.unknownType(head.type)
         }
         return (head, message)
@@ -452,6 +466,7 @@ public enum ProtocolCodec {
         case .error(let p): return try w(p)
         case .ping(let p): return try w(p)
         case .externalPlayback(let p): return try w(p)
+        case .setProvider(let p): return try w(p)
         }
     }
 }

@@ -41,3 +41,18 @@ func TestParseTrack(t *testing.T) {
 		})
 	}
 }
+
+func TestParseRefYandex(t *testing.T) {
+	r, err := ParseRef("глянь https://music.yandex.ru/album/1193829/track/10994777")
+	if err != nil || r.Provider != "yandex" || r.Kind != "track" || r.ID != "10994777:1193829" {
+		t.Fatalf("album/track: %+v %v", r, err)
+	}
+	r, err = ParseRef("https://music.yandex.com/track/10994777")
+	if err != nil || r.ID != "10994777:" {
+		t.Fatalf("bare track: %+v %v", r, err)
+	}
+	r, _ = ParseRef("spotify:track:4cOdK2wGLETKBW3PvgPWqT")
+	if r.Provider != "spotify" {
+		t.Fatalf("spotify provider tag: %+v", r)
+	}
+}

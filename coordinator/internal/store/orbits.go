@@ -6,6 +6,7 @@ package store
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"database/sql"
 	"encoding/hex"
 	"errors"
@@ -37,11 +38,41 @@ CREATE TABLE IF NOT EXISTS slots (
   slot TEXT NOT NULL,
   token_hash TEXT NOT NULL,
   paired_by INTEGER NOT NULL DEFAULT 0,
+  provider TEXT NOT NULL DEFAULT 'spotify',
   paired_at INTEGER,
   revoked_at INTEGER,
   PRIMARY KEY (orbit_id, slot)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS slots_token ON slots(token_hash);
+CREATE TABLE IF NOT EXISTS tracks (
+  ctid TEXT PRIMARY KEY,
+  title TEXT NOT NULL DEFAULT '',
+  artists TEXT NOT NULL DEFAULT '[]',
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  isrc TEXT NOT NULL DEFAULT '',
+  origin_provider TEXT NOT NULL,
+  origin_ref TEXT NOT NULL,
+  resolve_method TEXT NOT NULL DEFAULT 'same',
+  resolve_score REAL NOT NULL DEFAULT 1,
+  resolved_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS track_refs (
+  ctid TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  ref TEXT NOT NULL,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (ctid, provider)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS track_refs_by_ref ON track_refs(provider, ref);
+CREATE TABLE IF NOT EXISTS availability (
+  orbit_id INTEGER NOT NULL,
+  slot TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  ref TEXT NOT NULL,
+  ok INTEGER,
+  checked_at INTEGER NOT NULL,
+  PRIMARY KEY (orbit_id, slot, provider, ref)
+);
 CREATE TABLE IF NOT EXISTS invites (
   code TEXT PRIMARY KEY,
   orbit_id INTEGER NOT NULL,
@@ -97,8 +128,116 @@ func randomCode() string {
 }
 
 func (s *Store) initOrbits() error {
-	_, err := s.db.Exec(orbitSchema)
+	if _, err := s.db.Exec(orbitSchema); err != nil {
+		return err
+	}
+	// Pre-provider databases lack slots.provider: additive migration.
+	s.db.Exec(`ALTER TABLE slots ADD COLUMN provider TEXT NOT NULL DEFAULT 'spotify'`)
+	return nil
+}
+
+// --- Provider layer (spec-providers §2, behind DUET_PROVIDERS) ---
+
+type Track struct {
+	CTID          string
+	Title         string
+	Artists       []string
+	DurationMS    int64
+	ISRC          string
+	OriginProv    string
+	OriginRef     string
+	ResolveMethod string
+	ResolveScore  float64
+}
+
+func (s *Store) UpsertTrack(t Track, refs map[string]struct {
+	Ref        string
+	DurationMS int64
+}) error {
+	artists, _ := json.Marshal(t.Artists)
+	if _, err := s.db.Exec(`INSERT OR REPLACE INTO tracks(ctid, title, artists, duration_ms, isrc, origin_provider, origin_ref, resolve_method, resolve_score, resolved_at)
+		VALUES(?,?,?,?,?,?,?,?,?,?)`,
+		t.CTID, t.Title, string(artists), t.DurationMS, t.ISRC, t.OriginProv, t.OriginRef, t.ResolveMethod, t.ResolveScore, time.Now().UnixMilli()); err != nil {
+		return err
+	}
+	for prov, r := range refs {
+		if _, err := s.db.Exec(`INSERT OR REPLACE INTO track_refs(ctid, provider, ref, duration_ms) VALUES(?,?,?,?)`,
+			t.CTID, prov, r.Ref, r.DurationMS); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CTIDByRef finds an already-resolved canonical track by any provider ref.
+func (s *Store) CTIDByRef(provider, ref string) (string, error) {
+	var ctid string
+	err := s.db.QueryRow(`SELECT ctid FROM track_refs WHERE provider = ? AND ref = ?`, provider, ref).Scan(&ctid)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return ctid, err
+}
+
+// TrackRef returns the ref of ctid for a provider ("" if unresolved).
+func (s *Store) TrackRef(ctid, provider string) (ref string, durationMS int64, err error) {
+	err = s.db.QueryRow(`SELECT ref, duration_ms FROM track_refs WHERE ctid = ? AND provider = ?`, ctid, provider).Scan(&ref, &durationMS)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", 0, nil
+	}
+	return
+}
+
+func (s *Store) SetSlotProvider(orbitID int64, slot, provider string) error {
+	_, err := s.db.Exec(`UPDATE slots SET provider = ? WHERE orbit_id = ? AND slot = ? AND revoked_at IS NULL`, provider, orbitID, slot)
 	return err
+}
+
+// SlotProviders maps active slots to their provider for an orbit.
+func (s *Store) SlotProviders(orbitID int64) (map[string]string, error) {
+	rows, err := s.db.Query(`SELECT slot, provider FROM slots WHERE orbit_id = ? AND revoked_at IS NULL`, orbitID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var sl, p string
+		if err := rows.Scan(&sl, &p); err != nil {
+			return nil, err
+		}
+		out[sl] = p
+	}
+	return out, rows.Err()
+}
+
+// Availability cache (TTL enforced by caller; ok NULL = unknown).
+func (s *Store) SetAvailability(orbitID int64, slot, provider, ref string, ok bool) error {
+	v := 0
+	if ok {
+		v = 1
+	}
+	_, err := s.db.Exec(`INSERT OR REPLACE INTO availability(orbit_id, slot, provider, ref, ok, checked_at) VALUES(?,?,?,?,?,?)`,
+		orbitID, slot, provider, ref, v, time.Now().UnixMilli())
+	return err
+}
+
+// Availability returns (ok, known); stale rows (older than ttlMS) = unknown.
+func (s *Store) Availability(orbitID int64, slot, provider, ref string, ttlMS int64) (bool, bool, error) {
+	var ok int
+	var at int64
+	err := s.db.QueryRow(`SELECT ok, checked_at FROM availability WHERE orbit_id = ? AND slot = ? AND provider = ? AND ref = ?`,
+		orbitID, slot, provider, ref).Scan(&ok, &at)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	if time.Now().UnixMilli()-at > ttlMS {
+		return false, false, nil
+	}
+	return ok == 1, true, nil
 }
 
 // CreateOrbit makes a new orbit with its creator as primary.

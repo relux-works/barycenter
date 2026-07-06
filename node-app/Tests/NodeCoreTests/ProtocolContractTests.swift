@@ -20,7 +20,7 @@ private func jsonObject(_ data: Data) throws -> NSDictionary {
 }
 
 @Suite struct ProtocolContractTests {
-    static let expectedTypeCount = 26
+    static let expectedTypeCount = 27
 
     @Test func goldenDirComplete() throws {
         let files = try FileManager.default.contentsOfDirectory(at: goldenDir(), includingPropertiesForKeys: nil)

@@ -28,8 +28,12 @@ fi
 
 APP="$OUT_DIR/${APP_NAME:-NodeApp}.app"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/NodeApp"
+# App icon (assets/icon/Pulsar.icns, generated from the source artwork).
+if [[ -f "$ROOT/assets/icon/Pulsar.icns" ]]; then
+  cp "$ROOT/assets/icon/Pulsar.icns" "$APP/Contents/Resources/Pulsar.icns"
+fi
 
 # Sparkle is a dynamic framework (binary xcframework): ship it in
 # Contents/Frameworks and point the executable's rpath there. Missing this
@@ -69,6 +73,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
   <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
   <key>CFBundleName</key><string>Pulsar</string>
+  <key>CFBundleIconFile</key><string>Pulsar</string>
   <key>CFBundleDisplayName</key><string>Pulsar</string>
   <key>CFBundleExecutable</key><string>NodeApp</string>
   <key>CFBundlePackageType</key><string>APPL</string>

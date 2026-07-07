@@ -65,10 +65,10 @@ func main() {
 		return
 	}
 
-	run(dir, log)
+	run(dir, *coordinator, log)
 }
 
-func run(dir string, log *slog.Logger) {
+func run(dir, coordinatorBase string, log *slog.Logger) {
 	cfg, err := LoadConfig(dir)
 	if err != nil {
 		log.Error("config", "err", err)
@@ -84,11 +84,17 @@ func run(dir string, log *slog.Logger) {
 		os.Exit(1)
 	}
 	if creds == nil {
-		// Unpaired is a legal state with a human answer, not a stack trace (R1).
-		fmt.Fprintln(os.Stderr, "Pulsar не сопряжён с координатором.")
-		fmt.Fprintln(os.Stderr, "Получи код у бота (/pair) и запусти:")
-		fmt.Fprintln(os.Stderr, "  pulsar-win.exe --pair КОД")
-		os.Exit(2)
+		// Unpaired: the onboarding window (Windows) collects a code and saves
+		// credentials in place. Off Windows the stub errors and we fall back
+		// to the CLI message (R1).
+		c, werr := showOnboardingWindow(dir, coordinatorBase)
+		if werr != nil {
+			fmt.Fprintln(os.Stderr, "Pulsar не сопряжён с координатором.")
+			fmt.Fprintln(os.Stderr, "Получи код у бота (/pair) и запусти:")
+			fmt.Fprintln(os.Stderr, "  pulsar-win.exe --pair КОД")
+			os.Exit(2)
+		}
+		creds = &c
 	}
 	if err := ValidateCredentials(*creds); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -163,9 +169,29 @@ func run(dir string, log *slog.Logger) {
 	log.Info("pulsar-win running", "version", version, "slot", creds.Slot,
 		"orbit", creds.OrbitID, "device_name", deviceName, "pipe", cfg.PipeName)
 
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-	<-sig
+	// Shutdown blocker: the tray message loop on Windows, an OS signal on dev
+	// builds. Both end when the user quits.
+	osSig := make(chan os.Signal, 1)
+	signal.Notify(osSig, os.Interrupt, syscall.SIGTERM)
+	quit := make(chan struct{})
+	go func() { <-osSig; close(quit) }()
+
+	tray := &TrayState{
+		Connected: func() bool { return ws.Healthy() },
+		Identity:  identityLine(*creds),
+		OnRePair: func() {
+			// Best-effort re-pair (F3): collect a fresh code, save, and exit so
+			// the app relaunches paired. In-place restart is a follow-up
+			// (UIPROBE). Off Windows this path is unreachable.
+			if c, e := showOnboardingWindow(dir, coordinatorBase); e == nil {
+				_ = c
+				os.Exit(0)
+			}
+		},
+		OnQuit: func() { close(quit) },
+	}
+	awaitShutdown(tray, quit)
+
 	log.Info("shutting down")
 	close(stop)
 	events.Stop()

@@ -48,6 +48,7 @@ type WSClient struct {
 	conn    *websocket.Conn
 	backoff time.Duration
 	stopped bool
+	healthy bool // welcome exchanged and link up (tray status)
 	stop    chan struct{}
 }
 
@@ -99,7 +100,16 @@ func (c *WSClient) Stop() {
 func (c *WSClient) MarkHealthy() {
 	c.mu.Lock()
 	c.backoff = c.MinBackoff
+	c.healthy = true
 	c.mu.Unlock()
+}
+
+// Healthy reports whether the coordinator link is up (welcome exchanged and
+// not since torn down). Read by the tray status line.
+func (c *WSClient) Healthy() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.healthy
 }
 
 // Send wraps a typed payload into an envelope and writes it. Safe from any
@@ -252,6 +262,7 @@ func (c *WSClient) readLoop(conn *websocket.Conn) {
 // and reports false when the client was stopped meanwhile.
 func (c *WSClient) sleepBackoff() bool {
 	c.mu.Lock()
+	c.healthy = false // disconnected — reconnecting
 	delay := c.backoff
 	if delay < c.MinBackoff {
 		delay = c.MinBackoff

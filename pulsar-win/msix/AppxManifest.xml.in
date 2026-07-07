@@ -13,14 +13,16 @@
   xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
   IgnorableNamespaces="uap uap10">
 
+  <!-- Identity assigned by the Microsoft Store (Product ID 9P26FDCWV1GC).
+       Name/Publisher MUST match exactly or the Store rejects the upload. -->
   <Identity
-    Name="ReluxWorks.Pulsar"
-    Publisher="CN=&quot;Relux Works, LLC&quot;"
+    Name="ReluxWorksLLC.PulsarBarycenter"
+    Publisher="CN=60105954-A0D9-4E89-B32D-18AF2F423ABE"
     Version="@VERSION@"
     ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>Pulsar</DisplayName>
+    <DisplayName>Pulsar Barycenter</DisplayName>
     <PublisherDisplayName>Relux Works, LLC</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
     <Description>Общий музыкальный эфир для нескольких домов.</Description>

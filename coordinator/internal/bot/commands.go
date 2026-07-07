@@ -39,6 +39,7 @@ const (
 	KindCreate      CommandKind = "create"       // /create — new orbit
 	KindShare       CommandKind = "share"        // /share — member invite link
 	KindPairCode    CommandKind = "pair"         // /pair — node pairing code
+	KindRebind      CommandKind = "rebind"       // /rebind — revoke old, re-pair
 	KindMakePrimary CommandKind = "make_primary" // /make_primary [tg id]
 	KindRevoke      CommandKind = "revoke"       // /revoke <slot>
 	KindOrbit       CommandKind = "orbit"        // /orbit — members & slots
@@ -109,6 +110,8 @@ func Parse(text string) (Command, error) {
 		return Command{Kind: KindShare}, nil
 	case "/pair":
 		return Command{Kind: KindPairCode}, nil
+	case "/rebind":
+		return Command{Kind: KindRebind}, nil
 	case "/make_primary":
 		if len(args) == 0 {
 			return Command{Kind: KindMakePrimary}, nil
@@ -298,7 +301,7 @@ const helpText = `<b>Барицентр</b> — общий музыкальны�
 <b>Орбит</b>
 /create — создать свой барицентр (для новичков)
 /orbit — участники и дома · /share — пригласить
-/pair — код для подключения своего Пульсара
+/pair — код для подключения своего Пульсара · /rebind — переподключить дом заново
 /make_primary — передать главную звезду · /revoke &lt;дом&gt; — отозвать доступ
 
 <b>Сближение</b>

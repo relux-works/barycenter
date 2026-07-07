@@ -727,6 +727,26 @@ func (l *loop) handleBot(ev bot.Event) {
 		}
 		ev.Reply(fmt.Sprintf("код для твоего Пульсара — живёт 5 минут:\n\n<code>%s</code>\n\nВведи его в приложении Pulsar при первом запуске, и твой дом подключится к эфиру.", code))
 
+	case bot.KindRebind:
+		// F3: re-pair this member's home. The old slot token dies now (so a
+		// lost/leaked one can't linger); the new code re-pairs in the app via
+		// "Подключить заново…". A brief tokenless gap is fine — you're re-pairing.
+		if old, _ := l.st.SlotOf(home.id, ev.FromUserID); old != "" {
+			l.st.RevokeSlot(home.id, old)
+			o := l.stateFor(home.id)
+			peer := protocol.NodeID(old)
+			if o.group() {
+				peer = compositeID(home.id, protocol.NodeID(old))
+			}
+			l.apply(o, o.sess.RemovePeer(time.Now().UnixMilli(), peer))
+		}
+		code, err := l.st.NewPairCode(home.id, ev.FromUserID)
+		if err != nil {
+			ev.Reply("не смог создать код")
+			return
+		}
+		ev.Reply(fmt.Sprintf("старый доступ отозван. Новый код — живёт 5 минут:\n\n<code>%s</code>\n\nВ приложении Pulsar: меню → «Подключить заново…», введи код.", code))
+
 	case bot.KindOrbit:
 		ev.Reply(l.orbitText(home))
 

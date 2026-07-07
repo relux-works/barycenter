@@ -58,3 +58,4 @@ English; production orbits survive every migration.
 
 Windows machine online (B4); Partner Center registration progressing (F6);
 Timur's firewall check result (F5); an evening with Timur (B5).
+-- these are ouside the goal for now and tasks above which require these shoud be excluded 

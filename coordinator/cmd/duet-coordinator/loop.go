@@ -377,7 +377,25 @@ func (l *loop) handlePlaylistDone(d playlistDone) {
 
 // notify DMs every member of the session's orbit — both linked orbits for a
 // group session (group chat binding comes in M4).
+var compositePeerRe = regexp.MustCompile(`\b(\d+):([a-z])\b`)
+
+// humanizePeers rewrites raw composite peer ids ("1:a") from core-produced
+// texts into "a@«Title»" — the FSM stays pure, rendering lives here.
+func (l *loop) humanizePeers(text string) string {
+	return compositePeerRe.ReplaceAllStringFunc(text, func(m string) string {
+		parts := compositePeerRe.FindStringSubmatch(m)
+		var orbitID int64
+		fmt.Sscanf(parts[1], "%d", &orbitID)
+		title := "?"
+		if rec, err := l.st.GetOrbit(orbitID); err == nil && rec != nil {
+			title = rec.Title
+		}
+		return parts[2] + "@«" + esc(title) + "»"
+	})
+}
+
 func (l *loop) notify(o *orbitState, text string) {
+	text = l.humanizePeers(text)
 	if o.group() {
 		for _, id := range o.orbits {
 			l.notifyOrbit(id, text)

@@ -322,6 +322,12 @@ func rePairFlow() {
 
 func bootstrap() {
     statusMenu.install()
+    // F2b: a dev-era ~/duet/node.yml pointing at a local coordinator hijacks
+    // a paired app onto a dead server after moving to prod — retire it.
+    let defaultConfig = ("~/duet/node.yml" as NSString).expandingTildeInPath
+    if configPath == defaultConfig, ConfigLoader.retireLegacyLocalConfig(path: configPath) {
+        NSLog("legacy dev config retired: %@.retired", configPath)
+    }
     // An explicit yml with its own coordinator.token wins over keychain
     // credentials (sandbox/dev nodes must not steal the paired slot).
     let config: NodeConfig

@@ -104,6 +104,24 @@ public struct ConfigError: Error, CustomStringConvertible {
 }
 
 public enum ConfigLoader {
+    /// retireLegacyLocalConfig renames a dev-era config that points at a local
+    /// coordinator (127.0.0.1/localhost) to <path>.retired, so a paired app no
+    /// longer gets hijacked onto a dead local coordinator after moving to prod
+    /// (beta finding 2026-07-07). Returns true when it retired a file. Only the
+    /// default path is touched by the caller; explicit --config paths are kept.
+    public static func retireLegacyLocalConfig(path: String) -> Bool {
+        guard FileManager.default.fileExists(atPath: path),
+              let text = try? String(contentsOfFile: path, encoding: .utf8),
+              let cfg = try? YAMLDecoder().decode(NodeConfig.self, from: text) else {
+            return false
+        }
+        let url = cfg.coordinator.url
+        guard url.contains("127.0.0.1") || url.contains("localhost") else { return false }
+        let retired = path + ".retired"
+        try? FileManager.default.removeItem(atPath: retired)
+        return (try? FileManager.default.moveItem(atPath: path, toPath: retired)) != nil
+    }
+
     /// Support directory for the zero-config mode (R1): everything the node
     /// needs lives under ~/Library/Application Support/Pulsar.
     public static var supportDir: String {

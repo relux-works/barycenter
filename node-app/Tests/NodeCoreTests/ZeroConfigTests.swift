@@ -33,3 +33,23 @@ struct ZeroConfigTests {
         #expect(cfg.effectiveLibrespotBinary.hasSuffix("go-librespot"))
     }
 }
+
+extension ZeroConfigTests {
+    @Test func retiresLocalConfigKeepsRemote() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("retire-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let p = dir.appendingPathComponent("node.yml").path
+        let localYaml = "node_id: a\ncoordinator:\n  url: ws://127.0.0.1:8091/ws\n  token: \"" + String(repeating: "a", count: 64) + "\"\naudio:\n  fifo_path: /tmp/f\n  sample_rate: 44100\n  format: f32le\n  output_latency_offset_ms: 0\n  ring_buffer_ms: 1000\nairfoil:\n  app_path: /x\n  speakers: []\n  poll_s: 10\nlibrespot:\n  binary: /x\n  api_port: 3678\ncache_dir: /tmp/c\nlog:\n  level: info\n  path: /tmp/l\n"
+        try localYaml.write(toFile: p, atomically: true, encoding: .utf8)
+        #expect(ConfigLoader.retireLegacyLocalConfig(path: p) == true)
+        #expect(!FileManager.default.fileExists(atPath: p))
+        #expect(FileManager.default.fileExists(atPath: p + ".retired"))
+
+        // A remote-pointing config is left alone.
+        let remote = localYaml.replacingOccurrences(of: "ws://127.0.0.1:8091/ws", with: "wss://barycenter.relux.works/ws")
+        try remote.write(toFile: p, atomically: true, encoding: .utf8)
+        #expect(ConfigLoader.retireLegacyLocalConfig(path: p) == false)
+        #expect(FileManager.default.fileExists(atPath: p))
+    }
+}

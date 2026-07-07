@@ -50,3 +50,14 @@ Publisher == signer subject), uncomment the two steps.
 **Microsoft Store (Partner Center)** stays the preferred long-term channel
 (Microsoft signs, no cert, broader country support) — pursued separately.
 EV direct-download is the channel that does not depend on Store review timing.
+
+## 2026-07-08 (update) — Windows: Microsoft Store, not a paid cert
+
+Relux Works, LLC passed Microsoft Store developer verification (email +
+business + employment, Armenian entity accepted). The Store signs submitted
+MSIX packages itself — no code-signing certificate needed, best UX for
+end users (one-click install, no SmartScreen, Store auto-updates). This
+SUPERSEDES the EV-cert plan above: SSL.com eSigner (~$1250/yr) is dropped;
+the EV scaffold in release.yml stays commented as a fallback only if a
+direct-download channel is ever needed. Next: reserve the "Pulsar" app name,
+match AppxManifest Publisher/Identity to the Store-assigned values, submit.

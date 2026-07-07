@@ -43,7 +43,25 @@ var (
 	pShellExecuteW    = shell32.NewProc("ShellExecuteW")
 
 	pGetModuleHandleW = kernel32.NewProc("GetModuleHandleW")
+	pLoadIconW        = user32.NewProc("LoadIconW")
 )
+
+// appIcon loads the embedded RT_GROUP_ICON named "APP" (rsrc_windows_amd64.syso,
+// generated from pulsar.ico by go-winres). Cached; 0 if the resource is
+// missing (build without the syso) so the window/tray fall back to default.
+var cachedIcon windows.Handle
+var iconLoaded bool
+
+func appIcon() windows.Handle {
+	if iconLoaded {
+		return cachedIcon
+	}
+	iconLoaded = true
+	hInst, _, _ := pGetModuleHandleW.Call(0)
+	h, _, _ := pLoadIconW.Call(hInst, uintptr(unsafe.Pointer(u16("APP"))))
+	cachedIcon = windows.Handle(h)
+	return cachedIcon
+}
 
 // Win32 constants (only the ones we use).
 const (
@@ -162,6 +180,8 @@ func showOnboardingWindow(dir, coordinatorBase string) (Credentials, error) {
 		cbSize:        uint32(unsafe.Sizeof(wndClassExW{})),
 		lpfnWndProc:   syscall.NewCallback(onboardingProc),
 		hInstance:     windows.Handle(hInst),
+		hIcon:         appIcon(),
+		hIconSm:       appIcon(),
 		hCursor:       windows.Handle(cursor),
 		hbrBackground: windows.Handle(colorWindow + 1),
 		lpszClassName: className,
@@ -312,8 +332,9 @@ func trayIconData(hwnd windows.Handle) notifyIconData {
 		cbSize:           uint32(unsafe.Sizeof(notifyIconData{})),
 		hWnd:             hwnd,
 		uID:              1,
-		uFlags:           nifMessage | nifTip,
+		uFlags:           nifMessage | nifTip | nifIcon,
 		uCallbackMessage: trayCallback,
+		hIcon:            appIcon(),
 	}
 	tip := windows.StringToUTF16(uiWindowTitle)
 	copy(nid.szTip[:], tip)

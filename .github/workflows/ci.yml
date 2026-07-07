@@ -38,5 +38,9 @@ jobs:
           go-version-file: pulsar-win/go.mod
       - name: Unit tests (portable, audio stub)
         run: cd pulsar-win && go vet ./... && go test ./...
+      - name: Generate Windows resources (icon + DPI manifest)
+        run: |
+          go install github.com/tc-hib/go-winres@v0.3.3
+          cd pulsar-win && "$(go env GOPATH)/bin/go-winres" make --in winres/winres.json --arch amd64 --product-version "${GITHUB_REF_NAME:-dev}"
       - name: Cross-compile for Windows (blind-build gate)
         run: cd pulsar-win && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./...

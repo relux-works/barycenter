@@ -233,7 +233,10 @@ final class CoreRuntime {
 
     func shutdown() {
         log.info("shutting down")
-        DispatchQueue.global().asyncAfter(deadline: .now() + 2) { _exit(1) }
+        // 5 s (was 2): the hard watchdog raced Sparkle's relaunch agent —
+        // the host died before the updater coordinated the restart and the
+        // Updater.app hung forever (beta finding, 2026-07-07).
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { _exit(1) }
         client.stop()
         librespot.stopEvents()
         supervisor.stop()

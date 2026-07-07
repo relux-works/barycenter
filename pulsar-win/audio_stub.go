@@ -9,6 +9,6 @@ import (
 	"log/slog"
 )
 
-func startAudio(pipeName string, ring *Ring, player *Player, log *slog.Logger, stop <-chan struct{}) error {
+func startAudio(pipeName string, ring *Ring, engine *Engine, player *Player, log *slog.Logger, stop <-chan struct{}) error {
 	return errors.New("audio pipeline is Windows-only in this build (stub)")
 }

@@ -119,7 +119,17 @@ func run(dir string, log *slog.Logger) {
 		LibrespotVersion: sup.Version,
 	}, log)
 
-	player := NewPlayer(daemon, ring, ws.Clock(), ws.Send, cfg.OutputLatencyOffsetMS, log)
+	gain := NewGain()
+	engine := NewEngine(ring, gain)
+	cache, err := NewVoiceCache(cfg.CacheDir, creds.Token, 0 /* default 2 GiB */, log)
+	if err != nil {
+		// Voice inserts degrade to media_download_failed errors; music works.
+		log.Error("voice cache unavailable", "err", err)
+	}
+
+	player := NewPlayer(daemon, ring, engine, cache, ws.Clock(), ws.Send, cfg.OutputLatencyOffsetMS, log)
+	player.Start()
+	events := NewEventsClient(cfg.APIPort, player.HandleLibrespotEvent, log)
 	sup.OnCrash = func() {
 		ws.Send(protocol.TypeError, &protocol.ErrorPayload{
 			Code: "librespot_restart", Message: "daemon exited, supervisor restarting",
@@ -142,12 +152,13 @@ func run(dir string, log *slog.Logger) {
 		// install treats this as broken and the log says exactly why.
 		log.Error("librespot supervisor not started", "err", err)
 	}
-	if err := startAudio(cfg.PipeName, ring, player, log, stop); err != nil {
+	if err := startAudio(cfg.PipeName, ring, engine, player, log, stop); err != nil {
 		// Same policy for the audio legs (always errors on non-Windows dev
 		// builds via the stub). TODO(windows): decide fatal-vs-degraded after
 		// the first hardware run.
 		log.Error("audio not started", "err", err)
 	}
+	events.Start()
 	ws.Start()
 	log.Info("pulsar-win running", "version", version, "slot", creds.Slot,
 		"orbit", creds.OrbitID, "device_name", deviceName, "pipe", cfg.PipeName)
@@ -157,6 +168,9 @@ func run(dir string, log *slog.Logger) {
 	<-sig
 	log.Info("shutting down")
 	close(stop)
+	events.Stop()
 	ws.Stop()
 	sup.Stop()
+	player.Close()
+	gain.Close()
 }

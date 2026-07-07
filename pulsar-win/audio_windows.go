@@ -27,7 +27,7 @@ import (
 
 // startAudio wires both legs. Non-fatal renderer errors are logged by the
 // goroutine; the caller decides overall policy (main: warn and continue).
-func startAudio(pipeName string, ring *Ring, player *Player, log *slog.Logger, stop <-chan struct{}) error {
+func startAudio(pipeName string, ring *Ring, engine *Engine, player *Player, log *slog.Logger, stop <-chan struct{}) error {
 	listener, err := winio.ListenPipe(pipeName, nil)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", pipeName, err)
@@ -38,7 +38,7 @@ func startAudio(pipeName string, ring *Ring, player *Player, log *slog.Logger, s
 		listener.Close()
 	}()
 	go func() {
-		if err := renderLoop(ring, player, log, stop); err != nil {
+		if err := renderLoop(engine, player, log, stop); err != nil {
 			log.Error("wasapi render loop failed", "err", err)
 		}
 	}()
@@ -77,9 +77,9 @@ func acceptLoop(l net.Listener, ring *Ring, log *slog.Logger, stop <-chan struct
 //
 // The client is initialized directly at the pipeline format (44100/2/f32)
 // with AUTOCONVERTPCM|SRC_DEFAULT_QUALITY: since Win10 the audio engine
-// converts to the device mix format, so the loop pulls raw ring floats with
-// no local resampler — the macOS AVAudioEngine did the same conversion.
-func renderLoop(ring *Ring, player *Player, log *slog.Logger, stop <-chan struct{}) error {
+// converts to the device mix format, so the loop pulls raw engine floats
+// with no local resampler — the macOS AVAudioEngine did the same conversion.
+func renderLoop(engine *Engine, player *Player, log *slog.Logger, stop <-chan struct{}) error {
 	if err := ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED); err != nil {
 		return fmt.Errorf("CoInitializeEx: %w", err)
 	}
@@ -97,6 +97,12 @@ func renderLoop(ring *Ring, player *Player, log *slog.Logger, stop <-chan struct
 		return fmt.Errorf("default render endpoint: %w", err)
 	}
 	defer device.Release()
+
+	// Heartbeat speakers entry: the default endpoint's friendly name
+	// (best-effort; the "Default output" placeholder stands on failure).
+	if name := deviceFriendlyName(device); name != "" {
+		player.SetSpeakerName(name)
+	}
 
 	var client *wca.IAudioClient
 	if err := device.Activate(wca.IID_IAudioClient, wca.CLSCTX_ALL, nil, &client); err != nil {
@@ -180,11 +186,10 @@ func renderLoop(ring *Ring, player *Player, log *slog.Logger, stop <-chan struct
 			return fmt.Errorf("GetBuffer: %w", err)
 		}
 		dst := unsafe.Slice((*float32)(unsafe.Pointer(data)), int(frames)*channels)
-		got := ring.Read(dst)
-		for i := got; i < len(dst); i++ {
-			dst[i] = 0 // underrun = silence, never a stale tail
-		}
-		if got < len(dst) {
+		// The engine mixes music (with fade gain), voice inserts and clicks,
+		// zero-filling any shortfall (underrun = silence, never a stale tail).
+		got := engine.Render(dst)
+		if got < len(dst) && !engine.VoiceActive() {
 			player.NoteStarved()
 		}
 		player.NoteRendered(got)
@@ -192,4 +197,19 @@ func renderLoop(ring *Ring, player *Player, log *slog.Logger, stop <-chan struct
 			return fmt.Errorf("ReleaseBuffer: %w", err)
 		}
 	}
+}
+
+// deviceFriendlyName reads PKEY_Device_FriendlyName from the endpoint's
+// property store ("Speakers (Realtek High Definition Audio)" style).
+func deviceFriendlyName(device *wca.IMMDevice) string {
+	var ps *wca.IPropertyStore
+	if err := device.OpenPropertyStore(wca.STGM_READ, &ps); err != nil {
+		return ""
+	}
+	defer ps.Release()
+	var pv wca.PROPVARIANT
+	if err := ps.GetValue(&wca.PKEY_Device_FriendlyName, &pv); err != nil {
+		return ""
+	}
+	return pv.String()
 }

@@ -127,15 +127,24 @@ func (c fixedClock) LocalDeadline(tCoordMS int64, latency int) (int64, bool) {
 }
 func (c fixedClock) OffsetMS() (float64, bool) { return c.offset, c.ok }
 
-func newTestPlayer(daemon daemonAPI, clock deadlineClock) (*Player, chan sentMsg, *Ring) {
+func newTestPlayer(t *testing.T, daemon daemonAPI, clock deadlineClock) (*Player, chan sentMsg, *Ring) {
+	t.Helper()
 	sent := make(chan sentMsg, 64)
 	ring := NewRing(sampleRate * channels) // 1 s
-	p := NewPlayer(daemon, ring, clock,
+	gain := NewGain()
+	engine := NewEngine(ring, gain)
+	p := NewPlayer(daemon, ring, engine, nil, clock,
 		func(msgType string, payload any) { sent <- sentMsg{msgType, payload} },
 		0, testLogger())
 	// Shrink the poll knobs: defaults mirror production (20x500ms etc).
 	p.readyPollInterval = 2 * time.Millisecond
 	p.confirmPollInterval = 2 * time.Millisecond
+	p.drainInterval = 2 * time.Millisecond
+	p.Start() // watchers read the knobs, so start after shrinking them
+	t.Cleanup(func() {
+		p.Close()
+		gain.Close()
+	})
 	return p, sent, ring
 }
 
@@ -164,7 +173,7 @@ func loadEnvelope(el, uri string, pos int64) (protocol.Envelope, *protocol.LoadP
 func TestLoadHappyPathSendsReady(t *testing.T) {
 	daemon := newFakeDaemon()
 	daemon.readyAfter = 2 // load must wait for daemon auth, not fail (R0)
-	p, sent, _ := newTestPlayer(daemon, fixedClock{ok: true})
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
 
 	env, payload := loadEnvelope("el_1", "spotify:track:x", 63000)
 	p.Handle(env, payload)
@@ -186,7 +195,7 @@ func TestLoadHappyPathSendsReady(t *testing.T) {
 
 func TestLoadSkipsSeekAtZero(t *testing.T) {
 	daemon := newFakeDaemon()
-	p, sent, _ := newTestPlayer(daemon, fixedClock{ok: true})
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
 	p.Handle(loadEnvelope("el_1", "spotify:track:x", 0))
 	expectSent(t, sent, protocol.TypeReady)
 	close(daemon.calls)
@@ -200,7 +209,7 @@ func TestLoadSkipsSeekAtZero(t *testing.T) {
 func TestLoadRetriesOnceThenSucceeds(t *testing.T) {
 	daemon := newFakeDaemon()
 	daemon.playFails = 1
-	p, sent, _ := newTestPlayer(daemon, fixedClock{ok: true})
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
 	p.Handle(loadEnvelope("el_1", "spotify:track:x", 0))
 
 	expectCall(t, daemon, "play ")
@@ -211,7 +220,7 @@ func TestLoadRetriesOnceThenSucceeds(t *testing.T) {
 func TestLoadFailureSendsLoadFailed(t *testing.T) {
 	daemon := newFakeDaemon()
 	daemon.playFails = 2 // both attempts fail
-	p, sent, _ := newTestPlayer(daemon, fixedClock{ok: true})
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
 	p.Handle(loadEnvelope("el_1", "spotify:track:gone", 0))
 
 	m := expectSent(t, sent, protocol.TypeError)
@@ -226,7 +235,7 @@ func TestLoadFailureSendsLoadFailed(t *testing.T) {
 
 func TestResumeAtSchedulesOnDeadline(t *testing.T) {
 	daemon := newFakeDaemon()
-	p, sent, _ := newTestPlayer(daemon, fixedClock{ok: true}) // offset 0, latency 0
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true}) // offset 0, latency 0
 	p.Handle(loadEnvelope("el_1", "spotify:track:x", 0))
 	expectSent(t, sent, protocol.TypeReady)
 
@@ -264,7 +273,7 @@ func TestResumeAtSchedulesOnDeadline(t *testing.T) {
 
 func TestResumeAtWrongElementIgnored(t *testing.T) {
 	daemon := newFakeDaemon()
-	p, sent, _ := newTestPlayer(daemon, fixedClock{ok: true})
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
 	p.Handle(loadEnvelope("el_1", "spotify:track:x", 0))
 	expectSent(t, sent, protocol.TypeReady)
 
@@ -275,7 +284,7 @@ func TestResumeAtWrongElementIgnored(t *testing.T) {
 
 func TestResumeAtWithoutClockFiresImmediately(t *testing.T) {
 	daemon := newFakeDaemon()
-	p, sent, _ := newTestPlayer(daemon, fixedClock{ok: false})
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: false})
 	p.Handle(loadEnvelope("el_1", "spotify:track:x", 0))
 	expectSent(t, sent, protocol.TypeReady)
 
@@ -286,7 +295,7 @@ func TestResumeAtWithoutClockFiresImmediately(t *testing.T) {
 
 func TestPauseStopVolumeAndState(t *testing.T) {
 	daemon := newFakeDaemon()
-	p, sent, ring := newTestPlayer(daemon, fixedClock{ok: true})
+	p, sent, ring := newTestPlayer(t, daemon, fixedClock{ok: true})
 	p.Handle(loadEnvelope("el_1", "spotify:track:x", 0))
 	expectSent(t, sent, protocol.TypeReady)
 
@@ -305,8 +314,14 @@ func TestPauseStopVolumeAndState(t *testing.T) {
 	ring.Write(make([]float32, 1024))
 	p.Handle(protocol.Envelope{Type: protocol.TypeStop}, &protocol.StopPayload{})
 	expectCall(t, daemon, "stop")
+	// Stop lands softly (spec 4.3): 250 ms raised-cosine fade, THEN the ring
+	// tail is dropped (~300 ms) — poll for the deferred clear.
+	deadline := time.Now().Add(5 * time.Second)
+	for ring.Fill() != 0 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
 	if ring.Fill() != 0 {
-		t.Fatal("stop must clear the ring")
+		t.Fatal("stop must clear the ring after the fade window")
 	}
 	st := p.StatePayload(0)
 	if st.Playback != "stopped" || st.URI != nil {
@@ -316,7 +331,7 @@ func TestPauseStopVolumeAndState(t *testing.T) {
 
 func TestAudiblePositionSubtractsRingFill(t *testing.T) {
 	daemon := newFakeDaemon()
-	p, _, ring := newTestPlayer(daemon, fixedClock{ok: true})
+	p, _, ring := newTestPlayer(t, daemon, fixedClock{ok: true})
 
 	// Anchor at 10s paused (no extrapolation), 50 ms sitting in the ring.
 	p.mu.Lock()
@@ -334,7 +349,7 @@ func TestAudiblePositionSubtractsRingFill(t *testing.T) {
 
 func TestSoloInjectQueuesURI(t *testing.T) {
 	daemon := newFakeDaemon()
-	p, _, _ := newTestPlayer(daemon, fixedClock{ok: true})
+	p, _, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
 	p.Handle(protocol.Envelope{Type: protocol.TypeSoloInject},
 		&protocol.SoloInjectPayload{URI: "spotify:track:y"})
 	if got := expectCall(t, daemon, "queue "); got != "queue spotify:track:y" {
@@ -344,7 +359,7 @@ func TestSoloInjectQueuesURI(t *testing.T) {
 
 func TestStarvedCountsOnlyWhilePlaying(t *testing.T) {
 	daemon := newFakeDaemon()
-	p, sent, _ := newTestPlayer(daemon, fixedClock{ok: true})
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
 
 	p.NoteStarved() // stopped: idle silence is not an underrun (R4)
 	if u := p.StatePayload(0).Underruns; u != 0 {

@@ -1,0 +1,29 @@
+name: store-auth-check
+
+# One-shot verification that the Store submission API credentials work:
+# reconfigure msstore with the service-principal secrets and list the account's
+# apps. If it prints "Pulsar Barycenter" / product 9P26FDCWV1GC, the Azure AD
+# app is correctly linked in Partner Center and the API is usable. Publishes
+# nothing.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.x"
+      - name: Install msstore CLI
+        run: dotnet tool install --global MSStore.CLI
+      - name: Configure + list apps
+        run: |
+          msstore reconfigure \
+            --tenantId "${{ secrets.MSSTORE_TENANT_ID }}" \
+            --clientId "${{ secrets.MSSTORE_CLIENT_ID }}" \
+            --clientSecret "${{ secrets.MSSTORE_CLIENT_SECRET }}" \
+            --sellerId "${{ vars.STORE_SELLER_ID }}"
+          echo "--- apps ---"
+          msstore apps list

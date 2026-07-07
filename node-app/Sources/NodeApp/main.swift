@@ -231,20 +231,28 @@ final class CoreRuntime {
         return rt
     }
 
-    func shutdown() {
-        log.info("shutting down")
-        // 5 s (was 2): the hard watchdog raced Sparkle's relaunch agent —
-        // the host died before the updater coordinated the restart and the
-        // Updater.app hung forever (beta finding, 2026-07-07).
-        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { _exit(1) }
+    // teardown stops every live component WITHOUT exiting the process — for
+    // re-pairing in place (F3). The activity token stays; the app lives on to
+    // show the onboarding window and start a fresh core.
+    func teardown() {
+        log.info("core teardown (re-pair)")
         client.stop()
         librespot.stopEvents()
         supervisor.stop()
         airfoil?.stop()
         outputMonitor?.stop()
         engine.stopEngine()
-        ProcessInfo.processInfo.endActivity(activityToken)
         Thread.sleep(forTimeInterval: 0.2)
+    }
+
+    func shutdown() {
+        log.info("shutting down")
+        // 5 s (was 2): the hard watchdog raced Sparkle's relaunch agent —
+        // the host died before the updater coordinated the restart and the
+        // Updater.app hung forever (beta finding, 2026-07-07).
+        DispatchQueue.global().asyncAfter(deadline: .now() + 5) { _exit(1) }
+        teardown()
+        ProcessInfo.processInfo.endActivity(activityToken)
         exit(0)
     }
 }
@@ -278,11 +286,37 @@ func startCore(with config: NodeConfig) {
         statusMenu.player = rt.player
         statusMenu.updater = updater.updater
         statusMenu.coordinatorConnected = { true } // refined by heartbeat later
+        statusMenu.connectionIdentity = connectionIdentity(config)
+        statusMenu.rePairAction = { rePairFlow() }
         app.setActivationPolicy(config.airfoil.isEnabled ? .regular : .accessory)
     } catch let err as ConfigError {
         failConfig(err.description)
     } catch {
         failConfig("запуск не удался: \(error)")
+    }
+}
+
+// connectionIdentity renders "host · дом slot" for the menu (F3).
+func connectionIdentity(_ config: NodeConfig) -> String {
+    let host = URL(string: config.coordinator.url)?.host ?? config.coordinator.url
+    return "\(host) · дом \(config.nodeId)"
+}
+
+// rePairFlow tears down the running core and reopens the onboarding window
+// so the user can pair against a fresh code (F3). A successful pair starts a
+// new core in place — no relaunch.
+func rePairFlow() {
+    runtime?.teardown()
+    runtime = nil
+    statusMenu.player = nil
+    app.setActivationPolicy(.regular)
+    onboarding.show(coordinatorBase: defaultCoordinatorBase) { _ in
+        guard let paired = try? ConfigLoader.load(
+            path: configPath,
+            credentials: CredentialsStore.load(besideConfig: configPath)) else {
+            failConfig("креды сохранены, но конфиг не собрался — перезапусти Pulsar")
+        }
+        startCore(with: paired)
     }
 }
 

@@ -63,6 +63,16 @@ struct OnboardingView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(code.count != 8 || busy)
+
+            // F5: the exact thing that hid Timur's speaker. Warn before it bites.
+            VStack(spacing: 3) {
+                Text("Не видно Пульсар в Spotify? Телефон и компьютер — в одной Wi-Fi; проверь файрвол macOS (Настройки → Сеть → Файрвол) и выключи VPN.")
+                Link("Полная инструкция → barycenter.live/guide", destination: URL(string: "https://barycenter.live/guide/")!)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .frame(width: 320)
         }
         .padding(28)
         .frame(width: 380)

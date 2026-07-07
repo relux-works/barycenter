@@ -15,6 +15,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     var updater: SPUUpdater?
     var coordinatorConnected: () -> Bool = { false }
     var orbitLabel: String = ""
+    // F3: where this Pulsar is connected ("barycenter.relux.works · дом a"),
+    // shown in the menu so a wrong coordinator is obvious at a glance.
+    var connectionIdentity: String = ""
+    // F3: opens the onboarding window to re-pair at any time.
+    var rePairAction: (() -> Void)?
 
     func install() {
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -34,6 +39,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             let st = player.menuStatus()
             let link = coordinatorConnected() ? "Барицентр: в сети" : "Барицентр: переподключение…"
             menu.addItem(disabled(link))
+            if !connectionIdentity.isEmpty {
+                menu.addItem(disabled(connectionIdentity))
+            }
             let mode = st.mode == "shared" ? "периастрон — общий эфир" : "апоастрон — каждый своё"
             menu.addItem(disabled(mode))
             if st.playback == "playing", let uri = st.uri {
@@ -45,6 +53,14 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             menu.addItem(disabled("не спарен — введи код из @barycenter_bot"))
         }
         menu.addItem(.separator())
+
+        // F3: re-pair anytime (after a coordinator move, a wrong pairing, or a
+        // lost token). Opens the onboarding window; the core restarts on pair.
+        if rePairAction != nil {
+            let rp = NSMenuItem(title: "Подключить заново…", action: #selector(rePair), keyEquivalent: "")
+            rp.target = self
+            menu.addItem(rp)
+        }
 
         // Output devices submenu.
         let outMenu = NSMenu()
@@ -96,6 +112,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     @objc private func checkUpdates() {
         updater?.checkForUpdates()
+    }
+
+    @objc private func rePair() {
+        rePairAction?()
     }
 
     @objc private func toggleLogin() {

@@ -15,7 +15,7 @@
 
   <Identity
     Name="ReluxWorks.Pulsar"
-    Publisher="CN=Relux Works, LLC"
+    Publisher="CN=&quot;Relux Works, LLC&quot;"
     Version="@VERSION@"
     ProcessorArchitecture="x64" />
 

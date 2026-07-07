@@ -157,13 +157,39 @@ jobs:
           BUILD=$(echo "${GITHUB_REF_NAME}" | sed -E 's/.*\.([0-9]+)$/\1/; s/[^0-9]//g')
           [ -z "$BUILD" ] && BUILD=0
           sed "s/@VERSION@/${BASE}.${BUILD}/" pulsar-win/msix/AppxManifest.xml.in > stage/AppxManifest.xml
-      - name: Pack MSIX (unsigned — the Store signs on submission)
+      # --- EV code signing (SSL.com eSigner) — activate when the cert issues ---
+      # Path B: a direct-download .exe/.msix that runs without SmartScreen.
+      # 1. gh secret set ESIGNER_USERNAME ESIGNER_PASSWORD ESIGNER_TOTP ESIGNER_CREDENTIAL_ID
+      # 2. Update AppxManifest.xml.in Publisher to the EV cert's EXACT subject DN
+      #    (MSIX requires Publisher == signing-cert subject).
+      # 3. Uncomment the two signing steps below.
+      # - name: Sign inner executables (EV)
+      #   uses: sslcom/esigner-codesign@develop
+      #   with:
+      #     command: sign
+      #     username: ${{ secrets.ESIGNER_USERNAME }}
+      #     password: ${{ secrets.ESIGNER_PASSWORD }}
+      #     totp_secret: ${{ secrets.ESIGNER_TOTP }}
+      #     credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
+      #     file_path: ${{ github.workspace }}/stage/pulsar-win-amd64.exe
+      #     override: true
+      - name: Pack MSIX (unsigned by CI — signed below when EV is configured)
         shell: pwsh
         run: |
           $sdk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Directory | Where-Object { Test-Path "$($_.FullName)\x64\makeappx.exe" } | Sort-Object Name -Descending | Select-Object -First 1
           $makeappx = "$($sdk.FullName)\x64\makeappx.exe"
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           & $makeappx pack /d stage /p "dist/Pulsar-${env:GITHUB_REF_NAME}-win.msix" /o
+      # - name: Sign MSIX (EV)
+      #   uses: sslcom/esigner-codesign@develop
+      #   with:
+      #     command: sign
+      #     username: ${{ secrets.ESIGNER_USERNAME }}
+      #     password: ${{ secrets.ESIGNER_PASSWORD }}
+      #     totp_secret: ${{ secrets.ESIGNER_TOTP }}
+      #     credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
+      #     file_path: ${{ github.workspace }}/dist/Pulsar-${{ github.ref_name }}-win.msix
+      #     override: true
           (Get-FileHash "dist/Pulsar-${env:GITHUB_REF_NAME}-win.msix" -Algorithm SHA256).Hash | Out-File dist/SHA256SUMS.msix
       - name: Attest MSIX provenance
         uses: actions/attest-build-provenance@v2

@@ -27,3 +27,26 @@ DP keychain, and deletes the source. One-way, idempotent.
 **Related.** A dev-era `~/duet/node.yml` pointing at `127.0.0.1` used to
 hijack a paired app onto a dead local coordinator; the app now retires it to
 `.retired` on launch (only the default path, only when it points local).
+
+## 2026-07-08 — Windows code signing: EV cert, not Azure Trusted Signing (F6)
+
+**Context.** The direct-download Windows channel (.exe/.msix that runs without
+a SmartScreen warning) needs a code-signing certificate. Azure Trusted /
+Artifact Signing was the cheapest option ($10/mo) but is **available only to
+organizations in the USA, Canada, EU & UK**. Relux Works, LLC is Armenian
+(C=AM) — ineligible; individual signing is US/Canada only too.
+
+**Decision.** Buy an **EV code-signing certificate with cloud signing**
+(SSL.com eSigner, or Certum SimplySign as the budget alternative). EV gives
+instant SmartScreen trust from the first download (OV would show a warning
+until reputation accrues — unacceptable for a first-time user). Cloud signing
+is mandatory post-2023 (EV keys must live on a FIPS HSM; no token in CI).
+
+**Wiring.** CI scaffold is in release.yml (commented sslcom/esigner-codesign
+steps for the inner exe and the MSIX). Activation = set the eSigner secrets,
+set AppxManifest Publisher to the cert's exact subject DN (MSIX requires
+Publisher == signer subject), uncomment the two steps.
+
+**Microsoft Store (Partner Center)** stays the preferred long-term channel
+(Microsoft signs, no cert, broader country support) — pursued separately.
+EV direct-download is the channel that does not depend on Store review timing.

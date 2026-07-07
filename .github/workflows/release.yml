@@ -180,7 +180,8 @@ jobs:
           $makeappx = "$($sdk.FullName)\x64\makeappx.exe"
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           & $makeappx pack /d stage /p "dist/Pulsar-${env:GITHUB_REF_NAME}-win.msix" /o
-      # - name: Sign MSIX (EV)
+          (Get-FileHash "dist/Pulsar-${env:GITHUB_REF_NAME}-win.msix" -Algorithm SHA256).Hash | Out-File dist/SHA256SUMS.msix
+      # - name: Sign MSIX (EV) — uncomment with the Sign-inner-exe step above
       #   uses: sslcom/esigner-codesign@develop
       #   with:
       #     command: sign
@@ -190,7 +191,6 @@ jobs:
       #     credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
       #     file_path: ${{ github.workspace }}/dist/Pulsar-${{ github.ref_name }}-win.msix
       #     override: true
-          (Get-FileHash "dist/Pulsar-${env:GITHUB_REF_NAME}-win.msix" -Algorithm SHA256).Hash | Out-File dist/SHA256SUMS.msix
       - name: Attest MSIX provenance
         uses: actions/attest-build-provenance@v2
         with:

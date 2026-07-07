@@ -152,11 +152,13 @@ jobs:
         shell: bash
         run: |
           cp pulsar-win/msix/Assets/*.png stage/Assets/
-          # MSIX Version must be a numeric quad a.b.c.d.
-          BASE=$(echo "${GITHUB_REF_NAME}" | sed -E 's/^v//; s/-.*//')
-          BUILD=$(echo "${GITHUB_REF_NAME}" | sed -E 's/.*\.([0-9]+)$/\1/; s/[^0-9]//g')
+          # MSIX Version must be a numeric quad Major.Minor.Build.Revision, and
+          # the Store REQUIRES Revision == 0. Put the beta number in Build and
+          # pin Revision to 0: v0.3.0-beta.15 -> 0.3.15.0 (monotonic per beta).
+          MAJOR_MINOR=$(echo "${GITHUB_REF_NAME}" | sed -E 's/^v//; s/^([0-9]+\.[0-9]+).*/\1/')
+          BUILD=$(echo "${GITHUB_REF_NAME}" | sed -E 's/.*[.-]([0-9]+)$/\1/; s/[^0-9]//g')
           [ -z "$BUILD" ] && BUILD=0
-          sed "s/@VERSION@/${BASE}.${BUILD}/" pulsar-win/msix/AppxManifest.xml.in > stage/AppxManifest.xml
+          sed "s/@VERSION@/${MAJOR_MINOR}.${BUILD}.0/" pulsar-win/msix/AppxManifest.xml.in > stage/AppxManifest.xml
       # --- EV code signing (SSL.com eSigner) — activate when the cert issues ---
       # Path B: a direct-download .exe/.msix that runs without SmartScreen.
       # 1. gh secret set ESIGNER_USERNAME ESIGNER_PASSWORD ESIGNER_TOTP ESIGNER_CREDENTIAL_ID

@@ -13,17 +13,17 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.x"
-      - name: Install msstore CLI
-        run: dotnet tool install --global MSStore.CLI
+      - name: Install msstore CLI (official self-contained binary)
+        run: |
+          curl -sL https://github.com/microsoft/msstore-cli/releases/latest/download/MSStoreCLI-linux-x64.tar.gz | tar xz
+          chmod +x msstore
+          ./msstore --version
       - name: Configure + list apps
         run: |
-          msstore reconfigure \
+          ./msstore reconfigure \
             --tenantId "${{ secrets.MSSTORE_TENANT_ID }}" \
             --clientId "${{ secrets.MSSTORE_CLIENT_ID }}" \
             --clientSecret "${{ secrets.MSSTORE_CLIENT_SECRET }}" \
             --sellerId "${{ vars.STORE_SELLER_ID }}"
           echo "--- apps ---"
-          msstore apps list
+          ./msstore apps list

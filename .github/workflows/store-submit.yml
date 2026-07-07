@@ -26,11 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.x"
-      - name: Install msstore CLI
-        run: dotnet tool install --global MSStore.CLI
+      - name: Install msstore CLI (official self-contained binary)
+        run: |
+          curl -sL https://github.com/microsoft/msstore-cli/releases/latest/download/MSStoreCLI-linux-x64.tar.gz | tar xz
+          chmod +x msstore
       - name: Download the MSIX from the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,7 +39,7 @@ jobs:
             --pattern 'Pulsar-*-win.msix' --dir pkg
       - name: Configure credentials
         run: |
-          msstore reconfigure \
+          ./msstore reconfigure \
             --tenantId "${{ secrets.MSSTORE_TENANT_ID }}" \
             --clientId "${{ secrets.MSSTORE_CLIENT_ID }}" \
             --clientSecret "${{ secrets.MSSTORE_CLIENT_SECRET }}" \
@@ -49,4 +48,4 @@ jobs:
         run: |
           # msstore publish uploads the package to the reserved product and
           # creates/updates the pending submission. Finalized on first real run.
-          msstore publish pkg/Pulsar-*-win.msix --id 9P26FDCWV1GC
+          ./msstore publish pkg/Pulsar-*-win.msix --id 9P26FDCWV1GC

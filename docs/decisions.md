@@ -61,3 +61,14 @@ SUPERSEDES the EV-cert plan above: SSL.com eSigner (~$1250/yr) is dropped;
 the EV scaffold in release.yml stays commented as a fallback only if a
 direct-download channel is ever needed. Next: reserve the "Pulsar" app name,
 match AppxManifest Publisher/Identity to the Store-assigned values, submit.
+
+## 2026-07-08 — Store submission automation (msstore CLI)
+
+Azure AD app `pulsar-store-ci` (client 30b823e6-…, tenant 19420c32-…) drives
+the Microsoft Store submission API from CI. Secrets MSSTORE_TENANT_ID /
+MSSTORE_CLIENT_ID / MSSTORE_CLIENT_SECRET set. `.github/workflows/store-submit.yml`
+is workflow_dispatch (never auto — beta tags must not publish to the Store).
+Remaining before it works: (1) link the app in Partner Center → Account
+settings → User management → Azure AD applications as Manager; (2) repo var
+STORE_SELLER_ID; (3) account verification complete. The exact msstore submit
+subcommand is confirmed on the first real run (blind until the account is live).

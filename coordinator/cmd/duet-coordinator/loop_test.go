@@ -19,6 +19,7 @@ import (
 
 type sentMsg struct {
 	node    protocol.NodeID // slot within the test orbit
+	key     hub.NodeKey     // full wire address (approach tests assert orbit routing)
 	msgType string
 	payload any
 }
@@ -28,7 +29,7 @@ type fakeSender struct {
 }
 
 func (f *fakeSender) Send(key hub.NodeKey, msgType string, payload any) bool {
-	f.sent = append(f.sent, sentMsg{key.Slot, msgType, payload})
+	f.sent = append(f.sent, sentMsg{key.Slot, key, msgType, payload})
 	return true
 }
 
@@ -103,7 +104,8 @@ func (r *replies) last(t *testing.T) string {
 }
 
 // homes: "a" is user 111 (Ivan), "b" is user 222 (Katya) — see testConfig.
-var testUsers = map[string]int64{"a": 111, "b": 222}
+// "o2" is user 333, primary of the second orbit in approach tests.
+var testUsers = map[string]int64{"a": 111, "b": 222, "o2": 333}
 
 func cmdEvent(t *testing.T, from, text string, r *replies) bot.Event {
 	t.Helper()

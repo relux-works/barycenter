@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"relux.works/duet/coordinator/internal/protocol"
 	"relux.works/duet/coordinator/internal/resolver"
 	"relux.works/duet/coordinator/internal/session"
 	"relux.works/duet/coordinator/internal/spotify"
@@ -167,7 +168,7 @@ func (l *loop) resolveElement(o *orbitState, el *session.Element, reply func(str
 	if originProv == "" {
 		return true // not provider-shaped (playlist elements etc.): legacy path
 	}
-	slotProviders, err := l.st.SlotProviders(o.id)
+	slotProviders, err := l.sessionSlotProviders(o)
 	if err != nil {
 		l.log.Error("slot providers lookup failed", "orbit", o.id, "err", err)
 		return true // fail open: behave as pre-provider
@@ -236,9 +237,30 @@ func (l *loop) resolveElement(o *orbitState, el *session.Element, reply func(str
 	// P1 strict air: every home's provider must hold a ref for the track.
 	for _, slot := range sortedSlots(slotProviders) {
 		if prov := slotProviders[slot]; !resolved[prov] {
-			reply(fmt.Sprintf("«%s»: нет у дома %s (%s), не ставлю", trackLabel(*el), slot, providerName(prov)))
+			reply(fmt.Sprintf("«%s»: нет у дома %s (%s), не ставлю",
+				trackLabel(*el), l.peerName(o, protocol.NodeID(slot)), providerName(prov)))
 			return false
 		}
 	}
 	return true
+}
+
+// sessionSlotProviders maps the session's homes to their providers; a group
+// session unions both orbits' slots under composite ids (design §12 L1) so
+// the P1 gate keeps protecting every home in the shared air.
+func (l *loop) sessionSlotProviders(o *orbitState) (map[string]string, error) {
+	if !o.group() {
+		return l.st.SlotProviders(o.id)
+	}
+	out := map[string]string{}
+	for _, orbitID := range o.orbits {
+		provs, err := l.st.SlotProviders(orbitID)
+		if err != nil {
+			return nil, err
+		}
+		for sl, p := range provs {
+			out[string(compositeID(orbitID, protocol.NodeID(sl)))] = p
+		}
+	}
+	return out, nil
 }

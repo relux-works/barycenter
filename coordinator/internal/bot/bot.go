@@ -111,6 +111,8 @@ const commandMenuJSON = `[
 {"command":"resume","description":"продолжить"},
 {"command":"periastron","description":"общий эфир"},
 {"command":"apoastron","description":"каждый слушает своё"},
+{"command":"approach","description":"сближение с другим барицентром"},
+{"command":"apart","description":"завершить сближение"},
 {"command":"status","description":"состояние системы"},
 {"command":"takeover","description":"кто главнее при вмешательстве с телефона"},
 {"command":"playnow","description":"включить немедленно"},

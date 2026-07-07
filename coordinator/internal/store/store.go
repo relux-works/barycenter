@@ -96,6 +96,12 @@ func (s *Store) SaveSession(orbitID int64, snap SessionSnapshot) error {
 	return s.SetSetting(fmt.Sprintf("session_state_%d", orbitID), string(raw))
 }
 
+// ClearSession drops a persisted snapshot (a dissolved approach must not
+// resurrect its group session under a future link id).
+func (s *Store) ClearSession(orbitID int64) error {
+	return s.SetSetting(fmt.Sprintf("session_state_%d", orbitID), "")
+}
+
 // LoadSession restores the snapshot; a PLAYING/ARMED/LOADING session comes
 // back as PAUSED (spec 7.2 restart rule). Returns nil if nothing was saved.
 func (s *Store) LoadSession(orbitID int64) (*SessionSnapshot, error) {

@@ -131,6 +131,10 @@ func (s *Store) initOrbits() error {
 	if _, err := s.db.Exec(orbitSchema); err != nil {
 		return err
 	}
+	// Approaches between barycenters (design §12 L1): additive table.
+	if _, err := s.db.Exec(linksSchema); err != nil {
+		return err
+	}
 	// Pre-provider databases lack slots.provider: additive migration.
 	s.db.Exec(`ALTER TABLE slots ADD COLUMN provider TEXT NOT NULL DEFAULT 'spotify'`)
 	return nil

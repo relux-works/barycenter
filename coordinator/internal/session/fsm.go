@@ -182,6 +182,17 @@ func (s *Session) EnsurePeer(n protocol.NodeID) {
 	s.Peers = append(s.Peers, n)
 }
 
+// SeedOnline replaces liveness knowledge wholesale, without effects. Link
+// boundaries (design §12) move nodes between sessions: the session that
+// starts consuming a node's events must not trust a stale map, and the hub
+// only emits EvOnline on real transitions.
+func (s *Session) SeedOnline(online map[protocol.NodeID]bool) {
+	s.online = map[protocol.NodeID]bool{}
+	for n, on := range online {
+		s.online[n] = on
+	}
+}
+
 // RemovePeer drops a revoked slot and re-evaluates everything the missing
 // peer might have been blocking (gate, ready, ended, voice completion).
 func (s *Session) RemovePeer(nowMS int64, n protocol.NodeID) []Effect {

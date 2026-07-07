@@ -46,6 +46,12 @@ const (
 	// Provider layer (spec-providers, behind DUET_PROVIDERS)
 	KindProvider CommandKind = "provider" // /provider <slot> <spotify|yandex> (§6.3)
 	KindResolve  CommandKind = "resolve"  // /resolve — manual mapping repair (reserved)
+
+	// Approaches between barycenters (design §12, L1)
+	KindApproach CommandKind = "approach" // /approach [code] — propose / claim an approach
+	KindAccept   CommandKind = "accept"   // /accept — initiator confirms the approach
+	KindDecline  CommandKind = "decline"  // /decline — initiator rejects the approach
+	KindApart    CommandKind = "apart"    // /apart — dissolve the active approach
 )
 
 type Command struct {
@@ -119,6 +125,21 @@ func Parse(text string) (Command, error) {
 		return Command{Kind: KindRevoke, Target: strings.ToLower(args[0])}, nil
 	case "/orbit":
 		return Command{Kind: KindOrbit}, nil
+
+	// Approaches (design §12): codes come uppercase from randomCode, typing
+	// is forgiven.
+	case "/approach":
+		code := ""
+		if len(args) > 0 {
+			code = strings.ToUpper(args[0])
+		}
+		return Command{Kind: KindApproach, Target: code}, nil
+	case "/accept":
+		return Command{Kind: KindAccept}, nil
+	case "/decline":
+		return Command{Kind: KindDecline}, nil
+	case "/apart":
+		return Command{Kind: KindApart}, nil
 
 	case "/playnow":
 		if len(args) == 0 {
@@ -279,6 +300,11 @@ const helpText = `<b>Барицентр</b> — общий музыкальны�
 /orbit — участники и дома · /share — пригласить
 /pair — код для подключения своего Пульсара
 /make_primary — передать главную звезду · /revoke &lt;дом&gt; — отозвать доступ
+
+<b>Сближение</b>
+/approach — код сближения для другого барицентра (/approach КОД — принять его код)
+инициатор подтверждает: /accept или /decline
+/apart — завершить сближение, каждый у себя
 
 <b>Калибровка</b>
 /offset &lt;дом&gt; &lt;мс&gt; · /offset_test — синхронные клики`

@@ -49,6 +49,11 @@ func TestParse(t *testing.T) {
 		{"resolve reserved", "/resolve " + trackURL, Command{Kind: KindResolve}},
 		{"yandex track link", "https://music.yandex.ru/album/1193829/track/10994777",
 			Command{Kind: KindLink, URI: "yandex:track:10994777:1193829"}},
+		{"approach propose", "/approach", Command{Kind: KindApproach}},
+		{"approach claim uppercases", "/approach abcd2345", Command{Kind: KindApproach, Target: "ABCD2345"}},
+		{"accept", "/accept", Command{Kind: KindAccept}},
+		{"decline", "/decline", Command{Kind: KindDecline}},
+		{"apart", "/apart", Command{Kind: KindApart}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

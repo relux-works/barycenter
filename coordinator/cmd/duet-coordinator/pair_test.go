@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"relux.works/duet/coordinator/internal/config"
+	"relux.works/duet/coordinator/internal/hub"
 	"relux.works/duet/coordinator/internal/store"
 )
 
@@ -104,7 +105,7 @@ func TestCoordinatorPolicyYieldsWhenIdle(t *testing.T) {
 	l, fake := newTestLoop(t)
 	o := l.orbit(1)
 	o.takeoverPolicy = "coordinator"
-	l.handleExternalPlayback(o, "a", "spotify:track:X")
+	l.handleExternalPlayback(o, hub.NodeKey{Orbit: 1, Slot: "a"}, "spotify:track:X")
 	for _, m := range fake.ofType("stop") {
 		if m.node == "a" {
 			t.Fatalf("empty air must not stop the phone's node: %+v", fake.sent)

@@ -119,6 +119,55 @@ jobs:
         with:
           files: dist/*
 
+  msix:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: relux-works/go-librespot
+          path: fork
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: pulsar-win/go.mod
+      - name: Build shell + fork daemon (reproducible, CGO off)
+        shell: bash
+        run: |
+          mkdir -p stage/Assets
+          cd pulsar-win
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid= -X main.version=${GITHUB_REF_NAME}" -o ../stage/pulsar-win-amd64.exe .
+          cd ../fork
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o ../stage/go-librespot.exe ./cmd/daemon
+      - name: Stage package (manifest + assets)
+        shell: bash
+        run: |
+          cp pulsar-win/msix/Assets/*.png stage/Assets/
+          # MSIX Version must be a numeric quad a.b.c.d.
+          BASE=$(echo "${GITHUB_REF_NAME}" | sed -E 's/^v//; s/-.*//')
+          BUILD=$(echo "${GITHUB_REF_NAME}" | sed -E 's/.*\.([0-9]+)$/\1/; s/[^0-9]//g')
+          [ -z "$BUILD" ] && BUILD=0
+          sed "s/@VERSION@/${BASE}.${BUILD}/" pulsar-win/msix/AppxManifest.xml.in > stage/AppxManifest.xml
+      - name: Pack MSIX (unsigned — the Store signs on submission)
+        shell: pwsh
+        run: |
+          $sdk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Directory | Where-Object { Test-Path "$($_.FullName)\x64\makeappx.exe" } | Sort-Object Name -Descending | Select-Object -First 1
+          $makeappx = "$($sdk.FullName)\x64\makeappx.exe"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          & $makeappx pack /d stage /p "dist/Pulsar-${env:GITHUB_REF_NAME}-win.msix" /o
+          (Get-FileHash "dist/Pulsar-${env:GITHUB_REF_NAME}-win.msix" -Algorithm SHA256).Hash | Out-File dist/SHA256SUMS.msix
+      - name: Attest MSIX provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/Pulsar-*-win.msix
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
   coordinator:
     runs-on: ubuntu-latest
     steps:

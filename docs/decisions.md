@@ -72,3 +72,19 @@ Remaining before it works: (1) link the app in Partner Center → Account
 settings → User management → Azure AD applications as Manager; (2) repo var
 STORE_SELLER_ID; (3) account verification complete. The exact msstore submit
 subcommand is confirmed on the first real run (blind until the account is live).
+
+## 2026-07-08 — Store API access WORKING (msstore CLI)
+
+Proven end-to-end: store-auth-check ran `msstore apps list` and returned
+product 9P26FDCWV1GC "Pulsar Barycenter" ReluxWorksLLC.PulsarBarycenter.
+Hard-won steps: (1) Partner Center had NO associated Entra tenant — associated
+adminrelux.onmicrosoft.com (19420c32-…) via its GLOBAL ADMIN UPN
+ivan@adminrelux.onmicrosoft.com (NOT admin@relux.works — relux.works isn't a
+verified Entra domain; admin@relux.works is only the MSA). (2) Linked
+pulsar-store-ci as Manager(Windows). (3) msstore CLI is NOT a NuGet dotnet
+tool — download the self-contained binary from
+github.com/microsoft/msstore-cli releases (MSStoreCLI-linux-x64.tar.gz, binary
+`msstore`). (4) On Linux it stores creds via libsecret → needs libsecret-1-0 +
+a running freedesktop secret service: run inside `dbus-run-session` with an
+unlocked gnome-keyring. store-submit.yml uses the same wrapper. Remaining for a
+real submission: listing metadata + screenshots (Timur) on the product.

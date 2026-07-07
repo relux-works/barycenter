@@ -4,15 +4,16 @@ name: store-submit
 # (Store submission API). Deliberately workflow_dispatch — Store submission is
 # an intentional act, never automatic on every beta tag.
 #
-# Prerequisites (one-time, see docs/decisions.md):
-#   - Secrets: MSSTORE_TENANT_ID, MSSTORE_CLIENT_ID, MSSTORE_CLIENT_SECRET
-#   - Repo variable STORE_SELLER_ID (Partner Center → Account settings → seller id)
-#   - The pulsar-store-ci Azure AD app linked in Partner Center as Manager
-#   - The Partner Center account fully verified (the red "not verified" banner gone)
+# Prerequisites (all satisfied 2026-07-08, see docs/decisions.md):
+#   - Secrets MSSTORE_TENANT_ID / MSSTORE_CLIENT_ID / MSSTORE_CLIENT_SECRET
+#   - Repo variable STORE_SELLER_ID
+#   - pulsar-store-ci linked in Partner Center as Manager(Windows)
+#   - Store account verified
+# Auth proven by the store-auth-check workflow (msstore apps list -> 9P26FDCWV1GC).
 #
-# The exact `msstore` submission subcommand is finalized on the first real run
-# against the verified account (blind until then); a failed manual run is
-# harmless — it touches nothing but the pending Store submission.
+# NOTE: `msstore publish` uploads the package and drives a submission. The
+# listing metadata + screenshots must exist on the product (filled once,
+# manually or via an init.json) for certification to pass.
 
 on:
   workflow_dispatch:
@@ -25,10 +26,10 @@ jobs:
   submit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install msstore CLI (official self-contained binary)
+      - name: Install msstore CLI + a Linux secret service
         run: |
-          sudo apt-get update && sudo apt-get install -y libsecret-1-0
+          sudo apt-get update
+          sudo apt-get install -y libsecret-1-0 gnome-keyring dbus-x11
           curl -sL https://github.com/microsoft/msstore-cli/releases/latest/download/MSStoreCLI-linux-x64.tar.gz | tar xz
           chmod +x msstore
       - name: Download the MSIX from the release
@@ -38,15 +39,18 @@ jobs:
           mkdir -p pkg
           gh release download "${{ inputs.tag }}" --repo relux-works/barycenter \
             --pattern 'Pulsar-*-win.msix' --dir pkg
-      - name: Configure credentials
+      - name: Configure + submit
+        env:
+          TENANT: ${{ secrets.MSSTORE_TENANT_ID }}
+          CLIENT: ${{ secrets.MSSTORE_CLIENT_ID }}
+          SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          SELLER: ${{ vars.STORE_SELLER_ID }}
         run: |
-          ./msstore reconfigure \
-            --tenantId "${{ secrets.MSSTORE_TENANT_ID }}" \
-            --clientId "${{ secrets.MSSTORE_CLIENT_ID }}" \
-            --clientSecret "${{ secrets.MSSTORE_CLIENT_SECRET }}" \
-            --sellerId "${{ vars.STORE_SELLER_ID }}"
-      - name: Submit the package to product 9P26FDCWV1GC
-        run: |
-          # msstore publish uploads the package to the reserved product and
-          # creates/updates the pending submission. Finalized on first real run.
-          ./msstore publish pkg/Pulsar-*-win.msix --id 9P26FDCWV1GC
+          # msstore stores credentials via libsecret, which needs a running
+          # freedesktop secret service — provide one with an unlocked keyring
+          # inside a private dbus session (same as store-auth-check).
+          dbus-run-session -- bash -euxc '
+            echo "" | gnome-keyring-daemon --unlock --components=secrets
+            ./msstore reconfigure --tenantId "$TENANT" --clientId "$CLIENT" --clientSecret "$SECRET" --sellerId "$SELLER"
+            ./msstore publish pkg/Pulsar-*-win.msix --id 9P26FDCWV1GC
+          '

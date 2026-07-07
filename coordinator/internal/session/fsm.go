@@ -5,6 +5,7 @@ package session
 
 import (
 	"fmt"
+	"strings"
 
 	"relux.works/duet/coordinator/internal/protocol"
 )
@@ -33,6 +34,18 @@ type Kind string
 const (
 	KindTrack Kind = "track"
 	KindVoice Kind = "voice"
+)
+
+// GateMode selects the offline gate for starting material (design §12 L1.5
+// "living air"). Strict is the historic rule: every peer must be online.
+// EachSide is for linked (group) sessions: the broadcast may start as soon
+// as every SIDE (linked orbit) has at least one home online — offline homes
+// do not block and catch up individually when they wake (JoinInProgress).
+type GateMode string
+
+const (
+	GateStrict   GateMode = "strict"
+	GateEachSide GateMode = "eachSide"
 )
 
 // Element is the unit of airtime (spec 5.1).
@@ -140,9 +153,30 @@ type Session struct {
 	nodePos map[protocol.NodeID]int64 // audible position from heartbeats
 	nodeRTT map[protocol.NodeID]int64
 
+	// participants: peers the CURRENT element was dealt to (sealed at
+	// loadCurrent/startVoice). nil means "everyone" — strict sessions and
+	// restored snapshots keep the historic all-peers barriers. Living air
+	// (eachSide) seals the online subset so absent homes never block
+	// ready/started/ended accounting.
+	participants map[protocol.NodeID]bool
+	// joining: homes catching up with an element already in flight
+	// (JoinInProgress). Their ready arms a solo resume_at, never the main
+	// barrier; they graduate into participants once started arrives.
+	joining map[protocol.NodeID]bool
+	// lastAbsent dedups the "стартуем без ..." notify: repeat it only when
+	// the set of absent homes changes, not on every element (spec 9.2).
+	lastAbsent map[protocol.NodeID]bool
+
 	// Peers: the orbit's pulsars (slots). The broadcast machinery runs over
 	// this set (M2: N homes, not two).
 	Peers []protocol.NodeID
+
+	// GateMode: which offline gate advance() consults (living air, §12 L1.5).
+	GateMode GateMode
+	// SideOf maps a peer to its side for the eachSide gate. The loop sets it
+	// for group sessions (composite "orbit:slot" prefix = orbit id). nil =
+	// every peer is its own side, which makes eachSide degenerate to strict.
+	SideOf func(protocol.NodeID) string
 
 	// StartMarginMS: extra margin in resume_at scheduling (spec 7.1 scheduler).
 	StartMarginMS int64
@@ -159,7 +193,9 @@ func New() *Session {
 		online:        map[protocol.NodeID]bool{},
 		nodePos:       map[protocol.NodeID]int64{},
 		nodeRTT:       map[protocol.NodeID]int64{},
+		joining:       map[protocol.NodeID]bool{},
 		Peers:         append([]protocol.NodeID{}, defaultPeers...),
+		GateMode:      GateStrict,
 		StartMarginMS: 500,
 	}
 }
@@ -262,6 +298,8 @@ func (s *Session) resetElementTracking() {
 	s.started = map[protocol.NodeID]int64{}
 	s.ended = map[protocol.NodeID]bool{}
 	s.voiceDone = map[protocol.NodeID]bool{}
+	s.joining = map[protocol.NodeID]bool{}
+	s.participants = nil // resealed by loadCurrent/startVoice
 	s.retried = false
 }
 
@@ -314,6 +352,52 @@ func (s *Session) allOnline() bool {
 	return true
 }
 
+func (s *Session) sideOf(n protocol.NodeID) string {
+	if s.SideOf != nil {
+		return s.SideOf(n)
+	}
+	return string(n)
+}
+
+// gateSatisfied: may material start? Strict = every home online (historic
+// rule). EachSide (living air, §12 L1.5) = every side has at least one home
+// online; the rest catch up when they wake.
+func (s *Session) gateSatisfied() bool {
+	if s.GateMode != GateEachSide {
+		return s.allOnline()
+	}
+	if len(s.Peers) == 0 {
+		return false
+	}
+	sideAlive := map[string]bool{}
+	for _, n := range s.Peers {
+		side := s.sideOf(n)
+		sideAlive[side] = sideAlive[side] || s.online[n]
+	}
+	for _, alive := range sideAlive {
+		if !alive {
+			return false
+		}
+	}
+	return true
+}
+
+// counts reports whether a peer is on the current element's barriers
+// (ready/started/ended/voice). nil participants = everyone (strict sessions
+// and restored snapshots keep the historic behavior).
+func (s *Session) counts(n protocol.NodeID) bool {
+	return s.participants == nil || s.participants[n]
+}
+
+func (s *Session) hasPeer(n protocol.NodeID) bool {
+	for _, p := range s.Peers {
+		if p == n {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Session) hasUpcoming() bool {
 	if len(s.Queue) > 0 {
 		return true
@@ -326,28 +410,18 @@ func (s *Session) hasUpcoming() bool {
 // then the playlist layer (U10). Current must be finished or intentionally
 // abandoned by the caller before advancing.
 //
-// Spec 7.2: the broadcast never starts with a home missing — with material
-// queued but a node offline we park in DEGRADED and resume automatically
-// when both homes are back.
+// Spec 7.2 (strict gate): the broadcast never starts with a home missing —
+// with material queued but a node offline we park in DEGRADED and resume
+// automatically when both homes are back. Living air (eachSide, §12 L1.5)
+// relaxes this for linked sessions: one home per side is enough, the rest
+// join in flight.
 func (s *Session) advance() []Effect {
 	s.resetElementTracking()
 	s.SavedPositionMS = 0
-	if s.hasUpcoming() && !s.allOnline() {
+	if s.hasUpcoming() && !s.gateSatisfied() {
 		s.Current = nil
 		s.State = StateDegraded
-		missing := ""
-		for _, n := range s.Peers {
-			if !s.online[n] {
-				missing += " " + string(n)
-			}
-		}
-		if missing == "" {
-			missing = " (ни одного пульсара не подключено)"
-		}
-		return []Effect{
-			EffNotify{Text: fmt.Sprintf("эфир подождёт: дом%s не в сети — продолжу, как только все дома подключатся", missing)},
-			EffPersist{},
-		}
+		return []Effect{s.parkedNotify(), EffPersist{}}
 	}
 	if len(s.Queue) > 0 {
 		el := s.Queue[0]
@@ -399,11 +473,78 @@ func (s *Session) SetPlaylist(uri, title string, tracks []string) []Effect {
 	return append(effs, s.maybeAdvanceFromIdle()...)
 }
 
+// parkedNotify names why the gate parked the air. Strict text is the
+// historic one; eachSide names the homes of the side that is fully dark.
+func (s *Session) parkedNotify() Effect {
+	if s.GateMode != GateEachSide {
+		missing := ""
+		for _, n := range s.Peers {
+			if !s.online[n] {
+				missing += " " + string(n)
+			}
+		}
+		if missing == "" {
+			missing = " (ни одного пульсара не подключено)"
+		}
+		return EffNotify{Text: fmt.Sprintf("эфир подождёт: дом%s не в сети — продолжу, как только все дома подключатся", missing)}
+	}
+	sideAlive := map[string]bool{}
+	for _, n := range s.Peers {
+		side := s.sideOf(n)
+		sideAlive[side] = sideAlive[side] || s.online[n]
+	}
+	var dark []string
+	for _, n := range s.Peers {
+		if !sideAlive[s.sideOf(n)] {
+			dark = append(dark, string(n))
+		}
+	}
+	if len(dark) == 0 {
+		return EffNotify{Text: "эфир подождёт: ни одного пульсара не подключено — продолжу, как только дома появятся"}
+	}
+	return EffNotify{Text: fmt.Sprintf("эфир подождёт: с одной стороны все дома офлайн (%s) — продолжу, как только там кто-нибудь проснётся", strings.Join(dark, ", "))}
+}
+
+// sealParticipants pins the peer set the element is dealt to. Strict keeps
+// nil (= everyone, historic barriers). Living air seals the online subset
+// and, when the absent set changed, announces who will catch up later.
+func (s *Session) sealParticipants(effs []Effect) []Effect {
+	if s.GateMode != GateEachSide {
+		s.participants = nil
+		return effs
+	}
+	s.participants = map[protocol.NodeID]bool{}
+	absentSet := map[protocol.NodeID]bool{}
+	var absent []string
+	for _, n := range s.Peers {
+		if s.online[n] {
+			s.participants[n] = true
+		} else {
+			absentSet[n] = true
+			absent = append(absent, string(n))
+		}
+	}
+	changed := len(absentSet) != len(s.lastAbsent)
+	for n := range absentSet {
+		if !s.lastAbsent[n] {
+			changed = true
+		}
+	}
+	s.lastAbsent = absentSet
+	if len(absent) > 0 && changed {
+		effs = append(effs, EffNotify{Text: fmt.Sprintf("стартуем без %s — догонят, как проснутся", strings.Join(absent, ", "))})
+	}
+	return effs
+}
+
 func (s *Session) loadCurrent(positionMS int64) []Effect {
 	s.State = StateLoading
 	s.SavedPositionMS = positionMS
-	effs := []Effect{EffPersist{}}
+	effs := s.sealParticipants([]Effect{EffPersist{}})
 	for _, n := range s.Peers {
+		if !s.counts(n) {
+			continue
+		}
 		effs = append(effs, EffLoad{To: n, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: positionMS})
 	}
 	effs = append(effs, EffArmReadyTimer{ElementID: s.Current.ID})
@@ -413,15 +554,18 @@ func (s *Session) loadCurrent(positionMS int64) []Effect {
 func (s *Session) startVoice() []Effect {
 	s.State = StateVoice
 	el := s.Current
-	effs := []Effect{EffPersist{}}
+	effs := s.sealParticipants([]Effect{EffPersist{}})
 	targets := s.targetNodes(el)
 	targetSet := map[protocol.NodeID]bool{}
 	for _, n := range targets {
+		if !s.counts(n) {
+			continue
+		}
 		targetSet[n] = true
 		effs = append(effs, EffPlayVoice{To: n, ElementID: el.ID, MediaID: el.MediaID})
 	}
 	for _, n := range s.Peers {
-		if !targetSet[n] {
+		if !targetSet[n] && s.counts(n) {
 			effs = append(effs, EffWait{To: n, ElementID: el.ID, DurationMS: el.DurationMS})
 		}
 	}
@@ -437,6 +581,16 @@ func (s *Session) isCurrent(elementID string) bool {
 // OnReady handles a node's ready. When all nodes are ready, arms the start:
 // T = now + 2*max(rtt) + margin (spec 7.1 scheduler).
 func (s *Session) OnReady(nowMS int64, node protocol.NodeID, elementID string) []Effect {
+	// A home catching up under living air (§12 L1.5) arms alone: its ready
+	// gives it a solo resume_at without touching the barrier of the homes
+	// already playing. It starts a touch behind the leaders (load latency);
+	// /sync realigns if it matters.
+	if s.joining[node] && s.isCurrent(elementID) &&
+		(s.State == StatePlaying || s.State == StateArmed) {
+		s.ready[node] = true
+		t := nowMS + 2*s.nodeRTT[node] + s.StartMarginMS
+		return []Effect{EffResumeAt{To: node, ElementID: elementID, TCoordMS: t}}
+	}
 	if s.State != StateLoading || !s.isCurrent(elementID) {
 		return nil // idempotency (spec 7.2)
 	}
@@ -444,14 +598,50 @@ func (s *Session) OnReady(nowMS int64, node protocol.NodeID, elementID string) [
 	return s.checkAllReady(nowMS, elementID)
 }
 
-// checkAllReady arms the synchronized start once every peer reported ready:
-// T = now + 2*max(rtt over peers) + margin (spec 7.1, N-wise in M2).
+// JoinInProgress deals the currently-playing track to a home that just came
+// online under living air (§12 L1.5): an individual load at the live
+// position, then a solo resume_at on its ready. Returns nil when there is
+// nothing to join (no current track, not playing, unknown or already a
+// participant home).
+func (s *Session) JoinInProgress(node protocol.NodeID) []Effect {
+	if s.Current == nil || s.Current.Kind != KindTrack {
+		return nil
+	}
+	if s.State != StatePlaying && s.State != StateArmed {
+		return nil
+	}
+	if !s.hasPeer(node) || s.counts(node) {
+		return nil
+	}
+	s.joining[node] = true
+	return []Effect{EffLoad{To: node, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: s.livePosition()}}
+}
+
+// livePosition estimates where the playing homes are now (max participant
+// heartbeat position) so a joiner loads near the leaders.
+func (s *Session) livePosition() int64 {
+	var best int64
+	for _, n := range s.Peers {
+		if s.counts(n) && s.nodePos[n] > best {
+			best = s.nodePos[n]
+		}
+	}
+	return best
+}
+
+// checkAllReady arms the synchronized start once every PARTICIPANT reported
+// ready: T = now + 2*max(rtt over participants) + margin (spec 7.1, N-wise
+// in M2). Non-participants (offline homes under living air, §12 L1.5) are
+// not on the barrier — they catch up via JoinInProgress.
 func (s *Session) checkAllReady(nowMS int64, elementID string) []Effect {
 	if s.State != StateLoading || !s.isCurrent(elementID) {
 		return nil
 	}
 	var maxRTT int64
 	for _, n := range s.Peers {
+		if !s.counts(n) {
+			continue
+		}
 		if !s.ready[n] {
 			return nil
 		}
@@ -463,31 +653,49 @@ func (s *Session) checkAllReady(nowMS int64, elementID string) []Effect {
 	t := nowMS + 2*maxRTT + s.StartMarginMS
 	effs := []Effect{EffCancelReadyTimer{}, EffPersist{}}
 	for _, n := range s.Peers {
-		effs = append(effs, EffResumeAt{To: n, ElementID: elementID, TCoordMS: t})
+		if s.counts(n) {
+			effs = append(effs, EffResumeAt{To: n, ElementID: elementID, TCoordMS: t})
+		}
 	}
 	return effs
 }
 
 func (s *Session) OnStarted(node protocol.NodeID, elementID string, tFirstSampleMS int64) []Effect {
+	// A catching-up home (living air, §12 L1.5) graduates into the
+	// participant set once it starts, so it counts for ended from here on.
+	// No desync recompute — it joined mid-flight, its skew is expected.
+	if s.joining[node] && s.isCurrent(elementID) {
+		s.started[node] = tFirstSampleMS
+		delete(s.joining, node)
+		if s.participants != nil {
+			s.participants[node] = true
+		}
+		return []Effect{EffPersist{}}
+	}
 	if s.State != StateArmed || !s.isCurrent(elementID) {
 		return nil
 	}
 	s.started[node] = tFirstSampleMS
 	var earliest, latest int64
-	for i, n := range s.Peers {
+	first := true
+	for _, n := range s.Peers {
+		if !s.counts(n) {
+			continue // offline home under living air — catches up later
+		}
 		t, ok := s.started[n]
 		if !ok {
 			return nil
 		}
-		if i == 0 || t < earliest {
+		if first || t < earliest {
 			earliest = t
 		}
-		if i == 0 || t > latest {
+		if first || t > latest {
 			latest = t
 		}
+		first = false
 	}
 	s.State = StatePlaying
-	// Desync = worst pairwise skew across the orbit (max - min).
+	// Desync = worst pairwise skew across the participating homes (max - min).
 	return []Effect{EffLogDesync{DeltaMS: latest - earliest}, EffPersist{}}
 }
 
@@ -510,6 +718,9 @@ func (s *Session) endedConditionMet() bool {
 	dur := s.Current.DurationMS
 	anyEnded := false
 	for _, n := range s.Peers {
+		if !s.counts(n) {
+			continue // offline home under living air is not on the barrier
+		}
 		if s.ended[n] {
 			anyEnded = true
 			continue
@@ -560,6 +771,9 @@ func (s *Session) onVoicePartDone(node protocol.NodeID, elementID string) []Effe
 
 func (s *Session) voiceCompleteAcrossPeers() bool {
 	for _, n := range s.Peers {
+		if !s.counts(n) {
+			continue // offline home under living air is not on the barrier
+		}
 		if !s.voiceDone[n] {
 			return false
 		}

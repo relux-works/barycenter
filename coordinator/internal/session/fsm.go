@@ -537,6 +537,28 @@ func (s *Session) sealParticipants(effs []Effect) []Effect {
 	return effs
 }
 
+// Transplant seeds a fresh (idle) session with a donor's in-flight content
+// and starts it through the gate (approach-to-stream, §12 L1.5): the home
+// whose code opened the approach keeps playing onto all homes. cur may be
+// nil (only a queue/playlist moved); positionMS is the donor's live position.
+func (s *Session) Transplant(cur *Element, positionMS int64, queue []Element, playlist *Playlist) []Effect {
+	s.Queue = queue
+	s.Playlist = playlist
+	if cur == nil {
+		return s.maybeAdvanceFromIdle()
+	}
+	s.Current = cur
+	s.resetElementTracking()
+	if cur.Kind == KindVoice {
+		return s.startVoice()
+	}
+	if !s.gateSatisfied() {
+		s.State = StateDegraded
+		return []Effect{s.parkedNotify(), EffPersist{}}
+	}
+	return s.loadCurrent(positionMS)
+}
+
 func (s *Session) loadCurrent(positionMS int64) []Effect {
 	s.State = StateLoading
 	s.SavedPositionMS = positionMS
@@ -615,6 +637,13 @@ func (s *Session) JoinInProgress(node protocol.NodeID) []Effect {
 	}
 	s.joining[node] = true
 	return []Effect{EffLoad{To: node, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: s.livePosition()}}
+}
+
+// LivePositionForTransplant is the safe resume point when a donor's stream
+// moves into a group (approach-to-stream): the minimum audible position, so
+// the new homes never skip past what the donor is hearing.
+func (s *Session) LivePositionForTransplant() int64 {
+	return s.currentPositionEstimate()
 }
 
 // livePosition estimates where the playing homes are now (max participant

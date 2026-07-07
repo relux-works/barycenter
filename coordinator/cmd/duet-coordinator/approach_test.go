@@ -214,44 +214,37 @@ func TestApproachOnePerOrbit(t *testing.T) {
 // Activation parks a busy personal broadcast: stop to its homes, session
 // frozen paused, nothing leaks into the fresh group air — and /apart hands
 // the parked material back to /resume.
-func TestApproachParksBusyOrbit(t *testing.T) {
+// Approach-to-stream (§12 L1.5): the code issuer's playing track continues
+// onto all homes of the group, and the issuer's own snapshot is emptied so
+// nothing double-plays after /apart.
+func TestApproachToStreamContinuesBusy(t *testing.T) {
 	l, fake, _ := twoOrbitLoop(t)
 	r := &replies{}
-	// Orbit 1 is mid-broadcast when the approach activates.
+	// Orbit 1 (the issuer) is mid-broadcast when the approach activates.
 	for _, k := range []hub.NodeKey{{Orbit: 1, Slot: "a"}, {Orbit: 1, Slot: "b"}} {
 		l.handleNodeMessage(hub.EvMessage{Key: k, Payload: &protocol.StatePayload{PositionMS: 5000, RTTMS: 40, Volume: 80}})
 	}
 	l.handleBot(cmdEvent(t, "a", link, r))
-	if l.orbit(1).sess.State != session.StateLoading {
-		t.Fatalf("pre-link state = %s", l.orbit(1).sess.State)
-	}
+	trackURI := l.orbit(1).sess.Current.URI
 	fake.drain()
 
 	proposeAndAwait(t, l, r)
 	l.handleBot(cmdEvent(t, "a", "/accept", r))
 
-	if st := l.orbit(1).sess.State; st != session.StatePaused {
-		t.Fatalf("parked orbit state = %s", st)
-	}
-	stops := 0
-	for _, m := range fake.ofType(protocol.TypeStop) {
-		if m.key.Orbit == 1 {
-			stops++
-		}
-	}
-	if stops < 2 {
-		t.Fatalf("parking must stop orbit-1 homes: %+v", fake.sent)
-	}
+	// The group now carries orbit-1's track and loads it to the online homes.
 	g := l.stateFor(1)
-	if g.sess.State != session.StateIdle || g.sess.Current != nil {
-		t.Fatalf("group must start idle: %s %v", g.sess.State, g.sess.Current)
+	if g.sess.Current == nil || g.sess.Current.URI != trackURI {
+		t.Fatalf("group must continue the issuer's track, got %v", g.sess.Current)
 	}
-
-	l.handleBot(cmdEvent(t, "a", "/apart", r))
-	fake.drain()
-	l.handleBot(cmdEvent(t, "a", "/resume", r))
-	if got := fake.ofType(protocol.TypeLoad); len(got) != 2 {
-		t.Fatalf("resume after apart must reload the parked track: %+v", fake.sent)
+	if g.sess.State != session.StateLoading {
+		t.Fatalf("group should be loading the continued track, state=%s", g.sess.State)
+	}
+	if len(fake.ofType(protocol.TypeLoad)) == 0 {
+		t.Fatalf("continued track must load to homes: %+v", fake.sent)
+	}
+	// The donor's own snapshot is emptied — no double play lurking.
+	if l.orbit(1).sess.Current != nil || len(l.orbit(1).sess.Queue) != 0 {
+		t.Fatalf("issuer snapshot must be emptied, got %v", l.orbit(1).sess.Current)
 	}
 }
 

@@ -309,6 +309,15 @@ func (l *loop) group(linkID int64) *orbitState {
 		}
 	}
 	g.sess.SetPeers(peers)
+	// Living air (§12 L1.5): a linked broadcast starts when each SIDE (orbit)
+	// has one home online; the composite peer's orbit prefix is its side.
+	g.sess.GateMode = session.GateEachSide
+	g.sess.SideOf = func(n protocol.NodeID) string {
+		if orbitID, _, ok := splitComposite(n); ok {
+			return strconv.FormatInt(orbitID, 10)
+		}
+		return string(n)
+	}
 	g.sess.SeedOnline(online)
 	l.restoreSnapshot(g)
 	l.groups[linkID] = g
@@ -444,14 +453,66 @@ func (l *loop) parkOrbitSession(o *orbitState) {
 // startGroup activates an approach: both orbits' own broadcasts park, one
 // shared session takes over the union of their homes.
 func (l *loop) startGroup(linkID, orbitA, orbitB int64) {
+	// Approach-to-stream (§12 L1.5): the code issuer's stream continues onto
+	// all homes; if the issuer is silent, the acceptor's does; both silent ->
+	// blank group. Capture BEFORE parking (live positions are still fresh).
+	donor, cur, pos, queue, playlist := l.captureDonor(orbitA, orbitB)
+
 	l.parkOrbitSession(l.orbit(orbitA))
 	l.parkOrbitSession(l.orbit(orbitB))
+	if donor != 0 {
+		l.emptyParkedSnapshot(donor) // transplanted content must not double
+	}
 	l.linkOf[orbitA] = linkID
 	l.linkOf[orbitB] = linkID
-	l.group(linkID)
+	g := l.group(linkID)
+
 	l.notifyOrbit(orbitA, fmt.Sprintf("сближение с «%s» началось — эфир общий", esc(l.orbit(orbitB).title)))
 	l.notifyOrbit(orbitB, fmt.Sprintf("сближение с «%s» началось — эфир общий", esc(l.orbit(orbitA).title)))
-	l.log.Info("approach started", "link", linkID, "orbit_a", orbitA, "orbit_b", orbitB)
+	l.log.Info("approach started", "link", linkID, "orbit_a", orbitA, "orbit_b", orbitB, "donor", donor)
+
+	if donor != 0 && (cur != nil || len(queue) > 0 || playlist != nil) {
+		l.apply(g, g.sess.Transplant(cur, pos, queue, playlist))
+	}
+}
+
+// captureDonor picks the side whose stream continues and snapshots its
+// content at the live position. Issuer (orbitA) wins if playing/queued;
+// else the acceptor (orbitB); else donor=0 (blank group).
+func (l *loop) captureDonor(orbitA, orbitB int64) (donor int64, cur *session.Element, pos int64, queue []session.Element, playlist *session.Playlist) {
+	pick := func(id int64) bool {
+		o := l.orbit(id)
+		return o.sess.Current != nil || len(o.sess.Queue) > 0 ||
+			(o.sess.Playlist != nil && o.sess.Playlist.Cursor < len(o.sess.Playlist.Tracks))
+	}
+	switch {
+	case pick(orbitA):
+		donor = orbitA
+	case pick(orbitB):
+		donor = orbitB
+	default:
+		return 0, nil, 0, nil, nil
+	}
+	o := l.orbit(donor)
+	if o.sess.Current != nil {
+		c := *o.sess.Current
+		cur = &c
+		pos = o.sess.LivePositionForTransplant()
+	}
+	queue = append([]session.Element{}, o.sess.Queue...)
+	playlist = o.sess.Playlist
+	return
+}
+
+// emptyParkedSnapshot clears the donor's own session so its parked snapshot
+// does not replay content already transplanted into the group.
+func (l *loop) emptyParkedSnapshot(donor int64) {
+	o := l.orbit(donor)
+	o.sess.Current = nil
+	o.sess.Queue = nil
+	o.sess.Playlist = nil
+	o.sess.State = session.StateIdle
+	l.persist(o)
 }
 
 // breakGroup dissolves an approach: the shared session dies, each orbit
@@ -513,7 +574,14 @@ func (l *loop) handleNode(ev hub.Event) {
 		}
 	case hub.EvOnline:
 		o := l.stateFor(e.Key.Orbit)
-		l.apply(o, o.sess.OnNodeBack(l.peerFor(o, e.Key)))
+		peer := l.peerFor(o, e.Key)
+		// Living air (§12 L1.5): a home returning to a playing group catches
+		// up individually instead of the strict pause/resume dance.
+		if join := o.sess.JoinInProgress(peer); join != nil {
+			l.apply(o, join)
+		} else {
+			l.apply(o, o.sess.OnNodeBack(peer))
+		}
 	case hub.EvOffline:
 		o := l.stateFor(e.Key.Orbit)
 		l.log.Warn("node offline", "orbit", e.Key.Orbit, "slot", e.Key.Slot)

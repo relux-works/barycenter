@@ -60,5 +60,5 @@ jobs:
             # 9P26FDCWV1GC = Pulsar Barycenter Store ID, stable for the
             # product lifetime (apps.microsoft.com/detail/9P26FDCWV1GC).
             MSIX=$(ls pkg/Pulsar-*-win.msix | head -1)
-            ./msstore publish "$MSIX" --appId 9P26FDCWV1GC
+            ./msstore publish "$MSIX" --appId 9P26FDCWV1GC --verbose
           '

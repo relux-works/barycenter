@@ -14,6 +14,7 @@
     "speakers": [
       { "name": "Гостиная", "connected": true },
       { "name": "Кухня", "connected": false }
-    ]
+    ],
+    "provider": "yandex"
   }
 }

@@ -4,6 +4,9 @@
   "ts": 1751500000000,
   "type": "solo_inject",
   "payload": {
-    "uri": "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+    "uri": "spotify:track:4cOdK2wGLETKBW3PvgPWqT",
+    "provider": "yandex",
+    "ref": "10994777:1193829",
+    "ctid": "ct_01JZB0C000000000000000030"
   }
 }

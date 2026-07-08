@@ -144,3 +144,34 @@ func TestMirrorMatchesCoordinatorSource(t *testing.T) {
 		}
 	}
 }
+
+// v1.1 additive fields (spec-providers §7) are optional: a pre-v1.1-style
+// message with none of them set must still encode byte-identically to v1, so
+// old nodes keep round-tripping. The populated goldens (load/solo_inject/state)
+// exercise the present side; this pins the omitempty side on the mirror too.
+func TestV11AdditiveFieldsOmittedWhenEmpty(t *testing.T) {
+	cases := []struct {
+		name    string
+		msgType string
+		payload any
+		fields  []string
+	}{
+		{"load", TypeLoad, &LoadPayload{ElementID: "el_x", URI: "spotify:track:x"},
+			[]string{`"provider"`, `"ref"`, `"duration_ms"`, `"gain_db"`}},
+		{"solo_inject", TypeSoloInject, &SoloInjectPayload{URI: "spotify:track:x"},
+			[]string{`"provider"`, `"ref"`, `"ctid"`}},
+		{"state", TypeState, &StatePayload{Playback: "playing", Speakers: []Speaker{}},
+			[]string{`"provider"`}},
+	}
+	for _, tc := range cases {
+		env, err := NewEnvelope("msg_x", 1, tc.msgType, tc.payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, f := range tc.fields {
+			if strings.Contains(string(env.Payload), f) {
+				t.Fatalf("%s: %s must be omitted when empty, got %s", tc.name, f, env.Payload)
+			}
+		}
+	}
+}

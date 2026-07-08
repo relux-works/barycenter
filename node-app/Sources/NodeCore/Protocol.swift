@@ -129,7 +129,18 @@ public struct StopPayload: Codable, Equatable {
 
 public struct SoloInjectPayload: Codable, Equatable {
     public var uri: String
-    enum CodingKeys: String, CodingKey { case uri }
+    // v1.1 additive (spec-providers §7); absent provider = "spotify".
+    // Optionals: nil is omitted by the synthesized encoder (mirrors Go omitempty).
+    public var provider: String?
+    public var ref: String?
+    public var ctid: String?
+    public init(uri: String, provider: String? = nil, ref: String? = nil, ctid: String? = nil) {
+        self.uri = uri
+        self.provider = provider
+        self.ref = ref
+        self.ctid = ctid
+    }
+    enum CodingKeys: String, CodingKey { case uri, provider, ref, ctid }
 }
 
 public struct SoloVoicePayload: Codable, Equatable {
@@ -200,8 +211,11 @@ public struct StatePayload: Codable, Equatable {
     public var underruns: Int64
     public var rttMs: Int64
     public var speakers: [SpeakerState]
+    // v1.1 additive (spec-providers §7): the node's active provider ("" / nil = spotify).
+    public var provider: String?
     public init(playback: String, uri: String?, positionMs: Int64, volume: Int,
-                degraded: Bool, underruns: Int64, rttMs: Int64, speakers: [SpeakerState]) {
+                degraded: Bool, underruns: Int64, rttMs: Int64, speakers: [SpeakerState],
+                provider: String? = nil) {
         self.playback = playback
         self.uri = uri
         self.positionMs = positionMs
@@ -210,13 +224,15 @@ public struct StatePayload: Codable, Equatable {
         self.underruns = underruns
         self.rttMs = rttMs
         self.speakers = speakers
+        self.provider = provider
     }
     enum CodingKeys: String, CodingKey {
         case playback, uri, positionMs = "position_ms", volume, degraded,
-             underruns, rttMs = "rtt_ms", speakers
+             underruns, rttMs = "rtt_ms", speakers, provider
     }
 
-    // `uri` is nullable-but-present (docs/protocol.md).
+    // `uri` is nullable-but-present (docs/protocol.md). `provider` is additive and
+    // omitted when nil (mirrors Go omitempty), so pre-v1.1 state frames stay byte-identical.
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(playback, forKey: .playback)
@@ -227,6 +243,7 @@ public struct StatePayload: Codable, Equatable {
         try c.encode(underruns, forKey: .underruns)
         try c.encode(rttMs, forKey: .rttMs)
         try c.encode(speakers, forKey: .speakers)
+        try c.encodeIfPresent(provider, forKey: .provider)
     }
 }
 

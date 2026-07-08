@@ -6,6 +6,10 @@
   "payload": {
     "element_id": "el_01JZB0C000000000000000010",
     "uri": "spotify:track:4cOdK2wGLETKBW3PvgPWqT",
-    "position_ms": 0
+    "position_ms": 0,
+    "provider": "yandex",
+    "ref": "10994777:1193829",
+    "duration_ms": 213800,
+    "gain_db": -1.5
   }
 }

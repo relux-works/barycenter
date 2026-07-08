@@ -52,6 +52,8 @@ jobs:
           dbus-run-session -- bash -euxc '
             echo "" | gnome-keyring-daemon --unlock --components=secrets
             ./msstore reconfigure --tenantId "$TENANT" --clientId "$CLIENT" --clientSecret "$SECRET" --sellerId "$SELLER"
-            # pathOrUrl = the reserved product id; --inputDirectory has the .msix.
-            ./msstore publish 9P26FDCWV1GC --inputDirectory pkg --verbose
+            # pathOrUrl = the .msix path; msstore matches the reserved product
+            # by the package identity (ReluxWorksLLC.PulsarBarycenter).
+            MSIX=$(ls pkg/Pulsar-*-win.msix | head -1)
+            ./msstore publish "$MSIX"
           '

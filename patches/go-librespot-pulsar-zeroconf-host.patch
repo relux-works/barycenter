@@ -1,0 +1,30 @@
+diff --git a/zeroconf/backend_builtin.go b/zeroconf/backend_builtin.go
+--- a/zeroconf/backend_builtin.go
++++ b/zeroconf/backend_builtin.go
+@@
+ import (
+ 	"net"
++	"os"
+ 
+ 	"github.com/grandcat/zeroconf"
+ )
+@@
+ func (b *BuiltinRegistrar) Register(name, serviceType, domain string, port int, txt []string) error {
+ 	b.serviceType = serviceType
+ 	b.domain = domain
+ 	b.port = port
+ 	b.txt = txt
+ 
+-	var err error
+-	b.server, err = zeroconf.Register(name, serviceType, domain, port, txt, b.ifaces)
+-	return err
++	if host := os.Getenv("PULSAR_ZEROCONF_HOST"); host != "" {
++		var err error
++		b.server, err = zeroconf.RegisterProxy(name, serviceType, domain, port, host, nil, txt, b.ifaces)
++		return err
++	}
++
++	var err error
++	b.server, err = zeroconf.Register(name, serviceType, domain, port, txt, b.ifaces)
++	return err
+ }

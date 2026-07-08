@@ -54,6 +54,13 @@ If Spotify does not show the device, first verify the daemon log contains
 On macOS 15+ the app also needs Local Network access allowed in System Settings;
 phone and Mac must be on the same Wi-Fi, and VPNs can hide mDNS.
 
+The DNS-SD SRV target must use the Mac's Bonjour hostname, not a stale kernel
+hostname. On the Mac, `scutil --get LocalHostName` should match the target from
+`dns-sd -L "<device name>" _spotify-connect._tcp local` (DNS-SD prints it with a
+trailing dot; browser URLs normally omit that dot). Release bundles enforce this
+by shipping a patched go-librespot fork that honors `PULSAR_ZEROCONF_HOST`,
+which NodeApp sets from macOS `LocalHostName`.
+
 ## 4. Speaker delivery setup (per home, spec ch. 14, v1.3)
 
 ### 4a. Direct mode (default, `airfoil.enabled: false`)
@@ -88,7 +95,7 @@ Whoever's click lags gets a bigger offset (offset = start earlier): `/offset b 3
 |---|---|---|
 | 1 | `/status` says a node is offline | On that Mac: `tailscale status` (tailnet up?), `launchctl print gui/$(id -u)/works.relux.duet.nodeapp` (agent running?), `tail ~/duet/nodeapp.log` (config error prints an explicit reason; bad token shows "register rejected" on the coordinator). Reboot recovers automatically: agent is RunAtLoad+KeepAlive |
 | 2 | librespot restart-cycling (`librespot_restart` errors in chat/log) | `grep librespot ~/duet/nodeapp.log \| tail -30`. Usual causes: lost credentials (redo first login, §3), port 3678 busy (`lsof -i :3678`), broken FIFO path (NodeApp recreates it — check `audio.fifo_path` dir exists) |
-| 3 | Pulsar does not appear in Spotify devices | Check `grep zeroconf ~/duet/nodeapp.log \| tail` (Windows: `%APPDATA%\Pulsar\pulsar.log`): expect `zeroconf server listening` and `using built-in mDNS responder`. If present, verify Local Network permission for Pulsar, same Wi-Fi, VPN off, and a build containing `NSBonjourServices = _spotify-connect._tcp`; macOS firewall must allow incoming connections if enabled |
+| 3 | Pulsar does not appear in Spotify devices | Check `grep zeroconf ~/duet/nodeapp.log \| tail` (Windows: `%APPDATA%\Pulsar\pulsar.log`): expect `zeroconf server listening` and `using built-in mDNS responder`. If present, verify Local Network permission for Pulsar, same Wi-Fi, VPN off, a build containing `NSBonjourServices = _spotify-connect._tcp`, and `dns-sd -L "<device name>" _spotify-connect._tcp local` resolving to the hostname from `scutil --get LocalHostName`; macOS firewall must allow incoming connections if enabled |
 | 4 | One speaker silent, chat says degraded | Airfoil lost it. NodeApp reconnects with backoff (<=60 s after power-on). If it never returns: open Airfoil, check the speaker's name still matches `airfoil.speakers` exactly (renames break matching) |
 | 5 | All speakers silent, NodeApp says playing | Airfoil Automation permission revoked or ACE broken after a macOS update: System Settings -> Privacy & Security -> Automation -> NodeApp -> Airfoil ON; reinstall ACE from Airfoil if prompted. Tahoe: see §4 item 4 (sample-rate bug). Last resort: Airfoil source = NodeApp manually |
 | 6 | Homes audibly out of sync | `/sync` first (restarts current track synced). Recurs: re-run §5 calibration; check `/status` rtt (tailnet detour: `tailscale ping node-b`) and that both Macs run NTP (`sntp -sS time.apple.com`) |

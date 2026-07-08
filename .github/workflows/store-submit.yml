@@ -52,8 +52,13 @@ jobs:
           dbus-run-session -- bash -euxc '
             echo "" | gnome-keyring-daemon --unlock --components=secrets
             ./msstore reconfigure --tenantId "$TENANT" --clientId "$CLIENT" --clientSecret "$SECRET" --sellerId "$SELLER"
-            # pathOrUrl = the .msix path; msstore matches the reserved product
-            # by the package identity (ReluxWorksLLC.PulsarBarycenter).
+            # --appId is REQUIRED here: without it msstore looks for a local
+            # "initialized project" (msstore init state) and dies with
+            # "Failed to find the AppId" — it does NOT match by the package
+            # identity inside the MSIX. (The alias is -id with a single dash;
+            # --id does not exist — first-submit debugging tripped on that.)
+            # 9P26FDCWV1GC = Pulsar Barycenter Store ID, stable for the
+            # product lifetime (apps.microsoft.com/detail/9P26FDCWV1GC).
             MSIX=$(ls pkg/Pulsar-*-win.msix | head -1)
-            ./msstore publish "$MSIX"
+            ./msstore publish "$MSIX" --appId 9P26FDCWV1GC
           '

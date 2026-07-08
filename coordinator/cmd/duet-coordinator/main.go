@@ -8,10 +8,12 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"relux.works/duet/coordinator/internal/bot"
@@ -20,6 +22,65 @@ import (
 	"relux.works/duet/coordinator/internal/spotify"
 	"relux.works/duet/coordinator/internal/store"
 )
+
+// rateLimiter is a tiny per-IP sliding-window limiter for the unauthenticated
+// /pair endpoint (architecture: no throttle = code-spam / DB-exhaustion vector).
+type rateLimiter struct {
+	mu     sync.Mutex
+	hits   map[string][]int64
+	limit  int
+	window int64 // ms
+}
+
+func newRateLimiter(limit int, window time.Duration) *rateLimiter {
+	return &rateLimiter{hits: map[string][]int64{}, limit: limit, window: window.Milliseconds()}
+}
+
+// allow reports whether this IP may proceed, pruning stale hits.
+func (rl *rateLimiter) allow(ip string) bool {
+	now := time.Now().UnixMilli()
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	cut := now - rl.window
+	kept := rl.hits[ip][:0]
+	for _, t := range rl.hits[ip] {
+		if t > cut {
+			kept = append(kept, t)
+		}
+	}
+	if len(kept) >= rl.limit {
+		rl.hits[ip] = kept
+		return false
+	}
+	rl.hits[ip] = append(kept, now)
+	// Opportunistic map cleanup so idle IPs don't accumulate.
+	if len(rl.hits) > 4096 {
+		for k, v := range rl.hits {
+			if len(v) == 0 || v[len(v)-1] < cut {
+				delete(rl.hits, k)
+			}
+		}
+	}
+	return true
+}
+
+func clientIP(r *http.Request) string {
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
+}
+
+// rateLimit wraps a handler, rejecting IPs over the limit with 429.
+func rateLimit(rl *rateLimiter, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !rl.allow(clientIP(r)) {
+			http.Error(w, "too many requests", http.StatusTooManyRequests)
+			return
+		}
+		next(w, r)
+	}
+}
 
 // version is stamped by the release build: -ldflags "-X main.version=vX.Y.Z".
 var version = "0.1.0-dev"
@@ -130,7 +191,10 @@ func main() {
 			"nodes_connected": h.Stats(),
 		})
 	})
-	mux.HandleFunc("/pair", pairHandler(log, st, cfg))
+	// /pair is unauthenticated (code-gated) — cap attempts per IP to blunt
+	// brute-force of pairing codes and DB-exhaustion spam.
+	pairLimiter := newRateLimiter(10, time.Minute)
+	mux.HandleFunc("/pair", rateLimit(pairLimiter, pairHandler(log, st, cfg)))
 	mux.HandleFunc("/media/", mediaHandler(st))
 
 	log.Info("listening", "addr", cfg.Listen)

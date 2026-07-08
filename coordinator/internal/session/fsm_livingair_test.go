@@ -110,3 +110,63 @@ func TestCatchUpJoin(t *testing.T) {
 	effs = s.OnEnded("b", "el1", "eof")
 	one[EffElementDone](t, effs)
 }
+
+// A participant dropping mid-play under living air must NOT freeze the air:
+// the survivors keep playing and the offline home catches up on return.
+func TestLivingAirSurvivesMidPlayDrop(t *testing.T) {
+	s := livingSession() // a,b on side L; c on side R
+	s.online["a"] = true
+	s.online["b"] = true
+	s.online["c"] = true
+	s.OnHeartbeat("a", 0, 40)
+	s.OnHeartbeat("b", 0, 40)
+	s.OnHeartbeat("c", 0, 60)
+	s.EnqueueTrack(trackEl("el1", "spotify:track:X"))
+	s.OnReady(1000, "a", "el1")
+	s.OnReady(1000, "b", "el1")
+	s.OnReady(1000, "c", "el1")
+	s.OnStarted("a", "el1", 1600)
+	s.OnStarted("b", "el1", 1600)
+	s.OnStarted("c", "el1", 1650)
+	if s.State != StatePlaying {
+		t.Fatalf("want playing, got %s", s.State)
+	}
+	effs := s.OnNodeOffline("b")
+	if s.State != StatePlaying {
+		t.Fatalf("mid-play drop must NOT degrade under living air, got %s", s.State)
+	}
+	if len(of[EffPause](t, effs)) != 0 {
+		t.Fatalf("survivors must not be paused: %#v", effs)
+	}
+	s.OnEnded("a", "el1", "eof")
+	if e := s.OnEnded("c", "el1", "eof"); len(of[EffElementDone](t, e)) == 0 {
+		t.Fatalf("track must end without the offline home: %#v", e)
+	}
+}
+
+// When a WHOLE side goes dark, living air DOES park and recovers via the gate,
+// not allOnline.
+func TestLivingAirParksAndRecoversByGate(t *testing.T) {
+	s := livingSession()
+	s.online["a"] = true
+	s.online["c"] = true // b offline from the start
+	s.OnHeartbeat("a", 0, 40)
+	s.OnHeartbeat("c", 0, 60)
+	s.EnqueueTrack(trackEl("el1", "spotify:track:X"))
+	s.OnReady(1000, "a", "el1")
+	s.OnReady(1000, "c", "el1")
+	s.OnStarted("a", "el1", 1600)
+	s.OnStarted("c", "el1", 1650)
+	s.OnNodeOffline("c")
+	if s.State != StateDegraded {
+		t.Fatalf("a dark side must park, got %s", s.State)
+	}
+	s.OnHeartbeat("c", 5000, 60)
+	effs := s.OnNodeBack("c")
+	if s.State != StatePaused {
+		t.Fatalf("gate-satisfied recovery expected paused, got %s", s.State)
+	}
+	if len(of[EffNotify](t, effs)) == 0 {
+		t.Fatalf("expected a resume-me notice: %#v", effs)
+	}
+}

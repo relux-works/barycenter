@@ -249,7 +249,7 @@ func (s *Session) RemovePeer(nowMS int64, n protocol.NodeID) []Effect {
 
 	switch s.State {
 	case StateDegraded:
-		if s.allOnline() {
+		if s.gateSatisfied() {
 			if s.Current == nil && s.hasUpcoming() {
 				return append([]Effect{EffNotify{Text: "все дома в сети — поехали"}}, s.advance()...)
 			}
@@ -932,6 +932,9 @@ func (s *Session) CmdSkip() []Effect {
 		s.State != StateLoading && s.State != StateArmed {
 		return nil
 	}
+	if s.Current == nil { // guard: a paused/idle snapshot can have no element
+		return nil
+	}
 	done := EffElementDone{Element: *s.Current, Status: "skipped"}
 	pause := s.pauseBoth(300)
 	effs := s.advance()
@@ -988,6 +991,31 @@ func (s *Session) OnNodeOffline(node protocol.NodeID) []Effect {
 	if s.State == StateIdle || s.State == StateDegraded {
 		return nil
 	}
+	// Living air (§12 L1.5): an offline home must NOT freeze the air while the
+	// gate still holds (each linked side still has a home online). Drop it from
+	// the current element's participant barriers so ready/started/ended/voice
+	// don't wait for it; the survivors keep playing and it catches up
+	// (JoinInProgress) when it returns. Only a whole dark side parks the air.
+	if s.GateMode == GateEachSide {
+		if s.participants != nil {
+			delete(s.participants, node)
+		}
+		if s.gateSatisfied() {
+			effs := []Effect{EffNotify{Text: fmt.Sprintf("дом %s пропал — эфир продолжается, догонит по возвращении", node)}}
+			switch s.State {
+			case StatePlaying:
+				if s.Current != nil && s.endedConditionMet() {
+					return append(effs, s.finishCurrent("eof")...)
+				}
+			case StateVoice:
+				if s.Current != nil && s.voiceCompleteAcrossPeers() {
+					return append(effs, s.finishCurrent("eof")...)
+				}
+			}
+			return append(effs, EffPersist{})
+		}
+		// gate no longer satisfied (a whole side is dark) — fall through to park.
+	}
 	// Freeze the air at the position of the survivors (minimum across them).
 	s.State = StateDegraded
 	first := true
@@ -1017,8 +1045,9 @@ func (s *Session) OnNodeBack(node protocol.NodeID) []Effect {
 	if s.Mode != ModeShared || s.State != StateDegraded || !wasOffline {
 		return nil
 	}
-	// Everyone online again?
-	if !s.allOnline() {
+	// Recovery is gate-aware: strict needs everyone, living air needs each side
+	// to have a home online again (gateSatisfied covers both modes).
+	if !s.gateSatisfied() {
 		return nil
 	}
 	// A broadcast interrupted mid-element waits for a human /resume

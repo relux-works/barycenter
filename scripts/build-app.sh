@@ -98,6 +98,18 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict></plist>
 PLIST
 
+# Guard: the F4 silent-update bug was a MISSING plist key that nothing caught
+# (SUAutomaticallyUpdate without SUEnableAutomaticChecks => never auto-checks).
+# Fail the build if any required Sparkle auto-update key is absent, so it can
+# never silently regress again.
+PLIST_FILE="$APP/Contents/Info.plist"
+for k in SUFeedURL SUPublicEDKey SUEnableAutomaticChecks SUAutomaticallyUpdate SUScheduledCheckInterval; do
+  if ! /usr/libexec/PlistBuddy -c "Print :$k" "$PLIST_FILE" >/dev/null 2>&1; then
+    echo "FATAL: Info.plist is missing required Sparkle key '$k' (silent auto-update would break — F4)" >&2
+    exit 1
+  fi
+done
+
 SIGN_CN="${SIGN_CN:-duet-nodeapp}"
 KEYCHAIN="$HOME/Library/Keychains/duet-signing.keychain-db"
 CERT_HASH="$(security find-certificate -c "$SIGN_CN" -Z 2>/dev/null | awk '/SHA-1/ {print $NF}' || true)"

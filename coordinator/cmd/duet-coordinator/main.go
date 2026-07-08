@@ -101,7 +101,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.SlogLevel()}))
 	// Config snapshot without secrets (goal 3.5).
 	log.Info("duet-coordinator starting",
 		"version", version,

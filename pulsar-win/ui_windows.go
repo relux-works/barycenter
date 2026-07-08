@@ -190,13 +190,15 @@ func showOnboardingWindow(dir, coordinatorBase string) (Credentials, error) {
 		return Credentials{}, err
 	}
 
-	// 420x340 centered-ish window (CW_USEDEFAULT position).
+	// Centered-ish window (CW_USEDEFAULT). Sized generously so the Cyrillic
+	// intro (intro line + 3 numbered steps) and the hint never clip — the
+	// first hardware run showed steps 2–3 cut off at 440x380 (UIPROBE).
 	hwnd, _, err := pCreateWindowExW.Call(
 		0,
 		uintptr(unsafe.Pointer(className)),
 		uintptr(unsafe.Pointer(u16(uiWindowTitle))),
 		uintptr(wsCaption|wsSysMenu),
-		cwUseDefault, cwUseDefault, 440, 380,
+		cwUseDefault, cwUseDefault, 500, 500,
 		0, 0, hInst, 0,
 	)
 	if hwnd == 0 {
@@ -230,13 +232,15 @@ func onboardingProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 				uintptr(hwnd), uintptr(id), hInst, 0)
 			return windows.Handle(h2)
 		}
-		mk("STATIC", uiTitleText, staticCenter, 20, 16, 400, 26, 0)
-		mk("STATIC", uiIntroText, wsChild|wsVisible, 20, 50, 400, 96, 0)
-		mk("STATIC", uiNetworkHintText, wsChild|wsVisible, 20, 150, 400, 34, 0)
+		// Client width ~484 (500 window minus borders); generous heights so
+		// wrapped Cyrillic never clips.
+		mk("STATIC", uiTitleText, staticCenter, 20, 16, 444, 28, 0)
+		mk("STATIC", uiIntroText, wsChild|wsVisible, 20, 54, 444, 150, 0)
+		mk("STATIC", uiNetworkHintText, wsChild|wsVisible, 20, 214, 444, 48, 0)
 		if ctx != nil {
-			ctx.hEdit = mk("EDIT", "", editStyle, 120, 196, 200, 28, idCodeEdit)
-			ctx.hSubmit = mk("BUTTON", uiSubmitText, buttonStyle, 160, 236, 120, 32, idSubmit)
-			ctx.hError = mk("STATIC", "", staticCenter, 20, 276, 400, 40, 0)
+			ctx.hEdit = mk("EDIT", "", editStyle, 132, 274, 220, 30, idCodeEdit)
+			ctx.hSubmit = mk("BUTTON", uiSubmitText, buttonStyle, 182, 316, 120, 34, idSubmit)
+			ctx.hError = mk("STATIC", "", staticCenter, 20, 362, 444, 60, 0)
 		}
 		return 0
 

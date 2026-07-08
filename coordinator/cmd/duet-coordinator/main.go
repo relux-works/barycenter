@@ -249,12 +249,15 @@ func pairHandler(log *slog.Logger, st *store.Store, cfg *config.Config) http.Han
 	}
 }
 
-// mediaHandler serves GET /media/{id}.wav to authenticated nodes (spec 10.3):
-// any valid (non-revoked) node token grants access.
+// mediaHandler serves GET /media/{id}.wav to authenticated nodes (spec 10.3).
+// Tenant-scoped: a voice WAV is served only to a node in the OWNING orbit, or
+// in an orbit currently linked to it by an active approach (so group voice
+// still works). Prevents the cross-tenant leak where any node token fetched
+// any orbit's private voice by id.
 func mediaHandler(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		auth := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		_, _, authorized, _ := st.LookupToken(auth)
+		reqOrbit, _, authorized, _ := st.LookupToken(auth)
 		if !authorized {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -264,6 +267,13 @@ func mediaHandler(st *store.Store) http.HandlerFunc {
 		if err != nil || rec == nil || rec.Status != "ready" {
 			http.NotFound(w, r)
 			return
+		}
+		if rec.OrbitID != reqOrbit {
+			// Not the owning orbit — allow only if the two are actively linked.
+			if _, other, ok, _ := st.ActiveLink(reqOrbit); !ok || other != rec.OrbitID {
+				http.NotFound(w, r) // not yours and not linked: indistinguishable from missing
+				return
+			}
 		}
 		if rec.ExpiresAt < time.Now().UnixMilli() {
 			http.NotFound(w, r) // spec 10.3: 404 after expires_at

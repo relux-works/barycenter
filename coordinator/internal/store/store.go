@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS media (
   loudnorm_json TEXT,
   created_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'ready'
+  status TEXT NOT NULL DEFAULT 'ready',
+  orbit_id INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
@@ -57,7 +58,12 @@ type Store struct {
 }
 
 func Open(path string) (*Store, error) {
-	db, err := sql.Open("sqlite", path)
+	// WAL keeps concurrent readers (hub LookupToken, /media + /pair handlers,
+	// retention sweep) from erroring against the single writer; busy_timeout
+	// makes any lock contention wait instead of returning SQLITE_BUSY
+	// (architecture review #10 / #1.7). Pragmas run on every connection.
+	dsn := path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("store: open %s: %w", path, err)
 	}
@@ -66,6 +72,9 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("store: init schema: %w", err)
 	}
+	// Pre-media-scoping databases lack media.orbit_id: additive migration so
+	// the /media handler can enforce tenant isolation (security review #4.1).
+	db.Exec(`ALTER TABLE media ADD COLUMN orbit_id INTEGER NOT NULL DEFAULT 0`)
 	s := &Store{db: db}
 	if err := s.initOrbits(); err != nil {
 		db.Close()
@@ -168,13 +177,14 @@ type MediaRecord struct {
 	CreatedAt    int64
 	ExpiresAt    int64
 	Status       string // processing | ready | failed
+	OrbitID      int64  // owning tenant (security review #4.1: /media scoping)
 }
 
 func (s *Store) InsertMedia(m MediaRecord) error {
 	_, err := s.db.Exec(
-		`INSERT INTO media(id, tg_file_id, duration_ms, path_wav, loudnorm_json, created_at, expires_at, status)
-		 VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
-		m.ID, m.TGFileID, m.DurationMS, m.PathWAV, m.LoudnormJSON, m.CreatedAt, m.ExpiresAt, m.Status)
+		`INSERT INTO media(id, tg_file_id, duration_ms, path_wav, loudnorm_json, created_at, expires_at, status, orbit_id)
+		 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		m.ID, m.TGFileID, m.DurationMS, m.PathWAV, m.LoudnormJSON, m.CreatedAt, m.ExpiresAt, m.Status, m.OrbitID)
 	return err
 }
 
@@ -188,9 +198,9 @@ func (s *Store) UpdateMedia(m MediaRecord) error {
 func (s *Store) GetMedia(id string) (*MediaRecord, error) {
 	var m MediaRecord
 	err := s.db.QueryRow(
-		`SELECT id, tg_file_id, duration_ms, path_wav, loudnorm_json, created_at, expires_at, status
+		`SELECT id, tg_file_id, duration_ms, path_wav, loudnorm_json, created_at, expires_at, status, orbit_id
 		 FROM media WHERE id = ?`, id).
-		Scan(&m.ID, &m.TGFileID, &m.DurationMS, &m.PathWAV, &m.LoudnormJSON, &m.CreatedAt, &m.ExpiresAt, &m.Status)
+		Scan(&m.ID, &m.TGFileID, &m.DurationMS, &m.PathWAV, &m.LoudnormJSON, &m.CreatedAt, &m.ExpiresAt, &m.Status, &m.OrbitID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -198,6 +208,20 @@ func (s *Store) GetMedia(id string) (*MediaRecord, error) {
 		return nil, err
 	}
 	return &m, nil
+}
+
+// GetMediaForOrbit returns the media record only when it belongs to orbitID
+// (nil otherwise) — the tenant-isolation gate for GET /media (security review
+// #4.1). GetMedia stays unscoped for the retention sweep.
+func (s *Store) GetMediaForOrbit(id string, orbitID int64) (*MediaRecord, error) {
+	m, err := s.GetMedia(id)
+	if err != nil || m == nil {
+		return nil, err
+	}
+	if m.OrbitID != orbitID {
+		return nil, nil
+	}
+	return m, nil
 }
 
 // ExpiredMedia lists media past expires_at for the daily retention sweep.

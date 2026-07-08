@@ -51,6 +51,26 @@ func TestSessionRoundTripAndPausedRule(t *testing.T) {
 	}
 }
 
+// WAL + busy_timeout keep the single writer and concurrent readers from
+// erroring under load (architecture review #10). Guards the DSN pragmas.
+func TestWALAndBusyTimeout(t *testing.T) {
+	s := openTemp(t)
+	var mode string
+	if err := s.db.QueryRow(`PRAGMA journal_mode`).Scan(&mode); err != nil {
+		t.Fatal(err)
+	}
+	if mode != "wal" {
+		t.Fatalf("journal_mode = %q, want wal", mode)
+	}
+	var busy int
+	if err := s.db.QueryRow(`PRAGMA busy_timeout`).Scan(&busy); err != nil {
+		t.Fatal(err)
+	}
+	if busy <= 0 {
+		t.Fatalf("busy_timeout = %d, want > 0", busy)
+	}
+}
+
 func TestSettings(t *testing.T) {
 	s := openTemp(t)
 	if v, err := s.GetSetting("offset_a"); err != nil || v != "" {
@@ -113,5 +133,27 @@ func TestMediaLifecycle(t *testing.T) {
 
 	if missing, err := s.GetMedia("nope"); err != nil || missing != nil {
 		t.Fatalf("missing media: %v %v", missing, err)
+	}
+}
+
+// Voice notes are the most private data in the system: a media row must only
+// be served to a node whose token resolves to the SAME orbit (security #4.1).
+func TestMediaOrbitScoping(t *testing.T) {
+	s := openTemp(t)
+	m := MediaRecord{ID: "m1", CreatedAt: 100, ExpiresAt: 200, Status: "ready", OrbitID: 7}
+	if err := s.InsertMedia(m); err != nil {
+		t.Fatal(err)
+	}
+	// The owning orbit gets the record…
+	if got, err := s.GetMediaForOrbit("m1", 7); err != nil || got == nil || got.OrbitID != 7 {
+		t.Fatalf("owner must read its media: %+v %v", got, err)
+	}
+	// …a foreign orbit gets nothing (no cross-tenant leak).
+	if got, err := s.GetMediaForOrbit("m1", 8); err != nil || got != nil {
+		t.Fatalf("foreign orbit must not read media: %+v %v", got, err)
+	}
+	// The unscoped getter (retention sweep) still sees it.
+	if got, _ := s.GetMedia("m1"); got == nil || got.OrbitID != 7 {
+		t.Fatalf("unscoped get lost orbit_id: %+v", got)
 	}
 }

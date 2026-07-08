@@ -40,13 +40,14 @@ const (
 	KindShare       CommandKind = "share"        // /share — member invite link
 	KindPairCode    CommandKind = "pair"         // /pair — node pairing code
 	KindRebind      CommandKind = "rebind"       // /rebind — revoke old, re-pair
-	KindMakePrimary CommandKind = "make_primary" // /make_primary [tg id]
+	KindMakePrimary CommandKind = "make_primary" // /make_primary [@name|name]
 	KindRevoke      CommandKind = "revoke"       // /revoke <slot>
-	KindOrbit       CommandKind = "orbit"        // /orbit — members & slots
+	KindOrbit       CommandKind = "orbit"        // /orbit, /home — members & slots
+	KindLeave       CommandKind = "leave"        // /leave — a member leaves the orbit
+	KindDissolve    CommandKind = "dissolve"     // /dissolve — primary deletes the orbit
 
 	// Provider layer (spec-providers, behind DUET_PROVIDERS)
 	KindProvider CommandKind = "provider" // /provider <slot> <spotify|yandex> (§6.3)
-	KindResolve  CommandKind = "resolve"  // /resolve — manual mapping repair (reserved)
 
 	// Approaches between barycenters (design §12, L1)
 	KindApproach CommandKind = "approach" // /approach [code] — propose / claim an approach
@@ -113,21 +114,19 @@ func Parse(text string) (Command, error) {
 	case "/rebind":
 		return Command{Kind: KindRebind}, nil
 	case "/make_primary":
-		if len(args) == 0 {
-			return Command{Kind: KindMakePrimary}, nil
-		}
-		id, err := strconv.Atoi(args[0])
-		if err != nil {
-			return Command{}, ErrReply{"так: /make_primary <id участника> (список в /orbit)"}
-		}
-		return Command{Kind: KindMakePrimary, Number: id}, nil
+		// A name or @username (resolved by the loop), not a raw tg id (bot-ux #5).
+		return Command{Kind: KindMakePrimary, Target: strings.Join(args, " ")}, nil
 	case "/revoke":
 		if len(args) != 1 {
-			return Command{}, ErrReply{"так: /revoke <слот> (слоты в /orbit)"}
+			return Command{}, ErrReply{"так: /revoke <слот> (слоты в /home)"}
 		}
 		return Command{Kind: KindRevoke, Target: strings.ToLower(args[0])}, nil
-	case "/orbit":
+	case "/orbit", "/home":
 		return Command{Kind: KindOrbit}, nil
+	case "/leave":
+		return Command{Kind: KindLeave}, nil
+	case "/dissolve":
+		return Command{Kind: KindDissolve}, nil
 
 	// Approaches (design §12): codes come uppercase from randomCode, typing
 	// is forgiven.
@@ -226,11 +225,12 @@ func Parse(text string) (Command, error) {
 		}
 		return Command{Kind: KindMode, Target: m}, nil
 
-	// Периастрон — точка наибольшего сближения орбит: общий поток.
-	// Апоастрон — точка наибольшего удаления: каждый слушает своё.
-	case "/periastron":
+	// /together and /solo are the plain-language canon for the two modes
+	// (bot-ux §3e); /periastron and /apoastron stay as hidden easter-egg
+	// aliases of the same KindMode.
+	case "/together", "/periastron":
 		return Command{Kind: KindMode, Target: "shared"}, nil
-	case "/apoastron":
+	case "/solo", "/apoastron":
 		return Command{Kind: KindMode, Target: "solo"}, nil
 
 	case "/takeover":
@@ -267,11 +267,6 @@ func Parse(text string) (Command, error) {
 		}
 		return Command{Kind: KindProvider, Target: strings.ToLower(args[0]), Provider: p}, nil
 
-	case "/resolve":
-		// Reserved (spec-providers §8): argument parsing arrives with the
-		// ctid queues; for now the loop answers with a stub.
-		return Command{Kind: KindResolve}, nil
-
 	case "/help":
 		return Command{}, ErrReply{helpText}
 	}
@@ -279,38 +274,25 @@ func Parse(text string) (Command, error) {
 	return Command{}, ErrReply{"не знаю такой команды. /help покажет список"}
 }
 
-const helpText = `<b>Барицентр</b> — общий музыкальный эфир на несколько домов.
-Сайт и приложение: barycenter.live
+const helpText = `<b>Барицентр</b> — общая музыка на два дома: одно и то же играет у вас обоих, а голосовые встают между песнями. barycenter.live
 
-<b>Музыка</b>
-Ссылка на трек — в очередь. Плейлист или альбом — общий поток.
-Голосовое сообщение — вставка после текущего трека (подпись «лично» — только адресату, «всем» — во все дома).
+<b>Каждый день</b>
+Пришли ссылку на трек — заиграет у обоих. Плейлист или альбом — тоже можно.
+Запиши голосовое — встанет между песнями (подпись «лично» — только партнёру).
+/skip — дальше · /pause — пауза · /resume — продолжить
+/now — что играет · /queue — очередь · /vol 60 — громкость
 
-<b>Эфир</b>
-/playnow &lt;ссылка&gt; — включить немедленно
-/queue — очередь · /cancel N — убрать номер N
-/skip · /pause · /resume · /sync
-/vol 0–100 [дом] — громкость
-/now — что играет · /status — состояние системы
+<b>Слушать вместе или порознь</b>
+/together — общий эфир на оба дома · /solo — каждый слушает своё
 
-<b>Режимы</b>
-/periastron — сближение: общий эфир
-/apoastron — каждый слушает своё (/inject &lt;ссылка&gt; подкинет трек партнёру)
-/takeover user|coordinator — кто главнее, если вмешались с телефона
+<b>Настройка (один раз)</b>
+/pair — подключить свой дом (код для приложения Pulsar)
+/share — позвать партнёра · /home — кто на связи · /leave — выйти
 
-<b>Орбит</b>
-/create — создать свой барицентр (для новичков)
-/orbit — участники и дома · /share — пригласить
-/pair — код для подключения своего Пульсара · /rebind — переподключить дом заново
-/make_primary — передать главную звезду · /revoke &lt;дом&gt; — отозвать доступ
+<b>Слушать с друзьями</b>
+/approach — соединить эфир с другим барицентром, /apart — разойтись
 
-<b>Сближение</b>
-/approach — код сближения для другого барицентра (/approach КОД — принять его код)
-инициатор подтверждает: /accept или /decline
-/apart — завершить сближение, каждый у себя
-
-<b>Калибровка</b>
-/offset &lt;дом&gt; &lt;мс&gt; · /offset_test — синхронные клики`
+Тонкая настройка звука и режимы — на barycenter.live.`
 
 // IsPersonalCaption: the "лично" caption on a voice message (spec 9.1).
 func IsPersonalCaption(caption string) bool {

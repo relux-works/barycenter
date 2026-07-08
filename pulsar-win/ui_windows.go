@@ -48,6 +48,7 @@ var (
 
 	pShellNotifyIconW = shell32.NewProc("Shell_NotifyIconW")
 	pShellExecuteW    = shell32.NewProc("ShellExecuteW")
+	pMessageBoxW      = user32.NewProc("MessageBoxW")
 
 	pGetModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 	pLoadIconW        = user32.NewProc("LoadIconW")
@@ -118,6 +119,14 @@ const (
 	idCodeEdit    = 1002
 	menuRePairCmd = 2001
 	menuQuitCmd   = 2002
+	menuSoundCmd  = 2003 // "Как включить звук" — reopen the Spotify-step modal
+	menuNoPulsar  = 2004 // "Не вижу Pulsar в Spotify?" — open the guide
+
+	// MessageBoxW flags: MB_OK + an information icon. The OS renders the modal,
+	// so Cyrillic and DPI are handled for us (unlike the hand-built window).
+	mbOK              = 0x00000000
+	mbIconInformation = 0x00000040
+	mbSetForeground   = 0x00010000
 )
 
 type wndClassExW struct {
@@ -211,6 +220,7 @@ func setFont(control, font windows.Handle) {
 // at a time, so a package-level pointer is safe.
 type onboardingCtx struct {
 	dir, coordinator string
+	hwnd             windows.Handle // top-level window, owner of the post-pair modal
 	hEdit            windows.Handle
 	hError           windows.Handle
 	hSubmit          windows.Handle
@@ -287,12 +297,19 @@ func onboardingProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 			return windows.Handle(h2)
 		}
 		ensureFonts()
+		if ctx != nil {
+			ctx.hwnd = hwnd // owner for the post-pair Spotify-step modal
+		}
 		// Client width ~484 (500 window minus borders); generous heights so
 		// wrapped Cyrillic never clips.
 		hTitle := mk("STATIC", uiTitleText, staticCenter, 20, 22, 444, 38, 0)
 		hSub := mk("STATIC", uiIntroSubtitle, staticCenter, 20, 62, 444, 24, 0)
-		hIntro := mk("STATIC", uiIntroText, wsChild|wsVisible, 28, 104, 428, 176, 0)
-		hHint := mk("STATIC", uiNetworkHintText, wsChild|wsVisible, 28, 288, 428, 44, 0)
+		// Intro grew a line (invite path) and the hint gained the guide URL;
+		// both boxes get a touch more height so the wrap can't clip on hi-DPI.
+		// Intro bottom (288) is flush with the hint top; hint bottom (340) still
+		// clears the code field at y=344.
+		hIntro := mk("STATIC", uiIntroText, wsChild|wsVisible, 28, 104, 428, 184, 0)
+		hHint := mk("STATIC", uiNetworkHintText, wsChild|wsVisible, 28, 288, 428, 52, 0)
 		setFont(hTitle, fontTitle)
 		setFont(hSub, fontSubtitle)
 		setFont(hIntro, fontBody)
@@ -352,6 +369,10 @@ func onSubmit(ctx *onboardingCtx) {
 	}
 	ctx.result = &creds
 	ctx.done = true
+	// #4: pairing linked the computer, but nothing plays until Spotify picks
+	// "Pulsar" once. Surface that here, while the user is still looking, before
+	// the window closes to the tray. Modal, so it blocks the quit until read.
+	messageBox(ctx.hwnd, uiSpotifyStepTitle, uiSpotifyStepBody)
 	pPostQuitMessage.Call(0) // leave the message loop; caller has the creds
 }
 
@@ -447,6 +468,14 @@ func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintp
 			if curTray != nil && curTray.OnRePair != nil {
 				curTray.OnRePair()
 			}
+		case menuSoundCmd:
+			// Reprise of the post-pair Spotify step (#4), always available. The
+			// tray window is message-only (invisible), so the modal owns itself
+			// (owner 0) rather than parenting to a non-displayable window.
+			messageBox(0, uiSpotifyStepTitle, uiSpotifyStepBody)
+		case menuNoPulsar:
+			// #6: firewall / same-Wi-Fi / VPN walkthrough lives in the guide.
+			openURL(uiGuideURL)
 		case menuQuitCmd:
 			if curTray != nil && curTray.OnQuit != nil {
 				curTray.OnQuit()
@@ -476,6 +505,11 @@ func showTrayMenu(hwnd windows.Handle) {
 		add(mfSeparator, 0, "")
 		add(mfString, menuRePairCmd, uiMenuRepair)
 	}
+	// #4/#6: the Spotify one-time step and the firewall/"can't see Pulsar" help
+	// stay reachable for the whole run, not just at pairing.
+	add(mfSeparator, 0, "")
+	add(mfString, menuSoundCmd, uiMenuHowToSound)
+	add(mfString, menuNoPulsar, uiMenuNoPulsar)
 	add(mfSeparator, 0, "")
 	add(mfString, menuQuitCmd, uiMenuQuit)
 
@@ -491,4 +525,16 @@ func openURL(url string) {
 	pShellExecuteW.Call(0,
 		uintptr(unsafe.Pointer(u16("open"))),
 		uintptr(unsafe.Pointer(u16(url))), 0, 0, swShow)
+}
+
+// messageBox shows a native modal (the Spotify-step "one more step" panel and
+// its tray reprise). A native MessageBox is deliberately low-risk on the blind
+// build: the OS owns layout, Cyrillic and DPI, so this can't clip the way a
+// hand-built STATIC can. owner may be 0 (tray, no parent window).
+func messageBox(owner windows.Handle, title, body string) {
+	pMessageBoxW.Call(
+		uintptr(owner),
+		uintptr(unsafe.Pointer(u16(body))),
+		uintptr(unsafe.Pointer(u16(title))),
+		uintptr(mbOK|mbIconInformation|mbSetForeground))
 }

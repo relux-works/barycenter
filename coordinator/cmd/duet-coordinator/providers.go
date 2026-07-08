@@ -227,6 +227,9 @@ func (l *loop) resolveAndEnqueue(o *orbitState, el session.Element, reply func(s
 // enqueue (gate + queue). The air is re-resolved because an approach may have
 // engaged/dissolved while the cascade ran.
 func (l *loop) onResolveDone(d resolveDone) {
+	if l.orbitGone(d.orbit) { // L3: /dissolve raced the resolve goroutine
+		return
+	}
 	o := l.stateFor(d.orbit)
 	if o.sess.Mode != session.ModeShared {
 		d.reply("сейчас режим solo: /inject подкинет трек партнёру, /together вернёт общий эфир")

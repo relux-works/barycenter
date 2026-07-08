@@ -217,6 +217,14 @@ final class OnboardingWindowController {
     // real first launch; false on re-pair, where LAN access was settled long ago.
     func show(coordinatorBase: String, promptForNetwork: Bool,
               onPaired: @escaping (NodeCredentials) -> Void) {
+        // L6: a second show() (e.g. "Подключить заново…" clicked twice) used to
+        // orphan the first window — pairing in the orphan then started a second
+        // core on top of the live one (two librespots on one token). One window
+        // at a time: close the previous one first.
+        if let old = window {
+            old.close()
+            window = nil
+        }
         let view = OnboardingView(coordinatorBase: coordinatorBase,
                                   showNetworkPriming: promptForNetwork) { [weak self] creds in
             self?.window?.close()

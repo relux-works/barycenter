@@ -40,7 +40,7 @@ const (
 	KindShare       CommandKind = "share"        // /share — member invite link
 	KindPairCode    CommandKind = "pair"         // /pair — node pairing code
 	KindRebind      CommandKind = "rebind"       // /rebind — revoke old, re-pair
-	KindMakePrimary CommandKind = "make_primary" // /make_primary [@name|name]
+	KindMakePrimary CommandKind = "make_primary" // /make_primary <имя из /home>
 	KindRevoke      CommandKind = "revoke"       // /revoke <slot>
 	KindOrbit       CommandKind = "orbit"        // /orbit, /home — members & slots
 	KindLeave       CommandKind = "leave"        // /leave — a member leaves the orbit
@@ -68,6 +68,13 @@ type Command struct {
 type ErrReply struct{ Text string }
 
 func (e ErrReply) Error() string { return e.Text }
+
+// isSlotLetter: a home is addressed by its slot letter (a..z, PairSlot mints
+// a..e today). Existence within the orbit is the loop's check — the parser
+// only rejects shapes that can never be a slot.
+func isSlotLetter(s string) bool {
+	return len(s) == 1 && s[0] >= 'a' && s[0] <= 'z'
+}
 
 // Parse turns a text message into a Command (spec 9.1).
 func Parse(text string) (Command, error) {
@@ -114,7 +121,8 @@ func Parse(text string) (Command, error) {
 	case "/rebind":
 		return Command{Kind: KindRebind}, nil
 	case "/make_primary":
-		// A name or @username (resolved by the loop), not a raw tg id (bot-ux #5).
+		// A display name as shown by /home (resolved by the loop), not a raw
+		// tg id (bot-ux #5). @usernames are not stored — see resolveMember (L12).
 		return Command{Kind: KindMakePrimary, Target: strings.Join(args, " ")}, nil
 	case "/revoke":
 		if len(args) != 1 {
@@ -183,7 +191,7 @@ func Parse(text string) (Command, error) {
 
 	case "/vol":
 		if len(args) == 0 {
-			return Command{}, ErrReply{"так: /vol <0-100> [a|b]"}
+			return Command{}, ErrReply{"так: /vol <0-100> [дом]"}
 		}
 		v, err := strconv.Atoi(args[0])
 		if err != nil || v < 0 || v > 100 {
@@ -192,15 +200,18 @@ func Parse(text string) (Command, error) {
 		target := ""
 		if len(args) > 1 {
 			target = strings.ToLower(args[1])
-			if target != "a" && target != "b" {
-				return Command{}, ErrReply{"дом указывается как a или b: /vol 60 b"}
+			// Orbits pair up to five homes (slots a..e) — a hard a|b gate made
+			// the third home's volume unreachable (M8). The loop verifies the
+			// slot actually exists in the orbit.
+			if !isSlotLetter(target) {
+				return Command{}, ErrReply{"дом указывается буквой слота (/orbit покажет): /vol 60 b"}
 			}
 		}
 		return Command{Kind: KindVol, Number: v, Target: target}, nil
 
 	case "/inject":
 		if len(args) == 0 {
-			return Command{}, ErrReply{"так: /inject <ссылка> [a|b|both]"}
+			return Command{}, ErrReply{"так: /inject <ссылка> [дом|both]"}
 		}
 		uri, err := links.ParseTrack(args[0])
 		if err != nil {
@@ -209,8 +220,8 @@ func Parse(text string) (Command, error) {
 		target := ""
 		if len(args) > 1 {
 			target = strings.ToLower(args[1])
-			if target != "a" && target != "b" && target != "both" {
-				return Command{}, ErrReply{"цель: a, b или both"}
+			if target != "both" && !isSlotLetter(target) {
+				return Command{}, ErrReply{"цель: буква дома (/orbit покажет) или both"}
 			}
 		}
 		return Command{Kind: KindInject, URI: uri, Target: target}, nil
@@ -245,11 +256,11 @@ func Parse(text string) (Command, error) {
 
 	case "/offset":
 		if len(args) != 2 {
-			return Command{}, ErrReply{"так: /offset <a|b> <миллисекунды>"}
+			return Command{}, ErrReply{"так: /offset <дом> <миллисекунды>"}
 		}
 		target := strings.ToLower(args[0])
-		if target != "a" && target != "b" {
-			return Command{}, ErrReply{"первый аргумент: a или b"}
+		if !isSlotLetter(target) {
+			return Command{}, ErrReply{"первый аргумент — буква дома (/orbit покажет): /offset b 30"}
 		}
 		ms, err := strconv.Atoi(args[1])
 		if err != nil {

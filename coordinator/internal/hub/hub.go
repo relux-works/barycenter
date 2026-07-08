@@ -194,6 +194,10 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		h.log.Warn("ws upgrade failed", "err", err)
 		return
 	}
+	// L9: the endpoint is public in prod and gorilla defaults to UNLIMITED
+	// frame size — an unauthenticated client could post a multi-GB frame
+	// before token validation. Node messages are tiny; 64 KiB is generous.
+	ws.SetReadLimit(64 << 10)
 
 	key, reg, ok := h.awaitRegister(ws)
 	if !ok {

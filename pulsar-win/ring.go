@@ -18,6 +18,13 @@ type Ring struct {
 	buf      []float32
 	head     atomic.Int64 // total floats written (producer-owned)
 	tail     atomic.Int64 // total floats read (consumer-owned)
+	// clearThrough is a head snapshot the consumer discards up to on its next
+	// Read (M7). Clear() is called from ws/timer goroutines while both the
+	// pipe pump and the render loop keep running — a third-party tail.Store
+	// raced Read's own tail.Store and could rewind tail below a concurrent
+	// reader's position, replaying a chunk of the PREVIOUS track after a
+	// load/seek. Only the consumer may move tail; Clear just posts the cut.
+	clearThrough atomic.Int64
 }
 
 func NewRing(capacityFloats int) *Ring {
@@ -34,9 +41,18 @@ func NewRing(capacityFloats int) *Ring {
 func (r *Ring) Capacity() int { return int(r.capacity) }
 
 // Fill is the number of floats currently readable. Safe from any goroutine
-// (approximate between operations).
+// (approximate between operations). A pending Clear counts as already
+// applied — the next Read will discard that span anyway.
 func (r *Ring) Fill() int {
-	return int(r.head.Load() - r.tail.Load())
+	h := r.head.Load()
+	t := r.tail.Load()
+	if ct := r.clearThrough.Load(); ct > t {
+		t = ct
+	}
+	if h < t {
+		return 0
+	}
+	return int(h - t)
 }
 
 // FillMS converts the current fill to milliseconds of audio.
@@ -75,6 +91,13 @@ func (r *Ring) Write(p []float32) int {
 func (r *Ring) Read(out []float32) int {
 	h := r.head.Load()
 	t := r.tail.Load()
+	// Apply a posted Clear (M7): jump past everything buffered before the
+	// cut. ct may exceed our stale h snapshot (a Clear landed between the two
+	// loads) — available then goes non-positive and we simply return 0.
+	if ct := r.clearThrough.Load(); ct > t {
+		t = ct
+		r.tail.Store(t)
+	}
 	available := h - t
 	n := int64(len(out))
 	if n > available {
@@ -96,8 +119,16 @@ func (r *Ring) Read(out []float32) int {
 	return int(n)
 }
 
-// Clear drops all buffered audio (load of a new element, spec 6.3).
-// Caller must guarantee the producer is parked while clearing.
+// Clear schedules everything buffered SO FAR to be dropped (load of a new
+// element, spec 6.3). Safe from any goroutine (M7): the consumer applies the
+// cut on its next Read, samples written after this call are kept. The CAS
+// loop only ever raises the watermark — two racing Clears keep the later cut.
 func (r *Ring) Clear() {
-	r.tail.Store(r.head.Load())
+	h := r.head.Load()
+	for {
+		cur := r.clearThrough.Load()
+		if cur >= h || r.clearThrough.CompareAndSwap(cur, h) {
+			return
+		}
+	}
 }

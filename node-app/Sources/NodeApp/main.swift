@@ -279,6 +279,13 @@ func materializeSupportTree(_ config: NodeConfig) {
 }
 
 func startCore(with config: NodeConfig) {
+    // L6: never stack a second core on a live one (two librespots fighting
+    // for one token = hub last-write-wins flapping). Any path that reaches
+    // here with a runtime still up tears it down first.
+    if let old = runtime {
+        old.teardown()
+        runtime = nil
+    }
     materializeSupportTree(config)
     do {
         let rt = try CoreRuntime.start(config: config)
@@ -319,6 +326,9 @@ func rePairFlow() {
     runtime?.teardown()
     runtime = nil
     statusMenu.player = nil
+    // L6: hide "Подключить заново…" while already unpaired — clicking it in
+    // that state opened a duplicate onboarding window. startCore restores it.
+    statusMenu.rePairAction = nil
     app.setActivationPolicy(.regular)
     // Re-pair: LAN access was settled on the first run — don't re-prime it.
     onboarding.show(coordinatorBase: defaultCoordinatorBase, promptForNetwork: false) { _ in

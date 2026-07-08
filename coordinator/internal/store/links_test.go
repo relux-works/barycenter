@@ -152,3 +152,62 @@ func TestLinkCodeExpiryAndSupersede(t *testing.T) {
 		t.Fatalf("fresh code: %d %v", id, err)
 	}
 }
+
+// M4: an ignored awaiting claim must not link-lock both orbits forever — it
+// stops engaging after the TTL, hygiene removes it, and /accept can't see it.
+func TestAwaitingLinkExpires(t *testing.T) {
+	st := openTemp(t)
+	oa, _ := st.CreateOrbit("A", 101)
+	ob, _ := st.CreateOrbit("B", 202)
+	a, b := oa.ID, ob.ID
+	code, err := st.ProposeLink(a, 101)
+	if err != nil {
+		t.Fatal(err)
+	}
+	linkID, _, err := st.AcceptByCode(code, b)
+	if err != nil || linkID == 0 {
+		t.Fatalf("claim: %v %d", err, linkID)
+	}
+	// Both engaged while the claim is fresh.
+	if _, err := st.ProposeLink(a, 101); err != ErrLinkBusy {
+		t.Fatalf("fresh awaiting must engage, got %v", err)
+	}
+	// Age the claim past the TTL.
+	if _, err := st.db.Exec(`UPDATE links SET created_at = created_at - ? WHERE id = ?`,
+		(awaitingTTL + time.Hour).Milliseconds(), linkID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, ok, _ := st.AwaitingLink(a); ok {
+		t.Fatal("expired claim still visible to /accept")
+	}
+	if _, _, _, ok, _ := st.AwaitingLinkAnySide(b); ok {
+		t.Fatal("expired claim still visible to /decline")
+	}
+	// Unblocked: a fresh code mints (hygiene removed the fossil).
+	if _, err := st.ProposeLink(a, 101); err != nil {
+		t.Fatalf("propose after expiry: %v", err)
+	}
+	var n int
+	if err := st.db.QueryRow(`SELECT COUNT(*) FROM links WHERE id = ?`, linkID).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("fossil row survived hygiene: n=%d err=%v", n, err)
+	}
+}
+
+// M4: the claimant side sees the awaiting link too (for /decline).
+func TestAwaitingLinkAnySide(t *testing.T) {
+	st := openTemp(t)
+	oa, _ := st.CreateOrbit("A", 111)
+	ob, _ := st.CreateOrbit("B", 222)
+	a, b := oa.ID, ob.ID
+	code, _ := st.ProposeLink(a, 111)
+	linkID, _, err := st.AcceptByCode(code, b)
+	if err != nil || linkID == 0 {
+		t.Fatalf("claim: %v %d", err, linkID)
+	}
+	if id, other, initiator, ok, _ := st.AwaitingLinkAnySide(a); !ok || id != linkID || other != b || !initiator {
+		t.Fatalf("initiator view: id=%d other=%d init=%v ok=%v", id, other, initiator, ok)
+	}
+	if id, other, initiator, ok, _ := st.AwaitingLinkAnySide(b); !ok || id != linkID || other != a || initiator {
+		t.Fatalf("claimant view: id=%d other=%d init=%v ok=%v", id, other, initiator, ok)
+	}
+}

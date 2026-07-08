@@ -130,6 +130,15 @@ func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store
 	}
 }
 
+// orbitGone reports a dissolved orbit (L3): async completions (media,
+// playlist expansion, provider resolve) can land after /dissolve deleted the
+// orbit — stateFor would then rebuild a ghost state and persist() would
+// re-create its session snapshot in settings.
+func (l *loop) orbitGone(id int64) bool {
+	rec, err := l.st.GetOrbit(id)
+	return err == nil && rec == nil
+}
+
 // orbit returns the live state for an orbit, restoring it from the store on
 // first touch (session snapshot, knobs, per-orbit settings).
 func (l *loop) orbit(id int64) *orbitState {
@@ -385,6 +394,9 @@ func (l *loop) handlePlaylistDone(d playlistDone) {
 		d.reply(fmt.Sprintf("не смог раскрыть плейлист: %v", d.err))
 		return
 	}
+	if l.orbitGone(d.orbit) { // L3: /dissolve raced the expansion goroutine
+		return
+	}
 	o := l.stateFor(d.orbit)
 	l.apply(o, o.sess.SetPlaylist(d.uri, esc(d.title), d.tracks))
 }
@@ -409,7 +421,12 @@ func (l *loop) humanizePeers(text string) string {
 }
 
 func (l *loop) notify(o *orbitState, text string) {
-	text = l.humanizePeers(text)
+	// L8: composite "N:x" ids only ever appear in GROUP session texts — do
+	// not run the rewrite over personal-orbit texts, where the same pattern
+	// inside a track title ("Part 1:a remix") got mangled with a DB lookup.
+	if o.group() {
+		text = l.humanizePeers(text)
+	}
 	if o.group() {
 		for _, id := range o.orbits {
 			l.notifyOrbit(id, text)
@@ -795,7 +812,7 @@ func (l *loop) handleBot(ev bot.Event) {
 		// lost/leaked one can't linger); the new code re-pairs in the app via
 		// "Подключить заново…". A brief tokenless gap is fine — you're re-pairing.
 		if old, _ := l.st.SlotOf(home.id, ev.FromUserID); old != "" {
-			l.st.RevokeSlot(home.id, old)
+			_, _ = l.st.RevokeSlot(home.id, old) // slot came from SlotOf — always live
 			o := l.stateFor(home.id)
 			peer := protocol.NodeID(old)
 			if o.group() {
@@ -820,7 +837,7 @@ func (l *loop) handleBot(ev bot.Event) {
 		}
 		target := strings.TrimSpace(cmd.Target)
 		if target == "" {
-			ev.Reply(l.orbitText(home) + "\n\n/make_primary &lt;имя или @ник&gt; передаст титул")
+			ev.Reply(l.orbitText(home) + "\n\n/make_primary &lt;имя из /home&gt; передаст титул")
 			return
 		}
 		newPrimary := l.resolveMember(home.id, target)
@@ -839,8 +856,14 @@ func (l *loop) handleBot(ev bot.Event) {
 			ev.Reply("отзывать дома может только primary")
 			return
 		}
-		if err := l.st.RevokeSlot(home.id, cmd.Target); err != nil {
+		found, err := l.st.RevokeSlot(home.id, cmd.Target)
+		if err != nil {
 			ev.Reply("не получилось")
+			return
+		}
+		if !found {
+			// L11: an UPDATE matching zero rows used to read as success.
+			ev.Reply(fmt.Sprintf("дома %s нет в орбите (/orbit покажет слоты)", cmd.Target))
 			return
 		}
 		// The revoked slot leaves the peer set of the LIVE session (the
@@ -976,6 +999,10 @@ func (l *loop) handleBot(ev bot.Event) {
 				return
 			}
 			target = protocol.NodeID(slot)
+		} else if !home.sess.HasPeer(target) {
+			// M8: any slot letter parses; the orbit decides which exist.
+			ev.Reply(fmt.Sprintf("дома %s нет в орбите (/orbit покажет слоты)", target))
+			return
 		}
 		key := hub.NodeKey{Orbit: home.id, Slot: target}
 		o.volumes[l.peerFor(o, key)] = cmd.Number
@@ -1007,6 +1034,11 @@ func (l *loop) handleBot(ev bot.Event) {
 
 	case bot.KindOffset:
 		target := protocol.NodeID(cmd.Target)
+		if !home.sess.HasPeer(target) {
+			// M8: any slot letter parses; the orbit decides which exist.
+			ev.Reply(fmt.Sprintf("дома %s нет в орбите (/orbit покажет слоты)", target))
+			return
+		}
 		key := hub.NodeKey{Orbit: home.id, Slot: target}
 		o.offsets[l.peerFor(o, key)] = int64(cmd.Number)
 		l.st.SetSetting(fmt.Sprintf("offset_%d_%s", home.id, target), strconv.Itoa(cmd.Number))
@@ -1032,6 +1064,12 @@ func (l *loop) handleBot(ev bot.Event) {
 	case bot.KindInject:
 		if o.sess.Mode != session.ModeSolo {
 			ev.Reply("в shared просто кинь ссылку в чат; /inject — для solo")
+			return
+		}
+		// M8: an explicit slot must exist in the sender's orbit — otherwise the
+		// send just fails and the reply blamed an "offline" node that isn't one.
+		if cmd.Target != "" && cmd.Target != "both" && !home.sess.HasPeer(protocol.NodeID(cmd.Target)) {
+			ev.Reply(fmt.Sprintf("дома %s нет в орбите (/orbit покажет слоты)", cmd.Target))
 			return
 		}
 		targets := l.injectTargets(o, home.id, ev.FromUserID, cmd.Target)
@@ -1169,14 +1207,22 @@ func (l *loop) handleBot(ev bot.Event) {
 			ev.Reply("отклонить сближение может только primary")
 			return
 		}
-		linkID, other, ok, err := l.st.AwaitingLink(home.id)
+		// Either side may kill an awaiting claim (M4): the claimant used to be
+		// link-locked until the initiator answered — /approach said "сначала
+		// /apart" while /apart needs an ACTIVE link.
+		linkID, other, initiator, ok, err := l.st.AwaitingLinkAnySide(home.id)
 		if err != nil || !ok {
 			ev.Reply("отклонять нечего")
 			return
 		}
 		l.st.BreakLink(linkID)
-		l.notifyOrbit(other, fmt.Sprintf("барицентр «%s» отклонил сближение", esc(home.title)))
-		ev.Reply("отклонил — остаёмся каждый у себя")
+		if initiator {
+			l.notifyOrbit(other, fmt.Sprintf("барицентр «%s» отклонил сближение", esc(home.title)))
+			ev.Reply("отклонил — остаёмся каждый у себя")
+		} else {
+			l.notifyOrbit(other, fmt.Sprintf("барицентр «%s» отозвал предложение сближения", esc(home.title)))
+			ev.Reply("отозвал предложение — остаёмся каждый у себя")
+		}
 
 	case bot.KindApart:
 		if member.Role != "primary" {
@@ -1322,6 +1368,9 @@ func (l *loop) handleMediaDone(d mediaDone) {
 		l.log.Error("voice processing failed", "media", d.mediaID, "err", d.err)
 		l.st.UpdateMedia(store.MediaRecord{ID: d.mediaID, Status: "failed"})
 		d.reply("не смог обработать голосовое, оставил исходник для разбора")
+		return
+	}
+	if l.orbitGone(d.orbit) { // L3: /dissolve raced the ffmpeg goroutine
 		return
 	}
 	o := l.stateFor(d.orbit)
@@ -1582,8 +1631,11 @@ func memberRole(role string) string {
 	return role
 }
 
-// resolveMember maps a /make_primary argument (a display name, an @username or
-// — for back-compat — a raw tg id) to a member's tg id; 0 when not found.
+// resolveMember maps a /make_primary argument (a display name as shown by
+// /home, or — for back-compat — a raw tg id) to a member's tg id; 0 when not
+// found. L12: the bot never stores Telegram @usernames (only first_name), so
+// an "@ник" only ever matches by accident — the help texts say "имя из
+// /home"; the @-strip below stays as a courtesy for users who type one.
 func (l *loop) resolveMember(orbitID int64, target string) int64 {
 	target = strings.TrimSpace(target)
 	if target == "" {

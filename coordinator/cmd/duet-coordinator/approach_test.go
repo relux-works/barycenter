@@ -413,3 +413,27 @@ func TestSlotPairedDuringLinkJoinsPersonalAfterApart(t *testing.T) {
 			slot, o2, l.orbit(o2).sess.Peers)
 	}
 }
+
+// M4 regression: the CLAIMANT of an approach code can /decline the awaiting
+// link too. Before, only the initiator could — an initiator gone dark left
+// the claimant link-locked ("сначала /apart" while /apart needs an ACTIVE
+// link) until the 48 h TTL.
+func TestClaimantCanDeclineAwaiting(t *testing.T) {
+	l, _, o2 := twoOrbitLoop(t)
+	r := &replies{}
+	proposeAndAwait(t, l, r)
+
+	// Orbit 2 (the claimant, user 333) withdraws.
+	l.handleBot(cmdEvent(t, "o2", "/decline", r))
+	if !strings.Contains(r.last(t), "отозвал") {
+		t.Fatalf("claimant decline reply: %q", r.last(t))
+	}
+	if _, _, _, ok, _ := l.st.AwaitingLinkAnySide(o2); ok {
+		t.Fatal("awaiting link survived the claimant's decline")
+	}
+	// Both sides are free to start over.
+	l.handleBot(cmdEvent(t, "o2", "/approach", r))
+	if approachCodeRe.FindStringSubmatch(r.last(t)) == nil {
+		t.Fatalf("re-propose after claimant decline: %q", r.last(t))
+	}
+}

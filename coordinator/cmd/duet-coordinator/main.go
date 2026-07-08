@@ -64,7 +64,24 @@ func (rl *rateLimiter) allow(ip string) bool {
 	return true
 }
 
-func clientIP(r *http.Request) string {
+// clientIP is the rate-limit key. Behind the TLS-terminating proxy (prod)
+// RemoteAddr is the PROXY for every request — one shared bucket, so any
+// scanner posting junk starves all legitimate pairing (M3). With
+// trusted_proxy on, the proxy-appended headers name the real client:
+// X-Real-Ip, else the LAST X-Forwarded-For hop — the only entry OUR proxy
+// wrote; earlier ones are client-forgeable.
+func clientIP(r *http.Request, trustedProxy bool) string {
+	if trustedProxy {
+		if v := strings.TrimSpace(r.Header.Get("X-Real-Ip")); v != "" {
+			return v
+		}
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			if v := strings.TrimSpace(parts[len(parts)-1]); v != "" {
+				return v
+			}
+		}
+	}
 	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		return host
 	}
@@ -72,9 +89,9 @@ func clientIP(r *http.Request) string {
 }
 
 // rateLimit wraps a handler, rejecting IPs over the limit with 429.
-func rateLimit(rl *rateLimiter, next http.HandlerFunc) http.HandlerFunc {
+func rateLimit(rl *rateLimiter, trustedProxy bool, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !rl.allow(clientIP(r)) {
+		if !rl.allow(clientIP(r, trustedProxy)) {
 			http.Error(w, "too many requests", http.StatusTooManyRequests)
 			return
 		}
@@ -194,7 +211,7 @@ func main() {
 	// /pair is unauthenticated (code-gated) — cap attempts per IP to blunt
 	// brute-force of pairing codes and DB-exhaustion spam.
 	pairLimiter := newRateLimiter(10, time.Minute)
-	mux.HandleFunc("/pair", rateLimit(pairLimiter, pairHandler(log, st, cfg)))
+	mux.HandleFunc("/pair", rateLimit(pairLimiter, cfg.TrustedProxy, pairHandler(log, st, cfg)))
 	mux.HandleFunc("/media/", mediaHandler(st))
 
 	log.Info("listening", "addr", cfg.Listen)
@@ -263,17 +280,12 @@ func mediaHandler(st *store.Store) http.HandlerFunc {
 			return
 		}
 		id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/media/"), ".wav")
-		rec, err := st.GetMedia(id)
+		// The owner-or-actively-linked policy lives in the store (L7) — one
+		// implementation, shared with the tests, no drift.
+		rec, err := st.GetMediaForOrbit(id, reqOrbit)
 		if err != nil || rec == nil || rec.Status != "ready" {
 			http.NotFound(w, r)
 			return
-		}
-		if rec.OrbitID != reqOrbit {
-			// Not the owning orbit — allow only if the two are actively linked.
-			if _, other, ok, _ := st.ActiveLink(reqOrbit); !ok || other != rec.OrbitID {
-				http.NotFound(w, r) // not yours and not linked: indistinguishable from missing
-				return
-			}
 		}
 		if rec.ExpiresAt < time.Now().UnixMilli() {
 			http.NotFound(w, r) // spec 10.3: 404 after expires_at

@@ -210,16 +210,21 @@ func (s *Store) GetMedia(id string) (*MediaRecord, error) {
 	return &m, nil
 }
 
-// GetMediaForOrbit returns the media record only when it belongs to orbitID
-// (nil otherwise) — the tenant-isolation gate for GET /media (security review
-// #4.1). GetMedia stays unscoped for the retention sweep.
+// GetMediaForOrbit returns the media record only when the requesting orbit
+// may hear it: the owner, or an orbit currently linked to the owner by an
+// active approach (group voice) — the tenant-isolation gate for GET /media
+// (security review #4.1, link-aware since L7: the policy lives HERE, not
+// inline in the handler, so it cannot drift). GetMedia stays unscoped for
+// the retention sweep.
 func (s *Store) GetMediaForOrbit(id string, orbitID int64) (*MediaRecord, error) {
 	m, err := s.GetMedia(id)
 	if err != nil || m == nil {
 		return nil, err
 	}
 	if m.OrbitID != orbitID {
-		return nil, nil
+		if _, other, ok, err := s.ActiveLink(orbitID); err != nil || !ok || other != m.OrbitID {
+			return nil, err // not yours and not linked: indistinguishable from missing
+		}
 	}
 	return m, nil
 }

@@ -20,6 +20,13 @@ public final class RingBuffer {
     private let storage: UnsafeMutablePointer<Float>
     private let head: UnsafeMutableRawPointer // total floats written
     private let tail: UnsafeMutableRawPointer // total floats read
+    // clearThrough: a head snapshot the consumer discards up to on its next
+    // read (M7). clear() is called from PlayerCore's queue while both the
+    // FIFO reader and the render callback keep running — a third-party tail
+    // store raced read()'s own tail store and could rewind tail below a
+    // concurrent reader's position, replaying a chunk of the previous track
+    // after a load/seek. Only the consumer may move tail; clear() posts the cut.
+    private let clearThrough: UnsafeMutableRawPointer
 
     public init(capacityFloats: Int) {
         precondition(capacityFloats > 0)
@@ -28,19 +35,28 @@ public final class RingBuffer {
         storage.initialize(repeating: 0, count: capacityFloats)
         head = .allocate(byteCount: 8, alignment: 8)
         tail = .allocate(byteCount: 8, alignment: 8)
+        clearThrough = .allocate(byteCount: 8, alignment: 8)
         ca_store_release(head, 0)
         ca_store_release(tail, 0)
+        ca_store_release(clearThrough, 0)
     }
 
     deinit {
         storage.deallocate()
         head.deallocate()
         tail.deallocate()
+        clearThrough.deallocate()
     }
 
-    /// Floats currently readable. Safe from any thread (approximate between ops).
+    /// Floats currently readable. Safe from any thread (approximate between
+    /// ops). A pending clear counts as already applied — the next read will
+    /// discard that span anyway.
     public var fill: Int {
-        Int(ca_load_acquire(head) - ca_load_acquire(tail))
+        let h = ca_load_acquire(head)
+        var t = ca_load_acquire(tail)
+        let ct = ca_load_acquire(clearThrough)
+        if ct > t { t = ct }
+        return h > t ? Int(h - t) : 0
     }
 
     /// Producer side. Copies as much of buffer as fits; returns the count copied.
@@ -67,7 +83,15 @@ public final class RingBuffer {
     /// Consumer side (render callback: no locks, no allocation). Returns floats copied.
     public func read(into out: UnsafeMutablePointer<Float>, count: Int) -> Int {
         let h = ca_load_acquire(head)
-        let t = ca_load_acquire(tail)
+        var t = ca_load_acquire(tail)
+        // Apply a posted clear (M7): jump past everything buffered before the
+        // cut. ct may exceed our stale h snapshot (a clear landed between the
+        // two loads) — available then goes non-positive and we return 0.
+        let ct = ca_load_acquire(clearThrough)
+        if ct > t {
+            t = ct
+            ca_store_release(tail, t)
+        }
         let available = Int(h - t)
         let n = min(count, available)
         if n <= 0 { return 0 }
@@ -85,9 +109,15 @@ public final class RingBuffer {
         return n
     }
 
-    /// Drops all buffered audio (load of a new element, spec 6.3).
-    /// Caller must guarantee the producer is parked while clearing.
+    /// Schedules everything buffered SO FAR to be dropped (load of a new
+    /// element, spec 6.3). Safe from any thread (M7): the consumer applies the
+    /// cut on its next read, samples written after this call are kept. The CAS
+    /// loop only ever raises the watermark — racing clears keep the later cut.
     public func clear() {
-        ca_store_release(tail, ca_load_acquire(head))
+        let h = ca_load_acquire(head)
+        var cur = ca_load_acquire(clearThrough)
+        while cur < h {
+            if ca_compare_exchange(clearThrough, &cur, h) { return }
+        }
     }
 }

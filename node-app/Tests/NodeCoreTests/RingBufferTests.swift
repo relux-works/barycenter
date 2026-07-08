@@ -122,4 +122,59 @@ import Testing
         #expect(!corrupt, "sequence corrupted in SPSC transfer")
         #expect(received == total)
     }
+
+    // M7 regression: clear is posted, consumer-applied — a third thread's
+    // tail store raced read()'s own and could rewind tail below a concurrent
+    // reader's position (stale-audio replay after load/seek).
+    @Test func clearIsConsumerApplied() {
+        let ring = RingBuffer(capacityFloats: 64)
+        var input: [Float] = [1, 2, 3, 4]
+        _ = input.withUnsafeBufferPointer { ring.write($0.baseAddress!, count: $0.count) }
+        ring.clear()
+        var out = [Float](repeating: 0, count: 64)
+        let n = out.withUnsafeMutableBufferPointer { ring.read(into: $0.baseAddress!, count: 64) }
+        #expect(n == 0, "read after clear must return nothing")
+        #expect(ring.fill == 0)
+
+        // Samples written AFTER the clear are kept intact.
+        var fresh: [Float] = [7, 8]
+        _ = fresh.withUnsafeBufferPointer { ring.write($0.baseAddress!, count: 2) }
+        let m = out.withUnsafeMutableBufferPointer { ring.read(into: $0.baseAddress!, count: 64) }
+        #expect(m == 2)
+        #expect(out[0] == 7 && out[1] == 8)
+
+        // Racing clears keep the later cut (watermark never lowers).
+        var one: [Float] = [9]
+        _ = one.withUnsafeBufferPointer { ring.write($0.baseAddress!, count: 1) }
+        ring.clear()
+        ring.clear()
+        let z = out.withUnsafeMutableBufferPointer { ring.read(into: $0.baseAddress!, count: 64) }
+        #expect(z == 0, "double clear leaked audio")
+    }
+
+    // Chaos: producer, consumer and a clearer all running — the exact shape
+    // of the production load/seek/stopAll paths that the old contract forbade.
+    @Test func clearConcurrentWithPumpAndRender() {
+        let ring = RingBuffer(capacityFloats: 1 << 12)
+        let group = DispatchGroup()
+        DispatchQueue.global().async(group: group) { // pipe pump
+            let chunk = [Float](repeating: 1, count: 128)
+            for _ in 0..<20_000 {
+                _ = chunk.withUnsafeBufferPointer { ring.write($0.baseAddress!, count: $0.count) }
+            }
+        }
+        DispatchQueue.global().async(group: group) { // render loop
+            var out = [Float](repeating: 0, count: 96)
+            for _ in 0..<20_000 {
+                _ = out.withUnsafeMutableBufferPointer { ring.read(into: $0.baseAddress!, count: 96) }
+                precondition(ring.fill >= 0, "fill went negative")
+            }
+        }
+        DispatchQueue.global().async(group: group) { // PlayerCore clears
+            for _ in 0..<10_000 { ring.clear() }
+        }
+        #expect(group.wait(timeout: .now() + 30) == .success)
+        #expect(ring.fill >= 0)
+    }
 }
+

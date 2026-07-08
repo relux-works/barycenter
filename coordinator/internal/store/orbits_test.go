@@ -181,11 +181,15 @@ func TestSlotsTokensRevoke(t *testing.T) {
 		t.Fatal("unknown token resolved")
 	}
 
-	if err := s.RevokeSlot(o.ID, "a"); err != nil {
-		t.Fatal(err)
+	if found, err := s.RevokeSlot(o.ID, "a"); err != nil || !found {
+		t.Fatalf("revoke live slot: found=%v err=%v", found, err)
 	}
 	if _, _, ok, _ := s.LookupToken(tokenA); ok {
 		t.Fatal("revoked token still valid")
+	}
+	// L11: revoking a slot that does not exist reports found=false.
+	if found, err := s.RevokeSlot(o.ID, "q"); err != nil || found {
+		t.Fatalf("revoke of nonexistent slot: found=%v err=%v", found, err)
 	}
 	// Revoked letter becomes reusable.
 	slotA2, tokenA2, _ := s.PairSlot(o.ID, 111)

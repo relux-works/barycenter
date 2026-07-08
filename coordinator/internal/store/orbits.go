@@ -416,7 +416,11 @@ func (s *Store) LeaveOrbit(orbitID, tgUserID int64) (dissolved bool, promoted in
 	defer tx.Rollback()
 	if m.Role == "primary" {
 		var newP int64
-		if err := tx.QueryRow(`SELECT tg_user_id FROM members WHERE orbit_id = ? AND tg_user_id != ? ORDER BY joined_at LIMIT 1`,
+		// L1: companions before satellites (a listener must not be crowned
+		// just for joining early); tg_user_id breaks joined_at ties so the
+		// promotion is fully deterministic.
+		if err := tx.QueryRow(`SELECT tg_user_id FROM members WHERE orbit_id = ? AND tg_user_id != ?
+			ORDER BY CASE WHEN role = 'satellite' THEN 1 ELSE 0 END, joined_at, tg_user_id LIMIT 1`,
 			orbitID, tgUserID).Scan(&newP); err != nil {
 			return false, 0, err
 		}
@@ -504,8 +508,15 @@ func (s *Store) ConsumeInvite(code, kind string) (int64, int64, error) {
 	if used.Valid || now > expires {
 		return 0, 0, nil
 	}
-	if _, err := s.db.Exec(`UPDATE invites SET used_at = ? WHERE code = ?`, now, code); err != nil {
+	// Guarded burn (L2): two racing consumers both passed the SELECT above —
+	// the UPDATE's used_at IS NULL predicate lets exactly one of them win,
+	// so one code can never mint two slots.
+	res, err := s.db.Exec(`UPDATE invites SET used_at = ? WHERE code = ? AND used_at IS NULL`, now, code)
+	if err != nil {
 		return 0, 0, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return 0, 0, nil
 	}
 	return orbitID, issuedBy, nil
 }
@@ -593,10 +604,16 @@ func (s *Store) LookupToken(token string) (orbitID int64, slot string, ok bool, 
 }
 
 // RevokeSlot invalidates a slot's token; the slot letter becomes reusable.
-func (s *Store) RevokeSlot(orbitID int64, slot string) error {
-	_, err := s.db.Exec(`UPDATE slots SET revoked_at = ? WHERE orbit_id = ? AND slot = ? AND revoked_at IS NULL`,
+// found=false when the orbit has no such live slot (L11: /revoke of a
+// nonexistent home used to report success).
+func (s *Store) RevokeSlot(orbitID int64, slot string) (found bool, err error) {
+	res, err := s.db.Exec(`UPDATE slots SET revoked_at = ? WHERE orbit_id = ? AND slot = ? AND revoked_at IS NULL`,
 		time.Now().UnixMilli(), orbitID, slot)
-	return err
+	if err != nil {
+		return false, err
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
 }
 
 // ActiveSlots lists non-revoked slots of an orbit.

@@ -212,6 +212,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 			// (UIPROBE). Off Windows this path is unreachable.
 			if c, e := showOnboardingWindow(dir, coordinatorBase); e == nil {
 				_ = c
+				// L5: a bare os.Exit orphaned go-librespot.exe — it kept the
+				// API port and the named pipe, so the user's relaunch found
+				// the pipe busy and the supervisor restart-cycled. Stop the
+				// daemon and the player before exiting.
+				sup.Stop()
+				player.Close()
 				os.Exit(0)
 			}
 		},

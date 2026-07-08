@@ -3,6 +3,7 @@
 package main
 
 import (
+	"sync"
 	"testing"
 	"time"
 )
@@ -175,5 +176,83 @@ func TestRingConcurrentProducerConsumerIntegrity(t *testing.T) {
 	}
 	if received != total {
 		t.Fatalf("received %d, want %d", received, total)
+	}
+}
+
+// M7 regression: Clear is posted, consumer-applied — a third goroutine calling
+// the old tail.Store raced the render loop's own tail.Store and could rewind
+// tail below a concurrent reader's position (stale-audio replay).
+func TestClearIsConsumerApplied(t *testing.T) {
+	r := NewRing(64)
+	buf := make([]float32, 64)
+	r.Write([]float32{1, 2, 3, 4})
+	r.Clear()
+	if n := r.Read(buf); n != 0 {
+		t.Fatalf("read after clear returned %d floats", n)
+	}
+	if r.Fill() != 0 {
+		t.Fatalf("fill after applied clear = %d", r.Fill())
+	}
+	// Samples written AFTER the clear are kept intact.
+	r.Write([]float32{7, 8})
+	if n := r.Read(buf); n != 2 || buf[0] != 7 || buf[1] != 8 {
+		t.Fatalf("post-clear write lost: n=%d buf=%v", n, buf[:2])
+	}
+	// Racing clears keep the later cut (CAS never lowers the watermark).
+	r.Write([]float32{9})
+	r.Clear()
+	r.Clear()
+	if n := r.Read(buf); n != 0 {
+		t.Fatalf("double clear leaked %d floats", n)
+	}
+}
+
+// Chaos under -race: producer, consumer and a clearer all running. The suite
+// previously never exercised concurrent Clear, which is exactly where the
+// contract was violated in production code paths (load/seek/stopAll).
+func TestClearConcurrentWithPumpAndRender(t *testing.T) {
+	r := NewRing(1 << 12)
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() { // producer (pipe pump)
+		defer wg.Done()
+		chunk := make([]float32, 128)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				r.Write(chunk)
+			}
+		}
+	}()
+	go func() { // consumer (render loop)
+		defer wg.Done()
+		out := make([]float32, 96)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				r.Read(out)
+				if r.Fill() < 0 {
+					t.Error("fill went negative")
+					return
+				}
+			}
+		}
+	}()
+	go func() { // ws/timer goroutine posting clears
+		defer wg.Done()
+		for i := 0; i < 10000; i++ {
+			r.Clear()
+		}
+	}()
+	time.Sleep(50 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+	if h, tl := r.head.Load(), r.tail.Load(); tl > h {
+		t.Fatalf("tail %d overran head %d", tl, h)
 	}
 }

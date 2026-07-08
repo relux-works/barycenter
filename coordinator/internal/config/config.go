@@ -64,6 +64,13 @@ type Config struct {
 	// Providers is the master switch of the multi-provider layer
 	// (docs/spec-providers.md). Off = pre-provider behavior everywhere.
 	Providers bool `yaml:"providers"`
+	// TrustedProxy: the listener sits behind a TLS-terminating reverse proxy
+	// (prod), so per-IP limits must key on the proxy-appended forwarding
+	// headers instead of RemoteAddr — which is the proxy itself for every
+	// request (one shared bucket = pairing DoS by any scanner, M3). Enable
+	// only when a proxy you control is the sole route to the port: exposed
+	// directly, the headers are client-forgeable.
+	TrustedProxy bool `yaml:"trusted_proxy"`
 }
 
 var hexToken = regexp.MustCompile(`^[0-9a-fA-F]{64}$`)
@@ -107,6 +114,11 @@ func applyEnv(c *Config) {
 	// other non-empty value forces it off, unset keeps the yml value.
 	if v := os.Getenv("DUET_PROVIDERS"); v != "" {
 		c.Providers = v == "1"
+	}
+	// DUET_TRUSTED_PROXY=1 keys rate limits on forwarding headers (M3);
+	// same 1/other/unset semantics as DUET_PROVIDERS.
+	if v := os.Getenv("DUET_TRUSTED_PROXY"); v != "" {
+		c.TrustedProxy = v == "1"
 	}
 
 	if v := os.Getenv("DUET_NODE_A_TOKEN"); v != "" {

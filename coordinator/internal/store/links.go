@@ -27,6 +27,13 @@ CREATE TABLE IF NOT EXISTS links (
 // linkCodeTTL: an approach code lives 15 minutes (design §12 bot flow).
 const linkCodeTTL = 15 * time.Minute
 
+// awaitingTTL (M4): a claimed-but-unconfirmed approach expires after 48 h.
+// Without it a claim the initiator never answers link-locks BOTH orbits
+// forever: /approach says "сначала /apart" while /apart needs an ACTIVE link.
+// Measured from created_at — the claim happens within the 15-minute code
+// window, so the skew is negligible and no schema change is needed.
+const awaitingTTL = 48 * time.Hour
+
 var (
 	// ErrLinkBusy: one of the orbits already has an active or awaiting link
 	// (L1: one approach per orbit).
@@ -48,11 +55,14 @@ type Link struct {
 }
 
 // linkEngaged reports whether the orbit participates in an awaiting or
-// active link (proposed codes are cheap and do not count).
+// active link (proposed codes are cheap and do not count). Awaiting links
+// past their TTL no longer engage (M4) — they are garbage awaiting hygiene.
 func (s *Store) linkEngaged(orbitID int64) (bool, error) {
 	var n int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM links WHERE state IN ('awaiting','active') AND (orbit_a = ? OR orbit_b = ?)`,
-		orbitID, orbitID).Scan(&n)
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM links
+		WHERE (state = 'active' OR (state = 'awaiting' AND created_at >= ?))
+		  AND (orbit_a = ? OR orbit_b = ?)`,
+		time.Now().Add(-awaitingTTL).UnixMilli(), orbitID, orbitID).Scan(&n)
 	return n > 0, err
 }
 
@@ -65,9 +75,12 @@ func (s *Store) ProposeLink(fromOrbit, byUser int64) (string, error) {
 		return "", ErrLinkBusy
 	}
 	now := time.Now().UnixMilli()
-	// Hygiene: drop this orbit's stale codes and everyone's expired ones.
-	if _, err := s.db.Exec(`DELETE FROM links WHERE state = 'proposed' AND (orbit_a = ? OR created_at < ?)`,
-		fromOrbit, now-linkCodeTTL.Milliseconds()); err != nil {
+	// Hygiene: drop this orbit's stale codes, everyone's expired codes and
+	// everyone's expired awaiting claims (M4).
+	if _, err := s.db.Exec(`DELETE FROM links
+		WHERE (state = 'proposed' AND (orbit_a = ? OR created_at < ?))
+		   OR (state = 'awaiting' AND created_at < ?)`,
+		fromOrbit, now-linkCodeTTL.Milliseconds(), now-awaitingTTL.Milliseconds()); err != nil {
 		return "", err
 	}
 	code := randomCode()
@@ -112,10 +125,11 @@ func (s *Store) AcceptByCode(code string, toOrbit int64) (linkID, orbitA int64, 
 }
 
 // AwaitingLink finds the confirmation pending on this orbit: the link this
-// orbit initiated that another orbit has claimed (state 'awaiting').
+// orbit initiated that another orbit has claimed (state 'awaiting'). Expired
+// claims are invisible (M4) — /accept must not activate a fossil.
 func (s *Store) AwaitingLink(orbitID int64) (linkID, otherOrbit int64, ok bool, err error) {
-	err = s.db.QueryRow(`SELECT id, orbit_b FROM links WHERE state = 'awaiting' AND orbit_a = ?`,
-		orbitID).Scan(&linkID, &otherOrbit)
+	err = s.db.QueryRow(`SELECT id, orbit_b FROM links WHERE state = 'awaiting' AND orbit_a = ? AND created_at >= ?`,
+		orbitID, time.Now().Add(-awaitingTTL).UnixMilli()).Scan(&linkID, &otherOrbit)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, 0, false, nil
 	}
@@ -123,6 +137,27 @@ func (s *Store) AwaitingLink(orbitID int64) (linkID, otherOrbit int64, ok bool, 
 		return 0, 0, false, err
 	}
 	return linkID, otherOrbit, true, nil
+}
+
+// AwaitingLinkAnySide finds the awaiting link this orbit participates in from
+// EITHER side, reporting whether the caller is the initiator (M4): the
+// claimant must be able to /decline too — an ignored claim otherwise
+// link-locks both orbits until the TTL, with the busy-reply's "сначала
+// /apart" advice impossible to follow.
+func (s *Store) AwaitingLinkAnySide(orbitID int64) (linkID, otherOrbit int64, initiator, ok bool, err error) {
+	var a, b int64
+	err = s.db.QueryRow(`SELECT id, orbit_a, orbit_b FROM links WHERE state = 'awaiting' AND created_at >= ? AND (orbit_a = ? OR orbit_b = ?)`,
+		time.Now().Add(-awaitingTTL).UnixMilli(), orbitID, orbitID).Scan(&linkID, &a, &b)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, false, false, nil
+	}
+	if err != nil {
+		return 0, 0, false, false, err
+	}
+	if a == orbitID {
+		return linkID, b, true, true, nil
+	}
+	return linkID, a, false, true, nil
 }
 
 // ActivateLink flips an awaiting link to active (both sides consented).

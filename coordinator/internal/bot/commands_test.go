@@ -84,7 +84,9 @@ func TestParseUserErrors(t *testing.T) {
 		{"playnow without link", "/playnow"},
 		{"cancel garbage", "/cancel третий"},
 		{"vol out of range", "/vol 150"},
-		{"vol bad node", "/vol 50 c"},
+		// M8: single letters a..z all parse (orbits pair up to five homes;
+		// the loop checks existence) — only non-slot shapes are parse errors.
+		{"vol bad node", "/vol 50 ab"},
 		{"mode unknown", "/mode party"},
 		{"offset missing args", "/offset a"},
 		{"provider missing args", "/provider b"},

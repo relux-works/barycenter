@@ -483,6 +483,15 @@ func (s *Session) advance() []Effect {
 	return effs
 }
 
+// htmlEscape guards user/provider-supplied text inside EffNotify (M5): the
+// bot sends parse_mode=HTML, and a title containing '<' (e.g. "<3") makes
+// Telegram reject the whole message — the outbox logs and DROPS it, so the
+// user never learns the track was skipped. Only the Sprintf sites that embed
+// Element.Title need this; peer ids and our own literals are tag-free.
+var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
+
+func htmlEscape(s string) string { return htmlEscaper.Replace(s) }
+
 func shortPlaylistID(uri string) string {
 	if i := len(uri) - 8; i > 0 {
 		return uri[i:]
@@ -574,12 +583,15 @@ func (s *Session) Transplant(cur *Element, positionMS int64, queue []Element, pl
 	}
 	s.Current = cur
 	s.resetElementTracking()
-	if cur.Kind == KindVoice {
-		return s.startVoice()
-	}
+	// Gate BEFORE the voice branch (L10): a voice current used to start on
+	// the alive side even with the other side fully dark — the same park
+	// rule must cover both kinds, exactly as advance() does.
 	if !s.gateSatisfied() {
 		s.State = StateDegraded
 		return []Effect{s.parkedNotify(), EffPersist{}}
+	}
+	if cur.Kind == KindVoice {
+		return s.startVoice()
 	}
 	return s.loadCurrent(positionMS)
 }
@@ -886,7 +898,7 @@ func (s *Session) OnReadyTimeout(elementID string) []Effect {
 		title = s.Current.URI
 	}
 	done := EffElementDone{Element: *s.Current, Status: "error"}
-	notify := EffNotify{Text: fmt.Sprintf("не смог загрузить %s за отведённое время, пропускаю", title)}
+	notify := EffNotify{Text: fmt.Sprintf("не смог загрузить %s за отведённое время, пропускаю", htmlEscape(title))}
 	effs := s.advance()
 	return append([]Effect{done, notify}, effs...)
 }
@@ -906,7 +918,7 @@ func (s *Session) OnNodeError(node protocol.NodeID, code string, elementID strin
 			title = s.Current.URI
 		}
 		done := EffElementDone{Element: *s.Current, Status: "error"}
-		notify := EffNotify{Text: fmt.Sprintf("трек %s недоступен на аккаунте %s, пропускаю", title, node)}
+		notify := EffNotify{Text: fmt.Sprintf("трек %s недоступен на аккаунте %s, пропускаю", htmlEscape(title), node)}
 		pause := s.pauseBoth(0)
 		effs := s.advance()
 		return append(append([]Effect{done, notify, EffCancelReadyTimer{}}, pause...), effs...)

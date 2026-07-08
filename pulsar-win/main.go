@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 
@@ -26,6 +27,16 @@ import (
 )
 
 var version = "dev" // set via -ldflags "-X main.version=..."
+
+func init() {
+	// Win32 message queues are per-OS-thread: a window must be created and
+	// pumped on the SAME thread, and Go migrates goroutines between OS threads
+	// at will — without the lock the onboarding window or the tray menu can
+	// freeze intermittently on real hardware (H4). init() runs on the main
+	// goroutine, so this pins main() (which owns both pumps) to the main
+	// thread for the process lifetime. No-op cost on non-Windows builds.
+	runtime.LockOSThread()
+}
 
 // newLogger writes debug logs to <dir>\pulsar.log (created if absent) and, for
 // CLI runs that have one, to stderr. Without a console the file is the only

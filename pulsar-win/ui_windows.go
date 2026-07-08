@@ -7,6 +7,7 @@
 package main
 
 import (
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -108,6 +109,11 @@ const (
 	nifIcon       = 0x00000002
 	nifTip        = 0x00000004
 	trayCallback  = wmApp + 1
+	// wmAppPairDone: posted back to the onboarding window by the pairing
+	// goroutine (M6 — the HTTP exchange must not block the wndproc: the
+	// window went "Not Responding" for up to 15 s and queued clicks replayed
+	// against an already-used code).
+	wmAppPairDone = wmApp + 2
 	idcArrow      = 32512
 	colorWindow   = 5
 	esCenter      = 0x0001
@@ -227,9 +233,23 @@ type onboardingCtx struct {
 	hSubtitle, hHint windows.Handle // rendered in secondary gray
 	result           *Credentials
 	done             bool
+
+	// Async pairing handoff (M6): the goroutine writes under mu and posts
+	// wmAppPairDone; the wndproc thread reads under mu. The Win32 queue orders
+	// the events but is invisible to the Go memory model — hence the mutex.
+	mu        sync.Mutex
+	busy      bool
+	pairCreds *Credentials
+	pairErr   error
 }
 
 var curOnboarding *onboardingCtx
+
+// onboardingClassReady: RegisterClassExW is once-per-process (a second call
+// fails with ERROR_CLASS_ALREADY_EXISTS, which used to silently break every
+// re-pair after a run that began unpaired — H5). Registering once also stops
+// leaking a syscall.NewCallback per window (finite pool, never freed).
+var onboardingClassReady bool
 
 func showOnboardingWindow(dir, coordinatorBase string) (Credentials, error) {
 	ctx := &onboardingCtx{dir: dir, coordinator: coordinatorBase}
@@ -238,20 +258,23 @@ func showOnboardingWindow(dir, coordinatorBase string) (Credentials, error) {
 
 	hInst, _, _ := pGetModuleHandleW.Call(0)
 	className := u16("PulsarOnboarding")
-	cursor, _, _ := pLoadCursorW.Call(0, uintptr(idcArrow))
 
-	wc := wndClassExW{
-		cbSize:        uint32(unsafe.Sizeof(wndClassExW{})),
-		lpfnWndProc:   syscall.NewCallback(onboardingProc),
-		hInstance:     windows.Handle(hInst),
-		hIcon:         appIcon(),
-		hIconSm:       appIcon(),
-		hCursor:       windows.Handle(cursor),
-		hbrBackground: windows.Handle(colorWindow + 1),
-		lpszClassName: className,
-	}
-	if r, _, err := pRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); r == 0 {
-		return Credentials{}, err
+	if !onboardingClassReady {
+		cursor, _, _ := pLoadCursorW.Call(0, uintptr(idcArrow))
+		wc := wndClassExW{
+			cbSize:        uint32(unsafe.Sizeof(wndClassExW{})),
+			lpfnWndProc:   syscall.NewCallback(onboardingProc),
+			hInstance:     windows.Handle(hInst),
+			hIcon:         appIcon(),
+			hIconSm:       appIcon(),
+			hCursor:       windows.Handle(cursor),
+			hbrBackground: windows.Handle(colorWindow + 1),
+			lpszClassName: className,
+		}
+		if r, _, err := pRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); r == 0 {
+			return Credentials{}, err
+		}
+		onboardingClassReady = true
 	}
 
 	// Centered-ish window (CW_USEDEFAULT). Sized generously so the Cyrillic
@@ -337,6 +360,12 @@ func onboardingProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		br, _, _ := pGetSysColorBr.Call(colorWindow)
 		return br
 
+	case wmAppPairDone:
+		if ctx != nil {
+			onPairDone(ctx)
+		}
+		return 0
+
 	case wmCommand:
 		id := wParam & 0xFFFF
 		if id == idSubmit && ctx != nil {
@@ -347,7 +376,13 @@ func onboardingProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		return r
 
 	case wmDestroy:
-		pPostQuitMessage.Call(0)
+		// Quit only while an onboarding pump is live. The tray pump runs on
+		// this SAME thread right after pairing — an unconditional quit here is
+		// how closing a leftover onboarding window used to shut the whole node
+		// down in the middle of the air (H5).
+		if ctx != nil {
+			pPostQuitMessage.Call(0)
+		}
 		return 0
 	}
 	r, _, _ := pDefWindowProcW.Call(uintptr(hwnd), uintptr(message), wParam, lParam)
@@ -357,23 +392,64 @@ func onboardingProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 func onSubmit(ctx *onboardingCtx) {
 	code := getText(ctx.hEdit)
 	if len(normalizePairCode(code)) != pairCodeLen {
-		pSetWindowTextW.Call(uintptr(ctx.hError), uintptr(unsafe.Pointer(u16(uiBadCodeError))))
+		setText(ctx.hError, uiBadCodeError)
 		return
 	}
-	pSetWindowTextW.Call(uintptr(ctx.hSubmit), uintptr(unsafe.Pointer(u16(uiSubmitBusyText))))
-	creds, err := pairAndSave(ctx.dir, ctx.coordinator, code)
+	ctx.mu.Lock()
+	if ctx.busy {
+		ctx.mu.Unlock()
+		return // pairing already in flight; ignore the double click
+	}
+	ctx.busy = true
+	ctx.mu.Unlock()
+	setText(ctx.hSubmit, uiSubmitBusyText)
+	setText(ctx.hError, "")
+	// The HTTP exchange runs OFF the wndproc (M6): blocking here froze the
+	// window ("Not Responding") for up to the 15 s client timeout and queued
+	// clicks replayed afterwards, burning a second attempt on a used code.
+	hwnd := ctx.hwnd
+	go func() {
+		creds, err := pairAndSave(ctx.dir, ctx.coordinator, code)
+		ctx.mu.Lock()
+		if err != nil {
+			ctx.pairErr = err
+		} else {
+			ctx.pairCreds = &creds
+		}
+		ctx.mu.Unlock()
+		// If the user closed the window meanwhile the post just fails — the
+		// pump is gone and the caller already returned errWindowClosed.
+		pPostMessageW.Call(uintptr(hwnd), wmAppPairDone, 0, 0)
+	}()
+}
+
+// onPairDone runs on the wndproc thread after the pairing goroutine finishes.
+func onPairDone(ctx *onboardingCtx) {
+	ctx.mu.Lock()
+	creds, err := ctx.pairCreds, ctx.pairErr
+	ctx.pairCreds, ctx.pairErr = nil, nil
+	ctx.busy = false
+	ctx.mu.Unlock()
 	if err != nil {
-		pSetWindowTextW.Call(uintptr(ctx.hSubmit), uintptr(unsafe.Pointer(u16(uiSubmitText))))
-		pSetWindowTextW.Call(uintptr(ctx.hError), uintptr(unsafe.Pointer(u16(err.Error()))))
+		setText(ctx.hSubmit, uiSubmitText)
+		setText(ctx.hError, err.Error())
 		return
 	}
-	ctx.result = &creds
+	ctx.result = creds
 	ctx.done = true
 	// #4: pairing linked the computer, but nothing plays until Spotify picks
 	// "Pulsar" once. Surface that here, while the user is still looking, before
 	// the window closes to the tray. Modal, so it blocks the quit until read.
 	messageBox(ctx.hwnd, uiSpotifyStepTitle, uiSpotifyStepBody)
-	pPostQuitMessage.Call(0) // leave the message loop; caller has the creds
+	// Destroy the window for real (H5): posting a bare quit left a zombie
+	// window on screen that the tray pump kept painting — its close button
+	// then killed the node (see wmDestroy). WM_DESTROY posts the quit that
+	// ends the onboarding pump.
+	pDestroyWindow.Call(uintptr(ctx.hwnd))
+}
+
+func setText(h windows.Handle, s string) {
+	pSetWindowTextW.Call(uintptr(h), uintptr(unsafe.Pointer(u16(s))))
 }
 
 func getText(h windows.Handle) string {

@@ -52,5 +52,6 @@ jobs:
           dbus-run-session -- bash -euxc '
             echo "" | gnome-keyring-daemon --unlock --components=secrets
             ./msstore reconfigure --tenantId "$TENANT" --clientId "$CLIENT" --clientSecret "$SECRET" --sellerId "$SELLER"
-            ./msstore publish pkg/Pulsar-*-win.msix --id 9P26FDCWV1GC
+            # pathOrUrl = the reserved product id; --inputDirectory has the .msix.
+            ./msstore publish 9P26FDCWV1GC --inputDirectory pkg --verbose
           '

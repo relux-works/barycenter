@@ -80,9 +80,14 @@ jobs:
         run: |
           GEN=$(find node-app/.build/artifacts -name generate_appcast -type f | head -1)
           printf '%s' "$SPARKLE_PRIVATE_KEY" > /tmp/ed_key
-          "$GEN" --ed-key-file /tmp/ed_key -o dist/appcast.xml dist/
+          # B2: point Sparkle's update dialog at the GitHub releases changelog
+          # so the user sees what each update contains.
+          "$GEN" --ed-key-file /tmp/ed_key \
+            --full-release-notes-url "https://github.com/relux-works/barycenter/releases" \
+            -o dist/appcast.xml dist/
           rm -f /tmp/ed_key
           grep -c "<item>" dist/appcast.xml
+          grep -c "fullReleaseNotesLink" dist/appcast.xml || echo "note: no release-notes link emitted"
       - name: Attest dmg provenance
         uses: actions/attest-build-provenance@v2
         with:
@@ -91,6 +96,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          # B2: the release page is the canonical changelog users see (and
+          # Sparkle links to it) — auto-generate notes from merged commits.
+          generate_release_notes: true
 
   pulsar-win:
     runs-on: ubuntu-latest

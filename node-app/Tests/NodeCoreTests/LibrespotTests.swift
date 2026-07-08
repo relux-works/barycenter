@@ -25,6 +25,16 @@ import Testing
     }
 }
 
+@Suite struct LibrespotZeroconfHostTests {
+    @Test func normalizesMacOSLocalHostNameForDaemonOverride() {
+        #expect(LibrespotSupervisor.zeroconfHostName(localHostName: "Timurs-MacBook-Pro") == "Timurs-MacBook-Pro")
+        #expect(LibrespotSupervisor.zeroconfHostName(localHostName: "Timurs-MacBook-Pro.local") == "Timurs-MacBook-Pro")
+        #expect(LibrespotSupervisor.zeroconfHostName(localHostName: "  Timurs-MacBook-Pro.local.  ") == "Timurs-MacBook-Pro")
+        #expect(LibrespotSupervisor.zeroconfHostName(localHostName: nil) == nil)
+        #expect(LibrespotSupervisor.zeroconfHostName(localHostName: "   ") == nil)
+    }
+}
+
 @Suite struct LibrespotEventParsingTests {
     private func parse(_ json: String) -> LibrespotEvent? {
         LibrespotClient.parseEvent(Data(json.utf8))

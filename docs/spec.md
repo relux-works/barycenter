@@ -254,7 +254,7 @@ SQLite, один файл. Таблицы:
 
 ### 6.2 Обязанности
 
-1. Супервизия go-librespot: запуск дочерним процессом, рестарт с экспоненциальным бэкоффом (1, 2, 4, ... максимум 30 с), рендер его config.yml из своего конфига при старте (порт API, имя устройства, путь FIFO, формат, external_volume: true).
+1. Супервизия go-librespot: запуск дочерним процессом, рестарт с экспоненциальным бэкоффом (1, 2, 4, ... максимум 30 с), рендер его config.yml из своего конфига при старте (порт API, имя устройства, путь FIFO, формат, external_volume: true). Для Spotify Connect discovery NodeApp передаёт дочернему процессу `PULSAR_ZEROCONF_HOST` из macOS `LocalHostName`, а бандлируемый fork go-librespot использует это имя как DNS-SD SRV target; иначе stale kernel hostname может рекламировать неразрешимый `*.local`.
 2. Клиент локального API go-librespot: подписка на WebSocket-события /events (will_play, playing, not_playing, stopped, metadata), команды play/pause/resume/seek/next/add_to_queue/volume через HTTP (по OpenAPI-спеке демона, зафиксировано на 0.7.4). До логина GET /status может возвращать пустое тело: клиент обязан это переживать. Остаточные живые проверки: глава 20.
 3. Аудиограф (6.3).
 4. WebSocket-клиент координатора: регистрация, приём команд, отправка состояния и событий (протокол: глава 8). Реконнект с бэкоффом, при реконнекте полный снапшот состояния.
@@ -746,6 +746,10 @@ audio_output_pipe: /Users/duet/duet/spotify.fifo
 audio_output_pipe_format: f32le
 external_volume: true
 ```
+
+`PULSAR_ZEROCONF_HOST` не пишется в YAML: NodeApp выставляет эту переменную
+окружения при запуске демона, чтобы Bonjour target совпадал с macOS
+`LocalHostName`.
 
 ### A.3 coordinator.yml
 

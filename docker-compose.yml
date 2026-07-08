@@ -1,0 +1,59 @@
+# Barycenter production stack for Coolify (Docker Compose build pack) and for
+# local `docker compose up`. Two services share one named volume:
+#
+#   coordinator — the duet-coordinator (built from coordinator/Dockerfile).
+#   litestream  — continuous SQLite backup sidecar (architecture review #12).
+#
+# Secrets and per-install values come from the environment. In Coolify set them
+# as the app's Environment Variables; locally copy deploy/coolify.env.example
+# to .env next to this file. See docs/backup-restore.md for backup/restore.
+#
+# NOTE (single-writer): the coordinator is intentionally a single instance
+# (SQLite single writer, MaxOpenConns(1)). Do NOT scale `coordinator` > 1.
+
+services:
+  coordinator:
+    build:
+      context: .
+      dockerfile: coordinator/Dockerfile
+      args:
+        VERSION: ${DUET_VERSION:-compose}
+    restart: unless-stopped
+    environment:
+      DUET_PUBLIC_URL: ${DUET_PUBLIC_URL:-}
+      DUET_LOG_LEVEL: ${DUET_LOG_LEVEL:-info}
+      DUET_NODE_A_TOKEN: ${DUET_NODE_A_TOKEN:-}
+      DUET_NODE_B_TOKEN: ${DUET_NODE_B_TOKEN:-}
+      DUET_TELEGRAM_BOT_TOKEN: ${DUET_TELEGRAM_BOT_TOKEN:-}
+      DUET_TELEGRAM_CHAT_ID: ${DUET_TELEGRAM_CHAT_ID:-}
+      DUET_TELEGRAM_USERS: ${DUET_TELEGRAM_USERS:-}
+      DUET_SPOTIFY_CLIENT_ID: ${DUET_SPOTIFY_CLIENT_ID:-}
+      DUET_SPOTIFY_CLIENT_SECRET: ${DUET_SPOTIFY_CLIENT_SECRET:-}
+      DUET_PROVIDERS: ${DUET_PROVIDERS:-}
+    volumes:
+      - duet-data:/var/lib/duet
+    ports:
+      - "8080:8080"
+
+  # Continuous backup. Shares the DB volume read/write (Litestream needs to set
+  # WAL mode and read the shadow WAL). If LITESTREAM_BUCKET is unset it starts
+  # but replicates nowhere — check its logs after deploy.
+  litestream:
+    image: litestream/litestream:0.3.13
+    restart: unless-stopped
+    depends_on:
+      - coordinator
+    command: ["replicate", "-config", "/etc/litestream.yml"]
+    environment:
+      LITESTREAM_BUCKET: ${LITESTREAM_BUCKET:-}
+      LITESTREAM_PATH: ${LITESTREAM_PATH:-duet.db}
+      LITESTREAM_ENDPOINT: ${LITESTREAM_ENDPOINT:-}
+      LITESTREAM_REGION: ${LITESTREAM_REGION:-}
+      LITESTREAM_ACCESS_KEY_ID: ${LITESTREAM_ACCESS_KEY_ID:-}
+      LITESTREAM_SECRET_ACCESS_KEY: ${LITESTREAM_SECRET_ACCESS_KEY:-}
+    volumes:
+      - duet-data:/var/lib/duet
+      - ./deploy/litestream.yml:/etc/litestream.yml:ro
+
+volumes:
+  duet-data:

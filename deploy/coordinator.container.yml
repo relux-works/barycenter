@@ -1,6 +1,7 @@
 # Baked into the Barycenter docker image (v2). Everything sensitive or
 # per-install comes from env — see deploy/coolify.env.example.
 listen: "0.0.0.0:8080"          # behind the reverse proxy (TLS terminates there)
+log_level: info                 # debug|info|warn|error — DUET_LOG_LEVEL overrides
 db_path: /var/lib/duet/duet.db
 media_dir: /var/lib/duet/media
 nodes:

@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"regexp"
@@ -48,14 +49,18 @@ type Config struct {
 	Listen string `yaml:"listen"`
 	// PublicURL: external base (https://barycenter.relux.works) used in URLs
 	// handed to nodes (media downloads) when running behind a proxy (v2).
-	PublicURL string          `yaml:"public_url"`
-	DBPath    string          `yaml:"db_path"`
-	MediaDir  string          `yaml:"media_dir"`
-	Nodes     map[string]Node `yaml:"nodes"`
-	Telegram  Telegram        `yaml:"telegram"`
-	Timings   Timings         `yaml:"timings"`
-	Media     Media           `yaml:"media"`
-	Spotify   Spotify         `yaml:"spotify"`
+	PublicURL string `yaml:"public_url"`
+	// LogLevel is the slog threshold: debug|info|warn|error (default info).
+	// Prod runs at info; flip to debug (DUET_LOG_LEVEL=debug) only to trace a
+	// live issue — debug logs every WS send/receive and may include payloads.
+	LogLevel string          `yaml:"log_level"`
+	DBPath   string          `yaml:"db_path"`
+	MediaDir string          `yaml:"media_dir"`
+	Nodes    map[string]Node `yaml:"nodes"`
+	Telegram Telegram        `yaml:"telegram"`
+	Timings  Timings         `yaml:"timings"`
+	Media    Media           `yaml:"media"`
+	Spotify  Spotify         `yaml:"spotify"`
 	// Providers is the master switch of the multi-provider layer
 	// (docs/spec-providers.md). Off = pre-provider behavior everywhere.
 	Providers bool `yaml:"providers"`
@@ -92,6 +97,7 @@ func applyEnv(c *Config) {
 	}
 	set(&c.Listen, "DUET_LISTEN")
 	set(&c.PublicURL, "DUET_PUBLIC_URL")
+	set(&c.LogLevel, "DUET_LOG_LEVEL")
 	set(&c.DBPath, "DUET_DB_PATH")
 	set(&c.MediaDir, "DUET_MEDIA_DIR")
 	set(&c.Telegram.BotToken, "DUET_TELEGRAM_BOT_TOKEN")
@@ -144,6 +150,7 @@ func applyEnv(c *Config) {
 
 func defaults() *Config {
 	return &Config{
+		LogLevel: "info",
 		Timings: Timings{
 			ReadyTimeoutS:   8,
 			StartMarginMS:   500,
@@ -200,6 +207,11 @@ func (c *Config) Validate() error {
 	if c.Media.Preset != "default" && c.Media.Preset != "radio" {
 		add("media.preset %q is unknown, use \"default\" or \"radio\"", c.Media.Preset)
 	}
+	switch strings.ToLower(c.LogLevel) {
+	case "debug", "info", "warn", "error":
+	default:
+		add("log_level %q is unknown, use debug|info|warn|error (DUET_LOG_LEVEL)", c.LogLevel)
+	}
 	if c.Timings.ReadyTimeoutS <= 0 || c.Timings.OfflineAfterS <= 0 || c.Timings.StartMarginMS < 0 {
 		add("timings must be positive (ready_timeout_s, offline_after_s) and non-negative (start_margin_extra_ms)")
 	}
@@ -212,3 +224,19 @@ func (c *Config) Validate() error {
 
 // TelegramEnabled reports whether the bot should start.
 func (c *Config) TelegramEnabled() bool { return c.Telegram.BotToken != "" }
+
+// SlogLevel maps the validated LogLevel string to a slog.Level. An empty or
+// unrecognized value (Validate rejects the latter) falls back to info so a
+// misconfigured level can never silently turn logging off.
+func (c *Config) SlogLevel() slog.Level {
+	switch strings.ToLower(c.LogLevel) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}

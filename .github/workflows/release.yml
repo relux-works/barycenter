@@ -111,7 +111,7 @@ jobs:
           cd pulsar-win
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
             go build -trimpath \
-            -ldflags="-s -w -buildid= -X main.version=${GITHUB_REF_NAME}" \
+            -ldflags="-s -w -buildid= -H windowsgui -X main.version=${GITHUB_REF_NAME}" \
             -o ../dist/pulsar-win-amd64.exe .
           cd ../dist && sha256sum pulsar-win-amd64.exe > SHA256SUMS.pulsar-win
       - name: Attest build provenance
@@ -145,9 +145,9 @@ jobs:
           go install github.com/tc-hib/go-winres@v0.3.3
           cd pulsar-win
           "$(go env GOPATH)/bin/go-winres" make --in winres/winres.json --arch amd64 --product-version "${GITHUB_REF_NAME}"
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid= -X main.version=${GITHUB_REF_NAME}" -o ../stage/pulsar-win-amd64.exe .
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid= -H windowsgui -X main.version=${GITHUB_REF_NAME}" -o ../stage/pulsar-win-amd64.exe .
           cd ../fork
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o ../stage/go-librespot.exe ./cmd/daemon
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid= -H windowsgui" -o ../stage/go-librespot.exe ./cmd/daemon
       - name: Stage package (manifest + assets)
         shell: bash
         run: |
@@ -216,7 +216,7 @@ jobs:
           for arch in amd64 arm64; do
             CGO_ENABLED=0 GOOS=linux GOARCH=$arch \
               go build -trimpath \
-              -ldflags="-s -w -buildid= -X main.version=${GITHUB_REF_NAME}" \
+              -ldflags="-s -w -buildid= -H windowsgui -X main.version=${GITHUB_REF_NAME}" \
               -o ../dist/duet-coordinator-linux-$arch ./cmd/duet-coordinator
           done
           cd ../dist && shasum -a 256 * > SHA256SUMS

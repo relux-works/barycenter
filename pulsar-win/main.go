@@ -14,6 +14,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -25,6 +26,19 @@ import (
 )
 
 var version = "dev" // set via -ldflags "-X main.version=..."
+
+// newLogger writes debug logs to <dir>\pulsar.log (created if absent) and, for
+// CLI runs that have one, to stderr. Without a console the file is the only
+// diagnostic surface (GUI build has no stderr).
+func newLogger(dir string) *slog.Logger {
+	_ = os.MkdirAll(dir, 0o755)
+	var w io.Writer = os.Stderr
+	if f, err := os.OpenFile(filepath.Join(dir, "pulsar.log"),
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); err == nil {
+		w = io.MultiWriter(os.Stderr, f)
+	}
+	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug}))
+}
 
 func main() {
 	pairCode := flag.String("pair", "", "one-time pairing code from the bot (/pair)")
@@ -38,17 +52,19 @@ func main() {
 		return
 	}
 
-	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
 	dir := *configDir
 	if dir == "" {
 		var err error
 		dir, err = DefaultConfigDir()
 		if err != nil {
-			log.Error("config dir", "err", err)
+			fmt.Fprintln(os.Stderr, "config dir:", err)
 			os.Exit(1)
 		}
 	}
+
+	// The GUI build has no console (-H windowsgui), so stderr goes nowhere —
+	// log to a file in the config dir (and to stderr too, for CLI runs).
+	log := newLogger(dir)
 
 	if *pairCode != "" {
 		creds, err := Pair(*coordinator, *pairCode)

@@ -84,6 +84,7 @@ type loop struct {
 	timeouts   chan orbitTimeout
 	mediaCh    chan mediaDone
 	playlistCh chan playlistDone
+	resolveCh  chan resolveDone
 }
 
 type orbitTimeout struct {
@@ -125,6 +126,7 @@ func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store
 		timeouts:   make(chan orbitTimeout, 8),
 		mediaCh:    make(chan mediaDone, 8),
 		playlistCh: make(chan playlistDone, 4),
+		resolveCh:  make(chan resolveDone, 8),
 	}
 }
 
@@ -371,6 +373,8 @@ func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 			l.handleMediaDone(done)
 		case d := <-l.playlistCh:
 			l.handlePlaylistDone(d)
+		case d := <-l.resolveCh:
+			l.onResolveDone(d)
 		}
 	}
 }
@@ -538,6 +542,29 @@ func (l *loop) breakGroup(linkID int64, orbits ...int64) {
 	l.log.Info("approach ended", "link", linkID)
 }
 
+// dissolveOrbit tears the barycenter down (design §2 delete-orbit): any active
+// approach breaks, every home is stopped, and both the session snapshot and the
+// orbit's rows are wiped. In-memory state is dropped so future commands from
+// former members fall through to the stranger path.
+func (l *loop) dissolveOrbit(home *orbitState) {
+	if linkID := l.linkOf[home.id]; linkID != 0 {
+		if _, other, ok, _ := l.st.ActiveLink(home.id); ok {
+			l.breakGroup(linkID, home.id, other)
+		}
+	}
+	o := l.stateFor(home.id) // the personal orbit again after any breakGroup
+	l.cancelReadyTimer(o)
+	for _, p := range l.sessionPeers(o) {
+		l.hub.Send(l.nodeKey(o, p), protocol.TypeStop, &protocol.StopPayload{})
+	}
+	l.st.ClearSession(home.id)
+	if err := l.st.DeleteOrbit(home.id); err != nil {
+		l.log.Error("delete orbit failed", "orbit", home.id, "err", err)
+	}
+	delete(l.states, home.id)
+	l.log.Info("orbit dissolved", "orbit", home.id)
+}
+
 func (l *loop) persist(o *orbitState) {
 	err := l.st.SaveSession(o.id, store.SessionSnapshot{
 		Mode:            o.sess.Mode,
@@ -675,6 +702,10 @@ func (l *loop) handleBot(ev bot.Event) {
 		l.handleStranger(ev)
 		return
 	}
+	// Keep the member's display name fresh so /home and /make_primary can use
+	// names instead of raw tg ids (bot-ux #4/#5). Cheap single-row update.
+	l.st.SetMemberName(member.OrbitID, ev.FromUserID, ev.FromName)
+
 	// home is the member's personal barycenter (admin & settings); o is the
 	// air — the shared group session while an approach is active (§12 L1).
 	home := l.orbit(member.OrbitID)
@@ -695,7 +726,7 @@ func (l *loop) handleBot(ev bot.Event) {
 	if member.Role == "satellite" {
 		switch cmd.Kind {
 		case bot.KindLink, bot.KindQueue, bot.KindNow, bot.KindStatus,
-			bot.KindStart, bot.KindShare, bot.KindOrbit, bot.KindPairCode:
+			bot.KindStart, bot.KindShare, bot.KindOrbit, bot.KindPairCode, bot.KindLeave:
 		default:
 			ev.Reply("это управление эфиром — оно у companion'ов. Твоё оружие: треки и голосовые")
 			return
@@ -705,7 +736,7 @@ func (l *loop) handleBot(ev bot.Event) {
 	switch cmd.Kind {
 
 	case bot.KindStart:
-		ev.Reply(fmt.Sprintf("ты уже в орбите <b>«%s»</b>.\n/help — команды · /orbit — участники", esc(home.title)))
+		ev.Reply(fmt.Sprintf("ты уже в барицентре <b>«%s»</b>.\n/help — команды · /home — кто на связи", esc(home.title)))
 
 	case bot.KindCreate:
 		ev.Reply(fmt.Sprintf("у тебя уже есть орбит <b>«%s»</b> — вторая вселенная пока не положена", esc(home.title)))
@@ -755,15 +786,21 @@ func (l *loop) handleBot(ev bot.Event) {
 			ev.Reply("передать главную звезду может только primary")
 			return
 		}
-		if cmd.Number == 0 {
-			ev.Reply(l.orbitText(home) + "\n\n/make_primary <id> передаст титул")
+		target := strings.TrimSpace(cmd.Target)
+		if target == "" {
+			ev.Reply(l.orbitText(home) + "\n\n/make_primary &lt;имя или @ник&gt; передаст титул")
 			return
 		}
-		if err := l.st.TransferPrimary(home.id, int64(cmd.Number)); err != nil {
-			ev.Reply("этот id не из нашего орбита (/orbit покажет список)")
+		newPrimary := l.resolveMember(home.id, target)
+		if newPrimary == 0 {
+			ev.Reply("не нашёл такого участника (/home покажет, кто в барицентре)")
 			return
 		}
-		l.notify(home, "главная звезда орбита теперь "+strconv.Itoa(cmd.Number))
+		if err := l.st.TransferPrimary(home.id, newPrimary); err != nil {
+			ev.Reply("не получилось передать титул")
+			return
+		}
+		l.notify(home, "главная звезда барицентра теперь у "+esc(target))
 
 	case bot.KindRevoke:
 		if member.Role != "primary" {
@@ -789,20 +826,19 @@ func (l *loop) handleBot(ev bot.Event) {
 			return
 		}
 		if o.sess.Mode != session.ModeShared {
-			ev.Reply("сейчас режим solo: /inject подкинет трек партнёру, /periastron вернёт общий эфир")
+			ev.Reply("сейчас режим solo: /inject подкинет трек партнёру, /together вернёт общий эфир")
 			return
 		}
 		el := l.newTrackElement(cmd.URI, ev.FromName)
-		if l.cfg.Providers && !l.resolveElement(o, &el, ev.Reply) {
-			return // P1 strict air: rejection already replied (spec-providers §4.2)
+		if l.cfg.Providers {
+			// The provider cascade may do external HTTP: resolveAndEnqueue runs
+			// it off the loop and either enqueues or rejects (P1) from the
+			// resolveCh handler (bugs #4). Behaviour is unchanged with the flag
+			// off — this branch is simply never taken.
+			l.resolveAndEnqueue(o, el, ev.Reply)
+			return
 		}
-		l.st.InsertElement(el)
-		l.apply(o, o.sess.EnqueueTrack(el))
-		if o.sess.Current != nil && o.sess.Current.ID == el.ID {
-			ev.Reply("очередь пуста — ставлю сразу: " + trackLabel(el))
-		} else {
-			ev.Reply(fmt.Sprintf("добавил в очередь под номером %d: %s", o.sess.QueueLen(), trackLabel(el)))
-		}
+		l.finishEnqueue(o, el, ev.Reply)
 
 	case bot.KindPlayNow:
 		if o.sess.Mode != session.ModeShared {
@@ -1008,13 +1044,39 @@ func (l *loop) handleBot(ev bot.Event) {
 		}
 		ev.Reply(fmt.Sprintf("дом %s теперь на %s", cmd.Target, providerName(cmd.Provider)))
 
-	case bot.KindResolve:
-		if !l.cfg.Providers {
-			ev.Reply("провайдерский слой ещё не включён")
+	case bot.KindLeave:
+		// Capture the leaver's home before the store forgets them, so its node
+		// leaves the live air.
+		slot, _ := l.st.SlotOf(home.id, ev.FromUserID)
+		dissolved, promoted, err := l.st.LeaveOrbit(home.id, ev.FromUserID)
+		if err != nil {
+			ev.Reply("не смог выйти из барицентра")
 			return
 		}
-		// Reserved (spec-providers §8): manual repair needs ctid queues.
-		ev.Reply("ручная починка маппинга приедет вместе с очередями на ctid")
+		if slot != "" {
+			key := hub.NodeKey{Orbit: home.id, Slot: protocol.NodeID(slot)}
+			l.apply(o, o.sess.RemovePeer(time.Now().UnixMilli(), l.peerFor(o, key)))
+			l.hub.Send(key, protocol.TypeStop, &protocol.StopPayload{})
+		}
+		if dissolved {
+			l.dissolveOrbit(home)
+			ev.Reply("ты вышел — в барицентре больше никого, он распущен")
+			return
+		}
+		l.notify(home, fmt.Sprintf("%s покинул барицентр", esc(ev.FromName)))
+		if promoted != 0 {
+			l.notify(home, "главная звезда перешла следующему участнику")
+		}
+		ev.Reply("ты вышел из барицентра")
+
+	case bot.KindDissolve:
+		if member.Role != "primary" {
+			ev.Reply("распустить барицентр может только главная звезда (primary)")
+			return
+		}
+		l.notify(home, fmt.Sprintf("барицентр «%s» распущен — все дома отвязаны", esc(home.title)))
+		l.dissolveOrbit(home)
+		ev.Reply("барицентр распущен")
 
 	// --- Approaches (design §12 L1): two barycenters, one shared air ---
 
@@ -1113,11 +1175,12 @@ func (l *loop) handleStranger(ev bot.Event) {
 				return
 			}
 			if err := l.st.AddMember(orbitID, ev.FromUserID, "companion"); err != nil {
-				ev.Reply("не смог добавить в орбит (возможно, он полон)")
+				ev.Reply("не смог добавить в барицентр (возможно, он полон)")
 				return
 			}
+			l.st.SetMemberName(orbitID, ev.FromUserID, ev.FromName)
 			o := l.orbit(orbitID)
-			l.notify(o, fmt.Sprintf("%s теперь в орбите", ev.FromName))
+			l.notify(o, fmt.Sprintf("%s теперь в барицентре", esc(ev.FromName)))
 			ev.Reply(fmt.Sprintf("добро пожаловать в <b>«%s»</b>! Кидай ссылки на треки прямо сюда.\n\nХочешь, чтобы эфир звучал и у тебя дома — поставь приложение Pulsar и набери /pair, дам код.", esc(o.title)))
 			return
 		}
@@ -1129,9 +1192,10 @@ func (l *loop) handleStranger(ev bot.Event) {
 		}
 		o, err := l.st.CreateOrbit(title, ev.FromUserID)
 		if err != nil {
-			ev.Reply("не смог создать орбит")
+			ev.Reply("не смог создать барицентр")
 			return
 		}
+		l.st.SetMemberName(o.ID, ev.FromUserID, ev.FromName)
 		code, _ := l.st.NewPairCode(o.ID, ev.FromUserID)
 		ev.Reply(fmt.Sprintf("орбит <b>«%s»</b> создан, ты — primary ⭐\n\nКод для твоего Пульсара — живёт 5 минут:\n<code>%s</code>\n\n/share — пригласить партнёра\n/pair — новый код\n/help — всё остальное", esc(o.Title), code))
 	default:
@@ -1189,6 +1253,7 @@ func (l *loop) handleVoice(o *orbitState, ev bot.Event) {
 		CreatedAt: time.Now().UnixMilli(),
 		ExpiresAt: time.Now().AddDate(0, 0, l.cfg.Media.RetentionDays).UnixMilli(),
 		Status:    "processing",
+		OrbitID:   o.id, // owning tenant: /media is scoped to it (security #4.1)
 	}
 	if err := l.st.InsertMedia(rec); err != nil {
 		l.log.Error("media insert failed", "err", err)
@@ -1431,44 +1496,76 @@ func (l *loop) onlineMap(o *orbitState) map[protocol.NodeID]bool {
 	return out
 }
 
+// orbitText is the /home view: who is in the barycenter (BY NAME, not raw tg
+// id — bot-ux #4), each member's home and its liveness, plus any active
+// approach. Vocabulary is «Барицентр»/«дом» only (bot-ux #9).
 func (l *loop) orbitText(o *orbitState) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "<b>орбит «%s»</b>\n", esc(o.title))
+	fmt.Fprintf(&b, "<b>«%s»</b>\n", esc(o.title))
 	members, _ := l.st.Members(o.id)
-	for _, m := range members {
-		slot, _ := l.st.SlotOf(o.id, m.TGUserID)
-		home := "без дома"
-		if slot != "" {
-			home = "дом " + slot
-		}
-		fmt.Fprintf(&b, "· %d — %s (%s)\n", m.TGUserID, m.Role, home)
-	}
-	slots, _ := l.st.ActiveSlots(o.id)
 	online := l.hub.Online(o.id)
-	var parts []string
-	for _, sl := range slots {
-		mark := "офлайн"
-		if online[protocol.NodeID(sl)] {
-			mark = "в сети"
+	homed := 0
+	for _, m := range members {
+		name := esc(m.DisplayName)
+		if name == "" {
+			name = "участник " + strconv.FormatInt(m.TGUserID, 10)
 		}
-		parts = append(parts, sl+": "+mark)
+		home := "без своего дома"
+		if slot, _ := l.st.SlotOf(o.id, m.TGUserID); slot != "" {
+			homed++
+			mark := "офлайн"
+			if online[protocol.NodeID(slot)] {
+				mark = "в сети"
+			}
+			home = fmt.Sprintf("дом %s — %s", slot, mark)
+		}
+		fmt.Fprintf(&b, "· %s — %s, %s\n", name, memberRole(m.Role), home)
 	}
-	if len(parts) > 0 {
-		fmt.Fprintf(&b, "пульсары: %s", strings.Join(parts, ", "))
-	} else {
-		b.WriteString("пульсаров пока нет — /pair выдаст код")
+	if homed == 0 {
+		b.WriteString("домов пока нет — /pair выдаст код для приложения Pulsar\n")
 	}
-	// An active approach is part of the orbit's identity (design §12).
+	// An active approach is part of the barycenter's identity (design §12).
 	if linkID := l.linkOf[o.id]; linkID != 0 {
 		if g := l.group(linkID); g != nil {
 			for _, other := range g.orbits {
 				if other != o.id {
-					fmt.Fprintf(&b, "\nсближение с «%s» — эфир общий (/apart завершит)", esc(l.orbit(other).title))
+					fmt.Fprintf(&b, "сближение с «%s» — эфир общий (/apart завершит)\n", esc(l.orbit(other).title))
 				}
 			}
 		}
 	}
-	return b.String()
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// memberRole renders a star-system role in plain Russian for /home.
+func memberRole(role string) string {
+	switch role {
+	case "primary":
+		return "⭐ главная звезда"
+	case "companion":
+		return "участник"
+	case "satellite":
+		return "слушатель"
+	}
+	return role
+}
+
+// resolveMember maps a /make_primary argument (a display name, an @username or
+// — for back-compat — a raw tg id) to a member's tg id; 0 when not found.
+func (l *loop) resolveMember(orbitID int64, target string) int64 {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return 0
+	}
+	if id, err := l.st.MemberByName(orbitID, target); err == nil && id != 0 {
+		return id
+	}
+	if n, err := strconv.ParseInt(strings.TrimPrefix(target, "@"), 10, 64); err == nil {
+		if m, _ := l.st.MemberOf(n); m != nil && m.OrbitID == orbitID {
+			return n
+		}
+	}
+	return 0
 }
 
 func (l *loop) queueText(o *orbitState) string {

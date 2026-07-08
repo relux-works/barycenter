@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS members (
   tg_user_id INTEGER NOT NULL,
   role TEXT NOT NULL, -- primary | companion | satellite
   joined_at INTEGER NOT NULL,
+  display_name TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (orbit_id, tg_user_id)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS members_user ON members(tg_user_id); -- MVP: one orbit per user
@@ -93,9 +94,10 @@ type Orbit struct {
 }
 
 type Member struct {
-	OrbitID  int64
-	TGUserID int64
-	Role     string // primary | companion | satellite
+	OrbitID     int64
+	TGUserID    int64
+	Role        string // primary | companion | satellite
+	DisplayName string // Telegram first name, refreshed on every command
 }
 
 var ErrLimit = errors.New("orbit limit reached")
@@ -137,6 +139,9 @@ func (s *Store) initOrbits() error {
 	}
 	// Pre-provider databases lack slots.provider: additive migration.
 	s.db.Exec(`ALTER TABLE slots ADD COLUMN provider TEXT NOT NULL DEFAULT 'spotify'`)
+	// Pre-M1.5 databases lack members.display_name: additive migration so
+	// /home can render members by name instead of raw tg_user_id (bot-ux #4).
+	s.db.Exec(`ALTER TABLE members ADD COLUMN display_name TEXT NOT NULL DEFAULT ''`)
 	return nil
 }
 
@@ -282,8 +287,8 @@ func (s *Store) SetOrbitSetting(orbitID int64, column, value string) error {
 // MemberOf resolves a telegram user to their orbit membership (MVP: max one).
 func (s *Store) MemberOf(tgUserID int64) (*Member, error) {
 	m := &Member{}
-	err := s.db.QueryRow(`SELECT orbit_id, tg_user_id, role FROM members WHERE tg_user_id = ?`, tgUserID).
-		Scan(&m.OrbitID, &m.TGUserID, &m.Role)
+	err := s.db.QueryRow(`SELECT orbit_id, tg_user_id, role, display_name FROM members WHERE tg_user_id = ?`, tgUserID).
+		Scan(&m.OrbitID, &m.TGUserID, &m.Role, &m.DisplayName)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -291,7 +296,7 @@ func (s *Store) MemberOf(tgUserID int64) (*Member, error) {
 }
 
 func (s *Store) Members(orbitID int64) ([]Member, error) {
-	rows, err := s.db.Query(`SELECT orbit_id, tg_user_id, role FROM members WHERE orbit_id = ? ORDER BY joined_at`, orbitID)
+	rows, err := s.db.Query(`SELECT orbit_id, tg_user_id, role, display_name FROM members WHERE orbit_id = ? ORDER BY joined_at`, orbitID)
 	if err != nil {
 		return nil, err
 	}
@@ -299,12 +304,50 @@ func (s *Store) Members(orbitID int64) ([]Member, error) {
 	var out []Member
 	for rows.Next() {
 		var m Member
-		if err := rows.Scan(&m.OrbitID, &m.TGUserID, &m.Role); err != nil {
+		if err := rows.Scan(&m.OrbitID, &m.TGUserID, &m.Role, &m.DisplayName); err != nil {
 			return nil, err
 		}
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+// SetMemberName refreshes a member's display name (Telegram first name). The
+// loop calls it on every command so /home and /make_primary can use names
+// instead of raw ids (bot-ux #4/#5). A no-op for empty names or non-members.
+func (s *Store) SetMemberName(orbitID, tgUserID int64, name string) error {
+	if strings.TrimSpace(name) == "" {
+		return nil
+	}
+	_, err := s.db.Exec(`UPDATE members SET display_name = ? WHERE orbit_id = ? AND tg_user_id = ?`, name, orbitID, tgUserID)
+	return err
+}
+
+// MemberByName resolves a member by display name (case-insensitive; a leading
+// @ is ignored). Returns 0 when there is no unique match (none or ambiguous).
+// Matching is done in Go: SQLite's lower() folds ASCII only, and names are
+// Cyrillic (strings.EqualFold handles Unicode).
+func (s *Store) MemberByName(orbitID int64, name string) (int64, error) {
+	name = strings.TrimPrefix(strings.TrimSpace(name), "@")
+	if name == "" {
+		return 0, nil
+	}
+	members, err := s.Members(orbitID)
+	if err != nil {
+		return 0, err
+	}
+	var id int64
+	matches := 0
+	for _, m := range members {
+		if m.DisplayName != "" && strings.EqualFold(m.DisplayName, name) {
+			id = m.TGUserID
+			matches++
+		}
+	}
+	if matches != 1 {
+		return 0, nil // no match or ambiguous
+	}
+	return id, nil
 }
 
 func (s *Store) AddMember(orbitID int64, tgUserID int64, role string) error {
@@ -339,6 +382,87 @@ func (s *Store) TransferPrimary(orbitID, newPrimary int64) error {
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return fmt.Errorf("user %d is not a member of orbit %d", newPrimary, orbitID)
+	}
+	return tx.Commit()
+}
+
+// LeaveOrbit removes a member from their orbit (design §2: a member may leave).
+// If they were the last member the orbit is dissolved (dissolved=true). If they
+// were the primary and others remain, the earliest-joined member is promoted
+// (promoted = their tg id). The leaver's own slots are revoked so their home
+// drops out of the air.
+func (s *Store) LeaveOrbit(orbitID, tgUserID int64) (dissolved bool, promoted int64, err error) {
+	m, err := s.MemberOf(tgUserID)
+	if err != nil {
+		return false, 0, err
+	}
+	if m == nil || m.OrbitID != orbitID {
+		return false, 0, fmt.Errorf("user %d is not a member of orbit %d", tgUserID, orbitID)
+	}
+	var count int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM members WHERE orbit_id = ?`, orbitID).Scan(&count); err != nil {
+		return false, 0, err
+	}
+	if count <= 1 {
+		if err := s.DeleteOrbit(orbitID); err != nil {
+			return false, 0, err
+		}
+		return true, 0, nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return false, 0, err
+	}
+	defer tx.Rollback()
+	if m.Role == "primary" {
+		var newP int64
+		if err := tx.QueryRow(`SELECT tg_user_id FROM members WHERE orbit_id = ? AND tg_user_id != ? ORDER BY joined_at LIMIT 1`,
+			orbitID, tgUserID).Scan(&newP); err != nil {
+			return false, 0, err
+		}
+		if _, err := tx.Exec(`UPDATE members SET role = 'primary' WHERE orbit_id = ? AND tg_user_id = ?`, orbitID, newP); err != nil {
+			return false, 0, err
+		}
+		promoted = newP
+	}
+	if _, err := tx.Exec(`DELETE FROM members WHERE orbit_id = ? AND tg_user_id = ?`, orbitID, tgUserID); err != nil {
+		return false, 0, err
+	}
+	if _, err := tx.Exec(`UPDATE slots SET revoked_at = ? WHERE orbit_id = ? AND paired_by = ? AND revoked_at IS NULL`,
+		time.Now().UnixMilli(), orbitID, tgUserID); err != nil {
+		return false, 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, 0, err
+	}
+	return false, promoted, nil
+}
+
+// DeleteOrbit removes an orbit and every row scoped to it: members, slots,
+// invites, availability, links (design §2: primary may dissolve the
+// barycenter). The caller clears the session snapshot and in-memory state.
+func (s *Store) DeleteOrbit(orbitID int64) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmts := []string{
+		`DELETE FROM members WHERE orbit_id = ?`,
+		`DELETE FROM slots WHERE orbit_id = ?`,
+		`DELETE FROM invites WHERE orbit_id = ?`,
+		`DELETE FROM availability WHERE orbit_id = ?`,
+		`DELETE FROM links WHERE orbit_a = ? OR orbit_b = ?`,
+		`DELETE FROM orbits WHERE id = ?`,
+	}
+	for _, q := range stmts {
+		args := []any{orbitID}
+		if strings.Contains(q, "orbit_a") {
+			args = []any{orbitID, orbitID}
+		}
+		if _, err := tx.Exec(q, args...); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }

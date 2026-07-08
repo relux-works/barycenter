@@ -79,6 +79,16 @@ type Bot struct {
 	// Username of the bot account (@…), used to build invite deep links.
 	Username string
 	Events   chan Event
+	// outbox is the asynchronous send queue: replies and orbit notifications
+	// are enqueued here and delivered by a single dedicated goroutine (sender)
+	// so the FSM loop never blocks on a slow Telegram POST (bugs #2 /
+	// architecture #1.1). One drainer preserves per-chat message order.
+	outbox chan outMsg
+}
+
+type outMsg struct {
+	chatID int64
+	text   string
 }
 
 func New(api API, log *slog.Logger) *Bot {
@@ -86,6 +96,7 @@ func New(api API, log *slog.Logger) *Bot {
 		api:    api,
 		log:    log,
 		Events: make(chan Event, 16),
+		outbox: make(chan outMsg, 1024),
 	}
 	if u, err := api.GetMe(); err == nil {
 		b.Username = u
@@ -98,37 +109,53 @@ func New(api API, log *slog.Logger) *Bot {
 	return b
 }
 
-// commandMenuJSON is the Telegram client command menu (the "/" button).
+// commandMenuJSON is the Telegram client command menu (the "/" button). Only
+// the everyday surface lives here (bot-ux redesign §3b): the rest stay typeable
+// but off the menu so a non-technical user is not buried under setup/calibration
+// /admin commands. Everyday first, then the one-time setup, then help.
 const commandMenuJSON = `[
-{"command":"create","description":"создать свой барицентр"},
-{"command":"orbit","description":"участники и дома"},
-{"command":"share","description":"пригласить в орбит"},
-{"command":"pair","description":"код для своего Пульсара"},
-{"command":"now","description":"что играет"},
-{"command":"queue","description":"очередь"},
-{"command":"skip","description":"пропустить"},
+{"command":"now","description":"что сейчас играет"},
+{"command":"skip","description":"следующий трек"},
 {"command":"pause","description":"пауза"},
 {"command":"resume","description":"продолжить"},
-{"command":"periastron","description":"общий эфир"},
-{"command":"apoastron","description":"каждый слушает своё"},
-{"command":"approach","description":"сближение с другим барицентром"},
-{"command":"apart","description":"завершить сближение"},
-{"command":"status","description":"состояние системы"},
-{"command":"takeover","description":"кто главнее при вмешательстве с телефона"},
-{"command":"playnow","description":"включить немедленно"},
-{"command":"vol","description":"громкость дома"},
-{"command":"help","description":"все команды"}
+{"command":"queue","description":"очередь"},
+{"command":"vol","description":"громкость (0–100)"},
+{"command":"home","description":"кто на связи и что настроено"},
+{"command":"pair","description":"подключить свой дом"},
+{"command":"share","description":"пригласить партнёра"},
+{"command":"help","description":"помощь"}
 ]`
 
-// SendTo posts to any chat (orbit notifications go to each member's DM).
+// SendTo enqueues a message to any chat (orbit notifications go to each member's
+// DM). Delivery is asynchronous — the caller (the FSM loop) never blocks on
+// Telegram HTTP. The queue is bounded; an overflow (sustained Telegram outage)
+// drops with a warning rather than stalling the loop.
 func (b *Bot) SendTo(chatID int64, text string) {
-	if err := b.api.SendMessage(chatID, text); err != nil {
-		b.log.Warn("send failed", "chat", chatID, "err", err)
+	select {
+	case b.outbox <- outMsg{chatID: chatID, text: text}:
+	default:
+		b.log.Warn("outbox full, dropping message", "chat", chatID)
+	}
+}
+
+// sender is the single goroutine that drains the outbox and performs the
+// blocking Telegram sends off the FSM loop's critical path.
+func (b *Bot) sender(stop <-chan struct{}) {
+	for {
+		select {
+		case <-stop:
+			return
+		case m := <-b.outbox:
+			if err := b.api.SendMessage(m.chatID, m.text); err != nil {
+				b.log.Warn("send failed", "chat", m.chatID, "err", err)
+			}
+		}
 	}
 }
 
 // Run long-polls until stop closes (spec 3.3: outbound connection only).
 func (b *Bot) Run(stop <-chan struct{}) {
+	go b.sender(stop) // drain the outbox for the lifetime of the bot
 	var offset int64
 	for {
 		select {
@@ -157,11 +184,9 @@ func (b *Bot) handleUpdate(u Update) {
 		return
 	}
 	chatID := msg.Chat.ID
-	reply := func(text string) {
-		if err := b.api.SendMessage(chatID, text); err != nil {
-			b.log.Warn("reply failed", "err", err)
-		}
-	}
+	// Replies go through the async outbox (SendTo) so the FSM loop, which
+	// invokes this closure, never blocks on a Telegram POST (bugs #2).
+	reply := func(text string) { b.SendTo(chatID, text) }
 
 	if msg.Voice != nil {
 		b.Events <- Event{

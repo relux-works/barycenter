@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"relux.works/duet/coordinator/internal/bot"
 	"relux.works/duet/coordinator/internal/config"
@@ -114,6 +115,19 @@ func cmdEvent(t *testing.T, from, text string, r *replies) bot.Event {
 		t.Fatalf("parse %q: %v", text, err)
 	}
 	return bot.Event{FromUserID: testUsers[from], FromName: "user-" + from, Command: cmd, Reply: r.fn}
+}
+
+// pumpResolve drives one provider-cascade round-trip: the loop offloads the
+// external resolve to a goroutine that delivers back over resolveCh (bugs #4).
+// Tests that call handleBot directly (no l.run) drain that channel here.
+func (l *loop) pumpResolve(t *testing.T) {
+	t.Helper()
+	select {
+	case d := <-l.resolveCh:
+		l.onResolveDone(d)
+	case <-time.After(2 * time.Second):
+		t.Fatal("resolve cascade did not complete")
+	}
 }
 
 const link = "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"

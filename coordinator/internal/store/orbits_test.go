@@ -37,6 +37,102 @@ func TestOrbitLifecycle(t *testing.T) {
 	}
 }
 
+func TestMemberNamesAndLookup(t *testing.T) {
+	s := openTemp(t)
+	o, _ := s.CreateOrbit("O", 111)
+	_ = s.AddMember(o.ID, 222, "companion")
+	if err := s.SetMemberName(o.ID, 111, "Иван"); err != nil {
+		t.Fatal(err)
+	}
+	s.SetMemberName(o.ID, 222, "Катя")
+	// Empty names are ignored (keep the last real one).
+	s.SetMemberName(o.ID, 111, "")
+
+	members, _ := s.Members(o.ID)
+	names := map[int64]string{}
+	for _, m := range members {
+		names[m.TGUserID] = m.DisplayName
+	}
+	if names[111] != "Иван" || names[222] != "Катя" {
+		t.Fatalf("names not stored: %v", names)
+	}
+	if id, _ := s.MemberByName(o.ID, "катя"); id != 222 { // case-insensitive
+		t.Fatalf("MemberByName(катя) = %d", id)
+	}
+	if id, _ := s.MemberByName(o.ID, "@Иван"); id != 111 { // @ stripped
+		t.Fatalf("MemberByName(@Иван) = %d", id)
+	}
+	if id, _ := s.MemberByName(o.ID, "нет такого"); id != 0 {
+		t.Fatalf("unknown name resolved to %d", id)
+	}
+}
+
+func TestLeaveAndDissolve(t *testing.T) {
+	s := openTemp(t)
+	o, _ := s.CreateOrbit("O", 111) // 111 primary
+	_ = s.AddMember(o.ID, 222, "companion")
+	_ = s.AddMember(o.ID, 333, "companion")
+	if _, _, err := s.PairSlot(o.ID, 111); err != nil {
+		t.Fatal(err)
+	}
+
+	// Primary leaves with others present: promote the earliest-joined (222),
+	// revoke the leaver's slot, keep the orbit.
+	dissolved, promoted, err := s.LeaveOrbit(o.ID, 111)
+	if err != nil || dissolved || promoted != 222 {
+		t.Fatalf("primary leave: dissolved=%v promoted=%d err=%v", dissolved, promoted, err)
+	}
+	if m, _ := s.MemberOf(111); m != nil {
+		t.Fatal("leaver still a member")
+	}
+	if m, _ := s.MemberOf(222); m == nil || m.Role != "primary" {
+		t.Fatalf("222 must be promoted: %+v", m)
+	}
+	if slot, _ := s.SlotOf(o.ID, 111); slot != "" {
+		t.Fatalf("leaver's slot must be revoked, got %q", slot)
+	}
+
+	// Companion leaves: no promotion, orbit stays.
+	if d, p, err := s.LeaveOrbit(o.ID, 333); err != nil || d || p != 0 {
+		t.Fatalf("companion leave: %v %d %v", d, p, err)
+	}
+
+	// Last member leaves: the orbit dissolves.
+	d, _, err := s.LeaveOrbit(o.ID, 222)
+	if err != nil || !d {
+		t.Fatalf("last leave must dissolve: %v %v", d, err)
+	}
+	if got, _ := s.GetOrbit(o.ID); got != nil {
+		t.Fatal("dissolved orbit still present")
+	}
+	ids, _ := s.OrbitIDs()
+	if len(ids) != 0 {
+		t.Fatalf("orbits remain after dissolve: %v", ids)
+	}
+}
+
+func TestDeleteOrbitWipesTenantRows(t *testing.T) {
+	s := openTemp(t)
+	o, _ := s.CreateOrbit("O", 111)
+	_ = s.AddMember(o.ID, 222, "companion")
+	slot, _, _ := s.PairSlot(o.ID, 111)
+	s.NewInvite(o.ID, 111)
+	s.SetAvailability(o.ID, slot, "spotify", "spotify:track:x", true)
+
+	if err := s.DeleteOrbit(o.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.GetOrbit(o.ID); got != nil {
+		t.Fatal("orbit row survived delete")
+	}
+	if m, _ := s.MemberOf(222); m != nil {
+		t.Fatal("member row survived delete")
+	}
+	if slots, _ := s.ActiveSlots(o.ID); len(slots) != 0 {
+		t.Fatalf("slots survived delete: %v", slots)
+	}
+}
+
 func TestInvitesAndPairing(t *testing.T) {
 	s := openTemp(t)
 	o, _ := s.CreateOrbit("O", 111)

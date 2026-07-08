@@ -157,30 +157,43 @@ func sortedSlots(slotProviders map[string]string) []string {
 	return out
 }
 
-// resolveElement runs the resolve cascade for a fresh track element toward
-// every provider active in the orbit, persists the canonical track (forever
-// cache: tracks/track_refs) and applies the P1 strict-air gate — a home
-// whose provider holds no ref for the track rejects the whole enqueue
-// (spec-providers §4.2, decision P1). Returns false when rejected (the
-// reply has been sent). Only called when cfg.Providers is on.
-func (l *loop) resolveElement(o *orbitState, el *session.Element, reply func(string)) bool {
+// resolveDone carries a completed cascade back to the loop goroutine: the
+// external HTTP of resolveTrack must never run on the FSM loop (bugs #4 /
+// architecture 1.1), so the cache-miss path resolves in a goroutine and returns
+// the result here for the gate + enqueue.
+type resolveDone struct {
+	orbit      int64
+	el         session.Element
+	originProv string
+	originRef  string
+	ctid       string // cached ctid at dispatch time ("" when the track is new)
+	res        resolvedTrack
+	reply      func(string)
+}
+
+// resolveAndEnqueue enqueues a fresh shared-air track under the provider layer
+// (spec-providers §4.2, decision P1). The forever-cache (tracks/track_refs) is
+// consulted on the loop goroutine; only a genuine cache miss offloads the
+// external cascade to a goroutine, whose result returns over resolveCh. Only
+// called when cfg.Providers is on.
+func (l *loop) resolveAndEnqueue(o *orbitState, el session.Element, reply func(string)) {
 	originProv, originRef, sourceURL := originFromURI(el.URI)
 	if originProv == "" {
-		return true // not provider-shaped (playlist elements etc.): legacy path
+		l.finishEnqueue(o, el, reply) // not provider-shaped: legacy path
+		return
 	}
 	slotProviders, err := l.sessionSlotProviders(o)
 	if err != nil {
 		l.log.Error("slot providers lookup failed", "orbit", o.id, "err", err)
-		return true // fail open: behave as pre-provider
+		l.finishEnqueue(o, el, reply) // fail open: behave as pre-provider
+		return
 	}
-
-	// track_refs is a forever-cache — reuse the ctid and every known ref.
 	ctid, err := l.st.CTIDByRef(originProv, originRef)
 	if err != nil {
 		l.log.Error("ctid lookup failed", "origin", originRef, "err", err)
 	}
+	var missing []string
 	resolved := map[string]bool{originProv: true}
-	var missing []string // providers that still need the cascade
 	for _, prov := range distinctProviders(slotProviders) {
 		if resolved[prov] {
 			continue
@@ -193,9 +206,57 @@ func (l *loop) resolveElement(o *orbitState, el *session.Element, reply func(str
 		}
 		missing = append(missing, prov)
 	}
-
-	if len(missing) > 0 && l.resolveTrack != nil {
+	if len(missing) == 0 || l.resolveTrack == nil {
+		// No external work needed (all cached, same-provider orbit, or no
+		// cascade wired): finalize synchronously on the loop.
+		l.finalizeResolvedTrack(o, el, originProv, originRef, ctid, resolvedTrack{}, false, reply)
+		return
+	}
+	// Cache miss: run the cascade off the loop and deliver back over resolveCh.
+	orbitID := o.id
+	go func() {
 		res := l.resolveTrack(originProv, originRef, sourceURL, missing)
+		l.resolveCh <- resolveDone{
+			orbit: orbitID, el: el, originProv: originProv,
+			originRef: originRef, ctid: ctid, res: res, reply: reply,
+		}
+	}()
+}
+
+// onResolveDone re-enters the loop with a completed cascade and finishes the
+// enqueue (gate + queue). The air is re-resolved because an approach may have
+// engaged/dissolved while the cascade ran.
+func (l *loop) onResolveDone(d resolveDone) {
+	o := l.stateFor(d.orbit)
+	if o.sess.Mode != session.ModeShared {
+		d.reply("сейчас режим solo: /inject подкинет трек партнёру, /together вернёт общий эфир")
+		return
+	}
+	l.finalizeResolvedTrack(o, d.el, d.originProv, d.originRef, d.ctid, d.res, true, d.reply)
+}
+
+// finalizeResolvedTrack caches the canonical track, stamps the element and
+// applies the P1 strict-air gate before enqueuing. hadCascade distinguishes a
+// completed external resolve from the cache-only / same-provider path. Runs on
+// the loop goroutine.
+func (l *loop) finalizeResolvedTrack(o *orbitState, el session.Element, originProv, originRef, ctid string, res resolvedTrack, hadCascade bool, reply func(string)) {
+	slotProviders, err := l.sessionSlotProviders(o)
+	if err != nil {
+		l.log.Error("slot providers lookup failed", "orbit", o.id, "err", err)
+		l.finishEnqueue(o, el, reply) // fail open
+		return
+	}
+	resolved := map[string]bool{originProv: true}
+	for _, prov := range distinctProviders(slotProviders) {
+		if resolved[prov] || ctid == "" {
+			continue
+		}
+		if ref, _, _ := l.st.TrackRef(ctid, prov); ref != "" {
+			resolved[prov] = true
+		}
+	}
+	switch {
+	case hadCascade:
 		if ctid == "" {
 			ctid = ulid.NewCTID(time.Now())
 		}
@@ -221,7 +282,7 @@ func (l *loop) resolveElement(o *orbitState, el *session.Element, reply func(str
 		if res.DurationMS > 0 {
 			el.DurationMS = res.DurationMS
 		}
-	} else if ctid == "" {
+	case ctid == "":
 		// Same-provider orbit (or no cascade wired): mint the ctid and cache
 		// the identity mapping alone.
 		ctid = ulid.NewCTID(time.Now())
@@ -238,11 +299,23 @@ func (l *loop) resolveElement(o *orbitState, el *session.Element, reply func(str
 	for _, slot := range sortedSlots(slotProviders) {
 		if prov := slotProviders[slot]; !resolved[prov] {
 			reply(fmt.Sprintf("«%s»: нет у дома %s (%s), не ставлю",
-				trackLabel(*el), l.peerName(o, protocol.NodeID(slot)), providerName(prov)))
-			return false
+				trackLabel(el), l.peerName(o, protocol.NodeID(slot)), providerName(prov)))
+			return
 		}
 	}
-	return true
+	l.finishEnqueue(o, el, reply)
+}
+
+// finishEnqueue journals the element, enqueues it into the shared air and
+// replies. Shared by the provider path (after the gate) and the flag-off path.
+func (l *loop) finishEnqueue(o *orbitState, el session.Element, reply func(string)) {
+	l.st.InsertElement(el)
+	l.apply(o, o.sess.EnqueueTrack(el))
+	if o.sess.Current != nil && o.sess.Current.ID == el.ID {
+		reply("очередь пуста — ставлю сразу: " + trackLabel(el))
+	} else {
+		reply(fmt.Sprintf("добавил в очередь под номером %d: %s", o.sess.QueueLen(), trackLabel(el)))
+	}
 }
 
 // sessionSlotProviders maps the session's homes to their providers; a group

@@ -62,10 +62,12 @@ func TestChatterProducesNothing(t *testing.T) {
 }
 
 func TestParseErrorRepliesInChat(t *testing.T) {
-	b, api := newTestBot()
+	b, _ := newTestBot()
 	b.handleUpdate(msgFrom(111, "/vol 500"))
-	if len(api.sent) != 1 {
-		t.Fatalf("want one reply, got %v", api.sent)
+	// Replies are queued to the async outbox (the sender goroutine drains it
+	// in Run); the parse-error reply must land there.
+	if len(b.outbox) != 1 {
+		t.Fatalf("want one queued reply, got %d", len(b.outbox))
 	}
 }
 

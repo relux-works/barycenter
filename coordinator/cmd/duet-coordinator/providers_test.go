@@ -29,10 +29,6 @@ func TestProvidersFlagOffInert(t *testing.T) {
 	if r.last(t) != "провайдерский слой ещё не включён" {
 		t.Fatalf("/provider reply: %q", r.last(t))
 	}
-	l.handleBot(cmdEvent(t, "a", "/resolve "+link, r))
-	if r.last(t) != "провайдерский слой ещё не включён" {
-		t.Fatalf("/resolve reply: %q", r.last(t))
-	}
 	if got := fake.ofType(protocol.TypeSetProvider); len(got) != 0 {
 		t.Fatalf("set_provider sent with the flag off: %+v", got)
 	}
@@ -89,12 +85,6 @@ func TestProviderSwitchPersistsAndPushes(t *testing.T) {
 	if got := fake.ofType(protocol.TypeSetProvider); len(got) != 0 {
 		t.Fatalf("set_provider sent for unknown slot: %+v", got)
 	}
-
-	// /resolve answers its reservation stub.
-	l.handleBot(cmdEvent(t, "a", "/resolve "+link, r))
-	if r.last(t) != "ручная починка маппинга приедет вместе с очередями на ctid" {
-		t.Fatalf("/resolve stub: %q", r.last(t))
-	}
 }
 
 // Flag on, mixed orbit: enqueue runs the cascade toward the missing
@@ -127,6 +117,7 @@ func TestEnqueueResolvesAndCaches(t *testing.T) {
 	r := &replies{}
 
 	l.handleBot(cmdEvent(t, "a", link, r))
+	l.pumpResolve(t) // the cascade runs off the loop, then enqueues
 	if calls != 1 {
 		t.Fatalf("cascade calls = %d", calls)
 	}
@@ -188,6 +179,7 @@ func TestPeriastronP1RejectsUnresolved(t *testing.T) {
 	r := &replies{}
 
 	l.handleBot(cmdEvent(t, "a", link, r))
+	l.pumpResolve(t) // cascade returns unresolved, then the P1 gate rejects
 	want := "«Tester — Test Song»: нет у дома b (Яндекс), не ставлю"
 	if r.last(t) != want {
 		t.Fatalf("reply %q, want %q", r.last(t), want)

@@ -5,7 +5,6 @@ package hub
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -81,10 +80,12 @@ func New(log *slog.Logger, lookup TokenLookup, offlineAfter time.Duration) *Hub 
 		log:          log,
 		lookup:       lookup,
 		offlineAfter: offlineAfter,
-		Events:       make(chan Event, 64),
-		conns:        map[NodeKey]*conn{},
-		lastSeen:     map[NodeKey]time.Time{},
-		online:       map[NodeKey]bool{},
+		// Liveness (EvOnline/EvOffline) must never be dropped (bugs #3): the
+		// buffer absorbs bursts and emit() blocks rather than drops when full.
+		Events:   make(chan Event, 256),
+		conns:    map[NodeKey]*conn{},
+		lastSeen: map[NodeKey]time.Time{},
+		online:   map[NodeKey]bool{},
 	}
 }
 
@@ -97,23 +98,38 @@ func (h *Hub) Run(stop <-chan struct{}) {
 		case <-stop:
 			return
 		case now := <-t.C:
-			h.mu.Lock()
-			for key, seen := range h.lastSeen {
-				if h.online[key] && now.Sub(seen) > h.offlineAfter {
-					h.online[key] = false
-					h.emitLocked(EvOffline{Key: key})
-				}
-			}
-			h.mu.Unlock()
+			h.sweepOffline(now, stop)
 		}
 	}
 }
 
-func (h *Hub) emitLocked(ev Event) {
+// sweepOffline demotes nodes past the offline deadline and emits EvOffline
+// reliably. The state flip happens under the lock; the emit is a BLOCKING send
+// OUTSIDE the lock (bugs #3): a full channel must back-pressure, never drop a
+// liveness edge — a dropped EvOffline strands a dead node "online" forever.
+// Emitting outside the lock keeps the consuming loop free to call back into the
+// hub (Send/Online take the same mutex) without deadlocking.
+func (h *Hub) sweepOffline(now time.Time, stop <-chan struct{}) {
+	var gone []NodeKey
+	h.mu.Lock()
+	for key, seen := range h.lastSeen {
+		if h.online[key] && now.Sub(seen) > h.offlineAfter {
+			h.online[key] = false
+			gone = append(gone, key)
+		}
+	}
+	h.mu.Unlock()
+	for _, key := range gone {
+		h.emit(EvOffline{Key: key}, stop)
+	}
+}
+
+// emit delivers a liveness event, blocking until the loop drains it or the
+// escape channel (hub shutdown / connection close) fires.
+func (h *Hub) emit(ev Event, escape <-chan struct{}) {
 	select {
 	case h.Events <- ev:
-	default:
-		h.log.Warn("event channel full, dropping", "event", fmt.Sprintf("%T", ev))
+	case <-escape:
 	}
 }
 
@@ -301,10 +317,12 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 		h.lastSeen[key] = time.Now()
 		cameBack := !h.online[key]
 		h.online[key] = true
-		if cameBack {
-			h.emitLocked(EvOnline{Key: key})
-		}
 		h.mu.Unlock()
+		if cameBack {
+			// Reliable, outside the lock (bugs #3): the old best-effort drop
+			// could strand a live node "offline" in the FSM after a burst.
+			h.emit(EvOnline{Key: key}, c.stop)
+		}
 
 		// Protocol clock-sync ping is answered inline: t2/t3 accuracy matters
 		// (spec 8.5), the session loop must not delay it.

@@ -118,7 +118,6 @@ for k in SUFeedURL SUPublicEDKey SUEnableAutomaticChecks SUAutomaticallyUpdate S
     exit 1
   fi
 done
-
 # Same guard for the Local Network keys: NSBonjourServices missing => the phone
 # can't discover "Pulsar" even after the user grants access (the invisible-speaker
 # class of bug), and it fails silently with no build error. Do not let it regress.
@@ -128,6 +127,13 @@ for k in NSLocalNetworkUsageDescription NSBonjourServices; do
     exit 1
   fi
 done
+# Content too, not just presence (PR #1): the declared service must be the one
+# the phone browses. Index lookup, not text grep — PlistBuddy indentation is
+# not a contract.
+if [[ "$(/usr/libexec/PlistBuddy -c "Print :NSBonjourServices:0" "$PLIST_FILE" 2>/dev/null)" != "_spotify-connect._tcp" ]]; then
+  echo "FATAL: NSBonjourServices must declare _spotify-connect._tcp (Spotify can't find the speaker)" >&2
+  exit 1
+fi
 
 SIGN_CN="${SIGN_CN:-duet-nodeapp}"
 KEYCHAIN="$HOME/Library/Keychains/duet-signing.keychain-db"

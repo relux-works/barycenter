@@ -731,8 +731,12 @@ log:
 ```yaml
 device_name: "Дом A"
 device_type: speaker
+zeroconf_enabled: true
+zeroconf_port: 0
 credentials:
   type: zeroconf
+  zeroconf:
+    persist_credentials: true
 server:
   enabled: true
   address: 127.0.0.1

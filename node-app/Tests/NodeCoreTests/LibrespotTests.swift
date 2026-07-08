@@ -9,6 +9,8 @@ import Testing
         for want in [
             "device_name: \"Дом A\"",
             "device_type: speaker",
+            "zeroconf_enabled: true",
+            "zeroconf_port: 0",
             "type: zeroconf",
             "persist_credentials: true",
             "address: 127.0.0.1",

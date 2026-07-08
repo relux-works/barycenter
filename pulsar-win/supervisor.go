@@ -27,6 +27,10 @@ func RenderLibrespotConfig(deviceName string, apiPort int, pipePath string) stri
 	return fmt.Sprintf(`# Rendered by Pulsar — do not edit; changes are overwritten on start.
 device_name: "%s"
 device_type: speaker
+# Keep Spotify Connect discovery active and let the daemon choose a
+# reachable ZeroConf HTTP port for getInfo/addUser.
+zeroconf_enabled: true
+zeroconf_port: 0
 credentials:
   type: zeroconf
   zeroconf:

@@ -40,7 +40,7 @@ Gates (docs/goal.md §5): G0 spike: blocked on two user actions (zeroconf login,
 | `make` | Entry point for everything | `make test` (both sides), `make build`, `make app`, `make release VERSION=vX.Y.Z` | dev builds in `.temp/build/`, distribution in `release/` (both gitignored) |
 | `swift` (SwiftPM, 5.10+) | NodeApp and spike prototypes build/test | `swift build` / `swift test` in `node-app/` or `spike/...` | `.build/` (gitignored) |
 | `go` (1.22+) | Coordinator build/test | `go build ./...` / `go test ./...` in `coordinator/` | binary in `.temp/build/` or `release/` |
-| `go-librespot` | Headless Spotify Connect playback on nodes | `brew install go-librespot`; started/supervised by NodeApp in production; manual runs for spike: config under `.temp/spike/` | PCM FIFO, local HTTP+WS API on 127.0.0.1:3678 |
+| `go-librespot` | Headless Spotify Connect playback on nodes | `brew install go-librespot`; started/supervised by NodeApp in production; manual runs for spike: config under `.temp/spike/` | PCM FIFO, local HTTP+WS API on 127.0.0.1:3678; Spotify discovery via `_spotify-connect._tcp` Bonjour |
 | `ffmpeg` | Voice message processing on coordinator (highpass, compressor, loudnorm) | see spec ch. 10 for the exact filter chain | WAV files in coordinator `media_dir` |
 | `tailscale` | Mesh network between 2 Macs + VPS, MagicDNS names `node-a`/`node-b`/`coord`, Tailscale SSH | see spec ch. 11 |: |
 | Airfoil (Rogue Amoeba) | Speaker delivery on each Mac, AppleScript-controlled | GUI + AppleScript via NodeApp; **license required per Mac** (trial injects noise after 10 min) | — |

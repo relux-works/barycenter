@@ -18,6 +18,10 @@ func TestRenderLibrespotConfig(t *testing.T) {
 	want := `# Rendered by Pulsar — do not edit; changes are overwritten on start.
 device_name: "Pulsar B"
 device_type: speaker
+# Keep Spotify Connect discovery active and let the daemon choose a
+# reachable ZeroConf HTTP port for getInfo/addUser.
+zeroconf_enabled: true
+zeroconf_port: 0
 credentials:
   type: zeroconf
   zeroconf:

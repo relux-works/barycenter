@@ -364,3 +364,32 @@ func TestRestartRestoresPausedSession(t *testing.T) {
 		t.Fatalf("resume position must follow heartbeats, sent: %+v", fake2.sent)
 	}
 }
+
+// M1 regression: the hub can emit a stale EvOffline right after the reader's
+// EvOnline (both flip state under the lock but emit after unlock). The hub map
+// ends "online", so no further EvOnline ever comes — the FSM would believe the
+// home is dark forever while it heartbeats normally. Any message from a known
+// peer must therefore count as proof of life.
+func TestMessageFromFSMOfflinePeerRevivesIt(t *testing.T) {
+	l, fake := newTestLoop(t)
+	r := &replies{}
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}, Payload: &protocol.StatePayload{PositionMS: 0, RTTMS: 40, Volume: 80}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}, Payload: &protocol.StatePayload{PositionMS: 0, RTTMS: 60, Volume: 80}})
+	l.handleBot(cmdEvent(t, "a", link, r)) // loading, both homes on the barrier
+	fake.drain()
+
+	// The stale EvOffline lands: the FSM parks the strict orbit.
+	l.handleNode(hub.EvOffline{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}})
+	if st := l.orbit(1).sess.State; st != session.StateDegraded {
+		t.Fatalf("precondition: parked, got %s", st)
+	}
+
+	// b keeps talking (hub still believes it online — no EvOnline will come).
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}, Payload: &protocol.StatePayload{PositionMS: 1000, RTTMS: 60, Volume: 80}})
+	if st := l.orbit(1).sess.State; st == session.StateDegraded {
+		t.Fatalf("air still parked though the 'offline' home is talking")
+	}
+	if !l.orbit(1).sess.IsOnline(protocol.NodeB) {
+		t.Fatal("proof-of-life must mark b online in the FSM")
+	}
+}

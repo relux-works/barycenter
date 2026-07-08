@@ -246,7 +246,7 @@ func TestOfflineDegradedBackResume(t *testing.T) {
 	s.OnHeartbeat(protocol.NodeA, 63_012, 40)
 	s.OnHeartbeat(protocol.NodeB, 62_998, 60)
 
-	effs := s.OnNodeOffline(protocol.NodeB)
+	effs := s.OnNodeOffline(63_100, protocol.NodeB)
 	p := one[EffPause](t, effs)
 	if p.To != protocol.NodeA {
 		t.Fatalf("alive node must be paused, got %#v", p)

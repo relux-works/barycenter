@@ -246,6 +246,10 @@ func (s *Session) RemovePeer(nowMS int64, n protocol.NodeID) []Effect {
 	delete(s.voiceDone, n)
 	delete(s.nodePos, n)
 	delete(s.nodeRTT, n)
+	if s.participants != nil {
+		delete(s.participants, n)
+	}
+	delete(s.joining, n)
 
 	switch s.State {
 	case StateDegraded:
@@ -263,6 +267,12 @@ func (s *Session) RemovePeer(nowMS int64, n protocol.NodeID) []Effect {
 	case StateLoading:
 		if s.Current != nil {
 			return s.checkAllReady(nowMS, s.Current.ID)
+		}
+	case StateArmed:
+		// The revoked home may have been the only one not yet started — the
+		// same stall as the offline drop (H1), via /revoke or /leave.
+		if effs := s.checkAllStarted(); effs != nil {
+			return effs
 		}
 	case StatePlaying:
 		if s.Current != nil && len(s.ended) > 0 && s.endedConditionMet() {
@@ -301,6 +311,12 @@ func (s *Session) resetElementTracking() {
 	s.joining = map[protocol.NodeID]bool{}
 	s.participants = nil // resealed by loadCurrent/startVoice
 	s.retried = false
+	// Positions are per-element: a stale heartbeat from the previous track
+	// (StatePayload carries no element id) must not satisfy the next track's
+	// near-end condition or aim a joiner's load past the new track's length.
+	// Missing data is read as "not near end" / "position 0", both safe.
+	// nodeRTT survives — round-trips are element-independent.
+	s.nodePos = map[protocol.NodeID]int64{}
 }
 
 // --- Queue operations (spec 7.3) ---
@@ -397,6 +413,15 @@ func (s *Session) hasPeer(n protocol.NodeID) bool {
 	}
 	return false
 }
+
+// HasPeer reports whether n is one of the session's peers (loop-side checks).
+func (s *Session) HasPeer(n protocol.NodeID) bool { return s.hasPeer(n) }
+
+// IsOnline reports the session's liveness belief for a peer. The loop compares
+// it against the fact of an arriving message to heal the hub's EvOnline /
+// stale-EvOffline reorder race — the hub map ends "online", so no further
+// EvOnline ever comes while the FSM still believes the home is dark (M1).
+func (s *Session) IsOnline(n protocol.NodeID) bool { return s.online[n] }
 
 func (s *Session) hasUpcoming() bool {
 	if len(s.Queue) > 0 {
@@ -635,6 +660,11 @@ func (s *Session) JoinInProgress(node protocol.NodeID) []Effect {
 	if !s.hasPeer(node) || s.counts(node) {
 		return nil
 	}
+	// The join IS this node's online edge (the loop routes EvOnline here
+	// instead of OnNodeBack). Record it, or the next element's participant
+	// sealing and gate still see the home dark and it goes silent right after
+	// the catch-up track — the hub never re-emits EvOnline for a live node.
+	s.online[node] = true
 	s.joining[node] = true
 	return []Effect{EffLoad{To: node, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: s.livePosition()}}
 }
@@ -699,12 +729,29 @@ func (s *Session) OnStarted(node protocol.NodeID, elementID string, tFirstSample
 		if s.participants != nil {
 			s.participants[node] = true
 		}
+		// Graduation can complete the main barrier too: if the air was still
+		// ARMED, the joiner may have been the only home not yet started.
+		if effs := s.checkAllStarted(); effs != nil {
+			return effs
+		}
 		return []Effect{EffPersist{}}
 	}
 	if s.State != StateArmed || !s.isCurrent(elementID) {
 		return nil
 	}
 	s.started[node] = tFirstSampleMS
+	return s.checkAllStarted()
+}
+
+// checkAllStarted flips ARMED -> PLAYING once every participant reported
+// started. Split out of OnStarted because the barrier must also be re-run
+// when the participant set SHRINKS (offline drop, /revoke): the vanished
+// last laggard used to stall the air in ARMED forever — OnEnded ignores
+// non-PLAYING states and no timer covers ARMED (H1).
+func (s *Session) checkAllStarted() []Effect {
+	if s.State != StateArmed {
+		return nil
+	}
 	var earliest, latest int64
 	first := true
 	for _, n := range s.Peers {
@@ -722,6 +769,9 @@ func (s *Session) OnStarted(node protocol.NodeID, elementID string, tFirstSample
 			latest = t
 		}
 		first = false
+	}
+	if first {
+		return nil // no participants left at all — the gate/park path owns this
 	}
 	s.State = StatePlaying
 	// Desync = worst pairwise skew across the participating homes (max - min).
@@ -819,9 +869,14 @@ func (s *Session) OnReadyTimeout(elementID string) []Effect {
 		s.retried = true
 		effs := []Effect{EffPersist{}}
 		for _, n := range s.Peers {
-			if !s.ready[n] {
-				effs = append(effs, EffLoad{To: n, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: s.SavedPositionMS})
+			// Only participants are on the ready barrier: re-loading an offline
+			// non-participant (or a solo-managed joiner) is dead weight and, on
+			// the drop-during-loading path, used to burn the retry on a home
+			// that could never answer (H2 side-fix).
+			if !s.counts(n) || s.ready[n] {
+				continue
 			}
+			effs = append(effs, EffLoad{To: n, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: s.SavedPositionMS})
 		}
 		effs = append(effs, EffArmReadyTimer{ElementID: s.Current.ID})
 		return effs
@@ -983,7 +1038,7 @@ func (s *Session) CmdPlayNow(el Element) []Effect {
 
 // --- Degradation (spec 4.4, 7.2) ---
 
-func (s *Session) OnNodeOffline(node protocol.NodeID) []Effect {
+func (s *Session) OnNodeOffline(nowMS int64, node protocol.NodeID) []Effect {
 	s.online[node] = false
 	if s.Mode != ModeShared {
 		return []Effect{EffNotify{Text: fmt.Sprintf("дом %s офлайн", node)}}
@@ -1000,9 +1055,25 @@ func (s *Session) OnNodeOffline(node protocol.NodeID) []Effect {
 		if s.participants != nil {
 			delete(s.participants, node)
 		}
+		delete(s.joining, node) // a dropped catch-up re-joins on its next return
 		if s.gateSatisfied() {
 			effs := []Effect{EffNotify{Text: fmt.Sprintf("дом %s пропал — эфир продолжается, догонит по возвращении", node)}}
+			// The dropped home may have been the LAST one a barrier was waiting
+			// for — every state's barrier must be re-checked here, or the air
+			// stalls: LOADING waits out 2x ready-timeout then skips a track the
+			// survivors had ready (H2), ARMED hangs forever (H1), PLAYING/VOICE
+			// never finish.
 			switch s.State {
+			case StateLoading:
+				if s.Current != nil {
+					if more := s.checkAllReady(nowMS, s.Current.ID); more != nil {
+						return append(effs, more...)
+					}
+				}
+			case StateArmed:
+				if more := s.checkAllStarted(); more != nil {
+					return append(effs, more...)
+				}
 			case StatePlaying:
 				if s.Current != nil && s.endedConditionMet() {
 					return append(effs, s.finishCurrent("eof")...)

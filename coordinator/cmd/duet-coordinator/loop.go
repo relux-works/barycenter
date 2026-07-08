@@ -534,8 +534,14 @@ func (l *loop) breakGroup(linkID int64, orbits ...int64) {
 	for _, id := range orbits {
 		delete(l.linkOf, id)
 		// The orbit session slept through the link: EvOnline/EvOffline went
-		// to the group, its liveness map is stale — reseed from the hub.
+		// to the group, its liveness map is stale — reseed from the hub. The
+		// MEMBERSHIP is stale too (H3): /leave, /revoke, /rebind and fresh
+		// pairings were applied to the group session only, so re-read the slot
+		// set — or the strict gate waits forever for a revoked home, and a
+		// home paired during the link never gets a load.
 		o := l.orbit(id)
+		slots, _ := l.st.ActiveSlots(id)
+		o.sess.SetPeers(slots)
 		o.sess.SeedOnline(l.hub.Online(id))
 		l.notifyOrbit(id, "сближение завершено — каждый у себя")
 	}
@@ -548,9 +554,22 @@ func (l *loop) breakGroup(linkID int64, orbits ...int64) {
 // former members fall through to the stranger path.
 func (l *loop) dissolveOrbit(home *orbitState) {
 	if linkID := l.linkOf[home.id]; linkID != 0 {
-		if _, other, ok, _ := l.st.ActiveLink(home.id); ok {
-			l.breakGroup(linkID, home.id, other)
+		// Derive the partner orbit from IN-MEMORY link state, not the store: on
+		// the /leave-last-member path LeaveOrbit->DeleteOrbit has already erased
+		// the links row, and an ActiveLink lookup here came back empty — so
+		// breakGroup never ran and the partner orbit was stranded behind a
+		// phantom group session until a coordinator restart (C1).
+		others := []int64{home.id}
+		if g, ok := l.groups[linkID]; ok {
+			for _, id := range g.orbits {
+				if id != home.id {
+					others = append(others, id)
+				}
+			}
+		} else if _, other, ok, _ := l.st.ActiveLink(home.id); ok {
+			others = append(others, other)
 		}
+		l.breakGroup(linkID, others...)
 	}
 	o := l.stateFor(home.id) // the personal orbit again after any breakGroup
 	l.cancelReadyTimer(o)
@@ -613,7 +632,7 @@ func (l *loop) handleNode(ev hub.Event) {
 		o := l.stateFor(e.Key.Orbit)
 		l.log.Warn("node offline", "orbit", e.Key.Orbit, "slot", e.Key.Slot)
 		l.st.LogEvent(string(e.Key.Slot), "offline", nil)
-		l.apply(o, o.sess.OnNodeOffline(l.peerFor(o, e.Key)))
+		l.apply(o, o.sess.OnNodeOffline(time.Now().UnixMilli(), l.peerFor(o, e.Key)))
 	case hub.EvMessage:
 		l.handleNodeMessage(e)
 	}
@@ -623,6 +642,19 @@ func (l *loop) handleNodeMessage(m hub.EvMessage) {
 	o := l.stateFor(m.Key.Orbit)
 	slot := l.peerFor(o, m.Key)
 	now := time.Now().UnixMilli()
+	// Proof-of-life guard (M1): the hub's sweep can emit a stale EvOffline just
+	// after the reader emitted EvOnline for the same node (flip-then-emit races
+	// on both sides). The hub map then says "online", so no further EvOnline
+	// will ever come — while the FSM believes the home is dark and a strict
+	// orbit stays parked although the node heartbeats normally. Any message
+	// from a known peer is proof of life: replay the online edge first.
+	if !o.sess.IsOnline(slot) && o.sess.HasPeer(slot) {
+		if join := o.sess.JoinInProgress(slot); join != nil {
+			l.apply(o, join)
+		} else {
+			l.apply(o, o.sess.OnNodeBack(slot))
+		}
+	}
 	switch p := m.Payload.(type) {
 	case *protocol.StatePayload:
 		o.lastSeen[slot] = p

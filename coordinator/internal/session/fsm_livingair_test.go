@@ -131,7 +131,7 @@ func TestLivingAirSurvivesMidPlayDrop(t *testing.T) {
 	if s.State != StatePlaying {
 		t.Fatalf("want playing, got %s", s.State)
 	}
-	effs := s.OnNodeOffline("b")
+	effs := s.OnNodeOffline(2000, "b")
 	if s.State != StatePlaying {
 		t.Fatalf("mid-play drop must NOT degrade under living air, got %s", s.State)
 	}
@@ -157,7 +157,7 @@ func TestLivingAirParksAndRecoversByGate(t *testing.T) {
 	s.OnReady(1000, "c", "el1")
 	s.OnStarted("a", "el1", 1600)
 	s.OnStarted("c", "el1", 1650)
-	s.OnNodeOffline("c")
+	s.OnNodeOffline(2000, "c")
 	if s.State != StateDegraded {
 		t.Fatalf("a dark side must park, got %s", s.State)
 	}
@@ -168,5 +168,161 @@ func TestLivingAirParksAndRecoversByGate(t *testing.T) {
 	}
 	if len(of[EffNotify](t, effs)) == 0 {
 		t.Fatalf("expected a resume-me notice: %#v", effs)
+	}
+}
+
+// H2 regression: the LAST not-ready participant drops during LOADING while the
+// gate still holds. The barrier must re-run — before the fix the state stalled
+// in LOADING for ~2x ready-timeout and then skipped a track every survivor
+// already had ready.
+func TestLivingAirDropLastNotReadyDuringLoadingArms(t *testing.T) {
+	s := livingSession()
+	s.online["a"] = true
+	s.online["b"] = true
+	s.online["c"] = true
+	s.OnHeartbeat("a", 0, 40)
+	s.OnHeartbeat("b", 0, 40)
+	s.OnHeartbeat("c", 0, 60)
+	s.EnqueueTrack(trackEl("el1", "spotify:track:X"))
+	s.OnReady(1000, "a", "el1")
+	s.OnReady(1000, "c", "el1")
+
+	effs := s.OnNodeOffline(1500, "b") // b was the only not-ready participant
+	if s.State != StateArmed {
+		t.Fatalf("survivors a+c are ready — must arm, got %s", s.State)
+	}
+	res := of[EffResumeAt](t, effs)
+	if len(res) != 2 {
+		t.Fatalf("resume_at to both survivors: %#v", effs)
+	}
+}
+
+// H1 regression: the LAST not-started participant drops during ARMED. Nothing
+// else re-evaluates the started barrier (OnEnded ignores ARMED, no timer runs)
+// — the air used to hang there until a human /skip.
+func TestLivingAirDropLastNotStartedDuringArmedPlays(t *testing.T) {
+	s := livingSession()
+	s.online["a"] = true
+	s.online["b"] = true
+	s.online["c"] = true
+	s.OnHeartbeat("a", 0, 40)
+	s.OnHeartbeat("b", 0, 40)
+	s.OnHeartbeat("c", 0, 60)
+	s.EnqueueTrack(trackEl("el1", "spotify:track:X"))
+	s.OnReady(1000, "a", "el1")
+	s.OnReady(1000, "b", "el1")
+	s.OnReady(1000, "c", "el1")
+	s.OnStarted("a", "el1", 1600)
+	s.OnStarted("c", "el1", 1650)
+
+	s.OnNodeOffline(2000, "b") // b never started
+	if s.State != StatePlaying {
+		t.Fatalf("survivors a+c both started — must play, got %s", s.State)
+	}
+	// The element can now actually finish.
+	s.OnEnded("a", "el1", "eof")
+	if effs := s.OnEnded("c", "el1", "eof"); len(of[EffElementDone](t, effs)) == 0 {
+		t.Fatalf("track must end for the survivors: %#v", effs)
+	}
+}
+
+// H1 via /revoke: RemovePeer during ARMED re-checks the started barrier too.
+func TestLivingAirRevokeLastNotStartedDuringArmedPlays(t *testing.T) {
+	s := livingSession()
+	s.online["a"] = true
+	s.online["b"] = true
+	s.online["c"] = true
+	s.OnHeartbeat("a", 0, 40)
+	s.OnHeartbeat("b", 0, 40)
+	s.OnHeartbeat("c", 0, 60)
+	s.EnqueueTrack(trackEl("el1", "spotify:track:X"))
+	s.OnReady(1000, "a", "el1")
+	s.OnReady(1000, "b", "el1")
+	s.OnReady(1000, "c", "el1")
+	s.OnStarted("a", "el1", 1600)
+	s.OnStarted("c", "el1", 1650)
+
+	s.RemovePeer(2000, "b")
+	if s.State != StatePlaying {
+		t.Fatalf("revoke of the last laggard must complete the start, got %s", s.State)
+	}
+}
+
+// JoinInProgress IS the joiner's online edge (the loop routes EvOnline here
+// instead of OnNodeBack): the session must record it, or the NEXT element's
+// participant sealing still sees the home dark and it goes silent right after
+// the catch-up track.
+func TestJoinInProgressCountsForNextElement(t *testing.T) {
+	s := livingSession()
+	s.online["a"] = true
+	s.online["c"] = true // b offline at seal time
+	s.OnHeartbeat("a", 0, 40)
+	s.OnHeartbeat("c", 0, 60)
+	s.EnqueueTrack(trackEl("el1", "spotify:track:X"))
+	s.OnReady(1000, "a", "el1")
+	s.OnReady(1000, "c", "el1")
+	s.OnStarted("a", "el1", 1600)
+	s.OnStarted("c", "el1", 1650)
+	s.OnHeartbeat("a", 30000, 40)
+	s.OnHeartbeat("c", 30000, 60)
+	s.EnqueueTrack(trackEl("el2", "spotify:track:Y"))
+
+	// b returns mid-flight: the loop calls JoinInProgress (not OnNodeBack).
+	if effs := s.JoinInProgress("b"); len(of[EffLoad](t, effs)) != 1 {
+		t.Fatalf("catch-up load expected: %#v", effs)
+	}
+	s.OnReady(31000, "b", "el1")
+	s.OnStarted("b", "el1", 31500) // graduates
+
+	s.OnEnded("a", "el1", "eof")
+	s.OnEnded("b", "el1", "eof")
+	effs := s.OnEnded("c", "el1", "eof") // advance to el2
+	loads := of[EffLoad](t, effs)
+	if len(loads) != 3 {
+		t.Fatalf("el2 must load to ALL THREE homes (b is online now): %#v", effs)
+	}
+	if !s.counts("b") {
+		t.Fatal("b must be sealed as a participant of el2")
+	}
+}
+
+// M2 regression: heartbeat positions are per-element. A stale position from
+// the previous (longer) track must not satisfy the next track's near-end
+// condition — one early errored 'ended' used to cut the new track seconds in.
+func TestStaleHeartbeatDoesNotFinishNextTrack(t *testing.T) {
+	s := New()
+	s.SetPeers([]string{"a", "b"})
+	s.online["a"] = true
+	s.online["b"] = true
+	el1 := trackEl("el1", "spotify:track:LONG")
+	el1.DurationMS = 200000
+	s.EnqueueTrack(el1)
+	s.OnReady(1000, "a", "el1")
+	s.OnReady(1000, "b", "el1")
+	s.OnStarted("a", "el1", 1600)
+	s.OnStarted("b", "el1", 1600)
+	s.OnHeartbeat("a", 199500, 40)
+	s.OnHeartbeat("b", 199800, 40)
+	s.OnEnded("a", "el1", "eof")
+	s.OnEnded("b", "el1", "eof")
+
+	el2 := trackEl("el2", "spotify:track:SHORT")
+	el2.DurationMS = 120000
+	s.EnqueueTrack(el2)
+	s.OnReady(3000, "a", "el2")
+	s.OnReady(3000, "b", "el2")
+	s.OnStarted("a", "el2", 3600)
+	s.OnStarted("b", "el2", 3600)
+
+	// b misfires 2s in; a's first el2 heartbeat has not arrived yet.
+	if effs := s.OnEnded("b", "el2", "error"); effs != nil {
+		t.Fatalf("el2 finished off a's STALE el1 position: %#v", effs)
+	}
+	if s.State != StatePlaying {
+		t.Fatalf("state = %s", s.State)
+	}
+	// Fresh near-end data still completes the element as designed.
+	if effs := s.OnHeartbeat("a", 119500, 40); len(of[EffElementDone](t, effs)) == 0 {
+		t.Fatalf("fresh near-end heartbeat must finish the element: %#v", effs)
 	}
 }

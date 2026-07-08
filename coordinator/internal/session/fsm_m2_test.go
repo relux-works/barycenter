@@ -103,7 +103,7 @@ func TestTrioOfflineParksAll(t *testing.T) {
 	s.OnHeartbeat("b", 62_950, 60)
 	s.OnHeartbeat("c", 63_010, 90)
 
-	effs := s.OnNodeOffline("b")
+	effs := s.OnNodeOffline(63_100, "b")
 	if s.State != StateDegraded {
 		t.Fatalf("state = %s", s.State)
 	}

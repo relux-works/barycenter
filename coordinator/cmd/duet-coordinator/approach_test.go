@@ -310,3 +310,106 @@ func TestApproachSurvivesRestart(t *testing.T) {
 			g.sess.State, g.sess.Current, g.sess.QueueLen())
 	}
 }
+
+// C1 regression: the LAST member of a linked orbit /leave's. LeaveOrbit ->
+// DeleteOrbit erases the links row before dissolveOrbit could read it, so the
+// break must run from in-memory link state — before the fix the partner orbit
+// was stranded behind a phantom group session (air bricked, /apart refused)
+// until a coordinator restart.
+func TestLastMemberLeaveWhileLinkedFreesPartner(t *testing.T) {
+	l, fake, o2 := twoOrbitLoop(t)
+	r := &replies{}
+	proposeAndAwait(t, l, r)
+	l.handleBot(cmdEvent(t, "a", "/accept", r))
+	linkID := l.linkOf[1]
+	if linkID == 0 || l.groups[linkID] == nil {
+		t.Fatal("precondition: active link with a live group session")
+	}
+	fake.drain()
+
+	// User 333 is the only member of orbit 2 -> /leave dissolves it mid-link.
+	l.handleBot(cmdEvent(t, "o2", "/leave", r))
+
+	if _, ok := l.groups[linkID]; ok {
+		t.Fatal("group session must die with the linked orbit")
+	}
+	if l.linkOf[1] != 0 || l.linkOf[o2] != 0 {
+		t.Fatalf("linkOf must be cleared, got %v", l.linkOf)
+	}
+	if o := l.stateFor(1); o.group() {
+		t.Fatalf("stateFor(1) still routes to a group (id=%d)", o.id)
+	}
+	// The survivor's air works immediately: a track loads to its own homes.
+	fake.drain()
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: "a"}, Payload: &protocol.StatePayload{PositionMS: 0, RTTMS: 40, Volume: 80}})
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: "b"}, Payload: &protocol.StatePayload{PositionMS: 0, RTTMS: 60, Volume: 80}})
+	l.handleBot(cmdEvent(t, "a", link, r))
+	if st := l.stateFor(1).sess.State; st != session.StateLoading {
+		t.Fatalf("survivor air state = %s, want loading", st)
+	}
+	if got := fake.ofType(protocol.TypeLoad); len(got) != 2 {
+		t.Fatalf("post-leave loads to orbit 1's own homes: %+v", fake.sent)
+	}
+}
+
+// H3 regression (leave-during-link): a member with a paired home /leave's
+// while an approach is active; the slot revocation lands on the GROUP session
+// only. breakGroup must re-read the slot set — before the fix the personal
+// session still listed the revoked home after /apart and the strict gate
+// parked every new track forever.
+func TestMemberLeaveDuringLinkHealsPersonalPeers(t *testing.T) {
+	l, fake, _ := twoOrbitLoop(t)
+	r := &replies{}
+	proposeAndAwait(t, l, r)
+	l.handleBot(cmdEvent(t, "a", "/accept", r))
+	fake.drain()
+
+	// Katya (user 222, home "b" of orbit 1) leaves while linked.
+	l.handleBot(cmdEvent(t, "b", "/leave", r))
+	l.handleBot(cmdEvent(t, "a", "/apart", r))
+
+	o := l.orbit(1)
+	for _, p := range o.sess.Peers {
+		if p == protocol.NodeID("b") {
+			t.Fatal("personal session still lists the revoked slot 'b' after /apart")
+		}
+	}
+	// The strict gate passes with the remaining home online: a track plays.
+	fake.drain()
+	l.handleNodeMessage(hub.EvMessage{Key: hub.NodeKey{Orbit: 1, Slot: "a"}, Payload: &protocol.StatePayload{PositionMS: 0, RTTMS: 40, Volume: 80}})
+	l.handleBot(cmdEvent(t, "a", link, r))
+	if st := o.sess.State; st != session.StateLoading {
+		t.Fatalf("state = %s, want loading (gate must not wait for revoked 'b')", st)
+	}
+}
+
+// H3 regression (pair-during-link): a home paired while the approach is active
+// registers into the group session only. After /apart the personal session
+// must know it — before the fix the new home never got a load and stayed
+// silent until a coordinator restart.
+func TestSlotPairedDuringLinkJoinsPersonalAfterApart(t *testing.T) {
+	l, _, o2 := twoOrbitLoop(t)
+	r := &replies{}
+	proposeAndAwait(t, l, r)
+	l.handleBot(cmdEvent(t, "a", "/accept", r))
+
+	slot, _, err := l.st.PairSlot(o2, 333)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.handleNode(hub.EvRegistered{Key: hub.NodeKey{Orbit: o2, Slot: protocol.NodeID(slot)}})
+	l.handleNode(hub.EvOnline{Key: hub.NodeKey{Orbit: o2, Slot: protocol.NodeID(slot)}})
+
+	l.handleBot(cmdEvent(t, "a", "/apart", r))
+
+	found := false
+	for _, p := range l.orbit(o2).sess.Peers {
+		if p == protocol.NodeID(slot) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("slot %q paired during the link is missing from orbit %d peers after /apart: %v",
+			slot, o2, l.orbit(o2).sess.Peers)
+	}
+}

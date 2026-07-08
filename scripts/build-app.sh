@@ -82,7 +82,13 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>${BUILD_NUMBER}</string>
   <key>SUFeedURL</key><string>${SPARKLE_FEED_URL}</string>
   <key>SUPublicEDKey</key><string>${SPARKLE_PUBLIC_KEY}</string>
+  <!-- F4 silent auto-update: SUAutomaticallyUpdate alone does nothing without
+       SUEnableAutomaticChecks — the app never checks the feed on its own and
+       the user must "Check for Updates" by hand. Enable periodic checks (hourly)
+       and silent install; skip Sparkle's first-run permission prompt. -->
+  <key>SUEnableAutomaticChecks</key><true/>
   <key>SUAutomaticallyUpdate</key><true/>
+  <key>SUScheduledCheckInterval</key><integer>3600</integer>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <!-- Regular app (Dock icon and all): Airfoil lists only regular running

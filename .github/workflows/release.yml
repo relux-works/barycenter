@@ -31,6 +31,11 @@ jobs:
       # runners (given [5], supported []); universal ships later via xcodebuild.
       - name: Build Pulsar (arm64)
         run: |
+          # Stamp the in-binary version (menu line, register payload) from the
+          # tag — it shipped as "0.3.0-dev" in every beta, so node logs and
+          # /status could not tell releases apart. The plist gets its version
+          # separately via build-app.sh.
+          sed -i '' "s|^let appVersion = .*|let appVersion = \"${GITHUB_REF_NAME#v}\"|" node-app/Sources/NodeApp/main.swift
           cd node-app
           swift build -c release
       - name: Import Developer ID identity
@@ -221,10 +226,14 @@ jobs:
         run: |
           mkdir -p dist
           cd coordinator
+          # NO -H windowsgui here: that flag overrides the OUTPUT FORMAT even
+          # with GOOS=linux — the "linux" artifacts of earlier releases were
+          # silently PE32+ Windows executables (caught 2026-07-08; prod was
+          # unaffected — Coolify builds from the Dockerfile).
           for arch in amd64 arm64; do
             CGO_ENABLED=0 GOOS=linux GOARCH=$arch \
               go build -trimpath \
-              -ldflags="-s -w -buildid= -H windowsgui -X main.version=${GITHUB_REF_NAME}" \
+              -ldflags="-s -w -buildid= -X main.version=${GITHUB_REF_NAME}" \
               -o ../dist/duet-coordinator-linux-$arch ./cmd/duet-coordinator
           done
           cd ../dist && shasum -a 256 * > SHA256SUMS

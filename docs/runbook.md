@@ -48,6 +48,12 @@ Daily DB backup (weekly rotation, spec ch. 16): add to `duet` user's cron:
 
 Check: `curl http://127.0.0.1:3678/` returns `{"playback_ready":true}` shortly after start.
 
+If Spotify does not show the device, first verify the daemon log contains
+`zeroconf server listening` and that the built `.app` declares
+`NSLocalNetworkUsageDescription` plus `NSBonjourServices = _spotify-connect._tcp`.
+On macOS 15+ the app also needs Local Network access allowed in System Settings;
+phone and Mac must be on the same Wi-Fi, and VPNs can hide mDNS.
+
 ## 4. Speaker delivery setup (per home, spec ch. 14, v1.3)
 
 ### 4a. Direct mode (default, `airfoil.enabled: false`)
@@ -82,14 +88,15 @@ Whoever's click lags gets a bigger offset (offset = start earlier): `/offset b 3
 |---|---|---|
 | 1 | `/status` says a node is offline | On that Mac: `tailscale status` (tailnet up?), `launchctl print gui/$(id -u)/works.relux.duet.nodeapp` (agent running?), `tail ~/duet/nodeapp.log` (config error prints an explicit reason; bad token shows "register rejected" on the coordinator). Reboot recovers automatically: agent is RunAtLoad+KeepAlive |
 | 2 | librespot restart-cycling (`librespot_restart` errors in chat/log) | `grep librespot ~/duet/nodeapp.log \| tail -30`. Usual causes: lost credentials (redo first login, §3), port 3678 busy (`lsof -i :3678`), broken FIFO path (NodeApp recreates it — check `audio.fifo_path` dir exists) |
-| 3 | One speaker silent, chat says degraded | Airfoil lost it. NodeApp reconnects with backoff (<=60 s after power-on). If it never returns: open Airfoil, check the speaker's name still matches `airfoil.speakers` exactly (renames break matching) |
-| 4 | All speakers silent, NodeApp says playing | Airfoil Automation permission revoked or ACE broken after a macOS update: System Settings -> Privacy & Security -> Automation -> NodeApp -> Airfoil ON; reinstall ACE from Airfoil if prompted. Tahoe: see §4 item 4 (sample-rate bug). Last resort: Airfoil source = NodeApp manually |
-| 5 | Homes audibly out of sync | `/sync` first (restarts current track synced). Recurs: re-run §5 calibration; check `/status` rtt (tailnet detour: `tailscale ping node-b`) and that both Macs run NTP (`sntp -sS time.apple.com`) |
-| 6 | Voice message never plays | Chat shows processing errors? `journalctl -u duet-coordinator \| grep -E "voice\|media" \| tail`. ffmpeg present on VPS (`ffmpeg -version`)? Node side: `grep media_download ~/duet/nodeapp.log` — 401 means token mismatch, 404 means media expired (30 d retention) |
-| 7 | Bot silent | `journalctl -u duet-coordinator \| grep -i telegram \| tail`. `getUpdates` errors = bad bot_token; commands ignored = your user id is not in `telegram.users` (bot ignores strangers silently by design); group links unseen = BotFather privacy mode must be Disabled |
-| 8 | Coordinator down / VPS rebooted | systemd restarts it; after restart the session is PAUSED with a chat notice — `/resume` continues (position from node heartbeats). If unit is dead: `journalctl -u duet-coordinator -n 50`; config errors print explicit `config invalid:` lines |
-| 9 | Track skipped with "недоступен" | Region mismatch between the two accounts (spec 4.4) — expected per-track; if systematic, align account regions |
-| 10 | Music stutters, `audio_starvation` errors | Wi-Fi or Spotify connectivity on that Mac; NodeApp soft-restarts the daemon automatically. Check `underruns` growth in `/status` and the Mac's network |
+| 3 | Pulsar does not appear in Spotify devices | Check `grep zeroconf ~/Library/Application\ Support/Pulsar/pulsar.log \| tail`: expect `zeroconf server listening` and `using built-in mDNS responder`. If present, verify Local Network permission for Pulsar, same Wi-Fi, VPN off, and a build containing `NSBonjourServices = _spotify-connect._tcp`; macOS firewall must allow incoming connections if enabled |
+| 4 | One speaker silent, chat says degraded | Airfoil lost it. NodeApp reconnects with backoff (<=60 s after power-on). If it never returns: open Airfoil, check the speaker's name still matches `airfoil.speakers` exactly (renames break matching) |
+| 5 | All speakers silent, NodeApp says playing | Airfoil Automation permission revoked or ACE broken after a macOS update: System Settings -> Privacy & Security -> Automation -> NodeApp -> Airfoil ON; reinstall ACE from Airfoil if prompted. Tahoe: see §4 item 4 (sample-rate bug). Last resort: Airfoil source = NodeApp manually |
+| 6 | Homes audibly out of sync | `/sync` first (restarts current track synced). Recurs: re-run §5 calibration; check `/status` rtt (tailnet detour: `tailscale ping node-b`) and that both Macs run NTP (`sntp -sS time.apple.com`) |
+| 7 | Voice message never plays | Chat shows processing errors? `journalctl -u duet-coordinator \| grep -E "voice\|media" \| tail`. ffmpeg present on VPS (`ffmpeg -version`)? Node side: `grep media_download ~/duet/nodeapp.log` — 401 means token mismatch, 404 means media expired (30 d retention) |
+| 8 | Bot silent | `journalctl -u duet-coordinator \| grep -i telegram \| tail`. `getUpdates` errors = bad bot_token; commands ignored = your user id is not in `telegram.users` (bot ignores strangers silently by design); group links unseen = BotFather privacy mode must be Disabled |
+| 9 | Coordinator down / VPS rebooted | systemd restarts it; after restart the session is PAUSED with a chat notice — `/resume` continues (position from node heartbeats). If unit is dead: `journalctl -u duet-coordinator -n 50`; config errors print explicit `config invalid:` lines |
+| 10 | Track skipped with "недоступен" | Region mismatch between the two accounts (spec 4.4) — expected per-track; if systematic, align account regions |
+| 11 | Music stutters, `audio_starvation` errors | Wi-Fi or Spotify connectivity on that Mac; NodeApp soft-restarts the daemon automatically. Check `underruns` growth in `/status` and the Mac's network |
 
 ## 6a. Build machine: signing identity (once, before the first release)
 

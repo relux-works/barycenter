@@ -19,11 +19,16 @@ struct OnboardingView: View {
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(.tint)
             Text("Пульсар").font(.title2).bold()
+            // The couple's first session is the INVITE path (product decision
+            // 2026-07-08): lead with it, keep /create as the secondary line.
+            // Mirrors the Windows window (ui_common.go:uiIntroText) word for word.
             VStack(alignment: .leading, spacing: 6) {
-                Text("Пульсар — общий музыкальный эфир для ваших домов. Чтобы подключить этот мак, нужен код из телеграм-бота:")
-                Text("1. Открой бота и напиши /create — если создаёшь свой барицентр.")
-                Text("2. Или открой инвайт-ссылку от партнёра и напиши /pair.")
-                Text("3. Введи код сюда — и музыка дома.")
+                Text("Пульсар — общий музыкальный эфир для ваших домов. Чтобы слушать вместе:")
+                Text("1. Партнёр в @barycenter_bot командой /share пришлёт тебе ссылку-приглашение.")
+                Text("2. Открой ссылку и напиши боту /pair — он пришлёт код для этого мака.")
+                Text("3. Введи код сюда — и музыка заиграет у вас обоих.")
+                Text("Свой эфир с нуля? Напиши боту /create, потом /pair — и введи код.")
+                    .padding(.top, 2)
             }
             .font(.callout)
             .foregroundStyle(.secondary)

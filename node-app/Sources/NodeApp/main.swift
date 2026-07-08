@@ -302,6 +302,16 @@ func connectionIdentity(_ config: NodeConfig) -> String {
     return "\(host) · дом \(config.nodeId)"
 }
 
+// finishPairing starts the core after a successful pair and surfaces the
+// one-time Spotify step (#4): pairing only links this mac to the air — nothing
+// plays until Spotify picks "Pulsar" once (Premium required), so without this
+// the first track fails as track_unavailable and reads as "broken". The same
+// help stays in the menu bar afterwards ("Как включить звук").
+func finishPairing(_ paired: NodeConfig) {
+    startCore(with: paired)
+    DispatchQueue.main.async { SpotifyHelp.presentHowToSound() }
+}
+
 // rePairFlow tears down the running core and reopens the onboarding window
 // so the user can pair against a fresh code (F3). A successful pair starts a
 // new core in place — no relaunch.
@@ -316,7 +326,7 @@ func rePairFlow() {
             credentials: CredentialsStore.load(besideConfig: configPath)) else {
             failConfig("креды сохранены, но конфиг не собрался — перезапусти Pulsar")
         }
-        startCore(with: paired)
+        finishPairing(paired)
     }
 }
 
@@ -362,7 +372,7 @@ func bootstrap() {
             guard let paired else {
                 failConfig("креды сохранены, но конфиг не собрался — перезапусти Pulsar")
             }
-            startCore(with: paired)
+            finishPairing(paired)
         }
         return
     }

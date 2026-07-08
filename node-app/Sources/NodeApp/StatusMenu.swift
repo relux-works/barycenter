@@ -62,6 +62,16 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             menu.addItem(rp)
         }
 
+        // #4/#6: the one-time Spotify step and the firewall/"can't see Pulsar"
+        // help stay one click away for the whole run — the post-pair alert is
+        // easy to dismiss and forget, so the menu keeps both reachable.
+        let howto = NSMenuItem(title: "Как включить звук…", action: #selector(showSpotifyHelp), keyEquivalent: "")
+        howto.target = self
+        menu.addItem(howto)
+        let noPulsar = NSMenuItem(title: "Не вижу Pulsar в Spotify?", action: #selector(openGuide), keyEquivalent: "")
+        noPulsar.target = self
+        menu.addItem(noPulsar)
+
         // Output devices submenu.
         let outMenu = NSMenu()
         let current = DirectOutputMonitor.currentOutputName()
@@ -118,6 +128,14 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         rePairAction?()
     }
 
+    @objc private func showSpotifyHelp() {
+        SpotifyHelp.presentHowToSound()
+    }
+
+    @objc private func openGuide() {
+        SpotifyHelp.openGuide()
+    }
+
     @objc private func toggleLogin() {
         do {
             if SMAppService.mainApp.status == .enabled {
@@ -128,5 +146,39 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         } catch {
             NSLog("login item toggle failed: \(error)")
         }
+    }
+}
+
+// SpotifyHelp is the "one more step" copy (#4/#6): pairing links the mac to the
+// air, but nothing plays until Spotify picks "Pulsar" once (Premium required).
+// Presented as an alert right after pairing (main.swift) and any time from the
+// menu bar. Mirrors the Windows post-pair modal (ui_common.go:uiSpotifyStep*).
+enum SpotifyHelp {
+    static let guideURL = URL(string: "https://barycenter.live/guide/")!
+
+    // presentHowToSound shows the Spotify-device + Premium walkthrough with a
+    // shortcut into the guide (firewall / same-Wi-Fi / VPN). Main-thread only.
+    static func presentHowToSound() {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Готово! Остался один шаг"
+        alert.informativeText = """
+        Пульсар подключён к эфиру. Чтобы пошёл звук:
+
+        1. Открой Spotify (нужен Spotify Premium).
+        2. В списке устройств выбери «Pulsar».
+        3. Включи любой трек — это нужно один раз, чтобы Spotify запомнил колонку.
+
+        Не видно «Pulsar»? Телефон и компьютер — в одной Wi-Fi; проверь файрвол macOS и выключи VPN.
+        """
+        alert.addButton(withTitle: "Понятно")
+        alert.addButton(withTitle: "Открыть гид")
+        if alert.runModal() == .alertSecondButtonReturn {
+            openGuide()
+        }
+    }
+
+    static func openGuide() {
+        NSWorkspace.shared.open(guideURL)
     }
 }

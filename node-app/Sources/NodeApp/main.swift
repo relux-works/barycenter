@@ -320,7 +320,8 @@ func rePairFlow() {
     runtime = nil
     statusMenu.player = nil
     app.setActivationPolicy(.regular)
-    onboarding.show(coordinatorBase: defaultCoordinatorBase) { _ in
+    // Re-pair: LAN access was settled on the first run — don't re-prime it.
+    onboarding.show(coordinatorBase: defaultCoordinatorBase, promptForNetwork: false) { _ in
         guard let paired = try? ConfigLoader.load(
             path: configPath,
             credentials: CredentialsStore.load(besideConfig: configPath)) else {
@@ -365,7 +366,10 @@ func bootstrap() {
             """)
         }
         app.setActivationPolicy(.regular)
-        onboarding.show(coordinatorBase: defaultCoordinatorBase) { _ in
+        // First launch: prime the Local Network permission before pairing, so the
+        // system prompt lands on an explained button — not out of nowhere while a
+        // headless daemon touches the LAN (the failure that hid Timur's speaker).
+        onboarding.show(coordinatorBase: defaultCoordinatorBase, promptForNetwork: true) { _ in
             let paired = try? ConfigLoader.load(
                 path: configPath,
                 credentials: CredentialsStore.load(besideConfig: configPath))

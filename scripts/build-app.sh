@@ -95,6 +95,15 @@ cat > "$APP/Contents/Info.plist" <<PLIST
        apps as sources (spike S4); the node Macs are headless anyway. -->
   <key>NSAppleEventsUsageDescription</key>
   <string>NodeApp controls Airfoil to deliver audio to the home speakers.</string>
+  <!-- Local Network (macOS 15+): the daemon advertises "Pulsar" over Bonjour so
+       the phone's Spotify can find it as a speaker. Without NSBonjourServices the
+       browse is blocked even after the user grants access; the usage string is
+       the reason shown in the system prompt. Onboarding primes this deliberately
+       (LocalNetworkProbe) so the prompt never appears out of context. -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Чтобы Spotify на телефоне видел этот компьютер как колонку «Pulsar».</string>
+  <key>NSBonjourServices</key>
+  <array><string>_spotify-connect._tcp</string></array>
 </dict></plist>
 PLIST
 
@@ -106,6 +115,16 @@ PLIST_FILE="$APP/Contents/Info.plist"
 for k in SUFeedURL SUPublicEDKey SUEnableAutomaticChecks SUAutomaticallyUpdate SUScheduledCheckInterval; do
   if ! /usr/libexec/PlistBuddy -c "Print :$k" "$PLIST_FILE" >/dev/null 2>&1; then
     echo "FATAL: Info.plist is missing required Sparkle key '$k' (silent auto-update would break — F4)" >&2
+    exit 1
+  fi
+done
+
+# Same guard for the Local Network keys: NSBonjourServices missing => the phone
+# can't discover "Pulsar" even after the user grants access (the invisible-speaker
+# class of bug), and it fails silently with no build error. Do not let it regress.
+for k in NSLocalNetworkUsageDescription NSBonjourServices; do
+  if ! /usr/libexec/PlistBuddy -c "Print :$k" "$PLIST_FILE" >/dev/null 2>&1; then
+    echo "FATAL: Info.plist is missing required Local Network key '$k' (Spotify can't find the speaker)" >&2
     exit 1
   fi
 done

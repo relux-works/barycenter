@@ -1,4 +1,5 @@
 listen: "__TAILSCALE_IP__:8080"         # tailscale address of this VPS; never a public IP
+log_level: info                         # debug|info|warn|error (default info)
 db_path: /var/lib/duet/duet.db
 media_dir: /var/lib/duet/media
 nodes:

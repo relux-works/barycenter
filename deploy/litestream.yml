@@ -1,0 +1,32 @@
+# Litestream config — continuous backup of the Barycenter SQLite DB
+# (architecture review #12: the Coolify volume had NO backup; a lost volume
+# meant total, unrecoverable loss of every orbit, member and pairing).
+#
+# Litestream streams the WAL frames of duet.db to S3-compatible object storage
+# so the DB can be restored point-in-time onto a fresh volume. It runs as a
+# sidecar (deploy/docker-compose.yml) that shares the /var/lib/duet volume with
+# the coordinator.
+#
+# Requirements & notes:
+#   - The DB must be in WAL journal mode. Litestream enables WAL itself when it
+#     starts, and because WAL is a persistent property of the SQLite file the
+#     coordinator inherits it on its next open. Do NOT force rollback-journal
+#     mode in the coordinator or replication breaks.
+#   - ${VARS} are expanded from the environment at startup. Set them in
+#     Coolify / .env (see deploy/coolify.env.example). Credentials are read
+#     natively from LITESTREAM_ACCESS_KEY_ID / LITESTREAM_SECRET_ACCESS_KEY.
+#   - If LITESTREAM_BUCKET is empty this config still loads but replicates
+#     nowhere — verify the sidecar logs "replicating to" on deploy.
+
+dbs:
+  - path: /var/lib/duet/duet.db
+    replicas:
+      - type: s3
+        bucket: ${LITESTREAM_BUCKET}
+        path: ${LITESTREAM_PATH}
+        endpoint: ${LITESTREAM_ENDPOINT}
+        region: ${LITESTREAM_REGION}
+        # A fresh full snapshot every 6h; keep 7 days of snapshots + WAL so we
+        # can restore to any point within the last week.
+        snapshot-interval: 6h
+        retention: 168h

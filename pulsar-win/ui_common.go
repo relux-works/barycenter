@@ -27,14 +27,16 @@ const (
 // Onboarding window strings. CRLF, not LF: Win32 STATIC controls only break
 // lines on \r\n.
 const (
-	uiWindowTitle = "Pulsar"
-	uiTitleText   = "Пульсар"
-	uiIntroText   = "Пульсар — общий музыкальный эфир для ваших домов. Чтобы подключить этот компьютер, нужен код из телеграм-бота:\r\n" +
-		"1. Открой бота и напиши /create — если создаёшь свой барицентр.\r\n" +
-		"2. Или открой инвайт-ссылку от партнёра и напиши /pair.\r\n" +
-		"3. Введи код сюда — и музыка дома."
+	uiWindowTitle   = "Pulsar"
+	uiTitleText     = "Пульсар"
+	uiIntroSubtitle = "Общий музыкальный эфир для твоих колонок"
+	uiIntroText     = "Чтобы подключить этот компьютер, возьми код в телеграм-боте:\r\n\r\n" +
+		"1.  Открой @barycenter_bot и напиши /create — это твой барицентр.\r\n" +
+		"2.  Напиши /pair — бот пришлёт код для этого компьютера.\r\n" +
+		"3.  Введи код ниже, и музыка заиграет здесь.\r\n\r\n" +
+		"Слушать вместе с близкими — командой /approach в боте, когда захочешь."
 	// F5/F6 DoD: the network hint is part of the window text itself.
-	uiNetworkHintText = "Телефон и компьютер — в одной Wi-Fi; проверь файрвол и VPN."
+	uiNetworkHintText = "Не видно Пульсар в Spotify? Компьютер и телефон — в одной Wi-Fi; проверь брандмауэр Windows и VPN."
 	uiBotLinkText     = "Открыть @barycenter_bot"
 	uiGuideLinkText   = "Гид по подключению: barycenter.live/guide"
 	uiCodeLabelText   = "КОД ИЗ БОТА"

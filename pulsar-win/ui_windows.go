@@ -17,6 +17,13 @@ var (
 	user32   = windows.NewLazyDLL("user32.dll")
 	shell32  = windows.NewLazyDLL("shell32.dll")
 	kernel32 = windows.NewLazyDLL("kernel32.dll")
+	gdi32    = windows.NewLazyDLL("gdi32.dll")
+
+	pCreateFontW   = gdi32.NewProc("CreateFontW")
+	pSetTextColor  = gdi32.NewProc("SetTextColor")
+	pSetBkMode     = gdi32.NewProc("SetBkMode")
+	pSendMessageW  = user32.NewProc("SendMessageW")
+	pGetSysColorBr = user32.NewProc("GetSysColorBrush")
 
 	pRegisterClassExW = user32.NewProc("RegisterClassExW")
 	pCreateWindowExW  = user32.NewProc("CreateWindowExW")
@@ -151,6 +158,52 @@ type notifyIconData struct {
 
 func u16(s string) *uint16 { p, _ := windows.UTF16PtrFromString(s); return p }
 
+// --- Fonts & colors: raw Win32 defaults to an ancient bitmap font; Segoe UI
+// (the modern Windows UI font), ClearType-smoothed, is the whole difference
+// between "Windows 3.1 dialog" and "clean modern app". ---
+
+const (
+	wmSetFont        = 0x0030
+	wmCtlColorStatic = 0x0138
+	transparentBk    = 1   // TRANSPARENT bk mode
+	fwNormal         = 400 // FW_NORMAL
+	fwSemibold       = 600 // FW_SEMIBOLD
+	clearType        = 5   // CLEARTYPE_QUALITY
+	defaultCharset   = 1   // DEFAULT_CHARSET (Unicode face names carry Cyrillic)
+	clrText          = 0x001C1C1C
+	clrSecondary     = 0x00767676
+)
+
+var (
+	fontTitle, fontSubtitle, fontBody, fontHint, fontButton, fontCode windows.Handle
+)
+
+// mkFont makes a Segoe UI font. height is negative for character (point-ish)
+// height; weight is FW_NORMAL/FW_SEMIBOLD.
+func mkFont(height, weight int) windows.Handle {
+	h, _, _ := pCreateFontW.Call(
+		uintptr(int32(height)), 0, 0, 0, uintptr(weight),
+		0, 0, 0, defaultCharset, 0, 0, clearType, 0,
+		uintptr(unsafe.Pointer(u16("Segoe UI"))))
+	return windows.Handle(h)
+}
+
+func ensureFonts() {
+	if fontBody != 0 {
+		return
+	}
+	fontTitle = mkFont(-30, fwSemibold)
+	fontSubtitle = mkFont(-18, fwNormal)
+	fontBody = mkFont(-19, fwNormal)
+	fontHint = mkFont(-15, fwNormal)
+	fontButton = mkFont(-19, fwNormal)
+	fontCode = mkFont(-24, fwSemibold)
+}
+
+func setFont(control, font windows.Handle) {
+	pSendMessageW.Call(uintptr(control), wmSetFont, uintptr(font), 1)
+}
+
 // --- Onboarding window ---------------------------------------------------
 
 // onboardingCtx bridges the WndProc callback (a C-callable func without Go
@@ -161,6 +214,7 @@ type onboardingCtx struct {
 	hEdit            windows.Handle
 	hError           windows.Handle
 	hSubmit          windows.Handle
+	hSubtitle, hHint windows.Handle // rendered in secondary gray
 	result           *Credentials
 	done             bool
 }
@@ -198,7 +252,7 @@ func showOnboardingWindow(dir, coordinatorBase string) (Credentials, error) {
 		uintptr(unsafe.Pointer(className)),
 		uintptr(unsafe.Pointer(u16(uiWindowTitle))),
 		uintptr(wsCaption|wsSysMenu),
-		cwUseDefault, cwUseDefault, 500, 500,
+		cwUseDefault, cwUseDefault, 500, 540,
 		0, 0, hInst, 0,
 	)
 	if hwnd == 0 {
@@ -232,17 +286,39 @@ func onboardingProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 				uintptr(hwnd), uintptr(id), hInst, 0)
 			return windows.Handle(h2)
 		}
+		ensureFonts()
 		// Client width ~484 (500 window minus borders); generous heights so
 		// wrapped Cyrillic never clips.
-		mk("STATIC", uiTitleText, staticCenter, 20, 16, 444, 28, 0)
-		mk("STATIC", uiIntroText, wsChild|wsVisible, 20, 54, 444, 150, 0)
-		mk("STATIC", uiNetworkHintText, wsChild|wsVisible, 20, 214, 444, 48, 0)
+		hTitle := mk("STATIC", uiTitleText, staticCenter, 20, 22, 444, 38, 0)
+		hSub := mk("STATIC", uiIntroSubtitle, staticCenter, 20, 62, 444, 24, 0)
+		hIntro := mk("STATIC", uiIntroText, wsChild|wsVisible, 28, 104, 428, 176, 0)
+		hHint := mk("STATIC", uiNetworkHintText, wsChild|wsVisible, 28, 288, 428, 44, 0)
+		setFont(hTitle, fontTitle)
+		setFont(hSub, fontSubtitle)
+		setFont(hIntro, fontBody)
+		setFont(hHint, fontHint)
 		if ctx != nil {
-			ctx.hEdit = mk("EDIT", "", editStyle, 132, 274, 220, 30, idCodeEdit)
-			ctx.hSubmit = mk("BUTTON", uiSubmitText, buttonStyle, 182, 316, 120, 34, idSubmit)
-			ctx.hError = mk("STATIC", "", staticCenter, 20, 362, 444, 60, 0)
+			ctx.hSubtitle, ctx.hHint = hSub, hHint
+			ctx.hEdit = mk("EDIT", "", editStyle, 132, 344, 220, 34, idCodeEdit)
+			ctx.hSubmit = mk("BUTTON", uiSubmitText, buttonStyle, 182, 392, 120, 38, idSubmit)
+			ctx.hError = mk("STATIC", "", staticCenter, 20, 440, 444, 52, 0)
+			setFont(ctx.hEdit, fontCode)
+			setFont(ctx.hSubmit, fontButton)
+			setFont(ctx.hError, fontBody)
 		}
 		return 0
+
+	case wmCtlColorStatic:
+		// Transparent text background + brand text colors (secondary gray for
+		// the subtitle and the hint), returning the window's white brush.
+		pSetBkMode.Call(wParam, transparentBk)
+		color := uintptr(clrText)
+		if ctx != nil && (windows.Handle(lParam) == ctx.hSubtitle || windows.Handle(lParam) == ctx.hHint) {
+			color = clrSecondary
+		}
+		pSetTextColor.Call(wParam, color)
+		br, _, _ := pGetSysColorBr.Call(colorWindow)
+		return br
 
 	case wmCommand:
 		id := wParam & 0xFFFF

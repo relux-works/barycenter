@@ -144,6 +144,39 @@ func TestLivingAirSurvivesMidPlayDrop(t *testing.T) {
 	}
 }
 
+func TestLivingAirLibrespotRestartOnlyReloadsFailedHome(t *testing.T) {
+	s := livingSession()
+	s.online["a"] = true
+	s.online["c"] = true
+	s.OnHeartbeatAt(1_000, "a", 30_000, 40)
+	s.OnHeartbeatAt(1_000, "c", 30_000, 60)
+	s.EnqueueTrack(trackEl("el1", "spotify:track:X"))
+	s.OnReady(1_100, "a", "el1")
+	s.OnReady(1_100, "c", "el1")
+	s.OnStarted("a", "el1", 1_720)
+	s.OnStarted("c", "el1", 1_730)
+	s.OnHeartbeatAt(10_000, "a", 39_000, 40)
+	s.OnHeartbeatAt(10_000, "c", 39_000, 60)
+
+	effs := s.OnNodeErrorAt(10_100, "c", "librespot_restart", "")
+	if len(of[EffPause](t, effs)) != 0 {
+		t.Fatalf("healthy leader must continue: %#v", effs)
+	}
+	load := one[EffLoad](t, effs)
+	if load.To != "c" || load.PositionMS < 39_000 {
+		t.Fatalf("only failed home catches up: %#v", effs)
+	}
+	if s.State != StatePlaying {
+		t.Fatalf("surviving air state = %s", s.State)
+	}
+
+	ready := s.OnReady(11_000, "c", "el1")
+	resume := one[EffResumeAt](t, ready)
+	if resume.To != "c" || resume.PositionMS == nil {
+		t.Fatalf("recovered home must seek to the live air: %#v", ready)
+	}
+}
+
 // When a WHOLE side goes dark, living air DOES park and recovers via the gate,
 // not allOnline.
 func TestLivingAirParksAndRecoversByGate(t *testing.T) {

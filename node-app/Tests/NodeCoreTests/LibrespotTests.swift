@@ -41,20 +41,22 @@ import Testing
     }
 
     @Test func knownEvents() throws {
-        guard case .some(.notPlaying(let uri)) =
-            parse(#"{"type":"not_playing","data":{"uri":"spotify:track:X"}}"#) else {
+        guard case .some(.notPlaying(let uri, let origin)) =
+            parse(#"{"type":"not_playing","data":{"uri":"spotify:track:X","play_origin":"go-librespot"}}"#) else {
             Issue.record("not_playing failed")
             return
         }
         #expect(uri == "spotify:track:X")
+        #expect(origin == "go-librespot")
 
-        guard case .some(.metadata(let mUri, let name, let pos, let dur)) =
-            parse(#"{"type":"metadata","data":{"uri":"spotify:track:Y","name":"Song","position":63000,"duration":214000}}"#) else {
+        guard case .some(.metadata(let mUri, let name, let artists, let pos, let dur)) =
+            parse(#"{"type":"metadata","data":{"uri":"spotify:track:Y","name":"Song","artist_names":["Artist"],"position":63000,"duration":214000}}"#) else {
             Issue.record("metadata failed")
             return
         }
         #expect(mUri == "spotify:track:Y")
         #expect(name == "Song")
+        #expect(artists == ["Artist"])
         #expect(pos == 63000)
         #expect(dur == 214000)
     }

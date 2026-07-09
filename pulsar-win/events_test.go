@@ -13,16 +13,17 @@ import (
 )
 
 func TestParseLibrespotEvent(t *testing.T) {
-	ev, ok := parseLibrespotEvent([]byte(`{"type":"metadata","data":{"uri":"spotify:track:x","name":"Song","position":1500,"duration":180000}}`))
+	ev, ok := parseLibrespotEvent([]byte(`{"type":"metadata","data":{"uri":"spotify:track:x","name":"Song","artist_names":["Artist"],"position":1500,"duration":180000}}`))
 	if !ok || ev.Type != "metadata" {
 		t.Fatalf("metadata parse failed: %+v ok=%v", ev, ok)
 	}
-	if *ev.URI != "spotify:track:x" || *ev.Name != "Song" || *ev.Position != 1500 || *ev.Duration != 180000 {
+	if *ev.URI != "spotify:track:x" || *ev.Name != "Song" || len(ev.ArtistNames) != 1 || *ev.Position != 1500 || *ev.Duration != 180000 {
 		t.Fatalf("metadata fields wrong: %+v", ev)
 	}
 
-	ev, ok = parseLibrespotEvent([]byte(`{"type":"playing","data":{"uri":"spotify:track:y"}}`))
-	if !ok || ev.Type != "playing" || *ev.URI != "spotify:track:y" || ev.Position != nil {
+	ev, ok = parseLibrespotEvent([]byte(`{"type":"playing","data":{"uri":"spotify:track:y","play_origin":"playlist","context_uri":"spotify:album:z","resume":false}}`))
+	if !ok || ev.Type != "playing" || *ev.URI != "spotify:track:y" || ev.Position != nil ||
+		ev.PlayOrigin == nil || *ev.PlayOrigin != "playlist" || ev.ContextURI == nil || ev.Resume == nil {
 		t.Fatalf("playing parse wrong: %+v", ev)
 	}
 

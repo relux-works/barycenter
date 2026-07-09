@@ -1,7 +1,7 @@
 #!/bin/bash
 # duet stack smoke driver: boots coordinator + Pulsar node (with its own
 # go-librespot daemon) in an ISOLATED sandbox (ports 8093/3680, node id "b",
-# clean librespot config dir) so a dev stack on :8091/:3678 keeps running.
+# isolated librespot config dir) so a dev stack on :8091/:3678 keeps running.
 #
 # Commands:
 #   start    boot the sandbox stack, wait for node registration, assert /healthz
@@ -70,6 +70,11 @@ EOF
 start() {
     need "$COORD_BIN"; need "$NODE_BIN"
     prepare
+    # A prior successful run must not satisfy the welcome grep for a new
+    # process. Keep configs/credentials, but make registration evidence fresh.
+    : > "$SAND/coordinator.log"
+    : > "$SAND/node-b.log"
+    : > "$SAND/node-b.out"
     "$COORD_BIN" --config "$SAND/coordinator.yml" > "$SAND/coordinator.log" 2>&1 &
     echo $! > "$SAND/coordinator.pid"
     sleep 1
@@ -84,7 +89,10 @@ start() {
     local HEALTH
     HEALTH=$(curl -s "http://127.0.0.1:$COORD_PORT/healthz")
     echo "$HEALTH"
-    echo "$HEALTH" | grep -q '"b":true' || { echo "FAIL: node b not online"; exit 1; }
+    # /healthz is tenant-safe and exposes only the aggregate connection count;
+    # this sandbox starts exactly one node, so one connected node proves b's
+    # register/welcome cycle without depending on the retired per-slot shape.
+    echo "$HEALTH" | grep -Eq '"nodes_connected":[[:space:]]*[1-9]' || { echo "FAIL: node b not online"; exit 1; }
     echo "OK: stack up (coordinator :$COORD_PORT, daemon :$LS_PORT). Logs: $SAND/"
 }
 

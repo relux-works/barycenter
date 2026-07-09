@@ -5,6 +5,7 @@
   "type": "external_playback",
   "payload": {
     "uri": "spotify:track:1301WleyT98MSxVHPZCA6M",
-    "position_ms": 63000
+    "position_ms": 63000,
+    "title": "Rick Astley — Never Gonna Give You Up"
   }
 }

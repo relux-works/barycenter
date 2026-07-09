@@ -36,7 +36,7 @@ make test    # both sides: Go suites + 37 Swift tests (contract vs protocol/gold
 
 ```bash
 agents/skills/run-duet/smoke.sh start    # boots sandbox, waits for node registration,
-                                         # asserts /healthz shows "b":true
+                                         # asserts /healthz has one connected node
 agents/skills/run-duet/smoke.sh status   # /healthz + last node log lines (heartbeat/clock)
 agents/skills/run-duet/smoke.sh play [spotify:track:URI]  # drives the node's daemon API
 agents/skills/run-duet/smoke.sh pause
@@ -95,6 +95,6 @@ open ~/duet/NodeApp.app        # reads ~/duet/node.yml; Dock icon "Pulsar"
 |---|---|
 | `missing .temp/build/...` from smoke.sh | `make build && make app` from repo root |
 | "FAIL: node never registered" | `tail .temp/run-skill/node-b.out` — config validation errors print there verbatim (they are human-readable by design) |
-| healthz shows `"b":false` after start | coordinator died: `tail .temp/run-skill/coordinator.log`; usually a port clash on :8093 |
+| healthz keeps `nodes_connected` at `0` after start | node did not register: inspect `.temp/run-skill/node-b.log`; if healthz itself fails, inspect `coordinator.log` for a port clash on :8093 |
 | Node exits instantly when double-clicked | no `~/duet/node.yml`; a GUI alert explains since v0.1 — run with `--config` or install the config |
 | `play` says "no Spotify session" | expected in a fresh sandbox; do the one-time phone login for the sandbox device |

@@ -170,6 +170,7 @@ func (c *WSClient) run() {
 			Token:            c.identity.Token,
 			AppVersion:       c.identity.AppVersion,
 			LibrespotVersion: c.identity.LibrespotVersion(),
+			Capabilities:     []string{protocol.CapabilitySeamlessAdoption},
 		})
 		if c.OnConnected != nil {
 			c.OnConnected()

@@ -10,6 +10,8 @@ import "encoding/json"
 
 const Version = 1
 
+const CapabilitySeamlessAdoption = "seamless_adoption_v1"
+
 type NodeID string
 
 const (
@@ -92,11 +94,17 @@ type LoadPayload struct {
 	Ref        string  `json:"ref,omitempty"`
 	DurationMS int64   `json:"duration_ms,omitempty"`
 	GainDB     float64 `json:"gain_db,omitempty"` // loudness fallback (S5 option c)
+	// AdoptPlaying relabels playback that the user already started on this
+	// Pulsar. The node must not pause, clear or reload its daemon.
+	AdoptPlaying bool `json:"adopt_playing,omitempty"`
 }
 
 type ResumeAtPayload struct {
 	ElementID string `json:"element_id"`
 	TCoordMS  int64  `json:"t_coord_ms"`
+	// PositionMS is present for a catch-up start. The node seeks while paused,
+	// then resumes at T; ordinary synchronized starts omit it.
+	PositionMS *int64 `json:"position_ms,omitempty"`
 }
 
 type PausePayload struct {
@@ -162,10 +170,11 @@ type OffsetTestPayload struct {
 // --- Node -> coordinator payloads ---
 
 type RegisterPayload struct {
-	NodeID           string `json:"node_id"`
-	Token            string `json:"token"`
-	AppVersion       string `json:"app_version"`
-	LibrespotVersion string `json:"librespot_version"`
+	NodeID           string   `json:"node_id"`
+	Token            string   `json:"token"`
+	AppVersion       string   `json:"app_version"`
+	LibrespotVersion string   `json:"librespot_version"`
+	Capabilities     []string `json:"capabilities,omitempty"`
 }
 
 type Speaker struct {
@@ -225,6 +234,7 @@ type PingPayload struct {
 type ExternalPlaybackPayload struct {
 	URI        string `json:"uri"`
 	PositionMS *int64 `json:"position_ms,omitempty"`
+	Title      string `json:"title,omitempty"`
 }
 
 type SetProviderPayload struct {

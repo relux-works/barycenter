@@ -150,7 +150,8 @@ Mechanics (L1 — link of two):
 - While a link is active, ONE shared session lives at the link level; its
   peer set = union of both orbits' slots (M2 peer-set FSM is already N-wise).
   Peer ids are composite "orbit:slot" inside the session; bot texts render
-  them as "дом a@<primary name>".
+  the Barycenter title and add “Пульсар A” only when that Barycenter has
+  several homes.
 - Bot flow: /approach -> one-time approach code; the other primary sends
   /approach CODE -> the initiator gets an inline confirmation -> both said
   yes -> sessions of both orbits stop, the link session starts (shared,

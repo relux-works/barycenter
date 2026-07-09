@@ -2,6 +2,29 @@
 
 Short records of non-obvious engineering decisions. Newest first.
 
+## 2026-07-10 — Spotify handoff keeps its leader audible; voice FIFO is non-preemptible
+
+**Problem.** Live two-home logs showed that the first Spotify-first
+implementation paused and reloaded the Pulsar where the user had already
+started the track. It also mistook stale coordinator-owned daemon loads for
+phone choices, so two homes could resurrect different old album contexts
+within milliseconds of each other. Voice inserts lost the same race.
+
+**Decision.** A phone selection is a leader handoff. The initiating Pulsar is
+relabelled without stopping; followers load paused, seek to the leader's future
+audible position and join at a scheduled time. Events with
+`play_origin=go-librespot` are internal and never become `external_playback`.
+A follower timeout/restart degrades only that home; the healthy air continues.
+
+Voice messages are ordered by Telegram acceptance time, not ffmpeg completion.
+Once a voice block starts, a Spotify selection is queued after it rather than
+cutting it off. Bot queue labels always include the sender.
+
+The current personal-voice target is either one Pulsar or everyone. In an air
+with more than two recipient homes, “everyone except the sender” is not yet an
+expressible target set and therefore falls back to broadcast. This must become
+an explicit target list before L2 links three or more personal barycenters.
+
 ## 2026-07-09 — Spotify on a Pulsar is the together-mode control surface
 
 **Problem.** Starting a track on a Pulsar during shared mode was detected as

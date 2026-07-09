@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"relux.works/duet/coordinator/internal/hub"
 	"relux.works/duet/coordinator/internal/protocol"
@@ -11,7 +12,9 @@ import (
 
 // handleExternalPlayback adopts Spotify selections into the shared air. In a
 // busy group, the selecting home's own barycenter policy arbitrates.
-func (l *loop) handleExternalPlayback(o *orbitState, key hub.NodeKey, uri string, positionMS int64) {
+func (l *loop) handleExternalPlayback(
+	o *orbitState, key hub.NodeKey, uri string, positionMS int64, title string,
+) {
 	trackID, isTrack := strings.CutPrefix(uri, "spotify:track:")
 	if o.sess.Mode != session.ModeShared || !isTrack || trackID == "" {
 		return
@@ -25,13 +28,13 @@ func (l *loop) handleExternalPlayback(o *orbitState, key hub.NodeKey, uri string
 		policy = l.orbit(key.Orbit).takeoverPolicy
 	}
 	l.st.LogEvent(string(key.Slot), "external_playback", map[string]any{
-		"uri": uri, "position_ms": positionMS, "policy": policy,
+		"uri": uri, "position_ms": positionMS, "title": title, "policy": policy,
 	})
 
 	busy := o.sess.Current != nil || o.sess.QueueLen() > 0 ||
 		(o.sess.Playlist != nil && o.sess.Playlist.Cursor < len(o.sess.Playlist.Tracks))
 	if policy == "user" || !busy {
-		l.adoptPulsarTrack(o, id, uri, positionMS)
+		l.adoptPulsarTrack(o, id, uri, positionMS, title)
 		return
 	}
 
@@ -43,10 +46,48 @@ func (l *loop) handleExternalPlayback(o *orbitState, key hub.NodeKey, uri string
 	l.hub.Send(key, protocol.TypeStop, &protocol.StopPayload{})
 }
 
-func (l *loop) adoptPulsarTrack(o *orbitState, id protocol.NodeID, uri string, positionMS int64) {
-	el := l.newTrackElement(uri, string(id))
+func (l *loop) adoptPulsarTrack(
+	o *orbitState, id protocol.NodeID, uri string, positionMS int64, title string,
+) {
+	requestedBy := string(id)
+	if orbitID, _, ok := splitComposite(id); ok {
+		requestedBy = l.orbit(orbitID).title
+	}
+	el := l.newTrackElement(uri, requestedBy)
+	el.Title = title
 	l.st.InsertElement(el)
 	l.log.Info("adopting Pulsar playback into shared air",
 		"orbit", o.id, "peer", id, "uri", uri, "position_ms", positionMS)
-	l.apply(o, o.sess.CmdPlayNowAt(el, positionMS))
+	if o.sess.State == session.StateVoice {
+		// A voice insert is an accepted FIFO promise. A phone selection during
+		// it becomes the next music item instead of cutting the sender off.
+		l.apply(o, o.sess.EnqueueTrackAfterVoices(el))
+		l.notify(o, fmt.Sprintf("%s сыграет сразу после голосовых", trackLabel(el)))
+		return
+	}
+	if !seamlessAdoptionReady(o, id) {
+		// Rolling upgrade compatibility: pre-capability nodes decode the new
+		// optional fields but interpret load as the old pause/reload command. A
+		// leader would then remain paused because seamless mode intentionally
+		// sends no resume_at to it. Use the old all-node barrier until every
+		// currently participating peer has announced support. Offline homes do
+		// not need adoption semantics: they use the ordinary catch-up path when
+		// they return.
+		l.log.Info("seamless adoption unavailable; using legacy barrier", "orbit", o.id, "leader", id)
+		l.apply(o, o.sess.CmdPlayNowAt(el, positionMS))
+		return
+	}
+	l.apply(o, o.sess.CmdAdoptPlaying(time.Now().UnixMilli(), id, el, positionMS))
+}
+
+func seamlessAdoptionReady(o *orbitState, leader protocol.NodeID) bool {
+	if !o.seamless[leader] {
+		return false
+	}
+	for _, peer := range o.sess.Peers {
+		if (peer == leader || o.sess.IsOnline(peer)) && !o.seamless[peer] {
+			return false
+		}
+	}
+	return true
 }

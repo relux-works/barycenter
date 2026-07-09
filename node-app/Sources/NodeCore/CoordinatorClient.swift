@@ -76,7 +76,8 @@ public final class CoordinatorClient: NSObject {
             nodeId: identity.nodeId,
             token: identity.token,
             appVersion: identity.appVersion,
-            librespotVersion: identity.librespotVersion
+            librespotVersion: identity.librespotVersion,
+            capabilities: [seamlessAdoptionCapability]
         )))
         startTimers()
         onConnected?()

@@ -46,24 +46,43 @@ func TestForeignPlaybackReportsWithDebounce(t *testing.T) {
 	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:ours")})
 	expectNothing(t, sent, 20*time.Millisecond)
 
-	// A foreign metadata event reports the selected track and its audible
-	// position, allowing the coordinator to reload every home at one point.
+	// Metadata caches position/title; the following playing event carries the
+	// origin that distinguishes a phone action from our own HTTP load.
+	name := "Their Song"
 	p.HandleLibrespotEvent(LibrespotEvent{Type: "metadata", URI: strPtr("spotify:track:theirs"),
-		Position: i64Ptr(63_000)})
+		Name: &name, ArtistNames: []string{"Their Artist"}, Position: i64Ptr(63_000)})
+	origin := "playlist"
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:theirs"),
+		PlayOrigin: &origin})
 	m := expectSent(t, sent, protocol.TypeExternalPlayback)
 	external := m.Payload.(*protocol.ExternalPlaybackPayload)
-	if external.URI != "spotify:track:theirs" || external.PositionMS == nil || *external.PositionMS != 63_000 {
+	if external.URI != "spotify:track:theirs" || external.PositionMS == nil || *external.PositionMS != 63_000 ||
+		external.Title != "Their Artist — Their Song" {
 		t.Fatalf("external payload %+v", m.Payload)
 	}
 
 	// Debounced: an immediate repeat stays silent...
-	p.HandleLibrespotEvent(LibrespotEvent{Type: "metadata", URI: strPtr("spotify:track:theirs")})
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:theirs"), PlayOrigin: &origin})
 	expectNothing(t, sent, 20*time.Millisecond)
-
-	// ...but after the window it reports again (metadata path this time).
-	time.Sleep(40 * time.Millisecond)
-	p.HandleLibrespotEvent(LibrespotEvent{Type: "metadata", URI: strPtr("spotify:track:theirs")})
+	// ...but a DIFFERENT fast user choice must not be swallowed.
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:another"), PlayOrigin: &origin})
 	expectSent(t, sent, protocol.TypeExternalPlayback)
+
+	// After the window the original URI may be reported again.
+	time.Sleep(40 * time.Millisecond)
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:theirs"), PlayOrigin: &origin})
+	expectSent(t, sent, protocol.TypeExternalPlayback)
+}
+
+func TestInternalStaleLoadNeverReportsAsPhoneSelection(t *testing.T) {
+	daemon := newFakeDaemon()
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
+	loadReady(t, p, sent, "el_1", "spotify:track:new")
+	origin := "go-librespot"
+	p.HandleLibrespotEvent(LibrespotEvent{
+		Type: "playing", URI: strPtr("spotify:track:old"), PlayOrigin: &origin,
+	})
+	expectNothing(t, sent, 30*time.Millisecond)
 }
 
 func TestForeignPlaybackIgnoredOutsideShared(t *testing.T) {

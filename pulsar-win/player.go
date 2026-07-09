@@ -96,6 +96,10 @@ type Player struct {
 	startedPending        bool
 	draining              bool // daemon says ended; ring tail still sounding
 	lastExternalReport    time.Time
+	lastExternalURI       string
+	metadataURI           string
+	metadataPosition      *int64
+	metadataTitle         string
 	speakerName           string
 }
 
@@ -195,18 +199,29 @@ func (p *Player) load(m *protocol.LoadPayload) {
 	p.cancelTimersLocked()
 	p.loadGen++
 	gen := p.loadGen
-	p.playback = PlaybackLoading
 	p.elementID = m.ElementID
 	p.uri = m.URI
 	p.startedPending = false
 	p.draining = false
 	p.anchorPosMS = m.PositionMS
 	p.anchorAt = time.Now()
+	if m.AdoptPlaying {
+		p.playback = PlaybackPlaying
+		p.extrapolate = true
+		p.mu.Unlock()
+		p.engine.StopVoice()
+		p.engine.gain.SetMusicGain(1, 0)
+		p.engine.SetExpectingMusic(true)
+		p.send(protocol.TypeReady, &protocol.ReadyPayload{ElementID: m.ElementID})
+		return
+	}
+	p.playback = PlaybackLoading
 	p.extrapolate = false
 	p.mu.Unlock()
 	// The producer is the daemon feeding the pipe; a fresh load means the old
 	// element's tail must not sound (spec 6.3).
 	p.ring.Clear()
+	p.engine.StopVoice()
 	p.engine.SetExpectingMusic(false)
 	p.engine.gain.SetMusicGain(1, 0)
 
@@ -294,6 +309,38 @@ func (p *Player) resumeAt(m *protocol.ResumeAtPayload) {
 	if m.ElementID != p.elementID {
 		p.mu.Unlock()
 		return // idempotency (spec 7.2)
+	}
+	gen := p.loadGen
+	p.mu.Unlock()
+
+	if m.PositionMS != nil {
+		position := *m.PositionMS
+		p.ring.Clear()
+		go func() {
+			if err := p.daemon.Seek(context.Background(), position); err != nil {
+				p.log.Warn("catch-up seek failed; resuming best effort", "element", m.ElementID, "err", err)
+			}
+			p.mu.Lock()
+			if gen != p.loadGen || m.ElementID != p.elementID {
+				p.mu.Unlock()
+				return
+			}
+			p.anchorPosMS = position
+			p.anchorAt = time.Now()
+			p.extrapolate = false
+			p.mu.Unlock()
+			p.armResume(m)
+		}()
+		return
+	}
+	p.armResume(m)
+}
+
+func (p *Player) armResume(m *protocol.ResumeAtPayload) {
+	p.mu.Lock()
+	if m.ElementID != p.elementID {
+		p.mu.Unlock()
+		return
 	}
 	latency := p.outputLatencyOffsetMS
 	p.mu.Unlock()
@@ -409,10 +456,18 @@ func (p *Player) seekCmd(m *protocol.SeekPayload) {
 
 func (p *Player) playVoice(m *protocol.PlayVoicePayload) {
 	p.mu.Lock()
+	p.cancelTimersLocked()
+	p.loadGen++ // voice supersedes any in-flight track load
 	p.elementID = m.ElementID
 	p.playback = PlaybackVoice
+	p.draining = false
 	latency := p.outputLatencyOffsetMS
 	p.mu.Unlock()
+	p.engine.StopVoice()
+	p.ring.Clear()
+	p.engine.SetExpectingMusic(false)
+	p.engine.gain.SetMusicGain(0, 0)
+	go p.daemon.Pause(context.Background())
 
 	el := m.ElementID
 	go func() {
@@ -442,18 +497,22 @@ func (p *Player) playVoice(m *protocol.PlayVoicePayload) {
 			// The engine fired this after the LAST sample rendered — that is
 			// the audible end, so voice_ended needs no extra drain wait.
 			p.mu.Lock()
-			if p.playback == PlaybackVoice && p.elementID == el {
+			fire := p.playback == PlaybackVoice && p.elementID == el
+			if fire {
 				p.playback = PlaybackStopped
 			}
 			p.mu.Unlock()
-			p.send(protocol.TypeVoiceEnded, &protocol.VoiceEndedPayload{ElementID: el})
+			if fire {
+				p.send(protocol.TypeVoiceEnded, &protocol.VoiceEndedPayload{ElementID: el})
+			}
 		})
 	}()
 }
 
 func (p *Player) waitCmd(m *protocol.WaitPayload) {
 	p.mu.Lock()
-	p.cancelWaitLocked()
+	p.cancelTimersLocked()
+	p.loadGen++
 	p.elementID = m.ElementID
 	p.playback = PlaybackWait
 	el := m.ElementID
@@ -469,6 +528,11 @@ func (p *Player) waitCmd(m *protocol.WaitPayload) {
 		}
 	})
 	p.mu.Unlock()
+	p.engine.StopVoice()
+	p.ring.Clear()
+	p.engine.SetExpectingMusic(false)
+	p.engine.gain.SetMusicGain(0, 0)
+	go p.daemon.Pause(context.Background())
 }
 
 func (p *Player) offsetTest(m *protocol.OffsetTestPayload) {
@@ -586,8 +650,12 @@ func (p *Player) HandleLibrespotEvent(ev LibrespotEvent) {
 			p.anchorAt = time.Now()
 			p.extrapolate = p.playback == PlaybackPlaying
 		}
+		if ev.URI != nil {
+			p.metadataURI = *ev.URI
+		}
+		p.metadataPosition = ev.Position
+		p.metadataTitle = selectionDisplayTitle(ev.Name, ev.ArtistNames)
 		p.mu.Unlock()
-		p.reportExternalSelection(ev.URI, ev.Position, false)
 
 	case "seek":
 		if ev.Position != nil {
@@ -627,7 +695,15 @@ func (p *Player) HandleLibrespotEvent(ev LibrespotEvent) {
 		// resume_at marks PlaybackPlaying before asking the daemon to resume,
 		// so its own playing event is ignored. A same-URI playing event while
 		// stopped/paused is a fresh Spotify selection and must be adopted.
-		p.reportExternalSelection(ev.URI, nil, true)
+		p.mu.Lock()
+		insertionActive := p.playback == PlaybackVoice || p.playback == PlaybackWait
+		p.mu.Unlock()
+		p.reportExternalSelection(ev.URI, nil, true, ev.PlayOrigin)
+		if insertionActive {
+			p.engine.gain.SetMusicGain(0, 0)
+			go p.daemon.Pause(context.Background())
+			break
+		}
 		p.engine.gain.SetMusicGain(1, 120)
 		p.mu.Lock()
 		if p.playback == PlaybackPlaying {

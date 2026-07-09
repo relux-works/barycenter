@@ -37,7 +37,15 @@ UNRESOLVED_QUESTIONS as a spec v1.3 proposal, per goal invariant 6):
 |---|---|---|
 | `set_offset` | `{ offset_ms }` | Set output_latency_offset_ms at runtime (spec ch. 14 calibration); node applies to all future scheduled starts |
 | `offset_test` | `{ t_coord_ms, clicks, interval_ms }` | Play `clicks` clicks, first at T (coordinator clock), then every `interval_ms`; scheduled through the same T_local mechanism as resume_at |
-| `external_playback` (node -> coordinator) | `{ uri, position_ms? }` | In shared mode, Spotify started a track on this Pulsar outside the coordinator-owned element. `position_ms` is the node's audible position; old nodes may omit it (coordinator uses 0). An idle air adopts it. In a busy air, `/takeover user` adopts it across all homes and `/takeover coordinator` restores the existing element. |
+| `load.adopt_playing` (optional) | `true` only for the initiating Pulsar | Relabel the Spotify stream that is already audible as the new element. The node sends `ready` but MUST NOT pause, clear the ring or reload the daemon. |
+| `resume_at.position_ms` (optional) | audible position at `t_coord_ms` | Catch-up start: seek while paused, then resume at T. Ordinary all-paused starts omit it. |
+| `external_playback` (node -> coordinator) | `{ uri, position_ms?, title? }` | In shared mode, Spotify started a track on this Pulsar outside the coordinator-owned element. `position_ms` is audible; `title` is the human `Artist — Track` label. The node ignores events whose go-librespot `play_origin` is `go-librespot`, so a stale coordinator load cannot masquerade as a phone choice. `/takeover user` keeps the initiating Pulsar playing and catches up followers; `/takeover coordinator` restores the existing element. |
+
+Seamless adoption is rollout-gated by the optional register capability
+`seamless_adoption_v1`. The coordinator uses it only after every currently
+participating peer in the air has announced support; mixed-version airs retain
+the legacy pause/load/resume barrier. An offline peer joins later through the
+ordinary load/seek/resume catch-up path and does not block adoption.
 
 ## Transport
 

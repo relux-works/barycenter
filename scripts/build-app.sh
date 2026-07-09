@@ -60,6 +60,10 @@ if [[ -z "$LIBRESPOT_BIN" ]]; then
   done
 fi
 if [[ -n "$LIBRESPOT_BIN" ]]; then
+  if ! LC_ALL=C grep -a -q "PULSAR_ZEROCONF_HOST" "$LIBRESPOT_BIN"; then
+    echo "FATAL: go-librespot binary does not support PULSAR_ZEROCONF_HOST; apply patches/go-librespot-pulsar-zeroconf-host.patch to the fork before bundling" >&2
+    exit 1
+  fi
   cp "$LIBRESPOT_BIN" "$APP/Contents/MacOS/go-librespot"
 else
   echo "WARN: no go-librespot binary found to bundle (app will rely on brew)" >&2

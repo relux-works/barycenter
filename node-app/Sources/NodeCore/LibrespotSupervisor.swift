@@ -3,6 +3,7 @@
 // daemon version from its startup log line.
 
 import Foundation
+import SystemConfiguration
 
 public enum LibrespotConfigRenderer {
     /// Renders the daemon config (spec A.2). Pure function for testability.
@@ -108,6 +109,7 @@ public final class LibrespotSupervisor {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: binary)
         p.arguments = ["--config_dir", configDir]
+        p.environment = Self.librespotEnvironment()
 
         let pipe = Pipe()
         p.standardOutput = pipe
@@ -146,5 +148,30 @@ public final class LibrespotSupervisor {
             backoffSeconds = min(backoffSeconds * 2, 30)
             queue.asyncAfter(deadline: .now() + delay) { self.spawn() }
         }
+    }
+
+    public static func zeroconfHostName(localHostName: String?) -> String? {
+        guard var host = localHostName?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            return nil
+        }
+        host = host.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        guard !host.isEmpty else { return nil }
+        if host.lowercased().hasSuffix(".local") {
+            host.removeLast(".local".count)
+        }
+        return host.isEmpty ? nil : host
+    }
+
+    private static func librespotEnvironment() -> [String: String] {
+        var environment = ProcessInfo.processInfo.environment
+        if let host = zeroconfHostName(localHostName: environment["PULSAR_ZEROCONF_HOST"]) {
+            environment["PULSAR_ZEROCONF_HOST"] = host
+            return environment
+        }
+        if let localHostName = SCDynamicStoreCopyLocalHostName(nil) as String?,
+           let host = zeroconfHostName(localHostName: localHostName) {
+            environment["PULSAR_ZEROCONF_HOST"] = host
+        }
+        return environment
     }
 }

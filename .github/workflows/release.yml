@@ -63,7 +63,6 @@ jobs:
           cp -R .temp/build/Pulsar.app dmg-root/
           ln -s /Applications dmg-root/Applications
           hdiutil create -volname "Pulsar" -srcfolder dmg-root -ov -format UDZO "dist/Pulsar-${GITHUB_REF_NAME}-arm64.dmg"
-          shasum -a 256 dist/*.dmg > dist/SHA256SUMS.pulsar
       - name: Sign the dmg container
         run: |
           codesign --force --sign "Developer ID Application: Relux Works, LLC (262RZ595FP)" --timestamp dist/Pulsar-*.dmg
@@ -100,7 +99,10 @@ jobs:
           # without a trip through the release page. Copied AFTER appcast
           # generation so Sparkle's feed lists only the versioned file.
           cp dist/Pulsar-"${GITHUB_REF_NAME}"-arm64.dmg dist/Pulsar.dmg
-          (cd dist && shasum -a 256 Pulsar.dmg >> SHA256SUMS.pulsar)
+          # Signing, notarization and stapling all mutate the DMG. Hash only
+          # the final bytes; the old bundle-step checksum described the
+          # pre-sign container and failed verification after download.
+          (cd dist && shasum -a 256 "Pulsar-${GITHUB_REF_NAME}-arm64.dmg" Pulsar.dmg > SHA256SUMS.pulsar)
       - name: Attest dmg provenance
         uses: actions/attest-build-provenance@v2
         with:

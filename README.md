@@ -1,15 +1,15 @@
 # duet
 
-Shared Spotify session for two homes. One synchronized "broadcast" (same tracks, same position, <=150 ms skew) playing in two apartments in different cities, controlled by two people through a Telegram bot, with voice-message drops that play on air strictly after the current track ends.
+Shared Spotify session for two homes. Pick either Pulsar speaker in Spotify and start a track; Barycenter adopts it into one synchronized broadcast (same track, same position, <=150 ms skew) across the connected homes. Telegram remains the onboarding, queue and voice-message surface, but sending track links to the bot is optional.
 
 Full specification (Russian, source of truth): [docs/spec.md](docs/spec.md), v1.1 of 2026-07-03.
 
 ## How it works (short)
 
 - Each home has a Mac node: **go-librespot** (headless Spotify Connect client, own Premium account, PCM to a named pipe) -> **NodeApp** (Swift, AVAudioEngine: music + voice drops mixing) -> **Airfoil** (delivery to 1..N speakers of that home).
-- A **coordinator** (Go, on a VPS inside a Tailscale tailnet) owns the session state machine and the queue, drives playback track-by-track on both nodes with clock-synced starts, runs the Telegram bot, and processes voice messages with ffmpeg (loudness-normalized to match music level).
+- A **coordinator** (Go) owns the session state machine and queue, adopts Spotify selections reported by either Pulsar, and drives playback track-by-track on every connected home with clock-synced starts. It also runs the Telegram onboarding/voice interface and processes voice messages with ffmpeg.
 - Audio never crosses between homes; only control messages and processed voice files travel over the tailnet.
-- Modes: **shared** (one common queue, coordinator drives both nodes) and **solo** (each node is a regular Spotify Connect device; partner can still inject tracks and voice drops).
+- Modes: **shared/together** (a selection on either Pulsar becomes the synchronized common track) and **solo** (each Pulsar remains an independent Spotify Connect device; partner can still inject tracks and voice drops).
 
 ## Repository layout
 

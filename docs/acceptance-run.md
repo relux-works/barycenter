@@ -41,7 +41,7 @@ duet-coordinator 0.1.0-dev, go-librespot 0.7.4, coordinator+2 nodes local
 
 | # | Spec item | Result | Evidence (log path / journal quote / measurement) |
 |---|---|---|---|
-| 18.1 | Link -> both homes play, journal skew <= 150 ms, click test simultaneous | pending | |
+| 18.1 | Select a track on either Pulsar in Spotify (no bot link) -> both homes play from the reported position, journal skew <= 150 ms, click test simultaneous | pending | |
 | 18.2 | Voice both: after current track, level within +-2 LU of -14 LUFS | pending | |
 | 18.3 | Voice "лично": partner hears, sender waits, next track synced | pending | |
 | 18.4 | /playnow /skip /pause /resume /queue /cancel /vol per ch. 9 | pending | |

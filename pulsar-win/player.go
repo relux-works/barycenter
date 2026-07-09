@@ -8,7 +8,7 @@
 //   - play_voice (cache download -> WAV decode -> engine voice insert),
 //     wait (timer -> wait_ended), offset_test (scheduled clicks)
 //   - daemon /events wiring: metadata/seek anchors, paused/playing fades,
-//     external volume, U9 foreign-playback reports, ended-after-ring-drain
+//     external volume, shared-air Spotify selections, ended-after-ring-drain
 //
 // Not ported: solo_voice (phase 2 on the mac node too) and the 2 s /status
 // position polling (the /events metadata anchors cover it here).
@@ -70,7 +70,7 @@ type Player struct {
 	confirmPollInterval time.Duration
 	confirmPollAttempts int
 	// Watcher knobs (shrunk by tests): drain 100 ms, telemetry 1 s,
-	// U9 debounce 5 s — the macOS timer values.
+	// Spotify-selection debounce 5 s — the macOS timer values.
 	drainInterval     time.Duration
 	telemetryInterval time.Duration
 	externalDebounce  time.Duration
@@ -573,35 +573,10 @@ func (p *Player) sendError(code, message, elementID string) {
 
 // --- librespot /events wiring (port of PlayerCore.handleLibrespotEvent) ---
 
-// reportExternalIfForeign implements U9: in shared mode, daemon playback of
-// a uri that is not the broadcast element means the partner's phone took
-// over — report it (5 s debounce), the coordinator applies the policy.
-func (p *Player) reportExternalIfForeign(uri *string) {
-	p.mu.Lock()
-	if p.mode != "shared" || uri == nil || *uri == p.uri {
-		p.mu.Unlock()
-		return
-	}
-	if time.Since(p.lastExternalReport) <= p.externalDebounce {
-		p.mu.Unlock()
-		return
-	}
-	p.lastExternalReport = time.Now()
-	expected := p.uri
-	p.mu.Unlock()
-
-	if expected == "" {
-		expected = "silence"
-	}
-	p.log.Warn("external playback detected in shared", "uri", *uri, "expected", expected)
-	p.send(protocol.TypeExternalPlayback, &protocol.ExternalPlaybackPayload{URI: *uri})
-}
-
 // HandleLibrespotEvent consumes one parsed /events frame.
 func (p *Player) HandleLibrespotEvent(ev LibrespotEvent) {
 	switch ev.Type {
 	case "metadata":
-		p.reportExternalIfForeign(ev.URI)
 		p.mu.Lock()
 		if p.mode != "shared" && ev.URI != nil {
 			p.uri = *ev.URI // solo: the daemon queue drives the uri
@@ -612,6 +587,7 @@ func (p *Player) HandleLibrespotEvent(ev LibrespotEvent) {
 			p.extrapolate = p.playback == PlaybackPlaying
 		}
 		p.mu.Unlock()
+		p.reportExternalSelection(ev.URI, ev.Position, false)
 
 	case "seek":
 		if ev.Position != nil {
@@ -648,7 +624,10 @@ func (p *Player) HandleLibrespotEvent(ev LibrespotEvent) {
 		}
 
 	case "playing":
-		p.reportExternalIfForeign(ev.URI)
+		// resume_at marks PlaybackPlaying before asking the daemon to resume,
+		// so its own playing event is ignored. A same-URI playing event while
+		// stopped/paused is a fresh Spotify selection and must be adopted.
+		p.reportExternalSelection(ev.URI, nil, true)
 		p.engine.gain.SetMusicGain(1, 120)
 		p.mu.Lock()
 		if p.playback == PlaybackPlaying {

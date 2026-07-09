@@ -440,9 +440,17 @@ func (s *Session) hasUpcoming() bool {
 // automatically when both homes are back. Living air (eachSide, §12 L1.5)
 // relaxes this for linked sessions: one home per side is enough, the rest
 // join in flight.
-func (s *Session) advance() []Effect {
+func (s *Session) advance() []Effect { return s.advanceAt(0) }
+
+// advanceAt is advance with a starting position for the next queued track.
+// Spotify selections use it to turn the initiating Pulsar's audible position
+// into the common load point; every other transition starts at zero.
+func (s *Session) advanceAt(positionMS int64) []Effect {
+	if positionMS < 0 {
+		positionMS = 0
+	}
 	s.resetElementTracking()
-	s.SavedPositionMS = 0
+	s.SavedPositionMS = positionMS
 	if s.hasUpcoming() && !s.gateSatisfied() {
 		s.Current = nil
 		s.State = StateDegraded
@@ -453,7 +461,7 @@ func (s *Session) advance() []Effect {
 		s.Queue = s.Queue[1:]
 		s.Current = &el
 		if el.Kind == KindTrack {
-			return s.loadCurrent(0)
+			return s.loadCurrent(positionMS)
 		}
 		return s.startVoice()
 	}
@@ -1034,20 +1042,6 @@ func (s *Session) CmdSync() []Effect {
 	return append(pause, s.loadCurrent(pos)...)
 }
 
-func (s *Session) CmdPlayNow(el Element) []Effect {
-	if s.Mode != ModeShared {
-		return nil
-	}
-	var pre []Effect
-	if s.Current != nil {
-		pre = append(pre, EffElementDone{Element: *s.Current, Status: "skipped"})
-		pre = append(pre, s.pauseBoth(300)...) // spec 7.3: fade 300 ms
-		pre = append(pre, EffCancelReadyTimer{})
-	}
-	s.Queue = append([]Element{el}, s.Queue...)
-	return append(pre, s.advance()...)
-}
-
 // --- Degradation (spec 4.4, 7.2) ---
 
 func (s *Session) OnNodeOffline(nowMS int64, node protocol.NodeID) []Effect {
@@ -1153,17 +1147,6 @@ func (s *Session) OnNodeBack(node protocol.NodeID) []Effect {
 // --- Mode switching (spec 4.3) ---
 
 func (s *Session) SetModeSolo() []Effect {
-	return s.setModeSolo("")
-}
-
-// SetModeSoloKeeping switches to solo without stopping the initiator's
-// node — a phone takeover (policy user) must not kill the very playback
-// the user just started (R0 finding, prod 2026-07-05).
-func (s *Session) SetModeSoloKeeping(keep protocol.NodeID) []Effect {
-	return s.setModeSolo(keep)
-}
-
-func (s *Session) setModeSolo(keep protocol.NodeID) []Effect {
 	if s.Mode == ModeSolo {
 		return nil
 	}
@@ -1174,9 +1157,7 @@ func (s *Session) setModeSolo(keep protocol.NodeID) []Effect {
 	s.State = StateIdle
 	effs := []Effect{EffCancelReadyTimer{}}
 	for _, n := range s.Peers {
-		if n != keep {
-			effs = append(effs, EffStop{To: n})
-		}
+		effs = append(effs, EffStop{To: n})
 		effs = append(effs, EffSetMode{To: n, Mode: ModeSolo})
 	}
 	return append(effs, EffNotify{Text: "апоастрон: орбиты расходятся, каждый слушает своё (/inject подкидывает партнёру)"}, EffPersist{})
@@ -1204,7 +1185,7 @@ func (s *Session) SetModeShared() []Effect {
 		return append(effs, s.advance()...)
 	}
 	s.State = StateIdle
-	return append(effs, EffNotify{Text: "периастрон: дома в сближении, эфир общий. Кидай ссылку — начнём"}, EffPersist{})
+	return append(effs, EffNotify{Text: "периастрон: эфир общий. Выбери Пульсар в Spotify и включи трек"}, EffPersist{})
 }
 
 // Snapshot builds the welcome payload for a (re)connecting node (spec 8.3).

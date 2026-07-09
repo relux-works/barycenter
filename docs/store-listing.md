@@ -9,20 +9,22 @@ Identity/Publisher with the reserved app identity on submission.
 
 ## Short description (EN)
 
-One music for two homes — or more. Pulsar plays the same track in sync at
-every home, with voice notes between songs, all controlled from a Telegram
-bot. Bring a Premium Spotify account per home and listen together.
+One music for two homes — or more. Pick a Pulsar speaker in Spotify and play:
+the same track starts in sync at every connected home. Telegram adds pairing,
+queues and voice notes between songs. Bring a Premium Spotify account per home.
 
 ## Short description (RU)
 
-Одна музыка на несколько домов. Пульсар играет один и тот же трек синхронно
-у каждого, с голосовыми вставками между песнями, — всё управляется из
-телеграм-бота. Свой Spotify Premium в каждом доме, и слушайте вместе.
+Одна музыка на несколько домов. Выбери колонку Пульсар в Spotify и включи
+трек — он синхронно заиграет у всех подключённых домов. В Telegram остаются
+подключение, очередь и голосовые между песнями. Свой Spotify Premium в каждом доме.
 
 ## Feature bullets
 
 - Synchronized broadcast across homes (periastron), precise to a fraction of
   a second.
+- Start together playback directly from Spotify on either Pulsar; no track
+  link needs to be sent to the bot.
 - Voice notes slotted between tracks, privately or to everyone.
 - Approaches: link two barycenters into one shared air, part anytime.
 - Zero configuration — a code from the bot pairs the app; no files, no setup.

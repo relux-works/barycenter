@@ -14,12 +14,14 @@ the bot. Everything that already exists must be re-verified from scratch.
 - **D2 Partner onboarding**: invite link → companion → /pair → second Mac
   through the same window → both homes online → offline gate releases parked
   material automatically.
-- **D3 Shared air**: track link → synchronized start (measured desync ≤ 100 ms
-  in the journal); /pause /resume /skip /sync behave per spec; playlist/album
-  link becomes the base flow with insert-and-return; voice notes: default
-  personal, «всем» broadcast, boundary insertion works both modes.
-- **D4 Takeover**: phone playback in shared → policy user: solo + notice;
-  /takeover coordinator: air restored. Both proven live.
+- **D3 Shared air**: selecting a track on either Pulsar → synchronized start
+  without sending a bot link (measured desync ≤ 100 ms in the journal); bot
+  links remain an optional queue; /pause /resume /skip /sync behave per spec;
+  playlist/album link becomes the base flow with insert-and-return; voice
+  notes: default personal, «всем» broadcast, boundary insertion works both modes.
+- **D4 Takeover**: phone playback on a Pulsar in shared → policy user: selected
+  track becomes the shared air; /takeover coordinator: busy air is restored.
+  An idle shared air always adopts the selection. Both proven live.
 - **D5 Resilience**: daemon restart needs no phone (persisted creds); Pulsar
   relaunch re-registers and continues; coordinator redeploy → session comes
   back PAUSED with queue intact → /resume; node offline → DEGRADED → auto

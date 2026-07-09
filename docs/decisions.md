@@ -2,6 +2,25 @@
 
 Short records of non-obvious engineering decisions. Newest first.
 
+## 2026-07-09 — Spotify on a Pulsar is the together-mode control surface
+
+**Problem.** Starting a track on a Pulsar during shared mode was detected as
+external playback, but the default `user` takeover policy switched the whole
+session to solo. Users still had to copy a Spotify link into Telegram to start
+the synchronized air.
+
+**Decision.** A track selected on any Pulsar while the session is shared is a
+leader event, not a reason to leave shared mode. The node reports the Spotify
+URI plus its audible position; Barycenter creates a shared element and runs the
+existing load/ready/resume barrier for all connected homes. An idle shared air
+always adopts the selection. In a busy air, `takeover_policy=user` adopts the
+new selection and `coordinator` protects the current broadcast. Explicit
+`/solo` remains the only way this interaction exits together mode.
+
+**Compatibility.** `external_playback.position_ms` is optional. Old nodes keep
+working and start adoption at position zero; the golden protocol contract and
+all three codecs carry the new field.
+
 ## 2026-07-07 — Pairing credentials in the Data Protection keychain (F2)
 
 **Problem.** After a Sparkle update the app silently fell back to the

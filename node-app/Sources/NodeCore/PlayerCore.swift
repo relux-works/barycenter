@@ -53,7 +53,7 @@ public final class PlayerCore {
 
     // ended-after-drain (spec 6.3 item 5).
     private var draining = false
-    // U9: debounce for external-playback (phone takeover) reports.
+    // Debounce duplicate metadata/playing reports for one Spotify selection.
     private var lastExternalReport = Date.distantPast
     private var resumeTimer: DispatchSourceTimer?
     private var waitTimer: DispatchSourceTimer?
@@ -364,23 +364,32 @@ public final class PlayerCore {
 
     // MARK: librespot events
 
-    /// U9: in shared, daemon playback of a uri that is not the broadcast
-    /// element means the partner's phone took over — report it, the
-    /// coordinator applies the configured takeover policy.
-    private func reportExternalIfForeign(_ uri: String?) {
-        guard mode == "shared", let uri, uri != currentURI else { return }
+    /// In shared mode, a Spotify selection on this Pulsar becomes a leader
+    /// event. Barycenter adopts it at this node's audible position and runs
+    /// the normal synchronized load barrier across all homes.
+    private func reportExternalSelection(
+        _ uri: String?, observedPosition: Int64? = nil, allowSameURI: Bool = false
+    ) {
+        guard SpotifySelection.shouldReport(
+            mode: mode, uri: uri, expectedURI: currentURI,
+            playback: playback, allowSameURI: allowSameURI
+        ), let uri else { return }
         guard Date().timeIntervalSince(lastExternalReport) > 5 else { return }
         lastExternalReport = Date()
+        let positionMs = SpotifySelection.startPosition(
+            observedPosition: observedPosition, uri: uri,
+            expectedURI: currentURI, audiblePosition: audiblePositionMs)
         log.warn("external playback detected in shared", ["uri": uri, "expected": currentURI ?? "silence"])
-        coordinator?.sendMessage(.externalPlayback(ExternalPlaybackPayload(uri: uri)))
+        coordinator?.sendMessage(.externalPlayback(
+            ExternalPlaybackPayload(uri: uri, positionMs: positionMs)))
     }
 
     private func handleLibrespotEvent(_ event: LibrespotEvent) {
         switch event {
         case .metadata(let uri, _, let position, _):
-            reportExternalIfForeign(uri)
-            if mode != "shared", let uri { currentURI = uri }
             if let position { setAnchor(position, extrapolating: playback == .playing) }
+            reportExternalSelection(uri, observedPosition: position)
+            if mode != "shared", let uri { currentURI = uri }
         case .seek(let position, _):
             if let position { setAnchor(position, extrapolating: playback == .playing) }
         case .notPlaying, .stopped:
@@ -400,7 +409,9 @@ public final class PlayerCore {
                 extrapolate = false
             }
         case .playing(let uri):
-            reportExternalIfForeign(uri)
+            // fireResume marks .playing before the daemon resumes. A matching
+            // event while stopped/paused therefore means the user selected it.
+            reportExternalSelection(uri, allowSameURI: true)
             engine.setMusicGain(1, fadeMs: 120)
             if playback == .playing { setAnchor(anchorPositionMs, extrapolating: true) }
         case .volume(let value, let max):

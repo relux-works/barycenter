@@ -61,6 +61,23 @@ trailing dot; browser URLs normally omit that dot). Release bundles enforce this
 by shipping a patched go-librespot fork that honors `PULSAR_ZEROCONF_HOST`,
 which NodeApp sets from macOS `LocalHostName`.
 
+## 3a. Start listening together (no track link in Telegram)
+
+1. Put the connected homes into the common air (`/together`, or complete an
+   approach with `/accept`).
+2. In Spotify, choose **either** Pulsar speaker and start a track.
+3. That Pulsar reports the track and its audible position to Barycenter. The
+   initiating home pauses briefly while every connected home loads the same
+   URI and starts through the normal synchronized `resume_at` barrier.
+4. Choose another track on either Pulsar to replace the common track. With the
+   default `/takeover user`, the latest Spotify selection leads the shared air.
+   `/takeover coordinator` instead rejects selections while an element or queue
+   is already active; an idle common air always accepts the first selection.
+
+Sending Spotify track links to the bot still adds them to the queue, but it is
+not required to start or change shared playback. `/solo` remains the explicit
+way to return the Pulsars to independent Spotify playback.
+
 ## 4. Speaker delivery setup (per home, spec ch. 14, v1.3)
 
 ### 4a. Direct mode (default, `airfoil.enabled: false`)

@@ -162,6 +162,8 @@ func TestV11AdditiveFieldsOmittedWhenEmpty(t *testing.T) {
 			[]string{`"provider"`, `"ref"`, `"ctid"`}},
 		{"state", TypeState, &StatePayload{Playback: "playing", Speakers: []Speaker{}},
 			[]string{`"provider"`}},
+		{"external_playback", TypeExternalPlayback, &ExternalPlaybackPayload{URI: "spotify:track:x"},
+			[]string{`"position_ms"`}},
 	}
 	for _, tc := range cases {
 		env, err := NewEnvelope("msg_x", 1, tc.msgType, tc.payload)

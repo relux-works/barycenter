@@ -488,8 +488,15 @@ func (l *loop) startGroup(linkID, orbitA, orbitB int64) {
 	l.linkOf[orbitB] = linkID
 	g := l.group(linkID)
 
-	l.notifyOrbit(orbitA, fmt.Sprintf("сближение с «%s» началось — эфир общий", esc(l.orbit(orbitB).title)))
-	l.notifyOrbit(orbitB, fmt.Sprintf("сближение с «%s» началось — эфир общий", esc(l.orbit(orbitA).title)))
+	startedText := func(otherTitle string) string {
+		text := fmt.Sprintf("сближение с «%s» началось — эфир общий", esc(otherTitle))
+		if donor == 0 {
+			text += ". Выбери Пульсар в Spotify и включи трек"
+		}
+		return text
+	}
+	l.notifyOrbit(orbitA, startedText(l.orbit(orbitB).title))
+	l.notifyOrbit(orbitB, startedText(l.orbit(orbitA).title))
 	l.log.Info("approach started", "link", linkID, "orbit_a", orbitA, "orbit_b", orbitB, "donor", donor)
 
 	if donor != 0 && (cur != nil || len(queue) > 0 || playlist != nil) {
@@ -697,45 +704,19 @@ func (l *loop) handleNodeMessage(m hub.EvMessage) {
 		l.st.LogEvent(string(slot), "node_error", p)
 		l.apply(o, o.sess.OnNodeError(slot, p.Code, p.ElementID))
 	case *protocol.ExternalPlaybackPayload:
-		l.handleExternalPlayback(o, m.Key, p.URI)
+		positionMS := int64(0)
+		if p.PositionMS != nil {
+			positionMS = *p.PositionMS
+		}
+		l.handleExternalPlayback(o, m.Key, p.URI, positionMS)
 	default:
 		l.log.Debug("unhandled message", "slot", slot, "type", m.Env.Type)
 	}
 }
 
-// handleExternalPlayback applies the takeover policy (U9). In a group
-// session the interfering home's own barycenter policy arbitrates.
-func (l *loop) handleExternalPlayback(o *orbitState, key hub.NodeKey, uri string) {
-	if o.sess.Mode != session.ModeShared {
-		return
-	}
-	id := l.peerFor(o, key)
-	policy := o.takeoverPolicy
-	if o.group() {
-		policy = l.orbit(key.Orbit).takeoverPolicy
-	}
-	l.st.LogEvent(string(key.Slot), "external_playback", map[string]string{"uri": uri, "policy": policy})
-	// The policy arbitrates a CONFLICT over a busy broadcast. An empty air
-	// has nothing to defend: the phone is always welcome, both policies
-	// step aside into apoastron (customer finding, R0 prod 2026-07-05).
-	busy := o.sess.Current != nil || o.sess.QueueLen() > 0 ||
-		(o.sess.Playlist != nil && o.sess.Playlist.Cursor < len(o.sess.Playlist.Tracks))
-	if policy == "user" || !busy {
-		l.notify(o, fmt.Sprintf("дом %s слушает своё — апоастрон", l.peerName(o, id)))
-		l.apply(o, o.sess.SetModeSoloKeeping(id))
-		return
-	}
-	l.notify(o, fmt.Sprintf("дом %s вмешался с телефона — эфир восстановлен", l.peerName(o, id)))
-	if o.sess.State == session.StatePlaying {
-		l.apply(o, o.sess.CmdSync())
-		return
-	}
-	l.hub.Send(key, protocol.TypeStop, &protocol.StopPayload{})
-}
-
 // --- Bot events: onboarding, roles, commands (spec ch. 9 + v2.1 M1) ---
 
-const strangerHello = `Привет! Я <b>Барицентр</b> — общий музыкальный эфир на несколько домов: одна и та же музыка звучит синхронно у всех, очередью управляет этот чат, а голосовые встают между песнями.
+const strangerHello = `Привет! Я <b>Барицентр</b> — общий музыкальный эфир на несколько домов: включи трек на любом Пульсаре, и он синхронно заиграет у всех; здесь остаются подключение, очередь и голосовые между песнями.
 
 <b>Как начать</b>
 /create — создать свой барицентр
@@ -940,7 +921,7 @@ func (l *loop) handleBot(ev bot.Event) {
 		home.takeoverPolicy = cmd.Target
 		l.st.SetOrbitSetting(home.id, "takeover_policy", cmd.Target)
 		if cmd.Target == "user" {
-			ev.Reply("политика: телефон главнее — вмешательство переключает орбит в solo (с уведомлением)")
+			ev.Reply("политика: телефон главнее — выбранный на Пульсаре трек становится общим эфиром")
 		} else {
 			ev.Reply("политика: эфир главнее — вмешательство с телефона откатывается (с уведомлением)")
 		}

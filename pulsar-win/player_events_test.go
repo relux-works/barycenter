@@ -38,15 +38,21 @@ func TestForeignPlaybackReportsWithDebounce(t *testing.T) {
 	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
 	p.externalDebounce = 40 * time.Millisecond
 	loadReady(t, p, sent, "el_1", "spotify:track:ours")
+	p.Handle(protocol.Envelope{Type: protocol.TypeResumeAt},
+		&protocol.ResumeAtPayload{ElementID: "el_1", TCoordMS: 0})
+	expectCall(t, daemon, "resume")
 
-	// Our own uri never reports.
+	// The playing event caused by the coordinator's own resume never reports.
 	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:ours")})
 	expectNothing(t, sent, 20*time.Millisecond)
 
-	// A foreign uri reports external_playback.
-	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:theirs")})
+	// A foreign metadata event reports the selected track and its audible
+	// position, allowing the coordinator to reload every home at one point.
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "metadata", URI: strPtr("spotify:track:theirs"),
+		Position: i64Ptr(63_000)})
 	m := expectSent(t, sent, protocol.TypeExternalPlayback)
-	if m.Payload.(*protocol.ExternalPlaybackPayload).URI != "spotify:track:theirs" {
+	external := m.Payload.(*protocol.ExternalPlaybackPayload)
+	if external.URI != "spotify:track:theirs" || external.PositionMS == nil || *external.PositionMS != 63_000 {
 		t.Fatalf("external payload %+v", m.Payload)
 	}
 
@@ -72,6 +78,46 @@ func TestForeignPlaybackIgnoredOutsideShared(t *testing.T) {
 	p.HandleLibrespotEvent(LibrespotEvent{Type: "metadata", URI: strPtr("spotify:track:next")})
 	if st := p.StatePayload(0); st.URI == nil || *st.URI != "spotify:track:next" {
 		t.Fatalf("solo metadata must adopt the uri, state %+v", st)
+	}
+}
+
+func TestSameTrackCanBeSelectedAgainAfterSharedPlaybackStops(t *testing.T) {
+	daemon := newFakeDaemon()
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
+	p.externalDebounce = 0
+	loadReady(t, p, sent, "el_1", "spotify:track:same")
+
+	// The coordinator-owned element has ended, but the URI remains useful in
+	// the heartbeat until the next command. A fresh Spotify play of that same
+	// URI is still a user selection and must restart the together air.
+	p.mu.Lock()
+	p.playback = PlaybackStopped
+	p.mu.Unlock()
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:same")})
+
+	m := expectSent(t, sent, protocol.TypeExternalPlayback)
+	if got := m.Payload.(*protocol.ExternalPlaybackPayload).URI; got != "spotify:track:same" {
+		t.Fatalf("reselected uri = %q", got)
+	}
+}
+
+func TestForeignPlayingWithoutMetadataStartsFromZero(t *testing.T) {
+	daemon := newFakeDaemon()
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
+	p.externalDebounce = 0
+	loadReady(t, p, sent, "el_1", "spotify:track:ours")
+
+	// A prior anchor belongs to the coordinator-owned URI. If librespot ever
+	// emits playing for a new selection before metadata, do not reuse that
+	// stale position for the new track.
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "metadata",
+		URI: strPtr("spotify:track:ours"), Position: i64Ptr(80_000)})
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:new")})
+
+	m := expectSent(t, sent, protocol.TypeExternalPlayback)
+	position := m.Payload.(*protocol.ExternalPlaybackPayload).PositionMS
+	if position == nil || *position != 0 {
+		t.Fatalf("position = %v, want zero without matching metadata", position)
 	}
 }
 

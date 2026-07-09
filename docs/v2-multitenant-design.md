@@ -72,6 +72,10 @@ Support surface: /help (already), a static landing at barycenter.relux.works
 The v1 two-node cycle generalizes cleanly because it never depended on "two"
 conceptually — only in code constants:
 
+- In shared/together mode, a Spotify track selected on any Pulsar is reported
+  with its audible position and becomes the common element; the usual barrier
+  below synchronizes every online home. Telegram links remain an optional
+  queue input, not the primary play action.
 - load -> ready from **all online pulsars of the orbit** -> resume_at(T) to
   all; T = now + 2·max(rtt_i) + margin.
 - ended when **all** report eof (or laggard within 1 s of duration).

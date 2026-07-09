@@ -316,11 +316,21 @@ public struct PingPayload: Codable, Equatable {
     enum CodingKeys: String, CodingKey { case t1 }
 }
 
-/// U9: daemon playback that does not belong to the broadcast (phone takeover).
+/// A track selected through Spotify on this Pulsar while the shared air is active.
 public struct ExternalPlaybackPayload: Codable, Equatable {
     public var uri: String
-    public init(uri: String) { self.uri = uri }
-    enum CodingKeys: String, CodingKey { case uri }
+    public var positionMs: Int64?
+    public init(uri: String, positionMs: Int64? = nil) {
+        self.uri = uri
+        self.positionMs = positionMs
+    }
+    enum CodingKeys: String, CodingKey { case uri, positionMs = "position_ms" }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(uri, forKey: .uri)
+        try c.encodeIfPresent(positionMs, forKey: .positionMs)
+    }
 }
 
 /// v1.1 (spec-providers §7): switch the node's active provider.

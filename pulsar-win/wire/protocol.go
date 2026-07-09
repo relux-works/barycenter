@@ -223,7 +223,8 @@ type PingPayload struct {
 }
 
 type ExternalPlaybackPayload struct {
-	URI string `json:"uri"`
+	URI        string `json:"uri"`
+	PositionMS *int64 `json:"position_ms,omitempty"`
 }
 
 type SetProviderPayload struct {

@@ -64,6 +64,12 @@ private func jsonObject(_ data: Data) throws -> NSDictionary {
             message: .playVoice(PlayVoicePayload(elementId: "el", fileUrl: "http://c/m.wav", tCoordMs: nil))
         )
         #expect(!String(decoding: voice, as: UTF8.self).contains("t_coord_ms"))
+
+        let external = try ProtocolCodec.encode(
+            id: "msg_x", ts: 1,
+            message: .externalPlayback(ExternalPlaybackPayload(uri: "spotify:track:x", positionMs: nil))
+        )
+        #expect(!String(decoding: external, as: UTF8.self).contains("position_ms"))
     }
 
     @Test func unknownTypeIsDetectable() {

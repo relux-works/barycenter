@@ -37,7 +37,7 @@ UNRESOLVED_QUESTIONS as a spec v1.3 proposal, per goal invariant 6):
 |---|---|---|
 | `set_offset` | `{ offset_ms }` | Set output_latency_offset_ms at runtime (spec ch. 14 calibration); node applies to all future scheduled starts |
 | `offset_test` | `{ t_coord_ms, clicks, interval_ms }` | Play `clicks` clicks, first at T (coordinator clock), then every `interval_ms`; scheduled through the same T_local mechanism as resume_at |
-| `external_playback` (node -> coordinator) | `{ uri }` | U9: in shared, the daemon started playback not belonging to the broadcast (partner's phone). Coordinator applies the takeover policy (/takeover user\|coordinator) |
+| `external_playback` (node -> coordinator) | `{ uri, position_ms? }` | In shared mode, Spotify started a track on this Pulsar outside the coordinator-owned element. `position_ms` is the node's audible position; old nodes may omit it (coordinator uses 0). An idle air adopts it. In a busy air, `/takeover user` adopts it across all homes and `/takeover coordinator` restores the existing element. |
 
 ## Transport
 

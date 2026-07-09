@@ -164,6 +164,37 @@ func TestEnqueueResolvesAndCaches(t *testing.T) {
 	}
 }
 
+func TestSameProviderTrackFetchesAndCachesHumanTitle(t *testing.T) {
+	l, _ := newTestLoop(t)
+	l.cfg.Providers = true
+	calls := 0
+	l.resolveTrack = func(originProv, originRef, _ string, targets []string) resolvedTrack {
+		calls++
+		if originProv != "spotify" || originRef != linkURI || len(targets) != 0 {
+			t.Fatalf("metadata resolve: provider=%s ref=%s targets=%v", originProv, originRef, targets)
+		}
+		return resolvedTrack{Title: "Human Song", Artists: []string{"Human Artist"}, DurationMS: 123_000, Method: "same", Score: 1}
+	}
+	r := &replies{}
+
+	l.handleBot(cmdEvent(t, "a", link, r))
+	l.pumpResolve(t)
+	cur := l.orbit(1).sess.Current
+	if cur == nil || cur.Title != "Human Artist — Human Song" {
+		t.Fatalf("first title = %+v", cur)
+	}
+
+	// The second link is a synchronous forever-cache hit and keeps the title.
+	l.handleBot(cmdEvent(t, "b", link, r))
+	if calls != 1 {
+		t.Fatalf("metadata fetched %d times", calls)
+	}
+	q := l.orbit(1).sess.Queue
+	if len(q) != 1 || q[0].Title != "Human Artist — Human Song" {
+		t.Fatalf("cached title = %+v", q)
+	}
+}
+
 // P1 strict air (spec-providers §4.2): a home whose provider did not
 // resolve rejects the enqueue with a reply naming home and provider.
 func TestPeriastronP1RejectsUnresolved(t *testing.T) {
@@ -196,22 +227,15 @@ func TestPeriastronP1RejectsUnresolved(t *testing.T) {
 	}
 }
 
-// Same-provider orbit (prod default): no cascade calls, no HTTP — the
-// element still gets a ctid and the identity mapping is cached.
-func TestSameProviderOrbitSkipsCascade(t *testing.T) {
+// If metadata lookup is unavailable, the same-provider path still fails open:
+// the element gets a ctid and the identity mapping is cached.
+func TestSameProviderOrbitCachesIdentityWithoutMetadataResolver(t *testing.T) {
 	l, _ := newTestLoop(t)
 	l.cfg.Providers = true
-	calls := 0
-	l.resolveTrack = func(_, _, _ string, _ []string) resolvedTrack {
-		calls++
-		return resolvedTrack{}
-	}
+	l.resolveTrack = nil
 	r := &replies{}
 
 	l.handleBot(cmdEvent(t, "a", link, r))
-	if calls != 0 {
-		t.Fatalf("cascade must not run for an all-spotify orbit, ran %d", calls)
-	}
 	cur := l.orbit(1).sess.Current
 	if cur == nil || !strings.HasPrefix(cur.CTID, "ct_") {
 		t.Fatalf("element ctid: %+v", cur)

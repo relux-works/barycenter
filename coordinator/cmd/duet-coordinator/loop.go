@@ -48,6 +48,7 @@ type orbitState struct {
 	offsets  map[protocol.NodeID]int64
 	lastSeen map[protocol.NodeID]*protocol.StatePayload
 	versions map[protocol.NodeID]string
+	seamless map[protocol.NodeID]bool
 	// restoredPaused: after coordinator restart, resume position must follow
 	// live heartbeats until the user resumes (spec 7.2).
 	restoredPaused bool
@@ -73,6 +74,9 @@ type loop struct {
 	// resolveTrack runs the provider cascade for one track (providers.go).
 	// nil while the provider layer is off; tests stub it directly.
 	resolveTrack resolveTrackFn
+	// fetchTrackMetadata gives the legacy Spotify-only path the same human
+	// Artist — Track labels without enabling the multi-provider gate.
+	fetchTrackMetadata func(string) (trackMetadata, error)
 
 	states map[int64]*orbitState
 
@@ -81,10 +85,16 @@ type loop struct {
 	linkOf map[int64]int64
 	groups map[int64]*orbitState
 
-	timeouts   chan orbitTimeout
-	mediaCh    chan mediaDone
-	playlistCh chan playlistDone
-	resolveCh  chan resolveDone
+	timeouts    chan orbitTimeout
+	mediaCh     chan mediaDone
+	playlistCh  chan playlistDone
+	resolveCh   chan resolveDone
+	trackMetaCh chan trackMetadataDone
+	// Voice processing is concurrent, but airtime order is the serial Telegram
+	// acceptance order per air. Completed jobs wait here for older jobs.
+	voiceAccepted map[int64]int64
+	voiceNext     map[int64]int64
+	voicePending  map[int64]map[int64]mediaDone
 }
 
 type orbitTimeout struct {
@@ -101,33 +111,68 @@ type playlistDone struct {
 	reply  func(string)
 }
 
+type trackMetadata struct {
+	title      string
+	artists    []string
+	durationMS int64
+}
+
+type trackMetadataDone struct {
+	orbit   int64
+	el      session.Element
+	playNow bool
+	meta    trackMetadata
+	err     error
+	reply   func(string)
+}
+
 type mediaDone struct {
-	orbit    int64
-	mediaID  string
-	from     int64 // tg user id of the sender
-	fromName string
-	personal bool
-	result   media.Result
-	err      error
-	reply    func(string)
+	orbit int64
+	// orderAir is the session that owned the air when Telegram accepted the
+	// message. Two linked barycenters have different source orbit ids but one
+	// shared orderAir, so ffmpeg completion cannot reorder their voices.
+	orderAir   int64
+	mediaID    string
+	from       int64 // tg user id of the sender
+	fromName   string
+	acceptedAt int64
+	sequence   int64
+	personal   bool
+	result     media.Result
+	err        error
+	reply      func(string)
 }
 
 func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store, b *bot.Bot, sp *spotify.Client) *loop {
-	return &loop{
-		log:        log,
-		cfg:        cfg,
-		hub:        h,
-		st:         st,
-		bot:        b,
-		sp:         sp,
-		states:     map[int64]*orbitState{},
-		linkOf:     map[int64]int64{},
-		groups:     map[int64]*orbitState{},
-		timeouts:   make(chan orbitTimeout, 8),
-		mediaCh:    make(chan mediaDone, 8),
-		playlistCh: make(chan playlistDone, 4),
-		resolveCh:  make(chan resolveDone, 8),
+	l := &loop{
+		log:           log,
+		cfg:           cfg,
+		hub:           h,
+		st:            st,
+		bot:           b,
+		sp:            sp,
+		states:        map[int64]*orbitState{},
+		linkOf:        map[int64]int64{},
+		groups:        map[int64]*orbitState{},
+		timeouts:      make(chan orbitTimeout, 8),
+		mediaCh:       make(chan mediaDone, 8),
+		playlistCh:    make(chan playlistDone, 4),
+		resolveCh:     make(chan resolveDone, 8),
+		trackMetaCh:   make(chan trackMetadataDone, 8),
+		voiceAccepted: map[int64]int64{},
+		voiceNext:     map[int64]int64{},
+		voicePending:  map[int64]map[int64]mediaDone{},
 	}
+	if sp != nil {
+		l.fetchTrackMetadata = func(ref string) (trackMetadata, error) {
+			t, err := sp.TrackByRef(ref)
+			if err != nil {
+				return trackMetadata{}, err
+			}
+			return trackMetadata{title: t.Title, artists: t.Artists, durationMS: t.DurationMS}, nil
+		}
+	}
+	return l
 }
 
 // orbitGone reports a dissolved orbit (L3): async completions (media,
@@ -155,6 +200,7 @@ func (l *loop) orbit(id int64) *orbitState {
 		offsets:        map[protocol.NodeID]int64{},
 		lastSeen:       map[protocol.NodeID]*protocol.StatePayload{},
 		versions:       map[protocol.NodeID]string{},
+		seamless:       map[protocol.NodeID]bool{},
 	}
 	o.sess.StartMarginMS = int64(l.cfg.Timings.StartMarginMS)
 	if rec, err := l.st.GetOrbit(id); err == nil && rec != nil {
@@ -294,6 +340,7 @@ func (l *loop) group(linkID int64) *orbitState {
 		offsets:        map[protocol.NodeID]int64{},
 		lastSeen:       map[protocol.NodeID]*protocol.StatePayload{},
 		versions:       map[protocol.NodeID]string{},
+		seamless:       map[protocol.NodeID]bool{},
 	}
 	g.sess.StartMarginMS = int64(l.cfg.Timings.StartMarginMS)
 	var peers []string
@@ -304,6 +351,9 @@ func (l *loop) group(linkID int64) *orbitState {
 			n := compositeID(orbitID, protocol.NodeID(sl))
 			peers = append(peers, string(n))
 			g.volumes[n] = 80
+			homeNode := protocol.NodeID(sl)
+			g.versions[n] = l.orbit(orbitID).versions[homeNode]
+			g.seamless[n] = l.orbit(orbitID).seamless[homeNode]
 			if v, _ := l.st.GetSetting(fmt.Sprintf("volume_%d_%s", orbitID, sl)); v != "" {
 				if i, err := strconv.Atoi(v); err == nil {
 					g.volumes[n] = i
@@ -374,7 +424,7 @@ func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 		case to := <-l.timeouts:
 			// A group timer may outlive its link; drop it then.
 			if o := l.stateByID(to.orbit); o != nil {
-				l.apply(o, o.sess.OnReadyTimeout(to.elementID))
+				l.apply(o, o.sess.OnReadyTimeoutAt(time.Now().UnixMilli(), to.elementID))
 			}
 		case ev := <-botEvents:
 			l.handleBot(ev)
@@ -384,8 +434,56 @@ func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 			l.handlePlaylistDone(d)
 		case d := <-l.resolveCh:
 			l.onResolveDone(d)
+		case d := <-l.trackMetaCh:
+			l.handleTrackMetadataDone(d)
 		}
 	}
+}
+
+func (l *loop) enrichSpotifyTrack(
+	sourceOrbit int64, o *orbitState, el session.Element, playNow bool, reply func(string),
+) {
+	_, isSpotifyTrack := strings.CutPrefix(el.URI, "spotify:track:")
+	if l.fetchTrackMetadata == nil || !isSpotifyTrack {
+		l.finishTrackAction(o, el, playNow, reply)
+		return
+	}
+	go func() {
+		meta, err := l.fetchTrackMetadata(el.URI)
+		l.trackMetaCh <- trackMetadataDone{
+			orbit: sourceOrbit, el: el, playNow: playNow,
+			meta: meta, err: err, reply: reply,
+		}
+	}()
+}
+
+func (l *loop) handleTrackMetadataDone(d trackMetadataDone) {
+	if l.orbitGone(d.orbit) {
+		return
+	}
+	o := l.stateFor(d.orbit)
+	if o.sess.Mode != session.ModeShared {
+		d.reply("сейчас режим solo: /inject подкинет трек партнёру, /together вернёт общий эфир")
+		return
+	}
+	if d.err != nil {
+		// Metadata is presentation only: a temporary Web API problem must not
+		// make an otherwise playable link disappear from the air.
+		l.log.Warn("spotify track metadata failed", "uri", d.el.URI, "err", d.err)
+	} else {
+		stampTrackMetadata(&d.el, d.meta.title, d.meta.artists, d.meta.durationMS)
+	}
+	l.finishTrackAction(o, d.el, d.playNow, d.reply)
+}
+
+func (l *loop) finishTrackAction(o *orbitState, el session.Element, playNow bool, reply func(string)) {
+	if !playNow {
+		l.finishEnqueue(o, el, reply)
+		return
+	}
+	l.st.InsertElement(el)
+	l.apply(o, o.sess.CmdPlayNow(el))
+	reply("врубаю немедленно: " + trackLabel(el))
 }
 
 func (l *loop) handlePlaylistDone(d playlistDone) {
@@ -406,18 +504,26 @@ func (l *loop) handlePlaylistDone(d playlistDone) {
 var compositePeerRe = regexp.MustCompile(`\b(\d+):([a-z])\b`)
 
 // humanizePeers rewrites raw composite peer ids ("1:a") from core-produced
-// texts into "a@«Title»" — the FSM stays pure, rendering lives here.
+// texts into a human orbit name — the FSM stays pure, rendering lives here.
 func (l *loop) humanizePeers(text string) string {
 	return compositePeerRe.ReplaceAllStringFunc(text, func(m string) string {
 		parts := compositePeerRe.FindStringSubmatch(m)
 		var orbitID int64
 		fmt.Sscanf(parts[1], "%d", &orbitID)
-		title := "?"
-		if rec, err := l.st.GetOrbit(orbitID); err == nil && rec != nil {
-			title = rec.Title
-		}
-		return parts[2] + "@«" + esc(title) + "»"
+		return l.namedGroupPeer(orbitID, parts[2])
 	})
+}
+
+func (l *loop) namedGroupPeer(orbitID int64, slot string) string {
+	title := "?"
+	if rec, err := l.st.GetOrbit(orbitID); err == nil && rec != nil {
+		title = rec.Title
+	}
+	slots, _ := l.st.ActiveSlots(orbitID)
+	if len(slots) > 1 {
+		return fmt.Sprintf("«%s», Пульсар %s", esc(title), strings.ToUpper(slot))
+	}
+	return "«" + esc(title) + "»"
 }
 
 func (l *loop) notify(o *orbitState, text string) {
@@ -632,6 +738,22 @@ func (l *loop) handleNode(ev hub.Event) {
 		o.sess.EnsurePeer(n) // a slot paired after orbit/group warm-up
 		l.log.Info("node registered", "orbit", e.Key.Orbit, "slot", e.Key.Slot, "app", e.AppVersion, "librespot", e.LibrespotVersion)
 		o.versions[n] = e.AppVersion + "/librespot " + e.LibrespotVersion
+		supportsSeamless := false
+		for _, capability := range e.Capabilities {
+			if capability == protocol.CapabilitySeamlessAdoption {
+				supportsSeamless = true
+				break
+			}
+		}
+		o.seamless[n] = supportsSeamless
+		// Keep the personal state warm too while its air is owned by a group;
+		// a later /apart -> /approach must not forget this capability until the
+		// node reconnects.
+		if o.group() {
+			home := l.orbit(e.Key.Orbit)
+			home.versions[e.Key.Slot] = o.versions[n]
+			home.seamless[e.Key.Slot] = supportsSeamless
+		}
 		vol, ok := o.volumes[n]
 		if !ok {
 			vol = 80
@@ -647,7 +769,7 @@ func (l *loop) handleNode(ev hub.Event) {
 		peer := l.peerFor(o, e.Key)
 		// Living air (§12 L1.5): a home returning to a playing group catches
 		// up individually instead of the strict pause/resume dance.
-		if join := o.sess.JoinInProgress(peer); join != nil {
+		if join := o.sess.JoinInProgressAt(time.Now().UnixMilli(), peer); join != nil {
 			l.apply(o, join)
 		} else {
 			l.apply(o, o.sess.OnNodeBack(peer))
@@ -673,7 +795,7 @@ func (l *loop) handleNodeMessage(m hub.EvMessage) {
 	// orbit stays parked although the node heartbeats normally. Any message
 	// from a known peer is proof of life: replay the online edge first.
 	if !o.sess.IsOnline(slot) && o.sess.HasPeer(slot) {
-		if join := o.sess.JoinInProgress(slot); join != nil {
+		if join := o.sess.JoinInProgressAt(now, slot); join != nil {
 			l.apply(o, join)
 		} else {
 			l.apply(o, o.sess.OnNodeBack(slot))
@@ -683,7 +805,7 @@ func (l *loop) handleNodeMessage(m hub.EvMessage) {
 	case *protocol.StatePayload:
 		o.lastSeen[slot] = p
 		o.volumes[slot] = p.Volume
-		l.apply(o, o.sess.OnHeartbeat(slot, p.PositionMS, p.RTTMS))
+		l.apply(o, o.sess.OnHeartbeatAt(now, slot, p.PositionMS, p.RTTMS))
 		if o.restoredPaused {
 			o.sess.RefreshSavedPosition()
 		}
@@ -702,13 +824,13 @@ func (l *loop) handleNodeMessage(m hub.EvMessage) {
 	case *protocol.ErrorPayload:
 		l.log.Warn("node error", "orbit", o.id, "slot", slot, "code", p.Code, "msg", p.Message, "element", p.ElementID)
 		l.st.LogEvent(string(slot), "node_error", p)
-		l.apply(o, o.sess.OnNodeError(slot, p.Code, p.ElementID))
+		l.apply(o, o.sess.OnNodeErrorAt(now, slot, p.Code, p.ElementID))
 	case *protocol.ExternalPlaybackPayload:
 		positionMS := int64(0)
 		if p.PositionMS != nil {
 			positionMS = *p.PositionMS
 		}
-		l.handleExternalPlayback(o, m.Key, p.URI, positionMS)
+		l.handleExternalPlayback(o, m.Key, p.URI, positionMS, p.Title)
 	default:
 		l.log.Debug("unhandled message", "slot", slot, "type", m.Env.Type)
 	}
@@ -871,10 +993,10 @@ func (l *loop) handleBot(ev bot.Event) {
 			// it off the loop and either enqueues or rejects (P1) from the
 			// resolveCh handler (bugs #4). Behaviour is unchanged with the flag
 			// off — this branch is simply never taken.
-			l.resolveAndEnqueue(o, el, ev.Reply)
+			l.resolveAndEnqueue(member.OrbitID, o, el, ev.Reply)
 			return
 		}
-		l.finishEnqueue(o, el, ev.Reply)
+		l.enrichSpotifyTrack(member.OrbitID, o, el, false, ev.Reply)
 
 	case bot.KindPlayNow:
 		if o.sess.Mode != session.ModeShared {
@@ -882,9 +1004,7 @@ func (l *loop) handleBot(ev bot.Event) {
 			return
 		}
 		el := l.newTrackElement(cmd.URI, ev.FromName)
-		l.st.InsertElement(el)
-		l.apply(o, o.sess.CmdPlayNow(el))
-		ev.Reply("врубаю немедленно: " + trackLabel(el))
+		l.enrichSpotifyTrack(member.OrbitID, o, el, true, ev.Reply)
 
 	case bot.KindPlaylist:
 		if o.sess.Mode != session.ModeShared {
@@ -1326,7 +1446,14 @@ func (l *loop) handleVoice(o *orbitState, ev bot.Event) {
 		personal = false
 	}
 	reply := ev.Reply
+	ev.Reply("голосовое принято — поставлю по времени отправки, даже если другое обработается быстрее")
 	orbitID := o.id
+	orderAir := l.stateFor(orbitID).id
+	l.voiceAccepted[orderAir]++
+	sequence := l.voiceAccepted[orderAir]
+	if l.voiceNext[orderAir] == 0 {
+		l.voiceNext[orderAir] = 1
+	}
 	from := ev.FromUserID
 	fromName := ev.FromName
 	go func() {
@@ -1340,11 +1467,43 @@ func (l *loop) handleVoice(o *orbitState, ev bot.Event) {
 		if err == nil {
 			os.Remove(oga)
 		}
-		l.mediaCh <- mediaDone{orbit: orbitID, mediaID: mediaID, from: from, fromName: fromName, personal: personal, result: res, err: err, reply: reply}
+		l.mediaCh <- mediaDone{
+			orbit: orbitID, orderAir: orderAir, mediaID: mediaID, from: from, fromName: fromName,
+			acceptedAt: rec.CreatedAt, sequence: sequence, personal: personal,
+			result: res, err: err, reply: reply,
+		}
 	}()
 }
 
 func (l *loop) handleMediaDone(d mediaDone) {
+	// Tests and internal direct callers use sequence 0: process immediately.
+	if d.sequence == 0 {
+		l.processMediaDone(d)
+		return
+	}
+	orderAir := d.orderAir
+	if orderAir == 0 { // backward-compatible direct test/internal callers
+		orderAir = d.orbit
+	}
+	pending := l.voicePending[orderAir]
+	if pending == nil {
+		pending = map[int64]mediaDone{}
+		l.voicePending[orderAir] = pending
+	}
+	pending[d.sequence] = d
+	for {
+		next := l.voiceNext[orderAir]
+		ready, ok := pending[next]
+		if !ok {
+			return
+		}
+		delete(pending, next)
+		l.voiceNext[orderAir] = next + 1
+		l.processMediaDone(ready)
+	}
+}
+
+func (l *loop) processMediaDone(d mediaDone) {
 	if d.err != nil {
 		l.log.Error("voice processing failed", "media", d.mediaID, "err", d.err)
 		l.st.UpdateMedia(store.MediaRecord{ID: d.mediaID, Status: "failed"})
@@ -1390,16 +1549,16 @@ func (l *loop) handleMediaDone(d mediaDone) {
 		DurationMS:  d.result.DurationMS,
 		RequestedBy: protocol.NodeID(d.fromName),
 		Target:      target,
-		CreatedAt:   time.Now().UnixMilli(),
+		CreatedAt:   d.acceptedAt,
 	}
 	l.st.InsertElement(el)
 
 	if o.sess.Mode == session.ModeShared {
 		l.apply(o, o.sess.EnqueueVoice(el))
 		if target != "both" {
-			d.reply("личная вставка встанет после текущего трека")
+			d.reply(fmt.Sprintf("личное голосовое от %s готово: после текущего трека, только адресату", esc(d.fromName)))
 		} else {
-			d.reply("вставка встанет после текущего трека")
+			d.reply(fmt.Sprintf("голосовое от %s готово: после текущего трека, для всех", esc(d.fromName)))
 		}
 		return
 	}
@@ -1437,9 +1596,14 @@ func (l *loop) apply(o *orbitState, effs []session.Effect) {
 	for _, eff := range effs {
 		switch e := eff.(type) {
 		case session.EffLoad:
-			l.hub.Send(key(e.To), protocol.TypeLoad, &protocol.LoadPayload{ElementID: e.ElementID, URI: e.URI, PositionMS: e.PositionMS})
+			l.hub.Send(key(e.To), protocol.TypeLoad, &protocol.LoadPayload{
+				ElementID: e.ElementID, URI: e.URI, PositionMS: e.PositionMS,
+				AdoptPlaying: e.AdoptPlaying,
+			})
 		case session.EffResumeAt:
-			l.hub.Send(key(e.To), protocol.TypeResumeAt, &protocol.ResumeAtPayload{ElementID: e.ElementID, TCoordMS: e.TCoordMS})
+			l.hub.Send(key(e.To), protocol.TypeResumeAt, &protocol.ResumeAtPayload{
+				ElementID: e.ElementID, TCoordMS: e.TCoordMS, PositionMS: e.PositionMS,
+			})
 		case session.EffPause:
 			l.hub.Send(key(e.To), protocol.TypePause, &protocol.PausePayload{ElementID: e.ElementID, FadeMS: e.FadeMS})
 		case session.EffPlayVoice:
@@ -1517,8 +1681,36 @@ func fmtMS(ms int64) string {
 	return fmt.Sprintf("%02d:%02d", s/60, s%60)
 }
 
-// peerName renders a session peer for chat texts: bare slots as-is, group
-// composites as "a@<orbit title>" (design §12 bot rendering).
+func modeLabel(mode session.Mode) string {
+	if mode == session.ModeSolo {
+		return "каждый слушает своё"
+	}
+	return "слушаем вместе"
+}
+
+func stateLabel(state session.State) string {
+	switch state {
+	case session.StateIdle:
+		return "тишина"
+	case session.StateLoading:
+		return "загружаю трек"
+	case session.StateArmed:
+		return "готовимся начать"
+	case session.StatePlaying:
+		return "играет"
+	case session.StateVoice:
+		return "играет голосовое"
+	case session.StatePaused:
+		return "пауза"
+	case session.StateDegraded:
+		return "жду недоступный дом"
+	default:
+		return string(state)
+	}
+}
+
+// peerName renders a session peer for chat texts. Group composites are shown
+// as the Barycenter name, never as the internal "slot@orbit" identifier.
 func (l *loop) peerName(o *orbitState, id protocol.NodeID) string {
 	if !o.group() {
 		return string(id)
@@ -1527,7 +1719,7 @@ func (l *loop) peerName(o *orbitState, id protocol.NodeID) string {
 	if !ok {
 		return string(id)
 	}
-	return fmt.Sprintf("%s@%s", slot, esc(l.orbit(orbit).title))
+	return l.namedGroupPeer(orbit, string(slot))
 }
 
 // sessionPeers lists the homes of o's air in stable order: DB-sourced slots
@@ -1639,7 +1831,7 @@ func (l *loop) queueText(o *orbitState) string {
 		fmt.Fprintf(&b, "сейчас: %s\n", l.elementLabel(o, *cur))
 	}
 	if o.sess.QueueLen() == 0 {
-		b.WriteString("очередь вставок пуста")
+		b.WriteString("очередь пуста")
 	} else {
 		b.WriteString("очередь:\n")
 		for i, el := range o.sess.Queue {
@@ -1662,7 +1854,11 @@ func (l *loop) elementLabel(o *orbitState, el session.Element) string {
 		if el.Target != "both" {
 			who = "лично в дом " + l.peerName(o, protocol.NodeID(el.Target))
 		}
-		return fmt.Sprintf("голосовое %s (%s)", fmtMS(el.DurationMS), who)
+		from := string(el.RequestedBy)
+		if from == "" {
+			from = "неизвестного отправителя"
+		}
+		return fmt.Sprintf("голосовое от %s · %s · %s", esc(from), fmtMS(el.DurationMS), who)
 	}
 	return trackLabel(el)
 }
@@ -1682,7 +1878,7 @@ func (l *loop) nowText(o *orbitState) string {
 		return strings.TrimRight(b.String(), "\n")
 	}
 	if cur := o.sess.Current; cur != nil {
-		return fmt.Sprintf("сейчас: %s @ %s (%s)", l.elementLabel(o, *cur), fmtMS(l.livePosition(o)), o.sess.State)
+		return fmt.Sprintf("сейчас: %s · %s · %s", l.elementLabel(o, *cur), fmtMS(l.livePosition(o)), stateLabel(o.sess.State))
 	}
 	return "тишина — пришли ссылку на трек"
 }
@@ -1699,7 +1895,7 @@ func (l *loop) livePosition(o *orbitState) int64 {
 
 func (l *loop) statusText(o *orbitState) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "<b>«%s»</b> — режим %s, состояние %s\n", esc(o.title), o.sess.Mode, o.sess.State)
+	fmt.Fprintf(&b, "<b>«%s»</b> — %s, %s\n", esc(o.title), modeLabel(o.sess.Mode), stateLabel(o.sess.State))
 	online := l.onlineMap(o)
 	for _, n := range l.sessionPeers(o) {
 		name := l.peerName(o, n)
@@ -1714,7 +1910,7 @@ func (l *loop) statusText(o *orbitState) string {
 		}
 		mark := ""
 		if st.Degraded {
-			mark = " [degraded]"
+			mark = " [есть проблема со звуком]"
 		}
 		var speakers []string
 		for _, sp := range st.Speakers {
@@ -1732,7 +1928,7 @@ func (l *loop) statusText(o *orbitState) string {
 	}
 	fmt.Fprintf(&b, "координатор %s", version)
 	for n, v := range o.versions {
-		fmt.Fprintf(&b, ", нода %s %s", l.peerName(o, n), v)
+		fmt.Fprintf(&b, ", Пульсар %s %s", l.peerName(o, n), v)
 	}
 	return b.String()
 }

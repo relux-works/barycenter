@@ -193,6 +193,27 @@ func TestLoadHappyPathSendsReady(t *testing.T) {
 	}
 }
 
+func TestAdoptPlayingRelabelsWithoutTouchingDaemonOrRing(t *testing.T) {
+	daemon := newFakeDaemon()
+	p, sent, ring := newTestPlayer(t, daemon, fixedClock{ok: true})
+	ring.Write(make([]float32, 1024))
+	payload := &protocol.LoadPayload{
+		ElementID: "el_phone", URI: "spotify:track:phone",
+		PositionMS: 12_000, AdoptPlaying: true,
+	}
+	p.Handle(protocol.Envelope{Type: protocol.TypeLoad}, payload)
+
+	expectSent(t, sent, protocol.TypeReady)
+	neverCall(t, daemon, "play ", 30*time.Millisecond)
+	neverCall(t, daemon, "pause", 30*time.Millisecond)
+	if ring.Fill() == 0 {
+		t.Fatal("leader adoption must not clear already-audible samples")
+	}
+	if st := p.StatePayload(0); st.Playback != "playing" || st.URI == nil || *st.URI != payload.URI {
+		t.Fatalf("adopted state %+v", st)
+	}
+}
+
 func TestLoadSkipsSeekAtZero(t *testing.T) {
 	daemon := newFakeDaemon()
 	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
@@ -269,6 +290,21 @@ func TestResumeAtSchedulesOnDeadline(t *testing.T) {
 		t.Fatalf("second NoteRendered sent %+v", m)
 	case <-time.After(30 * time.Millisecond):
 	}
+}
+
+func TestCatchUpResumeSeeksBeforeScheduledStart(t *testing.T) {
+	daemon := newFakeDaemon()
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
+	p.Handle(loadEnvelope("el_1", "spotify:track:x", 0))
+	expectSent(t, sent, protocol.TypeReady)
+	position := int64(42_500)
+	p.Handle(protocol.Envelope{Type: protocol.TypeResumeAt}, &protocol.ResumeAtPayload{
+		ElementID: "el_1", TCoordMS: nowMS() + 100, PositionMS: &position,
+	})
+	if got := expectCall(t, daemon, "seek "); got != "seek 42500" {
+		t.Fatalf("catch-up seek %q", got)
+	}
+	expectCall(t, daemon, "resume")
 }
 
 func TestResumeAtWrongElementIgnored(t *testing.T) {

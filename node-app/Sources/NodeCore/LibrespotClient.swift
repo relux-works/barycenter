@@ -22,12 +22,12 @@ public struct LibrespotStatus: Decodable {
 public enum LibrespotEvent {
     case active
     case inactive
-    case willPlay(uri: String?)
-    case playing(uri: String?)
-    case notPlaying(uri: String?)
-    case paused(uri: String?)
+    case willPlay(uri: String?, playOrigin: String?)
+    case playing(uri: String?, playOrigin: String?)
+    case notPlaying(uri: String?, playOrigin: String?)
+    case paused(uri: String?, playOrigin: String?)
     case stopped
-    case metadata(uri: String?, name: String?, position: Int64?, duration: Int64?)
+    case metadata(uri: String?, name: String?, artistNames: [String], position: Int64?, duration: Int64?)
     case seek(position: Int64?, duration: Int64?)
     case volume(value: Int?, max: Int?)
     case other(String)
@@ -194,18 +194,20 @@ public final class LibrespotClient {
               let type = obj["type"] as? String else { return nil }
         let d = obj["data"] as? [String: Any] ?? [:]
         let uri = d["uri"] as? String
+        let playOrigin = d["play_origin"] as? String
         func int64(_ key: String) -> Int64? { (d[key] as? NSNumber)?.int64Value }
 
         switch type {
         case "active": return .active
         case "inactive": return .inactive
-        case "will_play": return .willPlay(uri: uri)
-        case "playing": return .playing(uri: uri)
-        case "not_playing": return .notPlaying(uri: uri)
-        case "paused": return .paused(uri: uri)
+        case "will_play": return .willPlay(uri: uri, playOrigin: playOrigin)
+        case "playing": return .playing(uri: uri, playOrigin: playOrigin)
+        case "not_playing": return .notPlaying(uri: uri, playOrigin: playOrigin)
+        case "paused": return .paused(uri: uri, playOrigin: playOrigin)
         case "stopped": return .stopped
         case "metadata":
             return .metadata(uri: uri, name: d["name"] as? String,
+                             artistNames: d["artist_names"] as? [String] ?? [],
                              position: int64("position"), duration: int64("duration"))
         case "seek": return .seek(position: int64("position"), duration: int64("duration"))
         case "volume":

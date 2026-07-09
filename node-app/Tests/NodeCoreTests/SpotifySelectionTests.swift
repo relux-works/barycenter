@@ -17,6 +17,20 @@ import Testing
             playback: .stopped, allowSameURI: true))
     }
 
+    @Test func internalDaemonLoadsNeverResurrectOldTracks() {
+        #expect(!SpotifySelection.shouldReport(
+            mode: "shared", uri: "spotify:track:old", expectedURI: "spotify:track:new",
+            playback: .loading, allowSameURI: true, playOrigin: "go-librespot"))
+        #expect(SpotifySelection.shouldReport(
+            mode: "shared", uri: "spotify:track:old", expectedURI: "spotify:track:new",
+            playback: .loading, allowSameURI: true, playOrigin: "playlist"))
+    }
+
+    @Test func displayTitleIncludesArtists() {
+        #expect(SpotifySelection.displayTitle(name: "Song", artistNames: ["A", "B"]) == "A, B — Song")
+        #expect(SpotifySelection.displayTitle(name: "Song", artistNames: []) == "Song")
+    }
+
     @Test func onlyMatchingMetadataCarriesPosition() {
         #expect(SpotifySelection.startPosition(
             observedPosition: 63_000, uri: "spotify:track:new",

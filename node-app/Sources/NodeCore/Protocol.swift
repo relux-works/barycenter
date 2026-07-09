@@ -4,6 +4,8 @@
 
 import Foundation
 
+public let seamlessAdoptionCapability = "seamless_adoption_v1"
+
 public enum ProtocolConstants {
     public static let version = 1
 }
@@ -67,16 +69,19 @@ public struct LoadPayload: Codable, Equatable {
     public var ref: String?
     public var durationMs: Int64?
     public var gainDb: Double?
+    public var adoptPlaying: Bool?
     enum CodingKeys: String, CodingKey {
-        case elementId = "element_id", provider, ref, durationMs = "duration_ms", gainDb = "gain_db", uri, positionMs = "position_ms"
+        case elementId = "element_id", provider, ref, durationMs = "duration_ms", gainDb = "gain_db",
+             adoptPlaying = "adopt_playing", uri, positionMs = "position_ms"
     }
 }
 
 public struct ResumeAtPayload: Codable, Equatable {
     public var elementId: String
     public var tCoordMs: Int64
+    public var positionMs: Int64?
     enum CodingKeys: String, CodingKey {
-        case elementId = "element_id", tCoordMs = "t_coord_ms"
+        case elementId = "element_id", tCoordMs = "t_coord_ms", positionMs = "position_ms"
     }
 }
 
@@ -181,14 +186,18 @@ public struct RegisterPayload: Codable, Equatable {
     public var token: String
     public var appVersion: String
     public var librespotVersion: String
-    public init(nodeId: String, token: String, appVersion: String, librespotVersion: String) {
+    public var capabilities: [String]?
+    public init(nodeId: String, token: String, appVersion: String, librespotVersion: String,
+                capabilities: [String]? = nil) {
         self.nodeId = nodeId
         self.token = token
         self.appVersion = appVersion
         self.librespotVersion = librespotVersion
+        self.capabilities = capabilities
     }
     enum CodingKeys: String, CodingKey {
-        case nodeId = "node_id", token, appVersion = "app_version", librespotVersion = "librespot_version"
+        case nodeId = "node_id", token, appVersion = "app_version",
+             librespotVersion = "librespot_version", capabilities
     }
 }
 
@@ -320,16 +329,19 @@ public struct PingPayload: Codable, Equatable {
 public struct ExternalPlaybackPayload: Codable, Equatable {
     public var uri: String
     public var positionMs: Int64?
-    public init(uri: String, positionMs: Int64? = nil) {
+    public var title: String?
+    public init(uri: String, positionMs: Int64? = nil, title: String? = nil) {
         self.uri = uri
         self.positionMs = positionMs
+        self.title = title
     }
-    enum CodingKeys: String, CodingKey { case uri, positionMs = "position_ms" }
+    enum CodingKeys: String, CodingKey { case uri, positionMs = "position_ms", title }
 
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(uri, forKey: .uri)
         try c.encodeIfPresent(positionMs, forKey: .positionMs)
+        try c.encodeIfPresent(title, forKey: .title)
     }
 }
 

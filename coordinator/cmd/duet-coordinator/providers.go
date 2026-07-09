@@ -176,7 +176,7 @@ type resolveDone struct {
 // consulted on the loop goroutine; only a genuine cache miss offloads the
 // external cascade to a goroutine, whose result returns over resolveCh. Only
 // called when cfg.Providers is on.
-func (l *loop) resolveAndEnqueue(o *orbitState, el session.Element, reply func(string)) {
+func (l *loop) resolveAndEnqueue(sourceOrbit int64, o *orbitState, el session.Element, reply func(string)) {
 	originProv, originRef, sourceURL := originFromURI(el.URI)
 	if originProv == "" {
 		l.finishEnqueue(o, el, reply) // not provider-shaped: legacy path
@@ -192,6 +192,13 @@ func (l *loop) resolveAndEnqueue(o *orbitState, el session.Element, reply func(s
 	if err != nil {
 		l.log.Error("ctid lookup failed", "origin", originRef, "err", err)
 	}
+	if ctid != "" {
+		if cached, cacheErr := l.st.TrackByCTID(ctid); cacheErr != nil {
+			l.log.Error("track metadata lookup failed", "ctid", ctid, "err", cacheErr)
+		} else if cached != nil {
+			stampTrackMetadata(&el, cached.Title, cached.Artists, cached.DurationMS)
+		}
+	}
 	var missing []string
 	resolved := map[string]bool{originProv: true}
 	for _, prov := range distinctProviders(slotProviders) {
@@ -206,18 +213,19 @@ func (l *loop) resolveAndEnqueue(o *orbitState, el session.Element, reply func(s
 		}
 		missing = append(missing, prov)
 	}
-	if len(missing) == 0 || l.resolveTrack == nil {
+	if (len(missing) == 0 && el.Title != "") || l.resolveTrack == nil {
 		// No external work needed (all cached, same-provider orbit, or no
-		// cascade wired): finalize synchronously on the loop.
+		// cascade wired): finalize synchronously on the loop. A first-time
+		// same-provider track still takes the async path once to fetch its human
+		// title; future hits read it from the forever cache above.
 		l.finalizeResolvedTrack(o, el, originProv, originRef, ctid, resolvedTrack{}, false, reply)
 		return
 	}
 	// Cache miss: run the cascade off the loop and deliver back over resolveCh.
-	orbitID := o.id
 	go func() {
 		res := l.resolveTrack(originProv, originRef, sourceURL, missing)
 		l.resolveCh <- resolveDone{
-			orbit: orbitID, el: el, originProv: originProv,
+			orbit: sourceOrbit, el: el, originProv: originProv,
 			originRef: originRef, ctid: ctid, res: res, reply: reply,
 		}
 	}()
@@ -262,6 +270,16 @@ func (l *loop) finalizeResolvedTrack(o *orbitState, el session.Element, originPr
 	case hadCascade:
 		if ctid == "" {
 			ctid = ulid.NewCTID(time.Now())
+		} else if res.Title == "" {
+			// A target-provider lookup can succeed while the origin metadata
+			// endpoint is transiently unavailable. Never erase a human title
+			// already held by the forever cache.
+			if cached, cacheErr := l.st.TrackByCTID(ctid); cacheErr == nil && cached != nil {
+				res.Title = cached.Title
+				res.Artists = cached.Artists
+				res.DurationMS = cached.DurationMS
+				res.ISRC = cached.ISRC
+			}
 		}
 		refs := map[string]refEntry{originProv: {Ref: originRef, DurationMS: res.DurationMS}}
 		for prov, r := range res.Refs {
@@ -276,15 +294,7 @@ func (l *loop) finalizeResolvedTrack(o *orbitState, el session.Element, originPr
 		}, refs); err != nil {
 			l.log.Error("track upsert failed", "ctid", ctid, "err", err)
 		}
-		if res.Title != "" {
-			el.Title = res.Title
-			if len(res.Artists) > 0 {
-				el.Title = strings.Join(res.Artists, ", ") + " — " + res.Title
-			}
-		}
-		if res.DurationMS > 0 {
-			el.DurationMS = res.DurationMS
-		}
+		stampTrackMetadata(&el, res.Title, res.Artists, res.DurationMS)
 	case ctid == "":
 		// Same-provider orbit (or no cascade wired): mint the ctid and cache
 		// the identity mapping alone.
@@ -307,6 +317,18 @@ func (l *loop) finalizeResolvedTrack(o *orbitState, el session.Element, originPr
 		}
 	}
 	l.finishEnqueue(o, el, reply)
+}
+
+func stampTrackMetadata(el *session.Element, title string, artists []string, durationMS int64) {
+	if title != "" {
+		el.Title = title
+		if len(artists) > 0 {
+			el.Title = strings.Join(artists, ", ") + " — " + title
+		}
+	}
+	if durationMS > 0 {
+		el.DurationMS = durationMS
+	}
 }
 
 // finishEnqueue journals the element, enqueues it into the shared air and

@@ -55,6 +55,13 @@ public final class PlayerCore {
     private var draining = false
     // Debounce duplicate metadata/playing reports for one Spotify selection.
     private var lastExternalReport = Date.distantPast
+    private var lastExternalURI: String?
+    private var metadataURI: String?
+    private var metadataPosition: Int64?
+    private var metadataTitle: String?
+    private var loadTask: Task<Void, Never>?
+    private var loadGeneration: UInt64 = 0
+    private var pauseWorkItem: DispatchWorkItem?
     private var resumeTimer: DispatchSourceTimer?
     private var waitTimer: DispatchSourceTimer?
     private var drainTimer: DispatchSourceTimer?
@@ -153,42 +160,67 @@ public final class PlayerCore {
     private func load(_ p: LoadPayload) {
         cancelTimers()
         draining = false
-        playback = .loading
         currentElementID = p.elementId
         currentURI = p.uri
+        engine.stopInsert()
+
+        if p.adoptPlaying == true {
+            // Spotify is already audibly playing this selection on the leader.
+            // Relabel it for coordinator accounting without touching the ring
+            // or daemon — this is the no-pause handoff.
+            playback = .playing
+            engine.setMusicGain(1, fadeMs: 0)
+            engine.expectingMusic = true
+            setAnchor(p.positionMs, extrapolating: true)
+            coordinator?.sendMessage(.ready(ReadyPayload(elementId: p.elementId)))
+            return
+        }
+
+        playback = .loading
         engine.clearRing()
         engine.setMusicGain(1, fadeMs: 0)
         engine.expectingMusic = false
         setAnchor(p.positionMs, extrapolating: false)
 
-        Task {
+        let generation = loadGeneration
+        loadTask = Task { [weak self] in
+            guard let self else { return }
             do {
                 // The daemon needs seconds after (re)start to authenticate;
                 // a load racing that window must wait, not fail as
                 // "track unavailable" (R0 finding, prod 2026-07-05).
                 for _ in 0..<20 where !(await self.librespot.playbackReady()) {
+                    try Task.checkCancellation()
                     try await Task.sleep(nanoseconds: 500_000_000)
                 }
+                try Task.checkCancellation()
                 do {
                     try await self.librespot.playPaused(uri: p.uri)
                 } catch {
+                    try Task.checkCancellation()
                     // One local retry: transient daemon stalls (transfer storms)
                     // must not surface as track_unavailable.
                     try await Task.sleep(nanoseconds: 2_000_000_000)
                     try await self.librespot.playPaused(uri: p.uri)
                 }
+                try Task.checkCancellation()
                 if p.positionMs > 0 {
                     try await self.librespot.seek(positionMS: p.positionMs)
                 }
                 try await self.confirmPausedLoaded(uri: p.uri)
                 self.queue.async {
-                    guard self.currentElementID == p.elementId else { return } // stale
+                    guard self.loadGeneration == generation,
+                          self.currentElementID == p.elementId else { return } // stale
+                    self.loadTask = nil
                     self.playback = .paused
                     self.coordinator?.sendMessage(.ready(ReadyPayload(elementId: p.elementId)))
                 }
             } catch {
+                if Task.isCancelled { return }
                 self.queue.async {
-                    guard self.currentElementID == p.elementId else { return }
+                    guard self.loadGeneration == generation,
+                          self.currentElementID == p.elementId else { return }
+                    self.loadTask = nil
                     self.playback = .stopped
                     self.sendError(code: "load_failed", message: "\(error)", elementId: p.elementId)
                 }
@@ -201,6 +233,7 @@ public final class PlayerCore {
     /// spike-remainder item — this poll is written to tolerate both outcomes).
     private func confirmPausedLoaded(uri: String, attempts: Int = 10) async throws {
         for _ in 0..<attempts {
+            try Task.checkCancellation()
             if let st = try? await librespot.status(),
                st.paused == true || st.buffering == true,
                st.track?.uri == uri || st.track == nil {
@@ -214,6 +247,35 @@ public final class PlayerCore {
 
     private func resumeAt(_ p: ResumeAtPayload) {
         guard p.elementId == currentElementID else { return } // idempotency (spec 7.2)
+
+        if let position = p.positionMs {
+            // This home is joining a leader that never stopped. Seek while
+            // paused, then arm the ordinary monotonic resume timer.
+            let generation = loadGeneration
+            engine.clearRing()
+            setAnchor(position, extrapolating: false)
+            Task {
+                do {
+                    try await self.librespot.seek(positionMS: position)
+                } catch {
+                    self.log.warn("catch-up seek failed; resuming best effort", [
+                        "element": p.elementId, "err": "\(error)",
+                    ])
+                }
+                self.queue.async {
+                    guard self.loadGeneration == generation,
+                          self.currentElementID == p.elementId else { return }
+                    self.scheduleResume(p)
+                }
+            }
+            return
+        }
+        scheduleResume(p)
+    }
+
+    private func scheduleResume(_ p: ResumeAtPayload) {
+        resumeTimer?.cancel()
+        resumeTimer = nil
         guard let clock = coordinator?.clock,
               let tLocal = clock.localDeadline(forCoordinatorMs: p.tCoordMs,
                                                outputLatencyOffsetMs: outputLatencyOffsetMs) else {
@@ -260,9 +322,18 @@ public final class PlayerCore {
         playback = .paused
         engine.expectingMusic = false
         extrapolate = false
-        queue.asyncAfter(deadline: .now() + .milliseconds(Int(p.fadeMs) + 20)) {
+        let element = p.elementId
+        let item = DispatchWorkItem { [weak self] in
+            guard let self,
+                  (element.isEmpty || self.currentElementID == element),
+                  self.playback == .paused else { return }
             Task { try? await self.librespot.pause() }
         }
+        pauseWorkItem = item
+        queue.asyncAfter(
+            deadline: .now() + .milliseconds(Int(p.fadeMs) + 20),
+            execute: item
+        )
     }
 
     private func seekCmd(_ p: SeekPayload) {
@@ -273,8 +344,15 @@ public final class PlayerCore {
     }
 
     private func playVoice(_ p: PlayVoicePayload) {
+        cancelTimers()
+        draining = false
         currentElementID = p.elementId
         playback = .voice
+        engine.stopInsert()
+        engine.expectingMusic = false
+        engine.clearRing()
+        engine.setMusicGain(0, fadeMs: 0)
+        Task { try? await self.librespot.pause() }
         Task {
             do {
                 let file = try await self.cache.fetch(fileURL: p.fileUrl)
@@ -287,12 +365,16 @@ public final class PlayerCore {
                 self.coordinator?.sendMessage(.voiceStarted(VoiceStartedPayload(elementId: p.elementId)))
                 try self.engine.playInsert(fileURL: file, at: when) {
                     self.queue.async {
+                        guard self.currentElementID == p.elementId,
+                              self.playback == .voice else { return }
                         self.playback = .stopped
                         self.coordinator?.sendMessage(.voiceEnded(VoiceEndedPayload(elementId: p.elementId)))
                     }
                 }
             } catch {
                 self.queue.async {
+                    guard self.currentElementID == p.elementId,
+                          self.playback == .voice else { return }
                     self.sendError(code: "media_download_failed", message: "\(error)", elementId: p.elementId)
                 }
             }
@@ -300,8 +382,14 @@ public final class PlayerCore {
     }
 
     private func waitCmd(_ p: WaitPayload) {
+        cancelTimers()
         currentElementID = p.elementId
         playback = .wait
+        engine.stopInsert()
+        engine.expectingMusic = false
+        engine.clearRing()
+        engine.setMusicGain(0, fadeMs: 0)
+        Task { try? await self.librespot.pause() }
         let t = DispatchSource.makeTimerSource(queue: queue)
         t.schedule(deadline: .now() + .milliseconds(Int(p.durationMs)))
         t.setEventHandler { [weak self] in
@@ -326,6 +414,7 @@ public final class PlayerCore {
 
     private func stopAll() {
         cancelTimers()
+        engine.stopInsert()
         draining = false
         currentElementID = nil
         currentURI = nil
@@ -368,27 +457,38 @@ public final class PlayerCore {
     /// event. Barycenter adopts it at this node's audible position and runs
     /// the normal synchronized load barrier across all homes.
     private func reportExternalSelection(
-        _ uri: String?, observedPosition: Int64? = nil, allowSameURI: Bool = false
+        _ uri: String?, observedPosition: Int64? = nil, title: String? = nil,
+        allowSameURI: Bool = false, playOrigin: String? = nil
     ) {
         guard SpotifySelection.shouldReport(
             mode: mode, uri: uri, expectedURI: currentURI,
-            playback: playback, allowSameURI: allowSameURI
+            playback: playback, allowSameURI: allowSameURI,
+            playOrigin: playOrigin
         ), let uri else { return }
-        guard Date().timeIntervalSince(lastExternalReport) > 5 else { return }
+        // Metadata + playing for the SAME selection arrive separately. Only
+        // suppress that duplicate; a different track chosen one second later
+        // is intentional and must win immediately.
+        guard uri != lastExternalURI || Date().timeIntervalSince(lastExternalReport) > 5 else { return }
         lastExternalReport = Date()
+        lastExternalURI = uri
         let positionMs = SpotifySelection.startPosition(
             observedPosition: observedPosition, uri: uri,
             expectedURI: currentURI, audiblePosition: audiblePositionMs)
-        log.warn("external playback detected in shared", ["uri": uri, "expected": currentURI ?? "silence"])
+        log.warn("external playback detected in shared", [
+            "uri": uri, "expected": currentURI ?? "silence",
+            "play_origin": playOrigin ?? "unknown",
+        ])
         coordinator?.sendMessage(.externalPlayback(
-            ExternalPlaybackPayload(uri: uri, positionMs: positionMs)))
+            ExternalPlaybackPayload(uri: uri, positionMs: positionMs, title: title)))
     }
 
     private func handleLibrespotEvent(_ event: LibrespotEvent) {
         switch event {
-        case .metadata(let uri, _, let position, _):
+        case .metadata(let uri, let name, let artists, let position, _):
             if let position { setAnchor(position, extrapolating: playback == .playing) }
-            reportExternalSelection(uri, observedPosition: position)
+            metadataURI = uri
+            metadataPosition = position
+            metadataTitle = SpotifySelection.displayTitle(name: name, artistNames: artists)
             if mode != "shared", let uri { currentURI = uri }
         case .seek(let position, _):
             if let position { setAnchor(position, extrapolating: playback == .playing) }
@@ -408,10 +508,25 @@ public final class PlayerCore {
                 engine.setMusicGain(0, fadeMs: 250)
                 extrapolate = false
             }
-        case .playing(let uri):
+        case .playing(let uri, let playOrigin):
             // fireResume marks .playing before the daemon resumes. A matching
             // event while stopped/paused therefore means the user selected it.
-            reportExternalSelection(uri, allowSameURI: true)
+            let insertionActive = playback == .voice || playback == .wait
+            let matchesMetadata = uri != nil && uri == metadataURI
+            reportExternalSelection(
+                uri,
+                observedPosition: matchesMetadata ? metadataPosition : nil,
+                title: matchesMetadata ? metadataTitle : nil,
+                allowSameURI: true,
+                playOrigin: playOrigin
+            )
+            if insertionActive {
+                // The coordinator queues this user choice after the accepted
+                // voice block. Keep the daemon silent until that boundary.
+                engine.setMusicGain(0, fadeMs: 0)
+                Task { try? await self.librespot.pause() }
+                return
+            }
             engine.setMusicGain(1, fadeMs: 120)
             if playback == .playing { setAnchor(anchorPositionMs, extrapolating: true) }
         case .volume(let value, let max):
@@ -443,7 +558,7 @@ public final class PlayerCore {
         drainTimer = t
     }
 
-    // Underruns while music is expected > ~3 s -> audio_starvation + soft
+    // Underruns while music is expected > ~8 s -> audio_starvation + soft
     // restart (spec 6.6); gated on expectingMusic (UNRESOLVED R4).
     private var lastLoggedUnderruns: Int64 = 0
     private var lastLoggedFed: Int64 = 0
@@ -468,11 +583,14 @@ public final class PlayerCore {
             }
             self.lastLoggedUnderruns = u
             self.lastLoggedFed = f
-            // Render callbacks run every ~10 ms; ~300 starved in a row ~= 3 s.
-            if self.engine.expectingMusic, self.engine.starvedCallbacksStreak > 300,
+            // Prod 2026-07-10: the 3 s threshold fired during healthy Spotify
+            // track/context transitions and restarted Timur's daemon exactly
+            // while the next shared load was arming. Give transient buffering
+            // a real recovery window; a sustained ~9 s silence is still healed.
+            if self.engine.expectingMusic, self.engine.starvedCallbacksStreak > 800,
                Date().timeIntervalSince(self.lastStarvationReport) > 10 {
                 self.lastStarvationReport = Date()
-                self.sendError(code: "audio_starvation", message: "no samples for >3s while playing")
+                self.sendError(code: "audio_starvation", message: "no samples for >8s while playing")
                 self.supervisor.softRestart()
             }
         }
@@ -482,6 +600,11 @@ public final class PlayerCore {
     private var starvationTimer: DispatchSourceTimer?
 
     private func cancelTimers() {
+        loadGeneration &+= 1
+        loadTask?.cancel()
+        loadTask = nil
+        pauseWorkItem?.cancel()
+        pauseWorkItem = nil
         resumeTimer?.cancel()
         resumeTimer = nil
         waitTimer?.cancel()

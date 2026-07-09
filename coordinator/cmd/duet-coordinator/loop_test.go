@@ -130,8 +130,39 @@ func (l *loop) pumpResolve(t *testing.T) {
 	}
 }
 
+func (l *loop) pumpTrackMetadata(t *testing.T) {
+	t.Helper()
+	select {
+	case d := <-l.trackMetaCh:
+		l.handleTrackMetadataDone(d)
+	case <-time.After(2 * time.Second):
+		t.Fatal("track metadata lookup did not complete")
+	}
+}
+
 const link = "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
 const link2 = "https://open.spotify.com/track/1301WleyT98MSxVHPZCA6M"
+
+func TestSpotifyLinkReplyUsesHumanTrackMetadata(t *testing.T) {
+	l, _ := newTestLoop(t)
+	l.fetchTrackMetadata = func(ref string) (trackMetadata, error) {
+		if ref != linkURI {
+			t.Fatalf("metadata ref = %q", ref)
+		}
+		return trackMetadata{title: "Human Song", artists: []string{"Human Artist"}, durationMS: 123_000}, nil
+	}
+	r := &replies{}
+
+	l.handleBot(cmdEvent(t, "a", link, r))
+	l.pumpTrackMetadata(t)
+	cur := l.orbit(1).sess.Current
+	if cur == nil || cur.Title != "Human Artist — Human Song" || cur.DurationMS != 123_000 {
+		t.Fatalf("enriched current = %+v", cur)
+	}
+	if !strings.Contains(r.last(t), "Human Artist — Human Song") || strings.Contains(r.last(t), "spotify:track:") {
+		t.Fatalf("technical link reply: %q", r.last(t))
+	}
+}
 
 // The full phase-1 command set against the live FSM (goal DoD-4).
 func TestPhase1BotCommandsEndToEnd(t *testing.T) {
@@ -278,7 +309,7 @@ func TestPhase1BotCommandsEndToEnd(t *testing.T) {
 		t.Fatalf("now text: %q", r.last(t))
 	}
 	l.handleBot(cmdEvent(t, "b", "/status", r))
-	if !strings.Contains(r.last(t), "режим solo") || !strings.Contains(r.last(t), "дом a") {
+	if !strings.Contains(r.last(t), "каждый слушает своё") || !strings.Contains(r.last(t), "дом a") {
 		t.Fatalf("status text: %q", r.last(t))
 	}
 
@@ -312,8 +343,38 @@ func TestPersonalVoiceRouting(t *testing.T) {
 		waits[0].payload.(*protocol.WaitPayload).DurationMS != 12_400 {
 		t.Fatalf("wait to sender with same duration, sent: %+v", fake.sent)
 	}
-	if !strings.Contains(r.last(t), "личная") {
+	if !strings.Contains(r.last(t), "личное голосовое") {
 		t.Fatalf("reply: %q", r.last(t))
+	}
+}
+
+func TestVoiceProcessingCompletionCannotReorderSenders(t *testing.T) {
+	l, _ := newTestLoop(t)
+	l.voiceNext[1] = 1
+	l.voiceAccepted[1] = 2
+	reply := func(string) {}
+	done := func(seq int64, mediaID, from string, acceptedAt int64) mediaDone {
+		return mediaDone{
+			orbit: 1, mediaID: mediaID, fromName: from,
+			acceptedAt: acceptedAt, sequence: seq,
+			result: media.Result{DurationMS: 1_000, WAVPath: "/tmp/" + mediaID + ".wav", LoudnormJSON: "{}"},
+			reply:  reply,
+		}
+	}
+
+	// Bob's shorter message finishes ffmpeg first, but must wait for Alice's
+	// earlier Telegram update.
+	l.handleMediaDone(done(2, "m_bob", "Bob", 2_000))
+	if cur := l.orbit(1).sess.Current; cur != nil {
+		t.Fatalf("later voice escaped the reorder buffer: %+v", cur)
+	}
+	l.handleMediaDone(done(1, "m_alice", "Alice", 1_000))
+	o := l.orbit(1)
+	if o.sess.Current == nil || o.sess.Current.MediaID != "m_alice" {
+		t.Fatalf("first voice = %+v, want Alice", o.sess.Current)
+	}
+	if o.sess.QueueLen() != 1 || o.sess.Queue[0].MediaID != "m_bob" {
+		t.Fatalf("second voice queue = %+v, want Bob", o.sess.Queue)
 	}
 }
 

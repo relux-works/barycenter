@@ -293,6 +293,13 @@ func TestProviderLayerStore(t *testing.T) {
 	if ref, _, _ := s.TrackRef("ct_1", "tidal"); ref != "" {
 		t.Fatalf("unresolved provider must be empty, got %q", ref)
 	}
+	if track, _ := s.TrackByCTID("ct_1"); track == nil || track.Title != "T" ||
+		len(track.Artists) != 1 || track.Artists[0] != "A" || track.DurationMS != 214000 {
+		t.Fatalf("canonical metadata lookup: %+v", track)
+	}
+	if track, _ := s.TrackByCTID("ct_missing"); track != nil {
+		t.Fatalf("missing canonical track: %+v", track)
+	}
 
 	// availability cache with TTL
 	s.SetAvailability(o.ID, slot, "yandex", "111:222", true)

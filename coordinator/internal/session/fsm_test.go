@@ -189,6 +189,21 @@ func TestReadyTimeoutRetryThenSkip(t *testing.T) {
 	}
 }
 
+func TestVoicesAreFIFOByAcceptanceTimeNotProcessingCompletion(t *testing.T) {
+	s := playingSession(t)
+	later := voiceEl("v_later", "both", 2_000)
+	later.CreatedAt = 2_000
+	earlier := voiceEl("v_earlier", "both", 2_000)
+	earlier.CreatedAt = 1_000
+
+	// Simulate ffmpeg finishing the later message first.
+	s.EnqueueVoice(later)
+	s.EnqueueVoice(earlier)
+	if len(s.Queue) < 2 || s.Queue[0].ID != "v_earlier" || s.Queue[1].ID != "v_later" {
+		t.Fatalf("voice FIFO follows Telegram acceptance time: %#v", s.Queue)
+	}
+}
+
 func TestPauseResume(t *testing.T) {
 	s := playingSession(t)
 	s.OnHeartbeat(protocol.NodeA, 63_012, 40)

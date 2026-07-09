@@ -78,11 +78,17 @@ type (
 		ElementID  string
 		URI        string
 		PositionMS int64
+		// AdoptPlaying means To is the Pulsar where the user already started
+		// this URI. It only relabels the live stream; no pause/reload is allowed.
+		AdoptPlaying bool
 	}
 	EffResumeAt struct {
 		To        protocol.NodeID
 		ElementID string
 		TCoordMS  int64
+		// PositionMS is set for followers joining an already-playing leader.
+		// They seek while paused and resume at T at the leader's future position.
+		PositionMS *int64
 	}
 	EffPause struct {
 		To        protocol.NodeID
@@ -151,7 +157,16 @@ type Session struct {
 
 	online  map[protocol.NodeID]bool
 	nodePos map[protocol.NodeID]int64 // audible position from heartbeats
-	nodeRTT map[protocol.NodeID]int64
+	// nodePosAt is the coordinator timestamp of nodePos. It lets a catch-up
+	// start aim at where a live leader will be at T instead of a stale 5 s
+	// heartbeat position.
+	nodePosAt map[protocol.NodeID]int64
+	nodeRTT   map[protocol.NodeID]int64
+
+	// adoptionLeader is non-empty while the current element originated from
+	// Spotify on that Pulsar. The leader stays audible during the ready barrier;
+	// every other participant catches up to it.
+	adoptionLeader protocol.NodeID
 
 	// participants: peers the CURRENT element was dealt to (sealed at
 	// loadCurrent/startVoice). nil means "everyone" — strict sessions and
@@ -192,6 +207,7 @@ func New() *Session {
 		voiceDone:     map[protocol.NodeID]bool{},
 		online:        map[protocol.NodeID]bool{},
 		nodePos:       map[protocol.NodeID]int64{},
+		nodePosAt:     map[protocol.NodeID]int64{},
 		nodeRTT:       map[protocol.NodeID]int64{},
 		joining:       map[protocol.NodeID]bool{},
 		Peers:         append([]protocol.NodeID{}, defaultPeers...),
@@ -245,6 +261,7 @@ func (s *Session) RemovePeer(nowMS int64, n protocol.NodeID) []Effect {
 	delete(s.ended, n)
 	delete(s.voiceDone, n)
 	delete(s.nodePos, n)
+	delete(s.nodePosAt, n)
 	delete(s.nodeRTT, n)
 	if s.participants != nil {
 		delete(s.participants, n)
@@ -317,6 +334,8 @@ func (s *Session) resetElementTracking() {
 	// Missing data is read as "not near end" / "position 0", both safe.
 	// nodeRTT survives — round-trips are element-independent.
 	s.nodePos = map[protocol.NodeID]int64{}
+	s.nodePosAt = map[protocol.NodeID]int64{}
+	s.adoptionLeader = ""
 }
 
 // --- Queue operations (spec 7.3) ---
@@ -330,6 +349,19 @@ func (s *Session) EnqueueTrack(el Element) []Effect {
 // EnqueueVoice inserts right after the current element: before all queued
 // tracks but after voices queued earlier (arrival order preserved).
 func (s *Session) EnqueueVoice(el Element) []Effect {
+	idx := 0
+	for idx < len(s.Queue) && s.Queue[idx].Kind == KindVoice &&
+		(s.Queue[idx].CreatedAt < el.CreatedAt ||
+			(s.Queue[idx].CreatedAt == el.CreatedAt && s.Queue[idx].ID < el.ID)) {
+		idx++
+	}
+	s.Queue = append(s.Queue[:idx], append([]Element{el}, s.Queue[idx:]...)...)
+	return s.maybeAdvanceFromIdle()
+}
+
+// EnqueueTrackAfterVoices preserves a voice block already promised to users,
+// then puts a freshly selected Spotify track ahead of older music inserts.
+func (s *Session) EnqueueTrackAfterVoices(el Element) []Effect {
 	idx := 0
 	for idx < len(s.Queue) && s.Queue[idx].Kind == KindVoice {
 		idx++
@@ -656,7 +688,10 @@ func (s *Session) OnReady(nowMS int64, node protocol.NodeID, elementID string) [
 		(s.State == StatePlaying || s.State == StateArmed) {
 		s.ready[node] = true
 		t := nowMS + 2*s.nodeRTT[node] + s.StartMarginMS
-		return []Effect{EffResumeAt{To: node, ElementID: elementID, TCoordMS: t}}
+		position := s.livePositionAt(t)
+		return []Effect{EffResumeAt{
+			To: node, ElementID: elementID, TCoordMS: t, PositionMS: &position,
+		}}
 	}
 	if s.State != StateLoading || !s.isCurrent(elementID) {
 		return nil // idempotency (spec 7.2)
@@ -671,6 +706,12 @@ func (s *Session) OnReady(nowMS int64, node protocol.NodeID, elementID string) [
 // nothing to join (no current track, not playing, unknown or already a
 // participant home).
 func (s *Session) JoinInProgress(node protocol.NodeID) []Effect {
+	return s.JoinInProgressAt(0, node)
+}
+
+// JoinInProgressAt is JoinInProgress with the coordinator timestamp used to
+// extrapolate the leaders' heartbeat positions.
+func (s *Session) JoinInProgressAt(nowMS int64, node protocol.NodeID) []Effect {
 	if s.Current == nil || s.Current.Kind != KindTrack {
 		return nil
 	}
@@ -686,7 +727,10 @@ func (s *Session) JoinInProgress(node protocol.NodeID) []Effect {
 	// the catch-up track — the hub never re-emits EvOnline for a live node.
 	s.online[node] = true
 	s.joining[node] = true
-	return []Effect{EffLoad{To: node, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: s.livePosition()}}
+	return []Effect{EffLoad{
+		To: node, ElementID: s.Current.ID, URI: s.Current.URI,
+		PositionMS: s.livePositionAt(nowMS),
+	}}
 }
 
 // LivePositionForTransplant is the safe resume point when a donor's stream
@@ -699,10 +743,23 @@ func (s *Session) LivePositionForTransplant() int64 {
 // livePosition estimates where the playing homes are now (max participant
 // heartbeat position) so a joiner loads near the leaders.
 func (s *Session) livePosition() int64 {
+	return s.livePositionAt(0)
+}
+
+func (s *Session) livePositionAt(nowMS int64) int64 {
 	var best int64
 	for _, n := range s.Peers {
-		if s.counts(n) && s.nodePos[n] > best {
-			best = s.nodePos[n]
+		if !s.counts(n) {
+			continue
+		}
+		pos := s.nodePos[n]
+		at := s.nodePosAt[n]
+		playing := s.State == StatePlaying || s.State == StateArmed || n == s.adoptionLeader
+		if playing && nowMS > 0 && at > 0 && nowMS > at {
+			pos += nowMS - at
+		}
+		if pos > best {
+			best = pos
 		}
 	}
 	return best
@@ -731,10 +788,31 @@ func (s *Session) checkAllReady(nowMS int64, elementID string) []Effect {
 	s.State = StateArmed
 	t := nowMS + 2*maxRTT + s.StartMarginMS
 	effs := []Effect{EffCancelReadyTimer{}, EffPersist{}}
+	var catchUpPosition *int64
+	if s.adoptionLeader != "" {
+		position := s.livePositionAt(t)
+		catchUpPosition = &position
+		// The leader is already audible. Model its content-aligned start at T
+		// so the ordinary started barrier measures follower skew around T,
+		// rather than the several seconds spent loading followers.
+		s.started[s.adoptionLeader] = t
+	}
+	followers := 0
 	for _, n := range s.Peers {
 		if s.counts(n) {
-			effs = append(effs, EffResumeAt{To: n, ElementID: elementID, TCoordMS: t})
+			if n == s.adoptionLeader {
+				continue
+			}
+			followers++
+			effs = append(effs, EffResumeAt{
+				To: n, ElementID: elementID, TCoordMS: t,
+				PositionMS: catchUpPosition,
+			})
 		}
+	}
+	if s.adoptionLeader != "" && followers == 0 {
+		s.State = StatePlaying
+		s.adoptionLeader = ""
 	}
 	return effs
 }
@@ -794,6 +872,7 @@ func (s *Session) checkAllStarted() []Effect {
 		return nil // no participants left at all — the gate/park path owns this
 	}
 	s.State = StatePlaying
+	s.adoptionLeader = ""
 	// Desync = worst pairwise skew across the participating homes (max - min).
 	return []Effect{EffLogDesync{DeltaMS: latest - earliest}, EffPersist{}}
 }
@@ -839,7 +918,16 @@ func (s *Session) finishCurrent(status string) []Effect {
 
 // OnHeartbeat updates node telemetry; may complete the ended condition.
 func (s *Session) OnHeartbeat(node protocol.NodeID, positionMS int64, rttMS int64) []Effect {
+	return s.OnHeartbeatAt(0, node, positionMS, rttMS)
+}
+
+// OnHeartbeatAt records when the position was observed so catch-up starts can
+// extrapolate through the heartbeat interval.
+func (s *Session) OnHeartbeatAt(nowMS int64, node protocol.NodeID, positionMS int64, rttMS int64) []Effect {
 	s.nodePos[node] = positionMS
+	if nowMS > 0 {
+		s.nodePosAt[node] = nowMS
+	}
 	if rttMS > 0 {
 		s.nodeRTT[node] = rttMS
 	}
@@ -882,6 +970,10 @@ func (s *Session) voiceCompleteAcrossPeers() bool {
 
 // OnReadyTimeout: one retry, then skip with a chat message (spec 7.2).
 func (s *Session) OnReadyTimeout(elementID string) []Effect {
+	return s.OnReadyTimeoutAt(0, elementID)
+}
+
+func (s *Session) OnReadyTimeoutAt(nowMS int64, elementID string) []Effect {
 	if s.State != StateLoading || !s.isCurrent(elementID) {
 		return nil
 	}
@@ -901,6 +993,22 @@ func (s *Session) OnReadyTimeout(elementID string) []Effect {
 		effs = append(effs, EffArmReadyTimer{ElementID: s.Current.ID})
 		return effs
 	}
+	if s.adoptionLeader != "" {
+		var missing []string
+		for _, n := range s.Peers {
+			if !s.counts(n) || s.ready[n] {
+				continue
+			}
+			missing = append(missing, string(n))
+			delete(s.participants, n)
+			s.joining[n] = true // a late ready catches up without stopping leaders
+		}
+		effs := []Effect{EffNotify{Text: fmt.Sprintf(
+			"дом %s не успел подключиться к треку — эфир продолжается, он догонит позже",
+			strings.Join(missing, ", "),
+		)}}
+		return append(effs, s.checkAllReady(nowMS, elementID)...)
+	}
 	title := s.Current.Title
 	if title == "" {
 		title = s.Current.URI
@@ -913,6 +1021,10 @@ func (s *Session) OnReadyTimeout(elementID string) []Effect {
 
 // OnNodeError handles error messages scoped to the current element (spec 4.4).
 func (s *Session) OnNodeError(node protocol.NodeID, code string, elementID string) []Effect {
+	return s.OnNodeErrorAt(0, node, code, elementID)
+}
+
+func (s *Session) OnNodeErrorAt(nowMS int64, node protocol.NodeID, code string, elementID string) []Effect {
 	if !s.isCurrent(elementID) && elementID != "" {
 		return nil
 	}
@@ -920,6 +1032,29 @@ func (s *Session) OnNodeError(node protocol.NodeID, code string, elementID strin
 	case "load_failed", "track_unavailable":
 		if s.State != StateLoading && s.State != StateArmed {
 			return nil
+		}
+		if s.adoptionLeader != "" && node != s.adoptionLeader {
+			if s.participants != nil {
+				delete(s.participants, node)
+			}
+			delete(s.ready, node)
+			delete(s.started, node)
+			s.joining[node] = true
+			position := s.livePositionAt(nowMS)
+			effs := []Effect{
+				EffNotify{Text: fmt.Sprintf(
+					"дом %s пока не смог подключиться к выбранному треку — остальные продолжают, он попробует догнать",
+					node,
+				)},
+				EffLoad{To: node, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: position},
+			}
+			if s.State == StateLoading {
+				return append(effs, s.checkAllReady(nowMS, s.Current.ID)...)
+			}
+			if more := s.checkAllStarted(); more != nil {
+				return append(effs, more...)
+			}
+			return append(effs, EffPersist{})
 		}
 		title := s.Current.Title
 		if title == "" {
@@ -931,6 +1066,36 @@ func (s *Session) OnNodeError(node protocol.NodeID, code string, elementID strin
 		effs := s.advance()
 		return append(append([]Effect{done, notify, EffCancelReadyTimer{}}, pause...), effs...)
 	case "librespot_restart":
+		// A single daemon restart in a linked living air is a catch-up event,
+		// not a reason to pause and reload every healthy home. The failed node
+		// leaves the current barriers and rejoins after its daemon is ready.
+		if s.GateMode == GateEachSide && node != s.adoptionLeader &&
+			(s.State == StatePlaying || s.State == StateArmed) &&
+			s.Current != nil && s.Current.Kind == KindTrack {
+			if s.participants == nil {
+				s.participants = map[protocol.NodeID]bool{}
+				for _, n := range s.Peers {
+					if s.online[n] {
+						s.participants[n] = true
+					}
+				}
+			}
+			delete(s.participants, node)
+			delete(s.ready, node)
+			delete(s.started, node)
+			delete(s.ended, node)
+			s.joining[node] = true
+			position := s.livePositionAt(nowMS)
+			effs := []Effect{
+				EffNotify{Text: fmt.Sprintf("плеер дома %s перезапустился — остальные продолжают, этот дом догонит", node)},
+				EffLoad{To: node, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: position},
+				EffPersist{},
+			}
+			if more := s.checkAllStarted(); more != nil {
+				effs = append(effs, more...)
+			}
+			return effs
+		}
 		// Spec 6.6: coordinator restarts the current element via the normal cycle.
 		if s.State == StatePlaying || s.State == StateArmed {
 			pos := s.currentPositionEstimate()

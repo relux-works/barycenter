@@ -23,13 +23,17 @@ import (
 // LibrespotEvent is one parsed /events frame. Pointer fields mirror the
 // Swift optionals: absent and zero are different answers.
 type LibrespotEvent struct {
-	Type     string
-	URI      *string
-	Name     *string
-	Position *int64
-	Duration *int64
-	Value    *int // volume
-	Max      *int // volume
+	Type        string
+	URI         *string
+	Name        *string
+	ArtistNames []string
+	PlayOrigin  *string
+	ContextURI  *string
+	Resume      *bool
+	Position    *int64
+	Duration    *int64
+	Value       *int // volume
+	Max         *int // volume
 }
 
 // parseLibrespotEvent mirrors LibrespotClient.parseEvent: any JSON object
@@ -39,25 +43,33 @@ func parseLibrespotEvent(raw []byte) (LibrespotEvent, bool) {
 	var frame struct {
 		Type string `json:"type"`
 		Data struct {
-			URI      *string `json:"uri"`
-			Name     *string `json:"name"`
-			Position *int64  `json:"position"`
-			Duration *int64  `json:"duration"`
-			Value    *int    `json:"value"`
-			Max      *int    `json:"max"`
+			URI         *string  `json:"uri"`
+			Name        *string  `json:"name"`
+			ArtistNames []string `json:"artist_names"`
+			PlayOrigin  *string  `json:"play_origin"`
+			ContextURI  *string  `json:"context_uri"`
+			Resume      *bool    `json:"resume"`
+			Position    *int64   `json:"position"`
+			Duration    *int64   `json:"duration"`
+			Value       *int     `json:"value"`
+			Max         *int     `json:"max"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(raw, &frame); err != nil || frame.Type == "" {
 		return LibrespotEvent{}, false
 	}
 	return LibrespotEvent{
-		Type:     frame.Type,
-		URI:      frame.Data.URI,
-		Name:     frame.Data.Name,
-		Position: frame.Data.Position,
-		Duration: frame.Data.Duration,
-		Value:    frame.Data.Value,
-		Max:      frame.Data.Max,
+		Type:        frame.Type,
+		URI:         frame.Data.URI,
+		Name:        frame.Data.Name,
+		ArtistNames: frame.Data.ArtistNames,
+		PlayOrigin:  frame.Data.PlayOrigin,
+		ContextURI:  frame.Data.ContextURI,
+		Resume:      frame.Data.Resume,
+		Position:    frame.Data.Position,
+		Duration:    frame.Data.Duration,
+		Value:       frame.Data.Value,
+		Max:         frame.Data.Max,
 	}, true
 }
 

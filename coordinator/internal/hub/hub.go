@@ -35,6 +35,7 @@ type (
 		Key              NodeKey
 		AppVersion       string
 		LibrespotVersion string
+		Capabilities     []string
 	}
 	EvOnline  struct{ Key NodeKey }
 	EvOffline struct{ Key NodeKey }
@@ -217,7 +218,10 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	h.online[key] = true
 	h.mu.Unlock()
 
-	h.Events <- EvRegistered{Key: key, AppVersion: reg.AppVersion, LibrespotVersion: reg.LibrespotVersion}
+	h.Events <- EvRegistered{
+		Key: key, AppVersion: reg.AppVersion, LibrespotVersion: reg.LibrespotVersion,
+		Capabilities: reg.Capabilities,
+	}
 	if !wasOnline {
 		h.Events <- EvOnline{Key: key}
 	}

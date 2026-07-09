@@ -5,6 +5,7 @@
   "type": "resume_at",
   "payload": {
     "element_id": "el_01JZB0C000000000000000010",
-    "t_coord_ms": 1751500001500
+    "t_coord_ms": 1751500001500,
+    "position_ms": 64500
   }
 }

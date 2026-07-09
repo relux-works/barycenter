@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"relux.works/duet/coordinator/internal/hub"
+	"relux.works/duet/coordinator/internal/media"
 	"relux.works/duet/coordinator/internal/protocol"
 	"relux.works/duet/coordinator/internal/session"
 	"relux.works/duet/coordinator/internal/store"
@@ -121,9 +122,10 @@ func TestApproachLifecycleEndToEnd(t *testing.T) {
 		t.Fatalf("state = %s", g.sess.State)
 	}
 
-	// Composite homes render as "slot@title" in /status.
+	// Composite homes render with human Barycenter/Pulsar names in /status.
 	l.handleBot(cmdEvent(t, "a", "/status", r))
-	if !strings.Contains(r.last(t), "⇄") || !strings.Contains(r.last(t), "a@Дальний") {
+	if !strings.Contains(r.last(t), "⇄") || !strings.Contains(r.last(t), "«Дальний»") ||
+		!strings.Contains(r.last(t), "Пульсар A") {
 		t.Fatalf("status rendering: %q", r.last(t))
 	}
 	fake.drain()
@@ -161,6 +163,62 @@ func TestApproachLifecycleEndToEnd(t *testing.T) {
 	loads = fake.ofType(protocol.TypeLoad)
 	if len(loads) != 1 || loads[0].key.Orbit != o2 {
 		t.Fatalf("orbit-2 loads: %+v", loads)
+	}
+}
+
+func TestLinkedVoiceProcessingCannotReorderBarycenters(t *testing.T) {
+	l, _, o2 := twoOrbitLoop(t)
+	r := &replies{}
+	proposeAndAwait(t, l, r)
+	l.handleBot(cmdEvent(t, "a", "/accept", r))
+	g := l.stateFor(1)
+	if g != l.stateFor(o2) || !g.group() {
+		t.Fatal("approach did not create one shared air")
+	}
+
+	orderAir := g.id
+	l.voiceNext[orderAir] = 1
+	l.voiceAccepted[orderAir] = 2
+	done := func(sourceOrbit, sequence, acceptedAt int64, mediaID, from string) mediaDone {
+		return mediaDone{
+			orbit: sourceOrbit, orderAir: orderAir, mediaID: mediaID,
+			fromName: from, acceptedAt: acceptedAt, sequence: sequence,
+			result: media.Result{DurationMS: 1_000, WAVPath: "/tmp/" + mediaID + ".wav", LoudnormJSON: "{}"},
+			reply:  func(string) {},
+		}
+	}
+
+	// The later message belongs to the other Barycenter and finishes first.
+	// It still cannot escape the shared-air reorder buffer.
+	l.handleMediaDone(done(o2, 2, 2_000, "m_timur", "Timur"))
+	if g.sess.Current != nil {
+		t.Fatalf("later linked voice escaped the reorder buffer: %+v", g.sess.Current)
+	}
+	l.handleMediaDone(done(1, 1, 1_000, "m_ivan", "Ivan"))
+	if g.sess.Current == nil || g.sess.Current.MediaID != "m_ivan" {
+		t.Fatalf("first linked voice = %+v, want Ivan", g.sess.Current)
+	}
+	if g.sess.QueueLen() != 1 || g.sess.Queue[0].MediaID != "m_timur" {
+		t.Fatalf("second linked voice queue = %+v, want Timur", g.sess.Queue)
+	}
+}
+
+func TestProviderResolveReturnsToLinkedAir(t *testing.T) {
+	l, _, o2 := twoOrbitLoop(t)
+	l.cfg.Providers = true
+	l.resolveTrack = func(_, _ string, _ string, _ []string) resolvedTrack {
+		return resolvedTrack{Title: "Linked Song", Artists: []string{"Artist"}, Method: "same", Score: 1}
+	}
+	r := &replies{}
+	proposeAndAwait(t, l, r)
+	l.handleBot(cmdEvent(t, "a", "/accept", r))
+	g := l.stateFor(1)
+
+	l.handleBot(cmdEvent(t, "o2", link, r))
+	l.pumpResolve(t)
+	if g != l.stateFor(o2) || g.sess.Current == nil ||
+		g.sess.Current.Title != "Artist — Linked Song" {
+		t.Fatalf("resolved link escaped shared air: group=%v current=%+v", g == l.stateFor(o2), g.sess.Current)
 	}
 }
 

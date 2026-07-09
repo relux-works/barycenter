@@ -234,6 +234,13 @@ public final class AudioEngine {
         if !insertPlayer.isPlaying { insertPlayer.play() }
     }
 
+    /// Cancels a voice/click insert superseded by a newer element.
+    public func stopInsert() {
+        insertPlayer.stop()
+        insertPlayer.reset()
+        insertPlayer.play()
+    }
+
     /// offset_test clicks: `count` clicks starting at hostTime, every intervalMs.
     public func playClicks(count: Int, firstAtHostTime: UInt64, intervalMs: Int64) {
         let clickFrames = Int(sampleRate * 0.006) // 6 ms burst

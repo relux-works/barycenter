@@ -197,6 +197,29 @@ func (s *Store) TrackRef(ctid, provider string) (ref string, durationMS int64, e
 	return
 }
 
+// TrackByCTID returns cached canonical metadata, or nil when the id is not
+// known. Bot rendering uses it so a forever-cache hit keeps the human title
+// instead of falling back to a provider URI.
+func (s *Store) TrackByCTID(ctid string) (*Track, error) {
+	var t Track
+	var artists string
+	err := s.db.QueryRow(`SELECT ctid, title, artists, duration_ms, isrc, origin_provider, origin_ref, resolve_method, resolve_score
+		FROM tracks WHERE ctid = ?`, ctid).Scan(
+		&t.CTID, &t.Title, &artists, &t.DurationMS, &t.ISRC,
+		&t.OriginProv, &t.OriginRef, &t.ResolveMethod, &t.ResolveScore,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal([]byte(artists), &t.Artists); err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
 func (s *Store) SetSlotProvider(orbitID int64, slot, provider string) error {
 	_, err := s.db.Exec(`UPDATE slots SET provider = ? WHERE orbit_id = ? AND slot = ? AND revoked_at IS NULL`, provider, orbitID, slot)
 	return err

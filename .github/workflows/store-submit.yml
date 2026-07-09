@@ -60,5 +60,23 @@ jobs:
             # 9P26FDCWV1GC = Pulsar Barycenter Store ID, stable for the
             # product lifetime (apps.microsoft.com/detail/9P26FDCWV1GC).
             MSIX=$(ls pkg/Pulsar-*-win.msix | head -1)
+            set +e
             ./msstore publish "$MSIX" --appId 9P26FDCWV1GC --verbose
+            rc=$?
+            if [ $rc -ne 0 ]; then
+              # Partner Center 504s are routine. If the failure hit AFTER the
+              # commit (the CLI keeps polling status and a poll can die), the
+              # submission is already in certification server-side — verify by
+              # status instead of reporting a false failure.
+              for i in 1 2 3; do
+                out=$(./msstore submission status 9P26FDCWV1GC 2>&1) && break
+                sleep 20
+              done
+              echo "$out"
+              if echo "$out" | grep -qE "CommitStarted|PreProcessing|Certification|Publishing|Published|Release"; then
+                echo "publish exited $rc but the submission is committed and progressing — treating as success"
+                rc=0
+              fi
+            fi
+            exit $rc
           '

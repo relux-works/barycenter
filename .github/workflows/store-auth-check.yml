@@ -35,4 +35,6 @@ jobs:
             ./msstore reconfigure --tenantId "$TENANT" --clientId "$CLIENT" --clientSecret "$SECRET" --sellerId "$SELLER"
             echo "--- apps ---"
             ./msstore apps list
+            echo "--- current submission status (read-only) ---"
+            ./msstore submission status 9P26FDCWV1GC || true
           '

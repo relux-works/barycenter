@@ -26,6 +26,15 @@ if [[ ! -x "$BIN" ]]; then
     exit 1
 fi
 
+# F2 release guard: the current Developer ID channel has no provisioning
+# profile authorizing the Data Protection Keychain. Referencing this symbol in
+# the final executable would make fresh pairing fail with -34018 again.
+KEYCHAIN_SYMBOLS="$(nm -u "$BIN" 2>/dev/null || true)"
+if [[ "$KEYCHAIN_SYMBOLS" == *kSecUseDataProtectionKeychain* ]]; then
+    echo "FATAL: NodeApp references the entitlement-gated Data Protection Keychain (-34018 pairing regression)" >&2
+    exit 1
+fi
+
 APP="$OUT_DIR/${APP_NAME:-NodeApp}.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"

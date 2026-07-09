@@ -121,6 +121,7 @@ Whoever's click lags gets a bigger offset (offset = start earlier): `/offset b 3
 | 9 | Coordinator down / VPS rebooted | systemd restarts it; after restart the session is PAUSED with a chat notice — `/resume` continues (position from node heartbeats). If unit is dead: `journalctl -u duet-coordinator -n 50`; config errors print explicit `config invalid:` lines |
 | 10 | Track skipped with "недоступен" | Region mismatch between the two accounts (spec 4.4) — expected per-track; if systematic, align account regions |
 | 11 | Music stutters, `audio_starvation` errors | Wi-Fi or Spotify connectivity on that Mac; NodeApp soft-restarts the daemon automatically. Check `underruns` growth in `/status` and the Mac's network |
+| 12 | Pairing says `keychain save failed` / `-34018` | The installed app predates the login-Keychain fix or regressed to the entitlement-gated DP Keychain. Check Pulsar's displayed version/build, install a release containing the fix, and request a fresh `/pair` code. Do not clear the login Keychain before updating. |
 
 ## 6a. Build machine: signing identity (once, before the first release)
 

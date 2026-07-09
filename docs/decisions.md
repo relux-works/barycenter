@@ -2,6 +2,28 @@
 
 Short records of non-obvious engineering decisions. Newest first.
 
+## 2026-07-10 — Production pairing uses the login Keychain
+
+**Problem.** The Developer ID app is distributed without an embedded
+provisioning profile or `com.apple.application-identifier`. Every request to
+the Data Protection Keychain therefore fails with
+`errSecMissingEntitlement` (`-34018`), including a fresh install's first
+pairing save. Retrying the same entitlement-gated query cannot repair it.
+
+**Decision.** Store pairing credentials in the ordinary login Keychain. The
+query deliberately contains neither `kSecUseDataProtectionKeychain` nor the
+DP-only `kSecAttrAccessible` attribute. Pulsar's stable Developer ID
+designated requirement provides continuity across Sparkle updates without a
+restricted entitlement. Re-pair keeps the update-or-delete-and-add repair for
+stale items.
+
+**Verification.** Security.framework is behind a small injectable boundary.
+Tests assert that save and load never request the DP Keychain, that `-34018`
+on update is healed through recreation, and that a successful re-pair updates
+in place. The release channel may return to the DP Keychain only after it
+embeds a matching Developer ID provisioning profile and tests the final signed
+bundle.
+
 ## 2026-07-09 — Spotify on a Pulsar is the together-mode control surface
 
 **Problem.** Starting a track on a Pulsar during shared mode was detected as
@@ -22,6 +44,10 @@ working and start adoption at position zero; the golden protocol contract and
 all three codecs carry the new field.
 
 ## 2026-07-07 — Pairing credentials in the Data Protection keychain (F2)
+
+**Superseded by the 2026-07-10 decision above.** The default group does require
+an application identifier in the production signing context; the assumption
+below was disproved by `errSecMissingEntitlement` on fresh installs.
 
 **Problem.** After a Sparkle update the app silently fell back to the
 onboarding window: the pre-F2 login-keychain item's access control was bound

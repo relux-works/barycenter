@@ -11,9 +11,11 @@ same onboarding quality as macOS — because Katya is on Windows.
   on /accept the code-issuer's playing stream continues onto all homes (no
   dialogs; issuer silent → acceptor's stream; both silent → blank). Strict
   gate stays for single orbits.
-- **F2 Pairing that survives**: credentials move to Data Protection keychain
-  with a TeamID access group — Sparkle updates NEVER drop pairing (decision
-  documented in docs). Legacy ~/duet/node.yml auto-retired with a log line.
+- **F2 Pairing that survives**: credentials live in the login Keychain under
+  Pulsar's stable Developer ID requirement — Sparkle updates NEVER drop
+  pairing (decision documented in docs). The entitlement-gated Data
+  Protection Keychain is forbidden until the release embeds an authorizing
+  provisioning profile. Legacy ~/duet/node.yml auto-retired with a log line.
 - **F3 Re-pair UX**: menu-bar "Подключить заново…" opens the onboarding
   window anytime; bot side: /rebind issues a code and revokes the old slot
   token on successful re-pair; menu bar shows coordinator host + slot@orbit.
@@ -58,4 +60,4 @@ English; production orbits survive every migration.
 
 Windows machine online (B4); Partner Center registration progressing (F6);
 Timur's firewall check result (F5); an evening with Timur (B5).
--- these are ouside the goal for now and tasks above which require these shoud be excluded 
+— these are outside the goal for now; tasks above that require them should be excluded.

@@ -32,15 +32,24 @@ public enum CredentialsStore {
         let query = baseQuery()
         let attrs: [String: Any] = [kSecValueData as String: data]
         var status = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
-        if status == errSecItemNotFound {
+        if status != errSecSuccess {
+            // Re-pair must heal whatever state the OLD item is in, not fail
+            // the whole pairing over an unupdatable relic: an item written by
+            // an earlier build with a different accessible attribute, an
+            // owner/partition mismatch after a signing change, or plain
+            // not-found. Drop it (a miss is harmless) and write fresh.
+            SecItemDelete(query as CFDictionary)
             var add = query
             add[kSecValueData as String] = data
             add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
             status = SecItemAdd(add as CFDictionary, nil)
         }
         guard status == errSecSuccess else {
+            // Name the cause: a bare numeric status sent us hunting blind
+            // (re-pair failure report, 2026-07-10).
+            let msg = SecCopyErrorMessageString(status, nil) as String? ?? "OSStatus \(status)"
             throw NSError(domain: NSOSStatusErrorDomain, code: Int(status),
-                          userInfo: [NSLocalizedDescriptionKey: "keychain save failed (\(status))"])
+                          userInfo: [NSLocalizedDescriptionKey: "keychain save failed: \(msg) (\(status))"])
         }
     }
 

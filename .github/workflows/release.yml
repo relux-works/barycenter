@@ -93,6 +93,14 @@ jobs:
           rm -f /tmp/ed_key
           grep -c "<item>" dist/appcast.xml
           grep -c "fullReleaseNotesLink" dist/appcast.xml || echo "note: no release-notes link emitted"
+      - name: Stable-name copy for the landing download button
+        run: |
+          # barycenter.live links releases/latest/download/Pulsar.dmg — a name
+          # that never changes, so the button always serves the newest build
+          # without a trip through the release page. Copied AFTER appcast
+          # generation so Sparkle's feed lists only the versioned file.
+          cp dist/Pulsar-"${GITHUB_REF_NAME}"-arm64.dmg dist/Pulsar.dmg
+          (cd dist && shasum -a 256 Pulsar.dmg >> SHA256SUMS.pulsar)
       - name: Attest dmg provenance
         uses: actions/attest-build-provenance@v2
         with:

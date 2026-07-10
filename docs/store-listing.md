@@ -41,3 +41,20 @@ commands and short voice-note files do.
 
 Site & guide: https://barycenter.live/guide
 Source: https://github.com/relux-works/barycenter
+
+## Screenshot requirements (cert rejection 2026-07-09, policy 10.1.1.3)
+
+The Russian listing's screenshots showed only the onboarding/code window and
+failed certification as "splash/login only". Every listing language needs
+>=1366x768 images of the product IN USE, e.g.:
+
+1. Tray menu open: connection line, playing track, periastron mode.
+2. Spotify device picker with "Pulsar A" selected — the phone-sees-speaker
+   moment.
+3. The Telegram bot chat: queue, /now, a voice message between tracks — the
+   primary control surface.
+4. The onboarding window at most as a trailing shot, never the only one.
+
+Fix procedure: a failed submission becomes editable in Partner Center — swap
+the images in RU and EN listings there and resubmit the same package. CLI
+submissions clone the listing, so the fix persists automatically afterwards.

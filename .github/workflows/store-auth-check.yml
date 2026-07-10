@@ -37,4 +37,6 @@ jobs:
             ./msstore apps list
             echo "--- current submission status (read-only) ---"
             ./msstore submission status 9P26FDCWV1GC || true
+            echo "--- full submission incl. statusDetails (read-only) ---"
+            ./msstore submission get 9P26FDCWV1GC || true
           '

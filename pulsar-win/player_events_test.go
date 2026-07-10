@@ -399,3 +399,70 @@ func TestStateCarriesProviderAndSpeakers(t *testing.T) {
 		t.Fatalf("speaker name %q after SetSpeakerName", got)
 	}
 }
+
+// --- Personal pause (2026-07-10): Spotify pause = pause only THIS home ---
+
+func TestPersonalPauseAndResumeReport(t *testing.T) {
+	daemon := newFakeDaemon()
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
+	loadReady(t, p, sent, "el_1", "spotify:track:ours")
+	p.Handle(protocol.Envelope{Type: protocol.TypeResumeAt},
+		&protocol.ResumeAtPayload{ElementID: "el_1", TCoordMS: 0})
+	expectCall(t, daemon, "resume")
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:ours")})
+
+	// The user pauses in Spotify: the daemon echoes "paused" while our
+	// playback state is still PLAYING — that is the user signature.
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "paused"})
+	m := expectSent(t, sent, protocol.TypeUserPause)
+	if m.Payload.(*protocol.UserPausePayload).ElementID != "el_1" {
+		t.Fatalf("user_pause payload %+v", m.Payload)
+	}
+
+	// Play on the SAME track returns this home to the air: user_resume, not
+	// an adoption.
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:ours")})
+	r := expectSent(t, sent, protocol.TypeUserResume)
+	if r.Payload.(*protocol.UserResumePayload).ElementID != "el_1" {
+		t.Fatalf("user_resume payload %+v", r.Payload)
+	}
+	expectNothing(t, sent, 20*time.Millisecond)
+}
+
+// A coordinator-driven pause flips playback BEFORE the daemon echo, so the
+// echo must not read as a user pause.
+func TestCoordinatorPauseDoesNotReportPersonal(t *testing.T) {
+	daemon := newFakeDaemon()
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
+	loadReady(t, p, sent, "el_1", "spotify:track:ours")
+	p.Handle(protocol.Envelope{Type: protocol.TypeResumeAt},
+		&protocol.ResumeAtPayload{ElementID: "el_1", TCoordMS: 0})
+	expectCall(t, daemon, "resume")
+
+	p.Handle(protocol.Envelope{Type: protocol.TypePause},
+		&protocol.PausePayload{ElementID: "el_1"})
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "paused"})
+	expectNothing(t, sent, 20*time.Millisecond)
+}
+
+// A DIFFERENT track selected while personally paused is a fresh selection —
+// adoption, with the pause flag cleared.
+func TestDifferentTrackWhilePausedAdopts(t *testing.T) {
+	daemon := newFakeDaemon()
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
+	p.externalDebounce = 10 * time.Millisecond
+	loadReady(t, p, sent, "el_1", "spotify:track:ours")
+	p.Handle(protocol.Envelope{Type: protocol.TypeResumeAt},
+		&protocol.ResumeAtPayload{ElementID: "el_1", TCoordMS: 0})
+	expectCall(t, daemon, "resume")
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing", URI: strPtr("spotify:track:ours")})
+
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "paused"})
+	expectSent(t, sent, protocol.TypeUserPause)
+
+	time.Sleep(15 * time.Millisecond) // clear the report debounce
+	origin := "playlist"
+	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing",
+		URI: strPtr("spotify:track:other"), PlayOrigin: &origin})
+	expectSent(t, sent, protocol.TypeExternalPlayback)
+}

@@ -1,5 +1,12 @@
 # duet Runbook
 
+> **CRITICAL — pending credential rotation (owner: Ivan).** Rotate the
+> Telegram bot token (BotFather) and the Spotify client secret (Spotify
+> Developer Dashboard) as routine hygiene after the 2026-07-10 CI log
+> cleanup, enter the new values directly in Coolify (never through chat or
+> the repo), then run one clean redeploy of the coordinator. Remove this
+> notice when done.
+
 Deploy, operate and debug duet without reading the sources (goal §2). Spec: `docs/spec.md` v1.2. All commands assume the release artifacts from `make release VERSION=vX.Y.Z`: `NodeApp-vX.Y.Z.app.zip`, `duet-coordinator-vX.Y.Z-linux-amd64`, `checksums.txt`, plus the `deploy/` directory.
 
 ## 1. Fresh node install (home Mac)

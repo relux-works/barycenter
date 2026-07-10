@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": "msg_01J1PAUSEUSERPAUSE000000",
+  "ts": 1751500000000,
+  "type": "user_pause",
+  "payload": {
+    "element_id": "el_01HZXW5D8PPAUSE"
+  }
+}

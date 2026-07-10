@@ -37,6 +37,8 @@ var payloadFactory = map[string]func() any{
 	TypePing:             func() any { return &PingPayload{} },
 	TypeExternalPlayback: func() any { return &ExternalPlaybackPayload{} },
 	TypeSetProvider:      func() any { return &SetProviderPayload{} },
+	TypeUserPause:        func() any { return &UserPausePayload{} },
+	TypeUserResume:       func() any { return &UserResumePayload{} },
 }
 
 // KnownType reports whether t is a protocol v1 message type.

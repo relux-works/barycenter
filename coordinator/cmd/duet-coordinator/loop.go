@@ -825,6 +825,11 @@ func (l *loop) handleNodeMessage(m hub.EvMessage) {
 		l.log.Warn("node error", "orbit", o.id, "slot", slot, "code", p.Code, "msg", p.Message, "element", p.ElementID)
 		l.st.LogEvent(string(slot), "node_error", p)
 		l.apply(o, o.sess.OnNodeErrorAt(now, slot, p.Code, p.ElementID))
+	case *protocol.UserPausePayload:
+		// Personal pause (2026-07-10): detach just this home from the air.
+		l.apply(o, o.sess.OnUserPause(now, slot))
+	case *protocol.UserResumePayload:
+		l.apply(o, o.sess.OnUserResume(slot))
 	case *protocol.ExternalPlaybackPayload:
 		positionMS := int64(0)
 		if p.PositionMS != nil {

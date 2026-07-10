@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": "msg_01J1RESUMEUSERRESUME0000",
+  "ts": 1751500001000,
+  "type": "user_resume",
+  "payload": {
+    "element_id": "el_01HZXW5D8PPAUSE"
+  }
+}

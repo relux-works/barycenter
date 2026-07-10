@@ -346,6 +346,20 @@ public struct ExternalPlaybackPayload: Codable, Equatable {
 }
 
 /// v1.1 (spec-providers §7): switch the node's active provider.
+/// Personal pause (2026-07-10): the user paused/resumed THIS Pulsar via the
+/// Spotify app. element_id is what the node believes is current.
+public struct UserPausePayload: Codable, Equatable {
+    public var elementId: String
+    public init(elementId: String) { self.elementId = elementId }
+    enum CodingKeys: String, CodingKey { case elementId = "element_id" }
+}
+
+public struct UserResumePayload: Codable, Equatable {
+    public var elementId: String
+    public init(elementId: String) { self.elementId = elementId }
+    enum CodingKeys: String, CodingKey { case elementId = "element_id" }
+}
+
 public struct SetProviderPayload: Codable, Equatable {
     public var provider: String
     public init(provider: String) { self.provider = provider }
@@ -381,6 +395,8 @@ public enum Message {
     case error(ErrorPayload)
     case ping(PingPayload)
     case externalPlayback(ExternalPlaybackPayload)
+    case userPause(UserPausePayload)
+    case userResume(UserResumePayload)
     case setProvider(SetProviderPayload)
 
     public var typeName: String {
@@ -411,6 +427,8 @@ public enum Message {
         case .error: return "error"
         case .ping: return "ping"
         case .externalPlayback: return "external_playback"
+        case .userPause: return "user_pause"
+        case .userResume: return "user_resume"
         case .setProvider: return "set_provider"
         }
     }
@@ -466,6 +484,8 @@ public enum ProtocolCodec {
         case "error": message = .error(try p(ErrorPayload.self))
         case "ping": message = .ping(try p(PingPayload.self))
         case "external_playback": message = .externalPlayback(try p(ExternalPlaybackPayload.self))
+        case "user_pause": message = .userPause(try p(UserPausePayload.self))
+        case "user_resume": message = .userResume(try p(UserResumePayload.self))
         case "set_provider": message = .setProvider(try p(SetProviderPayload.self))
         default: throw ProtocolError.unknownType(head.type)
         }
@@ -506,6 +526,8 @@ public enum ProtocolCodec {
         case .ping(let p): return try w(p)
         case .externalPlayback(let p): return try w(p)
         case .setProvider(let p): return try w(p)
+        case .userPause(let p): return try w(p)
+        case .userResume(let p): return try w(p)
         }
     }
 }

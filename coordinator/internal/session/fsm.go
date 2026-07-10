@@ -181,6 +181,12 @@ type Session struct {
 	// lastAbsent dedups the "стартуем без ..." notify: repeat it only when
 	// the set of absent homes changes, not on every element (spec 9.2).
 	lastAbsent map[protocol.NodeID]bool
+	// pausedLocally: homes whose USER paused this Pulsar in the Spotify app
+	// (personal pause, 2026-07-10). Excluded from barriers and from sealing
+	// of subsequent elements until OnUserResume. Runtime-only: a coordinator
+	// restart or the node going offline clears it — catch-up then resumes
+	// the home, the safer default when state is lost.
+	pausedLocally map[protocol.NodeID]bool
 
 	// Peers: the orbit's pulsars (slots). The broadcast machinery runs over
 	// this set (M2: N homes, not two).
@@ -210,6 +216,7 @@ func New() *Session {
 		nodePosAt:     map[protocol.NodeID]int64{},
 		nodeRTT:       map[protocol.NodeID]int64{},
 		joining:       map[protocol.NodeID]bool{},
+		pausedLocally: map[protocol.NodeID]bool{},
 		Peers:         append([]protocol.NodeID{}, defaultPeers...),
 		GateMode:      GateStrict,
 		StartMarginMS: 500,
@@ -267,6 +274,7 @@ func (s *Session) RemovePeer(nowMS int64, n protocol.NodeID) []Effect {
 		delete(s.participants, n)
 	}
 	delete(s.joining, n)
+	delete(s.pausedLocally, n)
 
 	switch s.State {
 	case StateDegraded:
@@ -483,6 +491,15 @@ func (s *Session) advanceAt(positionMS int64) []Effect {
 	}
 	s.resetElementTracking()
 	s.SavedPositionMS = positionMS
+	// Every home on personal pause: idle with the queue intact instead of
+	// dealing an element nobody would play. Reachable only via membership
+	// changes — the last ACTIVE home cannot personally pause (that degrades
+	// to a global pause in OnUserPause); OnUserResume re-advances from here.
+	if s.hasUpcoming() && s.allPausedLocally() {
+		s.Current = nil
+		s.State = StateIdle
+		return []Effect{EffPersist{}}
+	}
 	if s.hasUpcoming() && !s.gateSatisfied() {
 		s.Current = nil
 		s.State = StateDegraded
@@ -584,13 +601,28 @@ func (s *Session) parkedNotify() Effect {
 // and, when the absent set changed, announces who will catch up later.
 func (s *Session) sealParticipants(effs []Effect) []Effect {
 	if s.GateMode != GateEachSide {
-		s.participants = nil
+		// Strict sessions historically run with nil participants (= everyone).
+		// Personal pause needs the set materialized so the paused homes can
+		// be excluded; without any, keep the historic nil.
+		if len(s.pausedLocally) == 0 {
+			s.participants = nil
+			return effs
+		}
+		s.participants = map[protocol.NodeID]bool{}
+		for _, n := range s.Peers {
+			if !s.pausedLocally[n] {
+				s.participants[n] = true
+			}
+		}
 		return effs
 	}
 	s.participants = map[protocol.NodeID]bool{}
 	absentSet := map[protocol.NodeID]bool{}
 	var absent []string
 	for _, n := range s.Peers {
+		if s.pausedLocally[n] {
+			continue // personal pause: not dealt to, not announced as absent
+		}
 		if s.online[n] {
 			s.participants[n] = true
 		} else {
@@ -719,6 +751,12 @@ func (s *Session) JoinInProgressAt(nowMS int64, node protocol.NodeID) []Effect {
 		return nil
 	}
 	if !s.hasPeer(node) || s.counts(node) {
+		return nil
+	}
+	if s.pausedLocally[node] {
+		// The user paused this home on purpose — a liveness edge (e.g. the
+		// hub race replay) must not yank it back into the air; only
+		// OnUserResume does.
 		return nil
 	}
 	// The join IS this node's online edge (the loop routes EvOnline here
@@ -1207,6 +1245,113 @@ func (s *Session) CmdSync() []Effect {
 	return append(pause, s.loadCurrent(pos)...)
 }
 
+// allPausedLocally: every peer sits on a personal pause.
+func (s *Session) allPausedLocally() bool {
+	if len(s.Peers) == 0 {
+		return false
+	}
+	for _, n := range s.Peers {
+		if !s.pausedLocally[n] {
+			return false
+		}
+	}
+	return true
+}
+
+// OnUserPause detaches ONE home from the shared air after its user paused
+// this Pulsar in the Spotify app (personal pause, 2026-07-10): the broadcast
+// keeps playing for the others; the home is excluded from the current
+// element's barriers and from subsequent elements until OnUserResume. A pause
+// that would leave no active home degrades to the ordinary global pause —
+// the last listener stopping IS the air stopping.
+func (s *Session) OnUserPause(nowMS int64, node protocol.NodeID) []Effect {
+	if s.Mode != ModeShared || !s.hasPeer(node) || s.pausedLocally[node] {
+		return nil
+	}
+	switch s.State {
+	case StateLoading, StateArmed, StatePlaying:
+	default:
+		// Idle/paused/degraded airs have nothing personal to detach from, and
+		// VOICE is unreachable here (the node only reports a user pause while
+		// its MUSIC pipeline was playing).
+		return nil
+	}
+	active := 0
+	for _, n := range s.Peers {
+		if n == node || s.pausedLocally[n] || !s.counts(n) {
+			continue
+		}
+		active++
+	}
+	if active == 0 {
+		effs := []Effect{EffNotify{Text: fmt.Sprintf("дом %s поставил эфир на паузу", node)}}
+		return append(effs, s.CmdPause()...)
+	}
+	s.pausedLocally[node] = true
+	if s.participants == nil {
+		// Strict sessions run with nil participants (= everyone); materialize
+		// so the machinery can exclude just this home.
+		s.participants = map[protocol.NodeID]bool{}
+		for _, n := range s.Peers {
+			s.participants[n] = true
+		}
+	}
+	delete(s.participants, node)
+	delete(s.joining, node)
+	effs := []Effect{EffNotify{Text: fmt.Sprintf("дом %s на личной паузе — эфир продолжается (play в Spotify вернёт в эфир)", node)}, EffPersist{}}
+	// The paused home may have been the LAST one a barrier was waiting for —
+	// the same re-checks as an offline drop (the H1/H2 stall class).
+	switch s.State {
+	case StateLoading:
+		if s.Current != nil {
+			if more := s.checkAllReady(nowMS, s.Current.ID); more != nil {
+				return append(effs, more...)
+			}
+		}
+	case StateArmed:
+		if more := s.checkAllStarted(); more != nil {
+			return append(effs, more...)
+		}
+	case StatePlaying:
+		if s.Current != nil && len(s.ended) > 0 && s.endedConditionMet() {
+			return append(effs, s.finishCurrent("eof")...)
+		}
+	}
+	return effs
+}
+
+// OnUserResume returns a personally-paused home to the air: a living-air
+// catch-up into the playing element, a solo load onto the loading barrier, a
+// fresh deal when the air idled behind the pause — or just clearing the flag.
+func (s *Session) OnUserResume(node protocol.NodeID) []Effect {
+	if !s.pausedLocally[node] {
+		return nil
+	}
+	delete(s.pausedLocally, node)
+	switch s.State {
+	case StatePlaying, StateArmed:
+		if effs := s.JoinInProgress(node); effs != nil {
+			return append(effs, EffPersist{})
+		}
+	case StateLoading:
+		if s.Current != nil && s.Current.Kind == KindTrack {
+			if s.participants != nil {
+				s.participants[node] = true
+			}
+			delete(s.ready, node)
+			return []Effect{
+				EffLoad{To: node, ElementID: s.Current.ID, URI: s.Current.URI, PositionMS: s.SavedPositionMS},
+				EffPersist{},
+			}
+		}
+	case StateIdle:
+		if s.hasUpcoming() {
+			return s.advance()
+		}
+	}
+	return []Effect{EffPersist{}}
+}
+
 // --- Degradation (spec 4.4, 7.2) ---
 
 func (s *Session) OnNodeOffline(nowMS int64, node protocol.NodeID) []Effect {
@@ -1222,6 +1367,10 @@ func (s *Session) OnNodeOffline(nowMS int64, node protocol.NodeID) []Effect {
 	// the current element's participant barriers so ready/started/ended/voice
 	// don't wait for it; the survivors keep playing and it catches up
 	// (JoinInProgress) when it returns. Only a whole dark side parks the air.
+	// Going offline ends a personal pause: the node loses its local flag on
+	// restart anyway, so the coordinator forgetting too keeps both sides
+	// symmetric — the standard catch-up resumes the home when it returns.
+	delete(s.pausedLocally, node)
 	if s.GateMode == GateEachSide {
 		if s.participants != nil {
 			delete(s.participants, node)
@@ -1316,6 +1465,7 @@ func (s *Session) SetModeSolo() []Effect {
 		return nil
 	}
 	s.Mode = ModeSolo
+	s.pausedLocally = map[protocol.NodeID]bool{}
 	if s.Current != nil && (s.State == StatePlaying || s.State == StateArmed || s.State == StateLoading) {
 		s.SavedPositionMS = s.currentPositionEstimate()
 	}
@@ -1333,6 +1483,7 @@ func (s *Session) SetModeShared() []Effect {
 		return nil
 	}
 	s.Mode = ModeShared
+	s.pausedLocally = map[protocol.NodeID]bool{}
 	effs := []Effect{}
 	for _, n := range s.Peers {
 		effs = append(effs, EffStop{To: n}, EffSetMode{To: n, Mode: ModeShared})

@@ -63,6 +63,11 @@ public final class PlayerCore {
     private var loadGeneration: UInt64 = 0
     private var pauseWorkItem: DispatchWorkItem?
     private var resumeTimer: DispatchSourceTimer?
+    // Personal pause (2026-07-10): the USER paused this Pulsar in the Spotify
+    // app while the shared air was playing. Cleared by any coordinator
+    // ownership act (load / pause command / stop / mode switch) — a
+    // coordinator-owned pause supersedes the personal one.
+    private var pausedLocally = false
     private var waitTimer: DispatchSourceTimer?
     private var drainTimer: DispatchSourceTimer?
     private var lastStarvationReport = Date.distantPast
@@ -151,7 +156,7 @@ public final class PlayerCore {
                 self.log.warn("solo_voice not implemented until phase 2", ["element": p.elementId])
             case .welcome, .pong, .register, .state, .ready, .started, .ended,
                  .voiceStarted, .voiceEnded, .waitEnded, .error, .ping, .externalPlayback,
-                 .setProvider:
+                 .setProvider, .userPause, .userResume:
                 self.log.debug("ignoring non-command", ["type": head.type])
             }
         }
@@ -159,6 +164,7 @@ public final class PlayerCore {
 
     private func load(_ p: LoadPayload) {
         cancelTimers()
+        pausedLocally = false
         draining = false
         currentElementID = p.elementId
         currentURI = p.uri
@@ -318,6 +324,7 @@ public final class PlayerCore {
     private func pauseCmd(_ p: PausePayload) {
         guard p.elementId == currentElementID || p.elementId.isEmpty else { return }
         cancelTimers()
+        pausedLocally = false
         engine.setMusicGain(0, fadeMs: p.fadeMs)
         playback = .paused
         engine.expectingMusic = false
@@ -409,11 +416,13 @@ public final class PlayerCore {
 
     private func setMode(_ m: String) {
         mode = m
+        pausedLocally = false
         log.info("mode set", ["mode": m])
     }
 
     private func stopAll() {
         cancelTimers()
+        pausedLocally = false
         engine.stopInsert()
         draining = false
         currentElementID = nil
@@ -500,6 +509,20 @@ public final class PlayerCore {
                 extrapolate = false
             }
         case .paused:
+            // Personal pause (2026-07-10): reaching here with playback still
+            // .playing means the DAEMON acted on the user, not on us — every
+            // coordinator-driven pause flips `playback` before the daemon
+            // echoes the event. Report it and cancel any resume_at in flight:
+            // a scheduled fireResume overriding a fresh user pause was one of
+            // the ghost-resume mechanics (Timur, 2026-07-10).
+            if mode == "shared", playback == .playing, !pausedLocally,
+               let el = currentElementID {
+                pausedLocally = true
+                resumeTimer?.cancel()
+                resumeTimer = nil
+                log.info("personal pause", ["element": el])
+                coordinator?.sendMessage(.userPause(UserPausePayload(elementId: el)))
+            }
             // Solo UX (spike S4): the daemon stalls the pipe instantly but the
             // ring holds up to 1 s of tail — fade fast so the pause FEELS
             // instant. The ring is NOT cleared: on resume the tail plays first
@@ -509,6 +532,21 @@ public final class PlayerCore {
                 extrapolate = false
             }
         case .playing(let uri, let playOrigin):
+            if pausedLocally {
+                pausedLocally = false
+                if let uri, uri == currentURI {
+                    // Personal resume: play in Spotify returns THIS home to
+                    // the air — the coordinator answers with a catch-up load
+                    // at the live position. Not an adoption.
+                    log.info("personal resume", ["element": currentElementID ?? ""])
+                    coordinator?.sendMessage(.userResume(
+                        UserResumePayload(elementId: currentElementID ?? "")))
+                    engine.setMusicGain(1, fadeMs: 120)
+                    return
+                }
+                // A DIFFERENT track picked while paused is a fresh selection —
+                // fall through to the adoption path with the flag cleared.
+            }
             // fireResume marks .playing before the daemon resumes. A matching
             // event while stopped/paused therefore means the user selected it.
             let insertionActive = playback == .voice || playback == .wait

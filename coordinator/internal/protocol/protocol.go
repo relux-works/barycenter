@@ -51,6 +51,12 @@ const (
 	TypeExternalPlayback = "external_playback"
 	// v1.1 (spec-providers §7): switch a node's active provider.
 	TypeSetProvider = "set_provider"
+	// Personal pause (2026-07-10): the user paused/resumed THIS Pulsar via
+	// the Spotify app. Pause detaches only this home from the shared air
+	// (the broadcast keeps playing for the others); resume catches it back
+	// up at the live position.
+	TypeUserPause  = "user_pause"
+	TypeUserResume = "user_resume"
 )
 
 type Envelope struct {
@@ -231,6 +237,17 @@ type ExternalPlaybackPayload struct {
 	URI        string `json:"uri"`
 	PositionMS *int64 `json:"position_ms,omitempty"`
 	Title      string `json:"title,omitempty"`
+}
+
+// UserPausePayload / UserResumePayload: element_id is what the node believes
+// is current — informational; the coordinator acts on its own current element
+// (the node may resume days later, long past that element).
+type UserPausePayload struct {
+	ElementID string `json:"element_id"`
+}
+
+type UserResumePayload struct {
+	ElementID string `json:"element_id"`
 }
 
 type SetProviderPayload struct {

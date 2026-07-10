@@ -2,6 +2,33 @@
 
 Short records of non-obvious engineering decisions. Newest first.
 
+## 2026-07-10 — Spotify pause is a PERSONAL pause
+
+**Problem.** Pausing a Pulsar through the Spotify app was invisible to the
+system: the node only faded its local gain, `playback` stayed playing and the
+coordinator was never told. Any legitimate mechanism — a ready-timeout retry,
+a resume_at already in flight, the advance to the next element, a liveness
+catch-up — would then lawfully restart playback over the user's pause within
+seconds (the ghost-resume report, 2026-07-10).
+
+**Decision.** The pause becomes a first-class personal event. The node
+detects a user pause (a `paused` daemon event while its own playback state is
+still playing — coordinator-driven pauses flip the state first), cancels any
+in-flight resume timer and sends `user_pause`. The coordinator detaches just
+that home: excluded from the current element's barriers (with the H1/H2-class
+re-checks) and from sealing of subsequent elements, while the air keeps
+playing for everyone else. Play in Spotify sends `user_resume` and the home
+catches back up at the live position through the living-air join. The mental
+model: **bot `/pause` pauses the air for everyone; Spotify pause pauses only
+you.** The last active home pausing degrades to the ordinary global pause —
+the last listener stopping IS the air stopping.
+
+**Bounds.** Runtime-only state: a coordinator restart or the node going
+offline clears the personal pause (the node loses its local flag anyway), and
+catch-up resumes the home — the safer default when state is lost. Additive
+protocol (`user_pause`/`user_resume` + goldens in all three codecs); old
+nodes simply never send them and keep the previous behavior.
+
 ## 2026-07-10 — Spotify handoff keeps its leader audible; voice FIFO is non-preemptible
 
 **Problem.** Live two-home logs showed that the first Spotify-first

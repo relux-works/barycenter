@@ -91,6 +91,10 @@ type Player struct {
 	extrapolate           bool
 	loadGen               int64 // stale-load guard (a newer command wins)
 	resumeTimer           *time.Timer
+	// pausedLocally (personal pause, 2026-07-10): the USER paused this Pulsar
+	// in the Spotify app while the shared air was playing. Cleared by any
+	// coordinator ownership act (load / pause command / stop / mode switch).
+	pausedLocally bool
 	waitTimer             *time.Timer
 	pauseTimer            *time.Timer
 	startedPending        bool
@@ -197,6 +201,7 @@ func (p *Player) ApplyWelcome(w *protocol.WelcomePayload) {
 func (p *Player) load(m *protocol.LoadPayload) {
 	p.mu.Lock()
 	p.cancelTimersLocked()
+	p.pausedLocally = false
 	p.loadGen++
 	gen := p.loadGen
 	p.elementID = m.ElementID
@@ -425,6 +430,7 @@ func (p *Player) pauseCmd(m *protocol.PausePayload) {
 		return
 	}
 	p.cancelTimersLocked()
+	p.pausedLocally = false
 	p.playback = PlaybackPaused
 	p.extrapolate = false
 	p.anchorPosMS = p.audiblePositionLocked()
@@ -550,6 +556,7 @@ func (p *Player) offsetTest(m *protocol.OffsetTestPayload) {
 func (p *Player) stopAll() {
 	p.mu.Lock()
 	p.cancelTimersLocked()
+	p.pausedLocally = false
 	p.loadGen++ // invalidate any in-flight load
 	p.elementID = ""
 	p.uri = ""
@@ -591,6 +598,7 @@ func (p *Player) SetExternalVolume(value, max int) {
 func (p *Player) setMode(m string) {
 	p.mu.Lock()
 	p.mode = m
+	p.pausedLocally = false
 	p.mu.Unlock()
 	p.log.Info("mode set", "mode", m)
 }
@@ -677,21 +685,53 @@ func (p *Player) HandleLibrespotEvent(ev LibrespotEvent) {
 		p.mu.Unlock()
 
 	case "paused":
-		// Solo UX (spike S4): the daemon stalls the pipe instantly but the
-		// ring holds up to 1 s of tail — fade fast so the pause FEELS
-		// instant. The ring is NOT cleared: on resume the tail plays first
-		// and nothing is lost.
+		// Personal pause (2026-07-10): reaching here with playback still
+		// PlaybackPlaying means the DAEMON acted on the user, not on us —
+		// every coordinator-driven pause flips playback before the daemon
+		// echoes the event. Report it and cancel any resume_at in flight (a
+		// scheduled fireResume overriding a fresh user pause was one of the
+		// ghost-resume mechanics).
 		p.mu.Lock()
+		personal := p.mode == "shared" && p.playback == PlaybackPlaying &&
+			!p.pausedLocally && p.elementID != ""
+		el := p.elementID
+		if personal {
+			p.pausedLocally = true
+			p.cancelResumeLocked()
+		}
 		fade := p.mode == "solo" || p.playback == PlaybackPlaying
 		if fade {
 			p.extrapolate = false
 		}
 		p.mu.Unlock()
+		if personal {
+			p.log.Info("personal pause", "element", el)
+			p.send(protocol.TypeUserPause, &protocol.UserPausePayload{ElementID: el})
+		}
 		if fade {
 			p.engine.gain.SetMusicGain(0, 250)
 		}
 
 	case "playing":
+		// Personal resume: play in Spotify returns THIS home to the air — the
+		// coordinator answers with a catch-up load at the live position. A
+		// DIFFERENT track picked while paused falls through to adoption.
+		p.mu.Lock()
+		resumed := false
+		if p.pausedLocally {
+			p.pausedLocally = false
+			if ev.URI != nil && *ev.URI == p.uri {
+				resumed = true
+			}
+		}
+		el := p.elementID
+		p.mu.Unlock()
+		if resumed {
+			p.log.Info("personal resume", "element", el)
+			p.send(protocol.TypeUserResume, &protocol.UserResumePayload{ElementID: el})
+			p.engine.gain.SetMusicGain(1, 120)
+			break
+		}
 		// resume_at marks PlaybackPlaying before asking the daemon to resume,
 		// so its own playing event is ignored. A same-URI playing event while
 		// stopped/paused is a fresh Spotify selection and must be adopted.

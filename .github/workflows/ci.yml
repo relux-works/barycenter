@@ -67,7 +67,7 @@ jobs:
       - name: Build native helper, run tests, and create signed MSIX
         shell: pwsh
         run: |
-          $thumbprint = & ./pulsar-win/probe-msix/new-test-signing-certificate.ps1 -ValidityDays 2
+          $thumbprint = & ./pulsar-win/probe-msix/new-test-signing-certificate.ps1 -ValidityDays 30
           try {
             ./pulsar-win/probe-msix/build-probe.ps1 `
               -Version 0.1.0.0 `

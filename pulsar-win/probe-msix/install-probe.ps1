@@ -10,6 +10,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "package-contract.ps1")
 
 $PackagePath = (Resolve-Path $Package).Path
+$ArchiveContract = Get-ProbePackageManifestContract -PackagePath $PackagePath
 $Existing = @(Get-AppxPackage -Name $script:ProbePackageIdentity)
 if ($Existing.Count -ne 0) {
     throw "Refusing to replace an installed package in the production Pulsar family '$script:ProbePackageIdentity'. Use a dedicated test account/host and remove the existing package first."
@@ -66,6 +67,9 @@ try {
 
     [xml]$InstalledManifest = Get-Content (Join-Path $Installed.InstallLocation "AppxManifest.xml") -Raw
     $Contract = Assert-ProbeManifestContract -Manifest $InstalledManifest
+    if ([string]$Installed.Version -cne $ArchiveContract.Version) {
+        throw "installed package version differs from the signed archive manifest"
+    }
     if ([string]$Installed.Publisher -cne $Contract.Publisher) {
         throw "installed package Publisher differs from the frozen manifest Publisher"
     }
@@ -104,8 +108,15 @@ try {
 
     if ($Launch) {
         Start-Process explorer.exe -ArgumentList "shell:AppsFolder\$Aumid"
-        Start-Sleep -Seconds 2
-        if ($null -eq (Get-Process -Name "pulsar-win-probe-amd64" -ErrorAction SilentlyContinue)) {
+        $LaunchDeadline = [DateTime]::UtcNow.AddSeconds(15)
+        $ProbeProcess = $null
+        do {
+            $ProbeProcess = Get-Process -Name "pulsar-win-probe-amd64" -ErrorAction SilentlyContinue
+            if ($null -eq $ProbeProcess) {
+                Start-Sleep -Milliseconds 250
+            }
+        } while ($null -eq $ProbeProcess -and [DateTime]::UtcNow -lt $LaunchDeadline)
+        if ($null -eq $ProbeProcess) {
             throw "the package activation command returned but the probe process was not observed"
         }
     }

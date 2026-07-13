@@ -23,6 +23,11 @@ $Certificate = New-SelfSignedCertificate `
         "2.5.29.19={text}"
     )
 
-$null = Get-ProbeSigningCertificate -Thumbprint $Certificate.Thumbprint
+try {
+    $null = Get-ProbeSigningCertificate -Thumbprint $Certificate.Thumbprint
+} catch {
+    Remove-Item -Force "Cert:\CurrentUser\My\$($Certificate.Thumbprint)" -ErrorAction SilentlyContinue
+    throw
+}
 Write-Host "Created a non-exportable CurrentUser test signer for the frozen Partner Center publisher."
 Write-Output $Certificate.Thumbprint

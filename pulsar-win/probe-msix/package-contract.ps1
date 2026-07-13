@@ -105,6 +105,35 @@ function Assert-ProbeManifestContract {
         }
     }
 
+    $RootDeclarations = @(
+        $Manifest.Package.ChildNodes |
+            Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element } |
+            ForEach-Object { $_.LocalName } |
+            Sort-Object
+    )
+    $ExpectedRootDeclarations = @(
+        "Applications", "Capabilities", "Dependencies", "Identity", "Properties", "Resources"
+    ) | Sort-Object
+    if (@(Compare-Object $ExpectedRootDeclarations $RootDeclarations).Count -ne 0) {
+        throw "probe manifest root declarations differ from the frozen set: $($RootDeclarations -join ', ')"
+    }
+    $ApplicationDeclarations = @(
+        $Application.ChildNodes |
+            Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element } |
+            ForEach-Object { $_.LocalName }
+    )
+    if ($ApplicationDeclarations.Count -ne 1 -or $ApplicationDeclarations[0] -cne "VisualElements") {
+        throw "probe Application may contain only the frozen VisualElements declaration"
+    }
+
+    $TargetFamilies = @($Manifest.Package.Dependencies.TargetDeviceFamily)
+    if ($TargetFamilies.Count -ne 1 -or
+        [string]$TargetFamilies[0].Name -cne "Windows.Desktop" -or
+        [string]$TargetFamilies[0].MinVersion -cne "10.0.19041.0" -or
+        [string]$TargetFamilies[0].MaxVersionTested -cne "10.0.22621.0") {
+        throw "probe manifest must keep the frozen Windows.Desktop 19041/22621 target family"
+    }
+
     $DeclaredCapabilities = @(
         $Manifest.SelectNodes("//*[local-name()='Capabilities']/*") |
             ForEach-Object { "$($_.LocalName):$($_.GetAttribute('Name'))" } |
@@ -128,6 +157,32 @@ function Assert-ProbeManifestContract {
         Capabilities = $DeclaredCapabilities
         PackageFamilyName = Get-ProbePackageFamilyName
     }
+}
+
+function Get-ProbePackageManifestContract {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$PackagePath
+    )
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $ResolvedPackagePath = (Resolve-Path $PackagePath).Path
+    $Archive = [System.IO.Compression.ZipFile]::OpenRead($ResolvedPackagePath)
+    try {
+        $ManifestEntries = @($Archive.Entries | Where-Object { $_.FullName -ceq "AppxManifest.xml" })
+        if ($ManifestEntries.Count -ne 1) {
+            throw "MSIX must contain exactly one root AppxManifest.xml"
+        }
+        $Reader = [System.IO.StreamReader]::new($ManifestEntries[0].Open())
+        try {
+            [xml]$Manifest = $Reader.ReadToEnd()
+        } finally {
+            $Reader.Dispose()
+        }
+    } finally {
+        $Archive.Dispose()
+    }
+    Assert-ProbeManifestContract -Manifest $Manifest
 }
 
 function Get-ProbeManifestTemplateContract {

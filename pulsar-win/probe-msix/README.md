@@ -37,7 +37,7 @@ Every successful `pulsar-win-packaged-probe` CI job creates the
   private key;
 - `.msix.sha256` and `.msix.json` — digest and frozen build contract;
 - `.msix.install.json` — hosted-Windows install receipt with the resolved
-  package family, AUMID, and relative evidence locations.
+  package digest, family, AUMID, and relative evidence locations.
 
 For example, with GitHub CLI and a completed CI run ID:
 

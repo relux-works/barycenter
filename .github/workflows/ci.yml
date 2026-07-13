@@ -94,6 +94,11 @@ jobs:
             if (-not (Test-Path $result.ReceiptPath)) {
               throw "install contract receipt missing"
             }
+            $metadata = Get-Content "$($package.FullName).json" -Raw | ConvertFrom-Json
+            $receipt = Get-Content $result.ReceiptPath -Raw | ConvertFrom-Json
+            if ($receipt.packageSha256 -cne $metadata.sha256) {
+              throw "installed package digest differs from the signed build metadata"
+            }
           } finally {
             if ($null -ne $result) {
               Remove-AppxPackage -Package $result.PackageFullName -ErrorAction SilentlyContinue

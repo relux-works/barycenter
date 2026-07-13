@@ -41,9 +41,10 @@ namespace Pulsar
 
         public static string GetFamilyName(string name, string publisher)
         {
+            const UInt32 ProcessorArchitectureAmd64 = 9;
             PackageId id = new PackageId
             {
-                ProcessorArchitecture = 9,
+                ProcessorArchitecture = ProcessorArchitectureAmd64,
                 Name = name,
                 Publisher = publisher
             };
@@ -173,11 +174,25 @@ function Get-ProbePackageManifestContract {
         if ($ManifestEntries.Count -ne 1) {
             throw "MSIX must contain exactly one root AppxManifest.xml"
         }
-        $Reader = [System.IO.StreamReader]::new($ManifestEntries[0].Open())
+        if ($ManifestEntries[0].Length -gt 131072) {
+            throw "MSIX AppxManifest.xml exceeds the 128 KiB probe contract limit"
+        }
+        $Settings = [System.Xml.XmlReaderSettings]::new()
+        $Settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
+        $Settings.XmlResolver = $null
+        $Settings.MaxCharactersInDocument = 131072
+        $ManifestStream = $ManifestEntries[0].Open()
         try {
-            [xml]$Manifest = $Reader.ReadToEnd()
+            $Reader = [System.Xml.XmlReader]::Create($ManifestStream, $Settings)
+            try {
+                $Manifest = [System.Xml.XmlDocument]::new()
+                $Manifest.XmlResolver = $null
+                $Manifest.Load($Reader)
+            } finally {
+                $Reader.Dispose()
+            }
         } finally {
-            $Reader.Dispose()
+            $ManifestStream.Dispose()
         }
     } finally {
         $Archive.Dispose()

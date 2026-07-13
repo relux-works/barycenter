@@ -10,6 +10,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "package-contract.ps1")
 
 $PackagePath = (Resolve-Path $Package).Path
+$PackageHash = (Get-FileHash -Path $PackagePath -Algorithm SHA256).Hash.ToLowerInvariant()
 $ArchiveContract = Get-ProbePackageManifestContract -PackagePath $PackagePath
 $Existing = @(Get-AppxPackage -Name $script:ProbePackageIdentity)
 if ($Existing.Count -ne 0) {
@@ -24,6 +25,7 @@ $Signer = $Signature.SignerCertificate
 $TrustedPeoplePath = "Cert:\LocalMachine\TrustedPeople\$($Signer.Thumbprint)"
 $AddedTrust = $false
 $Installed = $null
+$InstalledPackages = @()
 
 try {
     if ($TrustLocalTestSigner) {
@@ -53,6 +55,10 @@ try {
 
     if ($Signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
         throw "package signature status is '$($Signature.Status)'; use -TrustLocalTestSigner only for the generated self-signed test package, or obtain the Store-signed package"
+    }
+    $ValidatedPackageHash = (Get-FileHash -Path $PackagePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($ValidatedPackageHash -cne $PackageHash) {
+        throw "probe package changed between manifest preflight and signature validation"
     }
 
     Add-AppxPackage -Path $PackagePath
@@ -93,6 +99,7 @@ try {
     [ordered]@{
         schemaVersion = 1
         verificationBoundary = "hosted-or-local-Windows-install-only; not Win10/Win11 hardware evidence"
+        packageSha256 = $PackageHash
         packageIdentity = $Contract.PackageIdentity
         publisher = $Contract.Publisher
         version = [string]$Installed.Version
@@ -139,10 +146,16 @@ try {
         SignerTrustAdded = $AddedTrust
     }
 } catch {
-    if ($null -ne $Installed) {
+    $CleanupPackages = @($InstalledPackages)
+    if ($CleanupPackages.Count -eq 0) {
+        $CleanupPackages = @(Get-AppxPackage -Name $script:ProbePackageIdentity -ErrorAction SilentlyContinue)
+    }
+    if ($CleanupPackages.Count -ne 0) {
         Get-Process -Name "pulsar-win-probe-amd64" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue
-        Remove-AppxPackage -Package $Installed.PackageFullName -ErrorAction SilentlyContinue
+        foreach ($RegisteredPackage in $CleanupPackages) {
+            Remove-AppxPackage -Package $RegisteredPackage.PackageFullName -ErrorAction SilentlyContinue
+        }
     }
     if ($AddedTrust) {
         Remove-Item -Force $TrustedPeoplePath -ErrorAction SilentlyContinue

@@ -1,5 +1,9 @@
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 
 #include <initguid.h>
 #include "pulsar_capture_internal.h"
@@ -11,6 +15,7 @@
 #include <process.h>
 #include <winrt/Windows.Devices.Enumeration.h>
 #include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Media.Devices.h>
 #include <winrt/Windows.Security.Authorization.AppCapabilityAccess.h>
 #include <winrt/Windows.Storage.h>

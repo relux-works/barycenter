@@ -570,22 +570,22 @@ void test_packet_drain_coalescing_cleanup_and_overflow() {
                               stop_true, nullptr, &result) == S_OK);
     CHECK(result.stopObserved && result.terminalReason == -1 && result.cleanupReleaseHResult == E_FAIL);
 
-    FrameRing small;
-    CHECK(small.Reset(1, 1) == S_OK);
+    FrameRing small_ring;
+    CHECK(small_ring.Reset(1, 1) == S_OK);
     MockPacketSource overflow;
     overflow.packets = {float_packet({1.0f, 2.0f})};
     first = true;
-    CHECK(DrainCapturePackets(&overflow, format, &small, &scratch, &first,
+    CHECK(DrainCapturePackets(&overflow, format, &small_ring, &scratch, &first,
                               stop_false, nullptr, &result) == HRESULT_FROM_WIN32(ERROR_BUFFER_OVERFLOW));
     CHECK(result.terminalReason == CAP_REASON_OVERFLOW);
-    CHECK(result.packetsCommitted == 0 && overflow.releaseCalls == 1 && small.Available() == 0);
+    CHECK(result.packetsCommitted == 0 && overflow.releaseCalls == 1 && small_ring.Available() == 0);
 
     MockPacketSource overflow_release_failure;
     auto overflow_packet = float_packet({1.0f, 2.0f});
     overflow_packet.releaseHR = E_ACCESSDENIED;
     overflow_release_failure.packets = {overflow_packet};
     first = true;
-    CHECK(DrainCapturePackets(&overflow_release_failure, format, &small, &scratch, &first,
+    CHECK(DrainCapturePackets(&overflow_release_failure, format, &small_ring, &scratch, &first,
                               stop_false, nullptr, &result) == HRESULT_FROM_WIN32(ERROR_BUFFER_OVERFLOW));
     CHECK(result.terminalReason == CAP_REASON_OVERFLOW);
     CHECK(result.terminalHResult == HRESULT_FROM_WIN32(ERROR_BUFFER_OVERFLOW));

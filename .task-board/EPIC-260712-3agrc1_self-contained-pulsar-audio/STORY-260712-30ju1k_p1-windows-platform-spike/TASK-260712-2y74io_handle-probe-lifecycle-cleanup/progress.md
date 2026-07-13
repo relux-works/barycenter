@@ -1,14 +1,14 @@
 ## Status
-reviewing
+done
 
 ## Assigned To
-[reviewer] reviewer (codex)
+codex-inline
 
 ## Created
 2026-07-12T15:27:53Z
 
 ## Last Update
-2026-07-13T17:55:04Z
+2026-07-13T22:52:43Z
 
 ## Blocked By
 - TASK-260712-dib11l
@@ -111,6 +111,10 @@ spawn run completed: codex (run=RUN-260713-30c6de, pid=84019, exit=0)
 R10 producer hashes independently match. Fresh R11 review guard attached (SHA-256 448cd299467296b16c03e6bb29c4b9622142747cc9381efa1fd640bfd28c8096); it freezes R10 production/tests/docs and requires dynamic falsification of every operation/successor gap. Root full-file review remains mandatory.
 spawn queued: [reviewer] reviewer (codex) (run=RUN-260713-da268f, max_parallel=20)
 spawn run started: [reviewer] reviewer (codex) (run=RUN-260713-da268f)
+2026-07-14 strict sequential inline R11 checkpoint resumed from clean landed main 3565c1e1ca0511168026ec2ba72440d23fb1317f on branch task/task-260712-2y74io-lifecycle-r11. No task-board spawn workflow will be used. First action is to verify the frozen R11 inventory against landed bytes, then rerun the full adversarial lifecycle review and root audit before any acceptance or rework decision.
+2026-07-14 inline R11b verdict: BACK TO DEVELOPMENT. Three deterministic production schedules start native CaptureStop after confirmed WM_ENDSESSION latch: late successful prepare, orphan publication-to-invocation preemption, and deferred activation completion. Review-only tests failed in a fresh /tmp copy; frozen workspace hashes remained exact. Outcome: TASK-260712-2y74io_independent-review-r11.md. Same executor now performs repair; independence is not claimed.
+2026-07-14 inline R12 producer complete. R11 F33-F35 and root-found F36 lifecycle-result commit gap repaired; focused x100/race x50, full/race/vet, Windows amd64+arm64 cross, privacy/manifest/Rev16/static/board gates pass. Outcome TASK-260712-2y74io_rework-r12-results.md. Entering fresh frozen same-executor review; independence is not claimed.
+2026-07-14 R13 review verdict ACCEPT FOR ROOT AUDIT and separate root audit verdict ACCEPT. All frozen hashes matched; focused x100/race x50, full/race/vet, Windows amd64+arm64 cross, privacy/manifest/Rev16/static/board gates passed. Root outcome TASK-260712-2y74io_root-audit-r13.md. Signed MSIX and physical Windows 10/11 evidence remain explicitly downstream.
 
 ## Precondition Resources
 - [p1-windows-store-spike-lifecycle.puml](file://TASK-260712-2y74io/p1-windows-store-spike-lifecycle.puml) — Lifecycle flow for cleanup handling, including operation-level confirmed-shutdown handoff
@@ -126,6 +130,8 @@ spawn run started: [reviewer] reviewer (codex) (run=RUN-260713-da268f)
 - [TASK-260712-2y74io-independent-review-guard-r9.md](file://TASK-260712-2y74io/TASK-260712-2y74io-independent-review-guard-r9.md) — Root independent R9 full-file lifecycle review and adversarial schedule guard
 - [TASK-260712-2y74io-rework-guard-r10.md](file://TASK-260712-2y74io/TASK-260712-2y74io-rework-guard-r10.md) — Mandatory root R10 operation-level abrupt-shutdown admission and truthful diagram rework guard
 - [TASK-260712-2y74io-independent-review-guard-r11.md](file://TASK-260712-2y74io/TASK-260712-2y74io-independent-review-guard-r11.md) — Root R11 independent review guard over frozen R10 operation-admission bytes
+- [TASK-260712-2y74io-independent-review-guard-r11b.md](file://TASK-260712-2y74io/TASK-260712-2y74io-independent-review-guard-r11b.md) — Corrected landed-byte R11 boundary after the CI-only CRLF normalization delta; mandatory falsification matrix unchanged
+- [TASK-260712-2y74io-independent-review-guard-r13.md](file://TASK-260712-2y74io/TASK-260712-2y74io-independent-review-guard-r13.md) — Frozen R13 same-executor adversarial review boundary for R12 lifecycle repair
 
 ## Outcome Resources
 - [TASK-260712-2y74io_spawn-log_-implementer--developer--codex-.log](file://TASK-260712-2y74io/TASK-260712-2y74io_spawn-log_-implementer--developer--codex-.log) — System spawn log captured by task-board
@@ -145,3 +151,7 @@ spawn run started: [reviewer] reviewer (codex) (run=RUN-260713-da268f)
 - [TASK-260712-2y74io_rework-r8-results.md](file://TASK-260712-2y74io/TASK-260712-2y74io_rework-r8-results.md) — R8 F25-F27 and root W1-W4 implementation, invariant, test, hash, verification, and residual Windows evidence
 - [TASK-260712-2y74io_independent-review-r9.md](file://TASK-260712-2y74io/TASK-260712-2y74io_independent-review-r9.md) — Independent R9 lifecycle review: post-confirmation Finalize/Release blocker and diagram contradiction
 - [TASK-260712-2y74io_rework-r10-results.md](file://TASK-260712-2y74io/TASK-260712-2y74io_rework-r10-results.md) — R10 operation-level abrupt-shutdown implementation, F28-F32 tests, diagrams, hashes, verification, and residual Windows gates
+- [TASK-260712-2y74io_independent-review-r11.md](file://TASK-260712-2y74io/TASK-260712-2y74io_independent-review-r11.md) — R11b adversarial review: BACK TO DEVELOPMENT with three post-latch Stop schedules
+- [TASK-260712-2y74io_rework-r12-results.md](file://TASK-260712-2y74io/TASK-260712-2y74io_rework-r12-results.md) — R12 repair for R11 F33-F35 plus root-found lifecycle commit F36; final producer matrix
+- [TASK-260712-2y74io_independent-review-r13.md](file://TASK-260712-2y74io/TASK-260712-2y74io_independent-review-r13.md) — R13 frozen same-executor adversarial review: ACCEPT FOR ROOT AUDIT
+- [TASK-260712-2y74io_root-audit-r13.md](file://TASK-260712-2y74io/TASK-260712-2y74io_root-audit-r13.md) — Root R13 full-file/hash/diff/test audit: ACCEPT

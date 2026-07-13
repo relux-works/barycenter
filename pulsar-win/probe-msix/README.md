@@ -153,17 +153,26 @@ host or inferred from an unpackaged build:
   suppresses every queued app, timer, hotkey, command, close, cancel/resume, and
   repeated-shutdown callback during and after confirmation. A helper prepare or
   activation callback admitted before confirmation may finish, but it observes
-  the abrupt gate on return. Every successful prepare owns an exact immutable
-  generation/operation snapshot even if publication conflicts with the active
-  owner. The unpublished loser is one-shot cancel-stopped synchronously at the
-  helper-result seam. A same-generation duplicate readiness message is rejected
-  by capture phase before a second helper call, so it creates no registry entry
-  and cannot disturb the incumbent. If a real successful prepare nevertheless
+  the abrupt gate on return. A successful prepare that returns only after the
+  latch is neither published nor Stop-called; Windows/process teardown and
+  startup recovery own that late registry operation. Its lifecycle-result
+  commit also requires a fresh permit, so the pre-latch prepare-in-flight state
+  is not advanced after confirmation. Every ordinary open-gate
+  successful prepare owns an exact immutable generation/operation snapshot even
+  if publication conflicts with the active owner. The unpublished loser is
+  one-shot cancel-stopped at the helper-result seam only after the Stop callback
+  acquires its own fresh pre-close permit. A same-generation duplicate readiness
+  message is rejected by capture phase before a second helper call, so it
+  creates no registry entry and cannot disturb the incumbent. If a real
+  successful prepare nevertheless
   loses publication to a distinct/stale atomic incumbent, the lifecycle tracker
   keeps that loser native-owned. Its unique one-shot Stop callback is atomically
   claimed and stored before the exact orphan obligation becomes waiter-visible;
-  only then is native Stop invoked. A waiter at that publication-to-invocation
-  seam therefore observes a live pending producer, never a structural gap. The
+  only then is native Stop considered for invocation. A waiter at that
+  publication-to-invocation seam therefore observes a live pending producer,
+  never a structural gap. If confirmed shutdown closes the gate at that seam,
+  both the invocation and lifecycle-result permits are rejected and
+  OS/startup recovery keeps ownership. The
   loser is never activated and owns no
   artifact or ordinary UI/evidence successor. On the ordinary open-gate path,
   only the waiter may query its exact ID to terminal and invoke `CaptureRelease`
@@ -192,8 +201,9 @@ host or inferred from an unpackaged build:
   before activation-intent evidence. Stop, intent admission, and native
   admission are atomic: a stop-first owner emits no activation evidence and
   performs no native activation; a stop that arrives during intent evidence
-  prevents native admission; and an already-admitted native callback is followed
-  by the same one-shot exact-owner stop. Capture drain, hotkey, lifecycle, quit,
+  prevents native admission; and on an ordinary open-gate path an
+  already-admitted native callback is followed by the same one-shot exact-owner
+  stop. Capture drain, hotkey, lifecycle, quit,
   and shutdown stop paths reuse that claim instead of issuing a second native
   stop. Reuse exposes explicit pending versus completed state: an in-flight stop
   is never logged as `S_OK`, and query-failure cleanup cannot abort an artifact,
@@ -201,22 +211,29 @@ host or inferred from an unpackaged build:
   until the recorded stop result is visible or independent native-terminal
   evidence authorizes the normal terminal path. Confirmed shutdown never waits
   for the in-flight result and admits no later ordinary cleanup retry. Native
-  activation admission owns the helper-call interval: a later query, hotkey,
-  lifecycle, or confirmation stop is retained as pending and invoked once only
-  after the admitted `CaptureActivate` callback returns. This prevents both
-  stop-before-activate and release-before-stop while keeping confirmed shutdown
-  nonblocking. The completion/abandon defer is armed immediately after successful
-  native admission, before the second shutdown check, so close-after-admission
-  cannot strand a deferred stop even when the external activation call is
-  correctly suppressed. Every later stop request carries both generation and
+  activation admission owns the helper-call interval: a later query, hotkey, or
+  lifecycle stop is retained as pending and, while the ordinary gate remains
+  open, invoked once only after the admitted `CaptureActivate` callback returns.
+  Confirmation may claim the same exact Stop before its latch, but if activation
+  returns only after the latch the distinct invocation is suppressed and handed
+  to Windows/process teardown. This prevents both stop-before-activate and
+  release-before-stop while keeping confirmed shutdown nonblocking and starting
+  no post-latch helper callback. The completion/abandon defer is armed
+  immediately after successful native admission, before the second shutdown
+  check, so close-after-admission
+  cannot strand a deferred stop on an ordinary path even when the external
+  activation call is correctly suppressed; confirmed shutdown deliberately
+  abandons it to OS handoff. Every later stop request carries both generation and
   operation identity. If authoritative terminal handling already released and
   cleared that exact owner, the late request is a not-requested no-op—there is
   no direct native fallback, and a reused operation ID in another generation is
   never stopped. Stop admission, native Stop result publication, terminal
   observation, and the actual waiter-owned `CaptureRelease` call now share that
-  immutable `(generation, operation ID, owner)` state. A pending result always
-  has either the immediate Stop callback or the admitted activation/deferred
-  Stop callback as its live producer. Release cannot overtake either producer;
+  immutable `(generation, operation ID, owner)` state. While ordinary cleanup is
+  admitted, a pending result always has either the immediate Stop callback or the
+  admitted activation/deferred Stop callback as its live producer. Confirmed
+  handoff performs no Release and intentionally needs no later producer. Release
+  cannot overtake either ordinary producer;
   the release-admitted bit covers the helper call itself, and only exact `S_OK`
   marks the owner released and permits the same pointer to be cleared. A failed
   or unexpected success HRESULT retains the owner for retry and bounded

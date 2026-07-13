@@ -9,7 +9,7 @@ import (
 	"relux.works/duet/pulsar-win/internal/winprobe"
 )
 
-func TestR5F12ConfirmedShutdownDoesNotWaitForPrepareAndStopsLateOwner(t *testing.T) {
+func TestR5F12ConfirmedShutdownDoesNotWaitForPrepareAndHandsOffLateOwner(t *testing.T) {
 	t.Parallel()
 	tracker := newLifecycleTracker()
 	generation, accepted, reason := tracker.beginCaptureGeneration()
@@ -64,11 +64,15 @@ func TestR5F12ConfirmedShutdownDoesNotWaitForPrepareAndStopsLateOwner(t *testing
 
 	close(prepareRelease)
 	prepared := <-prepareResult
-	if !prepared.trackerInvoked || !prepared.externalInvoked || !prepared.succeeded || !prepared.owner.matches(generation, 5101) || prepared.conflictingOwner != nil || prepared.ownerPublished || prepared.resultEvidenceAllowed || prepared.ownerSuccessorAllowed {
+	if !prepared.trackerInvoked || !prepared.externalInvoked || !prepared.succeeded || prepared.trackerAllowed || !prepared.owner.matches(generation, 5101) || prepared.conflictingOwner != nil || prepared.ownerPublished || prepared.resultEvidenceAllowed || prepared.ownerSuccessorAllowed {
 		t.Fatalf("late prepare result = %+v", prepared)
 	}
-	if stopCalls.Load() != 1 || stoppedOperation.Load() != 5101 {
-		t.Fatalf("late native owner stop calls=%d operation=%d, want 1/5101", stopCalls.Load(), stoppedOperation.Load())
+	operationID, phase, exists := tracker.captureStateForGeneration(generation)
+	if !exists || operationID != 0 || phase != captureGenerationPrepareInFlight {
+		t.Fatalf("late prepare lifecycle successor exists=%v operation=%d phase=%d", exists, operationID, phase)
+	}
+	if stopCalls.Load() != 0 || stoppedOperation.Load() != 0 {
+		t.Fatalf("late native owner started post-latch Stop calls=%d operation=%d, want 0/0", stopCalls.Load(), stoppedOperation.Load())
 	}
 	if owners.current() != nil {
 		t.Fatal("late native owner remained published after confirmed shutdown")
@@ -154,14 +158,14 @@ func TestR5F12ConfirmedShutdownDoesNotWaitForActivationAndSuppressesSuccessor(t 
 	if !activated.trackerInvoked || !activated.externalInvoked || activated.continuationAllowed {
 		t.Fatalf("activation result after confirmation = %+v", activated)
 	}
-	if stopCalls.Load() != 1 {
-		t.Fatalf("activation return did not issue exactly one deferred shutdown stop: %d", stopCalls.Load())
+	if stopCalls.Load() != 0 {
+		t.Fatalf("activation return issued a post-latch deferred shutdown stop: %d", stopCalls.Load())
 	}
 	mu.Lock()
 	gotOrder = append([]string(nil), order...)
 	mu.Unlock()
-	if len(gotOrder) != 2 || gotOrder[0] != "wake" || gotOrder[1] != "stop" {
-		t.Fatalf("deferred shutdown order=%v, want [wake stop]", gotOrder)
+	if len(gotOrder) != 1 || gotOrder[0] != "wake" {
+		t.Fatalf("deferred shutdown order=%v, want OS handoff [wake]", gotOrder)
 	}
 	successors := newR5SuccessorCounters()
 	if activated.dispatchContinuation(&shutdown, successors.callbacks()...) {

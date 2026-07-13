@@ -140,7 +140,7 @@ func TestR8F25ImmediateStopCompletesBeforeTerminalRelease(t *testing.T) {
 
 func TestR8F25DeferredActivationStopCompletesBeforeRelease(t *testing.T) {
 	t.Parallel()
-	owners, _, owner := newR8Owner(t, 803, 8003)
+	owners, shutdown, owner := newR8Owner(t, 803, 8003)
 	if !owner.admitActivationIntent() || !owner.admitNativeActivation() {
 		t.Fatal("could not admit exact-owner native activation")
 	}
@@ -158,7 +158,7 @@ func TestR8F25DeferredActivationStopCompletesBeforeRelease(t *testing.T) {
 	}
 	activationCompleted := make(chan struct{})
 	go func() {
-		owner.completeNativeActivation()
+		owner.completeNativeActivation(shutdown)
 		close(activationCompleted)
 	}()
 	<-stopEntered
@@ -374,7 +374,7 @@ func TestR8F25OperationIDReuseCannotReceiveOldDeferredWork(t *testing.T) {
 	if candidate, incumbent, published := owners.publish(shutdown, 809, oldOwner.operationID, func(uint32) winprobe.HResult { return 0 }); published || candidate == nil || incumbent != oldOwner {
 		t.Fatalf("reuse published before old release: candidate=%+v incumbent=%+v published=%v", candidate, incumbent, published)
 	}
-	oldOwner.completeNativeActivation()
+	oldOwner.completeNativeActivation(shutdown)
 	if result, ok := oldOwner.completedStopResult(); !ok || result != 0 || oldStops.Load() != 1 || !oldOwner.observeNativeTerminal() {
 		t.Fatalf("old result=%s ok=%v stops=%d", result.Hex(), ok, oldStops.Load())
 	}
@@ -861,7 +861,9 @@ func TestR8W4OrphanVisibilityCarriesLiveStopProducer(t *testing.T) {
 	}
 
 	invoked := make(chan bool, 1)
-	go func() { invoked <- orphan.invokeClaimedStop() }()
+	go func() {
+		invoked <- orphan.invokeClaimedStop(shutdown)
+	}()
 	<-stopEntered
 	duringInvocation := runCaptureOrphanDrain(obligation, func(uint32) (winprobe.CaptureResult, winprobe.HResult) {
 		queries.Add(1)
@@ -960,8 +962,9 @@ func TestR8W4ConfirmationAtOrphanPreInvocationSeam(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("confirmation waited for unpublished orphan Stop invocation")
 	}
-	if !orphan.invokeClaimedStop() {
-		t.Fatal("late orphan Stop producer was not invoked")
+	lateInvoked := false
+	if lateInvoked = orphan.invokeClaimedStop(shutdown); lateInvoked {
+		t.Fatal("confirmed shutdown admitted the orphan Stop producer")
 	}
 	if shutdown.runOrdinary(func() {
 		runCaptureOrphanDrain(obligation, func(uint32) (winprobe.CaptureResult, winprobe.HResult) {
@@ -974,7 +977,7 @@ func TestR8W4ConfirmationAtOrphanPreInvocationSeam(t *testing.T) {
 	}) {
 		t.Fatal("confirmed shutdown admitted orphan query/release")
 	}
-	if activeStops.Load() != 1 || wakes.Load() != 1 || orphanStops.Load() != 1 || queries.Load() != 0 || releases.Load() != 0 || owners.orphanCount() != 1 || owners.current() != incumbent {
+	if activeStops.Load() != 1 || wakes.Load() != 1 || orphanStops.Load() != 0 || queries.Load() != 0 || releases.Load() != 0 || owners.orphanCount() != 1 || owners.current() != incumbent {
 		t.Fatalf("activeStops=%d wakes=%d orphanStops=%d queries=%d releases=%d orphans=%d current=%+v", activeStops.Load(), wakes.Load(), orphanStops.Load(), queries.Load(), releases.Load(), owners.orphanCount(), owners.current())
 	}
 }

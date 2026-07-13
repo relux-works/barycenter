@@ -385,7 +385,11 @@ func (t *lifecycleTracker) runCapturePrepare(generation uint64, prepare func() (
 // same-generation duplicate is rejected before the helper. A real successful
 // loser behind a distinct/stale atomic incumbent remains native-owned in its
 // generation until the waiter orphan obligation proves terminal and Release.
-func (t *lifecycleTracker) runCapturePrepareCommit(generation uint64, prepare func() (operationID uint32, succeeded, commit bool)) (operationID uint32, succeeded, allowed, invoked bool) {
+func (t *lifecycleTracker) runCapturePrepareCommit(
+	generation uint64,
+	prepare func() (operationID uint32, succeeded, commit bool),
+	completionGate ...func(func()) bool,
+) (operationID uint32, succeeded, allowed, invoked bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.capture == nil || t.capture.id != generation || t.capture.invalidated || t.startBlockedReasonLocked() != "" {
@@ -403,48 +407,61 @@ func (t *lifecycleTracker) runCapturePrepareCommit(generation uint64, prepare fu
 	previousPhase := state.phase
 	state.phase = captureGenerationPrepareInFlight
 	operationID, succeeded, commit := prepare()
-	if succeeded && !commit {
-		if previousOperationID == 0 {
-			// Publication can lose to a stale/distinct atomic incumbent after the
-			// helper has already registered this operation. Keep the rejected
-			// generation native-owned until its waiter orphan obligation reaches
-			// terminal and Release; no-native settlement would be false.
-			state.operationID = operationID
-			state.phase = captureGenerationNativeOwned
-			for _, run := range t.active {
-				if run.CaptureGeneration == generation {
-					run.CaptureOperationID = operationID
+	completionAdmitted := runOperationGate(completionGate, func() {
+		if succeeded && !commit {
+			if previousOperationID == 0 {
+				// Publication can lose to a stale/distinct atomic incumbent after the
+				// helper has already registered this operation. Keep the rejected
+				// generation native-owned until its waiter orphan obligation reaches
+				// terminal and Release; no-native settlement would be false.
+				state.operationID = operationID
+				state.phase = captureGenerationNativeOwned
+				for _, run := range t.active {
+					if run.CaptureGeneration == generation {
+						run.CaptureOperationID = operationID
+					}
 				}
+				allowed = true
+				return
 			}
-		} else {
 			state.operationID = previousOperationID
 			state.phase = previousPhase
+			allowed = true
+			return
 		}
-		return operationID, true, true, true
+		if !succeeded {
+			if previousOperationID != 0 {
+				state.operationID = previousOperationID
+				state.phase = previousPhase
+				return
+			}
+			generation := state.id
+			state.phase = captureGenerationReleased
+			state.settlement = captureSettlementFacts{terminal: true, artifact: true, released: true}
+			if t.capture == state {
+				t.capture = nil
+			}
+			t.pruneGenerationLocked(generation)
+			return
+		}
+		state.operationID = operationID
+		state.phase = captureGenerationNativeOwned
+		for _, run := range t.active {
+			if run.CaptureGeneration == generation {
+				run.CaptureOperationID = operationID
+			}
+		}
+		allowed = true
+	})
+	if !completionAdmitted {
+		// The helper callback itself was admitted before abrupt confirmation,
+		// but publishing its result into the lifecycle ledger is a distinct
+		// successor. Leave the already-entered prepare-in-flight state untouched;
+		// Windows/process teardown and next-launch recovery own the returned
+		// registry operation.
+		return operationID, succeeded, false, true
 	}
-	if !succeeded {
-		if previousOperationID != 0 {
-			state.operationID = previousOperationID
-			state.phase = previousPhase
-			return operationID, false, false, true
-		}
-		generation := state.id
-		state.phase = captureGenerationReleased
-		state.settlement = captureSettlementFacts{terminal: true, artifact: true, released: true}
-		if t.capture == state {
-			t.capture = nil
-		}
-		t.pruneGenerationLocked(generation)
-		return operationID, false, false, true
-	}
-	state.operationID = operationID
-	state.phase = captureGenerationNativeOwned
-	for _, run := range t.active {
-		if run.CaptureGeneration == generation {
-			run.CaptureOperationID = operationID
-		}
-	}
-	return operationID, true, true, true
+	return operationID, succeeded, allowed, true
 }
 
 func (t *lifecycleTracker) runCaptureActivation(generation uint64, operationID uint32, activate func()) bool {

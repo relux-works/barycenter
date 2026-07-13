@@ -121,13 +121,14 @@ func TestR3WindowsWiringUsesProductionLifecycleCoordinators(t *testing.T) {
 	}
 	for _, required := range []string{
 		"owner.claimStop(stop)",
-		"owner.invokeClaimedStop()",
+		"owner.invokeClaimedStop(shutdown)",
 		"lifecycle.runCapturePrepareCommit(generation",
+		"}, shutdown.runOperation)",
 		"runCaptureContinuation(shutdown, r.resultEvidenceAllowed, continuations...)",
 		"runCaptureContinuation(shutdown, r.ownerSuccessorAllowed, continuations...)",
 		"owner.admitActivationIntent()",
 		"owner.admitNativeActivation()",
-		"defer owner.completeNativeActivation()",
+		"defer owner.completeNativeActivation(shutdown)",
 		"return captureStopOutcome{State: captureStopPending}",
 		"if !result.Stop.completed()",
 		"owner.requestRelease(captureReleaseAfterAcceptedStop, release)",
@@ -177,7 +178,7 @@ func TestR3WindowsWiringUsesProductionLifecycleCoordinators(t *testing.T) {
 		t.Fatal("runCaptureActivationAdmitted is absent")
 	}
 	activationCoordinatorBody := coordinatorText[activationCoordinator:]
-	deferredCompletion := strings.Index(activationCoordinatorBody, "defer owner.completeNativeActivation()")
+	deferredCompletion := strings.Index(activationCoordinatorBody, "defer owner.completeNativeActivation(shutdown)")
 	postAdmissionSeam := strings.Index(activationCoordinatorBody, "afterAdmission()")
 	postAdmissionClosing := -1
 	if postAdmissionSeam >= 0 {

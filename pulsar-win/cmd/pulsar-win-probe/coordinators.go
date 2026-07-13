@@ -69,14 +69,23 @@ func (c *uiTransitionCoordinator) publish(kind uiTransitionKind, generation uint
 // drive attempts each transition that has not reached the window queue. It
 // returns true exactly once per transition after the bounded post-failure limit
 // so production can escalate to graceful cleanup without losing ownership.
-func (c *uiTransitionCoordinator) drive(post func(uiTransition) bool) (escalate bool) {
+func (c *uiTransitionCoordinator) drive(post func(uiTransition) bool, operationGate ...func(func()) bool) (escalate bool) {
 	for _, kind := range []uiTransitionKind{uiTransitionIdleCleanup, uiTransitionLifecycleRearm} {
-		transition, ok := c.claimPost(kind)
-		if !ok {
+		var transition uiTransition
+		var claimed bool
+		if !runOperationGate(operationGate, func() {
+			transition, claimed = c.claimPost(kind)
+		}) || !claimed {
 			continue
 		}
 		posted := post(transition)
-		if c.finishPost(transition, posted) {
+		var shouldEscalate bool
+		if !runOperationGate(operationGate, func() {
+			shouldEscalate = c.finishPost(transition, posted)
+		}) {
+			return escalate
+		}
+		if shouldEscalate {
 			escalate = true
 		}
 	}
@@ -209,6 +218,25 @@ func runAbruptOperation[T any](shutdown *abruptShutdownCoordinator, operation fu
 	return result, admitted
 }
 
+// receiveAbruptOperation gives each queue dequeue its own immediate pre-close
+// permit. A waiter drain admitted earlier cannot consume a later command after
+// confirmed shutdown closes the ordinary-work gate.
+func receiveAbruptOperation[T any](shutdown *abruptShutdownCoordinator, queue <-chan T) (T, bool) {
+	var value T
+	if shutdown == nil || queue == nil {
+		return value, false
+	}
+	received := false
+	admitted := shutdown.runOperation(func() {
+		select {
+		case value = <-queue:
+			received = true
+		default:
+		}
+	})
+	return value, admitted && received
+}
+
 // runFailClosedQueryOperations keeps cancel and release as two independent
 // abrupt-shutdown operations. A pre-close cancel result never authorizes a
 // Release that has not acquired its own permit.
@@ -292,7 +320,7 @@ func (o *captureOwnerSnapshot) requestStop(stop func(uint32) winprobe.HResult) b
 	if !o.claimStop(stop) {
 		return false
 	}
-	o.invokeClaimedStop()
+	o.invokeClaimedStopAdmitted()
 	return true
 }
 
@@ -310,11 +338,22 @@ func (o *captureOwnerSnapshot) claimStop(stop func(uint32) winprobe.HResult) boo
 	return true
 }
 
-// invokeClaimedStop consumes the stored producer exactly once when native
-// activation is not in flight. Activation completion consumes the same stored
-// callback when it owns the earlier admission, so neither path can duplicate
-// CaptureRequestStop.
-func (o *captureOwnerSnapshot) invokeClaimedStop() bool {
+// invokeClaimedStop consumes a separately published producer only after its
+// own immediate pre-close permit. The low-level admitted form is also used by
+// requestStop, whose claim and invocation share either an ordinary operation
+// permit or the special pre-latch confirmed-shutdown call.
+func (o *captureOwnerSnapshot) invokeClaimedStop(shutdown *abruptShutdownCoordinator) bool {
+	invoked := false
+	if shutdown == nil || !shutdown.runOperation(func() { invoked = o.invokeClaimedStopAdmitted() }) {
+		return false
+	}
+	return invoked
+}
+
+// invokeClaimedStopAdmitted consumes the stored producer exactly once when
+// native activation is not in flight. Its callers already own the permit that
+// authorizes this immediate callback.
+func (o *captureOwnerSnapshot) invokeClaimedStopAdmitted() bool {
 	if o == nil {
 		return false
 	}
@@ -373,7 +412,7 @@ func (o *captureOwnerSnapshot) admitNativeActivation() bool {
 // abrupt confirmation can latch/wake while the activation callback owns the
 // native call, and the winning stop is issued exactly once when that call
 // returns.
-func (o *captureOwnerSnapshot) completeNativeActivation() {
+func (o *captureOwnerSnapshot) completeNativeActivation(shutdown *abruptShutdownCoordinator) {
 	if o == nil {
 		return
 	}
@@ -392,7 +431,14 @@ func (o *captureOwnerSnapshot) completeNativeActivation() {
 	o.deferredStop = nil
 	o.stopMu.Unlock()
 	if stop != nil {
-		o.finishStop(stop)
+		// Activation owns only its already-admitted helper callback. A Stop
+		// deferred behind that callback is a distinct native operation and must
+		// acquire a fresh permit immediately before invocation. Confirmed
+		// WM_ENDSESSION therefore abandons the stored producer to OS/process
+		// teardown instead of starting new helper work after the latch.
+		if shutdown != nil {
+			shutdown.runOperation(func() { o.finishStop(stop) })
+		}
 	}
 }
 
@@ -755,8 +801,9 @@ func runCaptureQueryFailureCleanup(
 
 // captureOwnershipCoordinator publishes the exact current native owner without
 // taking lifecycleTracker.mu. Publication checks the abrupt start gate on both
-// sides of the atomic store: confirmation either sees and stops the owner, or a
-// late publisher observes the closed gate and stops itself.
+// sides of the atomic store: confirmation either sees and stops the owner before
+// its latch, or a late publisher observes the closed gate and hands the owner to
+// OS/process teardown without starting another helper callback.
 type captureOwnershipCoordinator struct {
 	active             atomic.Pointer[captureOwnerSnapshot]
 	activationAttempts atomic.Uint64
@@ -912,30 +959,35 @@ func (c *captureOwnershipCoordinator) publish(
 	shutdown *abruptShutdownCoordinator,
 	generation uint64,
 	operationID uint32,
-	shutdownStop func(uint32) winprobe.HResult,
+	_ func(uint32) winprobe.HResult,
 ) (candidate, incumbent *captureOwnerSnapshot, published bool) {
 	if generation == 0 || operationID == 0 {
 		return nil, nil, false
 	}
 	owner := &captureOwnerSnapshot{generation: generation, operationID: operationID}
-	if shutdown != nil && shutdown.isClosing() {
-		owner.requestShutdownStop(shutdownStop)
+	publish := func() {
+		for {
+			if existing := c.active.Load(); existing != nil {
+				incumbent = existing
+				return
+			}
+			if c.active.CompareAndSwap(nil, owner) {
+				break
+			}
+		}
+		if shutdown != nil && shutdown.isClosing() {
+			c.active.CompareAndSwap(owner, nil)
+			return
+		}
+		published = true
+	}
+	if shutdown != nil && !shutdown.runOperation(publish) {
 		return owner, nil, false
 	}
-	for {
-		if existing := c.active.Load(); existing != nil {
-			return owner, existing, false
-		}
-		if c.active.CompareAndSwap(nil, owner) {
-			break
-		}
+	if shutdown == nil {
+		publish()
 	}
-	if shutdown != nil && shutdown.isClosing() {
-		c.active.CompareAndSwap(owner, nil)
-		owner.requestShutdownStop(shutdownStop)
-		return owner, nil, false
-	}
-	return owner, nil, true
+	return owner, incumbent, published
 }
 
 func (c *captureOwnershipCoordinator) current() *captureOwnerSnapshot {
@@ -1201,42 +1253,43 @@ func runCapturePrepareOwned(
 	if lifecycle == nil || owners == nil || shutdown == nil || prepare == nil || shutdownStop == nil || unpublishedStop == nil || shutdown.isClosing() {
 		return result
 	}
-	result.operationID, result.succeeded, result.trackerAllowed, result.trackerInvoked = lifecycle.runCapturePrepareCommit(generation, func() (uint32, bool, bool) {
-		if shutdown.isClosing() {
-			return 0, false, false
-		}
-		result.externalInvoked = true
-		operationID, succeeded := prepare()
-		if succeeded && operationID == 0 {
-			// A helper that reports success without a registry-backed operation
-			// violates the native ABI contract. Treat it as fail-closed before
-			// publication so no Stop/query/Release can ever receive ID zero and
-			// the lifecycle generation is settled by the ordinary failure path.
-			result.invalidSuccessfulID = true
-			succeeded = false
-		}
-		if succeeded {
-			owner, incumbent, published := owners.publish(shutdown, generation, operationID, shutdownStop)
-			result.owner = owner
-			result.conflictingOwner = incumbent
-			result.ownerPublished = published
-			if !published && owner != nil {
-				// Claim the exact Stop producer before making the loser visible.
-				// The waiter can now classify the pre-invocation seam as pending,
-				// while confirmation remains independent of this ordinary call.
-				result.orphan, _ = owners.publishOrphanStopProducer(owner, unpublishedStop)
-				owner.invokeClaimedStop()
+	if !shutdown.runOperation(func() {
+		result.operationID, result.succeeded, result.trackerAllowed, result.trackerInvoked = lifecycle.runCapturePrepareCommit(generation, func() (uint32, bool, bool) {
+			if shutdown.isClosing() {
+				return 0, false, false
 			}
-		}
-		return operationID, succeeded, result.ownerPublished
-	})
+			result.externalInvoked = true
+			operationID, succeeded := prepare()
+			if succeeded && operationID == 0 {
+				// A helper that reports success without a registry-backed operation
+				// violates the native ABI contract. Treat it as fail-closed before
+				// publication so no Stop/query/Release can ever receive ID zero and
+				// the lifecycle generation is settled by the ordinary failure path.
+				result.invalidSuccessfulID = true
+				succeeded = false
+			}
+			if succeeded {
+				owner, incumbent, published := owners.publish(shutdown, generation, operationID, shutdownStop)
+				result.owner = owner
+				result.conflictingOwner = incumbent
+				result.ownerPublished = published
+				if !published && owner != nil {
+					// Publication and invocation are distinct ordinary operations. A
+					// confirmed latch between them leaves the native loser to OS/startup
+					// recovery and never inherits this transaction's stale permit.
+					shutdown.runOperation(func() {
+						result.orphan, _ = owners.publishOrphanStopProducer(owner, unpublishedStop)
+					})
+					owner.invokeClaimedStop(shutdown)
+				}
+			}
+			return operationID, succeeded, result.ownerPublished
+		}, shutdown.runOperation)
+	}) {
+		return result
+	}
 	result.resultEvidenceAllowed = result.trackerInvoked && result.externalInvoked && (!result.succeeded || result.ownerPublished) && !shutdown.isClosing()
 	result.ownerSuccessorAllowed = result.trackerInvoked && result.externalInvoked && result.succeeded && result.trackerAllowed && result.ownerPublished && !shutdown.isClosing()
-	if result.succeeded && shutdown.isClosing() {
-		if owner := owners.matching(generation, result.operationID); owner != nil {
-			owner.requestShutdownStop(shutdownStop)
-		}
-	}
 	return result
 }
 
@@ -1275,14 +1328,20 @@ func admitCaptureActivationOwned(
 	operationID uint32,
 	shutdownStop func(uint32) winprobe.HResult,
 ) *captureOwnerSnapshot {
-	if owners == nil || shutdown == nil || shutdown.isClosing() {
+	if owners == nil || shutdown == nil {
 		return nil
 	}
-	owner := owners.matching(generation, operationID)
-	if owner == nil || !owner.admitActivationIntent() {
+	var owner *captureOwnerSnapshot
+	if !shutdown.runOperation(func() {
+		owner = owners.matching(generation, operationID)
+		if owner == nil || !owner.admitActivationIntent() {
+			owner = nil
+			return
+		}
+		owners.activationAttempts.Add(1)
+	}) || owner == nil {
 		return nil
 	}
-	owners.activationAttempts.Add(1)
 	if shutdown.isClosing() {
 		owner.requestShutdownStop(shutdownStop)
 		return nil
@@ -1307,24 +1366,26 @@ func runCaptureActivationAdmitted(
 	if lifecycle == nil || owners == nil || shutdown == nil || owner == nil || afterAdmission == nil || activate == nil || shutdown.isClosing() || owners.matching(owner.generation, owner.operationID) != owner {
 		return result
 	}
-	result.trackerInvoked = lifecycle.runCaptureActivation(owner.generation, owner.operationID, func() {
-		if shutdown.isClosing() || owners.matching(owner.generation, owner.operationID) != owner || !owner.admitNativeActivation() {
-			return
-		}
-		func() {
-			defer owner.completeNativeActivation()
-			afterAdmission()
-			if shutdown.isClosing() {
-				owner.requestShutdownStop(shutdownStop)
+	shutdown.runOperation(func() {
+		result.trackerInvoked = lifecycle.runCaptureActivation(owner.generation, owner.operationID, func() {
+			if shutdown.isClosing() || owners.matching(owner.generation, owner.operationID) != owner || !owner.admitNativeActivation() {
 				return
 			}
-			if !shutdown.runOperation(func() {
-				result.externalInvoked = true
-				activate()
-			}) {
-				owner.requestShutdownStop(shutdownStop)
-			}
-		}()
+			func() {
+				defer owner.completeNativeActivation(shutdown)
+				afterAdmission()
+				if shutdown.isClosing() {
+					owner.requestShutdownStop(shutdownStop)
+					return
+				}
+				if !shutdown.runOperation(func() {
+					result.externalInvoked = true
+					activate()
+				}) {
+					owner.requestShutdownStop(shutdownStop)
+				}
+			}()
+		})
 	})
 	result.continuationAllowed = result.trackerInvoked && result.externalInvoked && !shutdown.isClosing()
 	if shutdown.isClosing() {

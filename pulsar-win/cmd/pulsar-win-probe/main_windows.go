@@ -511,7 +511,13 @@ func (a *probeApp) drainCaptureOrphans() {
 			return
 		}
 		if result.StructuralFailure {
-			if obligation.failureEscalated.CompareAndSwap(false, true) {
+			escalate, admitted := runAbruptOperation(&a.shutdown, func() bool {
+				return obligation.failureEscalated.CompareAndSwap(false, true)
+			})
+			if !admitted {
+				return
+			}
+			if escalate {
 				a.recordRequiredStructuralFailure(winprobe.LogEvent{Scenario: winprobe.ScenarioCapture, Result: winprobe.ResultFail, Action: "capture_orphan_cleanup_contract_failure", SelectedAPIPath: "waiter-owned-CaptureGetResult+exact-orphan-Release-gate", HResult: orphanFailureHResult(result).Hex(), FailureCause: "an unpublished native capture could not prove exact Stop, terminal, and Release prerequisites; its owner remains retained", Fields: map[string]any{"captureGeneration": owner.generation, "captureOperationId": owner.operationID, "stopState": result.Stop.State, "queryAttempted": result.QueryAttempted, "terminalObserved": result.TerminalObserved, "releaseAttempted": result.Release.attempted()}}, "unpublished capture cleanup contract failure")
 			}
 			continue
@@ -575,83 +581,82 @@ func captureStopEvidence(stop captureStopOutcome, completedPath string) (winprob
 
 func (a *probeApp) drainCommands() {
 	for {
-		select {
-		case command := <-a.commands:
-			a.mu.Lock()
-			capture, generation := a.captureOp, a.captureGeneration
-			a.mu.Unlock()
-			switch command.kind {
-			case "stop":
-				if capture != 0 {
-					stop := a.requestOwnedCaptureStop(generation, capture, command.reason)
-					result, apiPath, hresult := captureStopEvidence(stop, "CaptureRequestStop")
-					a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioCapture, Result: result, Action: "capture_stop_request", SelectedAPIPath: apiPath, HResult: hresult, Fields: map[string]any{"reason": command.reason.String(), "stopPending": stop.pending()}})
-					if command.source == winprobe.ScenarioHotkey {
-						a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioHotkey, Result: result, Action: "hotkey_stop_accepted", SelectedAPIPath: "WM_HOTKEY+" + apiPath, HResult: hresult, Fields: map[string]any{"stopPending": stop.pending()}})
-					}
-				} else if command.source == winprobe.ScenarioHotkey {
-					a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioHotkey, Result: winprobe.ResultBlocked, Action: "hotkey_stop_accepted", SelectedAPIPath: "WM_HOTKEY+CaptureRequestStop", FailureCause: "no active capture operation"})
-				}
-			case "permission_check", "permission_rearm":
-				status, hr, admitted := a.permissionCheckOperation()
-				if !admitted || a.shutdown.isClosing() {
-					return
-				}
-				if hr.Failed() {
-					status = winprobe.PermissionUnknown
-					signal := "CapPermissionCheck(explicit-record-query-failed)"
-					if command.kind == "permission_rearm" {
-						signal = "CapPermissionCheck(lifecycle-rearm-query-failed)"
-					}
-					// Gate invalidation, exact-generation no-native settlement, and
-					// CaptureStop (when native ownership exists) must precede every
-					// logger/filesystem operation. A failed query never publishes a
-					// permission-ready or rearm continuation.
-					a.requestLifecycleStop(lifecyclePermissionRevoke, signal, winprobe.ReasonPermissionRevoke, lifecycleReturnsIdle)
-					a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioPermission, Result: winprobe.ResultFail, Action: command.kind, SelectedAPIPath: "CapPermissionCheck(waiter-owned)", PermissionStatus: status.String(), HResult: hr.Hex(), FailureCause: "permission status could not be queried; fail-closed lifecycle cleanup started before diagnostic evidence", Fields: map[string]any{"captureGeneration": command.generation}})
-					continue
-				}
-				if !a.shutdown.runOperation(func() {
-					a.mu.Lock()
-					a.permissionKnown = true
-					a.permissionStatus = status
-					a.mu.Unlock()
-				}) {
-					return
-				}
-				if !a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioPermission, Result: resultForHR(hr), Action: command.kind, SelectedAPIPath: "CapPermissionCheck(waiter-owned)", PermissionStatus: status.String(), HResult: hr.Hex(), Fields: map[string]any{"captureGeneration": command.generation}}) {
-					if command.kind == "permission_check" {
-						a.settleOrCancelCaptureGeneration(command.generation, "permission_check_evidence_failed")
-					}
-					a.requestGracefulQuit("required permission query evidence write failed")
-					continue
-				}
-				if command.kind == "permission_rearm" {
-					a.publishRearmTransition(command.generation, status)
-				} else if !a.postTransition(wmAppPermissionReady, uintptr(command.generation), uintptr(status), command.kind) {
-					a.shutdown.runOperation(func() { a.lifecycle.cancelCaptureGeneration(command.generation) })
-				}
-			case "window_hidden":
-				// Flush frames that may have been captured before the hide action,
-				// then begin the hidden epoch. This deliberately prefers a false
-				// negative over attributing pre-hide buffered audio to the interval.
-				a.drainCapture()
-				a.shutdown.runOperation(func() {
-					a.mu.Lock()
-					a.captureVisibility.SetHidden(true)
-					a.mu.Unlock()
-				})
-			case "window_shown":
-				// End the hidden epoch before any later drain, so post-restore
-				// frames cannot create a false hidden/capture overlap.
-				a.shutdown.runOperation(func() {
-					a.mu.Lock()
-					a.captureVisibility.SetHidden(false)
-					a.mu.Unlock()
-				})
-			}
-		default:
+		command, received := receiveAbruptOperation(&a.shutdown, a.commands)
+		if !received {
 			return
+		}
+		a.mu.Lock()
+		capture, generation := a.captureOp, a.captureGeneration
+		a.mu.Unlock()
+		switch command.kind {
+		case "stop":
+			if capture != 0 {
+				stop := a.requestOwnedCaptureStop(generation, capture, command.reason)
+				result, apiPath, hresult := captureStopEvidence(stop, "CaptureRequestStop")
+				a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioCapture, Result: result, Action: "capture_stop_request", SelectedAPIPath: apiPath, HResult: hresult, Fields: map[string]any{"reason": command.reason.String(), "stopPending": stop.pending()}})
+				if command.source == winprobe.ScenarioHotkey {
+					a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioHotkey, Result: result, Action: "hotkey_stop_accepted", SelectedAPIPath: "WM_HOTKEY+" + apiPath, HResult: hresult, Fields: map[string]any{"stopPending": stop.pending()}})
+				}
+			} else if command.source == winprobe.ScenarioHotkey {
+				a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioHotkey, Result: winprobe.ResultBlocked, Action: "hotkey_stop_accepted", SelectedAPIPath: "WM_HOTKEY+CaptureRequestStop", FailureCause: "no active capture operation"})
+			}
+		case "permission_check", "permission_rearm":
+			status, hr, admitted := a.permissionCheckOperation()
+			if !admitted || a.shutdown.isClosing() {
+				return
+			}
+			if hr.Failed() {
+				status = winprobe.PermissionUnknown
+				signal := "CapPermissionCheck(explicit-record-query-failed)"
+				if command.kind == "permission_rearm" {
+					signal = "CapPermissionCheck(lifecycle-rearm-query-failed)"
+				}
+				// Gate invalidation, exact-generation no-native settlement, and
+				// CaptureStop (when native ownership exists) must precede every
+				// logger/filesystem operation. A failed query never publishes a
+				// permission-ready or rearm continuation.
+				a.requestLifecycleStop(lifecyclePermissionRevoke, signal, winprobe.ReasonPermissionRevoke, lifecycleReturnsIdle)
+				a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioPermission, Result: winprobe.ResultFail, Action: command.kind, SelectedAPIPath: "CapPermissionCheck(waiter-owned)", PermissionStatus: status.String(), HResult: hr.Hex(), FailureCause: "permission status could not be queried; fail-closed lifecycle cleanup started before diagnostic evidence", Fields: map[string]any{"captureGeneration": command.generation}})
+				continue
+			}
+			if !a.shutdown.runOperation(func() {
+				a.mu.Lock()
+				a.permissionKnown = true
+				a.permissionStatus = status
+				a.mu.Unlock()
+			}) {
+				return
+			}
+			if !a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioPermission, Result: resultForHR(hr), Action: command.kind, SelectedAPIPath: "CapPermissionCheck(waiter-owned)", PermissionStatus: status.String(), HResult: hr.Hex(), Fields: map[string]any{"captureGeneration": command.generation}}) {
+				if command.kind == "permission_check" {
+					a.settleOrCancelCaptureGeneration(command.generation, "permission_check_evidence_failed")
+				}
+				a.requestGracefulQuit("required permission query evidence write failed")
+				continue
+			}
+			if command.kind == "permission_rearm" {
+				a.publishRearmTransition(command.generation, status)
+			} else if !a.postTransition(wmAppPermissionReady, uintptr(command.generation), uintptr(status), command.kind) {
+				a.shutdown.runOperation(func() { a.lifecycle.cancelCaptureGeneration(command.generation) })
+			}
+		case "window_hidden":
+			// Flush frames that may have been captured before the hide action,
+			// then begin the hidden epoch. This deliberately prefers a false
+			// negative over attributing pre-hide buffered audio to the interval.
+			a.drainCapture()
+			a.shutdown.runOperation(func() {
+				a.mu.Lock()
+				a.captureVisibility.SetHidden(true)
+				a.mu.Unlock()
+			})
+		case "window_shown":
+			// End the hidden epoch before any later drain, so post-restore
+			// frames cannot create a false hidden/capture overlap.
+			a.shutdown.runOperation(func() {
+				a.mu.Lock()
+				a.captureVisibility.SetHidden(false)
+				a.mu.Unlock()
+			})
 		}
 	}
 }
@@ -707,20 +712,31 @@ func (a *probeApp) drainTerminalIntent() {
 }
 
 func (a *probeApp) cancelInvalidatedPermissionRequest() {
-	a.mu.Lock()
-	id, generation := a.permissionOp, a.permissionGeneration
-	alreadySent := a.permissionCancelSent
-	a.mu.Unlock()
-	if id == 0 || alreadySent || !a.lifecycle.generationInvalidated(generation) {
-		return
+	type cancelState struct {
+		id         uint32
+		generation uint64
+		shouldSend bool
 	}
-	a.mu.Lock()
-	if a.permissionOp != id || a.permissionCancelSent {
+	state, stateAdmitted := runAbruptOperation(&a.shutdown, func() cancelState {
+		a.mu.Lock()
+		id, generation := a.permissionOp, a.permissionGeneration
+		alreadySent := a.permissionCancelSent
 		a.mu.Unlock()
+		if id == 0 || alreadySent || !a.lifecycle.generationInvalidated(generation) {
+			return cancelState{}
+		}
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		if a.permissionOp != id || a.permissionCancelSent {
+			return cancelState{}
+		}
+		a.permissionCancelSent = true
+		return cancelState{id: id, generation: generation, shouldSend: true}
+	})
+	if !stateAdmitted || !state.shouldSend {
 		return
 	}
-	a.permissionCancelSent = true
-	a.mu.Unlock()
+	id, generation := state.id, state.generation
 	hr, admitted := runAbruptOperation(&a.shutdown, func() winprobe.HResult {
 		return a.helper.PermissionRequestCancel(id)
 	})
@@ -2553,7 +2569,7 @@ func (a *probeApp) driveUITransitions() {
 		default:
 			return false
 		}
-	})
+	}, a.shutdown.runOperation)
 	if escalate {
 		a.requestGracefulQuit("durable lifecycle UI transition exceeded bounded PostMessage retries")
 	}
@@ -2708,7 +2724,9 @@ func (a *probeApp) requestGracefulQuitAdmitted(source string) {
 		return
 	}
 	if began {
-		a.quittingAt.Store(time.Now().UnixMilli())
+		if !a.shutdown.runOperation(func() { a.quittingAt.Store(time.Now().UnixMilli()) }) {
+			return
+		}
 	}
 	a.logLifecycleObservation(plan.Progress, source)
 	if !began {
@@ -2765,7 +2783,7 @@ func (a *probeApp) log(event winprobe.LogEvent) bool {
 		return false
 	}
 	if !written && !a.evidenceFailureHandled.Load() {
-		a.evidenceFailurePending.Store(true)
+		a.shutdown.runOperation(func() { a.evidenceFailurePending.Store(true) })
 	}
 	return written
 }
@@ -2779,7 +2797,7 @@ func (a *probeApp) logNonblocking(event winprobe.LogEvent) bool {
 		return false
 	}
 	if !written && !a.evidenceFailureHandled.Load() {
-		a.evidenceFailurePending.Store(true)
+		a.shutdown.runOperation(func() { a.evidenceFailurePending.Store(true) })
 	}
 	return written
 }
@@ -2796,8 +2814,11 @@ func normalizeLogEvent(event winprobe.LogEvent) winprobe.LogEvent {
 }
 
 func (a *probeApp) drainEvidenceFailure() {
-	failed := a.evidenceFailurePending.Swap(false) || (a.evidence != nil && !a.evidence.healthy())
-	if !failed || !a.evidenceFailureHandled.CompareAndSwap(false, true) {
+	handle, admitted := runAbruptOperation(&a.shutdown, func() bool {
+		failed := a.evidenceFailurePending.Swap(false) || (a.evidence != nil && !a.evidence.healthy())
+		return failed && a.evidenceFailureHandled.CompareAndSwap(false, true)
+	})
+	if !admitted || !handle {
 		return
 	}
 	a.requestGracefulQuit("evidence writer failed or exceeded its bounded acknowledgement deadline")

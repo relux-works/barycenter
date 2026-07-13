@@ -793,8 +793,6 @@ func TestR6F22NativeCallOwnershipDefersStop(t *testing.T) {
 
 		callOwned := make(chan struct{})
 		allowNativeCall := make(chan struct{})
-		stopEntered := make(chan struct{})
-		allowStopCompletion := make(chan struct{})
 		activationResult := make(chan captureActivationCoordinatorResult, 1)
 		var nativeActivations, nativeStops, fallbackStops, finalizations, releases, wakes atomic.Int32
 		var orderMu sync.Mutex
@@ -825,8 +823,6 @@ func TestR6F22NativeCallOwnershipDefersStop(t *testing.T) {
 			}
 			record("stop")
 			nativeStops.Add(1)
-			close(stopEntered)
-			<-allowStopCompletion
 			return winprobe.HResult(-3)
 		})
 		if !queryStop.pending() || nativeStops.Load() != 0 {
@@ -865,11 +861,14 @@ func TestR6F22NativeCallOwnershipDefersStop(t *testing.T) {
 		}
 
 		close(allowNativeCall)
-		<-stopEntered
+		activated := <-activationResult
+		if !activated.trackerInvoked || !activated.externalInvoked {
+			t.Fatalf("admitted activation result=%+v", activated)
+		}
 		orderMu.Lock()
 		gotOrder := append([]string(nil), order...)
 		orderMu.Unlock()
-		if len(gotOrder) != 2 || gotOrder[0] != "activate" || gotOrder[1] != "stop" || nativeActivations.Load() != 1 || nativeStops.Load() != 1 {
+		if len(gotOrder) != 1 || gotOrder[0] != "activate" || nativeActivations.Load() != 1 || nativeStops.Load() != 0 {
 			t.Fatalf("native order=%v activations=%d stops=%d", gotOrder, nativeActivations.Load(), nativeStops.Load())
 		}
 		stillPending := runCaptureQueryFailureCleanup(owner, operationID, func(uint32) winprobe.HResult {
@@ -885,13 +884,8 @@ func TestR6F22NativeCallOwnershipDefersStop(t *testing.T) {
 		if !stillPending.Stop.pending() || stillPending.FinalizeAttempted || stillPending.ReleaseAttempted || finalizations.Load() != 0 || releases.Load() != 0 {
 			t.Fatalf("in-flight stop cleanup=%+v finalize=%d release=%d", stillPending, finalizations.Load(), releases.Load())
 		}
-		close(allowStopCompletion)
-		activated := <-activationResult
-		if !activated.trackerInvoked || !activated.externalInvoked {
-			t.Fatalf("admitted activation result=%+v", activated)
-		}
-		if result, ok := owner.completedStopResult(); !ok || result != winprobe.HResult(-3) || nativeStops.Load() != 1 || fallbackStops.Load() != 0 {
-			t.Fatalf("deferred stop result=%s ok=%v native=%d fallback=%d", result.Hex(), ok, nativeStops.Load(), fallbackStops.Load())
+		if result, ok := owner.completedStopResult(); ok || result != 0 || nativeStops.Load() != 0 || fallbackStops.Load() != 0 {
+			t.Fatalf("post-latch deferred stop result=%s ok=%v native=%d fallback=%d", result.Hex(), ok, nativeStops.Load(), fallbackStops.Load())
 		}
 		if shutdown.runOrdinary(func() {
 			t.Fatal("confirmed shutdown admitted release/finalization")
@@ -940,8 +934,6 @@ func TestR6F23AdmissionAlwaysCompletesOnClosingRace(t *testing.T) {
 		}
 		admitted := make(chan struct{})
 		releaseAdmission := make(chan struct{})
-		stopEntered := make(chan struct{})
-		releaseStop := make(chan struct{})
 		activationResult := make(chan captureActivationCoordinatorResult, 1)
 		var activations, stops, fallbackStops, finalizations, releases, wakes atomic.Int32
 		go func() {
@@ -965,8 +957,6 @@ func TestR6F23AdmissionAlwaysCompletesOnClosingRace(t *testing.T) {
 					t.Errorf("deferred confirmation stop operation=%d, want %d", stopped, operationID)
 				}
 				stops.Add(1)
-				close(stopEntered)
-				<-releaseStop
 				return winprobe.HResult(-4)
 			}, func() { wakes.Add(1) })
 		}()
@@ -996,8 +986,11 @@ func TestR6F23AdmissionAlwaysCompletesOnClosingRace(t *testing.T) {
 		}
 
 		close(releaseAdmission)
-		<-stopEntered
-		if activations.Load() != 0 || stops.Load() != 1 || finalizations.Load() != 0 || releases.Load() != 0 {
+		activated := <-activationResult
+		if !activated.trackerInvoked || activated.externalInvoked || activated.continuationAllowed {
+			t.Fatalf("abandoned activation result=%+v", activated)
+		}
+		if activations.Load() != 0 || stops.Load() != 0 || finalizations.Load() != 0 || releases.Load() != 0 {
 			t.Fatalf("abandoned activation effects activations=%d stops=%d finalize=%d release=%d", activations.Load(), stops.Load(), finalizations.Load(), releases.Load())
 		}
 		stillPending := requestCaptureStopOrReuse(owner, operationID, func(uint32) winprobe.HResult {
@@ -1007,13 +1000,8 @@ func TestR6F23AdmissionAlwaysCompletesOnClosingRace(t *testing.T) {
 		if !stillPending.pending() || fallbackStops.Load() != 0 {
 			t.Fatalf("in-flight deferred stop=%+v fallback=%d", stillPending, fallbackStops.Load())
 		}
-		close(releaseStop)
-		activated := <-activationResult
-		if !activated.trackerInvoked || activated.externalInvoked || activated.continuationAllowed {
-			t.Fatalf("abandoned activation result=%+v", activated)
-		}
-		if result, ok := owner.completedStopResult(); !ok || result != winprobe.HResult(-4) || stops.Load() != 1 || fallbackStops.Load() != 0 {
-			t.Fatalf("abandoned stop result=%s ok=%v stops=%d fallback=%d", result.Hex(), ok, stops.Load(), fallbackStops.Load())
+		if result, ok := owner.completedStopResult(); ok || result != 0 || stops.Load() != 0 || fallbackStops.Load() != 0 {
+			t.Fatalf("abandoned post-latch stop result=%s ok=%v stops=%d fallback=%d", result.Hex(), ok, stops.Load(), fallbackStops.Load())
 		}
 		if shutdown.runOrdinary(func() {
 			t.Fatal("confirmed close admitted finalization/release")
@@ -1129,7 +1117,7 @@ func TestR6F24ExactOwnerStopNeverFallsBackAfterRelease(t *testing.T) {
 		if !first.pending() || !second.pending() || nativeStops.Load() != 0 || fallbackStops.Load() != 0 {
 			t.Fatalf("exact pending first=%+v second=%+v native=%d fallback=%d", first, second, nativeStops.Load(), fallbackStops.Load())
 		}
-		owner.completeNativeActivation()
+		owner.completeNativeActivation(&shutdown)
 		third := requestCaptureStopForExactOwner(&owners, generation, operationID, func(uint32) winprobe.HResult {
 			fallbackStops.Add(1)
 			return 0

@@ -95,11 +95,14 @@ else shutdown query is cancelled
   Shell -> Log : idle(cancelled shutdown)
 else confirmed WM_ENDSESSION
   OS -> Shell : WM_ENDSESSION(TRUE)
-  Shell -> Capture : exact-owner nonblocking Stop(shutdown)
+  Shell -> Capture : exact-owner Stop admission(shutdown)
   Shell -> Shell : close start gate; latch confirmed; wake waiter
   note right of Shell
     Reject every ordinary operation that did not
     acquire its own permit before gate closure.
+    Late prepare/orphan/deferred-activation helper
+    callbacks and result commits are handed to
+    OS/startup recovery.
   end note
   Capture -> Artifact : one bounded buffered append to existing .partial
   note right of Artifact

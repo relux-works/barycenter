@@ -1,18 +1,17 @@
 // Config and credentials storage for the Windows Pulsar shell.
 //
 // Everything lives in one directory — %APPDATA%\Pulsar on Windows
-// (os.UserConfigDir), the platform config dir on dev machines. Two files,
-// mirroring the macOS node's split (node.yml + node-credentials.json):
+// (os.UserConfigDir), the platform config dir on dev machines:
 //
-//	config.json      — settings, all optional (zero-config mode has defaults)
-//	credentials.json — pairing result, written by --pair, chmod 0600
+//	config.json            — non-secret settings
+//	credentials.v1.dpapi  — current-user-DPAPI protected credential bundle
+//	credentials.json      — bounded legacy migration source only
 package main
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,14 +36,20 @@ type Config struct {
 	OutputLatencyOffsetMS int    `json:"output_latency_offset_ms"`
 }
 
-// Credentials mirrors node-credentials.json from the macOS pairing flow
-// (Credentials.swift): the POST /pair response persisted verbatim.
+// Credentials preserves the legacy public node-only view used by startup,
+// /pair, CLI, and Win32 onboarding callers.
 type Credentials struct {
 	OrbitID int64  `json:"orbit_id"`
 	Slot    string `json:"slot"`
 	Token   string `json:"token"`
 	WSURL   string `json:"ws_url"`
 }
+
+func (c Credentials) String() string {
+	return fmt.Sprintf("Credentials{orbit:%d credentials:<redacted>}", c.OrbitID)
+}
+
+func (c Credentials) GoString() string { return c.String() }
 
 // DefaultConfigDir is %APPDATA%\Pulsar on Windows.
 func DefaultConfigDir() (string, error) {
@@ -91,28 +96,37 @@ func (c Config) Save(dir string) error {
 
 // LoadCredentials returns nil (not an error) when the node is unpaired.
 func LoadCredentials(dir string) (*Credentials, error) {
-	raw, err := os.ReadFile(filepath.Join(dir, credentialsFileName))
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	}
+	repository, err := newDefaultCredentialRepository(dir)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", credentialsFileName, err)
+		return nil, err
 	}
-	var creds Credentials
-	if err := json.Unmarshal(raw, &creds); err != nil {
-		return nil, fmt.Errorf("%s is not valid JSON: %w", credentialsFileName, err)
-	}
-	return &creds, nil
+	return LoadCredentialsFromRepository(repository)
 }
 
-// Save persists pairing credentials with owner-only permissions.
-//
-// TODO(windows-hardening): encrypt the token with DPAPI
-// (CryptProtectData, CRYPTPROTECT_LOCAL_MACHINE off) before writing —
-// the macOS node moved from a 0600 file to the keychain for the same reason.
-// Plaintext-at-0600 matches the macOS pairing flow's first iteration.
+func LoadCredentialsFromRepository(repository *ProtectedCredentialRepository) (*Credentials, error) {
+	bundle, err := repository.LoadBundle()
+	if err != nil || bundle == nil || bundle.Node == nil {
+		return nil, err
+	}
+	credentials := credentialsFromNode(*bundle.Node)
+	return &credentials, nil
+}
+
+// Save updates only the node capability in the protected bundle. Any valid
+// control capability and non-secret recovery context remain untouched.
 func (c Credentials) Save(dir string) error {
-	return writeJSON(filepath.Join(dir, credentialsFileName), c, 0o600)
+	repository, err := newDefaultCredentialRepository(dir)
+	if err != nil {
+		return err
+	}
+	return c.SaveToRepository(repository)
+}
+
+func (c Credentials) SaveToRepository(repository *ProtectedCredentialRepository) error {
+	if err := ValidateCredentials(c); err != nil {
+		return err
+	}
+	return repository.UpdateNode(nodeFromCredentials(c))
 }
 
 // writeJSON writes pretty JSON atomically (temp file + rename).
@@ -172,16 +186,17 @@ func ValidateConfig(c Config) error {
 // ConfigLoader applies to node_id/coordinator url/token).
 func ValidateCredentials(c Credentials) error {
 	var problems []string
+	if c.OrbitID <= 0 {
+		problems = append(problems, "orbit_id must be a positive integer")
+	}
 	if len(c.Slot) != 1 || c.Slot[0] < 'a' || c.Slot[0] > 'z' {
 		problems = append(problems, fmt.Sprintf("slot is %q, must be a single letter a…z", c.Slot))
 	}
-	if u, err := url.Parse(c.WSURL); err != nil || u.Scheme == "" {
-		problems = append(problems, fmt.Sprintf("ws_url %q is not a URL (expected wss://coordinator/ws)", c.WSURL))
-	} else if u.Scheme != "ws" && u.Scheme != "wss" {
-		problems = append(problems, fmt.Sprintf("ws_url scheme is %s://, must be ws:// or wss://", u.Scheme))
+	if err := validateLegacyWSURL(c.WSURL); err != nil {
+		problems = append(problems, "ws_url is invalid (expected a safe ws:// or wss:// coordinator URL)")
 	}
 	if !isHexToken(c.Token) {
-		problems = append(problems, fmt.Sprintf("token must be 64 hex chars (32 random bytes), got %d chars", len(c.Token)))
+		problems = append(problems, "token must be 64 lowercase hex chars (32 random bytes)")
 	}
 	if len(problems) > 0 {
 		return &ConfigError{Problems: problems}
@@ -190,15 +205,5 @@ func ValidateCredentials(c Credentials) error {
 }
 
 func isHexToken(s string) bool {
-	if len(s) != 64 {
-		return false
-	}
-	for _, r := range s {
-		switch {
-		case r >= '0' && r <= '9', r >= 'a' && r <= 'f', r >= 'A' && r <= 'F':
-		default:
-			return false
-		}
-	}
-	return true
+	return lowerHexTokenPattern.MatchString(s)
 }

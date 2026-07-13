@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -12,19 +11,19 @@ import (
 func TestPairSuccess(t *testing.T) {
 	var gotMethod, gotPath, gotBody, gotContentType string
 	token := strings.Repeat("cd", 32)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	doer := httpDoerFunc(func(r *http.Request) (*http.Response, error) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
 		gotContentType = r.Header.Get("Content-Type")
 		raw, _ := io.ReadAll(r.Body)
 		gotBody = string(raw)
-		json.NewEncoder(w).Encode(map[string]any{
+		body, _ := json.Marshal(map[string]any{
 			"orbit_id": 3, "slot": "b", "token": token, "ws_url": "wss://coord/ws",
 		})
-	}))
-	defer srv.Close()
+		return jsonResponse(http.StatusOK, body), nil
+	})
 
-	creds, err := Pair(srv.URL+"/", "ABCD1234") // trailing slash must not break the path
+	creds, err := pairWithDoer("https://coord.example/", "ABCD1234", doer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,11 +54,10 @@ func TestPairErrorMessages(t *testing.T) {
 		{http.StatusInternalServerError, "сервер ответил 500"},
 	}
 	for _, tc := range cases {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "nope", tc.status)
-		}))
-		_, err := Pair(srv.URL, "X")
-		srv.Close()
+		doer := httpDoerFunc(func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: tc.status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("canary secret body"))}, nil
+		})
+		_, err := pairWithDoer("https://coord.example", "X", doer)
 		if err == nil || !strings.Contains(err.Error(), tc.wantSub) {
 			t.Fatalf("status %d: err %v, want substring %q", tc.status, err, tc.wantSub)
 		}
@@ -67,23 +65,22 @@ func TestPairErrorMessages(t *testing.T) {
 }
 
 func TestPairRejectsGarbageResponse(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "not json")
-	}))
-	defer srv.Close()
-	if _, err := Pair(srv.URL, "X"); err == nil || !strings.Contains(err.Error(), "непонятный ответ") {
+	doer := httpDoerFunc(func(*http.Request) (*http.Response, error) {
+		return jsonResponse(http.StatusOK, []byte("not json")), nil
+	})
+	if _, err := pairWithDoer("https://coord.example", "X", doer); err == nil || !strings.Contains(err.Error(), "непонятный ответ") {
 		t.Fatalf("err %v, want decode failure", err)
 	}
 }
 
 func TestPairRejectsInvalidCredentials(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{
+	doer := httpDoerFunc(func(*http.Request) (*http.Response, error) {
+		body, _ := json.Marshal(map[string]any{
 			"orbit_id": 1, "slot": "zzz", "token": "short", "ws_url": ":bad:",
 		})
-	}))
-	defer srv.Close()
-	if _, err := Pair(srv.URL, "X"); err == nil {
+		return jsonResponse(http.StatusOK, body), nil
+	})
+	if _, err := pairWithDoer("https://coord.example", "X", doer); err == nil {
 		t.Fatal("invalid credentials shape must be rejected")
 	}
 }

@@ -88,7 +88,7 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("сопряжение готово: орбит %d, слот %s\nучётные данные: %s\n",
-			creds.OrbitID, creds.Slot, filepath.Join(dir, credentialsFileName))
+			creds.OrbitID, creds.Slot, filepath.Join(dir, protectedCredentialsFileName))
 		return
 	}
 

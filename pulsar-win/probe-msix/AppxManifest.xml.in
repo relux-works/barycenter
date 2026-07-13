@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  IgnorableNamespaces="uap uap10">
+
+  <Identity
+    Name="ReluxWorksLLC.PulsarProbe"
+    Publisher="CN=60105954-A0D9-4E89-B32D-18AF2F423ABE"
+    Version="@VERSION@"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Pulsar Probe</DisplayName>
+    <PublisherDisplayName>Relux Works, LLC</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Minimal packaged Windows capture probe.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-US" />
+    <Resource Language="ru-RU" />
+  </Resources>
+
+  <Applications>
+    <Application Id="PulsarProbe"
+      Executable="pulsar-win-probe-amd64.exe"
+      uap10:TrustLevel="appContainer"
+      uap10:RuntimeBehavior="packagedClassicApp">
+      <uap:VisualElements
+        DisplayName="Pulsar Probe"
+        Description="Minimal packaged Windows capture probe."
+        BackgroundColor="#12103a"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          Square71x71Logo="Assets\Square71x71Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png"
+          Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <Capability Name="internetClientServer" />
+    <Capability Name="privateNetworkClientServer" />
+    <DeviceCapability Name="microphone" />
+  </Capabilities>
+</Package>

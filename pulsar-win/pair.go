@@ -4,20 +4,16 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
-	"time"
 )
 
 // PairError mirrors the macOS PairingError messages so both shells speak
 // the same language to the same users.
 type PairError struct {
 	Status int
-	Body   string
 }
 
 func (e *PairError) Error() string {
@@ -27,38 +23,36 @@ func (e *PairError) Error() string {
 	case http.StatusConflict:
 		return "в орбите нет свободных мест"
 	default:
-		return fmt.Sprintf("сервер ответил %d: %s", e.Status, e.Body)
+		return fmt.Sprintf("сервер ответил %d", e.Status)
 	}
 }
+
+func (e *PairError) String() string   { return e.Error() }
+func (e *PairError) GoString() string { return fmt.Sprintf("PairError{status:%d}", e.Status) }
 
 // Pair exchanges a one-time code for credentials.
 // coordinatorBase is the https base URL, e.g. https://barycenter.relux.works.
 func Pair(coordinatorBase, code string) (Credentials, error) {
-	base := strings.TrimSuffix(coordinatorBase, "/")
-	body, err := json.Marshal(map[string]string{"code": code})
-	if err != nil {
-		return Credentials{}, err
-	}
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Post(base+"/pair", "application/json", bytes.NewReader(body))
-	if err != nil {
-		return Credentials{}, fmt.Errorf("не достучался до координатора: %w", err)
-	}
-	defer resp.Body.Close()
+	return pairWithDoer(coordinatorBase, code, nil)
+}
 
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+func pairWithDoer(coordinatorBase, code string, doer HTTPDoer) (Credentials, error) {
+	client, err := NewOnboardingClient(coordinatorBase, doer)
 	if err != nil {
-		return Credentials{}, fmt.Errorf("не достучался до координатора: %w", err)
+		return Credentials{}, fmt.Errorf("неверный адрес координатора")
 	}
-	if resp.StatusCode != http.StatusOK {
-		return Credentials{}, &PairError{Status: resp.StatusCode, Body: strings.TrimSpace(string(raw))}
+	creds, err := client.pairLegacy(context.Background(), code)
+	if err == nil {
+		return creds, nil
 	}
-	var creds Credentials
-	if err := json.Unmarshal(raw, &creds); err != nil {
-		return Credentials{}, fmt.Errorf("непонятный ответ координатора: %w", err)
+	var clientErr *OnboardingClientError
+	if errors.As(err, &clientErr) {
+		if clientErr.Status != 0 {
+			return Credentials{}, &PairError{Status: clientErr.Status}
+		}
+		if clientErr.Kind == ClientErrorTransport || clientErr.Kind == ClientErrorCancelled {
+			return Credentials{}, fmt.Errorf("не достучался до координатора")
+		}
 	}
-	if err := ValidateCredentials(creds); err != nil {
-		return Credentials{}, fmt.Errorf("непонятный ответ координатора: %w", err)
-	}
-	return creds, nil
+	return Credentials{}, fmt.Errorf("непонятный ответ координатора")
 }

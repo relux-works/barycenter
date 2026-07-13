@@ -54,20 +54,53 @@ CREATE TABLE IF NOT EXISTS events (
 `
 
 type Store struct {
-	db *sql.DB
+	db                    *sql.DB
+	selfServiceOnboarding bool
+	telegramLinkAttempts  *telegramLinkAttemptLimiter
+	// testCheckpoint is nil in production. Store-package tests use it to
+	// pause real SQLite transactions at deterministic concurrency/fault
+	// boundaries without replacing the database with a mock.
+	testCheckpoint func(string) error
+}
+
+func (s *Store) checkpoint(name string) error {
+	if s.testCheckpoint == nil {
+		return nil
+	}
+	return s.testCheckpoint(name)
+}
+
+// Options controls additive coordinator features. The zero value deliberately
+// preserves the previous coordinator's behavior: identity tables may exist,
+// but the actor resolver and dual-write paths do not serve traffic.
+type Options struct {
+	SelfServiceOnboarding bool
 }
 
 func Open(path string) (*Store, error) {
+	return OpenWithOptions(path, Options{})
+}
+
+// OpenWithOptions opens the store, applies additive migrations, and, when
+// enabled, reconciles the transport-neutral identity model before callers can
+// serve requests.
+func OpenWithOptions(path string, opts Options) (*Store, error) {
 	// WAL keeps concurrent readers (hub LookupToken, /media + /pair handlers,
 	// retention sweep) from erroring against the single writer; busy_timeout
 	// makes any lock contention wait instead of returning SQLITE_BUSY
-	// (architecture review #10 / #1.7). Pragmas run on every connection.
-	dsn := path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	// (architecture review #10 / #1.7). Foreign keys protect only additive
+	// tables (legacy tables declare no REFERENCES), and _txlock=immediate makes
+	// every database/sql transaction acquire the SQLite writer lock up front.
+	dsn := path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_txlock=immediate"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("store: open %s: %w", path, err)
 	}
 	db.SetMaxOpenConns(1) // single writer, keeps SQLITE_BUSY away
+	if err := detectBrokenOrbitMigration(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: identity migration preflight: %w", err)
+	}
 	if _, err := db.Exec(schema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: init schema: %w", err)
@@ -75,10 +108,24 @@ func Open(path string) (*Store, error) {
 	// Pre-media-scoping databases lack media.orbit_id: additive migration so
 	// the /media handler can enforce tenant isolation (security review #4.1).
 	db.Exec(`ALTER TABLE media ADD COLUMN orbit_id INTEGER NOT NULL DEFAULT 0`)
-	s := &Store{db: db}
+	s := &Store{
+		db:                    db,
+		selfServiceOnboarding: opts.SelfServiceOnboarding,
+		telegramLinkAttempts:  newTelegramLinkAttemptLimiter(),
+	}
 	if err := s.initOrbits(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: init orbit schema: %w", err)
+	}
+	if err := s.initIdentitySchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init identity schema: %w", err)
+	}
+	if opts.SelfServiceOnboarding {
+		if err := s.ReconcileIdentity(); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("store: reconcile identity: %w", err)
+		}
 	}
 	return s, nil
 }

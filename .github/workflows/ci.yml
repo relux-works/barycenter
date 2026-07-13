@@ -13,11 +13,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Identity rollback compatibility executes the exact pinned
+          # pre-identity coordinator source, so its commit must be available.
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: coordinator/go.mod
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - run: cd coordinator && go vet ./... && go test ./...
+      - name: Vet, tests, and pinned previous-coordinator compatibility
+        run: |
+          cd coordinator
+          go vet ./...
+          go test ./...
+          go test -tags previoushead -count=1 ./internal/store -run '^TestR8ExactPreviousHEAD(AuthorityRoundTrip|TwoGenerationProjectionComposition)$'
 
   node-core:
     runs-on: macos-15
@@ -44,3 +53,24 @@ jobs:
           cd pulsar-win && "$(go env GOPATH)/bin/go-winres" make --in winres/winres.json --arch amd64 --product-version "${GITHUB_REF_NAME:-dev}"
       - name: Cross-compile for Windows (blind-build gate)
         run: cd pulsar-win && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./...
+
+  pulsar-win-packaged-probe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: pulsar-win/go.mod
+      - name: Assert native command failures fail the package job
+        shell: pwsh
+        run: ./pulsar-win/probe-msix/native-command.Tests.ps1
+      - name: Build native helper, run native and Go tests, validate MSIX creation
+        shell: pwsh
+        run: ./pulsar-win/probe-msix/build-probe.ps1 -Version 0.1.0.0
+      - name: Assert packaged payload
+        shell: pwsh
+        run: |
+          $package = Get-ChildItem dist/windows-probe/PulsarProbe-*-x64.msix | Select-Object -First 1
+          if (-not $package) { throw "probe MSIX missing" }
+          $hash = Get-FileHash $package.FullName -Algorithm SHA256
+          Write-Host "$($hash.Hash)  $($package.Name)"

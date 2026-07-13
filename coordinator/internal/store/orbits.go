@@ -275,6 +275,32 @@ func (s *Store) Availability(orbitID int64, slot, provider, ref string, ttlMS in
 // CreateOrbit makes a new orbit with its creator as primary.
 func (s *Store) CreateOrbit(title string, creator int64) (*Orbit, error) {
 	now := time.Now().UnixMilli()
+	if s.selfServiceOnboarding {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback()
+		res, err := tx.Exec(`INSERT INTO orbits(title, created_at) VALUES(?, ?)`, title, now)
+		if err != nil {
+			return nil, err
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			return nil, err
+		}
+		if _, err := tx.Exec(`INSERT INTO members(orbit_id, tg_user_id, role, joined_at) VALUES(?, ?, 'primary', ?)`,
+			id, creator, now); err != nil {
+			return nil, err
+		}
+		if err := s.reconcileIdentityTx(tx, now); err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+		return s.GetOrbit(id)
+	}
 	res, err := s.db.Exec(`INSERT INTO orbits(title, created_at) VALUES(?, ?)`, title, now)
 	if err != nil {
 		return nil, err
@@ -342,6 +368,20 @@ func (s *Store) SetMemberName(orbitID, tgUserID int64, name string) error {
 	if strings.TrimSpace(name) == "" {
 		return nil
 	}
+	if s.selfServiceOnboarding {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		if _, err := tx.Exec(`UPDATE members SET display_name = ? WHERE orbit_id = ? AND tg_user_id = ?`, name, orbitID, tgUserID); err != nil {
+			return err
+		}
+		if err := s.reconcileIdentityTx(tx, time.Now().UnixMilli()); err != nil {
+			return err
+		}
+		return tx.Commit()
+	}
 	_, err := s.db.Exec(`UPDATE members SET display_name = ? WHERE orbit_id = ? AND tg_user_id = ?`, name, orbitID, tgUserID)
 	return err
 }
@@ -374,6 +414,38 @@ func (s *Store) MemberByName(orbitID int64, name string) (int64, error) {
 }
 
 func (s *Store) AddMember(orbitID int64, tgUserID int64, role string) error {
+	if s.selfServiceOnboarding {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		var count, maxM int
+		var status string
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM members WHERE orbit_id = ?`, orbitID).Scan(&count); err != nil {
+			return err
+		}
+		if err := tx.QueryRow(`SELECT max_members, status FROM orbits WHERE id = ?`, orbitID).Scan(&maxM, &status); err != nil {
+			return err
+		}
+		if status != "active" {
+			return ErrOrbitDisabled
+		}
+		if count >= maxM {
+			return ErrLimit
+		}
+		if err := s.checkpoint("add_member_after_snapshot"); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`INSERT INTO members(orbit_id, tg_user_id, role, joined_at) VALUES(?, ?, ?, ?)`,
+			orbitID, tgUserID, role, time.Now().UnixMilli()); err != nil {
+			return err
+		}
+		if err := s.reconcileIdentityTx(tx, time.Now().UnixMilli()); err != nil {
+			return err
+		}
+		return tx.Commit()
+	}
 	var count, maxM int
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM members WHERE orbit_id = ?`, orbitID).Scan(&count); err != nil {
 		return err
@@ -396,6 +468,9 @@ func (s *Store) TransferPrimary(orbitID, newPrimary int64) error {
 		return err
 	}
 	defer tx.Rollback()
+	if err := s.checkpoint("transfer_primary_after_begin"); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`UPDATE members SET role = 'companion' WHERE orbit_id = ? AND role = 'primary'`, orbitID); err != nil {
 		return err
 	}
@@ -406,6 +481,11 @@ func (s *Store) TransferPrimary(orbitID, newPrimary int64) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return fmt.Errorf("user %d is not a member of orbit %d", newPrimary, orbitID)
 	}
+	if s.selfServiceOnboarding {
+		if err := s.reconcileIdentityTx(tx, time.Now().UnixMilli()); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
@@ -415,29 +495,48 @@ func (s *Store) TransferPrimary(orbitID, newPrimary int64) error {
 // (promoted = their tg id). The leaver's own slots are revoked so their home
 // drops out of the air.
 func (s *Store) LeaveOrbit(orbitID, tgUserID int64) (dissolved bool, promoted int64, err error) {
-	m, err := s.MemberOf(tgUserID)
-	if err != nil {
-		return false, 0, err
-	}
-	if m == nil || m.OrbitID != orbitID {
-		return false, 0, fmt.Errorf("user %d is not a member of orbit %d", tgUserID, orbitID)
-	}
-	var count int
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM members WHERE orbit_id = ?`, orbitID).Scan(&count); err != nil {
-		return false, 0, err
-	}
-	if count <= 1 {
-		if err := s.DeleteOrbit(orbitID); err != nil {
-			return false, 0, err
-		}
-		return true, 0, nil
-	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return false, 0, err
 	}
 	defer tx.Rollback()
-	if m.Role == "primary" {
+	var role, status string
+	var count int
+	err = tx.QueryRow(`SELECT m.role, o.status,
+       (SELECT COUNT(*) FROM members all_members WHERE all_members.orbit_id = m.orbit_id)
+FROM members m JOIN orbits o ON o.id = m.orbit_id
+WHERE m.orbit_id = ? AND m.tg_user_id = ?`, orbitID, tgUserID).Scan(&role, &status, &count)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, 0, fmt.Errorf("user %d is not a member of orbit %d", tgUserID, orbitID)
+	}
+	if err != nil {
+		return false, 0, err
+	}
+	if status != "active" && status != "disabled" {
+		return false, 0, fmt.Errorf("orbit %d has invalid status %q", orbitID, status)
+	}
+	if s.selfServiceOnboarding {
+		var primaries int
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM members WHERE orbit_id = ? AND role = 'primary'`, orbitID).Scan(&primaries); err != nil {
+			return false, 0, err
+		}
+		if primaries != 1 {
+			return false, 0, fmt.Errorf("active orbit %d has %d primary members", orbitID, primaries)
+		}
+	}
+	if err := s.checkpoint("leave_orbit_after_snapshot"); err != nil {
+		return false, 0, err
+	}
+	if count <= 1 {
+		if err := s.deleteOrbitTx(tx, orbitID); err != nil {
+			return false, 0, err
+		}
+		if err := tx.Commit(); err != nil {
+			return false, 0, err
+		}
+		return true, 0, nil
+	}
+	if role == "primary" {
 		var newP int64
 		// L1: companions before satellites (a listener must not be crowned
 		// just for joining early); tg_user_id breaks joined_at ties so the
@@ -459,6 +558,11 @@ func (s *Store) LeaveOrbit(orbitID, tgUserID int64) (dissolved bool, promoted in
 		time.Now().UnixMilli(), orbitID, tgUserID); err != nil {
 		return false, 0, err
 	}
+	if s.selfServiceOnboarding {
+		if err := s.reconcileIdentityTx(tx, time.Now().UnixMilli()); err != nil {
+			return false, 0, err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return false, 0, err
 	}
@@ -474,7 +578,27 @@ func (s *Store) DeleteOrbit(orbitID int64) error {
 		return err
 	}
 	defer tx.Rollback()
+	if err := s.deleteOrbitTx(tx, orbitID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) deleteOrbitTx(tx *sql.Tx, orbitID int64) error {
+	// Additive children are removed even when the flag is off. This lets the
+	// current binary run legacy mutations with foreign_keys enabled and lets a
+	// previous binary safely ignore the same rows with foreign_keys disabled.
+	if _, err := tx.Exec(`UPDATE actors SET revoked_at = COALESCE(revoked_at, ?)
+WHERE id IN (SELECT actor_id FROM installation_credentials WHERE slot_orbit_id = ?)`,
+		time.Now().UnixMilli(), orbitID); err != nil {
+		return err
+	}
 	stmts := []string{
+		`DELETE FROM device_invites WHERE orbit_id = ?`,
+		`DELETE FROM telegram_link_codes WHERE orbit_id = ?`,
+		`DELETE FROM installation_credentials WHERE slot_orbit_id = ?`,
+		`DELETE FROM memberships WHERE orbit_id = ?`,
+		`DELETE FROM rollback_projections WHERE orbit_id = ?`,
 		`DELETE FROM members WHERE orbit_id = ?`,
 		`DELETE FROM slots WHERE orbit_id = ?`,
 		`DELETE FROM invites WHERE orbit_id = ?`,
@@ -491,7 +615,7 @@ func (s *Store) DeleteOrbit(orbitID int64) error {
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 // --- Invites (member links) and pairing codes ---
@@ -516,6 +640,9 @@ func (s *Store) NewPairCode(orbitID, issuedBy int64) (string, error) {
 // Returns the orbit id (0 when invalid/expired/used) and who issued it.
 func (s *Store) ConsumeInvite(code, kind string) (int64, int64, error) {
 	code = strings.TrimSpace(code)
+	if s.selfServiceOnboarding {
+		return s.consumeInviteFeatureOn(code, kind)
+	}
 	var orbitID, issuedBy int64
 	var expires int64
 	var used sql.NullInt64
@@ -544,19 +671,69 @@ func (s *Store) ConsumeInvite(code, kind string) (int64, int64, error) {
 	return orbitID, issuedBy, nil
 }
 
+func (s *Store) consumeInviteFeatureOn(code, kind string) (int64, int64, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback()
+	var orbitID, issuedBy int64
+	var expires int64
+	var used sql.NullInt64
+	var status string
+	err = tx.QueryRow(`SELECT i.orbit_id, i.issued_by, i.expires_at, i.used_at, o.status
+FROM invites i JOIN orbits o ON o.id = i.orbit_id
+WHERE i.code = ? AND i.kind = ?`, code, kind).Scan(&orbitID, &issuedBy, &expires, &used, &status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, nil
+	}
+	if err != nil {
+		return 0, 0, err
+	}
+	if status != "active" {
+		return 0, 0, ErrOrbitDisabled
+	}
+	now := time.Now().UnixMilli()
+	if used.Valid || now > expires {
+		return 0, 0, nil
+	}
+	res, err := tx.Exec(`UPDATE invites SET used_at = ? WHERE code = ? AND used_at IS NULL`, now, code)
+	if err != nil {
+		return 0, 0, err
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return 0, 0, err
+	} else if n != 1 {
+		return 0, 0, nil
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, 0, err
+	}
+	return orbitID, issuedBy, nil
+}
+
 // --- Slots & node tokens ---
 
 // PairSlot allocates the next free slot in the orbit and mints its token.
 // Returns (slot, plaintext token). The plaintext is never stored.
 // pairedBy records which member owns the node (used for "my home" defaults).
 func (s *Store) PairSlot(orbitID int64, pairedBy int64) (string, string, error) {
-	var used int
-	var maxP int
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM slots WHERE orbit_id = ? AND revoked_at IS NULL`, orbitID).Scan(&used); err != nil {
+	tx, err := s.db.Begin()
+	if err != nil {
 		return "", "", err
 	}
-	if err := s.db.QueryRow(`SELECT max_pulsars FROM orbits WHERE id = ?`, orbitID).Scan(&maxP); err != nil {
+	defer tx.Rollback()
+	var used int
+	var maxP int
+	var status string
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM slots WHERE orbit_id = ? AND revoked_at IS NULL`, orbitID).Scan(&used); err != nil {
 		return "", "", err
+	}
+	if err := tx.QueryRow(`SELECT max_pulsars, status FROM orbits WHERE id = ?`, orbitID).Scan(&maxP, &status); err != nil {
+		return "", "", err
+	}
+	if s.selfServiceOnboarding && status != "active" {
+		return "", "", ErrOrbitDisabled
 	}
 	if used >= maxP {
 		return "", "", ErrLimit
@@ -566,7 +743,7 @@ func (s *Store) PairSlot(orbitID int64, pairedBy int64) (string, string, error) 
 	for i := 0; i < maxP; i++ {
 		candidate := string(rune('a' + i))
 		var n int
-		if err := s.db.QueryRow(`SELECT COUNT(*) FROM slots WHERE orbit_id = ? AND slot = ? AND revoked_at IS NULL`,
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM slots WHERE orbit_id = ? AND slot = ? AND revoked_at IS NULL`,
 			orbitID, candidate).Scan(&n); err != nil {
 			return "", "", err
 		}
@@ -578,10 +755,71 @@ func (s *Store) PairSlot(orbitID int64, pairedBy int64) (string, string, error) 
 	if slot == "" {
 		return "", "", ErrLimit
 	}
-	token := randomHex(32)
-	_, err := s.db.Exec(`INSERT OR REPLACE INTO slots(orbit_id, slot, token_hash, paired_by, paired_at, revoked_at) VALUES(?, ?, ?, ?, ?, NULL)`,
-		orbitID, slot, hashToken(token), pairedBy, time.Now().UnixMilli())
-	return slot, token, err
+	token, tokenHash, err := mintNodeTokenTx(tx)
+	if err != nil {
+		return "", "", err
+	}
+	now := time.Now().UnixMilli()
+	// A reused coordinate may still have an additive credential left by a
+	// feature-off interval. Retire it before changing the authoritative slot
+	// binding so the composite FK and generation identity remain valid.
+	var oldActorID int64
+	err = tx.QueryRow(`SELECT actor_id FROM installation_credentials
+WHERE slot_orbit_id = ? AND slot_name = ?`, orbitID, slot).Scan(&oldActorID)
+	if err == nil {
+		if err := retireInstallationTx(tx, oldActorID, now); err != nil {
+			return "", "", err
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return "", "", err
+	}
+	_, err = tx.Exec(`INSERT INTO slots(orbit_id, slot, token_hash, paired_by, provider, paired_at, revoked_at)
+VALUES(?, ?, ?, ?, 'spotify', ?, NULL)
+ON CONFLICT(orbit_id, slot) DO UPDATE SET
+  token_hash = excluded.token_hash,
+  paired_by = excluded.paired_by,
+  provider = excluded.provider,
+  paired_at = excluded.paired_at,
+  revoked_at = NULL`, orbitID, slot, tokenHash, pairedBy, now)
+	if err != nil {
+		return "", "", err
+	}
+	if s.selfServiceOnboarding {
+		if err := s.reconcileIdentityTx(tx, now); err != nil {
+			return "", "", err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return "", "", err
+	}
+	return slot, token, nil
+}
+
+func mintNodeTokenTx(tx *sql.Tx) (token, digest string, err error) {
+	for attempt := 0; attempt < 16; attempt++ {
+		token = randomHex(32)
+		digest = hashToken(token)
+		if err := assertNodeDigestAvailableTx(tx, digest); err == nil {
+			return token, digest, nil
+		} else if !errors.Is(err, ErrCredentialDomainConflict) {
+			return "", "", err
+		}
+	}
+	return "", "", errors.New("could not mint a unique node credential")
+}
+
+func assertNodeDigestAvailableTx(tx *sql.Tx, digest string) error {
+	var matches int
+	if err := tx.QueryRow(`SELECT
+  (SELECT COUNT(*) FROM slots WHERE token_hash = ?) +
+  (SELECT COUNT(*) FROM installation_credentials WHERE control_token_hash = ?)`,
+		digest, digest).Scan(&matches); err != nil {
+		return err
+	}
+	if matches != 0 {
+		return ErrCredentialDomainConflict
+	}
+	return nil
 }
 
 // SlotOf returns the slot paired by this member ("" if none).
@@ -630,12 +868,26 @@ func (s *Store) LookupToken(token string) (orbitID int64, slot string, ok bool, 
 // found=false when the orbit has no such live slot (L11: /revoke of a
 // nonexistent home used to report success).
 func (s *Store) RevokeSlot(orbitID int64, slot string) (found bool, err error) {
-	res, err := s.db.Exec(`UPDATE slots SET revoked_at = ? WHERE orbit_id = ? AND slot = ? AND revoked_at IS NULL`,
-		time.Now().UnixMilli(), orbitID, slot)
+	tx, err := s.db.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	now := time.Now().UnixMilli()
+	res, err := tx.Exec(`UPDATE slots SET revoked_at = ? WHERE orbit_id = ? AND slot = ? AND revoked_at IS NULL`,
+		now, orbitID, slot)
 	if err != nil {
 		return false, err
 	}
 	n, _ := res.RowsAffected()
+	if n > 0 && s.selfServiceOnboarding {
+		if err := s.reconcileIdentityTx(tx, now); err != nil {
+			return false, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
 	return n > 0, nil
 }
 
@@ -660,10 +912,6 @@ func (s *Store) ActiveSlots(orbitID int64) ([]string, error) {
 // BootstrapLegacyOrbit migrates env-configured tokens/users into orbit #1 so
 // a pre-M1 node keeps working without re-pairing. No-op when orbits exist.
 func (s *Store) BootstrapLegacyOrbit(tokens map[string]string, users map[int64]string) (*Orbit, error) {
-	var n int
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM orbits`).Scan(&n); err != nil {
-		return nil, err
-	}
 	// Seed only when a real (non-empty) legacy token exists — a container
 	// config ships empty placeholders and must NOT spawn a ghost orbit.
 	seeded := false
@@ -672,11 +920,26 @@ func (s *Store) BootstrapLegacyOrbit(tokens map[string]string, users map[int64]s
 			seeded = true
 		}
 	}
-	if n > 0 || !seeded {
+	if !seeded {
+		return nil, nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	var n int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM orbits`).Scan(&n); err != nil {
+		return nil, err
+	}
+	if err := s.checkpoint("bootstrap_legacy_after_eligibility"); err != nil {
+		return nil, err
+	}
+	if n > 0 {
 		return nil, nil
 	}
 	now := time.Now().UnixMilli()
-	res, err := s.db.Exec(`INSERT INTO orbits(title, created_at) VALUES('Барицентр', ?)`, now)
+	res, err := tx.Exec(`INSERT INTO orbits(title, created_at) VALUES('Барицентр', ?)`, now)
 	if err != nil {
 		return nil, err
 	}
@@ -688,7 +951,7 @@ func (s *Store) BootstrapLegacyOrbit(tokens map[string]string, users map[int64]s
 			role = "primary"
 			first = false
 		}
-		if _, err := s.db.Exec(`INSERT INTO members(orbit_id, tg_user_id, role, joined_at) VALUES(?, ?, ?, ?)`,
+		if _, err := tx.Exec(`INSERT INTO members(orbit_id, tg_user_id, role, joined_at) VALUES(?, ?, ?, ?)`,
 			orbitID, uid, role, now); err != nil {
 			return nil, err
 		}
@@ -701,21 +964,47 @@ func (s *Store) BootstrapLegacyOrbit(tokens map[string]string, users map[int64]s
 		if token == "" {
 			continue
 		}
-		if _, err := s.db.Exec(`INSERT INTO slots(orbit_id, slot, token_hash, paired_by, paired_at) VALUES(?, ?, ?, ?, ?)`,
-			orbitID, slot, hashToken(token), slotOwner[slot], now); err != nil {
+		tokenHash := hashToken(token)
+		if err := assertNodeDigestAvailableTx(tx, tokenHash); err != nil {
+			return nil, err
+		}
+		if _, err := tx.Exec(`INSERT INTO slots(orbit_id, slot, token_hash, paired_by, paired_at) VALUES(?, ?, ?, ?, ?)`,
+			orbitID, slot, tokenHash, slotOwner[slot], now); err != nil {
 			return nil, err
 		}
 	}
 	// Legacy settings carried over: takeover policy and per-slot knobs.
-	if v, _ := s.GetSetting("takeover_policy"); v == "user" || v == "coordinator" {
-		s.SetOrbitSetting(orbitID, "takeover_policy", v)
+	var takeover string
+	if err := tx.QueryRow(`SELECT value FROM settings WHERE key = 'takeover_policy'`).Scan(&takeover); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	if takeover == "user" || takeover == "coordinator" {
+		if _, err := tx.Exec(`UPDATE orbits SET takeover_policy = ? WHERE id = ?`, takeover, orbitID); err != nil {
+			return nil, err
+		}
 	}
 	for _, slot := range []string{"a", "b"} {
 		for _, kind := range []string{"volume_", "offset_"} {
-			if v, _ := s.GetSetting(kind + slot); v != "" {
-				s.SetSetting(fmt.Sprintf("%s%d_%s", kind, orbitID, slot), v)
+			var value string
+			err := tx.QueryRow(`SELECT value FROM settings WHERE key = ?`, kind+slot).Scan(&value)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, err
+			}
+			if value != "" {
+				if _, err := tx.Exec(`INSERT INTO settings(key, value) VALUES(?, ?)
+ON CONFLICT(key) DO UPDATE SET value = excluded.value`, fmt.Sprintf("%s%d_%s", kind, orbitID, slot), value); err != nil {
+					return nil, err
+				}
 			}
 		}
+	}
+	if s.selfServiceOnboarding {
+		if err := s.reconcileIdentityTx(tx, now); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
 	}
 	return s.GetOrbit(orbitID)
 }

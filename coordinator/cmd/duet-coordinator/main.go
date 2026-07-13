@@ -130,6 +130,7 @@ func main() {
 		"offline_after_s", cfg.Timings.OfflineAfterS,
 		"media_preset", cfg.Media.Preset,
 		"providers", cfg.Providers,
+		"self_service_onboarding", cfg.SelfServiceOnboarding,
 	)
 
 	if err := os.MkdirAll(cfg.MediaDir, 0o750); err != nil {
@@ -141,7 +142,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	st, err := store.Open(cfg.DBPath)
+	st, err := store.OpenWithOptions(cfg.DBPath, store.Options{
+		SelfServiceOnboarding: cfg.SelfServiceOnboarding,
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -153,12 +156,15 @@ func main() {
 	legacyTokens := map[string]string{"a": cfg.Nodes["a"].Token, "b": cfg.Nodes["b"].Token}
 	if o, err := st.BootstrapLegacyOrbit(legacyTokens, cfg.Telegram.Users); err != nil {
 		log.Error("legacy orbit bootstrap failed", "err", err)
+		if cfg.SelfServiceOnboarding {
+			os.Exit(1) // identity serving gate: do not start auth paths after reconciliation failure
+		}
 	} else if o != nil {
 		log.Info("legacy orbit bootstrapped from config", "orbit", o.ID)
 	}
 
 	lookup := func(token string) (int64, string, bool) {
-		orbitID, slot, ok, err := st.LookupToken(token)
+		orbitID, slot, ok, err := st.LookupPlaybackToken(token)
 		if err != nil {
 			log.Error("token lookup failed", "err", err)
 			return 0, "", false
@@ -213,6 +219,11 @@ func main() {
 	pairLimiter := newRateLimiter(10, time.Minute)
 	mux.HandleFunc("/pair", rateLimit(pairLimiter, cfg.TrustedProxy, pairHandler(log, st, cfg)))
 	mux.HandleFunc("/media/", mediaHandler(st))
+	botUsername := ""
+	if tgBot != nil {
+		botUsername = tgBot.Username
+	}
+	registerOnboardingRoutes(mux, st, cfg, log, botUsername)
 
 	log.Info("listening", "addr", cfg.Listen)
 	if err := http.ListenAndServe(cfg.Listen, mux); err != nil {
@@ -274,7 +285,7 @@ func pairHandler(log *slog.Logger, st *store.Store, cfg *config.Config) http.Han
 func mediaHandler(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		auth := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		reqOrbit, _, authorized, _ := st.LookupToken(auth)
+		reqOrbit, _, authorized, _ := st.LookupPlaybackToken(auth)
 		if !authorized {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

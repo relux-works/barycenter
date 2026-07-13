@@ -949,15 +949,25 @@ void test_global_abi_validation_and_teardown() {
 
     std::cerr << "[   STEP   ] invalid_handles_and_teardown" << std::endl;
     uint32_t id = 0xfeedbeefu;
+    std::cerr << "[   STEP   ] invalid_permission_request" << std::endl;
     CHECK(CapPermissionRequest(nullptr, &id) == E_HANDLE && id == 0xfeedbeefu);
+    std::cerr << "[   STEP   ] invalid_device_enumeration" << std::endl;
     CHECK(CapEnumerateDevices(nullptr, &id) == E_HANDLE && id == 0xfeedbeefu);
+    std::cerr << "[   STEP   ] invalid_capture_prepare" << std::endl;
     CHECK(CapturePrepare(nullptr, &id) == E_HANDLE && id == 0xfeedbeefu);
+    std::cerr << "[   STEP   ] invalid_picker_window" << std::endl;
     CHECK(PickerOpenFile(nullptr, L"audio", L".wav", nullptr, &id) == E_INVALIDARG && id == 0xfeedbeefu);
+    std::cerr << "[   STEP   ] invalid_picker_event" << std::endl;
     CHECK(PickerOpenFile(reinterpret_cast<HWND>(static_cast<uintptr_t>(1)), L"audio", L".wav", nullptr, &id) == E_HANDLE && id == 0xfeedbeefu);
+    std::cerr << "[   STEP   ] invalid_picker_filter" << std::endl;
     CHECK(PickerOpenFile(reinterpret_cast<HWND>(static_cast<uintptr_t>(1)), nullptr, L".wav", nullptr, &id) == E_HANDLE && id == 0xfeedbeefu);
+    std::cerr << "[   STEP   ] first_destroy" << std::endl;
     CHECK(CapDestroy() == S_OK);
+    std::cerr << "[   STEP   ] idempotent_destroy" << std::endl;
     CHECK(CapDestroy() == S_OK);
+    std::cerr << "[   STEP   ] reinitialize" << std::endl;
     CHECK(CapInit() == S_OK);
+    std::cerr << "[   STEP   ] destroy_reinitialized" << std::endl;
     CHECK(CapDestroy() == S_OK);
 
     std::cerr << "[   STEP   ] initialization_rollback" << std::endl;

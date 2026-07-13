@@ -13,8 +13,10 @@ same package can take either of two explicit signing routes:
 | Partner Center product | `9P26FDCWV1GC` (`Pulsar Barycenter`) |
 | Package identity | `ReluxWorksLLC.PulsarBarycenter` |
 | Publisher | `CN=60105954-A0D9-4E89-B32D-18AF2F423ABE` |
+| Package family | `ReluxWorksLLC.PulsarBarycenter_q036g2bzd7ngc` |
 | Architecture | `x64` |
 | Application ID | `PulsarProbe` |
+| AUMID | `ReluxWorksLLC.PulsarBarycenter_q036g2bzd7ngc!PulsarProbe` |
 | Trust/runtime | `appContainer` / `packagedClassicApp` |
 | Capabilities | `internetClient`, `internetClientServer`, `privateNetworkClientServer`, `microphone` |
 
@@ -86,10 +88,14 @@ $install = & .\pulsar-win\probe-msix\install-probe.ps1 `
   -Launch
 ```
 
-`-TrustLocalTestSigner` accepts only a self-signed Code Signing certificate
-whose Subject exactly equals the frozen Publisher. It extracts only the public
-certificate embedded in the MSIX and adds it to Local Computer → Trusted
-People, then revalidates the package signature before `Add-AppxPackage`.
+Before changing trust, the installer reads `AppxManifest.xml` directly from the
+MSIX and rejects any identity, target-family, application, extension,
+trust/runtime, executable, or capability declaration outside the frozen
+contract. `-TrustLocalTestSigner` then accepts only a self-signed Code Signing
+certificate whose Subject exactly equals the frozen Publisher. It extracts
+only the public certificate embedded in the MSIX and adds it to Local Computer
+→ Trusted People, then revalidates the package signature before
+`Add-AppxPackage`.
 Omit this flag for a Store-signed package.
 
 The script validates identity, Publisher, x64 architecture, package family,

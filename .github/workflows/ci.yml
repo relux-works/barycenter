@@ -64,6 +64,9 @@ jobs:
       - name: Assert native command failures fail the package job
         shell: pwsh
         run: ./pulsar-win/probe-msix/native-command.Tests.ps1
+      - name: Assert frozen package identity and declarations
+        shell: pwsh
+        run: ./pulsar-win/probe-msix/package-contract.Tests.ps1
       - name: Build native helper, run tests, and create signed MSIX
         shell: pwsh
         run: |

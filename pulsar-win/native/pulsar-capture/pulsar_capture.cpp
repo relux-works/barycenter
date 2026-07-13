@@ -776,7 +776,7 @@ unsigned __stdcall capture_thread_main(void* context) {
     return 0;
 }
 
-struct ActivationHandler final : winrt::implements<ActivationHandler, IActivateAudioInterfaceCompletionHandler> {
+struct ActivationHandler : winrt::implements<ActivationHandler, IActivateAudioInterfaceCompletionHandler> {
     ActivationHandler(std::shared_ptr<CaptureSession> value, HANDLE notify)
         : session_(std::move(value)), notify_(reinterpret_cast<uintptr_t>(notify)) {}
 
@@ -858,7 +858,7 @@ private:
 };
 
 #if defined(PULSAR_CAPTURE_STATIC)
-struct TestActivationOperation final
+struct TestActivationOperation
     : winrt::implements<TestActivationOperation, IActivateAudioInterfaceAsyncOperation> {
     explicit TestActivationOperation(HRESULT result) : result_(result) {}
 
@@ -1542,7 +1542,7 @@ HRESULT __stdcall CapInit(void) {
             return injected;
         }
 #endif
-        g_runtime_state = std::make_unique<uint8_t>(0);
+        g_runtime_state = std::make_unique<uint8_t>();
         try {
             g_microphone_capability = AppCapability::Create(L"microphone");
             g_capability_hr = g_microphone_capability ? S_OK : E_FAIL;

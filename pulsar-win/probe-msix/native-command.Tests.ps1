@@ -19,3 +19,8 @@ if (-not $CaughtExpectedFailure) {
 }
 
 Write-Host "Native exit-code regression passed."
+
+# The expected failing native command leaves $LASTEXITCODE nonzero even after
+# its exception is handled. Make the standalone regression script's success
+# explicit so CI does not report the intentional failure as the script result.
+exit 0

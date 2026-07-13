@@ -26,11 +26,11 @@ namespace Pulsar
         {
             public UInt32 Reserved;
             public UInt32 ProcessorArchitecture;
+            public UInt64 Version;
             [MarshalAs(UnmanagedType.LPWStr)] public string Name;
             [MarshalAs(UnmanagedType.LPWStr)] public string Publisher;
             public IntPtr ResourceId;
             public IntPtr PublisherId;
-            public UInt64 Version;
         }
 
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
@@ -43,6 +43,7 @@ namespace Pulsar
         {
             PackageId id = new PackageId
             {
+                ProcessorArchitecture = 9,
                 Name = name,
                 Publisher = publisher
             };
@@ -51,13 +52,13 @@ namespace Pulsar
             const int ErrorInsufficientBuffer = 122;
             if (result != ErrorInsufficientBuffer)
             {
-                throw new Win32Exception(result, "PackageFamilyNameFromId sizing failed");
+                throw new Win32Exception(result, "PackageFamilyNameFromId sizing failed with Win32 code " + result);
             }
             StringBuilder familyName = new StringBuilder((int)length);
             result = PackageFamilyNameFromId(ref id, ref length, familyName);
             if (result != 0)
             {
-                throw new Win32Exception(result, "PackageFamilyNameFromId failed");
+                throw new Win32Exception(result, "PackageFamilyNameFromId failed with Win32 code " + result);
             }
             return familyName.ToString();
         }

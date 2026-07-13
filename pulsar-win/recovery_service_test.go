@@ -256,6 +256,59 @@ func TestRecoveryLimitedPromotionRemainsLimitedAcrossDeleteCrash(t *testing.T) {
 	}
 }
 
+func TestRecoveryDeleteCrashPreservesLaterRotationAndAcknowledgement(t *testing.T) {
+	repository, files := newTestCredentialRepository(t)
+	if err := repository.SaveBundle(sampleBundle()); err != nil {
+		t.Fatal(err)
+	}
+	origin, _ := CanonicalCoordinatorOrigin("https://coord.example")
+	unsent := PendingRecoveryRecord{
+		CanonicalCoordinatorOrigin: origin.String(), ActorID: 9,
+		RecoveryID: sampleBundle().RecoveryID, PendingControlToken: strings.Repeat("ef", 32),
+	}
+	if err := repository.CreatePendingUnsent(unsent); err != nil {
+		t.Fatal(err)
+	}
+	sent, err := repository.MarkPendingSent(unsent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	promoted, err := repository.PromotePending(sent, &ActorContext{OrbitID: 7, ActorID: 9, Role: "primary"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rotatedID := "rec_abcdefabcdefabcdefabcdefabcdefab"
+	capability, _ := promoted.ControlCapability()
+	if err := repository.UpdateRecoveryMetadata(capability, rotatedID); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.AcknowledgeRecoveryBackup(origin, 9, rotatedID); err != nil {
+		t.Fatal(err)
+	}
+	before := append([]byte(nil), files.data[repository.activePath()]...)
+	var network atomic.Int32
+	service := newRecoveryTestService(t, repository, httpDoerFunc(func(*http.Request) (*http.Response, error) {
+		network.Add(1)
+		return nil, errors.New("must not probe an already promoted token")
+	}), nil)
+	result, err := service.Resume(context.Background(), 9)
+	if err != nil || result.Bundle == nil || result.Bundle.RecoveryID != rotatedID ||
+		!result.Bundle.RecoveryBackupAcknowledged || result.Bundle.RecoveryConsumed {
+		t.Fatalf("rotated convergence result=%#v err=%v", result, err)
+	}
+	if network.Load() != 0 {
+		t.Fatalf("already promoted recovery used network %d times", network.Load())
+	}
+	if !bytes.Equal(before, files.data[repository.activePath()]) {
+		t.Fatal("stale pending convergence rewrote the later recovery generation")
+	}
+	pending, err := repository.LoadPending(origin, 9)
+	if err != nil || pending != nil {
+		t.Fatalf("exact stale pending was not deleted: %#v err=%v", pending, err)
+	}
+}
+
 func TestRecoveryExactPromotionIdentityFailsClosed(t *testing.T) {
 	tests := []struct {
 		name   string

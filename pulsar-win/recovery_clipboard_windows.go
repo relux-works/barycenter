@@ -64,26 +64,24 @@ func (windowsRecoveryClipboardBackend) Publish(owner uintptr, payload string) (c
 
 	zeroDWORD := make([]byte, 4)
 	binary.LittleEndian.PutUint32(zeroDWORD, windowsClipboardExclusionDWORD)
-	handles := make([]uintptr, 0, 4)
+	handles := make([]uintptr, 0, len(formats)+1)
 	for range formats {
 		handle, err := allocateClipboardBytes(zeroDWORD)
 		if err != nil {
-			freeClipboardHandles(handles)
-			return clipboardPublication{}, err
+			return clipboardPublication{}, freeClipboardHandlesAfter(err, handles)
 		}
 		handles = append(handles, handle)
 	}
 	textHandle, err := allocateClipboardUTF16(payload)
 	if err != nil {
-		freeClipboardHandles(handles)
-		return clipboardPublication{}, err
+		return clipboardPublication{}, freeClipboardHandlesAfter(err, handles)
 	}
 	handles = append(handles, textHandle)
+	textIndex := len(formats)
 
 	opened, _, _ := openClipboardProc.Call(owner)
 	if opened == 0 {
-		freeClipboardHandles(handles)
-		return clipboardPublication{}, errors.New("open clipboard")
+		return clipboardPublication{}, freeClipboardHandlesAfter(errors.New("open clipboard"), handles)
 	}
 	exposed := false
 	closeWith := func(publication clipboardPublication, operationErr error) (clipboardPublication, error) {
@@ -95,28 +93,24 @@ func (windowsRecoveryClipboardBackend) Publish(owner uintptr, payload string) (c
 	}
 	sequenceBefore, _, _ := getClipboardSequenceNumberProc.Call()
 	if sequenceBefore == 0 {
-		freeClipboardHandles(handles)
-		return closeWith(clipboardPublication{}, errors.New("read clipboard sequence"))
+		return closeWith(clipboardPublication{}, freeClipboardHandlesAfter(errors.New("read clipboard sequence"), handles))
 	}
 	emptied, _, _ := emptyClipboardProc.Call()
 	if emptied == 0 {
-		freeClipboardHandles(handles)
-		return closeWith(clipboardPublication{}, errors.New("empty clipboard"))
+		return closeWith(clipboardPublication{}, freeClipboardHandlesAfter(errors.New("empty clipboard"), handles))
 	}
 	for i, format := range formats {
 		set, _, _ := setClipboardDataProc.Call(uintptr(format), handles[i])
 		if set == 0 {
-			freeClipboardHandles(handles[i:])
-			return closeWith(clipboardPublication{Changed: true}, errors.New("publish clipboard exclusion format"))
+			return closeWith(clipboardPublication{Changed: true}, freeClipboardHandlesAfter(errors.New("publish clipboard exclusion format"), handles[i:]))
 		}
 		handles[i] = 0 // ownership transferred to the clipboard
 	}
-	set, _, _ := setClipboardDataProc.Call(clipboardFormatUnicodeText, handles[3])
+	set, _, _ := setClipboardDataProc.Call(clipboardFormatUnicodeText, handles[textIndex])
 	if set == 0 {
-		freeClipboardHandles(handles[3:])
-		return closeWith(clipboardPublication{Changed: true}, errors.New("publish clipboard text"))
+		return closeWith(clipboardPublication{Changed: true}, freeClipboardHandlesAfter(errors.New("publish clipboard text"), handles[textIndex:]))
 	}
-	handles[3] = 0
+	handles[textIndex] = 0
 	exposed = true
 	sequence, _, _ := getClipboardSequenceNumberProc.Call()
 	publication := clipboardPublication{Sequence: uint32(sequence), Changed: true, Exposed: exposed}
@@ -154,15 +148,13 @@ func (windowsRecoveryClipboardBackend) ClearIfUnchanged(owner uintptr, sequence 
 	if sequence != 0 && uint32(current) != sequence {
 		return closeWith(false, nil)
 	}
-	_, _, _ = setLastErrorProc.Call(0)
-	available, _, availableErr := isClipboardFormatAvailableProc.Call(clipboardFormatUnicodeText)
-	if available == 0 {
-		if !isSuccessErrno(availableErr) {
-			return closeWith(false, errors.New("inspect clipboard format"))
-		}
+	available, err := clipboardFormatAvailable(clipboardFormatUnicodeText)
+	if err != nil {
+		return closeWith(false, err)
+	}
+	if !available {
 		return closeWith(false, nil)
 	}
-	_, _, _ = setLastErrorProc.Call(0)
 	handle, _, _ := getClipboardDataProc.Call(clipboardFormatUnicodeText)
 	if handle == 0 {
 		return closeWith(false, errors.New("read clipboard data"))
@@ -199,16 +191,13 @@ func allocateClipboardBytes(value []byte) (uintptr, error) {
 	}
 	pointer, _, _ := globalLockProc.Call(handle)
 	if pointer == 0 {
-		_, _, _ = globalFreeProc.Call(handle)
-		return 0, errors.New("lock clipboard memory")
+		return 0, freeClipboardHandlesAfter(errors.New("lock clipboard memory"), []uintptr{handle})
 	}
 	if len(value) != 0 {
 		_, _, _ = rtlMoveMemoryProc.Call(pointer, uintptr(unsafe.Pointer(&value[0])), uintptr(len(value)))
 	}
-	unlocked, _, unlockErr := globalUnlockProc.Call(handle)
-	if unlocked == 0 && !isSuccessErrno(unlockErr) {
-		_, _, _ = globalFreeProc.Call(handle)
-		return 0, errors.New("unlock clipboard memory")
+	if err := unlockClipboardMemory(handle); err != nil {
+		return 0, freeClipboardHandlesAfter(err, []uintptr{handle})
 	}
 	runtime.KeepAlive(value)
 	return handle, nil
@@ -242,20 +231,63 @@ func clipboardUTF16Equals(handle uintptr, expected string) (bool, error) {
 		}
 	}
 	zeroBytes(actual)
-	unlocked, _, unlockErr := globalUnlockProc.Call(handle)
-	if unlocked == 0 && !isSuccessErrno(unlockErr) {
+	if err := unlockClipboardMemory(handle); err != nil {
 		return false, errors.New("unlock clipboard data")
 	}
 	runtime.KeepAlive(units)
 	return matches, nil
 }
 
-func freeClipboardHandles(handles []uintptr) {
+func unlockClipboardMemory(handle uintptr) error {
+	// GlobalUnlock returns zero both when the final lock is released successfully
+	// and on failure. Clear thread last-error immediately before the call so the
+	// documented NO_ERROR success case cannot inherit an unrelated stale errno.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	_, _, _ = setLastErrorProc.Call(0)
+	unlocked, _, unlockErr := globalUnlockProc.Call(handle)
+	if unlocked == 0 && !isSuccessErrno(unlockErr) {
+		return errors.New("unlock clipboard memory")
+	}
+	return nil
+}
+
+func clipboardFormatAvailable(format uintptr) (bool, error) {
+	// Last-error is thread-local. Keep the clear/read pair on one OS thread so a
+	// legitimate "format absent" zero cannot inherit a stale error from another
+	// syscall or observe the cleared value on a different scheduler thread.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	_, _, _ = setLastErrorProc.Call(0)
+	available, _, availableErr := isClipboardFormatAvailableProc.Call(format)
+	if available != 0 {
+		return true, nil
+	}
+	if !isSuccessErrno(availableErr) {
+		return false, errors.New("inspect clipboard format")
+	}
+	return false, nil
+}
+
+func freeClipboardHandles(handles []uintptr) error {
+	var failed bool
 	for _, handle := range handles {
 		if handle != 0 {
-			_, _, _ = globalFreeProc.Call(handle)
+			remaining, _, _ := globalFreeProc.Call(handle)
+			failed = failed || remaining != 0
 		}
 	}
+	if failed {
+		return errors.New("free clipboard memory")
+	}
+	return nil
+}
+
+func freeClipboardHandlesAfter(operationErr error, handles []uintptr) error {
+	if freeErr := freeClipboardHandles(handles); freeErr != nil {
+		return freeErr
+	}
+	return operationErr
 }
 
 func isSuccessErrno(err error) bool {

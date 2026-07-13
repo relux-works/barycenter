@@ -74,6 +74,46 @@ func TestOnboardingRotateUsesMetadataWithoutRevealingSecret(t *testing.T) {
 	}
 }
 
+func TestOnboardingRotateIsScopeLockedAndControlGenerationBound(t *testing.T) {
+	repository, files := newTestCredentialRepository(t)
+	initial := sampleBundle()
+	if err := repository.SaveBundle(initial); err != nil {
+		t.Fatal(err)
+	}
+	service := newWindowsOnboardingTestService(t, repository, httpDoerFunc(func(request *http.Request) (*http.Response, error) {
+		files.mu.Lock()
+		lockHeld := false
+		for _, held := range files.locks {
+			lockHeld = lockHeld || held
+		}
+		files.mu.Unlock()
+		if !lockHeld {
+			t.Fatal("rotation reached the network without the actor recovery scope lock")
+		}
+		competing := initial
+		competing.Control.ControlToken = strings.Repeat("ef", 32)
+		if err := repository.SaveBundle(competing); err != nil {
+			t.Fatal(err)
+		}
+		return jsonResponse(http.StatusOK, []byte(`{"actor_id":9,"recovery_id":"rec_abcdefabcdefabcdefabcdefabcdefab","recovery_secret":"ABCDEFGHJKMNPQRSTVWXYZ23456","shown_once":true}`)), nil
+	}))
+	material, err := service.RotateRecovery(context.Background(), activeControlCapability(t))
+	if material == nil || !errors.Is(err, errCredentialStorageConflict) {
+		t.Fatalf("generation race material=%#v err=%v", material, err)
+	}
+	loaded, loadErr := repository.LoadBundle()
+	if loadErr != nil || loaded.Control.ControlToken != strings.Repeat("ef", 32) || loaded.RecoveryID != initial.RecoveryID {
+		t.Fatalf("stale rotation changed competing generation: %#v err=%v", loaded, loadErr)
+	}
+	files.mu.Lock()
+	defer files.mu.Unlock()
+	for path, held := range files.locks {
+		if held {
+			t.Fatalf("rotation scope lock remained held: %s", path)
+		}
+	}
+}
+
 func TestOnboardingServiceRejectsIncoherentCompositionWithoutIO(t *testing.T) {
 	repositoryA, filesA := newTestCredentialRepository(t)
 	repositoryB, filesB := newTestCredentialRepository(t)

@@ -1,14 +1,14 @@
 ## Status
-reviewing
+done
 
 ## Assigned To
-[reviewer] reviewer (codex)
+codex-inline
 
 ## Created
 2026-07-12T15:30:17Z
 
 ## Last Update
-2026-07-13T17:53:35Z
+2026-07-13T21:37:57Z
 
 ## Blocked By
 - TASK-260712-3v1k7q
@@ -32,10 +32,10 @@ reviewing
 - [x] Relevant build/validation commands run after changes and build not broken
 - [x] New outcome artifact attached on the board with a task-scoped name when the work produces notes, logs, screenshots, or other deliverables
 - [x] Important findings, decisions, anomalies, or regressions recorded in logbook when relevant
-- [ ] Implementation matches AC
-- [ ] Solution fits project architecture
-- [ ] Tests green
-- [ ] If problems found — notes added and status set to to-dev
+- [x] Implementation matches AC
+- [x] Solution fits project architecture
+- [x] Tests green
+- [x] If problems found — notes added and status set to to-dev
 
 ## Notes
 spawn queued: [implementer] developer (codex) (run=RUN-260713-269b04, max_parallel=20)
@@ -51,6 +51,8 @@ spawn run completed: codex (run=RUN-260713-e41098, pid=99172, exit=0)
 R2 stopped procedurally because the guard froze concurrently-owned LOGBOOK.md; no substantive code review occurred. Corrected R3 independent-review guard attached (SHA-256 b1627e5fec1de25df237f28691ee21858bfe2fc087e7d5b7658ec095cf8be9b0): same 29 Windows files remain frozen, shared logbook is explicitly excluded.
 spawn queued: [reviewer] reviewer (codex) (run=RUN-260713-d98c3b, max_parallel=20)
 spawn run started: [reviewer] reviewer (codex) (run=RUN-260713-d98c3b)
+2026-07-14 strict sequential inline execution resumed on branch task/task-260712-47uve0-windows-dpapi-r3. Prior R2 was only a procedural LOGBOOK-boundary abort; corrected R3 guard and all frozen Windows bytes will be rechecked before substantive review. No task-board spawn workflow will be used; Markdown and board tracking remain enabled.
+2026-07-14 same-executor cold R3 review (independence not claimed) matched 29/29 frozen files and returned the original bytes to development with severity-ranked findings in TASK-260712-47uve0_independent-review-r3.md. Fixes now close rotation scope/generation races, post-delete-crash rotation convergence, bounded/observable clipboard cleanup and lock inversion, Win32 GlobalUnlock/GlobalFree handling, strict protected JSON/Unicode/media/retry parsing, cancellation classification, bearer/request retention, and service-container formatting. Final R4 host matrix passed: focused x50, full uncached, full race, vet, build, mod verify, privacy/diff scans, and Windows amd64/arm64 vet/build/test compilation. Accepted only as a code checkpoint; native DPAPI/NTFS/HWND clipboard, installed-MSIX migration, signing, and Windows 10/11 runtime claims remain explicitly assigned to TASK-260712-38qsku, TASK-260712-13rbnw, and TASK-260712-1vtwkl.
 
 ## Precondition Resources
 - [p1-onboarding-flows.puml](file://TASK-260712-47uve0/p1-onboarding-flows.puml) — Windows onboarding client flow sequence
@@ -63,3 +65,5 @@ spawn run started: [reviewer] reviewer (codex) (run=RUN-260713-d98c3b)
 - [TASK-260712-47uve0_implementation-r1-results.md](file://TASK-260712-47uve0/TASK-260712-47uve0_implementation-r1-results.md) — Implementation, migration, DPAPI fault, recovery, clipboard, verification, hash, dirty-tree, and Windows runtime-gap evidence
 - [TASK-260712-47uve0_spawn-log_-reviewer--reviewer--codex-.log](file://TASK-260712-47uve0/TASK-260712-47uve0_spawn-log_-reviewer--reviewer--codex-.log) — System spawn log captured by task-board
 - [TASK-260712-47uve0_independent-review-r2.md](file://TASK-260712-47uve0/TASK-260712-47uve0_independent-review-r2.md) — Independent R2 review abort report: frozen LOGBOOK boundary mismatch; back to development
+- [TASK-260712-47uve0_independent-review-r3.md](file://TASK-260712-47uve0/TASK-260712-47uve0_independent-review-r3.md) — Cold same-executor R3 review of frozen R1 bytes; findings and historical back-to-development verdict
+- [TASK-260712-47uve0_root-audit-r4-results.md](file://TASK-260712-47uve0/TASK-260712-47uve0_root-audit-r4-results.md) — Final same-executor root audit, remediation matrix, validation hashes, and explicit native Windows gaps

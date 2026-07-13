@@ -49,6 +49,9 @@ type RecoveryExporter struct {
 	mu    sync.Mutex
 }
 
+func (e *RecoveryExporter) String() string   { return "RecoveryExporter{<redacted>}" }
+func (e *RecoveryExporter) GoString() string { return e.String() }
+
 func NewRecoveryExporter() *RecoveryExporter {
 	return &RecoveryExporter{files: osDirectExportFileSystem{}}
 }

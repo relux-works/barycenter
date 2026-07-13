@@ -379,6 +379,32 @@ func TestCredentialBundleSplitCompatibilityAndRedaction(t *testing.T) {
 	}
 }
 
+func TestSensitiveServiceContainerFormattingIsRedacted(t *testing.T) {
+	pathCanary := `C:\Users\PATH-CANARY\Pulsar`
+	origin, err := CanonicalCoordinatorOrigin("https://url-canary.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository := &ProtectedCredentialRepository{dir: pathCanary}
+	client := &OnboardingClient{origin: origin}
+	recovery := &RecoveryService{repository: repository, client: client}
+	service := &WindowsOnboardingService{client: client, repository: repository, recovery: recovery}
+	for name, value := range map[string]any{
+		"repository": repository,
+		"client":     client,
+		"recovery":   recovery,
+		"service":    service,
+	} {
+		for _, rendered := range []string{fmt.Sprint(value), fmt.Sprintf("%+v", value), fmt.Sprintf("%#v", value)} {
+			for _, canary := range []string{pathCanary, "url-canary.example"} {
+				if strings.Contains(rendered, canary) {
+					t.Fatalf("%s formatting leaked %q: %s", name, canary, rendered)
+				}
+			}
+		}
+	}
+}
+
 func TestLegacyNodeDerivesOriginBoundCapabilityWithoutChangingWSBytes(t *testing.T) {
 	for _, test := range []struct {
 		wsURL, origin string
@@ -524,8 +550,9 @@ func TestRecoveryBackupAcknowledgementIsGenerationBound(t *testing.T) {
 		t.Fatal(err)
 	}
 	origin, _ := CanonicalCoordinatorOrigin(bundle.CoordinatorOrigin)
+	capability, _ := bundle.ControlCapability()
 	newID := "rec_abcdefabcdefabcdefabcdefabcdefab"
-	if err := repository.UpdateRecoveryMetadata(origin, bundle.Control.ActorID, newID); err != nil {
+	if err := repository.UpdateRecoveryMetadata(capability, newID); err != nil {
 		t.Fatal(err)
 	}
 	rotated, err := repository.LoadBundle()
@@ -552,6 +579,7 @@ func TestConcurrentRecoveryRotationCannotCarryStaleAcknowledgement(t *testing.T)
 			t.Fatal(err)
 		}
 		origin, _ := CanonicalCoordinatorOrigin(bundle.CoordinatorOrigin)
+		capability, _ := bundle.ControlCapability()
 		newID := "rec_abcdefabcdefabcdefabcdefabcdefab"
 		start := make(chan struct{})
 		results := make(chan error, 2)
@@ -561,7 +589,7 @@ func TestConcurrentRecoveryRotationCannotCarryStaleAcknowledgement(t *testing.T)
 		}()
 		go func() {
 			<-start
-			results <- repository.UpdateRecoveryMetadata(origin, bundle.Control.ActorID, newID)
+			results <- repository.UpdateRecoveryMetadata(capability, newID)
 		}()
 		close(start)
 		<-results
@@ -815,6 +843,66 @@ func TestProtectedEnvelopeStrictness(t *testing.T) {
 	incoherent.RecoveryBackupAcknowledged = true
 	if incoherent.validate() == nil {
 		t.Fatal("acknowledgement without recovery/control metadata accepted")
+	}
+}
+
+func TestCredentialBundleRejectsExplicitNullOptionalFields(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(map[string]any)
+	}{
+		{"node", func(object map[string]any) { object["node"] = nil }},
+		{"control", func(object map[string]any) {
+			object["control"] = nil
+			delete(object, "recovery_id")
+		}},
+		{"recovery id", func(object map[string]any) { object["recovery_id"] = nil }},
+		{"active last known orbit", func(object map[string]any) {
+			object["control"].(map[string]any)["last_known_orbit_id"] = nil
+		}},
+		{"active last known role", func(object map[string]any) {
+			object["control"].(map[string]any)["last_known_role"] = nil
+		}},
+		{"limited orbit", func(object map[string]any) {
+			control := object["control"].(map[string]any)
+			control["context"] = "limited"
+			control["orbit_id"] = nil
+			delete(control, "role")
+		}},
+		{"limited role", func(object map[string]any) {
+			control := object["control"].(map[string]any)
+			control["context"] = "limited"
+			delete(control, "orbit_id")
+			control["role"] = nil
+		}},
+		{"limited empty last known pair", func(object map[string]any) {
+			control := object["control"].(map[string]any)
+			control["context"] = "limited"
+			delete(control, "orbit_id")
+			delete(control, "role")
+			control["last_known_orbit_id"] = nil
+			control["last_known_role"] = nil
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			raw, err := json.Marshal(sampleBundle())
+			if err != nil {
+				t.Fatal(err)
+			}
+			var object map[string]any
+			if err := json.Unmarshal(raw, &object); err != nil {
+				t.Fatal(err)
+			}
+			test.mutate(object)
+			raw, err = json.Marshal(object)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := decodeCredentialBundle(raw); err == nil {
+				t.Fatalf("explicit null accepted: %s", raw)
+			}
+		})
 	}
 }
 

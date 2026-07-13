@@ -63,6 +63,9 @@ type RecoveryService struct {
 	generator  ControlTokenGenerator
 }
 
+func (s *RecoveryService) String() string   { return "RecoveryService{<redacted>}" }
+func (s *RecoveryService) GoString() string { return s.String() }
+
 func NewRecoveryService(repository *ProtectedCredentialRepository, client *OnboardingClient, generator ControlTokenGenerator) (*RecoveryService, error) {
 	if repository == nil || client == nil {
 		return nil, errCredentialStorageUnavailable

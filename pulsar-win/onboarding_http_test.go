@@ -87,6 +87,41 @@ func TestOnboardingHTTPZerosOwnedRequestBodyAfterTransport(t *testing.T) {
 	}
 }
 
+func TestOnboardingHTTPClearsBearerFromOwnedRequestAfterTransport(t *testing.T) {
+	var captured *http.Request
+	client := newHTTPTestClient(t, func(request *http.Request) (*http.Response, error) {
+		captured = request
+		if request.Header.Get("Authorization") == "" {
+			t.Fatal("transport did not receive bearer")
+		}
+		return nil, errors.New("stop after capture")
+	})
+	_, _ = client.ActorContext(context.Background(), activeControlCapability(t))
+	if captured == nil {
+		t.Fatal("request was not captured")
+	}
+	if authorization := captured.Header.Get("Authorization"); authorization != "" {
+		t.Fatalf("owned request retained bearer after transport: %q", authorization)
+	}
+
+	var finalRequest *http.Request
+	client = newHTTPTestClient(t, func(request *http.Request) (*http.Response, error) {
+		finalRequest = request.Clone(request.Context())
+		finalRequest.Header["authorization"] = []string{request.Header.Get("Authorization")}
+		response := jsonResponse(http.StatusOK, []byte(`{"orbit_id":7,"actor_id":9,"role":"primary"}`))
+		response.Request = finalRequest
+		return response, nil
+	})
+	if _, err := client.ActorContext(context.Background(), activeControlCapability(t)); err != nil {
+		t.Fatal(err)
+	}
+	for key, values := range finalRequest.Header {
+		if strings.EqualFold(key, "Authorization") {
+			t.Fatalf("response final request retained bearer after transport: %q=%q", key, values)
+		}
+	}
+}
+
 type httpDoerFunc func(*http.Request) (*http.Response, error)
 
 type alienActorCapability struct {
@@ -291,6 +326,66 @@ func TestOnboardingHTTPStrictErrorsAndRedaction(t *testing.T) {
 	}
 }
 
+func TestOnboardingHTTPRejectsNoncanonicalRetryAfterHeaders(t *testing.T) {
+	errorBody := []byte(`{"error":{"code":"too_many_attempts","message":"Too many attempts. Please wait before retrying.","retry_after_seconds":17}}`)
+	tests := []struct {
+		name   string
+		values []string
+	}{
+		{"leading plus", []string{"+17"}},
+		{"leading zero", []string{"017"}},
+		{"surrounding whitespace", []string{" 17 "}},
+		{"duplicate", []string{"17", "17"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := newHTTPTestClient(t, func(*http.Request) (*http.Response, error) {
+				response := jsonResponse(http.StatusTooManyRequests, errorBody)
+				response.Header["Retry-After"] = append([]string(nil), test.values...)
+				return response, nil
+			})
+			_, err := client.CreateOrbit(context.Background(), "Home", "attempt_0123456789")
+			var clientErr *OnboardingClientError
+			if !errors.As(err, &clientErr) || clientErr.Kind != ClientErrorInvalidResponse {
+				t.Fatalf("noncanonical Retry-After accepted: %#v", err)
+			}
+		})
+	}
+
+	t.Run("present on non-rate-limit response", func(t *testing.T) {
+		client := newHTTPTestClient(t, func(*http.Request) (*http.Response, error) {
+			response := apiErrorResponse(http.StatusBadRequest, "invalid_request", "The request is malformed or contains invalid parameters.", 0)
+			response.Header["Retry-After"] = []string{""}
+			return response, nil
+		})
+		_, err := client.CreateOrbit(context.Background(), "Home", "attempt_0123456789")
+		var clientErr *OnboardingClientError
+		if !errors.As(err, &clientErr) || clientErr.Kind != ClientErrorInvalidResponse {
+			t.Fatalf("non-rate-limit Retry-After accepted: %#v", err)
+		}
+	})
+}
+
+func TestOnboardingHTTPRejectsInvalidRetryAfterBodies(t *testing.T) {
+	for _, value := range []string{
+		"null", `"17"`, "true", `{}`, `[]`, "0", "-1", "17.0", "1.7e1", "9223372036854775808",
+	} {
+		t.Run(value, func(t *testing.T) {
+			body := []byte(`{"error":{"code":"too_many_attempts","message":"Too many attempts. Please wait before retrying.","retry_after_seconds":` + value + `}}`)
+			client := newHTTPTestClient(t, func(*http.Request) (*http.Response, error) {
+				response := jsonResponse(http.StatusTooManyRequests, body)
+				response.Header.Set("Retry-After", "17")
+				return response, nil
+			})
+			_, err := client.CreateOrbit(context.Background(), "Home", "attempt_0123456789")
+			var clientErr *OnboardingClientError
+			if !errors.As(err, &clientErr) || clientErr.Kind != ClientErrorInvalidResponse {
+				t.Fatalf("invalid retry_after_seconds=%s accepted: %#v", value, err)
+			}
+		})
+	}
+}
+
 func TestOnboardingHTTPRejectsRedirectOversizeAndMalformedJSON(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -310,6 +405,26 @@ func TestOnboardingHTTPRejectsRedirectOversizeAndMalformedJSON(t *testing.T) {
 		}},
 		{"unknown", func() *http.Response { return jsonResponse(http.StatusCreated, []byte(`{"unknown":true}`)) }},
 		{"wrong scalar", func() *http.Response { return jsonResponse(http.StatusCreated, []byte(`{"orbit_id":"7"}`)) }},
+		{"duplicate content type", func() *http.Response {
+			response := jsonResponse(http.StatusCreated, testCreateResponse())
+			response.Header["Content-Type"] = []string{"application/json", "application/json"}
+			return response
+		}},
+		{"wrong json charset", func() *http.Response {
+			response := jsonResponse(http.StatusCreated, testCreateResponse())
+			response.Header.Set("Content-Type", "application/json; charset=iso-8859-1")
+			return response
+		}},
+		{"unknown json media parameter", func() *http.Response {
+			response := jsonResponse(http.StatusCreated, testCreateResponse())
+			response.Header.Set("Content-Type", "application/json; profile=canary")
+			return response
+		}},
+		{"missing no-store", func() *http.Response {
+			response := jsonResponse(http.StatusCreated, testCreateResponse())
+			response.Header.Del("Cache-Control")
+			return response
+		}},
 		{"deep", func() *http.Response {
 			return jsonResponse(http.StatusCreated, []byte(strings.Repeat(`{"x":`, maximumJSONDepth+2)+`null`+strings.Repeat(`}`, maximumJSONDepth+2)))
 		}},
@@ -319,6 +434,36 @@ func TestOnboardingHTTPRejectsRedirectOversizeAndMalformedJSON(t *testing.T) {
 			client := newHTTPTestClient(t, func(*http.Request) (*http.Response, error) { return test.response(), nil })
 			if _, err := client.CreateOrbit(context.Background(), "Home", "attempt_0123456789"); err == nil {
 				t.Fatal("invalid response accepted")
+			}
+		})
+	}
+}
+
+func TestOnboardingHTTPRejectsInvalidJSONUnicode(t *testing.T) {
+	validSuffix := []byte(`","actor_id":9,"role":"companion","slot":"b","node_token":"` + strings.Repeat("ab", 32) + `","control_token":"` + strings.Repeat("cd", 32) + `"}`)
+	validPair := append([]byte(`{"orbit_id":7,"title":"\ud83d\ude80`), validSuffix...)
+	client := newHTTPTestClient(t, func(*http.Request) (*http.Response, error) {
+		return jsonResponse(http.StatusOK, validPair), nil
+	})
+	result, err := client.JoinOrbit(context.Background(), "ABCDEFGHJKMNPQRSTVWXYZ23456")
+	if err != nil || result.Title != "🚀" {
+		t.Fatalf("valid surrogate pair rejected: title=%q err=%v", result.Title, err)
+	}
+
+	invalidUTF8 := append([]byte(`{"orbit_id":7,"title":"`), 0xff)
+	invalidUTF8 = append(invalidUTF8, validSuffix...)
+	tests := map[string][]byte{
+		"invalid utf8":         invalidUTF8,
+		"unpaired high escape": append([]byte(`{"orbit_id":7,"title":"\ud800`), validSuffix...),
+		"unpaired low escape":  append([]byte(`{"orbit_id":7,"title":"\udc00`), validSuffix...),
+	}
+	for name, body := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := newHTTPTestClient(t, func(*http.Request) (*http.Response, error) {
+				return jsonResponse(http.StatusOK, body), nil
+			})
+			if _, err := client.JoinOrbit(context.Background(), "ABCDEFGHJKMNPQRSTVWXYZ23456"); err == nil {
+				t.Fatal("invalid JSON Unicode accepted")
 			}
 		})
 	}
@@ -347,6 +492,11 @@ func (b *observedResponseBody) Read(destination []byte) (int, error) {
 }
 
 func (*observedResponseBody) Close() error { return nil }
+
+type failingResponseBody struct{ err error }
+
+func (b *failingResponseBody) Read([]byte) (int, error) { return 0, b.err }
+func (*failingResponseBody) Close() error               { return nil }
 
 func (b *closeTrackingBody) Read(value []byte) (int, error) { return b.reader.Read(value) }
 func (b *closeTrackingBody) Close() error {
@@ -481,6 +631,19 @@ func TestOnboardingHTTPCancellationIsStable(t *testing.T) {
 	var clientErr *OnboardingClientError
 	if !errors.As(err, &clientErr) || clientErr.Kind != ClientErrorCancelled {
 		t.Fatalf("cancellation %#v", err)
+	}
+
+	for _, readErr := range []error{context.Canceled, context.DeadlineExceeded} {
+		client = newHTTPTestClient(t, func(*http.Request) (*http.Response, error) {
+			response := jsonResponse(http.StatusCreated, nil)
+			response.Body = &failingResponseBody{err: readErr}
+			return response, nil
+		})
+		_, err = client.CreateOrbit(context.Background(), "Home", "attempt_0123456789")
+		clientErr = nil
+		if !errors.As(err, &clientErr) || clientErr.Kind != ClientErrorCancelled {
+			t.Fatalf("body-read cancellation %v classified as %#v", readErr, err)
+		}
 	}
 }
 

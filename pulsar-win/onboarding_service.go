@@ -13,6 +13,12 @@ type WindowsOnboardingService struct {
 	recovery   *RecoveryService
 }
 
+func (s *WindowsOnboardingService) String() string {
+	return "WindowsOnboardingService{<redacted>}"
+}
+
+func (s *WindowsOnboardingService) GoString() string { return s.String() }
+
 func NewWindowsOnboardingService(client *OnboardingClient, repository *ProtectedCredentialRepository, recovery *RecoveryService) (*WindowsOnboardingService, error) {
 	if client == nil || repository == nil || recovery == nil || recovery.repository != repository || recovery.client != client {
 		return nil, errOnboardingServiceIncoherent
@@ -54,16 +60,44 @@ func (s *WindowsOnboardingService) ResumeRecovery(ctx context.Context, actorID i
 	return s.recovery.Resume(ctx, actorID)
 }
 
-func (s *WindowsOnboardingService) RotateRecovery(ctx context.Context, capability ControlCapability) (*RecoveryMaterial, error) {
-	material, err := s.client.RotateRecovery(ctx, capability)
+func (s *WindowsOnboardingService) RotateRecovery(ctx context.Context, capability ControlCapability) (material *RecoveryMaterial, resultErr error) {
+	if _, err := s.client.controlBearer(capability); err != nil {
+		return nil, err
+	}
+	origin, token := capability.actorBearer()
+	release, err := s.repository.AcquireRecoveryScope(origin, capability.value.ActorID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := release(); err != nil && resultErr == nil {
+			resultErr = err
+		}
+	}()
+	bundle, err := s.repository.LoadBundle()
+	if err != nil {
+		return nil, err
+	}
+	if bundle == nil {
+		return nil, errCredentialStorageConflict
+	}
+	stored, ok := bundle.ControlCapability()
+	if !ok {
+		return nil, errCredentialStorageConflict
+	}
+	storedOrigin, storedToken := stored.actorBearer()
+	if storedOrigin != origin || storedToken != token || stored.value.ActorID != capability.value.ActorID {
+		return nil, errCredentialStorageConflict
+	}
+	material, err = s.client.RotateRecovery(ctx, capability)
 	if err != nil {
 		return nil, err
 	}
 	actorID, recoveryID, ok := material.metadata()
-	if !ok {
+	if !ok || actorID != capability.value.ActorID {
 		return nil, errOneTimeMaterialGone
 	}
-	if err := s.repository.UpdateRecoveryMetadata(s.client.Origin(), actorID, recoveryID); err != nil {
+	if err := s.repository.UpdateRecoveryMetadata(capability, recoveryID); err != nil {
 		return material, err
 	}
 	return material, nil

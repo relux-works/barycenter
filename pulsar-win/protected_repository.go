@@ -90,6 +90,12 @@ type ProtectedCredentialRepository struct {
 	clock     RepositoryClock
 }
 
+func (r *ProtectedCredentialRepository) String() string {
+	return "ProtectedCredentialRepository{<redacted>}"
+}
+
+func (r *ProtectedCredentialRepository) GoString() string { return r.String() }
+
 func NewProtectedCredentialRepository(options CredentialRepositoryOptions) (*ProtectedCredentialRepository, error) {
 	if options.Directory == "" || options.Protector == nil || options.Files == nil {
 		return nil, errCredentialStorageUnavailable
@@ -149,8 +155,10 @@ func (r *ProtectedCredentialRepository) SaveBundle(bundle CredentialBundle) erro
 	return r.writeProtected(path, bundle, decodeCredentialBundle)
 }
 
-func (r *ProtectedCredentialRepository) UpdateRecoveryMetadata(origin CoordinatorOrigin, actorID int64, recoveryID string) error {
-	if origin.String() == "" || actorID <= 0 || !recoveryIDPattern.MatchString(recoveryID) {
+func (r *ProtectedCredentialRepository) UpdateRecoveryMetadata(capability ControlCapability, recoveryID string) error {
+	origin, controlToken := capability.actorBearer()
+	actorID := capability.value.ActorID
+	if origin.String() == "" || actorID <= 0 || !lowerHexTokenPattern.MatchString(controlToken) || !recoveryIDPattern.MatchString(recoveryID) {
 		return errCredentialCorrupt
 	}
 	path := r.activePath()
@@ -160,7 +168,8 @@ func (r *ProtectedCredentialRepository) UpdateRecoveryMetadata(origin Coordinato
 	if err != nil {
 		return err
 	}
-	if bundle == nil || bundle.Control == nil || bundle.Control.ActorID != actorID || bundle.CoordinatorOrigin != origin.String() {
+	if bundle == nil || bundle.Control == nil || bundle.Control.ActorID != actorID ||
+		bundle.Control.ControlToken != controlToken || bundle.CoordinatorOrigin != origin.String() {
 		return errCredentialStorageConflict
 	}
 	bundle.RecoveryID = recoveryID
@@ -400,16 +409,29 @@ func (r *ProtectedCredentialRepository) PromotePending(record PendingRecoveryRec
 		bundle = &CredentialBundle{Version: credentialBundleVersion}
 	}
 	if bundle.Control != nil && bundle.Control.ControlToken == record.PendingControlToken {
-		if bundle.Control.ActorID == record.ActorID && bundle.CoordinatorOrigin == record.CanonicalCoordinatorOrigin && bundle.RecoveryID == record.RecoveryID && bundle.RecoveryConsumed {
-			if bundle.RecoveryBackupAcknowledged {
-				bundle.RecoveryBackupAcknowledged = false
-				if err := r.writeProtected(activePath, *bundle, decodeCredentialBundle); err != nil {
-					return CredentialBundle{}, err
-				}
+		if bundle.Control.ActorID != record.ActorID || bundle.CoordinatorOrigin != record.CanonicalCoordinatorOrigin {
+			return CredentialBundle{}, errCredentialStorageConflict
+		}
+		if bundle.RecoveryID != record.RecoveryID {
+			// Rotation is the only supported transition that changes recovery
+			// generation without changing the already-promoted control token. It
+			// resets consumed=false; preserve that newer generation (and its exact
+			// acknowledgement) while the stale pending record is retired.
+			if bundle.RecoveryID == "" || bundle.RecoveryConsumed {
+				return CredentialBundle{}, errCredentialStorageConflict
 			}
 			return *bundle, nil
 		}
-		return CredentialBundle{}, errCredentialStorageConflict
+		if !bundle.RecoveryConsumed {
+			return CredentialBundle{}, errCredentialStorageConflict
+		}
+		if bundle.RecoveryBackupAcknowledged {
+			bundle.RecoveryBackupAcknowledged = false
+			if err := r.writeProtected(activePath, *bundle, decodeCredentialBundle); err != nil {
+				return CredentialBundle{}, err
+			}
+		}
+		return *bundle, nil
 	}
 	control := ControlCredential{ActorID: record.ActorID, ControlToken: record.PendingControlToken, Context: ControlContextLimited}
 	if context != nil {
@@ -685,7 +707,7 @@ func decodeProtectedEnvelope(value []byte) ([]byte, error) {
 
 func decodeCredentialBundle(payload []byte) (any, error) {
 	object, err := parseStrictJSONObject(payload)
-	if err != nil || !optionalJSONBoolean(object, "recovery_consumed") || !optionalJSONBoolean(object, "recovery_backup_acknowledged") {
+	if err != nil || !validCredentialBundleJSONObject(object) {
 		return nil, errCredentialCorrupt
 	}
 	var bundle CredentialBundle
@@ -693,6 +715,53 @@ func decodeCredentialBundle(payload []byte) (any, error) {
 		return nil, errCredentialCorrupt
 	}
 	return bundle, nil
+}
+
+func validCredentialBundleJSONObject(object map[string]any) bool {
+	if !objectHasOnlyKeys(object,
+		"version", "node", "control", "recovery_id", "coordinator_origin",
+		"recovery_consumed", "recovery_backup_acknowledged",
+	) {
+		return false
+	}
+	if _, ok := jsonInt64(object, "version"); !ok {
+		return false
+	}
+	if _, ok := jsonString(object, "coordinator_origin"); !ok {
+		return false
+	}
+	if !optionalJSONString(object, "recovery_id") ||
+		!optionalJSONBoolean(object, "recovery_consumed") ||
+		!optionalJSONBoolean(object, "recovery_backup_acknowledged") {
+		return false
+	}
+	if node, exists := object["node"]; exists {
+		nodeObject, ok := node.(map[string]any)
+		if !ok || !exactObjectKeys(nodeObject, "orbit_id", "slot", "node_token", "ws_url") ||
+			!requiredJSONInteger(nodeObject, "orbit_id") ||
+			!requiredJSONString(nodeObject, "slot") ||
+			!requiredJSONString(nodeObject, "node_token") ||
+			!requiredJSONString(nodeObject, "ws_url") {
+			return false
+		}
+	}
+	if control, exists := object["control"]; exists {
+		controlObject, ok := control.(map[string]any)
+		if !ok || !objectHasOnlyKeys(controlObject,
+			"actor_id", "orbit_id", "role", "last_known_orbit_id", "last_known_role",
+			"control_token", "context",
+		) ||
+			!requiredJSONInteger(controlObject, "actor_id") ||
+			!optionalJSONInteger(controlObject, "orbit_id") ||
+			!optionalJSONString(controlObject, "role") ||
+			!optionalJSONInteger(controlObject, "last_known_orbit_id") ||
+			!optionalJSONString(controlObject, "last_known_role") ||
+			!requiredJSONString(controlObject, "control_token") ||
+			!requiredJSONString(controlObject, "context") {
+			return false
+		}
+	}
+	return true
 }
 
 func decodePendingRecovery(payload []byte) (any, error) {
@@ -717,6 +786,43 @@ func optionalJSONBoolean(object map[string]any, key string) bool {
 	}
 	_, ok := value.(bool)
 	return ok
+}
+
+func requiredJSONInteger(object map[string]any, key string) bool {
+	_, ok := jsonInt64(object, key)
+	return ok
+}
+
+func optionalJSONInteger(object map[string]any, key string) bool {
+	if _, exists := object[key]; !exists {
+		return true
+	}
+	return requiredJSONInteger(object, key)
+}
+
+func requiredJSONString(object map[string]any, key string) bool {
+	_, ok := jsonString(object, key)
+	return ok
+}
+
+func optionalJSONString(object map[string]any, key string) bool {
+	if _, exists := object[key]; !exists {
+		return true
+	}
+	return requiredJSONString(object, key)
+}
+
+func objectHasOnlyKeys(object map[string]any, keys ...string) bool {
+	allowed := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		allowed[key] = struct{}{}
+	}
+	for key := range object {
+		if _, ok := allowed[key]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func strictDecodeProtectedJSON(payload []byte, target any) error {

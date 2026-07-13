@@ -163,6 +163,15 @@ func (d *directTestDispatcher) Invoke(callback func() error) error {
 	return callback()
 }
 
+type observingTestDispatcher struct{ before func() }
+
+func (d *observingTestDispatcher) Invoke(callback func() error) error {
+	if d.before != nil {
+		d.before()
+	}
+	return callback()
+}
+
 type fakeClipboardBackend struct {
 	mu                sync.Mutex
 	sequence          uint32
@@ -436,6 +445,88 @@ func TestRecoveryClipboardClearRetriesUntilSafeResolution(t *testing.T) {
 	scheduler.fire(1)
 	if clipboard.current != nil || backend.payload != "" {
 		t.Fatal("explicit-clear retry did not clear owned payload")
+	}
+}
+
+func TestRecoveryClipboardAutomaticClearRetriesAreBounded(t *testing.T) {
+	backend := &fakeClipboardBackend{clearFailures: 100}
+	scheduler := &fakeClipboardScheduler{}
+	clipboard, _ := newRecoveryClipboard(123, &directTestDispatcher{}, backend, scheduler)
+	if _, err := clipboard.Copy(testRecoveryMaterial(t), time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if status := clipboard.CleanupStatus(); status != RecoveryClipboardCleanupLeased {
+		t.Fatalf("copied status=%s", status)
+	}
+	for index := 0; index < 4; index++ {
+		scheduler.fire(index)
+	}
+	if len(scheduler.timers) != 4 {
+		t.Fatalf("automatic cleanup scheduled %d timers, want a TTL plus three bounded retries", len(scheduler.timers))
+	}
+	if clipboard.current == nil || backend.payload == "" {
+		t.Fatal("terminal cleanup failure discarded the exact still-owned lease")
+	}
+	if status := clipboard.CleanupStatus(); status != RecoveryClipboardAutomaticCleanupFailed {
+		t.Fatalf("terminal status=%s", status)
+	}
+	for index, want := range recoveryClipboardRetryDelays {
+		if got := scheduler.timers[index+1].delay; got != want {
+			t.Fatalf("retry %d delay=%s, want %s", index, got, want)
+		}
+	}
+	backend.clearFailures = 0
+	if err := clipboard.Clear(); err != nil {
+		t.Fatal(err)
+	}
+	if status := clipboard.CleanupStatus(); status != RecoveryClipboardCleanupIdle || backend.payload != "" {
+		t.Fatalf("manual recovery status=%s payload=%q", status, backend.payload)
+	}
+}
+
+func TestRecoveryClipboardFormattingRedactsLeasedPayload(t *testing.T) {
+	backend := &fakeClipboardBackend{}
+	clipboard, _ := newRecoveryClipboard(123, &directTestDispatcher{}, backend, &fakeClipboardScheduler{})
+	if _, err := clipboard.Copy(testRecoveryMaterial(t), time.Second); err != nil {
+		t.Fatal(err)
+	}
+	for _, rendered := range []string{fmt.Sprint(clipboard), fmt.Sprintf("%+v", clipboard), fmt.Sprintf("%#v", clipboard)} {
+		for _, canary := range []string{"ABCDEFGHJKMNPQRSTVWXYZ23456", "rec_0123456789abcdef0123456789abcdef"} {
+			if strings.Contains(rendered, canary) {
+				t.Fatalf("clipboard formatting leaked %q: %s", canary, rendered)
+			}
+		}
+	}
+}
+
+func TestRecoveryClipboardDispatcherCanObserveStatusWithoutLockInversion(t *testing.T) {
+	dispatcher := &observingTestDispatcher{}
+	clipboard, _ := newRecoveryClipboard(123, dispatcher, &fakeClipboardBackend{}, &fakeClipboardScheduler{})
+	dispatcher.before = func() { _ = clipboard.CleanupStatus() }
+	material := testRecoveryMaterial(t)
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := clipboard.Copy(material, time.Second)
+		result <- err
+	}()
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("clipboard copy deadlocked while the UI dispatcher observed cleanup status")
+	}
+
+	go func() { result <- clipboard.Clear() }()
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("clipboard clear deadlocked while the UI dispatcher observed cleanup status")
 	}
 }
 

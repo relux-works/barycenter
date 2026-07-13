@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -80,6 +81,9 @@ type OnboardingClient struct {
 	origin CoordinatorOrigin
 	doer   HTTPDoer
 }
+
+func (c *OnboardingClient) String() string   { return "OnboardingClient{<redacted>}" }
+func (c *OnboardingClient) GoString() string { return c.String() }
 
 func NewOnboardingClient(rawOrigin string, doer HTTPDoer) (*OnboardingClient, error) {
 	origin, err := CanonicalCoordinatorOrigin(rawOrigin)
@@ -410,7 +414,7 @@ func (c *OnboardingClient) consumeRecovery(ctx context.Context, recoveryID strin
 
 func (c *OnboardingClient) controlBearer(capability ControlCapability) (string, error) {
 	origin, token := capability.actorBearer()
-	if origin != c.origin || !lowerHexTokenPattern.MatchString(token) {
+	if origin != c.origin || validateControlCredential(capability.value) != nil || !lowerHexTokenPattern.MatchString(token) {
 		return "", clientInputError()
 	}
 	return token, nil
@@ -437,6 +441,13 @@ func (c *OnboardingClient) request(ctx context.Context, method, path string, bod
 		req.Header.Set("Authorization", "Bearer "+bearer)
 	}
 	resp, doErr := c.doer.Do(req)
+	// Do has returned, so the owned request must not retain an additional bearer
+	// or mutable body copy while the response is decoded (or after an error).
+	deleteHeaderFold(req.Header, "Authorization")
+	if resp != nil && resp.Request != nil {
+		deleteHeaderFold(resp.Request.Header, "Authorization")
+	}
+	zeroBytes(body)
 	if doErr != nil {
 		if resp != nil && resp.Body != nil {
 			_ = resp.Body.Close()
@@ -457,6 +468,10 @@ func (c *OnboardingClient) request(ctx context.Context, method, path string, bod
 	closeErr := resp.Body.Close()
 	if readErr != nil || closeErr != nil {
 		zeroBytes(raw)
+		if ctx.Err() != nil || errors.Is(readErr, context.Canceled) || errors.Is(readErr, context.DeadlineExceeded) ||
+			errors.Is(closeErr, context.Canceled) || errors.Is(closeErr, context.DeadlineExceeded) {
+			return nil, &OnboardingClientError{Kind: ClientErrorCancelled}
+		}
 		return nil, invalidResponseError()
 	}
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
@@ -467,12 +482,17 @@ func (c *OnboardingClient) request(ctx context.Context, method, path string, bod
 		zeroBytes(raw)
 		return nil, &OnboardingClientError{Kind: kindForLegacyStatus(resp.StatusCode), Status: resp.StatusCode}
 	}
-	contentType := strings.ToLower(strings.TrimSpace(strings.Split(resp.Header.Get("Content-Type"), ";")[0]))
-	if contentType != "application/json" {
+	contentTypes, contentTypePresent := headerValues(resp.Header, "Content-Type")
+	if !contentTypePresent || len(contentTypes) != 1 {
 		zeroBytes(raw)
 		return nil, invalidResponseError()
 	}
-	if requireNoStore && !headerHasNoStore(resp.Header.Get("Cache-Control")) {
+	if !validJSONContentType(contentTypes[0]) {
+		zeroBytes(raw)
+		return nil, invalidResponseError()
+	}
+	cacheControls, cacheControlPresent := headerValues(resp.Header, "Cache-Control")
+	if requireNoStore && (!cacheControlPresent || !headerHasNoStore(strings.Join(cacheControls, ","))) {
 		zeroBytes(raw)
 		return nil, invalidResponseError()
 	}
@@ -482,6 +502,18 @@ func (c *OnboardingClient) request(ctx context.Context, method, path string, bod
 		return nil, decoded
 	}
 	return raw, nil
+}
+
+func validJSONContentType(value string) bool {
+	mediaType, parameters, err := mime.ParseMediaType(value)
+	if err != nil || !strings.EqualFold(mediaType, "application/json") {
+		return false
+	}
+	if len(parameters) == 0 {
+		return true
+	}
+	charset, ok := parameters["charset"]
+	return ok && len(parameters) == 1 && strings.EqualFold(charset, "utf-8")
 }
 
 func headerHasNoStore(value string) bool {
@@ -512,17 +544,39 @@ func decodeClientError(path string, status int, header http.Header, raw []byte) 
 		return invalidResponseError()
 	}
 	retry := 0
+	retryHeaders, retryHeaderPresent := headerValues(header, "Retry-After")
 	if status == http.StatusTooManyRequests {
 		seconds, ok := jsonInt64(detail, "retry_after_seconds")
-		headerSeconds, headerErr := strconv.Atoi(header.Get("Retry-After"))
-		if !ok || seconds <= 0 || seconds > int64(^uint(0)>>1) || headerErr != nil || headerSeconds != int(seconds) {
+		if !ok || seconds <= 0 || seconds > int64(^uint(0)>>1) ||
+			!retryHeaderPresent || len(retryHeaders) != 1 ||
+			retryHeaders[0] != strconv.FormatInt(seconds, 10) {
 			return invalidResponseError()
 		}
 		retry = int(seconds)
-	} else if detail["retry_after_seconds"] != nil || header.Get("Retry-After") != "" {
+	} else if detail["retry_after_seconds"] != nil || retryHeaderPresent {
 		return invalidResponseError()
 	}
 	return &OnboardingClientError{Kind: kind, Status: status, Code: code, RetryAfterSeconds: retry}
+}
+
+func headerValues(header http.Header, name string) ([]string, bool) {
+	var values []string
+	present := false
+	for key, entries := range header {
+		if strings.EqualFold(key, name) {
+			present = true
+			values = append(values, entries...)
+		}
+	}
+	return values, present
+}
+
+func deleteHeaderFold(header http.Header, name string) {
+	for key := range header {
+		if strings.EqualFold(key, name) {
+			delete(header, key)
+		}
+	}
 }
 
 func endpointAllowsError(path string, status int, code string) bool {

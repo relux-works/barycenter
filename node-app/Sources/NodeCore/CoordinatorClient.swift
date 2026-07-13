@@ -67,7 +67,7 @@ public final class CoordinatorClient: NSObject {
 
     private func connect() {
         guard !stopped else { return }
-        log.info("connecting to coordinator", ["url": url.absoluteString])
+        log.info("connecting to coordinator", ["origin": URLRedactor.originOnly(url)])
         let t = session.webSocketTask(with: url)
         task = t
         t.resume()
@@ -114,13 +114,14 @@ public final class CoordinatorClient: NSObject {
         do {
             let data = try ProtocolCodec.encode(id: id, ts: Self.nowMs(), message: message)
             task?.send(.data(data)) { [weak self] error in
-                if let error {
-                    self?.log.warn("ws send failed", ["type": message.typeName, "err": "\(error)"])
+                if error != nil {
+                    self?.log.warn("ws send failed", ["type": URLRedactor.safeProtocolType(message.typeName)])
                 }
             }
-            log.debug("sent", ["type": message.typeName, "id": id])
+            log.debug("sent", ["type": URLRedactor.safeProtocolType(message.typeName), "id": id])
         } catch {
-            log.error("encode failed", ["type": message.typeName, "err": "\(error)"])
+            _ = error
+            log.error("encode failed", ["type": URLRedactor.safeProtocolType(message.typeName)])
         }
     }
 
@@ -129,8 +130,8 @@ public final class CoordinatorClient: NSObject {
             guard let self else { return }
             self.queue.async {
                 switch result {
-                case .failure(let error):
-                    self.log.warn("ws receive failed, reconnecting", ["err": "\(error)"])
+                case .failure:
+                    self.log.warn("ws receive failed, reconnecting")
                     self.scheduleReconnect()
                 case .success(let wsMessage):
                     let t4 = Self.nowMs()
@@ -153,13 +154,13 @@ public final class CoordinatorClient: NSObject {
         do {
             (head, message) = try ProtocolCodec.decode(data)
         } catch ProtocolError.unknownType(let t) {
-            log.warn("unknown message type ignored", ["type": t]) // spec 8.6
+            log.warn("unknown message type ignored", ["type": URLRedactor.safeProtocolType(t)]) // spec 8.6
             return
         } catch {
-            log.warn("bad frame", ["err": "\(error)"])
+            log.warn("bad frame")
             return
         }
-        log.debug("received", ["type": head.type, "id": head.id])
+        log.debug("received", ["type": URLRedactor.safeProtocolType(head.type), "id": head.id])
 
         if case .pong(let p) = message {
             let accepted = clock.addSample(t1: p.t1, t2: p.t2, t3: p.t3, t4: t4)

@@ -1,0 +1,66 @@
+@startuml
+!theme plain
+title P1 Generic Media Ingest and Storage - Component View
+
+actor "Pulsar App" as App
+actor "Telegram Bot" as Tg
+actor "Playback Node" as Node
+actor "Authorized Control Actor" as Control
+
+rectangle "Coordinator" {
+  [Upload Session API] as UploadAPI
+  [Telegram Media Adapter] as TgAdapter
+  [SubmitMedia Service] as SubmitMedia
+  [Quota + Idempotency Gate] as Gate
+  [Signature Probe + ffprobe] as Probe
+  [ffmpeg Normalizer] as Normalize
+  [Target-snapshot ACL] as MediaACL
+  [Delete + Retention Worker] as Lifecycle
+  [Generic Media API] as MediaAPI
+  [Legacy Voice Mapper] as Legacy
+  [Retention + Failed Upload Cleanup] as Retention
+}
+
+database "SQLite\nmedia_items/uploads/audit" as DB
+folder "Storage\n(temp bytes + canonical WAV)" as Blob
+collections "Transmission / Legacy Queue State" as Delivery
+
+App --> UploadAPI : create session\nupload bytes
+UploadAPI --> Gate
+Gate --> SubmitMedia
+
+Tg --> TgAdapter : voice/audio update
+TgAdapter --> SubmitMedia : source=telegram
+
+SubmitMedia --> Probe : magic bytes\nffprobe timeout
+Probe --> Normalize : valid clip only
+Normalize --> Blob : canonical WAV
+Normalize --> DB : duration/hash/loudness/status
+SubmitMedia --> DB : upload/media state\naudit metadata
+SubmitMedia --> Legacy : compatibility WAV mapping
+Legacy --> Delivery : after_current / play_voice bridge
+
+Control --> MediaAPI : GET / DELETE media
+Node --> MediaAPI : GET canonical media
+MediaAPI --> MediaACL : authorize owner or\nimmutable target snapshot
+MediaAPI --> Lifecycle : logical delete +\ncancel pending delivery
+MediaACL --> DB : target / owner / revoked state
+Lifecycle --> DB : delete + expiry state
+MediaAPI --> Blob
+
+Retention --> Lifecycle : expiry scan
+Lifecycle --> Blob : purge failed/temp/deleted bytes
+
+note right of SubmitMedia
+  Common entry point for app uploads and Telegram.
+  No input becomes ready without probe, limits,
+  canonicalization, and persisted status.
+end note
+
+note bottom of MediaAPI
+  Phase 1 keeps legacy WAV compatibility while
+  moving authorization and lifecycle into the
+  generic media model.
+end note
+
+@enduml

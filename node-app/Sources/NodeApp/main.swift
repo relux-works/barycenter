@@ -81,8 +81,9 @@ func parseArgs() -> String {
             do {
                 try CredentialsStore.save(creds)
             } catch {
-                // Headless keychain (rare): fall back to the legacy file.
-                try? creds.save(besideConfig: configPath)
+                FileHandle.standardError.write(
+                    Data("не удалось безопасно сохранить учётные данные в Keychain\n".utf8))
+                exit(1)
             }
             print("спарено: орбит \(creds.orbitId), дом \(creds.slot) — запускай Pulsar как обычно")
             exit(0)

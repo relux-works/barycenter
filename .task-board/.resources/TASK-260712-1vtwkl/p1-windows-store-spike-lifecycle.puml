@@ -1,0 +1,47 @@
+@startuml
+title P1.0 Windows Store Spike - Probe Flow
+
+skinparam shadowing false
+
+actor User
+participant "Probe Shell" as Shell
+participant "Tray Loop" as Tray
+participant "Capture Bridge" as Capture
+participant "File Picker" as Picker
+participant "Windows OS" as OS
+participant "Evidence Log" as Log
+
+User -> Shell : launch signed MSIX probe
+Shell -> Tray : start tray / hidden window loop
+Shell -> Log : record OS build and package identity
+
+User -> Tray : start Record
+Tray -> Capture : request capture start
+Capture -> OS : request microphone permission
+OS --> Capture : granted or denied
+Capture -> Log : record permission result
+
+alt permission granted
+  Capture -> OS : capture default or selected input
+  Capture -> Log : record device id and start
+  User -> Shell : hide main window
+  Shell -> Log : confirm capture continues hidden
+  User -> Tray : toggle hotkey stop
+  Tray -> Capture : stop capture
+  Capture -> Log : record clean stop
+else permission denied
+  Capture -> Log : record denial and honest failure
+end
+
+User -> Shell : open file picker
+Shell -> Picker : request standard picker
+Picker -> OS : brokered file selection
+Picker -> Log : record picker result
+
+User -> OS : quit, lock, suspend, or revoke permission
+OS -> Capture : lifecycle signal or callback
+Capture -> Log : record stop path and cleanup result
+Shell -> Tray : unregister hotkey and exit
+Shell -> Log : finalize evidence bundle
+
+@enduml

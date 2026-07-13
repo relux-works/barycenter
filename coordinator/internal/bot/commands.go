@@ -15,24 +15,25 @@ import (
 type CommandKind string
 
 const (
-	KindLink       CommandKind = "link"     // bare track link -> enqueue
-	KindPlaylist   CommandKind = "playlist" // playlist/album link -> shared base layer (U10)
-	KindTakeover   CommandKind = "takeover" // /takeover user|coordinator (U9)
-	KindPlayNow    CommandKind = "playnow"
-	KindQueue      CommandKind = "queue"
-	KindCancel     CommandKind = "cancel"
-	KindSkip       CommandKind = "skip"
-	KindPause      CommandKind = "pause"
-	KindResume     CommandKind = "resume"
-	KindVol        CommandKind = "vol"
-	KindInject     CommandKind = "inject"
-	KindMode       CommandKind = "mode"
-	KindNow        CommandKind = "now"
-	KindStatus     CommandKind = "status"
-	KindSync       CommandKind = "sync"
-	KindOffset     CommandKind = "offset"
-	KindOffsetTest CommandKind = "offset_test"
-	KindIgnore     CommandKind = "ignore" // plain chatter: stay silent (spec 9.2)
+	KindLink         CommandKind = "link"     // bare track link -> enqueue
+	KindPlaylist     CommandKind = "playlist" // playlist/album link -> shared base layer (U10)
+	KindTakeover     CommandKind = "takeover" // /takeover user|coordinator (U9)
+	KindPlayNow      CommandKind = "playnow"
+	KindQueue        CommandKind = "queue"
+	KindCancel       CommandKind = "cancel"
+	KindSkip         CommandKind = "skip"
+	KindPause        CommandKind = "pause"
+	KindResume       CommandKind = "resume"
+	KindVol          CommandKind = "vol"
+	KindInject       CommandKind = "inject"
+	KindMode         CommandKind = "mode"
+	KindNow          CommandKind = "now"
+	KindStatus       CommandKind = "status"
+	KindSync         CommandKind = "sync"
+	KindOffset       CommandKind = "offset"
+	KindOffsetTest   CommandKind = "offset_test"
+	KindTelegramLink CommandKind = "telegram_link" // one-time app-issued bot link code
+	KindIgnore       CommandKind = "ignore"        // plain chatter: stay silent (spec 9.2)
 
 	// v2.1 multi-tenant onboarding & orbit administration
 	KindStart       CommandKind = "start"        // /start [invite payload]
@@ -84,6 +85,9 @@ func Parse(text string) (Command, error) {
 	}
 
 	if !strings.HasPrefix(trimmed, "/") {
+		if isTelegramLinkCode(trimmed) {
+			return Command{Kind: KindTelegramLink, Target: trimmed}, nil
+		}
 		ref, err := links.ParseRef(trimmed)
 		switch {
 		case err == nil && ref.Kind == "track":
@@ -283,6 +287,24 @@ func Parse(text string) (Command, error) {
 	}
 
 	return Command{}, ErrReply{"не знаю такой команды. /help покажет список"}
+}
+
+func isTelegramLinkCode(value string) bool {
+	var canonical strings.Builder
+	for _, r := range value {
+		switch r {
+		case '-', ' ', '\t', '\r', '\n', '\v', '\f':
+			continue
+		}
+		if r >= 'a' && r <= 'z' {
+			r -= 'a' - 'A'
+		}
+		if !strings.ContainsRune("ABCDEFGHJKMNPQRSTVWXYZ23456789", r) {
+			return false
+		}
+		canonical.WriteRune(r)
+	}
+	return canonical.Len() == 27
 }
 
 const helpText = `<b>Барицентр</b> — общая музыка на два дома: одно и то же играет у вас обоих, а голосовые встают между песнями. barycenter.live

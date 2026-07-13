@@ -1,0 +1,62 @@
+@startuml
+title P3 Live PTT - task seams
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor User
+
+package "Story TASKs" {
+  rectangle "TASK-260712-9wivva\nHold-input spike" as HoldSpike
+  rectangle "TASK-260712-3qviqc\nWire contract + codec policy" as Contract
+  rectangle "TASK-260712-3vzbbl\nCoordinator live runtime" as Runtime
+  rectangle "TASK-260712-2kj9kj\nmacOS node integration" as MacNode
+  rectangle "TASK-260712-2jbo5i\nWindows node integration" as WinNode
+  rectangle "TASK-260712-1rzqh9\nLatency + regression evidence" as Verify
+}
+
+package "External story dependencies" {
+  rectangle "STORY-260712-30ju1k\nWindows packaged spike" as WinSpike
+  rectangle "STORY-260712-2e36uz\nP1 capture + toggle UI" as Capture
+  rectangle "STORY-260712-25lysg\nP1 transmission protocol" as Tx
+  rectangle "STORY-260712-fes2jj\nP1 overlay / interrupt mixer" as Mixer
+  rectangle "STORY-260712-3v14m9\nP2 Air rooms" as Air
+  rectangle "STORY-260712-2ori1t\nP2 streamed tracks" as Tracks
+  rectangle "STORY-260712-3l1r1u\nP2 codec spike" as Codec
+  rectangle "STORY-260712-2ft5wd\nP3 acceptance + rollout" as Accept
+}
+
+User --> HoldSpike
+
+WinSpike --> HoldSpike : packaged constraints
+Capture --> HoldSpike : phase-1 baseline
+
+HoldSpike --> Contract
+Tx --> Contract : capability + receipts
+Codec --> Contract : codec / legal input
+
+Contract --> Runtime
+Contract --> MacNode
+Contract --> WinNode
+
+Air --> Runtime : current Air / sealed targets
+Tracks --> Runtime : live over main program
+Mixer --> Runtime : duck timing contract
+
+Capture --> MacNode : macOS capture + menu
+Capture --> WinNode : Windows capture + tray
+Mixer --> MacNode : live duck / jitter output
+Mixer --> WinNode : live duck / jitter output
+
+Runtime --> Verify
+MacNode --> Verify
+WinNode --> Verify
+Verify --> Accept : C1/C2 evidence handoff
+
+note bottom of Verify
+Covers C1-C2 only.
+C3-C7 stay in sibling P3 stories.
+end note
+
+@enduml

@@ -41,7 +41,11 @@ struct CredentialsTests {
             orbitId: 7, slot: "c",
             token: String(repeating: "f", count: 64),
             wsUrl: "wss://barycenter.relux.works/ws")
-        try creds.save(besideConfig: configPath)
+        // A pre-upgrade fixture is written explicitly. Production save APIs no
+        // longer create plaintext files; this loader remains only so the
+        // Keychain repository can migrate existing installations.
+        let legacyData = try JSONEncoder().encode(creds)
+        try legacyData.write(to: NodeCredentials.fileURL(besideConfig: configPath))
 
         let loaded = NodeCredentials.load(besideConfig: configPath)
         #expect(loaded == creds)

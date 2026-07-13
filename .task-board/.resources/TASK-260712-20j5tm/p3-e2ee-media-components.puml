@@ -1,0 +1,65 @@
+@startuml
+title P3 End-to-end Encrypted Media Components
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "Sender Pulsar" {
+  component "Local Media Prep\nnormalize / encode / encrypt" as SenderPrep
+  component "E2EE Key Store\ncurrent epochs / grants" as SenderKeys
+  component "Grant + Report Consent UI" as SenderConsent
+}
+
+package "Coordinator" {
+  component "Ciphertext Router\nupload / fetch / schedule" as Router
+  component "Epoch + Grant Service\njoin / leave / revoke" as Epochs
+  component "Report Service\nmetadata + evidence audit" as Reports
+  database "Opaque Object Storage\nciphertext + manifests" as Objects
+  database "Identity + Air + Target Snapshot Store" as IdentityStore
+}
+
+package "Recipient Pulsar" {
+  component "Grant + Recovery UI" as RecipientGrant
+  component "E2EE Key Store\ncurrent epochs / grants" as RecipientKeys
+  component "Decrypt Cache + Playback" as RecipientPlay
+  component "Voluntary Evidence Export" as RecipientExport
+}
+
+package "Moderation" {
+  component "Operator Review Surface\nexplicit evidence only" as Moderator
+}
+
+SenderPrep --> SenderKeys : media keys / recipient wraps
+SenderPrep --> Router : ciphertext + manifest\n(no plaintext media)
+SenderConsent --> SenderPrep : explicit send / grant intent
+
+Router --> Objects : store opaque blobs
+Router --> Epochs : resolve epoch + recipients
+Epochs --> IdentityStore : Air members / roles /\ntarget snapshots / revokes
+Reports --> IdentityStore : actor / policy checks
+Reports --> Objects : evidence package refs
+
+Router --> RecipientPlay : manifest + ciphertext refs
+Epochs --> RecipientGrant : grant / transfer / recovery state
+RecipientGrant --> RecipientKeys : accepted epochs / grants
+RecipientPlay --> RecipientKeys : unwrap keys / verify epochs
+RecipientExport --> Reports : optional decrypted evidence copy
+
+Moderator --> Reports : read audit + provided evidence
+
+note right of Router
+Coordinator routes ciphertext, manifests,
+wrapped keys, and audit metadata only.
+It must not decode protected media.
+end note
+
+note right of RecipientExport
+Decrypted evidence exists only when a
+recipient explicitly exports it for a report.
+No hidden server decrypt path is allowed.
+end note
+
+note bottom of SenderKeys
+Key material remains in OS secure storage
+on Pulsar clients, not in coordinator rows.
+end note
+@enduml

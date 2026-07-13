@@ -1,0 +1,52 @@
+@startuml
+title P3 Live PTT - press, hold, release and stale-session safety
+autonumber
+
+actor User
+participant "Sender Pulsar" as Sender
+participant "Coordinator\nTASK-260712-3vzbbl" as Coord
+participant "Receiver Pulsar" as Receiver
+participant "Main program / duck controller" as Mix
+
+User -> Sender : press and hold
+Sender -> Sender : validate global key-down/up path\nor fall back to toggle
+Sender -> Coord : live_start(session_id, generation,\naudience, codec, delivery=overlay)
+Coord -> Receiver : live_start(...)\nsealed target set only
+Coord -> Mix : pre-duck at live speech boundary
+
+loop while hold is active
+  Sender -> Coord : live_chunk(seq, chunk, capture_ts)
+  Coord -> Receiver : live_chunk(seq, chunk, live policy)
+  Receiver -> Receiver : bounded jitter buffer\nreject stale generation
+  Receiver -> Mix : mix speech over main program
+
+  alt receiver reconnects mid-session
+    Coord -> Receiver : deny old session\nor attach only at allowed live edge
+  else sender or coordinator sees backpressure
+    Coord -> Sender : throttle or cancel per frozen contract
+  end
+end
+
+alt release is received
+  User -> Sender : release
+  Sender -> Coord : live_end(session_id, generation)
+else lock, quit or lost-release safeguard fires
+  Sender -> Coord : live_cancel(session_id, generation, reason)
+end
+
+Coord -> Receiver : live_end or live_cancel
+Receiver -> Receiver : drain bounded tail only
+Coord -> Mix : release duck
+Receiver -> Mix : stop stale session playback
+
+note over Sender,Coord
+TASK-260712-9wivva freezes the supported
+hold-input path and fallback rules first.
+end note
+
+note over Coord,Receiver
+TASK-260712-3qviqc freezes the exact message
+names, chunk policy and generation semantics.
+end note
+
+@enduml

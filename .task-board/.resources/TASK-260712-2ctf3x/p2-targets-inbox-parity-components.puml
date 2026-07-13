@@ -1,0 +1,63 @@
+@startuml
+title P2 Explicit Targets, Inbox, and Transport Parity - Components
+
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultTextAlignment left
+
+actor "Pulsar UI" as ui
+actor "Telegram Adapter" as tg
+actor "Support/Admin" as admin
+
+package "Coordinator" {
+  component "Common Media Ingest\nSubmitMedia / Upload / Normalize" as ingest
+  component "Transmission Application Service\nCreate / Replay / Delete / Cancel" as txsvc
+  component "Audience Resolver\nAir / Own / Explicit -> Snapshot" as resolver
+  component "Inbox and Receipt Query Service\nHistory / Pagination / Aggregates" as inboxsvc
+  component "Rights and Policy Service\nContent policy / report / disable" as rights
+  component "Media ACL Authorizer\nGET /media + revoke fetch" as acl
+  component "Delivery Runtime\nClip scheduler + track queue policy" as runtime
+}
+
+database "Store\nmedia_items\ntransmissions\ntransmission_targets\ninbox rows\nreports\nairs / air_members" as db
+component "Air Membership and Presence\n(active Air, capabilities, DND)" as air
+component "Windows/macOS Pulsars" as nodes
+
+ui --> ingest : upload / record / select media
+ui --> txsvc : create transmission\nreplay / delete / cancel
+ui --> inboxsvc : history / inbox / receipts
+ui --> rights : accept policy / report / mute
+
+tg --> ingest : voice / audio / document
+tg --> txsvc : identical delivery actions\nqueue / replace / targets
+tg --> inboxsvc : status / receipts
+tg --> rights : policy / report errors
+
+txsvc --> resolver : resolve exact targets
+resolver --> air : current Air members\ncapabilities / DND
+txsvc --> runtime : schedule clip or main-program action
+txsvc --> db : persist transmission\nsnapshot / expiry
+inboxsvc --> db : read inbox / receipts\nwith pagination
+runtime --> db : update per-target receipts\ncreate inbox entries
+runtime --> nodes : prepare / play / queue / replace
+acl --> db : authorize by target snapshot\nand disable / delete state
+nodes --> acl : authenticated media fetch
+rights --> db : reports / delete / disable
+rights --> acl : revoke future fetch
+admin --> rights : review report / disable actor
+
+note right of acl
+Current implementation still authorizes media by
+owner-or-active-approach and does not use immutable
+target snapshots.
+end note
+
+note bottom of txsvc
+Current Telegram flow still owns targeting and the
+"personal with >1 recipient becomes broadcast" fallback.
+Phase 2 replaces that with transport-neutral
+N-recipient delivery.
+end note
+
+@enduml

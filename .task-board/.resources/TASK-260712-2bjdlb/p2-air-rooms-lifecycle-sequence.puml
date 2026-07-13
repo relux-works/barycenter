@@ -1,0 +1,57 @@
+@startuml
+title P2 Air Rooms - Lifecycle, Alias, and Leave Flow
+
+skinparam shadowing false
+autonumber
+
+actor "Primary A" as A
+actor "Primary B" as B
+participant "Air lifecycle service" as Service
+database "Store" as Store
+participant "Runtime resolver" as Runtime
+participant "A/B/C Pulsars" as Nodes
+
+== Startup migration ==
+A -> Service : boot / first Air-aware action
+Service -> Store : backfill active links -> two-member Airs
+Store --> Service : stable air_id + memberships
+
+note right of Service
+  /approach remains a compatibility alias.
+  It now creates or joins a two-member Air
+  instead of mutating a long-lived link session.
+end note
+
+== Create and join ==
+A -> Service : create Air + invite
+Service -> Store : insert air, invite, owner membership
+Store --> Service : air_id, invite code
+Service --> A : invite code + pending state
+
+B -> Service : consume invite / request join
+Service -> Store : add pending member
+Store --> Service : pending membership
+Service --> B : waiting for local confirm
+
+B -> Service : confirm join
+Service -> Store : mark member active\nset active Air for B
+Service -> Runtime : activate air_id\nbuild peer union
+Runtime -> Nodes : shared session key = air_id
+Service --> A : Air active
+Service --> B : Air active
+
+== Leave / apart ==
+B -> Service : leave current Air\n(or /apart alias)
+Service -> Store : mark B left\nclear B active-air pointer
+Service -> Runtime : detach B only
+Runtime -> Nodes : stop/fade B
+Runtime -> Nodes : A + C continue\nshared playback
+Service --> B : personal orbit restored
+Service --> A : Air continues if >= 2 barycenters remain
+
+alt fewer than two barycenters remain
+  Service -> Store : mark Air parked
+  Service -> Runtime : park shared session\nkeep personal state intact
+end
+
+@enduml

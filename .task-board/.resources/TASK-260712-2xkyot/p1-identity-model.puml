@@ -1,0 +1,92 @@
+@startuml
+!theme plain
+
+title P1 Identity Domain Model
+
+hide methods
+hide stereotypes
+skinparam classAttributeIconSize 0
+
+class Orbit {
+  id
+  title
+  created_at
+  status
+}
+
+class Actor {
+  id
+  kind
+  display_name
+  external_ref
+  revoked_at
+}
+
+class Membership {
+  orbit_id
+  actor_id
+  role
+  joined_at
+  left_at
+}
+
+class AppInstallationCredential {
+  actor_id
+  slot
+  node_token_hash
+  control_token_hash
+  recovery_secret_hash
+  paired_at
+  revoked_at
+}
+
+class DeviceInvite {
+  code_hash
+  orbit_id
+  issued_by_actor_id
+  intended_role
+  expires_at
+  consumed_at
+}
+
+class TelegramLinkCode {
+  code_hash
+  orbit_id
+  actor_id
+  desired_role
+  expires_at
+  consumed_at
+}
+
+class AuditEvent {
+  id
+  orbit_id
+  actor_id
+  type
+  created_at
+}
+
+Orbit "1" -- "many" Membership
+Actor "1" -- "many" Membership
+Actor "1" -- "0..1" AppInstallationCredential
+Orbit "1" -- "many" DeviceInvite
+Actor "1" -- "many" DeviceInvite
+Orbit "1" -- "many" TelegramLinkCode
+Actor "1" -- "many" TelegramLinkCode
+Orbit "1" -- "many" AuditEvent
+Actor "0..1" -- "many" AuditEvent
+
+note right of AppInstallationCredential
+  node_token is playback-only
+  control_token is actor-scoped
+  server stores only hashes
+  client stores plaintext in
+  Keychain or DPAPI
+end note
+
+note bottom of Membership
+  Existing Telegram members migrate
+  into actors without role changes.
+end note
+
+@enduml

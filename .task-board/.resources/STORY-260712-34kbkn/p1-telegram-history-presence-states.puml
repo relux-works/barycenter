@@ -1,0 +1,43 @@
+@startuml
+title P1 History and Receipt Lifecycle
+
+hide empty description
+
+state "Client-visible history item" as History {
+  [*] --> processing
+  processing --> ready : media normalized
+  processing --> error : probe/transcode failed
+  ready --> playing : started on target set
+  ready --> partial : mixed target outcome
+  ready --> error : no playable targets\nor cancelled failure
+  playing --> played : all started targets ended
+  playing --> partial : some targets failed or missed
+  partial --> [*]
+  played --> [*]
+  error --> [*]
+}
+
+state "Per-target receipt detail" as Receipt {
+  [*] --> accepted
+  accepted --> preparing
+  preparing --> ready
+  ready --> scheduled
+  scheduled --> playing
+  playing --> played
+
+  accepted --> missed_offline
+  accepted --> missed_dnd
+  accepted --> missed_not_ready
+  accepted --> blocked
+  accepted --> failed
+}
+
+History ..> Receipt : aggregates exact reasons
+
+note bottom
+  Presence surfaces may show online/offline, output state,
+  playback state, required capability support, DND, and block.
+  They must never expose microphone state or local process names.
+end note
+
+@enduml

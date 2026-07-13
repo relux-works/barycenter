@@ -1,0 +1,119 @@
+@startuml
+title P1.0 Windows Store Spike - Probe Flow
+
+skinparam shadowing false
+
+actor User
+participant "Probe Shell" as Shell
+participant "Tray Loop" as Tray
+participant "Capture Bridge" as Capture
+participant "Partial Artifact" as Artifact
+participant "File Picker" as Picker
+participant "Windows OS" as OS
+participant "Evidence Log" as Log
+
+User -> Shell : launch signed MSIX probe
+Shell -> Tray : start tray / hidden window loop
+Shell -> Log : record OS build and package identity
+
+User -> Tray : start Record
+Tray -> Capture : request capture start
+Capture -> OS : request microphone permission
+OS --> Capture : granted or denied
+Capture -> Log : record permission result
+
+alt permission granted
+  Capture -> OS : capture default or selected input
+  Capture -> Artifact : append owned .partial
+  Capture -> Log : record device id and start
+  User -> Shell : hide main window
+  Shell -> Log : confirm capture continues hidden
+  User -> Tray : toggle hotkey stop
+  Tray -> Capture : stop capture
+  Capture -> Artifact : finalize or fail-closed abort
+  Capture -> Log : record clean stop and release
+else permission denied
+  Capture -> Log : record denial and honest failure
+end
+
+User -> Shell : open file picker
+Shell -> Picker : request standard picker
+Picker -> OS : brokered file selection
+Picker -> Log : record picker result
+
+alt explicit graceful quit
+  User -> Shell : Quit or Ctrl-C/SIGTERM
+  Shell -> Log : signal_observed(quit)
+  Shell -> Capture : nonblocking Stop(cancel)
+  Capture -> Artifact : finalize or fail-closed abort
+  Capture -> Log : terminal, artifact, Release in order
+  Shell -> Capture : unsubscribe permission callback
+  Shell -> Tray : unregister hotkey
+  Shell -> OS : unregister WTS notifications
+  Shell -> Capture : CapDestroy after quiescence
+  Shell -> Log : sync, record exit-ready, sync
+  Shell -> OS : PostQuitMessage
+else suspend
+  OS -> Shell : WM_POWERBROADCAST(PBT_APMSUSPEND)
+  Shell -> Log : signal_observed(suspend)
+  Shell -> Capture : nonblocking Stop(suspend)
+  Capture -> Artifact : finalize or fail-closed abort
+  Capture -> Log : terminal, artifact, Release in order
+  Shell -> Tray : unregister hotkey
+  Shell -> Log : idle(no hidden capture)
+  OS -> Shell : resume notification
+  Shell -> Tray : rearm after permission check
+else session lock
+  OS -> Shell : WM_WTSSESSION_CHANGE(WTS_SESSION_LOCK)
+  Shell -> Log : signal_observed(session lock)
+  Shell -> Capture : nonblocking Stop(lock)
+  Capture -> Artifact : finalize or fail-closed abort
+  Capture -> Log : terminal, artifact, Release in order
+  Shell -> Tray : unregister hotkey
+  Shell -> Log : idle(no hidden capture)
+  OS -> Shell : WTS_SESSION_UNLOCK
+  Shell -> Tray : rearm after permission check
+else microphone permission revoke
+  OS -> Shell : AppCapability.AccessChanged
+  Shell -> Capture : waiter-owned permission query
+  Shell -> Log : signal_observed(permission revoke)
+  Shell -> Capture : nonblocking Stop(permission revoke)
+  Capture -> Artifact : fail-closed finalize or abort
+  Capture -> Log : terminal, artifact, Release in order
+  Shell -> Tray : unregister hotkey
+  Shell -> Log : idle(no hidden capture)
+  OS -> Shell : access allowed notification
+  Shell -> Tray : rearm after permission check
+else shutdown query is cancelled
+  OS -> Shell : WM_QUERYENDSESSION
+  Shell -> Log : signal_observed(shutdown query)
+  Shell -> Capture : nonblocking Stop(shutdown)
+  OS -> Shell : WM_ENDSESSION(FALSE)
+  Capture -> Artifact : ordinary finalize or fail-closed abort
+  Capture -> Log : terminal, artifact, Release in order
+  Shell -> Tray : unregister hotkey, then rearm
+  Shell -> Log : idle(cancelled shutdown)
+else confirmed WM_ENDSESSION
+  OS -> Shell : WM_ENDSESSION(TRUE)
+  Shell -> Capture : exact-owner nonblocking Stop(shutdown)
+  Shell -> Shell : close start gate; latch confirmed; wake waiter
+  note right of Shell
+    Reject every ordinary operation that did not
+    acquire its own permit before gate closure.
+  end note
+  Capture -> Artifact : one bounded buffered append to existing .partial
+  note right of Artifact
+    Only the bounded append is admitted.
+    Ordinary cleanup, lifecycle success,
+    UI, and evidence work stay rejected.
+  end note
+  Shell -> OS : waiter exits; process teardown is OS-owned
+  OS -> Artifact : startup recovery owns remaining .partial
+end
+
+note right of Tray
+  Resume, unlock, and permission recovery never
+  restart capture automatically.
+end note
+
+@enduml

@@ -1,0 +1,73 @@
+@startuml
+title P3 Acceptance - Evidence and Dependency Map
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+left to right direction
+
+rectangle "Upstream implementation stories" {
+  [P3 live PTT\nC1-C2 evidence + rollback notes] as Live
+  [P3 capture quality\nC3 matrix + capability wording] as Capture
+  [P3 E2EE media\nC4-C6 proof + key lifecycle] as Crypto
+  [P3 automation\nC7 proof + revoke semantics] as Auto
+  [P1 compliance baseline\npolicy + moderation + Store ops] as Compliance
+}
+
+rectangle "P3 acceptance story" {
+  [Gate matrix + review contract] as Matrix
+  [Observability + health views] as Metrics
+  [C1-C3 live platform matrix] as C123
+  [C4-C6 crypto/privacy acceptance] as C456
+  [C7 automation safety acceptance] as C7
+  [External security review closure] as Review
+  [Rollout + rollback + recovery drills] as Rollback
+  [7-day beta + incident review] as Beta
+  [Promotion packet + disclosures] as Packet
+}
+
+Live --> Matrix
+Live --> Metrics
+Capture --> Matrix
+Capture --> C123
+Crypto --> C456
+Crypto --> Review
+Crypto --> Rollback
+Auto --> C7
+Auto --> Review
+Auto --> Beta
+Compliance --> C456
+Compliance --> Packet
+
+Matrix --> Metrics
+Matrix --> C123
+Matrix --> C456
+Matrix --> C7
+Metrics --> C123
+Metrics --> C456
+Metrics --> C7
+Metrics --> Rollback
+Metrics --> Beta
+C123 --> Review
+C123 --> Rollback
+C456 --> Review
+C456 --> Rollback
+C7 --> Review
+C7 --> Rollback
+Review --> Beta
+Rollback --> Beta
+C123 --> Packet
+C456 --> Packet
+C7 --> Packet
+Review --> Packet
+Rollback --> Packet
+Beta --> Packet
+
+note bottom of Packet
+Final packet maps every artifact to:
+- C1-C7
+- 21.4 non-functional gates
+- 18 rollout / rollback order
+- exact live_ptt vs e2ee_media claims
+end note
+
+@enduml

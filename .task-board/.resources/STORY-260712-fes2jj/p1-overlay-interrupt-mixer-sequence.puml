@@ -1,0 +1,46 @@
+@startuml
+!pragma teoz true
+title P1 overlay and interrupt runtime sequence
+skinparam shadowing false
+
+autonumber
+participant Coordinator
+participant Node as "Node player"
+participant Cache as "Prepared clip cache"
+participant Mixer
+participant Provider as "Main provider"
+participant Output
+
+== Prepare barrier ==
+Coordinator -> Node : prepare_media(media_id, url, sha256, duration)
+Node -> Cache : download / hash / decode\noff render thread
+Cache --> Node : prepared clip handle
+Node --> Coordinator : media_ready(decoded_duration)
+
+alt delivery = overlay
+  Coordinator -> Node : play_media_at(T, overlay,\nduck_db, attack, release)
+  Node -> Mixer : arm clip and pre-duck
+  Provider -> Mixer : main PCM continues
+  Node --> Coordinator : media_started
+  Mixer -> Output : main * duck_gain + clip\nthen limiter
+  Node --> Coordinator : media_ended
+  Node -> Mixer : release duck while\nmain timeline keeps advancing
+else delivery = interrupt
+  Coordinator -> Node : play_media_at(T, interrupt, ...)
+  Node -> Mixer : fade main 250 ms\nand capture audible position
+  Node -> Provider : pause after buffered tail
+  Node -> Mixer : play prepared clip branch
+  Node --> Coordinator : media_started
+  Mixer -> Output : clip branch dominates
+  Node -> Provider : seek or resume preserved position
+  Node -> Mixer : fade main in 120 ms
+  Node --> Coordinator : media_ended
+end
+
+opt cancel before start or mid-clip
+  Coordinator -> Node : cancel transmission
+  Node -> Mixer : clear armed or active clip state
+  Node -> Provider : clear pending pause or resume timers
+  Node --> Coordinator : media_cancelled or media_failed
+end
+@enduml

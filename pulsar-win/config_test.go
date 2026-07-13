@@ -1,10 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -61,8 +59,8 @@ func TestConfigSaveRoundTrip(t *testing.T) {
 }
 
 func TestCredentialsRoundTripAndPermissions(t *testing.T) {
-	dir := t.TempDir()
-	if creds, err := LoadCredentials(dir); err != nil || creds != nil {
+	repository, files := newTestCredentialRepository(t)
+	if creds, err := LoadCredentialsFromRepository(repository); err != nil || creds != nil {
 		t.Fatalf("unpaired state must be (nil, nil), got (%v, %v)", creds, err)
 	}
 	creds := Credentials{
@@ -70,31 +68,21 @@ func TestCredentialsRoundTripAndPermissions(t *testing.T) {
 		Token: strings.Repeat("ab", 32),
 		WSURL: "wss://barycenter.relux.works/ws",
 	}
-	if err := creds.Save(dir); err != nil {
+	if err := creds.SaveToRepository(repository); err != nil {
 		t.Fatal(err)
 	}
-	loaded, err := LoadCredentials(dir)
+	loaded, err := LoadCredentialsFromRepository(repository)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if *loaded != creds {
 		t.Fatalf("round trip mismatch: %+v", loaded)
 	}
-	if runtime.GOOS != "windows" { // POSIX perms are meaningless on Windows (DPAPI TODO covers it)
-		info, _ := os.Stat(filepath.Join(dir, credentialsFileName))
-		if info.Mode().Perm() != 0o600 {
-			t.Fatalf("credentials must be 0600, got %v", info.Mode().Perm())
-		}
+	if _, ok := files.data[repository.activePath()]; !ok {
+		t.Fatal("protected destination was not written")
 	}
-	// The on-disk shape must stay wire-compatible with the macOS
-	// node-credentials.json (same keys, pairing response verbatim).
-	raw, _ := os.ReadFile(filepath.Join(dir, credentialsFileName))
-	var keys map[string]any
-	json.Unmarshal(raw, &keys)
-	for _, k := range []string{"orbit_id", "slot", "token", "ws_url"} {
-		if _, ok := keys[k]; !ok {
-			t.Fatalf("credentials.json missing key %q: %s", k, raw)
-		}
+	if _, ok := files.data[filepath.Join(repository.dir, credentialsFileName)]; ok {
+		t.Fatal("plaintext credentials must not be created")
 	}
 }
 
@@ -125,5 +113,10 @@ func TestValidateCredentials(t *testing.T) {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("error must name %s:\n%s", want, err)
 		}
+	}
+	plaintextRemote := good
+	plaintextRemote.WSURL = "ws://127.0.0.2/ws"
+	if err := ValidateCredentials(plaintextRemote); err == nil {
+		t.Fatal("non-loopback plaintext websocket accepted")
 	}
 }

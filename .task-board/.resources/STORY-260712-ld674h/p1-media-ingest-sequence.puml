@@ -1,0 +1,57 @@
+@startuml
+!theme plain
+title P1 Generic Media Ingest and Storage - Ingest Sequence
+
+actor "Pulsar App" as App
+participant "Upload Session API" as API
+participant "Quota + Idempotency Gate" as Gate
+participant "SubmitMedia" as Submit
+database "SQLite" as DB
+collections "Temp Storage" as Temp
+participant "ffprobe + Signature Probe" as Probe
+participant "ffmpeg" as FFmpeg
+collections "Canonical WAV Storage" as Canon
+participant "Legacy Voice Mapper" as Legacy
+actor "Telegram Bot" as Tg
+
+== App path ==
+App -> API : POST /v1/media/uploads\ncontrol token + idempotency key
+API -> Gate : check rate/concurrency/daily bytes
+Gate -> DB : create upload session + processing media row
+API --> App : upload id + scoped upload token
+
+App -> API : PUT /v1/media/uploads/{id}\nresume/retry bytes
+API -> Temp : append verified chunk(s)
+API -> Submit : finalize when upload complete
+Submit -> Probe : magic bytes + ffprobe(timeout)
+
+alt valid phase-1 clip
+  Submit -> FFmpeg : normalize to PCM s16le 44.1 kHz stereo WAV
+  FFmpeg -> Canon : write canonical WAV
+  Submit -> DB : mark ready\nhash/duration/loudness/size
+  Submit -> Temp : delete upload bytes
+  Submit -> Legacy : optional WAV compatibility mapping
+else corrupt / unsupported / oversized / timed out
+  Submit -> DB : mark failed\nnever expose ready media
+end
+
+alt repeated idempotency key
+  App -> API : retry same create/finalize request
+  API -> DB : lookup prior result
+  API --> App : return original upload/media outcome
+end
+
+== Telegram path ==
+Tg -> Submit : source=telegram raw file
+Submit -> Temp : store downloaded raw bytes
+Submit -> Probe : same validation path
+Submit -> FFmpeg : same canonicalization path
+Submit -> Legacy : preserve legacy queue/WAV behavior
+
+note over Submit,Legacy
+  App and Telegram must converge on the same validation,
+  quota, retention, and status model. Telegram keeps its
+  current acceptance ordering through the compatibility mapper.
+end note
+
+@enduml

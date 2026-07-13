@@ -1,0 +1,70 @@
+@startuml
+title P3 Capture quality and diagnostics - task seams
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor User
+
+package "Story tasks" {
+  rectangle "TASK-260712-1gmsvh\nFreeze contract" as Contract
+  rectangle "TASK-260712-265o0f\nWindows voice-processing probe" as WinProbe
+  rectangle "TASK-260712-2gaswa\nmacOS voice-processing probe" as MacProbe
+  rectangle "TASK-260712-wcdz08\nWindows live capture effects" as WinImpl
+  rectangle "TASK-260712-2egweh\nmacOS live capture effects" as MacImpl
+  rectangle "TASK-260712-1pw1l1\nDiagnostics + capability surface" as Surface
+  rectangle "TASK-260712-39czd2\nRegression harness" as Harness
+  rectangle "TASK-260712-2e80pr\nC3 evidence + capability pack" as Evidence
+}
+
+package "External story dependencies" {
+  rectangle "STORY-260712-30ju1k\nP1 Windows packaged-app spike" as WinSpike
+  rectangle "STORY-260712-2e36uz\nP1 main UI + capture foundation" as CaptureP1
+  rectangle "STORY-260712-fes2jj\nP1 overlay + local ceiling mixer" as MixerP1
+  rectangle "STORY-260712-sskhip\nP3 live PTT transport" as LivePTT
+  rectangle "STORY-260712-2ft5wd\nP3 acceptance + rollout gate" as Acceptance
+}
+
+User --> Contract
+User --> Evidence
+
+WinSpike --> WinProbe : signed AppContainer proof
+Contract --> WinImpl : shared states + failure policy
+Contract --> MacImpl : shared states + failure policy
+Contract --> Surface : protocol + UI vocabulary
+
+WinProbe --> WinImpl : selected bridge
+MacProbe --> MacImpl : selected stack
+
+CaptureP1 --> WinImpl : capture service + picker + indicator
+CaptureP1 --> MacImpl : capture service + picker + indicator
+MixerP1 --> WinImpl : ducking + ceiling ordering
+MixerP1 --> MacImpl : ducking + ceiling ordering
+LivePTT --> WinImpl : streaming session + chunk flow
+LivePTT --> MacImpl : streaming session + chunk flow
+LivePTT --> Harness : packet-loss + latency interactions
+
+WinImpl --> Surface
+MacImpl --> Surface
+Surface --> Harness
+Harness --> Evidence
+Evidence --> Acceptance
+
+note bottom of Surface
+Shared states must stay honest across both platforms:
+- mode: auto, speaker, headphone
+- effect state: enabled, degraded, unsupported
+- health: quiet, clipping, no-device, permission
+- ceiling preserved after AGC
+end note
+
+note bottom of Evidence
+Final pack must separate:
+- accepted combinations
+- degraded but usable combinations
+- unsupported combinations
+- exact product and rollout wording
+end note
+
+@enduml

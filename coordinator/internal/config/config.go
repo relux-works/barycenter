@@ -64,6 +64,10 @@ type Config struct {
 	// Providers is the master switch of the multi-provider layer
 	// (docs/spec-providers.md). Off = pre-provider behavior everywhere.
 	Providers bool `yaml:"providers"`
+	// SelfServiceOnboarding gates the actor resolver and identity dual-writes.
+	// Additive tables are migrated regardless so rollout and rollback can be
+	// performed without destructive schema changes.
+	SelfServiceOnboarding bool `yaml:"self_service_onboarding"`
 	// TrustedProxy: the listener sits behind a TLS-terminating reverse proxy
 	// (prod), so per-IP limits must key on the proxy-appended forwarding
 	// headers instead of RemoteAddr — which is the proxy itself for every
@@ -114,6 +118,9 @@ func applyEnv(c *Config) {
 	// other non-empty value forces it off, unset keeps the yml value.
 	if v := os.Getenv("DUET_PROVIDERS"); v != "" {
 		c.Providers = v == "1"
+	}
+	if v := os.Getenv("DUET_SELF_SERVICE_ONBOARDING"); v != "" {
+		c.SelfServiceOnboarding = v == "1"
 	}
 	// DUET_TRUSTED_PROXY=1 keys rate limits on forwarding headers (M3);
 	// same 1/other/unset semantics as DUET_PROVIDERS.

@@ -1,0 +1,52 @@
+@startuml
+!theme plain
+
+title P3 Soundboard and Safe Automation Trigger Sequence
+
+actor "User or Scoped Principal" as Actor
+participant "Desktop UI or Webhook" as Surface
+participant "Automation Runtime" as Runtime
+participant "Cue/Schedule Store" as Store
+participant "History/Audit" as History
+participant "Transmission Service" as Tx
+participant "Target Policy\nDND/Air/ACL" as Policy
+participant "Desktop Targets" as Targets
+
+== Trigger ==
+Actor -> Surface: fire cue hotkey\nor webhook trigger
+Surface -> Runtime: request(trigger, cue, audience, delivery)
+Runtime -> Store: load cue, principal,\nschedule and revoke state
+Runtime -> Policy: validate scope, DND,\nquiet hours, Air policy,\nrate limits
+
+alt Rejected
+  Policy --> Runtime: denied(reason)
+  Runtime -> History: audit denied event\nwith attribution
+  Runtime --> Surface: reject(reason)
+else Accepted
+  Policy --> Runtime: allowed(target snapshot)
+  Runtime -> Tx: create transmission\nfrom cue trigger
+  Tx -> Targets: prepare / schedule / play
+  Targets --> Tx: receipts and outcomes
+  Tx -> History: status, receipts,\nattribution
+  Runtime --> Surface: accepted(transmission id)
+end
+
+== Fast disable or revoke ==
+Actor -> Surface: revoke token\nor disable schedule
+Surface -> Runtime: revoke(principal)\nor disable(schedule)
+Runtime -> Store: mark revoked/disabled
+Runtime -> History: immutable audit entry
+
+alt Later trigger arrives
+  Surface -> Runtime: request(...)
+  Runtime -> Store: load revoked state
+  Runtime -> History: denied_revoked
+  Runtime --> Surface: reject(revoked)
+end
+
+note over Runtime,Targets
+  The runtime never opens microphone capture.
+  It reuses cue-class media and standard delivery policy.
+end note
+
+@enduml

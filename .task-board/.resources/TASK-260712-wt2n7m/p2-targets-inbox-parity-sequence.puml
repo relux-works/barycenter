@@ -1,0 +1,53 @@
+@startuml
+title P2 Explicit Target, Missed Delivery, and Manual Replay
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultTextAlignment left
+
+actor "Sender\n(App or Telegram)" as sender
+participant "Transport Adapter" as adapter
+participant "Transmission Service" as txsvc
+participant "Audience Resolver" as resolver
+database "Store" as db
+participant "Delivery Runtime" as runtime
+participant "Target C Pulsar" as c
+participant "Non-target B" as b
+
+sender -> adapter : submit media + delivery + target C
+adapter -> txsvc : common createTransmission request
+txsvc -> txsvc : verify content-policy acceptance
+txsvc -> resolver : resolve current Air / explicit set
+resolver --> txsvc : snapshot = { C }\nB excluded
+txsvc -> db : persist transmission + target snapshot\nTTL + inbox policy
+txsvc -> runtime : start delivery for snapshot targets
+
+runtime -> c : prepare / queue / replace
+alt C offline or messages_only
+  runtime -> db : receipt = missed_offline or missed_dnd
+  runtime -> db : create inbox entry until media expiry
+  runtime --> sender : partial delivery status\nno late autoplay
+else C ready
+  runtime -> c : scheduled play / queue / replace
+  runtime -> db : ready -> playing -> played
+end
+
+b -> txsvc : GET transmission/media by known id
+txsvc -> db : authorize via target snapshot
+db --> txsvc : not a target
+txsvc --> b : 404 / forbidden-equivalent
+
+sender -> adapter : delete or report media
+adapter -> txsvc : common delete/report action
+txsvc -> db : mark deleted / disabled
+txsvc -> db : revoke future fetch
+
+== Later ==
+
+c -> adapter : open inbox and select replay
+adapter -> txsvc : replay missed item\n(local or targeted)
+txsvc -> db : verify media not deleted / actor not disabled\nitem not expired
+txsvc -> db : create new transmission or local replay record
+txsvc -> runtime : deliver only from explicit replay action
+
+@enduml

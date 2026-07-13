@@ -1,0 +1,44 @@
+@startuml
+title P2 Acceptance - Rollout, Rollback, and Beta Sequence
+
+skinparam shadowing false
+autonumber
+
+participant "Acceptance foundation" as Foundation
+participant "Coordinator DB" as DB
+participant "Coordinator" as Coord
+participant "Windows/macOS nodes" as Nodes
+participant "Internal test orbit" as Internal
+participant "Real beta Air" as BetaAir
+participant "Operators" as Ops
+
+Foundation -> DB : Freeze migration fixture set\nand evidence contract
+Foundation -> Ops : Freeze matrix, beta rubric,\nartifact storage rules
+
+Ops -> DB : Apply additive DB migration
+Ops -> Coord : Deploy coordinator in\naccept-but-don't-send mode
+Coord -> Coord : Read unknown phase-two rows\nwithout emitting new commands
+
+Ops -> Nodes : Roll out capability-aware builds
+Nodes --> Coord : register capabilities\nstreamed_tracks / air_rooms / ...
+
+Ops -> Internal : Enable feature flags on\ninternal orbit only
+Coord -> Nodes : phase-two commands under flags
+Nodes --> Coord : metrics, receipts,\nstream readiness, rights state
+
+Ops -> Internal : Run B1-B7 and 20.5 matrix
+Internal --> Ops : platform, load,\nrollback, compatibility evidence
+
+Ops -> Coord : Rehearse rollback
+Coord -> DB : leave phase-two rows intact
+Ops -> Coord : Disable phase-two flags / downgrade coordinator
+Coord --> Ops : legacy pairwise service stays green
+
+Ops -> BetaAir : Enable phased beta rollout
+BetaAir --> Ops : seven days of incidents,\nquota telemetry, start/skew/seek trends
+Ops -> Ops : calibrate storage + egress quotas\nfrom real telemetry
+
+Ops -> Coord : review telemetry and incidents
+Ops -> Ops : publish promotion packet\nor record exact remaining blockers
+
+@enduml

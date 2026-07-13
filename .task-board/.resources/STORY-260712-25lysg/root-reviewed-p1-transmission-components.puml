@@ -1,0 +1,55 @@
+@startuml
+title P1 Transmission Protocol and Scheduler Components
+left to right direction
+skinparam componentStyle rectangle
+
+actor "Pulsar app\ncontrol actor" as App
+actor "Telegram adapter" as Tg
+component "History and presence\nsurfaces" as History
+
+rectangle "Coordinator" {
+  component "Transmission HTTP API\nPOST/GET/cancel" as API
+  component "Audience Resolver" as Resolver
+  component "Transmission Store\ntransmissions + targets + blocks" as Store
+  component "Overlay Controller\nprepare barrier + FIFO + receipts" as Scheduler
+  component "Legacy Voice Bridge\nSession FSM after_current" as Legacy
+  component "WS Hub\ncapability-aware routing" as Hub
+}
+
+database "Media Store\nmedia rows + bytes" as Media
+component "Windows node client\nprepare/ready/play/cancel" as Win
+component "macOS node client\nprepare/ready/play/cancel" as Mac
+component "Legacy node\nplay_voice only" as Old
+
+App --> API : create/status/cancel
+Tg --> API : create/status/cancel
+API --> Media : validate media\nownership + ready state
+API --> Resolver : audience -> targets
+API --> Store : accepted transmission\n+ target snapshot
+
+Scheduler --> Store : receipt transitions\n+ cancel state
+Scheduler --> Hub : prepare/play/cancel
+Scheduler --> Legacy : downgrade to\nafter_current
+Hub --> Scheduler : ready/started/\nended/failed + DND
+
+Hub --> Win
+Hub --> Mac
+Hub --> Old : play_voice
+
+Media --> Win : GET /media/{id}
+Media --> Mac : GET /media/{id}
+Store --> History : status/receipts/\npresence view
+
+note right of Store
+Target snapshots are the only
+phase-one media ACL source.
+Knowing a media_id alone
+must not authorize download.
+end note
+
+note bottom of Scheduler
+One controller owns overlay + interrupt FIFO for the whole effective
+playback domain (orbit when separate, stable approach identity when joined).
+Interrupt fallback is never invented by the scheduler.
+end note
+@enduml

@@ -1,0 +1,55 @@
+@startuml
+!theme plain
+
+title P1 Self-Service Onboarding Flows
+
+actor User
+participant "Pulsar App" as App
+participant "Secure Storage" as Store
+participant "Coordinator API" as API
+database "Identity Store" as DB
+participant "Telegram Bot" as Bot
+
+== Create Orbit ==
+User -> App: Create Barycenter
+App -> API: POST /v1/onboarding/orbits
+API -> DB: create orbit + app actor + membership\n+ slot + node/control creds\n+ recovery hash + audit event
+DB --> API: plaintext creds + recovery secret
+API --> App: orbit info + node/control creds + recovery secret
+App -> Store: persist creds in Keychain/DPAPI
+App --> User: show recovery secret once
+
+== Join by Device Invite ==
+User -> App: Enter invite code / open deep link
+App -> API: POST /v1/device-invites/consume
+API -> DB: burn invite, add actor membership,\nallocate slot, mint creds, audit
+DB --> API: plaintext node/control creds
+API --> App: orbit info + creds
+App -> Store: persist creds
+
+== Recover Control Access ==
+User -> App: Enter recovery secret
+App -> API: POST recovery endpoint
+API -> DB: verify recovery hash,\nreissue control credential,\naudit event
+DB --> API: new control credential
+API --> App: control credential only
+App -> Store: replace control credential,\npreserve node credential state
+
+== Link Telegram ==
+User -> App: Request Telegram link code
+App -> API: POST /v1/telegram-links
+API -> DB: mint one-time bot link code
+API --> App: bot link code
+User -> Bot: send link code
+Bot -> API: consume code with Telegram identity
+API -> DB: join or merge Telegram actor\ninto existing membership policy
+Bot --> User: link confirmation
+
+note over API,DB
+  Node tokens never authorize create, invite,
+  upload, recovery, or Telegram-link actions.
+  Pair compatibility stays additive and
+  legacy slots keep their current tokens.
+end note
+
+@enduml

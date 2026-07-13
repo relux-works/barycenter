@@ -1,0 +1,58 @@
+@startuml
+title P2 Air Rooms - Coordinator Boundaries
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+left to right direction
+
+actor "Pulsar app" as App
+actor "Telegram bot" as Bot
+
+rectangle "Coordinator control plane" {
+  [Air lifecycle API] as API
+  [Approach alias handlers] as Alias
+  [Air policy service] as Policy
+  [Air runtime resolver] as Resolver
+}
+
+rectangle "Coordinator runtime" {
+  [Air session owner\n(stateFor / orderAir)] as Runtime
+  [Personal orbit sessions] as Personal
+  [Transmission + track schedulers] as Delivery
+}
+
+database "Store" {
+  [airs] as Airs
+  [air_members] as Members
+  [air_invites + policies] as Invites
+  [links (legacy)] as Links
+}
+
+App --> API : create / invite / join /\nconfirm / leave / dissolve
+Bot --> Alias : /approach /accept /\n/decline /apart
+Alias --> API : compatibility mapping
+API --> Policy : authorize lifecycle + actions
+API --> Airs : persist air state
+API --> Members : persist membership state
+API --> Invites : persist invite + policy rows
+API --> Resolver : activate / park / dissolve
+Alias --> Links : read legacy rows during migration
+
+Resolver --> Airs : resolve active air by orbit
+Resolver --> Members : build peer set\nand active membership
+Resolver --> Links : backfill active links\ninto two-member Airs
+Resolver --> Runtime : own shared session by air_id
+Resolver --> Personal : park / restore orbit state
+
+Delivery --> Resolver : current_air routing\nand shared ownership
+Runtime --> Delivery : one FIFO / queue per air_id
+
+note bottom of Resolver
+  Rules enforced here:
+  - one active Air per barycenter
+  - no transitive link-chain delivery
+  - living-air catch-up survives the move from link ids to air ids
+  - leave detaches one barycenter without stopping the others
+end note
+
+@enduml

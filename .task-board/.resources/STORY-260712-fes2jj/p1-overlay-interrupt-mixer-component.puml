@@ -1,0 +1,59 @@
+@startuml
+!pragma teoz true
+title P1 overlay and interrupt mixer components
+skinparam shadowing false
+skinparam componentStyle rectangle
+
+package "Coordinator-owned stories" {
+  component "OverlayController\nSTORY-260712-25lysg" as Coordinator
+  component "Canonical media store\nSTORY-260712-ld674h" as MediaStore
+}
+
+package "macOS node-app" {
+  component "CoordinatorClient" as MacWS
+  component "PlayerCore" as MacPlayer
+  component "Prepared clip cache" as MacCache
+  component "Main ring branch\nAVAudioSourceNode" as MacMain
+  component "Clip branch\nAVAudioPlayerNode" as MacClip
+  component "Duck controller + limiter\nrender-safe state" as MacDSP
+  component "LibrespotClient" as MacProvider
+  component "Output + telemetry" as MacOut
+}
+
+package "Windows pulsar-win" {
+  component "WS client" as WinWS
+  component "Player" as WinPlayer
+  component "VoiceCache + WAV decoder" as WinCache
+  component "Main ring branch" as WinMain
+  component "Prepared clip branch" as WinClip
+  component "Duck controller + limiter\nrender-safe state" as WinDSP
+  component "Go-librespot daemon" as WinProvider
+  component "WASAPI output + telemetry" as WinOut
+}
+
+Coordinator --> MediaStore : media metadata\nURL, hash, duration
+Coordinator --> MacWS : prepare_media /\nplay_media_at / cancel
+Coordinator --> WinWS : prepare_media /\nplay_media_at / cancel
+MediaStore --> MacCache : authenticated WAV fetch
+MediaStore --> WinCache : authenticated WAV fetch
+
+MacWS --> MacPlayer
+MacPlayer --> MacCache : prepare / open clip
+MacPlayer --> MacProvider : pause / resume / seek\nfor interrupt
+MacProvider --> MacMain : PCM via FIFO ring
+MacPlayer --> MacClip : arm scheduled clip start
+MacPlayer --> MacDSP : duck, interrupt, limiter\nparameters and counters
+MacMain --> MacDSP
+MacClip --> MacDSP
+MacDSP --> MacOut
+
+WinWS --> WinPlayer
+WinPlayer --> WinCache : prepare / decode clip
+WinPlayer --> WinProvider : pause / resume / seek\nfor interrupt
+WinProvider --> WinMain : PCM via pipe + ring
+WinPlayer --> WinClip : arm prepared clip
+WinPlayer --> WinDSP : duck, interrupt, limiter\nparameters and counters
+WinMain --> WinDSP
+WinClip --> WinDSP
+WinDSP --> WinOut
+@enduml

@@ -1,0 +1,1 @@
+Superseded R1 evidence. Canonical R2 deterministic BEGIN IMMEDIATE attempt-barrier hashes and command results are attached as TASK-260712-2xkyot_rework-r2-results.md.

@@ -849,8 +849,17 @@ const strangerHello = `Привет! Я <b>Барицентр</b> — общий
 /create — создать свой барицентр
 …или открой инвайт-ссылку от того, кто уже в системе.`
 
+var errTelegramActorLifecycleDenied = errors.New("telegram actor lifecycle denies onboarding")
+
 func (l *loop) handleBot(ev bot.Event) {
-	member, err := l.st.MemberOf(ev.FromUserID)
+	if ev.Command.Kind == bot.KindTelegramLink {
+		l.handleTelegramLink(ev)
+		return
+	}
+	member, err := l.telegramCommandMember(ev.FromUserID)
+	if errors.Is(err, errTelegramActorLifecycleDenied) {
+		return
+	}
 	if err != nil {
 		l.log.Error("membership lookup failed", "err", err)
 		return
@@ -1341,6 +1350,68 @@ func (l *loop) handleBot(ev bot.Event) {
 			return
 		}
 		l.breakGroup(linkID, home.id, other)
+	}
+}
+
+func (l *loop) telegramCommandMember(telegramUserID int64) (*store.Member, error) {
+	if !l.cfg.SelfServiceOnboarding {
+		return l.st.MemberOf(telegramUserID)
+	}
+	ctx, err := l.st.ResolveTelegramActorContext(telegramUserID)
+	if errors.Is(err, store.ErrUnauthorized) {
+		if ctx.ActorID == 0 {
+			return nil, nil // genuinely unknown: eligible for onboarding
+		}
+		return nil, errTelegramActorLifecycleDenied // known and revoked
+	}
+	if errors.Is(err, store.ErrInsufficientCapability) {
+		if ctx.ActorID != 0 && ctx.OrbitID == 0 {
+			return nil, nil // deliberately left: eligible for re-onboarding
+		}
+		return nil, errTelegramActorLifecycleDenied // disabled or otherwise ineligible
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &store.Member{
+		OrbitID:  ctx.OrbitID,
+		TGUserID: telegramUserID,
+		Role:     ctx.Role,
+	}, nil
+}
+
+func (l *loop) handleTelegramLink(ev bot.Event) {
+	if !l.cfg.SelfServiceOnboarding {
+		return // exact feature-off behavior: a bare code is ordinary chatter
+	}
+	if ev.ChatType != "private" {
+		ev.Reply("The provided credential is not valid.")
+		return
+	}
+	result, err := l.st.ConsumeTelegramLink(
+		ev.FromUserID,
+		ev.FromName,
+		ev.ChatType,
+		ev.Command.Target,
+	)
+	switch {
+	case err == nil:
+		if ev.DeleteSource != nil {
+			ev.DeleteSource()
+		}
+		home := l.orbit(result.OrbitID)
+		ev.Reply(fmt.Sprintf("Telegram account linked to <b>«%s»</b> as %s.", esc(home.title), result.Role))
+	case errors.Is(err, store.ErrTelegramAlreadyLinkedSameOrbit):
+		ev.Reply("This Telegram account is already linked to this orbit.")
+	case errors.Is(err, store.ErrTelegramMemberOfOtherOrbit):
+		ev.Reply("This Telegram account belongs to a different orbit.")
+	case errors.Is(err, store.ErrTelegramLinkRateLimited):
+		ev.Reply("Too many attempts. Please wait before retrying.")
+	case errors.Is(err, store.ErrTelegramLinkInvalid):
+		ev.Reply("The provided credential is not valid.")
+	default:
+		l.log.Error("telegram link consume failed", "err", err)
+		ev.Reply("The provided credential is not valid.")
 	}
 }
 

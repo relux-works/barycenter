@@ -1,0 +1,48 @@
+@startuml
+title P2 codec/player spike candidate and handoff seams
+left to right direction
+skinparam packageStyle rectangle
+
+package "Shared spike inputs" {
+  component "Fixture corpus\nMP3 / AAC / Opus\n2h, VBR, corrupt, seek-heavy" as Fixtures
+  component "Comparison rubric\n20.2 proof items\n20.5 gate metrics" as Rubric
+}
+
+package "Coordinator-side prototype" {
+  component "media_items + stream_variants\nadditive schema draft" as Variants
+  component "Range/chunk harness\nHTTP auth + integrity" as RangeHarness
+  component "Bounded disk cache contract\ncache ceilings + eviction" as CacheContract
+}
+
+package "Node candidate probes" {
+  component "Pure-Go path\nWindows + macOS" as PureGo
+  component "Media Foundation path\nWindows packaged probe" as MF
+  component "Bundled decoder path\nWindows + macOS" as Bundled
+}
+
+component "Current node scheduling seam\nready -> resume_at -> mixer" as Scheduler
+component "Metrics collector\nRSS, skew, seek-to-audio,\nrange faults, cache reuse" as Metrics
+component "Legal and distribution matrix" as Legal
+component "Final ADR + handoff contract" as ADR
+
+Fixtures --> RangeHarness
+Rubric --> Metrics
+Variants --> RangeHarness
+CacheContract --> PureGo
+CacheContract --> MF
+CacheContract --> Bundled
+RangeHarness --> PureGo
+RangeHarness --> MF
+RangeHarness --> Bundled
+PureGo --> Scheduler
+MF --> Scheduler
+Bundled --> Scheduler
+PureGo --> Metrics
+MF --> Metrics
+Bundled --> Metrics
+Legal --> ADR
+Metrics --> ADR
+Variants --> ADR
+Scheduler --> ADR
+
+@enduml

@@ -54,7 +54,11 @@ func mustReadSource(t *testing.T, path string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return string(source)
+	return normalizeSource(source)
+}
+
+func normalizeSource(source []byte) string {
+	return strings.ReplaceAll(string(source), "\r\n", "\n")
 }
 
 func TestR3WindowsWiringUsesProductionLifecycleCoordinators(t *testing.T) {
@@ -71,9 +75,9 @@ func TestR3WindowsWiringUsesProductionLifecycleCoordinators(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mainText := string(mainSource)
-	windowText := string(windowSource)
-	coordinatorText := string(coordinatorSource)
+	mainText := normalizeSource(mainSource)
+	windowText := normalizeSource(windowSource)
+	coordinatorText := normalizeSource(coordinatorSource)
 	for _, required := range []string{
 		"uiTransitions.publish(uiTransitionIdleCleanup",
 		"uiTransitions.publish(uiTransitionLifecycleRearm",

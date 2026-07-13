@@ -1,0 +1,67 @@
+@startuml
+title P2 Acceptance - Evidence and Dependency Map
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+left to right direction
+
+rectangle "Upstream implementation stories" {
+  [P2 codec spike\nfixtures + memory ceilings] as Codec
+  [P2 streamed tracks\nB1 regressions + rollout notes] as Tracks
+  [P2 Air rooms\nB2-B4 regressions + load basis] as Air
+  [P2 targets + inbox\nB5-B7 regressions + rights notes] as Targets
+  [P1 compliance baseline\ncontent policy + reporting] as Compliance
+}
+
+rectangle "P2 acceptance story" {
+  [Gate matrix + lab roster] as Matrix
+  [Observability + quota views] as Metrics
+  [B1 platform matrix] as B1
+  [B2-B4 Air + scale proof] as B24
+  [B5-B7 rights + mixed fleet proof] as B57
+  [Rollout + rollback rehearsal] as Rollback
+  [7-day beta + quota calibration] as Beta
+  [Promotion packet + evidence index] as Packet
+}
+
+Codec --> Matrix
+Codec --> Metrics
+Tracks --> B1
+Tracks --> B24
+Tracks --> B57
+Tracks --> Rollback
+Tracks --> Beta
+Air --> B24
+Air --> Rollback
+Targets --> B57
+Targets --> Rollback
+Compliance --> B57
+Compliance --> Packet
+
+Matrix --> Metrics
+Matrix --> B1
+Matrix --> B24
+Matrix --> B57
+Metrics --> B1
+Metrics --> B24
+Metrics --> B57
+Metrics --> Beta
+B1 --> Beta
+B24 --> Beta
+B57 --> Beta
+Rollback --> Beta
+B1 --> Packet
+B24 --> Packet
+B57 --> Packet
+Rollback --> Packet
+Beta --> Packet
+
+note bottom of Packet
+Final packet maps every artifact to:
+- B1-B7
+- 20.5 non-functional gates
+- 20.6 seven-day beta gate
+- 18 rollout and rollback order
+end note
+
+@enduml

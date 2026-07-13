@@ -1,0 +1,56 @@
+@startuml
+title P1 Transmission Prepare Barrier and Legacy Downgrade
+autonumber
+
+actor Sender
+participant "Transmission API" as API
+database "Transmission Store" as Store
+participant "Overlay Controller" as Scheduler
+participant "Windows target" as Win
+participant "macOS target" as Mac
+participant "Legacy target" as Old
+
+Sender -> API : POST /v1/transmissions\n(media_id, audience, delivery)
+API -> Store : persist accepted transmission\n+ explicit target snapshot
+
+alt interrupt requested and exact capability is missing
+  API --> Sender : requires_confirmation\n(overlay, then after_current)
+  note right of API
+    Nothing is scheduled until the sender
+    explicitly confirms one fallback.
+  end note
+else overlay requested and any mandatory target lacks capability
+  API -> Store : record effective_delivery=after_current\n+ downgrade_reason
+  API -> Scheduler : enqueue legacy bridge work
+  Scheduler -> Old : play_voice via Session FSM
+  Scheduler -> Store : legacy target follows\nexisting after_current receipts
+else all mandatory targets support clip media
+  API -> Scheduler : enqueue transmission
+  Scheduler -> Win : prepare_media
+  Scheduler -> Mac : prepare_media
+
+  alt target offline or DND before prepare
+    Scheduler -> Store : receipt = missed_offline\nor missed_dnd
+  end
+
+  Win --> Scheduler : media_ready or media_failed
+  Mac --> Scheduler : media_ready or media_failed
+
+  note over Scheduler
+    One scheduler per effective playback domain.
+    Ready deadline: 3 seconds.
+    T = now + max(2*maxRTT + 250 ms, 500 ms).
+  end note
+
+  alt at least one target ready before deadline
+    Scheduler -> Store : mark missed_not_ready\nfor late targets
+    Scheduler -> Win : play_media_at(T)
+    Scheduler -> Mac : play_media_at(T)
+    Win --> Scheduler : media_started / media_ended
+    Mac --> Scheduler : media_started / media_ended
+    Scheduler -> Store : scheduled -> playing -> played
+  else nobody became ready
+    Scheduler -> Store : transmission failed
+  end
+end
+@enduml

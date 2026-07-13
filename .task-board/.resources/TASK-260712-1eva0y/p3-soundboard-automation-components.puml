@@ -1,0 +1,57 @@
+@startuml
+!theme plain
+left to right direction
+
+title P3 Soundboard and Safe Automation Components
+
+package "Desktop Clients" {
+  component "macOS Soundboard UI\ncue library, hotkeys,\nschedules, disable" as MacUI
+  component "Windows Soundboard UI\ncue library, hotkeys,\nschedules, disable" as WinUI
+}
+
+package "Coordinator Control Plane" {
+  component "Automation Surface Contract\nscope model, media matrix,\nquiet hours, no-mic rule" as Contract
+  component "Cue and Schedule API\ncue CRUD, schedule CRUD,\ntoken issue/revoke" as ControlAPI
+  component "Automation Runtime\ntrigger intake, timezone eval,\nrate limits, revoke gate" as Runtime
+  component "Transmission Service\nprepare-ready-play,\nreceipts, cancel" as Tx
+  component "History and Audit Service\nattribution, quick disable,\nexact reasons" as History
+}
+
+package "Shared Data" {
+  database "SQLite\ncues, schedules,\nautomation principals,\nexecutions, audit" as DB
+}
+
+package "Prerequisite Story Seams" {
+  component "Identity and Actor Model\ncontrol-token baseline" as Identity
+  component "DND and Presence\nshared reason vocabulary" as Presence
+  component "Explicit Targets and ACL\nimmutable target snapshots" as Targets
+  component "Air Membership and Policy\ncurrent Air resolution" as Air
+  component "Overlay + Local Ceiling Mixer\ncue branch ordering" as Mixer
+}
+
+MacUI --> ControlAPI : manage cues, schedules,\ntokens and disable
+WinUI --> ControlAPI : manage cues, schedules,\ntokens and disable
+MacUI --> History : render attribution,\nstatus and quick disable
+WinUI --> History : render attribution,\nstatus and quick disable
+
+Contract --> ControlAPI : approved contract
+Contract --> Runtime : safety rules
+ControlAPI --> DB : persist cues,\nschedules, principals
+Runtime --> DB : claim schedules,\nrecord executions
+Runtime --> Tx : create or cancel\ncue transmissions
+Tx --> History : receipts and status
+Runtime --> History : audit, revoke,\nrate-limit results
+
+Identity --> ControlAPI : actor context,\nrevocation baseline
+Presence --> Runtime : DND and block checks
+Targets --> Runtime : target snapshot\nresolution
+Air --> Runtime : active Air membership\nand policy
+Mixer --> Runtime : ceiling and ducking\nconstraints
+
+note bottom of Runtime
+  Automation is cue-class only.
+  It may trigger builtin or user clips,
+  but never microphone capture.
+end note
+
+@enduml

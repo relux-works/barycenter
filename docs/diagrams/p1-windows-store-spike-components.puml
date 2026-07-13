@@ -1,0 +1,44 @@
+@startuml
+title P1.0 Windows Store Spike - Components
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "Signed MSIX Package" as msix {
+  component "Probe Shell\n(packagedClassicApp,\nappContainer)" as shell
+  component "Tray / Hidden Window Loop\nRegisterHotKey toggle\nstructured probe logging" as ui
+  component "Capture Bridge\nselected by spike" as capture
+  component "Picker Bridge\nstandard file picker\nno broad FS" as picker
+  component "Lifecycle Watchers\nquit, suspend, lock,\npermission revoke" as lifecycle
+}
+
+component "Windows Runtime / Win32 APIs" as os
+component "Permission Broker" as broker
+component "Input Devices\nDefault + Selected Mic" as devices
+component "Real Hardware Matrix\nWindows 10 + Windows 11" as hw
+component "Evidence Matrix\nlogs, screenshots, pass/fail\nnext actions" as evidence
+
+shell --> ui
+shell --> capture
+shell --> picker
+shell --> lifecycle
+
+ui --> os : tray loop / hotkey
+capture --> broker : first Record prompt
+capture --> devices : enumerate + capture
+capture --> os : selected API
+picker --> os : brokered picker
+lifecycle --> os : session + power signals
+
+hw --> msix : install and run
+msix --> evidence : scenario outputs
+
+note right of msix
+  Constraints:
+  - TrustLevel=appContainer
+  - RuntimeBehavior=packagedClassicApp
+  - no runFullTrust
+  - no broad filesystem capability
+end note
+
+@enduml

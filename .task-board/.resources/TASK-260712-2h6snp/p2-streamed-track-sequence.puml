@@ -1,0 +1,62 @@
+@startuml
+title P2 Streamed Track - Ingest, Buffered Start and Seek
+
+autonumber
+actor User
+participant "Pulsar App" as App
+participant "Coordinator" as Coord
+participant "Variant Pipeline" as Variant
+database "Media Store" as Store
+participant "Node A" as NodeA
+participant "Node B" as NodeB
+participant "Range API" as Range
+
+User -> App : Select long audio\nchoose queue or replace
+App -> Coord : SubmitMedia(audio_track)
+Coord -> Variant : validate + transcode\ncanonical compressed variants
+Variant -> Store : media ready + variant rows
+Variant --> Coord : media_id + metadata
+
+App -> Coord : CreateTransmission(queue|replace)
+Coord -> Coord : Freeze target snapshot\nand queue position
+Coord -> NodeA : stream_load(media_id, variant, start=0)
+Coord -> NodeB : stream_load(media_id, variant, start=0)
+
+NodeA -> Range : GET variant bytes\nRange: bytes=0-...
+NodeB -> Range : GET variant bytes\nRange: bytes=0-...
+Range --> NodeA : 206 Partial Content
+Range --> NodeB : 206 Partial Content
+NodeA -> NodeA : fill disk cache + decoder ring\nuntil buffer threshold
+NodeB -> NodeB : fill disk cache + decoder ring\nuntil buffer threshold
+NodeA --> Coord : stream_ready(buffered_ms)
+NodeB --> Coord : stream_ready(buffered_ms)
+Coord -> NodeA : resume_at(T)
+Coord -> NodeB : resume_at(T)
+NodeA --> Coord : started
+NodeB --> Coord : started
+
+== Seek while playing ==
+
+User -> App : Seek to position P
+App -> Coord : seek current track to P
+Coord -> NodeA : stream_seek(P)
+Coord -> NodeB : stream_seek(P)
+NodeA -> Range : GET variant bytes\nRange: mapped to P
+NodeB -> Range : GET variant bytes\nRange: mapped to P
+Range --> NodeA : 206 Partial Content
+Range --> NodeB : 206 Partial Content
+NodeA -> NodeA : rebuild decoder ring\nat position P
+NodeB -> NodeB : rebuild decoder ring\nat position P
+NodeA --> Coord : stream_ready(P)
+NodeB --> Coord : stream_ready(P)
+Coord -> NodeA : resume_at(T2)
+Coord -> NodeB : resume_at(T2)
+
+note over Coord,Range
+Delete, report or actor disable must revoke
+future range fetches without changing media_id.
+Cache eviction is tolerated by re-fetching the
+required ranges instead of full download.
+end note
+
+@enduml

@@ -1,0 +1,33 @@
+@startuml
+title P1 Store Compliance - Moderation and reviewer flows
+actor Recipient
+participant "Pulsar or Telegram surface" as Surface
+participant "Moderation API" as API
+database "Reports, blocks, audit" as DB
+actor "Support" as Support
+
+Recipient -> Surface : report media or block sender
+Surface -> API : submit action
+API -> DB : persist immutable report or block
+API --> Surface : return reporter safe status
+Support -> API : review report
+API -> DB : load reporter, metadata, target scope and allowed evidence
+Support -> API : choose no action or delete media or disable actor or disable orbit
+API -> DB : apply action and append audit entry
+API --> Surface : expose updated status without extra personal data
+
+newpage
+actor "Store reviewer" as Reviewer
+participant "Acceptance harness" as Harness
+participant "Store asset pack" as Pack
+participant "Pulsar build" as Build
+
+Reviewer -> Pack : follow certification notes
+Reviewer -> Build : launch clean install
+Reviewer -> Build : Try locally, builtin cue, microphone loopback
+Reviewer -> Build : Create Barycenter, record clip, target This Pulsar
+Build --> Reviewer : played receipt and visible history or settings path
+Harness -> Pack : attach RU and EN listing copy, screenshots, IARC and notes
+Harness -> Pack : attach A1 to A8 logs, timings, migration and rollback evidence
+Pack --> Reviewer : self contained reviewer path with no Spotify or Telegram account
+@enduml

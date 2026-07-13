@@ -1,0 +1,55 @@
+@startuml
+title P3 Acceptance - Review, Independent Gating, Rollback, and Beta
+
+skinparam shadowing false
+autonumber
+
+participant "Acceptance foundation" as Foundation
+participant "Coordinator DB" as DB
+participant "Coordinator" as Coord
+participant "Windows/macOS nodes" as Nodes
+participant "Internal orbit" as Internal
+participant "External reviewer" as Reviewer
+participant "Real beta homes" as BetaHomes
+participant "Operators" as Ops
+
+Foundation -> Ops : Freeze C1-C7 matrix,\nflag permutations, review packet,\nartifact rules
+Foundation -> DB : Freeze migration and rollback fixtures
+
+Ops -> DB : Apply additive phase-three migration set
+Ops -> Coord : Deploy coordinator with\nphase-three handlers inert by default
+Coord -> Coord : Read unknown rows without\nclaiming phase-three ready
+
+Ops -> Nodes : Roll out reviewed builds
+Nodes --> Coord : register phase-three capabilities\nand redaction-safe telemetry
+
+Ops -> Internal : Enable live_ptt only
+Coord -> Nodes : live PTT flow under live_ptt
+Internal --> Ops : C1-C3 matrix + rollback signatures
+
+Ops -> Internal : Enable e2ee_media only after\nstory proof and review packet are ready
+Coord -> Nodes : E2EE media under separate gate
+Internal --> Ops : C4-C6 matrix + disclosure deltas
+
+Ops -> Internal : Enable automation surface
+Internal --> Ops : C7 safety evidence + revoke drills
+
+Ops -> Reviewer : Deliver threat model,\nartifacts, builds, seeded accounts
+Reviewer --> Ops : Findings by severity
+Ops -> Coord : Fix and retest critical/high findings
+Reviewer --> Ops : Closure confirmation
+
+Ops -> Coord : Rehearse rollback and recovery
+Coord -> DB : preserve phase-three rows
+Ops -> Coord : Disable e2ee_media or live_ptt independently
+Coord --> Ops : unsupported paths degrade honestly
+Ops -> Coord : Revoke keys/tokens, recover slots,\nprove capture-stop drills
+
+Ops -> BetaHomes : Start dated 7-day beta
+BetaHomes --> Ops : daily incidents, jitter,\nlatency, capture, crypto, automation trends
+Ops -> Ops : hold if stuck capture,\nrunaway automation, or key-loss occurs
+
+Ops -> Coord : Review packet and claims
+Ops -> Ops : publish promotion packet\nor exact remaining blockers
+
+@enduml

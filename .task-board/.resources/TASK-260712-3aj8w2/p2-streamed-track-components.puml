@@ -1,0 +1,60 @@
+@startuml
+title P2 Streamed User Audio Tracks - Component Boundaries
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Pulsar App\nor Telegram Adapter" as Sender
+
+package "Coordinator" {
+  component "SubmitMedia(audio_track)" as SubmitMedia
+  component "Variant Pipeline\n(selected by P2-CODEC)" as VariantPipeline
+  database "Media Store\nmedia_items + stream_variants" as MediaStore
+  component "Range API\nRange + auth + revocation" as RangeAPI
+  component "Transmission API\nqueue/replace + target snapshot" as TransmissionAPI
+  component "Main Program Scheduler\nbuffer-ready barrier" as Scheduler
+  component "Playback State\nqueue + progress + receipts" as PlaybackState
+}
+
+package "Pulsar Node" {
+  component "Track Cache\nbounded disk" as TrackCache
+  component "Incremental Decoder\nbounded memory" as Decoder
+  component "Track Player\npause/seek/resume" as TrackPlayer
+  component "Audio Engine" as AudioEngine
+  component "Spotify Adapter" as SpotifyAdapter
+}
+
+Sender --> SubmitMedia : upload / submit
+SubmitMedia --> VariantPipeline : validate + transcode
+VariantPipeline --> MediaStore : store canonical variants
+
+Sender --> TransmissionAPI : queue / replace
+TransmissionAPI --> PlaybackState : transmission + target state
+TransmissionAPI --> Scheduler : start track delivery
+Scheduler --> RangeAPI : authorize variant fetch
+Scheduler --> PlaybackState : ready / playing / ended
+
+RangeAPI --> MediaStore : resolve variant + ACL
+TrackCache --> RangeAPI : HTTP Range GET
+TrackCache --> Decoder : compressed bytes
+Decoder --> TrackPlayer : PCM pages
+TrackPlayer --> AudioEngine : scheduled playback
+TrackPlayer --> Scheduler : ready / seek-ready / ended
+
+SpotifyAdapter --> TrackPlayer : interrupt/resume coexistence
+PlaybackState --> Sender : metadata / progress / receipts
+
+note right of VariantPipeline
+P2-CODEC selects the variant matrix,
+decoder contract and cache limits
+before production integration.
+end note
+
+note bottom of PlaybackState
+P2 explicit targets / inbox owns the
+final ACL snapshot and offline replay policy.
+P2 Air owns 2..N membership routing.
+end note
+
+@enduml

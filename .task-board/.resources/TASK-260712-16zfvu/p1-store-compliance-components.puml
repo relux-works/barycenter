@@ -1,0 +1,65 @@
+@startuml
+title P1 Store Compliance and Acceptance - Workstreams
+left to right direction
+actor "Orbit member" as Member
+actor "Store reviewer" as Reviewer
+actor "Support operator" as Support
+
+rectangle "Policy and metadata" {
+  rectangle "TASK-260712-1epb3a\nPrivacy, UGC and rights policy pack" as Policy
+  rectangle "TASK-260712-e1ie4x\nPlatform declarations and localized copy" as Copy
+  rectangle "TASK-260712-2s4e9p\nStore listing, IARC and certification pack" as Assets
+}
+
+rectangle "Moderation product path" {
+  rectangle "TASK-260712-2kec2s\nModeration control plane" as Control
+  rectangle "TASK-260712-pbfz37\nWindows report, block, delete" as WinUI
+  rectangle "TASK-260712-34stvx\nmacOS report, block, delete" as MacUI
+  rectangle "TASK-260712-dlltnr\nTelegram and history moderation parity" as TgUI
+  rectangle "TASK-260712-3t9nr8\nModeration runbook and mailbox" as Runbook
+}
+
+rectangle "Evidence gate" {
+  rectangle "TASK-260712-1cdoxh\nAcceptance environment and gate repair" as Env
+  rectangle "TASK-260712-1xik11\nA1-A8 evidence and Store submission" as Evidence
+}
+
+rectangle "Sibling story inputs" {
+  rectangle "STORY-260712-2e36uz\nMain UI and capture" as UIStory
+  rectangle "STORY-260712-2ve1c8\nIdentity and onboarding" as IdentityStory
+  rectangle "STORY-260712-ld674h\nMedia ingest and storage" as IngestStory
+  rectangle "STORY-260712-25lysg\nTransmission protocol" as TxStory
+  rectangle "STORY-260712-34kbkn\nTelegram, history and presence" as BotStory
+  rectangle "STORY-260712-30ju1k\nWindows platform spike" as SpikeStory
+  rectangle "STORY-260712-fes2jj\nOverlay and interrupt mixer" as MixerStory
+}
+
+Member --> WinUI
+Member --> MacUI
+Member --> TgUI
+Reviewer --> Assets
+Support --> Runbook
+Policy --> WinUI
+Policy --> MacUI
+Policy --> TgUI
+Policy --> Copy
+Policy --> Assets
+Control --> WinUI
+Control --> MacUI
+Control --> TgUI
+Control --> Runbook
+Copy --> Assets
+WinUI --> Assets
+MacUI --> Assets
+TgUI --> Assets
+Assets --> Evidence
+Env --> Evidence
+UIStory --> WinUI
+UIStory --> MacUI
+IdentityStory --> Control
+IngestStory --> Control
+TxStory --> Control
+BotStory --> TgUI
+SpikeStory --> Copy
+MixerStory --> Evidence
+@enduml

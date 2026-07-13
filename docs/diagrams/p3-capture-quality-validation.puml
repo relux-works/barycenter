@@ -1,0 +1,60 @@
+@startuml
+title P3 Capture quality - live session and degraded surfacing
+
+skinparam shadowing false
+
+actor User
+participant "Platform UI" as UI
+participant "Capture quality service" as Capture
+participant "Platform DSP path" as DSP
+participant "Live PTT transport" as Transport
+participant "Remote Pulsar" as Remote
+database "Diagnostics state" as Diag
+participant "C3 harness" as Harness
+
+== Start capture ==
+
+User -> UI: Hold PTT or start fallback capture
+UI -> Capture: Start explicit capture
+Capture -> UI: Show visible capture indicator\nand selected route mode
+Capture -> DSP: Open speaker, headphone or auto profile
+
+alt Supported voice-processing path
+  DSP --> Capture: AEC, NS and AGC armed
+  Capture -> Diag: state=enabled, mode, device, ceiling
+  loop Live chunks
+    Capture -> Transport: Audio chunks + bounded level state
+    Transport -> Remote: Stream live speech
+  end
+else Unsupported route or missing echo reference
+  DSP --> Capture: degraded or unsupported reason
+  Capture -> Diag: state=degraded or unsupported
+  Capture -> UI: Show honest warning before and during capture
+  Capture -> Transport: Continue only per approved fallback policy
+end
+
+== Mid-session edges ==
+
+alt Route change, permission revoke or device loss
+  DSP --> Capture: typed failure or degraded reason
+  Capture -> Diag: update effect and health state
+  Capture -> UI: Keep indicator visible and offer cancel
+end
+
+User -> UI: Release or cancel
+UI -> Capture: Stop capture
+Capture -> Transport: End or cancel signal
+Capture -> UI: Clear indicator after stop completes
+
+== Verification ==
+
+Harness -> UI: Read visible state and mode surfaces
+Harness -> Diag: Collect objective metrics and reasons
+Harness -> Remote: Record listening-test results
+
+note bottom
+C3 only passes when accepted cases show no intelligible return echo,
+degraded or unsupported states are visible, and AGC never defeats the local ceiling.
+end note
+
+@enduml

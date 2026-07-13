@@ -1,0 +1,6 @@
+PRAGMA foreign_keys = ON;
+PRAGMA foreign_keys = OFF;
+BEGIN IMMEDIATE;
+CREATE TABLE t(id INTEGER PRIMARY KEY);
+ROLLBACK;
+PRAGMA foreign_keys;

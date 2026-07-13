@@ -1,0 +1,55 @@
+@startuml
+title P3 E2EE Media Rotation, History Grant, and Report Evidence
+skinparam shadowing false
+
+actor "Sender A" as A
+participant "Sender Pulsar" as Sender
+participant "Coordinator" as Coord
+participant "Recipient C" as C
+participant "Revoked B" as B
+participant "New Device D" as D
+participant "Moderator" as Mod
+
+== Protected send ==
+A -> Sender : choose media + audience
+Sender -> Sender : normalize / encode locally
+Sender -> Sender : encrypt media\nwrap key to current epoch recipients
+Sender -> Coord : upload ciphertext + manifest + recipient wraps
+Coord -> Coord : store opaque objects\nseal transmission to target snapshot + epoch
+Coord -> C : deliver manifest + ciphertext refs
+C -> C : unwrap key, verify epoch,\ndecrypt and play locally
+
+== Membership revoke and rotation ==
+Coord -> Coord : revoke B or remove B from Air
+Coord -> Coord : rotate to next epoch\nfor remaining members
+Coord --> B : no new wraps or epoch grants
+B -> Coord : fetch fresh protected media
+Coord --> B : deny manifest or key access
+
+== New device without history ==
+D -> Coord : join or recover installation
+Coord --> D : current epoch bootstrap only
+D -> Coord : request older protected media
+Coord --> D : denied until explicit history grant
+A -> Coord : approve history grant for D
+Coord --> D : time-bound grant for approved history range
+D -> D : import grant and decrypt\napproved old media only
+
+== Voluntary report evidence ==
+C -> C : choose Report
+alt Recipient exports decrypted evidence
+  C -> C : confirm explicit evidence copy
+  C -> Coord : report metadata + provided evidence package
+  Coord -> Mod : expose audit + provided copy
+else Metadata-only report
+  C -> Coord : report metadata without decrypted copy
+  Coord -> Mod : expose metadata only
+end
+Mod -> Coord : take moderation action
+
+note over Coord
+Coordinator stores manifests, ciphertext,
+wrapped keys, and audit metadata.
+It never performs hidden server decryption.
+end note
+@enduml

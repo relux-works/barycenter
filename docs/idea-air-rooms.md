@@ -1,9 +1,10 @@
 # Idea: Air rooms — many homes, one broadcast
 
-**STATUS: idea under discussion (2026-07-10). NO decision made.** Nothing here
-is committed work; §12 approaches (pairwise links) remain the shipped canon.
-This note captures the multi-barycenter proposal so the discussion has a fixed
-reference instead of scattered chat threads.
+**STATUS: approved direction for phase 2 (2026-07-12); not implemented.** The
+canonical implementation plan is now `docs/spec-self-contained-audio.md` §13
+and §20. Shipped §12 approaches (pairwise links) remain the runtime canon until
+that migration lands. This note retains the original proposal and its design
+history.
 
 ## Why not chains of links
 
@@ -49,16 +50,17 @@ join-in-progress. The genuinely new work is:
 ## Proposed first-stage limits
 
 - 8 barycenters or 20 concurrently connected Pulsars per air, whichever hits
-  first. Audio streams straight from Spotify per home; the coordinator only
-  carries commands and voice files, so the practical ceiling is the single
-  coordinator + SQLite (no HA) — not the network.
+  first. Spotify audio still streams per home, but phase-2 uploaded tracks add
+  coordinator storage/egress; the implementation gate therefore includes
+  media quotas and a synthetic 8-barycenter/20-Pulsar load test.
 
-## Open questions (the actual discussion)
+## Resolution of the original open questions
 
-- Does Air replace §12 links entirely (a 2-member air == today's approach) or
-  coexist with them? Replacement avoids two parallel mechanisms but needs a
-  migration for the active link in prod.
-- Who may inject tracks/voices in an air: any member home, or per-air policy
-  (mirror of takeover_policy)?
-- Air persistence: rooms die on empty, on timer, or persist until dissolved?
-- Discovery/invite UX: code-only (like approaches) or bot-side room list?
+- Air replaces links as the runtime entity; `/approach` and `/apart` remain
+  compatibility aliases, and active links migrate to two-member Air rooms.
+- Track/voice permissions are explicit per-Air policies; local DND/block is
+  always stronger.
+- Empty/single-member Air rooms park. Their eventual GC retention remains a
+  phase-2 gate decision.
+- Join is invite/code based from Pulsar or Telegram. There is no public
+  discovery in the approved scope.

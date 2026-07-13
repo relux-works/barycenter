@@ -9,6 +9,7 @@
 | Изменения 1.2 | Внесены результаты spike (отчёт от 2026-07-03): load = play(paused) + seek, solo_inject через add_to_queue, правила FIFO-ридера (backpressure, SPSC, запрет дропа), учёт ринга в таймингах и семантике ended, health-чек демона (главы 4, 6, 8, 13, 19, 20) |
 | Изменения 1.3 | Доставка звука: два режима — direct (по умолчанию: системный выход macOS, одно устройство на дом: AirPlay/Bluetooth/проводное) и airfoil (1..N колонок; требует macOS 15 Sequoia на ноде: на macOS 26 Airfoil 5.12.6 даёт дропауты — живые пробы 2026-07-03, U7/U8). Конфиг: airfoil.enabled (default false), audio.output_device. Демон: credentials.zeroconf.persist_credentials: true обязателен (A1). Решение заказчика от 2026-07-03 |
 | Изменения 1.4 | Spotify-first управление shared: трек, выбранный на любом Пульсаре, автоматически становится общим эфиром с позиции, слышимой инициатором; ссылка в Telegram для старта больше не нужна. `external_playback` дополнен optional `position_ms`; `/takeover user` заменяет текущий общий трек, `coordinator` защищает занятый эфир. Решение заказчика от 2026-07-09 |
+| Утверждённое расширение | Самодостаточный Pulsar без обязательных Spotify/Telegram, in-app voice/file media, overlay mixing и трёхфазный план: `docs/spec-self-contained-audio.md` (2026-07-12). До реализации фаз этот документ описывает shipped behavior |
 | Рабочее название | duet (заменяемо, используется в именах репозитория, сервисов и конфигов) |
 | Заказчик | Иван |
 | Пользователи | 2 человека (далее: A и B), по одному дому на каждого |

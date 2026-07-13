@@ -1,0 +1,34 @@
+@startuml
+title P2 codec/player spike proof flow
+autonumber
+
+actor Researcher
+participant "Fixture corpus" as Fixtures
+participant "Range harness\nstream_variants" as Harness
+participant "Candidate adapter" as Candidate
+participant "Current node scheduler\nready/resume_at" as Scheduler
+participant "Metrics collector" as Metrics
+
+Researcher -> Fixtures: Select 2h MP3/AAC/Opus case
+Researcher -> Harness: Publish variant + auth token
+Candidate -> Harness: GET bytes with Range
+Harness --> Candidate: Partial content chunks
+Candidate -> Candidate: Incremental decode into bounded buffer
+Candidate -> Scheduler: ready when decoder + buffer threshold hold
+Scheduler -> Candidate: resume_at(T_coord)
+Candidate -> Metrics: Record first-audio time, RSS, bytes fetched
+
+Researcher -> Candidate: pause
+Researcher -> Candidate: seek(position)
+Candidate -> Harness: More range reads for seek
+Researcher -> Candidate: resume
+Candidate -> Metrics: Record seek-to-audio, post-seek RSS, and skew
+
+alt Candidate passes
+  Candidate -> Metrics: Emit comparable artifact bundle
+else Candidate fails
+  Candidate -> Metrics: Emit rejected-option evidence with exact failure mode
+end
+
+Metrics --> Researcher: Side-by-side evidence for ADR
+@enduml

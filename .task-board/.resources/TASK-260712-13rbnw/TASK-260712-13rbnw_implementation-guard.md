@@ -1,0 +1,7 @@
+# Implementation guard — TASK-260712-13rbnw
+
+Start only after TASK-260712-2y74io has passed independent and root review. Before editing, read the complete task card and component diagram, docs/spec-self-contained-audio.md sections 3.13, 18, 19 P1.0 and P1.7, .task-board/.resources/TASK-260712-dib11l/windows-capture-bridge-r16.md, .task-board/.resources/TASK-260712-dib11l/root-review-r4-acceptance.md, the accepted lifecycle outcome/reviews, and .task-board/.resources/TASK-260712-3v1k7q/p1-root-review-amendments.md.
+
+Preserve AppContainer and least-capability posture. Keep Partner Center identity, Publisher, package family, architecture, signing, install, launch, log, and artifact instructions explicit and reproducible. Separate locally verifiable packaging/build checks from real signed Windows 10/11 hardware evidence; do not fabricate signing, certification, or hardware results. Do not place certificate material or secrets in the repository, logs, screenshots, or outcome resource. Preserve the dirty worktree; do not commit or push.
+
+Run manifest/schema validation and all host-available packaging/build tests. Attach an outcome mapping every AC/checklist item to exact files and commands, with pass/fail results, residual external gates, and git diff/status scope. Leave the task in to-review for independent reviewer and root line-by-line review.

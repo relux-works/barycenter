@@ -1,0 +1,50 @@
+@startuml
+title P1 Telegram Adapter, History and Presence - Component Boundaries
+
+left to right direction
+skinparam componentStyle rectangle
+
+actor "Telegram User" as TgUser
+actor "Pulsar App" as App
+
+rectangle "STORY-260712-34kbkn\nTelegram parity + history/presence" {
+  [Telegram Transport\nvoice/audio/callback updates] as TgTransport
+  [Inline Action Router\nlegacy default + action callbacks] as InlineRouter
+  [Delivery Presentation Model\nhuman labels + receipt wording] as Presentation
+  [Presence Surface\nsanitized presence + DND/block] as Presence
+  [History/Receipt Query\nrecent transmissions + aggregates] as History
+}
+
+rectangle "STORY-260712-2ve1c8\nIdentity + ActorContext" as Identity
+rectangle "STORY-260712-ld674h\nSubmitMedia + legacy voice bridge" as Ingest
+rectangle "STORY-260712-25lysg\nCreateTransmission + receipts + DND semantics" as Tx
+rectangle "STORY-260712-2e36uz\nWindows/macOS UI integration" as UI
+
+TgUser --> TgTransport
+TgTransport --> Identity : authorize actor
+TgTransport --> Ingest : submit voice/audio
+TgTransport --> InlineRouter : callback events
+
+InlineRouter --> Tx : create transmission\nor legacy after_current
+InlineRouter --> Presentation
+
+Tx --> History : transmission + target states
+Tx --> Presence : target capability\nDND/block result
+
+Identity --> Presentation : actor + orbit labels
+Presentation --> History
+Presentation --> Presence
+
+App --> History
+App --> Presence
+History --> UI
+Presence --> UI
+
+note bottom
+  This story owns presentation-oriented parity:
+  human names, routing labels, presence sanitization,
+  Telegram inline actions, and history/receipt read models.
+  It does not own SubmitMedia internals or transmission scheduling semantics.
+end note
+
+@enduml

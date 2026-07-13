@@ -218,7 +218,7 @@ function Get-ProbeSigningCertificate {
     if ($Certificate.NotBefore -gt $Now -or $Certificate.NotAfter -le $Now) {
         throw "signing certificate is outside its validity window"
     }
-    $EnhancedKeyUsages = @($Certificate.EnhancedKeyUsageList | ForEach-Object { $_.ObjectId.Value })
+    $EnhancedKeyUsages = @($Certificate.EnhancedKeyUsageList | ForEach-Object { [string]$_.ObjectId })
     if ($EnhancedKeyUsages -notcontains "1.3.6.1.5.5.7.3.3") {
         throw "signing certificate is missing the Code Signing enhanced key usage"
     }

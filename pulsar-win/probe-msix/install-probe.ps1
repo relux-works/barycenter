@@ -34,7 +34,7 @@ try {
         if ($Signer.Subject -cne $script:ProbePublisher -or $Signer.Issuer -cne $Signer.Subject) {
             throw "only the self-signed local test certificate for the frozen manifest Publisher may be trusted by this script"
         }
-        $EnhancedKeyUsages = @($Signer.EnhancedKeyUsageList | ForEach-Object { $_.ObjectId.Value })
+        $EnhancedKeyUsages = @($Signer.EnhancedKeyUsageList | ForEach-Object { [string]$_.ObjectId })
         if ($EnhancedKeyUsages -notcontains "1.3.6.1.5.5.7.3.3") {
             throw "embedded local signer is missing the Code Signing enhanced key usage"
         }

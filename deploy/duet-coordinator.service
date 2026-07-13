@@ -4,6 +4,7 @@ After=network-online.target tailscaled.service
 Wants=network-online.target
 
 [Service]
+EnvironmentFile=-/etc/duet/coordinator.env
 ExecStart=/usr/local/bin/duet-coordinator --config /etc/duet/coordinator.yml
 Restart=always
 RestartSec=3

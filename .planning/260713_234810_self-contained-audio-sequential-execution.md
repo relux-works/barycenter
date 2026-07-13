@@ -3,16 +3,16 @@
 - Date: 2026-07-13
 - Epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio
 - Baseline: `main` at merge commit `0c75dcfff601379f8fc53a18034b5a0530fdcb2b` (PR #8)
-- Inventory: 19 stories, 205 tasks; 8 accepted, 1 checkpointed, 196 not started.
+- Inventory: 19 stories, 205 tasks; 9 accepted, 1 checkpointed, 195 not started.
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current task: `TASK-260712-38qsku` — auth-migration-rollback-verification
-- Current branch: landing boundary on `task/task-260712-47uve0-windows-dpapi-r3`; next branch starts only after `origin/main` sync
-- Accepted: 8 / 205 tasks (approximately 3.9%); 197 remain
-- State: Windows onboarding R4 code checkpoint accepted; landing and remote sync in progress
+- Current task: `TASK-260712-38qsku` — auth-migration-rollback-verification (accepted; landing in progress)
+- Current branch: `task/task-260712-38qsku-auth-migration-rollback`
+- Accepted: 9 / 205 tasks (approximately 4.4%); 196 remain
+- State: automated authorization, additive migration, exact-predecessor rollback and client-compatibility checkpoint accepted; commit, sync and landing in progress
 
 ## Operating contract
 
@@ -64,7 +64,7 @@ Windows 10/11 hardware matrix establishes which downstream assumptions are real.
 
 - [x] `TASK-260712-2u1w16` — macos-keychain-onboarding-client (R5 accepted 2026-07-14; focused 75/75, full 125/125, recovery/clipboard stress 100/100, release/format/privacy gates green)
 - [x] `TASK-260712-47uve0` — windows-dpapi-onboarding-client (R4 code checkpoint accepted 2026-07-14 after same-executor cold R3 remediation; focused x50, full/race, privacy, amd64/arm64 cross-build gates green; native DPAPI/NTFS/HWND, installed-MSIX and Windows 10/11 claims remain explicit downstream gates)
-- [ ] `TASK-260712-38qsku` — auth-migration-rollback-verification
+- [x] `TASK-260712-38qsku` — auth-migration-rollback-verification (accepted 2026-07-14; exact pinned predecessor Store/config gates, callable fail-closed projection, physical SQLite secret scan, coordinator/macOS/Windows full matrices and operator runbook green; no live production or native Windows claim)
 - [ ] `TASK-260712-2y74io` — handle-probe-lifecycle-cleanup (checkpoint: refreeze post-CI bytes, rerun adversarial R11 review and root audit)
 - [ ] `TASK-260712-13rbnw` — package-signed-msix-probe
 - [ ] `TASK-260712-1vtwkl` — run-win10-win11-evidence-matrix

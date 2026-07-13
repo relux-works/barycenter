@@ -77,6 +77,24 @@ type Config struct {
 	TrustedProxy bool `yaml:"trusted_proxy"`
 }
 
+// previousCoordinatorConfig is the exact YAML surface of the pinned rollback
+// target e8bd240664a40b9cc78b974f3c34ad30712e2aa5. Do not add current fields to
+// this shape while that revision remains the supported predecessor.
+type previousCoordinatorConfig struct {
+	Listen       string          `yaml:"listen"`
+	PublicURL    string          `yaml:"public_url"`
+	LogLevel     string          `yaml:"log_level"`
+	DBPath       string          `yaml:"db_path"`
+	MediaDir     string          `yaml:"media_dir"`
+	Nodes        map[string]Node `yaml:"nodes"`
+	Telegram     Telegram        `yaml:"telegram"`
+	Timings      Timings         `yaml:"timings"`
+	Media        Media           `yaml:"media"`
+	Spotify      Spotify         `yaml:"spotify"`
+	Providers    bool            `yaml:"providers"`
+	TrustedProxy bool            `yaml:"trusted_proxy"`
+}
+
 var hexToken = regexp.MustCompile(`^[0-9a-fA-F]{64}$`)
 
 func Load(path string) (*Config, error) {
@@ -95,6 +113,25 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// ValidatePreviousCoordinatorRollbackYAML rejects the current-only YAML field
+// that the pinned predecessor cannot decode because it uses KnownFields(true).
+// The feature remains available through DUET_SELF_SERVICE_ONBOARDING, which
+// that predecessor safely ignores. Call this before mutating the database for
+// rollback so a config incompatibility cannot be discovered after projection.
+func ValidatePreviousCoordinatorRollbackYAML(path string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("config: cannot read %s: %w", path, err)
+	}
+	var predecessor previousCoordinatorConfig
+	dec := yaml.NewDecoder(strings.NewReader(string(raw)))
+	dec.KnownFields(true)
+	if err := dec.Decode(&predecessor); err != nil {
+		return fmt.Errorf("config: %s is not predecessor-neutral: %w; keep current-only settings such as self_service_onboarding in the environment", path, err)
+	}
+	return nil
 }
 
 // applyEnv overrides secrets and per-install values from the environment —

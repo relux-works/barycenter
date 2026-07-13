@@ -25,6 +25,14 @@ else
     echo "==> keeping existing coordinator.yml"
 fi
 
+if [[ ! -f /etc/duet/coordinator.env ]]; then
+    echo "==> placing predecessor-neutral coordinator rollout environment"
+    install -m 600 "$SCRIPT_DIR/coordinator.env.example" /etc/duet/coordinator.env
+    chown duet:duet /etc/duet/coordinator.env
+else
+    echo "==> keeping existing coordinator.env"
+fi
+
 install -m 644 "$SCRIPT_DIR/duet-coordinator.service" /etc/systemd/system/duet-coordinator.service
 systemctl daemon-reload
 systemctl enable duet-coordinator

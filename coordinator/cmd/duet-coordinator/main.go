@@ -105,10 +105,20 @@ var version = "0.1.0-dev"
 func main() {
 	configPath := flag.String("config", "/etc/duet/coordinator.yml", "path to coordinator.yml")
 	showVersion := flag.Bool("version", false, "print version and exit")
+	projectIdentityRollback := flag.Bool("project-identity-rollback", false,
+		"project current identity state into the legacy schema, then exit")
 	flag.Parse()
 
 	if *showVersion {
 		fmt.Println(version)
+		return
+	}
+	if *projectIdentityRollback {
+		if err := projectIdentityForLegacyRollback(*configPath); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("identity rollback projection complete")
 		return
 	}
 
@@ -230,6 +240,33 @@ func main() {
 		log.Error("http server", "err", err)
 		os.Exit(1)
 	}
+}
+
+// projectIdentityForLegacyRollback is an explicit one-shot operator path. It
+// always opens the database with self-service serving disabled: enabling the
+// feature during this command would reconcile and restore a pending projection
+// before a retry. The normal coordinator process must be stopped first so this
+// command is the only writer while the fail-closed legacy state is committed.
+func projectIdentityForLegacyRollback(configPath string) error {
+	if err := config.ValidatePreviousCoordinatorRollbackYAML(configPath); err != nil {
+		return err
+	}
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	st, err := store.Open(cfg.DBPath)
+	if err != nil {
+		return fmt.Errorf("open store for identity rollback projection: %w", err)
+	}
+	if err := st.ProjectIdentityForLegacyRollback(); err != nil {
+		_ = st.Close()
+		return fmt.Errorf("project identity for legacy rollback: %w", err)
+	}
+	if err := st.Close(); err != nil {
+		return fmt.Errorf("close store after identity rollback projection: %w", err)
+	}
+	return nil
 }
 
 // pairHandler is POST /pair {code} -> {orbit_id, slot, token, ws_url}

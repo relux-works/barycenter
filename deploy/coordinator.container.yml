@@ -4,6 +4,8 @@ listen: "0.0.0.0:8080"          # behind the reverse proxy (TLS terminates there
 log_level: info                 # debug|info|warn|error — DUET_LOG_LEVEL overrides
 db_path: /var/lib/duet/duet.db
 media_dir: /var/lib/duet/media
+# DUET_SELF_SERVICE_ONBOARDING is intentionally environment-only until the
+# pinned predecessor is retired; that version rejects unknown YAML fields.
 nodes:
   a: { token: "" }              # DUET_NODE_A_TOKEN
   b: { token: "" }              # DUET_NODE_B_TOKEN

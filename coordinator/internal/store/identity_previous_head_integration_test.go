@@ -243,6 +243,40 @@ func TestR8ExactPreviousHEADTwoGenerationProjectionComposition(t *testing.T) {
 	}
 }
 
+// TestR8ExactPreviousHEADConfigBootstrapContract pins the deployment-side
+// rollback constraint that is easy to miss in database-only rehearsals. The
+// predecessor uses yaml.KnownFields(true), so a current-only YAML key prevents
+// that binary from booting. Rollout therefore enables self-service onboarding
+// through the environment while the predecessor remains a rollback target and
+// keeps the YAML itself predecessor-neutral.
+func TestR8ExactPreviousHEADConfigBootstrapContract(t *testing.T) {
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("locate current test source")
+	}
+	storeDir := filepath.Dir(currentFile)
+	repoRoot := filepath.Clean(filepath.Join(storeDir, "..", "..", ".."))
+	assertExactRevisionExists(t, repoRoot)
+	previousCoordinatorDir := prepareExactPreviousHeadStoreTree(t, repoRoot, storeDir)
+
+	driver, err := os.ReadFile(filepath.Join(storeDir, "testdata", "previous_head_config_test.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	previousConfigDir := filepath.Join(previousCoordinatorDir, "internal", "config")
+	if err := os.WriteFile(filepath.Join(previousConfigDir, "previous_head_config_test.go"), driver, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	testCtx, cancelTest := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancelTest()
+	cmd := exec.CommandContext(testCtx, "go", "test", "-count=1", "./internal/config", "-run", "^TestPreviousHeadRollbackConfigBootstrapContract$")
+	cmd.Dir = previousCoordinatorDir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("exact previous HEAD config bootstrap test: %v\n%s", err, output)
+	}
+}
+
 func prepareExactPreviousGeneration(t *testing.T, s *Store, generation int, disabledOrbitID, disabledOwner int64) exactPreviousGenerationFixture {
 	t.Helper()
 	base := int64(generation * 10000)

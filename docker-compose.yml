@@ -30,6 +30,9 @@ services:
       DUET_SPOTIFY_CLIENT_ID: ${DUET_SPOTIFY_CLIENT_ID:-}
       DUET_SPOTIFY_CLIENT_SECRET: ${DUET_SPOTIFY_CLIENT_SECRET:-}
       DUET_PROVIDERS: ${DUET_PROVIDERS:-}
+      # Keep coordinator.yml predecessor-neutral while the old binary remains
+      # a rollback target; enable self-service onboarding through env only.
+      DUET_SELF_SERVICE_ONBOARDING: ${DUET_SELF_SERVICE_ONBOARDING:-}
     volumes:
       - duet-data:/var/lib/duet
     ports:

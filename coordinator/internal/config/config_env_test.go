@@ -130,6 +130,35 @@ func TestSelfServiceOnboardingEnvironmentPrecedenceAndYAMLPreservation(t *testin
 	}
 }
 
+func TestPreviousCoordinatorRollbackYAMLRequiresNeutralFeatureFlagSource(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rollback.yml")
+	neutral := "listen: \"0.0.0.0:8080\"\n" +
+		"db_path: /tmp/d.db\n" +
+		"media_dir: /tmp/m\n" +
+		"# self_service_onboarding belongs in the environment during rollout\n"
+	if err := os.WriteFile(path, []byte(neutral), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidatePreviousCoordinatorRollbackYAML(path); err != nil {
+		t.Fatalf("neutral rollback YAML rejected: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(neutral+"self_service_onboarding: true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidatePreviousCoordinatorRollbackYAML(path); err == nil ||
+		!strings.Contains(err.Error(), "self_service_onboarding") {
+		t.Fatalf("current-only rollback YAML error=%v", err)
+	}
+	merged := "<<: &current\n  self_service_onboarding: true\n" + neutral
+	if err := os.WriteFile(path, []byte(merged), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidatePreviousCoordinatorRollbackYAML(path); err == nil ||
+		!strings.Contains(err.Error(), "self_service_onboarding") {
+		t.Fatalf("merged current-only rollback YAML error=%v", err)
+	}
+}
+
 // v2.1: empty tokens are legal (new installs mint everything via /create +
 // /pair) — the container config boots with zero env. Garbage tokens still die.
 func TestContainerConfigWithoutEnv(t *testing.T) {

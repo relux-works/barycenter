@@ -2,6 +2,8 @@ listen: "__TAILSCALE_IP__:8080"         # tailscale address of this VPS; never a
 log_level: info                         # debug|info|warn|error (default info)
 db_path: /var/lib/duet/duet.db
 media_dir: /var/lib/duet/media
+# Self-service onboarding stays in /etc/duet/coordinator.env until the pinned
+# predecessor is retired; that version rejects current-only YAML fields.
 nodes:
   a: { token: "__TOKEN_A__" }           # openssl rand -hex 32
   b: { token: "__TOKEN_B__" }

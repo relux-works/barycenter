@@ -12,7 +12,7 @@
 - Current task: `TASK-260712-1vtwkl` — blocked on real Windows 10/11 hardware access
 - Current branch: `task/task-260712-1vtwkl-win10-win11-evidence`
 - Accepted: 11 / 205 tasks (approximately 5.4%); 194 remain
-- State: H00-H17 and the accepted package provenance are frozen; no admissible physical Windows host or console operator is currently accessible, so no hardware row is claimed passed and later work has not started
+- State: H00-H17 and the accepted package provenance are frozen in draft PR #10; no admissible physical Windows host or console operator is currently accessible, so no hardware row is claimed passed and later work has not started
 
 Current blocker details and the exact unblock contract are recorded in the
 task-board outcome resource

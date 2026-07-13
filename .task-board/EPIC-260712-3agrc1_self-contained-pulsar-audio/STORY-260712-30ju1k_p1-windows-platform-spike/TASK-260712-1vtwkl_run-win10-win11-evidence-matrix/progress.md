@@ -1,14 +1,14 @@
 ## Status
-backlog
+blocked
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:27:53Z
 
 ## Last Update
-2026-07-12T16:22:53Z
+2026-07-13T23:34:45Z
 
 ## Blocked By
 - TASK-260712-2y74io
@@ -28,9 +28,11 @@ backlog
 - [ ] Test cold permission, hotkey conflict, device removal and brokered file access without developer-mode assumptions
 
 ## Notes
+Strict sequential inline execution started 2026-07-14 from clean synchronized main 38ebd385e105eb2f6c7012c608cd1debfa3aad5e on branch task/task-260712-1vtwkl-win10-win11-evidence. No task-board spawn workflow. Preconditions TASK-260712-2y74io and TASK-260712-13rbnw are accepted and landed. Hardware claims remain gated on real supported Windows 10 and Windows 11 hosts with physical audio devices.
+2026-07-14 readiness audit froze H00-H17 and revalidated accepted package SHA-256 a0c3022b69c68f140969a7d7bef4cd0904f1b2872960e7a4511bea9462749be7 from CI 29292631211. No admissible physical Windows hosts are accessible: executor is macOS without Boot Camp, accessible Tailscale has no Windows peers, no Windows SSH target or physical-console operator was supplied, and hosted CI/VMs are not evidence. Current lifecycle review also means ordinary Windows 10 22H2 is EOS; strict supported row is Windows 10 Enterprise LTSC 2021 through 2027-01-12 unless product owners explicitly approve another lifecycle posture. Exact host/device/operator requirements and matrix are attached in TASK-260712-1vtwkl_hardware-readiness-audit.md. No scenario is claimed passed.
 
 ## Precondition Resources
 - [p1-windows-store-spike-lifecycle.puml](file://TASK-260712-1vtwkl/p1-windows-store-spike-lifecycle.puml) — Lifecycle flow for the Win10 and Win11 evidence run
 
 ## Outcome Resources
-(none)
+- [TASK-260712-1vtwkl_hardware-readiness-audit.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_hardware-readiness-audit.md) — Frozen real-hardware matrix, artifact provenance, access audit and exact unblock requirements; not execution evidence

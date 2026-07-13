@@ -2,17 +2,24 @@
 
 - Date: 2026-07-13
 - Epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio
-- Baseline: `main` at merge commit `0c75dcfff601379f8fc53a18034b5a0530fdcb2b` (PR #8)
+- Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
 - Inventory: 19 stories, 205 tasks; 11 accepted, 194 remain.
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current task: `TASK-260712-13rbnw` — accepted; landing PR #9 before the next task starts
-- Current branch: `task/task-260712-13rbnw-signed-msix`
+- Current task: `TASK-260712-1vtwkl` — blocked on real Windows 10/11 hardware access
+- Current branch: `task/task-260712-1vtwkl-win10-win11-evidence`
 - Accepted: 11 / 205 tasks (approximately 5.4%); 194 remain
-- State: signed-MSIX checkpoint accepted on frozen production commit `f5b73f0`; final CI `29292631211` green; PR #9 pending land
+- State: H00-H17 and the accepted package provenance are frozen; no admissible physical Windows host or console operator is currently accessible, so no hardware row is claimed passed and later work has not started
+
+Current blocker details and the exact unblock contract are recorded in the
+task-board outcome resource
+`TASK-260712-1vtwkl_hardware-readiness-audit.md`. The strict Windows 10 row is
+Enterprise LTSC 2021 while it remains in mainstream support; ordinary 22H2 is
+already end-of-support and requires an explicit product decision rather than a
+silent substitution.
 
 ## Operating contract
 

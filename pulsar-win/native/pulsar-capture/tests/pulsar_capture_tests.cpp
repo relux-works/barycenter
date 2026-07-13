@@ -822,6 +822,7 @@ void test_production_activation_cancel_diagrams_and_diagnostics(HANDLE capture_e
 }
 
 void test_global_abi_validation_and_teardown() {
+    std::cerr << "[   STEP   ] initialize_and_check_permission" << std::endl;
     int32_t permission = 99;
     CHECK(CapPermissionCheck(&permission) == E_NOT_VALID_STATE);
     CHECK(CapInit() == S_OK);
@@ -830,11 +831,14 @@ void test_global_abi_validation_and_teardown() {
     CHECK(CapPermissionCheck(&permission) == S_OK);
     CHECK(permission >= CAP_PERMISSION_UNAVAILABLE && permission <= CAP_PERMISSION_UNKNOWN);
 
+    std::cerr << "[   STEP   ] permission_subscription_fence" << std::endl;
     test_unsubscribe_with_inflight_production_handler();
 
+    std::cerr << "[   STEP   ] wrong_thread_destroy" << std::endl;
     auto wrong_thread_destroy = std::async(std::launch::async, []() { return CapDestroy(); });
     CHECK(wrong_thread_destroy.get() == RPC_E_WRONG_THREAD);
 
+    std::cerr << "[   STEP   ] rejected_capture_prepare" << std::endl;
     HANDLE capture_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     CHECK(capture_event != nullptr);
     uint32_t rejected_id = 0xfeedbeefu;
@@ -845,6 +849,7 @@ void test_global_abi_validation_and_teardown() {
     CHECK(CapturePrepare(capture_event, &rejected_id) == E_OUTOFMEMORY);
     CHECK(rejected_id == 0xfeedbeefu);
 
+    std::cerr << "[   STEP   ] stopped_capture_prepare" << std::endl;
     HANDLE coinit_entered = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     HANDLE coinit_proceed = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     CHECK(coinit_entered != nullptr && coinit_proceed != nullptr);
@@ -873,6 +878,7 @@ void test_global_abi_validation_and_teardown() {
     CloseHandle(coinit_entered);
     CloseHandle(coinit_proceed);
 
+    std::cerr << "[   STEP   ] failed_capture_coinitialize" << std::endl;
     TestSetCaptureCoInitialize(RPC_E_CHANGED_MODE, nullptr, nullptr);
     uint32_t coinit_failure_id = 0;
     CHECK(CapturePrepare(capture_event, &coinit_failure_id) == S_OK);
@@ -887,6 +893,7 @@ void test_global_abi_validation_and_teardown() {
     CHECK(CaptureRelease(coinit_failure_id) == S_OK);
     TestResetNativeHooks();
 
+    std::cerr << "[   STEP   ] failed_capture_activation" << std::endl;
     uint32_t activation_failure_id = 0;
     CHECK(CapturePrepare(capture_event, &activation_failure_id) == S_OK);
     CHECK(wait_for_capture(activation_failure_id, capture_event, true, nullptr, nullptr, nullptr));
@@ -903,8 +910,10 @@ void test_global_abi_validation_and_teardown() {
     CHECK(CaptureRelease(activation_failure_id) == S_OK);
     TestResetNativeHooks();
 
+    std::cerr << "[   STEP   ] activation_cancel_diagrams" << std::endl;
     test_production_activation_cancel_diagrams_and_diagnostics(capture_event);
 
+    std::cerr << "[   STEP   ] stalled_handoff_stop" << std::endl;
     uint32_t capture_id = 0;
     CHECK(CapturePrepare(capture_event, &capture_id) == S_OK && capture_id != 0);
     CHECK(wait_for_capture(capture_id, capture_event, true, nullptr, nullptr, nullptr));
@@ -938,6 +947,7 @@ void test_global_abi_validation_and_teardown() {
     CHECK(CapIsQuiescent() == S_OK);
     CHECK(CloseHandle(capture_event) != FALSE);
 
+    std::cerr << "[   STEP   ] invalid_handles_and_teardown" << std::endl;
     uint32_t id = 0xfeedbeefu;
     CHECK(CapPermissionRequest(nullptr, &id) == E_HANDLE && id == 0xfeedbeefu);
     CHECK(CapEnumerateDevices(nullptr, &id) == E_HANDLE && id == 0xfeedbeefu);
@@ -950,6 +960,7 @@ void test_global_abi_validation_and_teardown() {
     CHECK(CapInit() == S_OK);
     CHECK(CapDestroy() == S_OK);
 
+    std::cerr << "[   STEP   ] initialization_rollback" << std::endl;
     TestResetNativeHooks();
     TestSetPostRoInitFailure(E_OUTOFMEMORY);
     CHECK(CapInit() == E_OUTOFMEMORY);

@@ -963,21 +963,27 @@ void test_global_abi_validation_and_teardown() {
 
 }  // namespace
 
+void run_test(const char* name, void (*test)()) {
+    std::cerr << "[ RUN      ] " << name << std::endl;
+    test();
+    std::cerr << "[ COMPLETE ] " << name << std::endl;
+}
+
 int wmain() {
-    test_version_and_null_contract();
-    test_packed_fsm_and_priority();
-    test_stop_is_nonblocking_while_handoff_mutex_is_stalled();
-    test_priority_and_seal_races_on_production_control();
-    test_format_validation();
-    test_checked_capture_allocations();
-    test_float_and_pcm_vectors_unaligned();
-    test_ring_exact_fit_overflow_and_drain();
-    test_notification_duplicate_and_callback_release_fence();
-    test_picker_truth_table_and_handle_ownership();
-    test_packet_drain_coalescing_cleanup_and_overflow();
-    test_packet_flags_release_before_commit_and_device_errors();
-    test_cleanup_diagnostics_preserve_cause_and_release_order();
-    test_global_abi_validation_and_teardown();
+    run_test("version_and_null_contract", test_version_and_null_contract);
+    run_test("packed_fsm_and_priority", test_packed_fsm_and_priority);
+    run_test("stop_is_nonblocking_while_handoff_mutex_is_stalled", test_stop_is_nonblocking_while_handoff_mutex_is_stalled);
+    run_test("priority_and_seal_races_on_production_control", test_priority_and_seal_races_on_production_control);
+    run_test("format_validation", test_format_validation);
+    run_test("checked_capture_allocations", test_checked_capture_allocations);
+    run_test("float_and_pcm_vectors_unaligned", test_float_and_pcm_vectors_unaligned);
+    run_test("ring_exact_fit_overflow_and_drain", test_ring_exact_fit_overflow_and_drain);
+    run_test("notification_duplicate_and_callback_release_fence", test_notification_duplicate_and_callback_release_fence);
+    run_test("picker_truth_table_and_handle_ownership", test_picker_truth_table_and_handle_ownership);
+    run_test("packet_drain_coalescing_cleanup_and_overflow", test_packet_drain_coalescing_cleanup_and_overflow);
+    run_test("packet_flags_release_before_commit_and_device_errors", test_packet_flags_release_before_commit_and_device_errors);
+    run_test("cleanup_diagnostics_preserve_cause_and_release_order", test_cleanup_diagnostics_preserve_cause_and_release_order);
+    run_test("global_abi_validation_and_teardown", test_global_abi_validation_and_teardown);
     if (failures != 0) {
         std::cerr << failures << " native test(s) failed\n";
         return 1;

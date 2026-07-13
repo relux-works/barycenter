@@ -42,3 +42,42 @@ func TestManifestValidationRequiresExactReviewedCapabilitySet(t *testing.T) {
 		})
 	}
 }
+
+func TestManifestValidationRequiresPartnerCenterIdentity(t *testing.T) {
+	t.Parallel()
+	source := filepath.Join("..", "..", "probe-msix", "AppxManifest.xml.in")
+	raw, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceXML := strings.ReplaceAll(string(raw), "\r\n", "\n")
+	tests := []struct {
+		name string
+		old  string
+		new  string
+	}{
+		{name: "package identity", old: `Name="ReluxWorksLLC.PulsarBarycenter"`, new: `Name="ReluxWorksLLC.PulsarProbe"`},
+		{name: "publisher", old: `Publisher="CN=60105954-A0D9-4E89-B32D-18AF2F423ABE"`, new: `Publisher="CN=wrong"`},
+		{name: "application ID", old: `Application Id="PulsarProbe"`, new: `Application Id="Pulsar"`},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			mutated := strings.Replace(sourceXML, tc.old, tc.new, 1)
+			if mutated == sourceXML {
+				t.Fatalf("manifest fixture does not contain %q", tc.old)
+			}
+			path := filepath.Join(t.TempDir(), "AppxManifest.xml")
+			if err := os.WriteFile(path, []byte(mutated), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			manifest, err := InspectManifest(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := manifest.Validate(); err == nil {
+				t.Fatal("Validate accepted a manifest outside the frozen Partner Center probe identity")
+			}
+		})
+	}
+}

@@ -5,27 +5,162 @@ This Windows-only probe packages `pulsar-win-probe-amd64.exe` and the actual
 MSIX. The only added device capability is `microphone`; file access is through
 `FileOpenPicker` and a take-once brokered read handle.
 
-`ReluxWorksLLC.PulsarProbe` is a separate validation identity only. It is not
-the Store product package, and creating this unsigned probe MSIX does not by
-itself establish Partner Center or Windows App Certification Kit eligibility.
+The probe is frozen to the current Partner Center product identity, so the
+same package can take either of two explicit signing routes:
 
-On a Visual Studio 2022 developer shell:
+| Field | Frozen value |
+| --- | --- |
+| Partner Center product | `9P26FDCWV1GC` (`Pulsar Barycenter`) |
+| Package identity | `ReluxWorksLLC.PulsarBarycenter` |
+| Publisher | `CN=60105954-A0D9-4E89-B32D-18AF2F423ABE` |
+| Architecture | `x64` |
+| Application ID | `PulsarProbe` |
+| Trust/runtime | `appContainer` / `packagedClassicApp` |
+| Capabilities | `internetClient`, `internetClientServer`, `privateNetworkClientServer`, `microphone` |
+
+Because package family is derived from the identity and Publisher, this probe
+belongs to the real Pulsar product family. `build-probe.ps1` derives the exact
+family with `PackageFamilyNameFromId`; `install-probe.ps1` verifies and prints
+the family and full AUMID instead of asking an operator to guess a publisher
+hash. Installation deliberately refuses to replace an existing package in
+that family. Use a dedicated Windows test account or host with Store Pulsar
+absent.
+
+## Obtain a signed package
+
+Every successful `pulsar-win-packaged-probe` CI job creates the
+`pulsar-signed-msix-probe` artifact. It contains:
+
+- `PulsarProbe-0.1.0.0-x64-signed.msix` — signed package, with no exported
+  private key;
+- `.msix.sha256` and `.msix.json` — digest and frozen build contract;
+- `.msix.install.json` — hosted-Windows install receipt with the resolved
+  package family, AUMID, and relative evidence locations.
+
+For example, with GitHub CLI and a completed CI run ID:
 
 ```powershell
-./probe-msix/build-probe.ps1 -Version 0.1.0.0
+gh run download <run-id> `
+  --name pulsar-signed-msix-probe `
+  --dir .\dist\windows-probe
 ```
 
-The script builds and runs native tests, runs all Go tests, cross-builds the
-probe GUI, asserts the helper DLL is staged, and validates package creation
-with MakeAppx. It does not claim signed-hardware evidence: signing, WACK, and
-real Windows 10/11 scenario runs remain required evidence gates.
+To reproduce the signed package locally, use a Visual Studio 2022 developer
+shell with the x64 MSVC toolchain and Windows SDK 10.0.19041 or later:
+
+```powershell
+$thumbprint = & .\pulsar-win\probe-msix\new-test-signing-certificate.ps1
+try {
+  .\pulsar-win\probe-msix\build-probe.ps1 `
+    -Version 0.1.0.0 `
+    -SigningCertificateThumbprint $thumbprint
+} finally {
+  Remove-Item -Force "Cert:\CurrentUser\My\$thumbprint" `
+    -ErrorAction SilentlyContinue
+}
+```
+
+The generator creates a short-lived, non-exportable test key in the current
+user certificate store. Its Subject is read from and must exactly match the
+manifest Publisher. The build runs native CMake/CTest, Go vet/tests/build,
+MakeAppx, SignTool with SHA-256, embedded-signer verification, and writes the
+package to `dist\windows-probe`. It never writes a PFX, certificate password,
+or private key to the repository or artifact.
+
+The self-signed route is for controlled hardware testing only. Microsoft
+requires its public signer to be explicitly trusted on each test host. The
+Store route below is the production distribution path and does not share that
+trust step.
+
+## Install, launch, and collect artifacts
+
+Open an elevated PowerShell terminal on a dedicated Windows 10 or Windows 11
+test host, then run:
+
+```powershell
+$package = Resolve-Path `
+  .\dist\windows-probe\PulsarProbe-0.1.0.0-x64-signed.msix
+$install = & .\pulsar-win\probe-msix\install-probe.ps1 `
+  -Package $package `
+  -TrustLocalTestSigner `
+  -Launch
+```
+
+`-TrustLocalTestSigner` accepts only a self-signed Code Signing certificate
+whose Subject exactly equals the frozen Publisher. It extracts only the public
+certificate embedded in the MSIX and adds it to Local Computer → Trusted
+People, then revalidates the package signature before `Add-AppxPackage`.
+Omit this flag for a Store-signed package.
+
+The script validates identity, Publisher, x64 architecture, package family,
+AppContainer/runtime attributes, and the exact four-capability set. It then
+launches `shell:AppsFolder\<package-family>!PulsarProbe`, verifies that the
+probe process appeared, and prints the resolved paths. The same values are in
+the adjacent `.msix.install.json` receipt.
 
 The visible window provides separate `Record default` and `Record selected`
 actions, `Stop`, brokered picker, and hide controls. The tray duplicates those
-controls. `Ctrl+Shift+R` toggles the currently selected capture mode. Structured
-JSON Lines evidence is written to package-private
-`%LOCALAPPDATA%\Packages\<package-family>\LocalState\PulsarProbe`. Unpackaged
-development uses the normal Go user-config directory.
+controls. `Ctrl+Shift+R` toggles the currently selected capture mode. Run only
+the scenario sequence assigned by the Windows 10/11 evidence matrix; do not
+merge evidence from two hosts.
+
+Runtime output is package-private and resolves exactly as follows:
+
+```text
+%LOCALAPPDATA%\Packages\<package-family>\LocalState\PulsarProbe\
+  scenarios.jsonl
+  evidence\
+    *.wav
+    *.partial
+    *.partial.reason
+```
+
+Copy the complete `PulsarProbe` directory after the probe has exited cleanly.
+Do not attach certificate exports, local usernames/paths, microphone content
+outside the task-approved evidence handling, or a private key to task results.
+
+After evidence capture, remove the package and any trust entry that this run
+added:
+
+```powershell
+Get-Process pulsar-win-probe-amd64 -ErrorAction SilentlyContinue |
+  Stop-Process
+Get-AppxPackage -Name ReluxWorksLLC.PulsarBarycenter |
+  Remove-AppxPackage
+if ($install.SignerTrustAdded) {
+  Remove-Item -Force `
+    "Cert:\LocalMachine\TrustedPeople\$($install.SignerThumbprint)"
+}
+```
+
+## Store-distributed route
+
+For a Store private flight, create the unsigned upload candidate by omitting
+the thumbprint:
+
+```powershell
+.\pulsar-win\probe-msix\build-probe.ps1 `
+  -Version <monotonic-four-part-version>
+```
+
+The resulting `*-unsigned.msix` keeps the product identity and Publisher shown
+above. Submit it only through an explicitly authorized Partner Center flight
+for product `9P26FDCWV1GC`; Microsoft signs the certified MSIX. This task does
+not publish or modify a Partner Center submission. A Store-installed package
+is launched with `install-probe.ps1 -Package <path> -Launch` and needs no local
+certificate trust.
+
+Microsoft's current contracts are documented in
+[Create a certificate for package signing](https://learn.microsoft.com/windows/msix/package/create-certificate-package-signing),
+[Sign an app package using SignTool](https://learn.microsoft.com/windows/msix/package/sign-app-package-using-signtool),
+[MSIX signing end-to-end](https://learn.microsoft.com/windows/msix/package/sign-msix-package-guide),
+and [package identity](https://learn.microsoft.com/windows/apps/desktop/modernize/package-identity-overview).
+
+CI proves build, signature creation, trusted-signature validation, package
+registration, and contract receipt creation on hosted Windows. It does not
+prove WACK, Store certification, microphone behavior, lifecycle event delivery,
+or real Windows 10/11 hardware behavior. Those remain the strict downstream
+matrix gate.
 
 ## Lifecycle cleanup and evidence
 

@@ -8,12 +8,21 @@ import (
 	"sort"
 )
 
+const (
+	ProbePackageIdentity = "ReluxWorksLLC.PulsarBarycenter"
+	ProbePublisher       = "CN=60105954-A0D9-4E89-B32D-18AF2F423ABE"
+	ProbeApplicationID   = "PulsarProbe"
+)
+
 type manifestPackage struct {
 	Identity struct {
+		Name                  string `xml:"Name,attr"`
+		Publisher             string `xml:"Publisher,attr"`
 		ProcessorArchitecture string `xml:"ProcessorArchitecture,attr"`
 	} `xml:"Identity"`
 	Applications struct {
 		Application []struct {
+			ID              string `xml:"Id,attr"`
 			RuntimeBehavior string `xml:"RuntimeBehavior,attr"`
 			TrustLevel      string `xml:"TrustLevel,attr"`
 		} `xml:"Application"`
@@ -30,6 +39,9 @@ type namedCapability struct {
 
 type ManifestAssertions struct {
 	Path                   string
+	PackageIdentity        string
+	Publisher              string
+	ApplicationID          string
 	MicrophoneDeclared     bool
 	BroadFilesystemAbsent  bool
 	RunFullTrustAbsent     bool
@@ -70,11 +82,14 @@ func InspectManifest(path string) (ManifestAssertions, error) {
 	}
 	out := ManifestAssertions{
 		Path:                  path,
+		PackageIdentity:       pkg.Identity.Name,
+		Publisher:             pkg.Identity.Publisher,
 		BroadFilesystemAbsent: true,
 		RunFullTrustAbsent:    true,
 		ProcessorArchitecture: pkg.Identity.ProcessorArchitecture,
 	}
 	if len(pkg.Applications.Application) > 0 {
+		out.ApplicationID = pkg.Applications.Application[0].ID
 		out.TrustLevel = pkg.Applications.Application[0].TrustLevel
 		out.RuntimeBehavior = pkg.Applications.Application[0].RuntimeBehavior
 	}
@@ -125,6 +140,15 @@ func InspectManifest(path string) (ManifestAssertions, error) {
 }
 
 func (m ManifestAssertions) Validate() error {
+	if m.PackageIdentity != ProbePackageIdentity {
+		return fmt.Errorf("manifest package identity = %q, want current Partner Center identity %q", m.PackageIdentity, ProbePackageIdentity)
+	}
+	if m.Publisher != ProbePublisher {
+		return fmt.Errorf("manifest publisher = %q, want current Partner Center publisher %q", m.Publisher, ProbePublisher)
+	}
+	if m.ApplicationID != ProbeApplicationID {
+		return fmt.Errorf("manifest application ID = %q, want %q", m.ApplicationID, ProbeApplicationID)
+	}
 	if m.ProcessorArchitecture != "x64" {
 		return fmt.Errorf("manifest processor architecture = %q, want x64", m.ProcessorArchitecture)
 	}

@@ -9,10 +9,10 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current task: `TASK-260712-2y74io` — handle-probe-lifecycle-cleanup
-- Current branch: `task/task-260712-2y74io-lifecycle-r11`
+- Current task: `TASK-260712-13rbnw` — package-signed-msix-probe
+- Current branch: `task/task-260712-13rbnw-signed-msix`
 - Accepted: 10 / 205 tasks (approximately 4.9%); 195 remain
-- State: R13 adversarial review and root audit accepted; commit, sync, and landing in progress
+- State: accepted lifecycle checkpoint landed at `182c203`; signed-MSIX packaging checkpoint started
 
 ## Operating contract
 

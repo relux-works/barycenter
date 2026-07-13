@@ -1,14 +1,14 @@
 ## Status
-development
+done
 
 ## Assigned To
-[implementer] developer (codex)
+codex-inline
 
 ## Created
 2026-07-12T15:30:17Z
 
 ## Last Update
-2026-07-13T17:46:01Z
+2026-07-13T20:38:07Z
 
 ## Blocked By
 - TASK-260712-3v1k7q
@@ -63,6 +63,9 @@ spawn run completed: codex (run=RUN-260713-f9f020, pid=89642, exit=0)
 Root R5 rework guard attached; SHA-256 721a52cf0a2754d4a63370169284e3e43c9873d0017ea9ef3abf7d308d9b1553. Mandatory: strict origin-bound backup acknowledgement, exact create-title echo, observable retryable terminal clipboard cleanup failure, and strict retry_after_seconds/header parsing. Root audit and fresh independent review remain required.
 spawn queued: [implementer] developer (codex) (run=RUN-260713-75a26c, max_parallel=20)
 spawn run started: [implementer] developer (codex) (run=RUN-260713-75a26c)
+2026-07-14: strict sequential inline execution started outside task-board spawn workflow on branch task/task-260712-2u1w16-macos-keychain-r5. Markdown and board tracking enabled; next task remains untouched until acceptance and landing.
+R5 handoff attached as TASK-260712-2u1w16_rework-r5-results.md (SHA-256 e862d68b9aacdfaac3fbb0c3472245feb2b3e858212d22fb9cb6b7b5eab81199). R5-F1..F4 are present in commit 99aa26c and audited in full. Focused 75/75, full 125/125, recovery/clipboard stress 100/100 at 31 tests per run, release build, strict six-file formatting, diff check, privacy/URL scans, and board validation pass. No real user state was touched. Per the user-mandated inline mode, the same executor performed a separate cold falsification pass; independent reviewer identity is not claimed.
+ROOT INLINE ACCEPTANCE 2026-07-14: complete-file audit and adversarial cold pass found no new issue; all technical AC and R5-F1..F4 evidence gates pass. User-required self-execution mode supersedes reviewer-identity separation only; no independent-review claim is made. Task accepted at frozen hashes recorded in TASK-260712-2u1w16_rework-r5-results.md.
 
 ## Precondition Resources
 - [p1-onboarding-flows.puml](file://TASK-260712-2u1w16/p1-onboarding-flows.puml) — macOS onboarding client flow sequence
@@ -79,3 +82,4 @@ spawn run started: [implementer] developer (codex) (run=RUN-260713-75a26c)
 - [TASK-260712-2u1w16_independent-review-r2.md](file://TASK-260712-2u1w16/TASK-260712-2u1w16_independent-review-r2.md) — Independent R2 security and migration review with reproduced findings, hashes, and verification evidence
 - [TASK-260712-2u1w16_rework-r3-results.md](file://TASK-260712-2u1w16/TASK-260712-2u1w16_rework-r3-results.md) — R3-F1..F7 implementation map, migration/recovery matrices, verification results, dirty-tree boundary, and SHA-256 inventory (artifact SHA-256 293ba3fc4d74ea4521fdbc7d2822b5121eb5c25cf918255932885201be11e32c)
 - [TASK-260712-2u1w16_independent-review-r4.md](file://TASK-260712-2u1w16/TASK-260712-2u1w16_independent-review-r4.md) — Independent R4 security and migration review: BACK TO DEVELOPMENT; strict error-envelope and clipboard terminal-liveness findings
+- [TASK-260712-2u1w16_rework-r5-results.md](file://TASK-260712-2u1w16/TASK-260712-2u1w16_rework-r5-results.md) — R5-F1..F4 implementation map, exact hashes, 75/125 test evidence, 100x stress, release/format/privacy gates, and inline cold-review disclosure

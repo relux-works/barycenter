@@ -3,13 +3,23 @@
 - Date: 2026-07-13
 - Epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio
 - Baseline: `main` at merge commit `0c75dcfff601379f8fc53a18034b5a0530fdcb2b` (PR #8)
-- Inventory: 19 stories, 205 tasks; 6 accepted, 3 checkpointed, 196 not started.
+- Inventory: 19 stories, 205 tasks; 7 accepted, 2 checkpointed, 196 not started.
+
+## Execution status
+
+- Started: 2026-07-14
+- Mode: strict sequential inline execution; no task-board spawn workflow
+- Current task: landing `TASK-260712-2u1w16`; next locked task is `TASK-260712-47uve0` — windows-dpapi-onboarding-client
+- Current branch: `task/task-260712-2u1w16-macos-keychain-r5`
+- Accepted: 7 / 205 tasks (approximately 3.4%); 198 remain
+- State: R5 accepted after full inline root audit; evidence landing in progress
 
 ## Operating contract
 
-This is a standalone execution plan. Task-board IDs are retained only as stable
-links to the existing task briefs, acceptance criteria and evidence; execution
-does not use task-board status transitions, assignment, spawn or review workflow.
+This is a standalone execution plan. Task-board IDs are stable links to the
+existing task briefs, acceptance criteria and evidence. Status, assignment and
+notes are mirrored to task-board for tracking, but implementation and review
+are performed inline without the task-board spawn workflow.
 
 Execute exactly one unchecked task at a time, from top to bottom. Do not begin
 the next task until the current task's implementation, tests, evidence and
@@ -52,7 +62,7 @@ Exit gate: both onboarding clients are accepted, auth migration/rollback is
 proven, the lifecycle implementation has a fresh review boundary, and a signed
 Windows 10/11 hardware matrix establishes which downstream assumptions are real.
 
-- [ ] `TASK-260712-2u1w16` — macos-keychain-onboarding-client (checkpoint: finish R5 rework, strict retry parsing and observable clipboard-cleanup failure; fresh security/migration review)
+- [x] `TASK-260712-2u1w16` — macos-keychain-onboarding-client (R5 accepted 2026-07-14; focused 75/75, full 125/125, recovery/clipboard stress 100/100, release/format/privacy gates green)
 - [ ] `TASK-260712-47uve0` — windows-dpapi-onboarding-client (checkpoint: restart substantive review on the current frozen files; include native DPAPI/clipboard and installed-package migration evidence)
 - [ ] `TASK-260712-38qsku` — auth-migration-rollback-verification
 - [ ] `TASK-260712-2y74io` — handle-probe-lifecycle-cleanup (checkpoint: refreeze post-CI bytes, rerun adversarial R11 review and root audit)

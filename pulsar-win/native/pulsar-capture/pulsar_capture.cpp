@@ -224,6 +224,10 @@ std::atomic<uint32_t> g_test_callback_notify_closes{0};
 #endif
 
 void balanced_ro_uninitialize() {
+    // Projected objects are released before this boundary. Drop cached WinRT
+    // activation factories as well so a later CapInit cannot reuse factories
+    // retained across the apartment teardown.
+    winrt::clear_factory_cache();
     RoUninitialize();
 #if defined(PULSAR_CAPTURE_STATIC)
     g_test_ro_uninitialize_count.fetch_add(1, std::memory_order_acq_rel);

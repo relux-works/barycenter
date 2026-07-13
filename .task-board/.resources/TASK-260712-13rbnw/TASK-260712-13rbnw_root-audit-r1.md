@@ -1,7 +1,9 @@
 # TASK-260712-13rbnw — root line-by-line audit R1
 
-Date: 2026-07-14  
-Role: root same-executor acceptance audit  
+Date: 2026-07-14
+
+Role: root same-executor acceptance audit
+
 Frozen production commit: `f5b73f06a9e06f71c6193d982e6138e5bec68247`
 
 ## Audit boundary

@@ -64,13 +64,53 @@ jobs:
       - name: Assert native command failures fail the package job
         shell: pwsh
         run: ./pulsar-win/probe-msix/native-command.Tests.ps1
-      - name: Build native helper, run native and Go tests, validate MSIX creation
+      - name: Assert frozen package identity and declarations
         shell: pwsh
-        run: ./pulsar-win/probe-msix/build-probe.ps1 -Version 0.1.0.0
-      - name: Assert packaged payload
+        run: ./pulsar-win/probe-msix/package-contract.Tests.ps1
+      - name: Build native helper, run tests, and create signed MSIX
         shell: pwsh
         run: |
-          $package = Get-ChildItem dist/windows-probe/PulsarProbe-*-x64.msix | Select-Object -First 1
-          if (-not $package) { throw "probe MSIX missing" }
-          $hash = Get-FileHash $package.FullName -Algorithm SHA256
-          Write-Host "$($hash.Hash)  $($package.Name)"
+          $thumbprint = & ./pulsar-win/probe-msix/new-test-signing-certificate.ps1 -ValidityDays 30
+          try {
+            ./pulsar-win/probe-msix/build-probe.ps1 `
+              -Version 0.1.0.0 `
+              -SigningCertificateThumbprint $thumbprint
+          } finally {
+            Remove-Item -Force "Cert:\CurrentUser\My\$thumbprint" -ErrorAction SilentlyContinue
+          }
+      - name: Verify signed install contract without claiming hardware evidence
+        shell: pwsh
+        run: |
+          $package = Get-ChildItem dist/windows-probe/PulsarProbe-*-x64-signed.msix | Select-Object -First 1
+          if (-not $package) { throw "signed probe MSIX missing" }
+          $result = $null
+          try {
+            $result = & ./pulsar-win/probe-msix/install-probe.ps1 `
+              -Package $package.FullName `
+              -TrustLocalTestSigner
+            if ($result.PackageIdentity -cne "ReluxWorksLLC.PulsarBarycenter") {
+              throw "installed probe identity mismatch"
+            }
+            if (-not (Test-Path $result.ReceiptPath)) {
+              throw "install contract receipt missing"
+            }
+            $metadata = Get-Content "$($package.FullName).json" -Raw | ConvertFrom-Json
+            $receipt = Get-Content $result.ReceiptPath -Raw | ConvertFrom-Json
+            if ($receipt.packageSha256 -cne $metadata.sha256) {
+              throw "installed package digest differs from the signed build metadata"
+            }
+          } finally {
+            if ($null -ne $result) {
+              Remove-AppxPackage -Package $result.PackageFullName -ErrorAction SilentlyContinue
+              if ($result.SignerTrustAdded) {
+                Remove-Item -Force "Cert:\LocalMachine\TrustedPeople\$($result.SignerThumbprint)" -ErrorAction SilentlyContinue
+              }
+            }
+          }
+      - name: Upload reproducible signed probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulsar-signed-msix-probe
+          path: dist/windows-probe/PulsarProbe-*-x64-signed.msix*
+          if-no-files-found: error
+          retention-days: 14

@@ -3,16 +3,16 @@
 - Date: 2026-07-13
 - Epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio
 - Baseline: `main` at merge commit `0c75dcfff601379f8fc53a18034b5a0530fdcb2b` (PR #8)
-- Inventory: 19 stories, 205 tasks; 9 accepted, 1 checkpointed, 195 not started.
+- Inventory: 19 stories, 205 tasks; 11 accepted, 194 remain.
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current task: `TASK-260712-2y74io` — handle-probe-lifecycle-cleanup
-- Current branch: `task/task-260712-2y74io-lifecycle-r11`
-- Accepted: 10 / 205 tasks (approximately 4.9%); 195 remain
-- State: R13 adversarial review and root audit accepted; commit, sync, and landing in progress
+- Current task: `TASK-260712-13rbnw` — accepted; landing PR #9 before the next task starts
+- Current branch: `task/task-260712-13rbnw-signed-msix`
+- Accepted: 11 / 205 tasks (approximately 5.4%); 194 remain
+- State: signed-MSIX checkpoint accepted on frozen production commit `f5b73f0`; final CI `29292631211` green; PR #9 pending land
 
 ## Operating contract
 
@@ -66,7 +66,7 @@ Windows 10/11 hardware matrix establishes which downstream assumptions are real.
 - [x] `TASK-260712-47uve0` — windows-dpapi-onboarding-client (R4 code checkpoint accepted 2026-07-14 after same-executor cold R3 remediation; focused x50, full/race, privacy, amd64/arm64 cross-build gates green; native DPAPI/NTFS/HWND, installed-MSIX and Windows 10/11 claims remain explicit downstream gates)
 - [x] `TASK-260712-38qsku` — auth-migration-rollback-verification (accepted 2026-07-14; exact pinned predecessor Store/config gates, callable fail-closed projection, physical SQLite secret scan, coordinator/macOS/Windows full matrices and operator runbook green; no live production or native Windows claim)
 - [x] `TASK-260712-2y74io` — handle-probe-lifecycle-cleanup (accepted by frozen R13 adversarial review and root audit; signed Windows evidence remains in downstream packaging/hardware tasks)
-- [ ] `TASK-260712-13rbnw` — package-signed-msix-probe
+- [x] `TASK-260712-13rbnw` — package-signed-msix-probe (accepted 2026-07-14; current Partner Center identity/PFN/AUMID frozen, non-exportable local signing and Store routes documented, signed MSIX build/registration/digest receipt green in CI; real Win10/11 hardware remains in the next task)
 - [ ] `TASK-260712-1vtwkl` — run-win10-win11-evidence-matrix
 
 ## 2. P1 generic media ingest and storage

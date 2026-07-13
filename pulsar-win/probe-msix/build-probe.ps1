@@ -1,11 +1,13 @@
 param(
     [string]$Version = "0.1.0.0",
     [string]$Configuration = "Release",
-    [string]$OutputDirectory = ""
+    [string]$OutputDirectory = "",
+    [string]$SigningCertificateThumbprint = ""
 )
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "native-command.ps1")
+. (Join-Path $PSScriptRoot "package-contract.ps1")
 $PulsarRoot = Split-Path -Parent $PSScriptRoot
 $RepoRoot = Split-Path -Parent $PulsarRoot
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
@@ -52,8 +54,11 @@ if (-not (Test-Path $NativeDLL)) {
 }
 Copy-Item $NativeDLL (Join-Path $Stage "pulsar-capture.dll")
 Copy-Item (Join-Path $PulsarRoot "msix\Assets\*.png") (Join-Path $Stage "Assets")
+$RenderedManifestPath = Join-Path $Stage "AppxManifest.xml"
 (Get-Content (Join-Path $PSScriptRoot "AppxManifest.xml.in") -Raw).Replace("@VERSION@", $Version) |
-    Set-Content -Encoding utf8 (Join-Path $Stage "AppxManifest.xml")
+    Set-Content -Encoding utf8 $RenderedManifestPath
+[xml]$RenderedManifest = Get-Content $RenderedManifestPath -Raw
+$ManifestContract = Assert-ProbeManifestContract -Manifest $RenderedManifest
 
 $RequiredPayload = @(
     (Join-Path $Stage "AppxManifest.xml"),
@@ -65,15 +70,64 @@ foreach ($Path in $RequiredPayload) {
 }
 
 $Sdk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Directory |
-    Where-Object { Test-Path (Join-Path $_.FullName "x64\makeappx.exe") } |
+    Where-Object {
+        (Test-Path (Join-Path $_.FullName "x64\makeappx.exe")) -and
+        (Test-Path (Join-Path $_.FullName "x64\signtool.exe"))
+    } |
     Sort-Object Name -Descending |
     Select-Object -First 1
 if (-not $Sdk) { throw "makeappx.exe was not found in the Windows SDK" }
 $MakeAppx = Join-Path $Sdk.FullName "x64\makeappx.exe"
-$Package = Join-Path $OutputDirectory "PulsarProbe-$Version-x64.msix"
+$SignTool = Join-Path $Sdk.FullName "x64\signtool.exe"
+$Signed = -not [string]::IsNullOrWhiteSpace($SigningCertificateThumbprint)
+$PackageKind = if ($Signed) { "signed" } else { "unsigned" }
+$Package = Join-Path $OutputDirectory "PulsarProbe-$Version-x64-$PackageKind.msix"
 Invoke-NativeChecked -Name "MakeAppx" -Command {
     & $MakeAppx pack /d $Stage /p $Package /o
 }
 
-Write-Host "Created unsigned validation package: $Package"
-Write-Host "Signed install, WACK, and Windows 10/11 hardware evidence remain explicit downstream gates."
+if ($Signed) {
+    $SigningCertificate = Get-ProbeSigningCertificate -Thumbprint $SigningCertificateThumbprint
+    Invoke-NativeChecked -Name "SignTool sign" -Command {
+        & $SignTool sign /fd SHA256 /s My /sha1 $SigningCertificate.Thumbprint $Package
+    }
+    $EmbeddedSignature = Get-AuthenticodeSignature -FilePath $Package
+    if ($null -eq $EmbeddedSignature.SignerCertificate -or
+        $EmbeddedSignature.SignerCertificate.Thumbprint -cne $SigningCertificate.Thumbprint) {
+        throw "signed package does not contain the selected signer certificate"
+    }
+}
+
+$Hash = Get-FileHash $Package -Algorithm SHA256
+$HashPath = "$Package.sha256"
+"$($Hash.Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($Package))" |
+    Set-Content -Encoding ascii $HashPath
+$MetadataPath = "$Package.json"
+[ordered]@{
+    schemaVersion = 1
+    verificationBoundary = "package-build-and-signature-only; not installed Win10/Win11 hardware evidence"
+    packageFile = [IO.Path]::GetFileName($Package)
+    sha256 = $Hash.Hash.ToLowerInvariant()
+    packageIdentity = $ManifestContract.PackageIdentity
+    publisher = $ManifestContract.Publisher
+    version = $ManifestContract.Version
+    processorArchitecture = $ManifestContract.ProcessorArchitecture
+    applicationId = $ManifestContract.ApplicationID
+    packageFamilyName = $ManifestContract.PackageFamilyName
+    applicationUserModelId = "$($ManifestContract.PackageFamilyName)!$($ManifestContract.ApplicationID)"
+    trustLevel = $ManifestContract.TrustLevel
+    runtimeBehavior = $ManifestContract.RuntimeBehavior
+    capabilities = @($ManifestContract.Capabilities)
+    signature = if ($Signed) { "certificate-store-sha256" } else { "unsigned-store-upload-candidate" }
+    privateSigningMaterialIncluded = $false
+} | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 $MetadataPath
+
+Write-Host "Created $PackageKind Partner Center identity probe package: $Package"
+Write-Host "Frozen package family: $($ManifestContract.PackageFamilyName)"
+Write-Host "Package metadata: $MetadataPath"
+if ($Signed) {
+    Write-Host "The package contains an embedded test signature; no private certificate material was exported."
+} else {
+    Write-Host "This unsigned output is only a Partner Center Store-upload candidate; it is not locally installable."
+}
+Write-Host "WACK and real Windows 10/11 hardware evidence remain explicit downstream gates."

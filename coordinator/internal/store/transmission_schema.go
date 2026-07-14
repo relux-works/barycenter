@@ -311,6 +311,91 @@ CREATE TABLE IF NOT EXISTS orbit_dnd_settings (
   CHECK((mode = 'muted_until' AND muted_until > updated_at)
     OR (mode <> 'muted_until' AND muted_until = 0))
 );
+
+-- Telegram media routing is a durable, server-side choice.  The default
+-- after_current transmission is recorded here before any inline keyboard is
+-- rendered, so a coordinator restart never creates a callback grace period.
+CREATE TABLE IF NOT EXISTS telegram_inline_routes (
+  media_id TEXT PRIMARY KEY REFERENCES media_items(id),
+  media_generation INTEGER NOT NULL CHECK(media_generation > 0),
+  source_actor_id INTEGER NOT NULL CHECK(source_actor_id > 0),
+  source_orbit_id INTEGER NOT NULL CHECK(source_orbit_id > 0),
+  original_update_id INTEGER NOT NULL CHECK(original_update_id > 0),
+  attachment_kind TEXT NOT NULL CHECK(attachment_kind IN ('voice', 'audio', 'document')),
+  default_transmission_id TEXT NOT NULL DEFAULT '' CHECK(
+    default_transmission_id = '' OR
+    (length(default_transmission_id) = 29 AND substr(default_transmission_id, 1, 3) = 'tr_')
+  ),
+  selected_transmission_id TEXT NOT NULL DEFAULT '' CHECK(
+    selected_transmission_id = '' OR
+    (length(selected_transmission_id) = 29 AND substr(selected_transmission_id, 1, 3) = 'tr_')
+  ),
+  state TEXT NOT NULL DEFAULT 'pending' CHECK(state IN ('pending', 'selected', 'dismissed')),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  updated_at INTEGER NOT NULL CHECK(updated_at >= created_at),
+  CHECK(attachment_kind = 'voice' OR default_transmission_id = ''),
+  CHECK((state = 'selected' AND selected_transmission_id <> '')
+    OR (state <> 'selected' AND selected_transmission_id = ''))
+);
+
+-- callback_data contains only tg1_<random>.  The HMAC digest and every
+-- security binding remain server-side; no actor, orbit, media or action id is
+-- serialized into Telegram-visible data.
+CREATE TABLE IF NOT EXISTS telegram_inline_callbacks (
+  token_hash TEXT PRIMARY KEY CHECK(
+    length(token_hash) = 64 AND token_hash NOT GLOB '*[^0-9a-f]*'
+  ),
+  media_id TEXT NOT NULL REFERENCES telegram_inline_routes(media_id),
+  media_generation INTEGER NOT NULL CHECK(media_generation > 0),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  orbit_id INTEGER NOT NULL CHECK(orbit_id > 0),
+  authorization TEXT NOT NULL CHECK(authorization IN ('initiator_only', 'source_primary')),
+  chat_id INTEGER NOT NULL,
+  message_id INTEGER NOT NULL CHECK(message_id > 0),
+  original_update_id INTEGER NOT NULL CHECK(original_update_id > 0),
+  action TEXT NOT NULL CHECK(action IN (
+    'choose_overlay', 'choose_interrupt', 'choose_after_current',
+    'choose_own_barycenter', 'choose_current_air',
+    'confirm_overlay', 'confirm_after_current', 'dismiss'
+  )),
+  delivery TEXT NOT NULL DEFAULT '' CHECK(delivery IN ('', 'overlay', 'interrupt', 'after_current')),
+  audience TEXT NOT NULL DEFAULT '' CHECK(audience IN ('', 'own_barycenter', 'current_air')),
+  confirmation_token_hash TEXT NOT NULL DEFAULT '' CHECK(
+    confirmation_token_hash = '' OR
+    (length(confirmation_token_hash) = 64
+      AND confirmation_token_hash NOT GLOB '*[^0-9a-f]*')
+  ),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  expires_at INTEGER NOT NULL CHECK(expires_at > created_at),
+  consumed_at INTEGER NOT NULL DEFAULT 0 CHECK(consumed_at >= 0),
+  outcome TEXT NOT NULL DEFAULT '' CHECK(outcome IN (
+    '', 'applied', 'already_applied', 'requires_confirmation', 'too_late',
+    'expired', 'forbidden', 'unsupported', 'failed'
+  )),
+  CHECK(consumed_at = 0 OR consumed_at >= created_at)
+);
+CREATE INDEX IF NOT EXISTS telegram_inline_callbacks_route
+  ON telegram_inline_callbacks(media_id, media_generation, expires_at);
+
+CREATE TABLE IF NOT EXISTS telegram_inline_callback_queries (
+  query_hash TEXT PRIMARY KEY CHECK(
+    length(query_hash) = 64 AND query_hash NOT GLOB '*[^0-9a-f]*'
+  ),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  orbit_id INTEGER NOT NULL CHECK(orbit_id > 0),
+  chat_id INTEGER NOT NULL,
+  message_id INTEGER NOT NULL CHECK(message_id > 0),
+  outcome TEXT NOT NULL CHECK(outcome IN (
+    'applied', 'already_applied', 'requires_confirmation', 'too_late',
+    'expired', 'forbidden', 'unsupported', 'failed'
+  )),
+  clear_keyboard INTEGER NOT NULL CHECK(clear_keyboard IN (0, 1)),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  expires_at INTEGER NOT NULL CHECK(expires_at > created_at)
+);
+CREATE INDEX IF NOT EXISTS telegram_inline_callback_queries_expiry
+  ON telegram_inline_callback_queries(expires_at, actor_id);
 `
 
 func (s *Store) initTransmissionSchema() error {

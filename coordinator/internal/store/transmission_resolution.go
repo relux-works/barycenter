@@ -68,8 +68,12 @@ type ConfirmTransmissionFallback struct {
 }
 
 type CreateResolvedTransmissionParams struct {
-	ExpectedActorID    int64
-	Bearer             string
+	ExpectedActorID int64
+	Bearer          string
+	// Identity is used by verified non-HTTP transports such as Telegram.
+	// Bearer remains the application API compatibility field; callers must
+	// provide exactly one proof kind.
+	Identity           Identity
 	IdempotencyKeyHash string
 	RequestHash        string
 	MediaID            string
@@ -79,6 +83,9 @@ type CreateResolvedTransmissionParams struct {
 	IncludeOrigin      bool
 	RequestedDelivery  TransmissionDelivery
 	AcceptedAt         int64
+	// PolicyAt defaults to AcceptedAt. Telegram defaults retain the trusted
+	// inbound FIFO timestamp while readiness policy is resolved after ingest.
+	PolicyAt           int64
 	Availability       []TransmissionTargetAvailability
 	Confirmation       *ConfirmTransmissionFallback
 	ChallengeTokenHash string
@@ -133,11 +140,17 @@ type storedTransmissionConfirmation struct {
 }
 
 func validResolvedTransmissionParams(params CreateResolvedTransmissionParams) bool {
-	if params.ExpectedActorID <= 0 || params.Bearer == "" ||
+	identityValid := (params.Bearer != "" && params.Identity == (Identity{})) ||
+		(params.Bearer == "" && params.Identity.Kind == IdentityTelegram &&
+			params.Identity.TelegramUserID > 0)
+	if params.ExpectedActorID <= 0 || !identityValid ||
 		!transmissionDigestPattern.MatchString(params.IdempotencyKeyHash) ||
 		!transmissionDigestPattern.MatchString(params.RequestHash) ||
 		!mediaItemIDPattern.MatchString(params.MediaID) || params.AcceptedAt <= 0 ||
 		!validTransmissionDelivery(params.RequestedDelivery) {
+		return false
+	}
+	if params.PolicyAt != 0 && params.PolicyAt < params.AcceptedAt {
 		return false
 	}
 	switch params.AudienceKind {
@@ -209,16 +222,24 @@ func validResolvedTransmissionParams(params CreateResolvedTransmissionParams) bo
 func authorizeTransmissionControlTx(
 	tx *sql.Tx,
 	expectedActorID int64,
-	bearer string,
+	params CreateResolvedTransmissionParams,
 ) (ActorContext, error) {
-	ctx, err := resolveTokenActorContext(tx, bearer)
+	var ctx ActorContext
+	var err error
+	if params.Bearer != "" {
+		ctx, err = resolveTokenActorContext(tx, params.Bearer)
+	} else {
+		ctx, err = resolveActorContext(tx, params.Identity)
+	}
 	if errors.Is(err, ErrUnauthorized) || ctx.ActorID != expectedActorID {
 		return ActorContext{}, ErrUnauthorized
 	}
 	if err != nil && !errors.Is(err, ErrInsufficientCapability) {
 		return ActorContext{}, err
 	}
-	if !ctx.Capabilities.Has(CapabilityControl) || ctx.Role == "satellite" ||
+	if (!ctx.Capabilities.Has(CapabilityControl) &&
+		!ctx.Capabilities.Has(CapabilityTelegram)) ||
+		(ctx.Role == "satellite" && !ctx.Capabilities.Has(CapabilityTelegram)) ||
 		ctx.OrbitID <= 0 || ctx.ActorID <= 0 {
 		return ActorContext{}, ErrInsufficientCapability
 	}
@@ -337,12 +358,16 @@ FROM media_items WHERE id = ? AND owner_orbit_id = ?`, params.MediaID, ctx.Orbit
 	if err != nil {
 		return MediaItem{}, err
 	}
+	policyAt := params.AcceptedAt
+	if params.PolicyAt > 0 {
+		policyAt = params.PolicyAt
+	}
 	if mediaItem.Status == MediaStatusDeleted || mediaItem.Status == MediaStatusExpired ||
-		mediaItem.ExpiresAt <= params.AcceptedAt {
+		mediaItem.ExpiresAt <= policyAt {
 		return MediaItem{}, ErrTransmissionMediaNotFound
 	}
 	if mediaItem.Status != MediaStatusReady || mediaItem.PublishedAt <= 0 ||
-		mediaItem.PublishedAt > params.AcceptedAt {
+		mediaItem.PublishedAt > policyAt {
 		return MediaItem{}, ErrTransmissionMediaNotReady
 	}
 	if mediaItem.Kind == MediaKindAudioTrack {
@@ -619,6 +644,10 @@ func evaluateTransmissionTargetsTx(
 	resolved []resolvedTransmissionTarget,
 	params CreateResolvedTransmissionParams,
 ) ([]CreateTransmissionTarget, bool, bool, error) {
+	policyAt := params.AcceptedAt
+	if params.PolicyAt > 0 {
+		policyAt = params.PolicyAt
+	}
 	availability := make(map[string]TransmissionTargetAvailability, len(params.Availability))
 	for _, current := range params.Availability {
 		availability[transmissionTargetKey(current.OrbitID, current.Slot)] = current
@@ -631,8 +660,8 @@ func evaluateTransmissionTargetsTx(
 			(current.CredentialTokenHash == identity.NodeTokenHash ||
 				current.CredentialTokenHash == identity.ControlTokenHash)
 		online := bindingMatches && current.Connected && current.LastSeenAt > 0 &&
-			params.AcceptedAt-current.LastSeenAt <= transmissionPresenceFreshFor.Milliseconds() &&
-			current.LastSeenAt-params.AcceptedAt <= transmissionPresenceFreshFor.Milliseconds()
+			policyAt-current.LastSeenAt <= transmissionPresenceFreshFor.Milliseconds() &&
+			current.LastSeenAt-policyAt <= transmissionPresenceFreshFor.Milliseconds()
 		target := CreateTransmissionTarget{
 			OrbitID: identity.OrbitID, ActorID: identity.ActorID, Slot: identity.Slot,
 			OnlineAtAcceptance: online,
@@ -652,7 +681,7 @@ func evaluateTransmissionTargetsTx(
 		localThisPulsar := params.AudienceKind == TransmissionAudienceThisPulsar &&
 			identity.OrbitID == ctx.OrbitID && identity.ActorID == ctx.ActorID &&
 			identity.Slot == ctx.Slot
-		dnd, err := effectiveDNDTx(tx, identity, params.AcceptedAt)
+		dnd, err := effectiveDNDTx(tx, identity, policyAt)
 		if err != nil {
 			return nil, false, false, err
 		}
@@ -772,12 +801,29 @@ func (s *Store) CreateResolvedTransmission(
 		return ResolvedTransmissionCreation{}, err
 	}
 	defer tx.Rollback()
-	ctx, err := authorizeTransmissionControlTx(
-		tx, params.ExpectedActorID, params.Bearer,
-	)
+	ctx, err := authorizeTransmissionControlTx(tx, params.ExpectedActorID, params)
 	if err != nil {
 		return ResolvedTransmissionCreation{}, err
 	}
+	result, err := s.createResolvedTransmissionTx(tx, ctx, params)
+	if err != nil {
+		return ResolvedTransmissionCreation{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return ResolvedTransmissionCreation{}, err
+	}
+	return result, nil
+}
+
+// createResolvedTransmissionTx applies the common transmission policy inside
+// a caller-owned writer transaction. Telegram routing uses this seam to make
+// replacement of its not-started default and creation of the selected
+// transmission indivisible.
+func (s *Store) createResolvedTransmissionTx(
+	tx *sql.Tx,
+	ctx ActorContext,
+	params CreateResolvedTransmissionParams,
+) (ResolvedTransmissionCreation, error) {
 	replay, err := transmissionIdempotentReplayTx(
 		tx, ctx.ActorID, params.IdempotencyKeyHash, params.RequestHash,
 	)
@@ -785,9 +831,6 @@ func (s *Store) CreateResolvedTransmission(
 		return ResolvedTransmissionCreation{}, err
 	}
 	if replay != nil {
-		if err := tx.Commit(); err != nil {
-			return ResolvedTransmissionCreation{}, err
-		}
 		return ResolvedTransmissionCreation{Creation: *replay, Reused: true}, nil
 	}
 	var confirmation storedTransmissionConfirmation
@@ -840,9 +883,6 @@ func (s *Store) CreateResolvedTransmission(
 				if err := s.checkpoint("transmission_confirmation_before_commit"); err != nil {
 					return ResolvedTransmissionCreation{}, err
 				}
-				if err := tx.Commit(); err != nil {
-					return ResolvedTransmissionCreation{}, err
-				}
 				return ResolvedTransmissionCreation{Challenge: &challenge}, nil
 			}
 		}
@@ -860,9 +900,6 @@ func (s *Store) CreateResolvedTransmission(
 				tx, params, interruptChallengeAlternatives(mediaItem, missingOverlay),
 			)
 			if err != nil {
-				return ResolvedTransmissionCreation{}, err
-			}
-			if err := tx.Commit(); err != nil {
 				return ResolvedTransmissionCreation{}, err
 			}
 			return ResolvedTransmissionCreation{Challenge: &challenge}, nil
@@ -905,9 +942,6 @@ func (s *Store) CreateResolvedTransmission(
 		return ResolvedTransmissionCreation{}, err
 	}
 	if err := s.checkpoint("transmission_resolved_create_before_commit"); err != nil {
-		return ResolvedTransmissionCreation{}, err
-	}
-	if err := tx.Commit(); err != nil {
 		return ResolvedTransmissionCreation{}, err
 	}
 	return ResolvedTransmissionCreation{Creation: creation}, nil

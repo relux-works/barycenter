@@ -1,43 +1,54 @@
 @startuml
-title P1 History and Receipt Lifecycle
+title TASK-260712-3d0zgu - Callback, Policy and Receipt Regression States
 
 hide empty description
 
-state "Client-visible history item" as History {
-  [*] --> processing
-  processing --> ready : media normalized
-  processing --> error : probe/transcode failed
-  ready --> playing : started on target set
-  ready --> partial : mixed target outcome
-  ready --> error : no playable targets\nor cancelled failure
-  playing --> played : all started targets ended
-  playing --> partial : some targets failed or missed
-  partial --> [*]
-  played --> [*]
-  error --> [*]
+state "Opaque callback" as Callback {
+  [*] --> pending
+  pending --> applied : authorized mutation commits
+  pending --> confirmation : interrupt unavailable
+  confirmation --> applied : explicit fallback commits
+  pending --> too_late : playback start committed first
+  confirmation --> too_late : default starts while pending
+  pending --> expired : timeout / malformed / wrong message
+  pending --> forbidden : wrong actor / orbit / role
+  applied --> already_applied : duplicate token or query
+  applied --> [*]
+  too_late --> [*]
+  expired --> [*]
+  forbidden --> [*]
+  already_applied --> [*]
 }
 
-state "Per-target receipt detail" as Receipt {
-  [*] --> accepted
-  accepted --> preparing
-  preparing --> ready
-  ready --> scheduled
-  scheduled --> playing
-  playing --> played
-
-  accepted --> missed_offline
-  accepted --> missed_dnd
-  accepted --> missed_not_ready
-  accepted --> blocked
-  accepted --> failed
+state "Target policy outcome" as Policy {
+  [*] --> eligible
+  eligible --> blocked : actor block before orbit block
+  eligible --> missed_dnd : local/orbit effective DND
+  eligible --> missed_offline : offline after policy checks
+  eligible --> accepted
+  accepted --> cancelling : DND/block/delete during playback
+  cancelling --> cancelled : exact fade-stop reason
 }
 
-History ..> Receipt : aggregates exact reasons
+state "Public projection" as Projection {
+  [*] --> visible
+  visible --> redacted : viewer does not own exact reason
+  visible --> actionable : current authority rechecked
+  visible --> stale : presence timeout sanitizes runtime state
+}
+
+note bottom of Callback
+  Replacement uses current target policy state.
+end note
+
+note bottom of Policy
+  Exact receipts flow to the public projection with ownership redaction.
+end note
 
 note bottom
-  Presence surfaces may show online/offline, output state,
-  playback state, required capability support, DND, and block.
-  They must never expose microphone state or local process names.
+  Tests cover every transition with deterministic clocks and transactions.
+  No microphone, process, device, raw Telegram or raw actor identifier
+  is permitted in the public history/presence projection.
 end note
 
 @enduml

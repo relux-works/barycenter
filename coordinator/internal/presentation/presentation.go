@@ -61,6 +61,14 @@ var templates = map[string]textPair{
 	"confirmation.choose_after_current":    {"Play after current", "Воспроизвести после текущего"},
 	"confirmation.expired":                 {"This choice has expired", "Срок этого выбора истёк"},
 	"confirmation.too_late":                {"Playback already started", "Воспроизведение уже началось"},
+	"callback.applied":                     {"Done", "Готово"},
+	"callback.already_applied":             {"Already applied", "Уже применено"},
+	"callback.requires_confirmation":       {"Confirmation required", "Нужно подтверждение"},
+	"callback.too_late":                    {"Too late to change", "Уже поздно менять"},
+	"callback.expired":                     {"This button has expired", "Кнопка устарела"},
+	"callback.forbidden":                   {"Insufficient permission", "Недостаточно прав"},
+	"callback.unsupported":                 {"This action is not available yet", "Действие пока недоступно"},
+	"callback.failed":                      {"Could not complete the action", "Не удалось выполнить"},
 	"downgrade.missing_overlay_capability": {"Overlay is unavailable for all recipients; queued after current.", "Режим поверх эфира недоступен для всех получателей; поставлено после текущего."},
 	"downgrade.confirmed_overlay":          {"Interrupt was replaced with overlay by the sender.", "Отправитель заменил прерывание режимом поверх эфира."},
 	"downgrade.confirmed_after_current":    {"Interrupt was queued after current by the sender.", "Отправитель поставил сообщение после текущего вместо прерывания."},
@@ -221,6 +229,19 @@ func ConfirmationLabel(code string) Label {
 		return label("confirmation.too_late")
 	default:
 		return label("confirmation.expired")
+	}
+}
+
+// CallbackResultLabel is the shared app and Telegram presentation for the
+// finite callback outcome vocabulary. Unknown values deliberately collapse to
+// the non-disclosing failure copy.
+func CallbackResultLabel(code string) Label {
+	switch code {
+	case "applied", "already_applied", "requires_confirmation", "too_late",
+		"expired", "forbidden", "unsupported", "failed":
+		return label("callback." + code)
+	default:
+		return label("callback.failed")
 	}
 }
 

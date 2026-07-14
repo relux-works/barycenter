@@ -28,7 +28,7 @@ func TestGoldenEnglishAndRussianCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(raw)
-	const goldenSHA256 = "b8b4e9654440f50751ae45d871b6a056f0cce02bf601c2ed2767def44c4c5938"
+	const goldenSHA256 = "a929dc6e74103aa3a99df0714aecfa0d6c6ea0c71dc0659e029bd22dd35b3699"
 	if got := hex.EncodeToString(digest[:]); got != goldenSHA256 {
 		t.Fatalf("RU/EN presentation golden digest=%s want=%s", got, goldenSHA256)
 	}
@@ -142,6 +142,54 @@ func TestSharedDeliveryAudienceAndTargetSemantics(t *testing.T) {
 	confirmation := ConfirmationLabel("interrupt_required")
 	if confirmation.Key != "confirmation.interrupt_required" || confirmation.EN == confirmation.RU {
 		t.Fatalf("confirmation=%+v", confirmation)
+	}
+}
+
+func TestCallbackPolicyAndDowngradeCopyIsExactAcrossBothLocales(t *testing.T) {
+	callbacks := []struct {
+		code, key, en, ru string
+	}{
+		{"applied", "callback.applied", "Done", "Готово"},
+		{"already_applied", "callback.already_applied", "Already applied", "Уже применено"},
+		{"requires_confirmation", "callback.requires_confirmation", "Confirmation required", "Нужно подтверждение"},
+		{"too_late", "callback.too_late", "Too late to change", "Уже поздно менять"},
+		{"expired", "callback.expired", "This button has expired", "Кнопка устарела"},
+		{"forbidden", "callback.forbidden", "Insufficient permission", "Недостаточно прав"},
+		{"unsupported", "callback.unsupported", "This action is not available yet", "Действие пока недоступно"},
+		{"failed", "callback.failed", "Could not complete the action", "Не удалось выполнить"},
+	}
+	for _, tc := range callbacks {
+		got := CallbackResultLabel(tc.code)
+		if got.Key != tc.key || got.EN != tc.en || got.RU != tc.ru {
+			t.Errorf("callback %q=%+v", tc.code, got)
+		}
+	}
+	if got := CallbackResultLabel("future_internal_value"); got.Key != "callback.failed" {
+		t.Fatalf("unknown callback did not fail closed: %+v", got)
+	}
+
+	policy := []struct {
+		reason store.TransmissionReason
+		en, ru string
+	}{
+		{store.TransmissionReasonLocalDND, "Local Do Not Disturb", "Локальный режим «Не беспокоить»"},
+		{store.TransmissionReasonOrbitDND, "Barycenter Do Not Disturb", "Режим «Не беспокоить» Барицентра"},
+		{store.TransmissionReasonActorBlocked, "Sender is blocked", "Отправитель заблокирован"},
+		{store.TransmissionReasonOrbitBlocked, "Sender's Barycenter is blocked", "Барицентр отправителя заблокирован"},
+	}
+	for _, tc := range policy {
+		got := ReceiptLabel("failed", tc.reason)
+		if got.EN != tc.en || got.RU != tc.ru {
+			t.Errorf("policy reason %q=%+v", tc.reason, got)
+		}
+	}
+
+	downgrade := PresentDelivery(store.TransmissionDeliveryOverlay,
+		store.TransmissionDeliveryAfterCurrent, DowngradeMissingOverlayCapability)
+	if downgrade.Notice == nil ||
+		downgrade.Notice.EN != "Overlay is unavailable for all recipients; queued after current." ||
+		downgrade.Notice.RU != "Режим поверх эфира недоступен для всех получателей; поставлено после текущего." {
+		t.Fatalf("exact downgrade copy=%+v", downgrade)
 	}
 }
 

@@ -205,9 +205,12 @@ an explicit compatibility override remains honored and tested. Local focused
 tests, full coordinator vet/test/race, the exact pinned predecessor suite,
 portable Windows vet/test/cross-build, Swift build, YAML parsing, documentation
 link checks and task-board validation are green. Local Swift tests still stop
-at the known workstation `no such module 'Testing'` toolchain gap, so hosted
-macOS CI remains authoritative. The task is awaiting hosted review and no
-manual real-app or hardware result is claimed.
+at the known workstation `no such module 'Testing'` toolchain gap. Hosted CI
+run `29312221521` passed coordinator with live ffmpeg and pinned rollback,
+authoritative macOS Swift tests, portable Windows and the signed-MSIX probe on
+code commit `fc99fac`. Inline root delta review found no unresolved contract,
+security, migration or handoff issue; final tracking CI remains before merge.
+No manual real-app or hardware result is claimed.
 
 ## Operating contract
 

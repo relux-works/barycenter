@@ -12,10 +12,10 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-12ojcb` — telegram-submitmedia-compat
-- Current branch: `task/task-260712-12ojcb-telegram-submitmedia-compat`
-- Accepted overall: 16 / 205 tasks (approximately 7.8%); 189 remain
-- Engineering progress: 16 / 186 tasks (approximately 8.6%); 170 remain
+- Current engineering task: `TASK-260712-gj0cko` — media-acl-delete-retention
+- Current branch: `task/task-260712-gj0cko-media-acl-delete-retention`
+- Accepted overall: 17 / 205 tasks (approximately 8.3%); 188 remain
+- Engineering progress: 17 / 186 tasks (approximately 9.1%); 169 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -27,8 +27,9 @@
   `TASK-260712-1bnos4` landed through PR #12 at merge commit `050c979`;
   `TASK-260712-2af2dp` landed through PR #13 at merge commit `451e50b`;
   `TASK-260712-1sae4q` landed through PR #14 at merge commit `fe8e73c`; strict
-  `TASK-260712-3mcof4` landed through PR #15 at merge commit `0f3148a`; strict
-  execution is now on `TASK-260712-12ojcb`.
+  `TASK-260712-3mcof4` landed through PR #15 at merge commit `0f3148a`;
+  `TASK-260712-12ojcb` landed through PR #16 at merge commit `0d6863c`; strict
+  execution is now on `TASK-260712-gj0cko`.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -155,8 +156,10 @@ full `go test`, `go vet`, full race, focused race, 20x focused stress, exact
 previous-head media-processing rollback and Linux amd64 CGO-free build are
 green. Hosted CI run `29307473249` passed coordinator, macOS Swift, portable
 Windows and packaged-MSIX jobs on PR #16. Root delta-review found no contract,
-privacy, retention or compatibility regression. Final tracking CI and merge
-acceptance are still pending; no manual real-app or hardware result is claimed.
+privacy, retention or compatibility regression. Final tracking CI run
+`29307610519` passed the same four jobs; PR #16 landed at
+`0d6863c462111da6ed27f851a636e40d95100d73`, and strict execution advanced to
+`TASK-260712-gj0cko`. No manual real-app or hardware result is claimed.
 
 ## Operating contract
 
@@ -246,7 +249,12 @@ Story: `STORY-260712-ld674h` — P1 Generic media ingest and storage.
   acquisition, uniform non-disclosure and isolated legacy bridge; full local
   race plus hosted CI runs `29305916096` / `29306064452` green; PR #15, merge
   `0f3148a`)
-- [ ] `TASK-260712-12ojcb` — telegram-submitmedia-compat
+- [x] `TASK-260712-12ojcb` — telegram-submitmedia-compat (accepted and landed:
+  atomic common-plus-legacy Telegram acceptance, physically bounded source
+  download through singleton SubmitMedia, acceptance FIFO and exact reply/
+  personal-broadcast/legacy playback parity; full local race, focused 20x
+  stress and hosted CI runs `29307473249` / `29307610519` green; PR #16, merge
+  `0d6863c`)
 - [ ] `TASK-260712-gj0cko` — media-acl-delete-retention
 - [ ] `TASK-260712-3huupe` — media-ingest-acceptance-tests
 - [ ] `TASK-260712-jolzhh` — media-ingest-docs-handoff

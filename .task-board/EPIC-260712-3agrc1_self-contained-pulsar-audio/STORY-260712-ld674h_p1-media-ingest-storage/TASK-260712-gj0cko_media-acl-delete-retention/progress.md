@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:28:12Z
 
 ## Last Update
-2026-07-12T17:03:16Z
+2026-07-14T05:09:33Z
 
 ## Blocked By
 - TASK-260712-z6h6wh
@@ -30,6 +30,7 @@ backlog
 - [ ] Cover cross-orbit negative access, delete revocation and expiry behavior with tests
 
 ## Notes
+Strict sequential inline execution started 2026-07-14 from clean main merge 0d6863c462111da6ed27f851a636e40d95100d73. Scope is the integration delta across already-landed generic GET ACL, DELETE cancellation, lifecycle cleanup, Telegram legacy mapping and mixed-rollout behavior; manual real-app and hardware evidence remain in the separate manual-test epic.
 
 ## Precondition Resources
 (none)

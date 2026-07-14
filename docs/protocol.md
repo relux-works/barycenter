@@ -27,6 +27,8 @@ pagination and current-action derivation are described in
 [P1 transmission history and receipt query](analysis/p1-transmission-history-receipt-query.md).
 The cross-surface deterministic evidence map and its manual-validation boundary
 are recorded in [P1 Telegram, history and presence parity regressions](analysis/p1-telegram-history-presence-parity-regressions.md).
+The final deploy, mixed-version, drain/rollback and downstream-consumer entry
+point is the [P1 Telegram, history and presence rollout handoff](analysis/p1-telegram-history-presence-rollout-handoff.md).
 
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 

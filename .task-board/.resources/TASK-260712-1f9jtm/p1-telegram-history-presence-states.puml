@@ -1,43 +1,37 @@
 @startuml
-title P1 History and Receipt Lifecycle
+title P1 Telegram Route and Rollout States
 
 hide empty description
 
-state "Client-visible history item" as History {
+state "Voice route" as Route {
   [*] --> processing
-  processing --> ready : media normalized
-  processing --> error : probe/transcode failed
-  ready --> playing : started on target set
-  ready --> partial : mixed target outcome
-  ready --> error : no playable targets\nor cancelled failure
-  playing --> played : all started targets ended
-  playing --> partial : some targets failed or missed
-  partial --> [*]
-  played --> [*]
-  error --> [*]
+  processing --> pending : media ready + default committed
+  processing --> failed : common ingest failure
+  pending --> selected : callback replacement commits first
+  pending --> dismissed : user keeps default
+  pending --> started : default playback commits first
+  pending --> expired : callback lifetime ends; default remains
+  selected --> [*]
+  dismissed --> [*]
+  started --> [*]
+  failed --> [*]
+  expired --> [*]
 }
 
-state "Per-target receipt detail" as Receipt {
-  [*] --> accepted
-  accepted --> preparing
-  preparing --> ready
-  ready --> scheduled
-  scheduled --> playing
-  playing --> played
-
-  accepted --> missed_offline
-  accepted --> missed_dnd
-  accepted --> missed_not_ready
-  accepted --> blocked
-  accepted --> failed
+state "Exposure" as Exposure {
+  [*] --> withdrawn
+  withdrawn --> coordinator_ready : additive schema + auth verified
+  coordinator_ready --> clients_ready : exact capabilities registered
+  clients_ready --> read_only : history / presence bounded cohort
+  read_only --> mutations : DND / block / history actions
+  mutations --> telegram_enabled : attachments / inline callbacks last
+  telegram_enabled --> draining : rollback begins at owner surfaces
+  draining --> withdrawn : canonical work reaches stable state
 }
 
-History ..> Receipt : aggregates exact reasons
-
-note bottom
-  Presence surfaces may show online/offline, output state,
-  playback state, required capability support, DND, and block.
-  They must never expose microphone state or local process names.
+note bottom of Exposure
+  Audio/document routes have no default and remain explicit-action-only.
+  Rollback never rewrites receipt state or drops additive tables.
 end note
 
 @enduml

@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:39:19Z
 
 ## Last Update
-2026-07-14T08:02:32Z
+2026-07-14T08:07:09Z
 
 ## Blocked By
 - TASK-260712-51y5k9
@@ -39,6 +39,7 @@ Implemented additive transmission/target/block/DND schema; immutable accepted sn
 Self-review delta closed a block/terminal-receipt vs descriptor-open authorization race: the production Store reader now rechecks the exact persisted target and active block inside both immediate media authorization transactions, including the transaction that acquires the canonical descriptor. Added a 20x repeated race regression. Strengthened exact-previous-head rollback to dissolve a source orbit and prove transmission/target history survives while media is revoked.
 Draft PR #21 opened. Initial hosted CI run 29315987760 passed coordinator (including the new pinned previous-head rollback), authoritative macOS NodeCore, portable Windows tests/cross-build, and signed packaged Windows probe on implementation commit ab9b9b7. Self-review fix a4610b4 is pushed for final hosted verification.
 Final self-review is accepted. Hosted CI run 29316416647 passed all four jobs on a4610b4: coordinator with pinned previous-head rollback, authoritative macOS NodeCore, Windows unit and cross-build, and signed packaged probe. PR #21 is ready and mergeable. Automated coding, unit, race, deterministic integration, migration and rollback evidence is green; no manual real-app or physical-hardware result is claimed, and that work remains in EPIC-260714-th54l3.
+Final tracking commit 8a925f0 passed all four hosted jobs in CI run 29316678680. PR #21 merged to main as 35d9974e6a2212b6757e6d053d8b896a652ec4f7; main was fast-forward synchronized and clean before the next strict task started.
 
 ## Precondition Resources
 - [p1-transmission-protocol-components.puml](file://TASK-260712-1aprcb/p1-transmission-protocol-components.puml) — Store and ACL context for transmission persistence

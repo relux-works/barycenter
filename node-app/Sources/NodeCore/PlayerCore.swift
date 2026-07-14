@@ -158,9 +158,16 @@ public final class PlayerCore {
             case .soloVoice(let p):
                 // Phase 2 (goal §8): boundary interception lands with solo scope.
                 self.log.warn("solo_voice not implemented until phase 2", ["element": p.elementId])
+            case .prepareMedia, .playMediaAt, .cancelMedia:
+                // Client hooks land in their dedicated follow-up task. This
+                // build does not advertise media_clip_v1, so receipt is a
+                // coordinator capability-routing error rather than a command
+                // that may be approximated through legacy play_voice.
+                self.log.warn("ignoring unadvertised clip command", ["type": head.type])
             case .welcome, .pong, .register, .state, .ready, .started, .ended,
                  .voiceStarted, .voiceEnded, .waitEnded, .error, .ping, .externalPlayback,
-                 .setProvider, .userPause, .userResume:
+                 .setProvider, .userPause, .userResume, .presenceUpdate, .mediaReady,
+                 .mediaStarted, .mediaEnded, .mediaFailed, .mediaCancelled, .setDND:
                 self.log.debug("ignoring non-command", ["type": head.type])
             }
         }

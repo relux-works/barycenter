@@ -4,7 +4,37 @@
 
 import Foundation
 
-public let seamlessAdoptionCapability = "seamless_adoption_v1"
+public enum ProtocolCapabilities {
+    public static let interruptResume = "interrupt_resume_v1"
+    public static let mediaClip = "media_clip_v1"
+    public static let overlayMix = "overlay_mix_v1"
+    public static let seamlessAdoption = "seamless_adoption_v1"
+
+    /// Register capabilities are non-empty printable ASCII strings in strict
+    /// byte order. Unknown names remain valid so additive features survive a
+    /// mixed-version rollout.
+    public static func areCanonical(_ values: [String]) -> Bool {
+        var previous: String?
+        for value in values {
+            guard !value.isEmpty,
+                  value.utf8.allSatisfy({ $0 >= 0x21 && $0 <= 0x7e }) else {
+                return false
+            }
+            if let previous,
+               !previous.utf8.lexicographicallyPrecedes(value.utf8) {
+                return false
+            }
+            previous = value
+        }
+        return true
+    }
+}
+
+// Source-compatible names used by existing and upcoming client hooks.
+public let interruptResumeCapability = ProtocolCapabilities.interruptResume
+public let mediaClipCapability = ProtocolCapabilities.mediaClip
+public let overlayMixCapability = ProtocolCapabilities.overlayMix
+public let seamlessAdoptionCapability = ProtocolCapabilities.seamlessAdoption
 
 public enum ProtocolConstants {
     public static let version = 1
@@ -179,6 +209,87 @@ public struct OffsetTestPayload: Codable, Equatable {
     }
 }
 
+public struct PrepareMediaPayload: Codable, Equatable {
+    public var transmissionId: String
+    public var generation: Int64
+    public var mediaId: String
+    public var kind: String
+    public var delivery: String
+    public var fileUrl: String
+    public var sha256: String
+    public var sizeBytes: Int64
+    public var durationMs: Int64
+    public var mediaExpiresAtCoordMs: Int64
+    public var prepareDeadlineCoordMs: Int64
+    enum CodingKeys: String, CodingKey {
+        case transmissionId = "transmission_id", generation, mediaId = "media_id", kind, delivery,
+             fileUrl = "file_url", sha256, sizeBytes = "size_bytes", durationMs = "duration_ms",
+             mediaExpiresAtCoordMs = "media_expires_at_coord_ms",
+             prepareDeadlineCoordMs = "prepare_deadline_coord_ms"
+    }
+}
+
+public struct PlayMediaAtPayload: Codable, Equatable {
+    public var transmissionId: String
+    public var generation: Int64
+    public var tCoordMs: Int64
+    public var startDeadlineCoordMs: Int64
+    public var delivery: String
+    public var duckDb: Double?
+    public var attackMs: Int64?
+    public var releaseMs: Int64?
+    public var fadeOutMs: Int64?
+    public var fadeInMs: Int64?
+    enum CodingKeys: String, CodingKey {
+        case transmissionId = "transmission_id", generation, tCoordMs = "t_coord_ms",
+             startDeadlineCoordMs = "start_deadline_coord_ms", delivery, duckDb = "duck_db",
+             attackMs = "attack_ms", releaseMs = "release_ms", fadeOutMs = "fade_out_ms",
+             fadeInMs = "fade_in_ms"
+    }
+}
+
+public struct CancelMediaPayload: Codable, Equatable {
+    public var transmissionId: String
+    public var generation: Int64
+    public var reason: String
+    public var action: String
+    public var resumeMain: Bool
+    public var fadeMs: Int64
+    enum CodingKeys: String, CodingKey {
+        case transmissionId = "transmission_id", generation, reason, action,
+             resumeMain = "resume_main", fadeMs = "fade_ms"
+    }
+}
+
+public struct PresenceNode: Codable, Equatable {
+    public var orbitId: Int64
+    public var slot: String
+    public var online: Bool
+    public var lastSeenAtCoordMs: Int64
+    public var outputState: String
+    public var playbackState: String
+    public var dndMode: String
+    public var dndRevision: Int64
+    public var dndUntilCoordMs: Int64?
+    public var capabilities: [String]
+    public var interruptResumeReady: Bool
+    enum CodingKeys: String, CodingKey {
+        case orbitId = "orbit_id", slot, online, lastSeenAtCoordMs = "last_seen_at_coord_ms",
+             outputState = "output_state", playbackState = "playback_state", dndMode = "dnd_mode",
+             dndRevision = "dnd_revision", dndUntilCoordMs = "dnd_until_coord_ms", capabilities,
+             interruptResumeReady = "interrupt_resume_ready"
+    }
+}
+
+public struct PresenceUpdatePayload: Codable, Equatable {
+    public var revision: Int64
+    public var generatedAtCoordMs: Int64
+    public var nodes: [PresenceNode]
+    enum CodingKeys: String, CodingKey {
+        case revision, generatedAtCoordMs = "generated_at_coord_ms", nodes
+    }
+}
+
 // MARK: - Payloads: node -> coordinator
 
 public struct RegisterPayload: Codable, Equatable {
@@ -198,6 +309,68 @@ public struct RegisterPayload: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case nodeId = "node_id", token, appVersion = "app_version",
              librespotVersion = "librespot_version", capabilities
+    }
+}
+
+public struct MediaReadyPayload: Codable, Equatable {
+    public var transmissionId: String
+    public var generation: Int64
+    public var decodedDurationMs: Int64
+    enum CodingKeys: String, CodingKey {
+        case transmissionId = "transmission_id", generation,
+             decodedDurationMs = "decoded_duration_ms"
+    }
+}
+
+public struct MediaStartedPayload: Codable, Equatable {
+    public var transmissionId: String
+    public var generation: Int64
+    public var tFirstSampleCoordMs: Int64
+    enum CodingKeys: String, CodingKey {
+        case transmissionId = "transmission_id", generation,
+             tFirstSampleCoordMs = "t_first_sample_coord_ms"
+    }
+}
+
+public struct MediaEndedPayload: Codable, Equatable {
+    public var transmissionId: String
+    public var generation: Int64
+    public var tLastSampleCoordMs: Int64
+    public var reason: String
+    enum CodingKeys: String, CodingKey {
+        case transmissionId = "transmission_id", generation,
+             tLastSampleCoordMs = "t_last_sample_coord_ms", reason
+    }
+}
+
+public struct MediaFailedPayload: Codable, Equatable {
+    public var transmissionId: String
+    public var generation: Int64
+    public var stage: String
+    public var code: String
+    enum CodingKeys: String, CodingKey {
+        case transmissionId = "transmission_id", generation, stage, code
+    }
+}
+
+public struct MediaCancelledPayload: Codable, Equatable {
+    public var transmissionId: String
+    public var generation: Int64
+    public var reason: String
+    public var action: String
+    public var mainResumed: Bool
+    enum CodingKeys: String, CodingKey {
+        case transmissionId = "transmission_id", generation, reason, action,
+             mainResumed = "main_resumed"
+    }
+}
+
+public struct SetDNDPayload: Codable, Equatable {
+    public var revision: Int64
+    public var mode: String
+    public var mutedUntilCoordMs: Int64?
+    enum CodingKeys: String, CodingKey {
+        case revision, mode, mutedUntilCoordMs = "muted_until_coord_ms"
     }
 }
 
@@ -384,7 +557,17 @@ public enum Message {
     case pong(PongPayload)
     case setOffset(SetOffsetPayload)
     case offsetTest(OffsetTestPayload)
+    case prepareMedia(PrepareMediaPayload)
+    case playMediaAt(PlayMediaAtPayload)
+    case cancelMedia(CancelMediaPayload)
+    case presenceUpdate(PresenceUpdatePayload)
     case register(RegisterPayload)
+    case mediaReady(MediaReadyPayload)
+    case mediaStarted(MediaStartedPayload)
+    case mediaEnded(MediaEndedPayload)
+    case mediaFailed(MediaFailedPayload)
+    case mediaCancelled(MediaCancelledPayload)
+    case setDND(SetDNDPayload)
     case state(StatePayload)
     case ready(ReadyPayload)
     case started(StartedPayload)
@@ -416,7 +599,17 @@ public enum Message {
         case .pong: return "pong"
         case .setOffset: return "set_offset"
         case .offsetTest: return "offset_test"
+        case .prepareMedia: return "prepare_media"
+        case .playMediaAt: return "play_media_at"
+        case .cancelMedia: return "cancel_media"
+        case .presenceUpdate: return "presence_update"
         case .register: return "register"
+        case .mediaReady: return "media_ready"
+        case .mediaStarted: return "media_started"
+        case .mediaEnded: return "media_ended"
+        case .mediaFailed: return "media_failed"
+        case .mediaCancelled: return "media_cancelled"
+        case .setDND: return "set_dnd"
         case .state: return "state"
         case .ready: return "ready"
         case .started: return "started"
@@ -473,7 +666,17 @@ public enum ProtocolCodec {
         case "pong": message = .pong(try p(PongPayload.self))
         case "set_offset": message = .setOffset(try p(SetOffsetPayload.self))
         case "offset_test": message = .offsetTest(try p(OffsetTestPayload.self))
+        case "prepare_media": message = .prepareMedia(try p(PrepareMediaPayload.self))
+        case "play_media_at": message = .playMediaAt(try p(PlayMediaAtPayload.self))
+        case "cancel_media": message = .cancelMedia(try p(CancelMediaPayload.self))
+        case "presence_update": message = .presenceUpdate(try p(PresenceUpdatePayload.self))
         case "register": message = .register(try p(RegisterPayload.self))
+        case "media_ready": message = .mediaReady(try p(MediaReadyPayload.self))
+        case "media_started": message = .mediaStarted(try p(MediaStartedPayload.self))
+        case "media_ended": message = .mediaEnded(try p(MediaEndedPayload.self))
+        case "media_failed": message = .mediaFailed(try p(MediaFailedPayload.self))
+        case "media_cancelled": message = .mediaCancelled(try p(MediaCancelledPayload.self))
+        case "set_dnd": message = .setDND(try p(SetDNDPayload.self))
         case "state": message = .state(try p(StatePayload.self))
         case "ready": message = .ready(try p(ReadyPayload.self))
         case "started": message = .started(try p(StartedPayload.self))
@@ -514,7 +717,17 @@ public enum ProtocolCodec {
         case .pong(let p): return try w(p)
         case .setOffset(let p): return try w(p)
         case .offsetTest(let p): return try w(p)
+        case .prepareMedia(let p): return try w(p)
+        case .playMediaAt(let p): return try w(p)
+        case .cancelMedia(let p): return try w(p)
+        case .presenceUpdate(let p): return try w(p)
         case .register(let p): return try w(p)
+        case .mediaReady(let p): return try w(p)
+        case .mediaStarted(let p): return try w(p)
+        case .mediaEnded(let p): return try w(p)
+        case .mediaFailed(let p): return try w(p)
+        case .mediaCancelled(let p): return try w(p)
+        case .setDND(let p): return try w(p)
         case .state(let p): return try w(p)
         case .ready(let p): return try w(p)
         case .started(let p): return try w(p)

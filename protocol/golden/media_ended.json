@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C0000000000000000006",
+  "ts": 1784026819207,
+  "type": "media_ended",
+  "payload": {
+    "transmission_id": "tr_01J00000000000000000000000",
+    "generation": 1,
+    "t_last_sample_coord_ms": 1784026819207,
+    "reason": "completed"
+  }
+}

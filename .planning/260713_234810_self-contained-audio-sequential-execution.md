@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 22 accepted, 183 remain.
-- Routed inventory: 186 engineering tasks (22 accepted, 164 remain) and 19
+- Combined inventory: 205 original tasks; 23 accepted, 182 remain.
+- Routed inventory: 186 engineering tasks (23 accepted, 163 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1g70av` — clip-transmission-wire-contract
-- Current branch: `task/task-260712-1aprcb-transmission-store-target-snapshots`
-- Accepted overall: 22 / 205 tasks (approximately 10.7%); 183 remain
-- Engineering progress: 22 / 186 tasks (approximately 11.8%); 164 remain
+- Current engineering task: `TASK-260712-2qpp6w` — transmission-http-resolution
+- Current branch: `task/task-260712-1g70av-clip-transmission-wire-contract`
+- Accepted overall: 23 / 205 tasks (approximately 11.2%); 182 remain
+- Engineering progress: 23 / 186 tasks (approximately 12.4%); 163 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -33,10 +33,12 @@
   `TASK-260712-3huupe` landed through PR #18 at merge commit `cfe12ed`;
   `TASK-260712-jolzhh` landed through PR #19 at merge commit `c4cb324`;
   `TASK-260712-51y5k9` landed through PR #20 at merge commit `2aa97c2` after
-  hosted CI runs `29314060965` and `29314299856`; `TASK-260712-1aprcb` is
-  accepted through ready PR #21 after hosted CI runs `29315987760` and
-  `29316416647`. Its final tracking commit and merge are the only remaining
-  landing steps before strict execution starts `TASK-260712-1g70av`.
+  hosted CI runs `29314060965` and `29314299856`; `TASK-260712-1aprcb` landed
+  through PR #21 at merge commit `35d9974` after hosted CI runs `29315987760`,
+  `29316416647` and `29316678680`; `TASK-260712-1g70av` is accepted through
+  ready PR #22 after hosted CI runs `29318171135` and `29318440712`. Its final
+  tracking commit and merge are the only remaining landing steps before strict
+  execution starts `TASK-260712-2qpp6w`.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -255,8 +257,32 @@ rollback suite are green. Inline review closed the descriptor-open race and
 strengthened rollback coverage. Hosted CI runs `29315987760` and `29316416647`
 both passed coordinator, authoritative macOS NodeCore, Windows unit/cross-build
 and signed packaged-probe jobs on implementation commits `ab9b9b7` and
-`a4610b4`. PR #21 is ready and mergeable. No manual real-app or physical-
-hardware result is claimed; those checks remain in `EPIC-260714-th54l3`.
+`a4610b4`. Final tracking commit `8a925f0` passed all four jobs again in run
+`29316678680`; PR #21 landed at
+`35d9974e6a2212b6757e6d053d8b896a652ec4f7`, and strict execution advanced to
+`TASK-260712-1g70av`. No manual real-app or physical-hardware result is claimed;
+those checks remain in `EPIC-260714-th54l3`.
+
+Checkpoint 2026-07-14 for `TASK-260712-1g70av`: the canonical Go codec and its
+byte-pinned Windows mirror now carry `prepare_media`, `play_media_at`,
+`cancel_media`, `presence_update`, `media_ready`, `media_started`,
+`media_ended`, `media_failed`, `media_cancelled` and `set_dnd`; the Swift
+`Message` mirror carries the same cases. Thirty-nine shared golden envelopes
+pin all message shapes, delivery-conditional fields and DND/presence additions,
+while explicit compatibility tests keep `play_voice` and `solo_voice` intact.
+Registration now validates unique ASCII-sorted capability names, retains
+unknown additive values and replaces the authenticated connection snapshot on
+reconnect; the serialized loop keeps the exact target capability set. Current
+clients deliberately advertise no clip flag until their implementation tasks.
+Inline review corrected malformed legacy golden `msg_`/`el_` identifiers and
+added recursive Crockford-ULID guards, then aligned `invalid_dnd_revision` with
+the frozen DND vocabulary. Full coordinator and Windows vet/test/race, Windows
+cross-build, Swift build, JSON, mirror and board gates are green. Hosted CI runs
+`29318171135` and `29318440712` both passed coordinator compatibility,
+authoritative macOS Swift tests, Windows unit/cross-build and the signed
+packaged probe on commits `8fb9465` and `36c15fa`. PR #22 is ready and
+mergeable. No manual real-app or physical-hardware result is claimed; those
+checks remain in `EPIC-260714-th54l3`.
 
 ## Operating contract
 
@@ -377,7 +403,7 @@ Story: `STORY-260712-25lysg` — P1 Transmission protocol and scheduler.
 
 - [x] `TASK-260712-51y5k9` — transmission-contract-clarification
 - [x] `TASK-260712-1aprcb` — transmission-store-target-snapshots
-- [ ] `TASK-260712-1g70av` — clip-transmission-wire-contract
+- [x] `TASK-260712-1g70av` — clip-transmission-wire-contract
 - [ ] `TASK-260712-2qpp6w` — transmission-http-resolution
 - [ ] `TASK-260712-26ip33` — macos-transmission-client-hooks
 - [ ] `TASK-260712-2bbz13` — windows-transmission-client-hooks

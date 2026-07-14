@@ -1,10 +1,32 @@
 package hub
 
 import (
+	"errors"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/gorilla/websocket"
+
+	"relux.works/duet/coordinator/internal/protocol"
 )
+
+func websocketTestURL(raw string) string {
+	return "ws" + strings.TrimPrefix(raw, "http")
+}
+
+func registerWire(capabilities any) map[string]any {
+	return map[string]any{
+		"v": 1, "id": "msg_test", "ts": int64(1), "type": protocol.TypeRegister,
+		"payload": map[string]any{
+			"node_id": "a", "token": "valid", "app_version": "test",
+			"librespot_version": "test", "capabilities": capabilities,
+		},
+	}
+}
 
 func testHub(offlineAfter time.Duration) *Hub {
 	return New(slog.Default(), func(string) (int64, string, bool) { return 0, "", false }, offlineAfter)
@@ -69,5 +91,76 @@ func TestEmitReleasesOnEscape(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("emit did not release on escape")
+	}
+}
+
+func TestRegisterRejectsNonCanonicalCapabilities(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		capabilities any
+	}{
+		{"duplicate", []any{"media_clip_v1", "media_clip_v1"}},
+		{"unsorted", []any{"overlay_mix_v1", "media_clip_v1"}},
+		{"non-string", []any{"media_clip_v1", 7}},
+		{"non-ascii", []any{"média_clip_v1"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := New(slog.Default(), func(string) (int64, string, bool) {
+				return 1, "a", true
+			}, time.Second)
+			server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
+			defer server.Close()
+
+			conn, _, err := websocket.DefaultDialer.Dial(websocketTestURL(server.URL), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+			if err := conn.WriteJSON(registerWire(tc.capabilities)); err != nil {
+				t.Fatal(err)
+			}
+			_, _, err = conn.ReadMessage()
+			var closeErr *websocket.CloseError
+			if !errors.As(err, &closeErr) || closeErr.Code != closeInvalidAuth {
+				t.Fatalf("invalid capabilities close=%v", err)
+			}
+		})
+	}
+}
+
+func TestRegisterRetainsUnknownCapabilitiesInCanonicalOrder(t *testing.T) {
+	h := New(slog.Default(), func(token string) (int64, string, bool) {
+		return 42, "b", token == "valid"
+	}, time.Second)
+	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
+	defer server.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(websocketTestURL(server.URL), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	capabilities := []any{
+		protocol.CapabilityInterruptResume,
+		protocol.CapabilityMediaClip,
+		"unknown_future_v2",
+	}
+	if err := conn.WriteJSON(registerWire(capabilities)); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case event := <-h.Events:
+		registered, ok := event.(EvRegistered)
+		if !ok {
+			t.Fatalf("first event=%T, want EvRegistered", event)
+		}
+		if registered.Key != (NodeKey{Orbit: 42, Slot: "b"}) ||
+			!registered.Capabilities.Supports(protocol.CapabilityMediaClip) ||
+			!registered.Capabilities.Supports("unknown_future_v2") {
+			t.Fatalf("registered event=%+v capabilities=%v", registered, registered.Capabilities.Values())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("valid registration did not emit")
 	}
 }

@@ -3,9 +3,9 @@
 Normative source: spec ch. 8 (`docs/spec.md` v1.2). Golden files: `protocol/golden/*.json`, one per message type; contract tests on both sides decode -> re-encode -> compare against them (spec 8.7). Any protocol change lands together with the golden change in the same commit (goal invariant 5).
 
 The exact additive phase-one clip-transmission, DND and presence payloads are
-frozen in [`docs/analysis/p1-transmission-contract-v1.md`](analysis/p1-transmission-contract-v1.md).
-They are implemented with their golden files by `TASK-260712-1g70av`; this note
-does not treat the pre-implementation examples as already shipped.
+frozen in [`docs/analysis/p1-transmission-contract-v1.md`](analysis/p1-transmission-contract-v1.md)
+and shipped in the canonical Go codec plus the Windows and Swift mirrors. The
+files in `protocol/golden` remain the executable field-name contract.
 
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 
@@ -26,7 +26,7 @@ This file records only the details the spec leaves to the implementation. It mus
 | `state.position_ms` | audible position (spec 6.3), not daemon position |
 | `welcome.session_snapshot` | `{ mode, state, current, volume }`; `current` is `null` or `{ element_id, kind, uri?, position_ms }`; `volume` is this node's 0..100 |
 | `ended.reason` enum | `eof \| skipped \| error` (spec 8.4) |
-| `error.code` enum | `load_failed \| track_unavailable \| media_download_failed \| audio_starvation \| librespot_restart \| device_lost` (spec 8.4) |
+| `error.code` enum | `load_failed \| track_unavailable \| media_download_failed \| audio_starvation \| librespot_restart \| device_lost \| invalid_dnd_revision`; the additive DND code is frozen by the phase-one transmission contract |
 | `set_mode.mode` / snapshot `mode` | `shared \| solo` |
 | Snapshot `state` | coordinator FSM state lowercase: `idle \| loading \| armed \| playing \| voice \| paused \| degraded` |
 | Optional fields | `play_voice.t_coord_ms` (absent = start immediately), `error.element_id` (absent = not element-scoped). Absent = key omitted, not `null` |
@@ -53,6 +53,43 @@ Seamless adoption is rollout-gated by the optional register capability
 participating peer in the air has announced support; mixed-version airs retain
 the legacy pause/load/resume barrier. An offline peer joins later through the
 ordinary load/seek/resume catch-up path and does not block adoption.
+
+## Phase-one clip transmission, DND and presence
+
+The following v1 message types are additive. Every clip lifecycle payload is
+bound to `(transmission_id, generation)`; target identity comes only from the
+authenticated WebSocket connection and is never accepted from a payload.
+
+| Direction | Type | Payload fields |
+|---|---|---|
+| coordinator → node | `prepare_media` | `transmission_id`, `generation`, `media_id`, `kind`, `delivery`, `file_url`, `sha256`, `size_bytes`, `duration_ms`, `media_expires_at_coord_ms`, `prepare_deadline_coord_ms` |
+| coordinator → node | `play_media_at` | `transmission_id`, `generation`, `t_coord_ms`, `start_deadline_coord_ms`, `delivery`; overlay adds `duck_db`, `attack_ms`, `release_ms`; interrupt adds `fade_out_ms`, `fade_in_ms` |
+| coordinator → node | `cancel_media` | `transmission_id`, `generation`, `reason`, `action`, `resume_main`, `fade_ms` |
+| coordinator → node | `presence_update` | `revision`, `generated_at_coord_ms`, sorted `nodes`; each node carries only the authorized availability, playback, DND and capability projection frozen by the transmission contract |
+| node → coordinator | `media_ready` | `transmission_id`, `generation`, `decoded_duration_ms` |
+| node → coordinator | `media_started` | `transmission_id`, `generation`, `t_first_sample_coord_ms` |
+| node → coordinator | `media_ended` | `transmission_id`, `generation`, `t_last_sample_coord_ms`, `reason` |
+| node → coordinator | `media_failed` | `transmission_id`, `generation`, `stage`, `code`; diagnostic text, URLs and local paths are forbidden |
+| node → coordinator | `media_cancelled` | `transmission_id`, `generation`, `reason`, `action`, `main_resumed` |
+| node → coordinator | `set_dnd` | `revision`, `mode`, and `muted_until_coord_ms` only for `muted_until` |
+
+`play_media_at` never carries overlay and interrupt controls together.
+`after_current` remains on the existing Session/legacy voice path and does not
+receive `play_media_at` in phase one. Optional conditional fields are omitted,
+not encoded as `null`. The complete enum vocabularies, timing bounds and
+cross-field rules remain normative in the frozen contract linked above.
+
+`register.capabilities` uses unique non-empty printable-ASCII strings in strict
+ASCII order. Phase one defines `interrupt_resume_v1`, `media_clip_v1` and
+`overlay_mix_v1` in addition to `seamless_adoption_v1`. Unknown sorted values
+are retained for diagnostics but ignored by known-feature decisions. A
+reconnect replaces the prior set instead of unioning it. A build advertises a
+flag only after its implementation exists; therefore landing this wire codec
+does not itself make either current node claim clip playback support.
+
+`play_voice` and `solo_voice` remain registered, encoded and decoded exactly as
+before. A mixed fleet can therefore downgrade a whole transmission into the
+legacy Session path without splitting one transmission across protocols.
 
 ## Transport
 

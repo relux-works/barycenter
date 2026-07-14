@@ -19,8 +19,17 @@ private func jsonObject(_ data: Data) throws -> NSDictionary {
     try #require(JSONSerialization.jsonObject(with: data) as? NSDictionary)
 }
 
+private func isMessageID(_ value: String) -> Bool {
+    let alphabet = Set("0123456789ABCDEFGHJKMNPQRSTVWXYZ")
+    guard value.hasPrefix("msg_") else { return false }
+    let suffix = value.dropFirst(4)
+    guard suffix.utf8.count == 26, let first = suffix.first,
+          "01234567".contains(first) else { return false }
+    return suffix.allSatisfy { alphabet.contains($0) }
+}
+
 @Suite struct ProtocolContractTests {
-    static let expectedTypeCount = 29
+    static let expectedTypeCount = 39
 
     @Test func goldenDirComplete() throws {
         let files = try FileManager.default.contentsOfDirectory(at: goldenDir(), includingPropertiesForKeys: nil)
@@ -39,6 +48,7 @@ private func jsonObject(_ data: Data) throws -> NSDictionary {
             let raw = try Data(contentsOf: file)
             let (head, message) = try ProtocolCodec.decode(raw)
             #expect(head.v == ProtocolConstants.version)
+            #expect(isMessageID(head.id), "invalid golden message id \(head.id)")
             #expect(head.type == file.deletingPathExtension().lastPathComponent,
                     "file \(file.lastPathComponent) carries type \(head.type)")
             #expect(message.typeName == head.type)
@@ -70,6 +80,68 @@ private func jsonObject(_ data: Data) throws -> NSDictionary {
             message: .externalPlayback(ExternalPlaybackPayload(uri: "spotify:track:x", positionMs: nil))
         )
         #expect(!String(decoding: external, as: UTF8.self).contains("position_ms"))
+
+        let interrupt = try ProtocolCodec.encode(
+            id: "msg_x", ts: 1,
+            message: .playMediaAt(PlayMediaAtPayload(
+                transmissionId: "tr_x", generation: 1, tCoordMs: 2,
+                startDeadlineCoordMs: 102, delivery: "interrupt",
+                duckDb: nil, attackMs: nil, releaseMs: nil, fadeOutMs: 250, fadeInMs: 120))
+        )
+        let interruptText = String(decoding: interrupt, as: UTF8.self)
+        #expect(!interruptText.contains("duck_db"))
+        #expect(!interruptText.contains("attack_ms"))
+        #expect(!interruptText.contains("release_ms"))
+        let (_, decodedInterrupt) = try ProtocolCodec.decode(interrupt)
+        #expect(decodedInterrupt.typeName == "play_media_at")
+
+        let dnd = try ProtocolCodec.encode(
+            id: "msg_x", ts: 1,
+            message: .setDND(SetDNDPayload(
+                revision: 1, mode: "allow_all", mutedUntilCoordMs: nil))
+        )
+        #expect(!String(decoding: dnd, as: UTF8.self).contains("muted_until_coord_ms"))
+
+        let presence = try ProtocolCodec.encode(
+            id: "msg_x", ts: 1,
+            message: .presenceUpdate(PresenceUpdatePayload(
+                revision: 1, generatedAtCoordMs: 1,
+                nodes: [PresenceNode(
+                    orbitId: 1, slot: "a", online: true, lastSeenAtCoordMs: 1,
+                    outputState: "ready", playbackState: "main",
+                    dndMode: "messages_only", dndRevision: 1, dndUntilCoordMs: nil,
+                    capabilities: [], interruptResumeReady: false)]))
+        )
+        #expect(!String(decoding: presence, as: UTF8.self).contains("dnd_until_coord_ms"))
+    }
+
+    @Test func capabilityListsAreCanonicalAndAdditive() {
+        let capabilities = [
+            interruptResumeCapability,
+            mediaClipCapability,
+            overlayMixCapability,
+            seamlessAdoptionCapability,
+            "unknown_future_v2"
+        ]
+        #expect(ProtocolCapabilities.areCanonical(capabilities))
+        #expect(!ProtocolCapabilities.areCanonical([mediaClipCapability, mediaClipCapability]))
+        #expect(!ProtocolCapabilities.areCanonical([overlayMixCapability, mediaClipCapability]))
+        #expect(!ProtocolCapabilities.areCanonical(["media clip"]))
+        #expect(!ProtocolCapabilities.areCanonical(["média_clip_v1"]))
+    }
+
+    @Test func legacyVoiceMessagesRemainCompatible() throws {
+        let messages: [Message] = [
+            .playVoice(PlayVoicePayload(
+                elementId: "el_x", fileUrl: "https://coord/media/x", tCoordMs: nil)),
+            .soloVoice(SoloVoicePayload(
+                elementId: "el_x", fileUrl: "https://coord/media/x"))
+        ]
+        for message in messages {
+            let encoded = try ProtocolCodec.encode(id: "msg_x", ts: 1, message: message)
+            let (_, decoded) = try ProtocolCodec.decode(encoded)
+            #expect(decoded.typeName == message.typeName)
+        }
     }
 
     @Test func unknownTypeIsDetectable() {

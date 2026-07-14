@@ -52,7 +52,11 @@ type orbitState struct {
 	offsets  map[protocol.NodeID]int64
 	lastSeen map[protocol.NodeID]*protocol.StatePayload
 	versions map[protocol.NodeID]string
-	seamless map[protocol.NodeID]bool
+	// capabilities is the exact validated set from the current authenticated
+	// connection. Registration replaces it wholesale; unknown names remain for
+	// diagnostics while feature decisions query exact known flags.
+	capabilities map[protocol.NodeID]protocol.CapabilitySet
+	seamless     map[protocol.NodeID]bool
 	// restoredPaused: after coordinator restart, resume position must follow
 	// live heartbeats until the user resumes (spec 7.2).
 	restoredPaused bool
@@ -216,6 +220,7 @@ func (l *loop) orbit(id int64) *orbitState {
 		offsets:        map[protocol.NodeID]int64{},
 		lastSeen:       map[protocol.NodeID]*protocol.StatePayload{},
 		versions:       map[protocol.NodeID]string{},
+		capabilities:   map[protocol.NodeID]protocol.CapabilitySet{},
 		seamless:       map[protocol.NodeID]bool{},
 	}
 	o.sess.StartMarginMS = int64(l.cfg.Timings.StartMarginMS)
@@ -356,6 +361,7 @@ func (l *loop) group(linkID int64) *orbitState {
 		offsets:        map[protocol.NodeID]int64{},
 		lastSeen:       map[protocol.NodeID]*protocol.StatePayload{},
 		versions:       map[protocol.NodeID]string{},
+		capabilities:   map[protocol.NodeID]protocol.CapabilitySet{},
 		seamless:       map[protocol.NodeID]bool{},
 	}
 	g.sess.StartMarginMS = int64(l.cfg.Timings.StartMarginMS)
@@ -369,6 +375,7 @@ func (l *loop) group(linkID int64) *orbitState {
 			g.volumes[n] = 80
 			homeNode := protocol.NodeID(sl)
 			g.versions[n] = l.orbit(orbitID).versions[homeNode]
+			g.capabilities[n] = l.orbit(orbitID).capabilities[homeNode]
 			g.seamless[n] = l.orbit(orbitID).seamless[homeNode]
 			if v, _ := l.st.GetSetting(fmt.Sprintf("volume_%d_%s", orbitID, sl)); v != "" {
 				if i, err := strconv.Atoi(v); err == nil {
@@ -811,13 +818,8 @@ func (l *loop) handleNode(ev hub.Event) {
 		o.sess.EnsurePeer(n) // a slot paired after orbit/group warm-up
 		l.log.Info("node registered", "orbit", e.Key.Orbit, "slot", e.Key.Slot, "app", e.AppVersion, "librespot", e.LibrespotVersion)
 		o.versions[n] = e.AppVersion + "/librespot " + e.LibrespotVersion
-		supportsSeamless := false
-		for _, capability := range e.Capabilities {
-			if capability == protocol.CapabilitySeamlessAdoption {
-				supportsSeamless = true
-				break
-			}
-		}
+		o.capabilities[n] = e.Capabilities
+		supportsSeamless := e.Capabilities.Supports(protocol.CapabilitySeamlessAdoption)
 		o.seamless[n] = supportsSeamless
 		// Keep the personal state warm too while its air is owned by a group;
 		// a later /apart -> /approach must not forget this capability until the
@@ -825,6 +827,7 @@ func (l *loop) handleNode(ev hub.Event) {
 		if o.group() {
 			home := l.orbit(e.Key.Orbit)
 			home.versions[e.Key.Slot] = o.versions[n]
+			home.capabilities[e.Key.Slot] = e.Capabilities
 			home.seamless[e.Key.Slot] = supportsSeamless
 		}
 		vol, ok := o.volumes[n]

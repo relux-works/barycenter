@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "id": "msg_01JZB0C00000000000000000E",
+  "id": "msg_01JZB0C000000000000000000K",
   "ts": 1751500000000,
   "type": "register",
   "payload": {
@@ -8,6 +8,11 @@
     "token": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
     "app_version": "0.1.0",
     "librespot_version": "0.7.4",
-    "capabilities": ["seamless_adoption_v1"]
+    "capabilities": [
+      "interrupt_resume_v1",
+      "media_clip_v1",
+      "overlay_mix_v1",
+      "seamless_adoption_v1"
+    ]
   }
 }

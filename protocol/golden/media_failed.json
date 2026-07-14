@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C0000000000000000007",
+  "ts": 1784026814300,
+  "type": "media_failed",
+  "payload": {
+    "transmission_id": "tr_01J00000000000000000000000",
+    "generation": 1,
+    "stage": "prepare",
+    "code": "hash_mismatch"
+  }
+}

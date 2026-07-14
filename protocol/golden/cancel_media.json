@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C0000000000000000000",
+  "ts": 1784026816000,
+  "type": "cancel_media",
+  "payload": {
+    "transmission_id": "tr_01J00000000000000000000000",
+    "generation": 1,
+    "reason": "media_deleted",
+    "action": "fade_stop",
+    "resume_main": true,
+    "fade_ms": 120
+  }
+}

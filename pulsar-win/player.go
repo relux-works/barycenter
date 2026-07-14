@@ -178,6 +178,11 @@ func (p *Player) Handle(env protocol.Envelope, payload any) {
 	case *protocol.SoloVoicePayload:
 		// Phase 2 (goal §8): boundary interception lands with solo scope.
 		p.log.Warn("solo_voice not implemented until phase 2", "element", m.ElementID)
+	case *protocol.PrepareMediaPayload, *protocol.PlayMediaAtPayload, *protocol.CancelMediaPayload:
+		// Dedicated client hooks land later. This build does not advertise
+		// media_clip_v1, so receiving a clip command is a coordinator routing
+		// error and must never fall back locally to legacy play_voice.
+		p.log.Warn("ignoring unadvertised clip command", "type", env.Type)
 	default:
 		p.log.Debug("ignoring non-command", "type", env.Type)
 	}

@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C0000000000000000009",
+  "ts": 1784026815007,
+  "type": "media_started",
+  "payload": {
+    "transmission_id": "tr_01J00000000000000000000000",
+    "generation": 1,
+    "t_first_sample_coord_ms": 1784026815007
+  }
+}

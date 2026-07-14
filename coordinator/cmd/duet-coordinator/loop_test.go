@@ -34,6 +34,38 @@ type fakeSender struct {
 	sent []sentMsg
 }
 
+func TestRegistrationReplacesExactCapabilitySnapshot(t *testing.T) {
+	l, _ := newTestLoop(t)
+	initial, err := protocol.ParseCapabilitySet([]string{
+		protocol.CapabilityInterruptResume,
+		protocol.CapabilityMediaClip,
+		protocol.CapabilityOverlayMix,
+		"unknown_future_v2",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}
+	l.handleNode(hub.EvRegistered{Key: key, Capabilities: initial})
+	o := l.orbit(1)
+	if !o.capabilities[protocol.NodeA].Supports(protocol.CapabilityInterruptResume) ||
+		!o.capabilities[protocol.NodeA].Supports("unknown_future_v2") {
+		t.Fatalf("registration lost exact capabilities: %v", o.capabilities[protocol.NodeA].Values())
+	}
+
+	replacement, err := protocol.ParseCapabilitySet([]string{protocol.CapabilityMediaClip})
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.handleNode(hub.EvRegistered{Key: key, Capabilities: replacement})
+	got := o.capabilities[protocol.NodeA]
+	if !got.Supports(protocol.CapabilityMediaClip) ||
+		got.Supports(protocol.CapabilityInterruptResume) ||
+		got.Supports("unknown_future_v2") || len(got.Values()) != 1 {
+		t.Fatalf("reconnect unioned instead of replacing capabilities: %v", got.Values())
+	}
+}
+
 func (f *fakeSender) Send(key hub.NodeKey, msgType string, payload any) bool {
 	f.sent = append(f.sent, sentMsg{key.Slot, key, msgType, payload})
 	return true

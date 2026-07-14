@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C0000000000000000008",
+  "ts": 1784026814200,
+  "type": "media_ready",
+  "payload": {
+    "transmission_id": "tr_01J00000000000000000000000",
+    "generation": 1,
+    "decoded_duration_ms": 4200
+  }
+}

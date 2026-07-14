@@ -141,6 +141,42 @@ function Write-ProbeEvidenceJSON {
     )
 }
 
+function Write-ProbeEvidenceText {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Value,
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+
+    if (Test-Path -LiteralPath $Path) {
+        throw "refusing to overwrite evidence file '$([IO.Path]::GetFileName($Path))'"
+    }
+    $Parent = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($Parent)) {
+        New-Item -ItemType Directory -Force -Path $Parent | Out-Null
+    }
+    [IO.File]::WriteAllText($Path, $Value, [Text.UTF8Encoding]::new($false))
+}
+
+function Test-ProbePathWithinRoot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Root
+    )
+
+    $FullPath = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
+    $FullRoot = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    $Comparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+        [StringComparison]::OrdinalIgnoreCase
+    } else {
+        [StringComparison]::Ordinal
+    }
+    if ($FullPath.Equals($FullRoot, $Comparison)) { return $true }
+    $Prefix = $FullRoot + [IO.Path]::DirectorySeparatorChar
+    $FullPath.StartsWith($Prefix, $Comparison)
+}
+
 function Test-ProbeSensitiveEvidenceKey {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][string]$Name)

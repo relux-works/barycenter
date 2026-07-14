@@ -74,7 +74,10 @@ function Get-EvidenceRun {
     $Matrix = Get-Content -LiteralPath $MatrixPath -Raw | ConvertFrom-Json
     $Machine = Get-Content -LiteralPath $MachinePath -Raw | ConvertFrom-Json
     $PackageEvidence = Get-Content -LiteralPath $PackagePath -Raw | ConvertFrom-Json
-    if ([int]$Run.schemaVersion -ne 1 -or [int]$Matrix.schemaVersion -ne 1) {
+    if ([int]$Run.schemaVersion -ne 1 -or
+        [int]$Matrix.schemaVersion -ne 1 -or
+        [int]$Machine.schemaVersion -ne 1 -or
+        [int]$PackageEvidence.schemaVersion -ne 1) {
         throw "unsupported hardware evidence schema version"
     }
     Assert-ProbeEvidenceRunID -RunID ([string]$Run.runId) | Out-Null
@@ -93,6 +96,13 @@ function Get-EvidenceRun {
         [string]$Run.packageSha256 -cne [string]$Matrix.packageSha256 -or
         [string]$Run.packageSha256 -cne [string]$PackageEvidence.sha256) {
         throw "run, machine, package, and matrix provenance differ"
+    }
+    if ([string]$Run.packageIdentity -cne $script:ProbePackageIdentity -or
+        [string]$Run.packageIdentity -cne [string]$PackageEvidence.packageIdentity -or
+        [string]$Run.packageFamilyName -cne [string]$PackageEvidence.packageFamilyName -or
+        [string]$Run.applicationUserModelId -cne [string]$PackageEvidence.applicationUserModelId -or
+        [bool]$PackageEvidence.privateSigningMaterialIncluded) {
+        throw "run and package evidence differ from the frozen signed package identity"
     }
     [pscustomobject]@{
         Root = $Root
@@ -446,6 +456,47 @@ function Assert-EvidenceReferencesIntact {
     }
 }
 
+function ConvertTo-EvidenceMarkdownCell {
+    param([AllowNull()]$Value)
+
+    if ($null -eq $Value) { return "" }
+    $Text = [string]$Value
+    $Text = $Text.Replace('&', '&amp;')
+    $Text = $Text.Replace('<', '&lt;')
+    $Text = $Text.Replace('>', '&gt;')
+    $Text = $Text.Replace('|', '\|')
+    $Text = $Text.Replace("`r`n", '<br>')
+    $Text = $Text.Replace("`n", '<br>')
+    $Text.Replace("`r", '<br>')
+}
+
+function Get-EvidenceMatrixMarkdown {
+    param([Parameter(Mandatory = $true)]$State)
+
+    $Lines = @(
+        "# Windows hardware evidence matrix",
+        "",
+        "> Operator verdicts are unreviewed and do not imply task acceptance.",
+        "",
+        "- Run: $(ConvertTo-EvidenceMarkdownCell $State.Run.runId)",
+        "- OS family: $(ConvertTo-EvidenceMarkdownCell $State.Run.osFamily)",
+        "- Package SHA-256: $(ConvertTo-EvidenceMarkdownCell $State.Run.packageSha256)",
+        "",
+        "| ID | Scenario | Verdict | Review | Recorded UTC | Evidence | Observation | Next action |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |"
+    )
+    foreach ($Row in @($State.Matrix.scenarios)) {
+        $Evidence = @(
+            $Row.evidence | ForEach-Object {
+                $Reference = "$(ConvertTo-EvidenceMarkdownCell $_.kind):$(ConvertTo-EvidenceMarkdownCell $_.relativeFile)@$(ConvertTo-EvidenceMarkdownCell $_.sha256)"
+                $Reference
+            }
+        ) -join '<br>'
+        $Lines += "| $(ConvertTo-EvidenceMarkdownCell $Row.id) | $(ConvertTo-EvidenceMarkdownCell $Row.title) | $(ConvertTo-EvidenceMarkdownCell $Row.verdict) | $(ConvertTo-EvidenceMarkdownCell $Row.reviewState) | $(ConvertTo-EvidenceMarkdownCell $Row.recordedAtUTC) | $Evidence | $(ConvertTo-EvidenceMarkdownCell $Row.observation) | $(ConvertTo-EvidenceMarkdownCell $Row.nextAction) |"
+    }
+    [string]::Join([Environment]::NewLine, $Lines) + [Environment]::NewLine
+}
+
 function Seal-EvidenceRun {
     $State = Get-EvidenceRun
     if ((Test-Path -LiteralPath (Join-Path $State.Root "sealed.json")) -or
@@ -459,6 +510,19 @@ function Seal-EvidenceRun {
         }
         if (@($Row.evidence).Count -eq 0) {
             throw "scenario $ScenarioID lacks evidence references"
+        }
+        if ([string]$Row.collectionState -cne "collected-unreviewed" -or
+            [string]$Row.reviewState -cne "unreviewed" -or
+            [string]::IsNullOrWhiteSpace([string]$Row.observation)) {
+            throw "scenario $ScenarioID has an invalid collection, review, or observation state"
+        }
+        $RecordedAt = [DateTimeOffset]::MinValue
+        if (-not [DateTimeOffset]::TryParse([string]$Row.recordedAtUTC, [ref]$RecordedAt)) {
+            throw "scenario $ScenarioID has an invalid terminal timestamp"
+        }
+        if ([string]$Row.verdict -ceq "PASS" -and
+            -not [string]::IsNullOrWhiteSpace([string]$Row.nextAction)) {
+            throw "scenario $ScenarioID is PASS but carries a failure next action"
         }
         if ([string]$Row.verdict -cne "PASS" -and [string]::IsNullOrWhiteSpace([string]$Row.nextAction)) {
             throw "scenario $ScenarioID is non-PASS without a next action"
@@ -477,6 +541,8 @@ function Seal-EvidenceRun {
         if ([int]$Cleanup.schemaVersion -eq 1 -and
             [string]$Cleanup.verificationBoundary -ceq "post-evidence-cleanup-only; not hardware scenario acceptance" -and
             [string]$Cleanup.packageSha256 -ceq [string]$State.Run.packageSha256 -and
+            [string]$Cleanup.packageIdentity -ceq [string]$State.Run.packageIdentity -and
+            [string]$Cleanup.packageFamilyName -ceq [string]$State.Run.packageFamilyName -and
             [bool]$Cleanup.processAbsent -and
             [bool]$Cleanup.packageAbsent -and
             [bool]$Cleanup.signerTrustAbsent -and
@@ -505,6 +571,11 @@ function Seal-EvidenceRun {
             Assert-ProbeEvidenceValueSafe -Value (Get-Content -LiteralPath $File.FullName -Raw) -PropertyName "bundleText"
         }
     }
+
+    Get-ProbeEvidenceFileManifest -Root $State.Root | Out-Null
+    $MatrixMarkdown = Get-EvidenceMatrixMarkdown -State $State
+    Assert-ProbeEvidenceValueSafe -Value $MatrixMarkdown -PropertyName "matrixText"
+    Write-ProbeEvidenceText -Value $MatrixMarkdown -Path (Join-Path $State.Root "matrix.md")
 
     $Files = Get-ProbeEvidenceFileManifest -Root $State.Root
     $BundleManifest = [ordered]@{

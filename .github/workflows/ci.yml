@@ -113,6 +113,21 @@ jobs:
             }
             $pickerFixture = Join-Path $env:RUNNER_TEMP "pulsar-picker-cleanup.bin"
             [IO.File]::WriteAllBytes($pickerFixture, [byte[]](1, 2, 3, 4))
+            $unsafeCleanupRejected = $false
+            try {
+              ./pulsar-win/probe-msix/uninstall-probe.ps1 `
+                -ReceiptPath $result.ReceiptPath `
+                -PickerFixture $pickerFixture `
+                -CleanupReceiptPath (Join-Path $result.RuntimeRoot "unsafe-cleanup.json") `
+                -EvidenceCopied | Out-Null
+            } catch {
+              if ($_.Exception.Message -notmatch "outside the runtime root") { throw }
+              $unsafeCleanupRejected = $true
+            }
+            if (-not $unsafeCleanupRejected -or
+                @(Get-AppxPackage -Name "ReluxWorksLLC.PulsarBarycenter").Count -ne 1) {
+              throw "unsafe in-runtime cleanup output was not rejected before mutation"
+            }
             $cleanupPath = "$($package.FullName).cleanup.json"
             $cleanup = ./pulsar-win/probe-msix/uninstall-probe.ps1 `
               -ReceiptPath $result.ReceiptPath `

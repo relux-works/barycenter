@@ -18,6 +18,24 @@ $Receipt = Get-Content -LiteralPath $ResolvedReceipt -Raw | ConvertFrom-Json
 $ExpectedFamily = Get-ProbePackageFamilyName
 $ExpectedAUMID = "$ExpectedFamily!$script:ProbeApplicationID"
 $ExpectedRuntimeRelative = "Packages\$ExpectedFamily\LocalState\PulsarProbe"
+$RuntimeRoot = Join-Path $env:LOCALAPPDATA $ExpectedRuntimeRelative
+if ([string]::IsNullOrWhiteSpace($CleanupReceiptPath)) {
+    throw "cleanup receipt path must be non-empty"
+}
+$CleanupReceiptFullPath = [IO.Path]::GetFullPath($CleanupReceiptPath)
+if (Test-Path -LiteralPath $CleanupReceiptFullPath) {
+    throw "refusing to overwrite an existing cleanup receipt"
+}
+$ResolvedPickerFixture = (Resolve-Path -LiteralPath $PickerFixture).Path
+if ((Test-ProbePathWithinRoot -Path $ResolvedReceipt -Root $RuntimeRoot) -or
+    (Test-ProbePathWithinRoot -Path $ResolvedPickerFixture -Root $RuntimeRoot) -or
+    (Test-ProbePathWithinRoot -Path $CleanupReceiptFullPath -Root $RuntimeRoot)) {
+    throw "receipt and picker evidence must live outside the runtime root removed by cleanup"
+}
+if ($CleanupReceiptFullPath -ieq $ResolvedReceipt -or
+    $CleanupReceiptFullPath -ieq $ResolvedPickerFixture) {
+    throw "cleanup receipt path must be distinct from preserved input evidence"
+}
 
 if ([int]$Receipt.schemaVersion -ne 2 -or
     [string]$Receipt.packageIdentity -cne $script:ProbePackageIdentity -or
@@ -76,7 +94,6 @@ foreach ($Installed in $InstalledPackages) {
     Remove-AppxPackage -Package $Installed.PackageFullName
 }
 
-$RuntimeRoot = Join-Path $env:LOCALAPPDATA $ExpectedRuntimeRelative
 $RemovedPartialCount = 0
 if (Test-Path -LiteralPath $RuntimeRoot -PathType Container) {
     $RemovedPartialCount = @(
@@ -104,7 +121,7 @@ if ($TrustWasAdded) {
     Remove-Item -LiteralPath $TrustPath -Force
 }
 
-$PickerAccess = Test-ProbePickerFixtureExclusiveAccess -Path $PickerFixture -Delete
+$PickerAccess = Test-ProbePickerFixtureExclusiveAccess -Path $ResolvedPickerFixture -Delete
 $Hotkey = Test-ProbeHotkeyAvailability
 if (-not $Hotkey.Registered) {
     throw "Ctrl+Shift+R remains unavailable after cleanup: Win32=$($Hotkey.Win32Error)"
@@ -148,5 +165,5 @@ $Cleanup = [ordered]@{
     pickerFixtureDeleted = [bool]$PickerAccess.Deleted
     pickerFixtureSizeBytes = [int64]$PickerAccess.SizeBytes
 }
-Write-ProbeEvidenceJSON -Value $Cleanup -Path $CleanupReceiptPath
+Write-ProbeEvidenceJSON -Value $Cleanup -Path $CleanupReceiptFullPath
 $Cleanup

@@ -178,6 +178,10 @@ $install = .\pulsar-win\probe-msix\install-probe.ps1 `
   -TrustLocalTestSigner `
   -ReceiptPath $installReceipt `
   -Launch
+
+.\pulsar-win\probe-msix\hardware-evidence.ps1 `
+  -Mode Attach -OutputDirectory $bundle -Scenario H00 `
+  -Attachment $installReceipt
 ```
 
 Use the frozen H00-H17 order in
@@ -208,7 +212,8 @@ probe must acquire and exercise the chord.
 
 ```powershell
 $hotkeyReady = Join-Path $staging "hotkey-holder-ready.json"
-$holder = Start-Process pwsh -PassThru -ArgumentList @(
+$powerShell = (Get-Process -Id $PID).Path
+$holder = Start-Process -FilePath $powerShell -PassThru -ArgumentList @(
   "-NoProfile", "-File",
   (Resolve-Path .\pulsar-win\probe-msix\hotkey-conflict.ps1),
   "-Mode", "Hold", "-HoldSeconds", "120", "-ReadyPath", $hotkeyReady
@@ -223,10 +228,12 @@ Stop-Process -Id $holder.Id -Force
 
 After H00-H16 evidence is copied, clean the exact package, runtime root and only
 the signer trust added by this run. The cleanup script refuses to run without
-`-EvidenceCopied`, validates the receipt before removal, proves exclusive
-picker-fixture access by an open+rename+delete round trip, and reacquires
-`Ctrl+Shift+R`. Attach that receipt as H17, record the H17 verdict, and seal only
-after every row has an evidence reference and terminal verdict.
+`-EvidenceCopied`, validates all inputs and requires the receipt, picker fixture
+and cleanup output to remain outside the runtime root before any mutation. It
+then proves exclusive picker-fixture access by an open+rename+delete round trip
+and reacquires `Ctrl+Shift+R`. Attach that receipt as H17, record the H17
+verdict, and seal only after every row has an evidence reference and terminal
+verdict.
 
 ```powershell
 $cleanupReceipt = Join-Path $staging "cleanup.json"
@@ -246,12 +253,12 @@ $cleanupReceipt = Join-Path $staging "cleanup.json"
   -Mode Seal -OutputDirectory $bundle
 ```
 
-The kit enforces H00-H17 order and rechecks each referenced file and nested
-runtime-snapshot hash before sealing. The seal is a hash index plus an honest
-aggregate of unreviewed operator verdicts. `all-operator-pass-unreviewed` is
-deliberately not a task pass. Run the Windows 10 row first and Windows 11 second
-with the exact same package SHA-256; never merge two bundle histories or reuse
-an output directory.
+The kit enforces H00-H17 order, rechecks each referenced file and nested
+runtime-snapshot hash, and renders `matrix.md` from the immutable JSON state
+before sealing. The seal is a hash index plus an honest aggregate of unreviewed
+operator verdicts. `all-operator-pass-unreviewed` is deliberately not a task
+pass. Run the Windows 10 row first and Windows 11 second with the exact same
+package SHA-256; never merge two bundle histories or reuse an output directory.
 
 The following manual commands are emergency cleanup only. They do not produce
 an admissible H17 receipt:

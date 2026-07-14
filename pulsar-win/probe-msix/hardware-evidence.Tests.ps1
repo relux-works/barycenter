@@ -38,6 +38,9 @@ Assert-Throws { Assert-ProbeEvidenceFileName -Name "signer.pfx" } "forbidden"
 Assert-Throws { Assert-ProbeEvidenceFileName -Name "nested/path.json" } "safe single"
 Assert-ProbeEvidenceRelativeFile -RelativeFile "attachments/H00/install.json" | Out-Null
 Assert-Throws { Assert-ProbeEvidenceRelativeFile -RelativeFile "attachments/../install.json" } "safe single"
+$ContainmentRoot = Join-Path ([IO.Path]::GetTempPath()) "pulsar-containment-root"
+Assert-True (Test-ProbePathWithinRoot -Path (Join-Path $ContainmentRoot "child\receipt.json") -Root $ContainmentRoot) "path containment positive mismatch"
+Assert-True (-not (Test-ProbePathWithinRoot -Path "$ContainmentRoot-sibling\receipt.json" -Root $ContainmentRoot)) "path containment sibling mismatch"
 
 $LTSC = Assert-ProbeHostIdentity `
     -OSFamily windows10 `
@@ -295,6 +298,9 @@ try {
         runId = "contract-test"
         osFamily = "windows11"
         packageSha256 = $SyntheticHash
+        packageIdentity = "ReluxWorksLLC.PulsarBarycenter"
+        packageFamilyName = "ReluxWorksLLC.PulsarBarycenter_q036g2bzd7ngc"
+        applicationUserModelId = "ReluxWorksLLC.PulsarBarycenter_q036g2bzd7ngc!PulsarProbe"
     }) -Path (Join-Path $SyntheticRoot "run.json")
     Write-ProbeEvidenceJSON -Value ([ordered]@{
         schemaVersion = 1
@@ -305,6 +311,10 @@ try {
         schemaVersion = 1
         verificationBoundary = "contract-test-only"
         sha256 = $SyntheticHash
+        packageIdentity = "ReluxWorksLLC.PulsarBarycenter"
+        packageFamilyName = "ReluxWorksLLC.PulsarBarycenter_q036g2bzd7ngc"
+        applicationUserModelId = "ReluxWorksLLC.PulsarBarycenter_q036g2bzd7ngc!PulsarProbe"
+        privateSigningMaterialIncluded = $false
     }) -Path (Join-Path $SyntheticRoot "package.json")
     $SyntheticRows = foreach ($ScenarioID in $script:ProbeEvidenceScenarios) {
         [ordered]@{
@@ -344,6 +354,8 @@ try {
                 schemaVersion = 1
                 verificationBoundary = "post-evidence-cleanup-only; not hardware scenario acceptance"
                 packageSha256 = $SyntheticHash
+                packageIdentity = "ReluxWorksLLC.PulsarBarycenter"
+                packageFamilyName = "ReluxWorksLLC.PulsarBarycenter_q036g2bzd7ngc"
                 processAbsent = $true
                 packageAbsent = $true
                 signerTrustAbsent = $true
@@ -388,6 +400,11 @@ try {
     Assert-True ($Seal.overallOperatorVerdict -ceq "all-operator-pass-unreviewed") "synthetic seal verdict mismatch"
     Assert-True ((Test-Path -LiteralPath (Join-Path $SyntheticRoot "bundle-manifest.json"))) "bundle manifest missing"
     Assert-True ((Test-Path -LiteralPath (Join-Path $SyntheticRoot "sealed.json"))) "seal receipt missing"
+    $RenderedMatrixPath = Join-Path $SyntheticRoot "matrix.md"
+    Assert-True ((Test-Path -LiteralPath $RenderedMatrixPath)) "rendered matrix missing"
+    $RenderedMatrix = [IO.File]::ReadAllText($RenderedMatrixPath)
+    Assert-True ($RenderedMatrix.Contains("| H00 |") -and $RenderedMatrix.Contains("| H17 |")) "rendered matrix lacks frozen endpoints"
+    Assert-True ($RenderedMatrix.Contains("unreviewed")) "rendered matrix lost review boundary"
 
     if (-not [string]::IsNullOrWhiteSpace($Package)) {
         $PackageEvidence = Get-ProbePackageEvidence -Package $Package

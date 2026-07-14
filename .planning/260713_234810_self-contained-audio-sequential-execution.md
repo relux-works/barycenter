@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 36 accepted, 169 remain.
-- Routed inventory: 186 engineering tasks (36 accepted, 150 remain) and 19
+- Combined inventory: 205 original tasks; 37 accepted, 168 remain.
+- Routed inventory: 186 engineering tasks (37 accepted, 149 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1viwvi` — windows-overlay-duck-limiter
-  (queued immediately after PR #35 lands)
-- Most recently accepted: `TASK-260712-1hqiek` — render-safe-clip-state-foundation
-- Current branch: `task/task-260712-1hqiek-render-safe-clip-state-foundation`
+- Current engineering task: `TASK-260712-2zbmq4` — macos-overlay-duck-limiter
+  (queued immediately after PR #36 lands)
+- Most recently accepted: `TASK-260712-1viwvi` — windows-overlay-duck-limiter
+- Current branch: `task/task-260712-1viwvi-windows-overlay-duck-limiter`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 36 / 205 tasks (approximately 17.6%); 169 remain
-- Engineering progress: 36 / 186 tasks (approximately 19.4%); 150 remain
+- Accepted overall: 37 / 205 tasks (approximately 18.0%); 168 remain
+- Engineering progress: 37 / 186 tasks (approximately 19.9%); 149 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -223,7 +223,28 @@ Swift release build and board validation passed. Exact engineering code head
 `8521b84` passed coordinator, authoritative hosted Swift tests, Windows and
 signed packaged-probe jobs in run `29351870335`. No real-device or audible
 quality result is claimed. Progress is 36/205 overall and 36/186 engineering;
-strict execution queues `TASK-260712-1viwvi` after PR #35 lands.
+tracking head `2e76d03` passed all four hosted jobs in run `29352120463`. PR
+#35 landed at merge `523264c3c5904c3cb0d0e10e9ee155d042c592cc`, and strict
+execution advanced to `TASK-260712-1viwvi` from synchronized `main`.
+
+Checkpoint 2026-07-14 (accepted): `TASK-260712-1viwvi` replaces the Windows
+prepared-only adapter with an Engine-backed `overlay_mix_v1` mixer. Decoding
+and allocation remain off-render; the callback continuously consumes the main
+ring through pre-duck, additive playback, cancellation and release. The frozen
+`-12 dB` target, `250 ms` attack, `600 ms` release, absolute T-minus-250 ms
+pre-duck and `-1 dBFS` post-mix ceiling execute before final master gain. Late
+but valid scheduling catches the envelope up to absolute time. Wire `fade_ms`
+ramps the clip without a gain step, and cancellation is acknowledged only after
+both overlay fade and duck release are terminal. Aggregate overlay-frame,
+limiter-hit, underrun and ring-fill telemetry exposes no identity or PCM.
+Deterministic tests cover a ten-second overlay with exact continuous main
+consumption/zero position error, absent-main gain, limiter action, cancellation,
+zero render allocations, twenty FIFO handoffs and full MediaClipClient receipt
+flow. Local coordinator vet/tests, Windows vet/full/race and amd64/arm64
+cross-builds, Swift release build and board validation passed. Exact engineering
+head `dac4310` passed all four hosted jobs in run `29353275479`. No physical or
+audible Windows result is claimed. Progress is 37/205 overall and 37/186
+engineering; strict execution queues `TASK-260712-2zbmq4` after PR #36 lands.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -808,7 +829,9 @@ Story: `STORY-260712-fes2jj` — P1 Cross-platform overlay and interrupt mixer.
 - [x] `TASK-260712-1hqiek` — render-safe-clip-state-foundation (accepted on
   exact code head `8521b84`; all four hosted jobs in run `29351870335` green;
   no real-device evidence claimed; PR #35)
-- [ ] `TASK-260712-1viwvi` — windows-overlay-duck-limiter
+- [x] `TASK-260712-1viwvi` — windows-overlay-duck-limiter (accepted on exact
+  code head `dac4310`; all four hosted jobs in run `29353275479` green; no
+  physical/audible result claimed; PR #36)
 - [ ] `TASK-260712-2zbmq4` — macos-overlay-duck-limiter
 - [ ] `TASK-260712-1g6lk8` — windows-interrupt-resume
 - [ ] `TASK-260712-8mwyiv` — macos-interrupt-resume

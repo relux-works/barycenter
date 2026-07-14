@@ -11,7 +11,7 @@ Every prepared clip carries `MixerControlParameters`: transmission ID,
 generation, delivery ID, duck level and attack/release, interrupt fade-out and
 fade-in, limiter ceiling, interrupt permission, and started/ended telemetry
 flags. Both clients derive this carrier from the same wire payload defaults:
-duck `0...1`, non-negative fades, limiter ceiling `-1 dBFS`. The prepared media
+non-positive duck dB, non-negative fades, limiter ceiling `-1 dBFS`. The prepared media
 buffer and carrier are created before arming playback.
 
 The client lifecycle is `prepared -> armed -> playing -> cancelling ->
@@ -51,3 +51,25 @@ the media clip generation state machine or advertise media delivery features.
 Real-device timing, duck quality, output-route behavior and audible evidence
 remain in the manual hardware-testing epic; this checkpoint claims deterministic
 code, unit/race coverage and hosted build evidence only.
+
+## Windows overlay branch
+
+The Windows overlay capability uses this exact pre-master order:
+
+```text
+limiter(main_program * duck_gain + overlay * overlay_gain + cues) * master_gain
+```
+
+The coordinator freezes the phase-one defaults at `-12 dB`, `250 ms` attack,
+`600 ms` release and a `-1 dBFS` local limiter ceiling. The engine begins the
+duck envelope 250 ms before the scheduled first clip sample. It consumes the
+main ring during pre-duck, clip playback, cancellation and release, including
+when the ring returns silence. Missing main audio therefore does not attenuate
+the clip.
+
+`fade_stop` applies its wire `fade_ms` to the overlay branch while the duck
+branch returns over `release_ms`; cancellation is acknowledged only when both
+ramps are terminal. Natural completion reports the last clip sample immediately
+and keeps the render-owned release tail until main gain reaches one. Sanitized
+telemetry exposes only aggregate overlay frame, limiter-hit, ring-fill and
+underrun counts—never PCM, media identity, paths or protocol payloads.

@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 15 accepted, 190 remain.
-- Routed inventory: 186 engineering tasks (15 accepted, 171 remain) and 19
+- Combined inventory: 205 original tasks; 16 accepted, 189 remain.
+- Routed inventory: 186 engineering tasks (16 accepted, 170 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1sae4q` — media-delete-retention-cleanup
-- Current branch: `task/task-260712-1sae4q-media-delete-retention-cleanup`
-- Accepted overall: 15 / 205 tasks (approximately 7.3%); 190 remain
-- Engineering progress: 15 / 186 tasks (approximately 8.1%); 171 remain
+- Current engineering task: `TASK-260712-3mcof4` — media-download-target-acl
+- Current branch: `task/task-260712-3mcof4-media-download-target-acl`
+- Accepted overall: 16 / 205 tasks (approximately 7.8%); 189 remain
+- Engineering progress: 16 / 186 tasks (approximately 8.6%); 170 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -25,8 +25,11 @@
   evidence harness on `main` at `06a06c099ed5b4f37f5e2dd3648772ffd041dfd9`.
   `TASK-260712-z6h6wh` landed through PR #11 at merge commit `31bbeb9`;
   `TASK-260712-1bnos4` landed through PR #12 at merge commit `050c979`;
-  `TASK-260712-2af2dp` landed through PR #13 at merge commit `451e50b`; strict
-  execution is now on `TASK-260712-1sae4q`.
+  `TASK-260712-2af2dp` landed through PR #13 at merge commit `451e50b`;
+  `TASK-260712-1sae4q` landed through PR #14 at merge commit `fe8e73c`; strict
+  execution is now on `TASK-260712-3mcof4`. Its code commit `49d21cd` and
+  hosted CI run `29305916096` are accepted on PR #15; final tracking CI and
+  landing remain before the sequence advances.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -108,8 +111,31 @@ are green. Hosted CI run `29304495443` passed coordinator, macOS Swift,
 portable Windows and the signed-MSIX probe on code commit `a627593`. Root delta
 review closed the unlink-before-directory-fsync crash window. The production
 cancellation sink remains deliberately pending for the later transmission
-tasks. Final tracking CI and PR #14 merge remain; no manual real-app or
-hardware result is claimed.
+tasks. The final tracking commit passed all four jobs again in CI run
+`29304654747`; PR #14 landed at
+`fe8e73c6c8d7dd2f05a3ff0acc4926ef30afa169`, and strict execution advanced to
+`TASK-260712-3mcof4`. No manual real-app or hardware result is claimed.
+
+Checkpoint 2026-07-14: `TASK-260712-3mcof4` is accepted on code commit
+`49d21cdd92600364a48c155f88f04045d859374e`. It exposes
+control-owner `GET /v1/media/{id}` and a fail-closed immutable
+`(media_id, orbit_id, actor_id, slot)` target-snapshot reader for node access.
+It re-resolves live credentials and media state, holds the second immediate
+SQLite authorization through canonical descriptor acquisition, returns uniform
+not-found responses for unknown/foreign/deleted/expired reads, refuses symlink
+storage, keeps credentials and request identities out of logs, and isolates the
+legacy node-only current-approach bridge from the generic ACL. Production node
+reads remain deliberately closed until `TASK-260712-1aprcb` supplies persisted
+transmission targets; `TASK-260712-gj0cko` owns the later integrated lifecycle
+path. Focused race tests, full coordinator vet/test/race, the exact predecessor
+rollback suite, pulsar-win vet/test/Windows cross-build and task-board
+validation are green. Local `node-app` Swift tests still stop at the known
+workstation `no such module 'Testing'` toolchain gap; hosted macOS CI remains
+the authoritative gate. Hosted CI run `29305916096` passed coordinator,
+macOS Swift, portable Windows and signed-MSIX jobs. Inline root delta-review
+closed the authorization-to-open TOCTOU, and 20x race/HTTP stress passed on the
+reviewed bytes. PR #15 remains draft until this tracking update passes CI. No
+manual real-app or hardware result is claimed.
 
 ## Operating contract
 
@@ -189,11 +215,15 @@ Story: `STORY-260712-ld674h` — P1 Generic media ingest and storage.
   landed: shared constrained processing, durable atomic publication,
   retry/dedupe/failure lifecycle, exact predecessor rollback, hosted CI runs
   `29302835228` / `29302971194` green; PR #13, merge `451e50b`)
-- [x] `TASK-260712-1sae4q` — media-delete-retention-cleanup (accepted on code
-  commit `a627593`: atomic non-disclosing delete, durable expiry/cleanup and
-  frozen cancellation seam, exact predecessor rollback, full local race plus
-  hosted CI run `29304495443` green; PR #14 pending final tracking merge)
-- [ ] `TASK-260712-3mcof4` — media-download-target-acl
+- [x] `TASK-260712-1sae4q` — media-delete-retention-cleanup (accepted and
+  landed: atomic non-disclosing delete, durable expiry/cleanup and frozen
+  cancellation seam, exact predecessor rollback, full local race plus hosted
+  CI runs `29304495443` / `29304654747` green; PR #14, merge `fe8e73c`)
+- [x] `TASK-260712-3mcof4` — media-download-target-acl (accepted: owner and
+  immutable-target generic GET ACL, live authorization held through descriptor
+  acquisition, uniform non-disclosure and isolated legacy bridge; full local
+  race plus hosted CI run `29305916096` green on commit `49d21cd`; PR #15
+  awaiting final tracking CI and merge)
 - [ ] `TASK-260712-12ojcb` — telegram-submitmedia-compat
 - [ ] `TASK-260712-gj0cko` — media-acl-delete-retention
 - [ ] `TASK-260712-3huupe` — media-ingest-acceptance-tests

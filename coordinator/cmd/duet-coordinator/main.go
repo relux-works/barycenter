@@ -338,8 +338,21 @@ func pairHandler(log *slog.Logger, st *store.Store, cfg *config.Config) http.Han
 // any orbit's private voice by id.
 func mediaHandler(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		auth := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		reqOrbit, _, authorized, _ := st.LookupPlaybackToken(auth)
+		if r.Method != http.MethodGet || r.URL.RawQuery != "" ||
+			r.ContentLength != 0 || len(r.TransferEncoding) != 0 {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+		auth, ok := bearerToken(r)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		reqOrbit, _, authorized, err := st.LookupLegacyMediaNodeToken(auth)
+		if err != nil {
+			http.Error(w, "internal", http.StatusInternalServerError)
+			return
+		}
 		if !authorized {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -352,10 +365,12 @@ func mediaHandler(st *store.Store) http.HandlerFunc {
 			http.NotFound(w, r)
 			return
 		}
-		if rec.ExpiresAt < time.Now().UnixMilli() {
+		if rec.ExpiresAt <= time.Now().UnixMilli() {
 			http.NotFound(w, r) // spec 10.3: 404 after expires_at
 			return
 		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		http.ServeFile(w, r, rec.PathWAV)
 	}
 }

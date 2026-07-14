@@ -236,6 +236,17 @@ type MediaLifecycleBacklog struct {
 	PendingTempCleanup    int64
 }
 
+// MediaTargetIdentity is the immutable installation identity a transmission
+// target snapshot must preserve for generic download authorization. ActorID
+// prevents a later occupant of the same orbit slot from inheriting an old
+// grant, while token rotation for the same actor and slot remains valid.
+type MediaTargetIdentity struct {
+	MediaID string
+	OrbitID int64
+	ActorID int64
+	Slot    string
+}
+
 type MediaPublication struct {
 	MIME         string
 	Codec        string
@@ -735,6 +746,114 @@ func (s *Store) GetMediaItem(id string) (*MediaItem, error) {
 		return nil, err
 	}
 	return &item, nil
+}
+
+// AuthorizeMediaDownload is the final live-credential and media-state gate for
+// generic canonical reads. targetSnapshot is supplied only by the immutable
+// transmission-target reader owned by the media service; a control credential
+// can never turn that bit into foreign-media access, and a node credential can
+// never fall back to current approach or Air membership.
+func (s *Store) AuthorizeMediaDownload(
+	expected ActorContext,
+	bearer string,
+	mediaID string,
+	targetSnapshot bool,
+	now int64,
+) (MediaItem, error) {
+	return s.authorizeMediaDownload(expected, bearer, mediaID, targetSnapshot, now, nil)
+}
+
+// WithAuthorizedMediaDownload repeats the live download authorization and
+// invokes authorized before the store's immediate transaction commits. The
+// callback must be short and must not call back into Store. The media service
+// uses it to acquire and verify the canonical file descriptor, so a concurrent
+// delete or actor revocation commits either before authorization or after the
+// descriptor is already open, never in between.
+func (s *Store) WithAuthorizedMediaDownload(
+	expected ActorContext,
+	bearer string,
+	mediaID string,
+	targetSnapshot bool,
+	now int64,
+	authorized func(MediaItem) error,
+) (MediaItem, error) {
+	if authorized == nil {
+		return MediaItem{}, fmt.Errorf("%w: nil media download callback", ErrMediaInvalid)
+	}
+	return s.authorizeMediaDownload(expected, bearer, mediaID, targetSnapshot, now, authorized)
+}
+
+func (s *Store) authorizeMediaDownload(
+	expected ActorContext,
+	bearer string,
+	mediaID string,
+	targetSnapshot bool,
+	now int64,
+	authorized func(MediaItem) error,
+) (MediaItem, error) {
+	if !s.selfServiceOnboarding {
+		return MediaItem{}, ErrSelfServiceOnboardingDisabled
+	}
+	if expected.ActorID <= 0 || expected.OrbitID <= 0 ||
+		!lowerHexTokenPattern.MatchString(bearer) {
+		return MediaItem{}, ErrUnauthorized
+	}
+	if !mediaItemIDPattern.MatchString(mediaID) || now <= 0 {
+		return MediaItem{}, ErrMediaNotFound
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return MediaItem{}, err
+	}
+	defer tx.Rollback()
+	ctx, err := resolveActorContext(tx, Identity{Kind: IdentityBearer, Token: bearer})
+	if err != nil {
+		return MediaItem{}, err
+	}
+	if ctx != expected {
+		return MediaItem{}, ErrUnauthorized
+	}
+	item, err := scanMediaItem(tx.QueryRow(`SELECT `+qualifiedMediaItemColumns+`
+FROM media_items i
+WHERE i.id = ?
+  AND EXISTS (
+    SELECT 1 FROM orbits o
+    WHERE o.id = i.owner_orbit_id AND o.status = 'active'
+  )
+  AND EXISTS (
+    SELECT 1 FROM actors a
+    WHERE a.id = i.actor_id AND a.revoked_at IS NULL
+  )`, mediaID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return MediaItem{}, ErrMediaNotFound
+	}
+	if err != nil {
+		return MediaItem{}, err
+	}
+	if item.Status != MediaStatusReady || item.StorageKey == "" || item.ExpiresAt <= now {
+		return MediaItem{}, ErrMediaNotFound
+	}
+	switch {
+	case ctx.Capabilities.Has(CapabilityControl):
+		if ctx.OrbitID != item.OwnerOrbitID {
+			return MediaItem{}, ErrMediaNotFound
+		}
+	case ctx.Capabilities.Has(CapabilityNode):
+		if ctx.Slot == "" || !targetSnapshot {
+			return MediaItem{}, ErrMediaNotFound
+		}
+	default:
+		return MediaItem{}, ErrInsufficientCapability
+	}
+	if authorized != nil {
+		if err := authorized(item); err != nil {
+			return MediaItem{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return MediaItem{}, err
+	}
+	return item, nil
 }
 
 func (s *Store) GetMediaUploadSession(id string) (*MediaUploadSession, error) {

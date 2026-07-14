@@ -213,6 +213,8 @@ type onboardingAPI struct {
 	mediaSubmitterInitErr  error
 	mediaLifecycle         *media.LifecycleService
 	mediaLifecycleInitErr  error
+	mediaDownload          *media.DownloadService
+	mediaDownloadInitErr   error
 	// testAfterAuth is nil in production. Tests use it to pause between
 	// middleware authentication and the immediate writer transaction.
 	testAfterAuth   func(store.ActorContext)
@@ -239,6 +241,7 @@ func newOnboardingAPI(st *store.Store, cfg *config.Config, log *slog.Logger, bot
 	}
 	api.mediaSubmitter, api.mediaSubmitterInitErr = media.NewSubmitService(st, cfg.MediaDir, preset)
 	api.mediaLifecycle, api.mediaLifecycleInitErr = media.NewLifecycleService(st, cfg.MediaDir)
+	api.mediaDownload, api.mediaDownloadInitErr = media.NewDownloadService(st, cfg.MediaDir)
 	return api
 }
 
@@ -261,7 +264,7 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/telegram-links", api.secure(api.withControl(api.telegramLinks)))
 	mux.HandleFunc("/v1/media/uploads", api.secure(api.withControl(api.createMediaUpload)))
 	mux.HandleFunc("/v1/media/uploads/", api.secure(api.writeMediaUpload))
-	mux.HandleFunc("/v1/media/", api.secure(api.withControl(api.deleteMediaItem)))
+	mux.HandleFunc("/v1/media/", api.secure(api.withActor(api.mediaItem)))
 }
 
 func (api *onboardingAPI) secure(next http.HandlerFunc) http.HandlerFunc {

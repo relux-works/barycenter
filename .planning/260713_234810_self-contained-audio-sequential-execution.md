@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1c1ska` — presence-dnd-block-surface
-  (accepted; tracking CI and merge pending)
-- Next engineering task: `TASK-260712-2hcq1g` — transmission-history-receipt-query
+- Current engineering task: `TASK-260712-2hcq1g` — transmission-history-receipt-query
+  (in progress from synchronized `main`)
+- Next engineering task: `TASK-260712-21ers7` — telegram-inline-routing-compat
 - Most recently accepted: `TASK-260712-1c1ska` — presence-dnd-block-surface
-- Current branch: `task/task-260712-1c1ska-presence-dnd-block-surface`
+- Current branch: `task/task-260712-2hcq1g-transmission-history-receipt-query`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -430,7 +430,28 @@ validation and diff checks pass. No real-app, audible, physical-device or
 hardware result is claimed. Exact engineering head
 `a65fc659e3ae389484163723aa63a3806f4b986d` passed all four hosted jobs in run
 `29365735642`; the task is accepted. Progress is 45/205 overall and 45/186
-engineering; tracking CI and PR #44 merge remain.
+engineering. Tracking head `f4f718b3cd54143d9a5c9d6c5a1e39fe46d724d0`
+passed all four jobs in run `29365971499`; PR #44 landed at merge
+`19ea2c1fd58dd066cbe0a217dd28972a4ff77a6b`, and strict execution advanced to
+`TASK-260712-2hcq1g` from synchronized `main`.
+
+Checkpoint 2026-07-15 (candidate): `TASK-260712-2hcq1g` adds the common
+actor-scoped Phase 1 history read model and strict `GET /v1/history` plus
+`GET /v1/history/{history_item_id}` surfaces. Unlinked media maps only to
+processing/ready/error and disappears after its first transmission; retained
+transmissions expose requested/effective delivery, downgrade, compact and full
+receipt counts, permitted exact target rows, content availability and ordered
+current action hints without creating replay or an offline inbox. Source
+control, verified Telegram, exact current target binding, foreign/left/revoked
+and node-only credential boundaries are deterministic. Stateful 256-bit
+digest-only cursors bind actor, credential plus authorization scope, filters,
+upper/last keys and 24-hour expiry; blocked receipt scope is visible only to
+the owning recipient. Coordinator vet/full tests, ten-pass focused race,
+exact previous-HEAD rollback, moderation validation, Windows vet/tests/cross-
+build, Swift release build, board validation and diff checks pass. The local
+CommandLineTools image still cannot import the pre-existing Swift `Testing`
+module, so hosted macOS CI remains authoritative. No real-app, Telegram-client,
+audible or physical-hardware result is claimed.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

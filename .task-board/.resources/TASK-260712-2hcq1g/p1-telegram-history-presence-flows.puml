@@ -1,48 +1,31 @@
 @startuml
-title P1 Telegram Media Flow - Legacy Default vs Inline Routing
+!theme plain
+title TASK-260712-2hcq1g - Stable History Page and Detail
 
-actor "Telegram User" as User
-participant "Telegram Transport" as Bot
-participant "SubmitMedia" as Submit
-participant "History Model" as History
-participant "Presentation Model" as Labels
-participant "Transmission Service" as Tx
-participant "Presence Surface" as Presence
-participant "App / Bot Read Views" as Views
+actor "App or bot actor" as User
+participant "ActorContext" as Auth
+participant "History service" as History
+database "Media + transmissions + targets" as Data
+database "Cursor state" as Cursor
 
-User -> Bot : send voice or clip-eligible audio
-Bot -> Submit : submit(source=telegram)
-Submit -> History : media status = processing
-Submit --> Bot : media ready or error
+User -> Auth : current bearer / verified Telegram identity
+Auth --> History : actor, orbit, role, slot, capabilities
+User -> History : list(view, limit, cursor?)
+History -> Cursor : validate actor + authorization scope + filter
+History -> Data : rows <= frozen upper key
+Data --> History : retained candidates
+History -> History : enforce current source/exact binding visibility
+History -> History : derive counts, states, actions, redaction
+History -> Cursor : store digest + next boundary (if more)
+History --> User : ordered items + opaque next_cursor
 
-alt media failed or Phase-2-only attachment
-  Bot -> Labels : map honest failure text
-  Labels --> User : unsupported / too long / track path deferred
-else media ready
-  Bot -> Labels : render delivery + audience labels
-  Labels --> User : inline actions\noverlay / interrupt / after_current
-
-  alt user takes no action
-    Bot -> Tx : legacy default after_current\npersonal/broadcast defaults
-    note right of Tx
-      Acceptance ordering stays by
-      coordinator acceptance time.
-    end note
-  else user taps inline action
-    User -> Bot : callback(delivery, audience)
-    Bot -> Tx : CreateTransmission(...)
-  end
-
-  Tx -> History : accepted / preparing / playing / played / partial / error
-  Tx -> Presence : DND/block/capability result
-  History -> Labels : sender + target + receipt labels
-  Presence -> Labels : current approach + availability labels
-  Labels --> Views : same wording for app and bot
-end
+User -> History : detail(hi_...)
+History -> Data : same authorization projection
+History --> User : aggregate + permitted exact targets\nor uniform 404
 
 note bottom
-  Pairwise approach remains the Phase 1 shared-air shape.
-  Track queue/replace and offline inbox stay deferred to Phase 2.
+  Newer inserts cannot shift later pages. Wrong actor,
+  changed scope/filter, malformed or expired cursor fails closed.
 end note
 
 @enduml

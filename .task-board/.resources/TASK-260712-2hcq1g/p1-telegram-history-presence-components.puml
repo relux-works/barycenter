@@ -1,50 +1,34 @@
 @startuml
-title P1 Telegram Adapter, History and Presence - Component Boundaries
+!theme plain
+title TASK-260712-2hcq1g - History and Receipt Query Boundaries
 
 left to right direction
 skinparam componentStyle rectangle
 
-actor "Telegram User" as TgUser
-actor "Pulsar App" as App
+actor "Pulsar app" as App
+actor "Verified Telegram user" as Bot
 
-rectangle "STORY-260712-34kbkn\nTelegram parity + history/presence" {
-  [Telegram Transport\nvoice/audio/callback updates] as TgTransport
-  [Inline Action Router\nlegacy default + action callbacks] as InlineRouter
-  [Delivery Presentation Model\nhuman labels + receipt wording] as Presentation
-  [Presence Surface\nsanitized presence + DND/block] as Presence
-  [History/Receipt Query\nrecent transmissions + aggregates] as History
-}
+component "HTTP history routes" as HTTP
+component "Common authorized\nhistory service" as History
+database "ActorContext +\ncurrent bindings" as Identity
+database "Media repository" as Media
+database "Transmission +\nfrozen targets" as Tx
+database "DND/block policy" as Policy
+database "Digest-only cursor state" as Cursor
 
-rectangle "STORY-260712-2ve1c8\nIdentity + ActorContext" as Identity
-rectangle "STORY-260712-ld674h\nSubmitMedia + legacy voice bridge" as Ingest
-rectangle "STORY-260712-25lysg\nCreateTransmission + receipts + DND semantics" as Tx
-rectangle "STORY-260712-2e36uz\nWindows/macOS UI integration" as UI
-
-TgUser --> TgTransport
-TgTransport --> Identity : authorize actor
-TgTransport --> Ingest : submit voice/audio
-TgTransport --> InlineRouter : callback events
-
-InlineRouter --> Tx : create transmission\nor legacy after_current
-InlineRouter --> Presentation
-
-Tx --> History : transmission + target states
-Tx --> Presence : target capability\nDND/block result
-
-Identity --> Presentation : actor + orbit labels
-Presentation --> History
-Presentation --> Presence
-
-App --> History
-App --> Presence
-History --> UI
-Presence --> UI
+App --> HTTP : bearer
+HTTP --> History
+Bot --> History : verified Telegram identity
+History --> Identity : resolve current actor scope
+History --> Media : processing/ready/error/content
+History --> Tx : accepted order + exact receipts
+History --> Policy : current action hints\nblocked-reason ownership
+History --> Cursor : 24 h actor/scope-bound page
 
 note bottom
-  This story owns presentation-oriented parity:
-  human names, routing labels, presence sanitization,
-  Telegram inline actions, and history/receipt read models.
-  It does not own SubmitMedia internals or transmission scheduling semantics.
+  History is read-only. It does not create replay,
+  offline inbox, target state, or authorization.
+  Mutations always reauthorize in their owning service.
 end note
 
 @enduml

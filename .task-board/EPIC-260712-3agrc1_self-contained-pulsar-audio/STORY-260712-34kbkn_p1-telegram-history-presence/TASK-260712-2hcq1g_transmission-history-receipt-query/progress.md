@@ -1,14 +1,14 @@
 ## Status
-backlog
+reviewing
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:40:21Z
 
 ## Last Update
-2026-07-12T16:03:43Z
+2026-07-14T21:03:28Z
 
 ## Blocked By
 - TASK-260712-3coble
@@ -24,13 +24,15 @@ backlog
 - TASK-260712-3dqc3l
 
 ## Checklist
-- [ ] Build the recent-transmission query shape over media, transmissions, targets and memberships.
-- [ ] Map processing, ready, playing, played, partial, expired and error into stable Phase 1 client states.
-- [ ] Expose exact per-target reason codes and aggregate counts without inventing Phase 2 inbox behavior.
-- [ ] Enforce ActorContext tenant isolation, deterministic pagination and 30-day visibility
-- [ ] Expose requested versus effective delivery and authorization-derived action capabilities
+- [x] Build the recent-transmission query shape over media, transmissions, targets and memberships.
+- [x] Map processing, ready, playing, played, partial, expired and error into stable Phase 1 client states.
+- [x] Expose exact per-target reason codes and aggregate counts without inventing Phase 2 inbox behavior.
+- [x] Enforce ActorContext tenant isolation, deterministic pagination and 30-day visibility
+- [x] Expose requested versus effective delivery and authorization-derived action capabilities
 
 ## Notes
+2026-07-14 kickoff: strict sequential inline execution started from synchronized main merge 19ea2c1 after TASK-260712-1c1ska acceptance. Scope is the actor-scoped 30-day Phase 1 history/read-receipt model, deterministic pagination, exact visibility-safe target reasons, requested/effective delivery and authorization-derived actions. No Phase 2 inbox/replay behavior or manual/hardware evidence will be claimed.
+2026-07-15 engineering candidate: common app/verified-Telegram history service, strict list/detail HTTP, media-only de-duplication, 30-day transmission receipts, retained failures, exact current-binding visibility, compact/full counts, requested/effective delivery, content honesty, policy-derived ordered actions, blocked-reason ownership redaction, and 24-hour actor/authorization/filter-bound digest-only cursors are implemented. Green locally: coordinator vet/full tests, focused history race x10, exact previous-HEAD suite, moderation check, Windows vet/tests/cross-build, Swift release build, board validation and diff check. Local Swift tests remain environment-blocked by the pre-existing missing Testing module; hosted macos-15 is authoritative. No manual real-app, real Telegram, audible or hardware evidence claimed.
 
 ## Precondition Resources
 (none)

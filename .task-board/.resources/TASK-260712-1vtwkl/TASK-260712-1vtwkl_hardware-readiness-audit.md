@@ -33,6 +33,33 @@ matrix because the package is signed, the installer validates the frozen
 product identity before adding only the embedded public signer to Trusted
 People, and developer mode is not used. It is not Store certification.
 
+## Evidence-kit regression checkpoint
+
+Commit `12d563897507406af92705502c8a1ee56b490ad4` adds the operator-side
+collector, cleanup verifier and negative contract suite. GitHub Actions run
+`29295222623` passed all four jobs on 2026-07-14. The Windows packaged-probe job
+proved only the tooling boundary: strict H00-H17 ordering, privacy rejection,
+serviced-build/physical-host preflight, evidence hash-tamper rejection, real
+`RegisterHotKey` conflict/release, signed install receipt and exact cleanup.
+It is hosted execution and does not pass any H-row.
+
+The inspected regression artifact is `pulsar-signed-msix-probe`, artifact ID
+`8296494980`, archive digest
+`sha256:9c8897a7bcb3c48c27220a1adcca82dc1410263dd570746ff081763845185121`,
+expiring 2026-07-28. It contained exactly the MSIX, digest/build metadata,
+schema-v2 install receipt and cleanup receipt; no certificate or private-key
+export. The generated package SHA-256 was
+`1b9a6e0d3b76578638956791b3bec7cff77cde4682d0e49f20a9558a9d86c344`.
+Install and cleanup receipts agreed on that digest and the frozen PFN/AUMID;
+cleanup recorded process/package/run-added trust/runtime absence, zero partials,
+hotkey reacquisition, and exclusive picker open/rename/delete.
+
+This newer artifact is not silently substituted for the accepted input above.
+At physical-run start, freeze one still-available package and use its exact
+bytes for both OS rows. If the accepted artifact has expired, record the newly
+selected source/run/artifact/hash before H00 and never combine histories from
+different package hashes.
+
 ## Access audit
 
 The active executor has no admissible physical Windows path:

@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:27:53Z
 
 ## Last Update
-2026-07-14T00:09:55Z
+2026-07-14T00:15:47Z
 
 ## Blocked By
 - TASK-260712-2y74io
@@ -32,9 +32,10 @@ Strict sequential inline execution started 2026-07-14 from clean synchronized ma
 2026-07-14 readiness audit froze H00-H17 and revalidated accepted package SHA-256 a0c3022b69c68f140969a7d7bef4cd0904f1b2872960e7a4511bea9462749be7 from CI 29292631211. No admissible physical Windows hosts are accessible: executor is macOS without Boot Camp, accessible Tailscale has no Windows peers, no Windows SSH target or physical-console operator was supplied, and hosted CI/VMs are not evidence. Current lifecycle review also means ordinary Windows 10 22H2 is EOS; strict supported row is Windows 10 Enterprise LTSC 2021 through 2027-01-12 unless product owners explicitly approve another lifecycle posture. Exact host/device/operator requirements and matrix are attached in TASK-260712-1vtwkl_hardware-readiness-audit.md. No scenario is claimed passed.
 Tracking commit f82772a is pushed and draft PR #10 is open. The PR is intentionally non-mergeable by process until real H00-H17 evidence is attached and accepted.
 2026-07-14 evidence-kit checkpoint: implemented strict H00-H17 ordering, physical-host and serviced-build preflight, signed-package provenance, sanitized immutable snapshot and attachment manifests, terminal unreviewed verdicts, tamper-detecting seal, real hotkey-conflict helper, and receipt-bound exact uninstall cleanup including picker deletion. Local Go vet/tests, Windows amd64 cross-build, YAML and board validation are green. Hosted Windows CI is pending and remains tooling-only; all four task checklist items stay unchecked and no physical scenario is claimed passed.
+2026-07-14 hosted Windows checkpoint: CI run 29295222623 passed all four jobs on commit 12d5638. The hardware evidence contract suite passed real RegisterHotKey conflict/release plus negative order, privacy, lifecycle and tamper checks; signed install and receipt-bound cleanup passed. Artifact 8296494980 was downloaded and inspected: exactly five expected files, archive digest 9c8897a7bcb3c48c27220a1adcca82dc1410263dd570746ff081763845185121, generated MSIX SHA-256 1b9a6e0d3b76578638956791b3bec7cff77cde4682d0e49f20a9558a9d86c344, matching schema-v2 install and cleanup receipts, no key or certificate export. This is tooling-only and does not replace the frozen accepted input or pass H00-H17.
 
 ## Precondition Resources
 - [p1-windows-store-spike-lifecycle.puml](file://TASK-260712-1vtwkl/p1-windows-store-spike-lifecycle.puml) — Lifecycle flow for the Win10 and Win11 evidence run
 
 ## Outcome Resources
-- [TASK-260712-1vtwkl_hardware-readiness-audit.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_hardware-readiness-audit.md) — Frozen real-hardware matrix, artifact provenance, access audit and exact unblock requirements; not execution evidence
+- [TASK-260712-1vtwkl_hardware-readiness-audit.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_hardware-readiness-audit.md) — Frozen real-hardware matrix, artifact provenance, validated evidence kit, access audit and exact unblock requirements; no hardware passes

@@ -6,6 +6,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -314,6 +315,9 @@ func TestPlayVoiceDownloadFailureSendsError(t *testing.T) {
 	e := m.Payload.(*protocol.ErrorPayload)
 	if e.Code != "media_download_failed" || e.ElementID != "el_v" {
 		t.Fatalf("error payload %+v", e)
+	}
+	if e.Message != "voice media unavailable" || strings.Contains(e.Message, ts.URL) {
+		t.Fatalf("legacy voice error leaked transport detail: %+v", e)
 	}
 }
 

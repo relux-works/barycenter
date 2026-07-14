@@ -145,11 +145,25 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	}
 
 	daemon := NewDaemonClient(cfg.APIPort)
+	capabilities := []string{protocol.CapabilitySeamlessAdoption}
+	var mediaClips *MediaClipClient
+	mediaFetcher, mediaErr := NewAuthenticatedMediaClipFetcher(
+		filepath.Join(cfg.CacheDir, "media-clips"), creds.Token, creds.WSURL)
+	if mediaErr != nil {
+		// Keep the existing player usable, but do not claim media_clip_v1 when
+		// this installation cannot create its authenticated cache.
+		log.Error("media clip hooks unavailable")
+	} else {
+		mediaClips = NewMediaClipClient(
+			mediaFetcher, PreparedOnlyWindowsMediaClipMixer{}, log, nil)
+		capabilities = append(capabilities, mediaClips.AdvertisedCapabilities()...)
+	}
 	ws := NewWSClient(creds.WSURL, Identity{
 		NodeID:           creds.Slot,
 		Token:            creds.Token,
 		AppVersion:       version,
 		LibrespotVersion: sup.Version,
+		Capabilities:     capabilities,
 	}, log)
 
 	gain := NewGain()
@@ -157,10 +171,14 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	cache, err := NewVoiceCache(cfg.CacheDir, creds.Token, 0 /* default 2 GiB */, log)
 	if err != nil {
 		// Voice inserts degrade to media_download_failed errors; music works.
-		log.Error("voice cache unavailable", "err", err)
+		log.Error("voice cache unavailable")
 	}
 
 	player := NewPlayer(daemon, ring, engine, cache, ws.Clock(), ws.Send, cfg.OutputLatencyOffsetMS, log)
+	player.ConfigureTransmissionHooks(
+		mediaClips,
+		NewNodePresenceStore(filepath.Join(dir, "node-presence.v1.json"), log),
+	)
 	player.Start()
 	events := NewEventsClient(cfg.APIPort, player.HandleLibrespotEvent, log)
 	sup.OnCrash = func() {
@@ -179,6 +197,7 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	ws.StateProvider = func() protocol.StatePayload {
 		return player.StatePayload(ws.Clock().LastRTTMS())
 	}
+	ws.OnConnected = player.ResendLocalDND
 
 	if err := sup.Start(deviceName, cfg.APIPort, cfg.PipeName); err != nil {
 		// Protocol-level dev runs stay useful without the daemon; a real

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -60,6 +61,11 @@ func newTestClient(url string) *WSClient {
 	c := NewWSClient(url, Identity{
 		NodeID: "a", Token: strings.Repeat("aa", 32), AppVersion: "0.0.0-test",
 		LibrespotVersion: func() string { return "9.9.9" },
+		Capabilities: []string{
+			protocol.CapabilitySeamlessAdoption,
+			protocol.CapabilityMediaClip,
+			protocol.CapabilityMediaClip,
+		},
 	}, testLogger())
 	c.PingInterval = 30 * time.Millisecond
 	c.HeartbeatInterval = 25 * time.Millisecond
@@ -104,8 +110,10 @@ func TestRegisterHandshakeAndCommandDispatch(t *testing.T) {
 		reg.AppVersion != "0.0.0-test" || reg.LibrespotVersion != "9.9.9" {
 		t.Fatalf("register payload %+v", reg)
 	}
-	if len(reg.Capabilities) != 1 || reg.Capabilities[0] != protocol.CapabilitySeamlessAdoption {
-		t.Fatalf("pre-hook build must not advertise unimplemented clip capabilities: %v", reg.Capabilities)
+	if !reflect.DeepEqual(reg.Capabilities, []string{
+		protocol.CapabilityMediaClip, protocol.CapabilitySeamlessAdoption,
+	}) {
+		t.Fatalf("register capabilities are not exact and canonical: %v", reg.Capabilities)
 	}
 	if _, err := protocol.ParseCapabilitySet(reg.Capabilities); err != nil {
 		t.Fatalf("client emitted non-canonical capabilities: %v", err)

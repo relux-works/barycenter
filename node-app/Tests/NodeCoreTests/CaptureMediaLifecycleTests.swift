@@ -72,7 +72,7 @@ struct CaptureMediaLifecycleTests {
     func selfTestDeletesOnCloseAndRecovery() throws {
         let root = temporaryRoot()
         let ids = IDSequence()
-        let store = CaptureMediaStore(root: root, idProvider: ids.next)
+        let store = CaptureMediaStore(root: root, idProvider: { ids.next() })
         let cue = try Data(contentsOf: cueURL)
 
         let active = try store.begin(.selfTest)
@@ -100,14 +100,14 @@ struct CaptureMediaLifecycleTests {
         let root = temporaryRoot()
         let ids = IDSequence()
         let cue = try Data(contentsOf: cueURL)
-        let firstStore = CaptureMediaStore(root: root, idProvider: ids.next)
+        let firstStore = CaptureMediaStore(root: root, idProvider: { ids.next() })
         let active = try firstStore.begin(.userRecording)
         try cue.write(to: active.fileURL)
         let draft = try firstStore.finalize(firstStore.stop(active))
         #expect(draft.state == .durableUnsent)
         #expect(draft.fileURL.lastPathComponent == ids.first + ".draft.wav")
 
-        let restarted = CaptureMediaStore(root: root, idProvider: ids.next)
+        let restarted = CaptureMediaStore(root: root, idProvider: { ids.next() })
         let recovery = try restarted.recover()
         #expect(recovery.retainedDrafts == [draft])
         #expect(FileManager.default.fileExists(atPath: draft.fileURL.path))
@@ -130,7 +130,8 @@ struct CaptureMediaLifecycleTests {
         let source = sourceDirectory.appendingPathComponent("family-voice-message.wav")
         let cue = try Data(contentsOf: cueURL)
         try cue.write(to: source)
-        let store = CaptureMediaStore(root: root, idProvider: IDSequence().next)
+        let ids = IDSequence()
+        let store = CaptureMediaStore(root: root, idProvider: { ids.next() })
 
         let draft = try store.importUserDraft(from: source, useSecurityScopedAccess: false)
         #expect(draft.state == .durableUnsent)
@@ -144,7 +145,7 @@ struct CaptureMediaLifecycleTests {
     func partialsNeverBecomeSendable() throws {
         let root = temporaryRoot()
         let ids = IDSequence()
-        let store = CaptureMediaStore(root: root, idProvider: ids.next)
+        let store = CaptureMediaStore(root: root, idProvider: { ids.next() })
 
         let cancelled = try store.begin(.userRecording)
         try Data("partial microphone bytes".utf8).write(to: cancelled.fileURL)

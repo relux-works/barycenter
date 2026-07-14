@@ -200,7 +200,10 @@ public final class CaptureMediaStore: @unchecked Sendable {
             UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         }
     ) {
-        self.root = root
+        // Canonicalize existing path prefixes (notably macOS /var ->
+        // /private/var) so handles returned before and after recovery compare
+        // identically and ownership checks cannot be bypassed by aliases.
+        self.root = root.standardizedFileURL.resolvingSymlinksInPath()
         self.fileManager = fileManager
         self.idProvider = idProvider
     }

@@ -39,4 +39,4 @@ Strict inline execution started 2026-07-14 from synchronized main merge 8d2b7d38
 - [p1-transmission-scheduler-sequence.puml](file://TASK-260712-2qc27p/p1-transmission-scheduler-sequence.puml) — Regression coverage reference for barrier flow and downgrade paths
 
 ## Outcome Resources
-(none)
+- [transmission-regression-evidence.md](file://TASK-260712-2qc27p/transmission-regression-evidence.md) — Story AC, adversarial regression, rollback, codec and deferred manual-evidence matrix

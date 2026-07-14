@@ -308,6 +308,8 @@ func TestTransmissionHTTPStrictJSONAndStableErrors(t *testing.T) {
 		fmt.Sprintf(`{"media_id":%q,"media_id":%q,%s}`, media.ID, media.ID, validAudience),
 		fmt.Sprintf(`{"media_id":%q,"audience":{"kind":"own_barycenter","kind":"current_air"},"delivery":"overlay","origin_kind":"file"}`, media.ID),
 		fmt.Sprintf(`{"media_id":%q,%s,"include_origin":null}`, media.ID, validAudience),
+		fmt.Sprintf(`{"media_id":%q,%s,"accepted_at":"1999-01-01T00:00:00.000Z"}`, media.ID, validAudience),
+		fmt.Sprintf(`{"media_id":%q,%s,"transmission_id":"tr_00000000000000000000000000"}`, media.ID, validAudience),
 		fmt.Sprintf(`{"media_id":%q,%s,"unknown":true}`, media.ID, validAudience),
 		fmt.Sprintf(`{"media_id":%q,%s}{}`, media.ID, validAudience),
 		fmt.Sprintf(`{"media_id":%q,"audience":{"kind":"own_barycenter","targets":null},"delivery":"overlay","origin_kind":"file"}`, media.ID),
@@ -342,6 +344,17 @@ func TestTransmissionHTTPStrictJSONAndStableErrors(t *testing.T) {
 	duplicateHeader := httptest.NewRecorder()
 	harness.mux.ServeHTTP(duplicateHeader, request)
 	assertTransmissionError(t, duplicateHeader, http.StatusBadRequest, errorInvalidRequest)
+
+	limitMedia := readyTransmissionHTTPMedia(t, harness, owner, now+5, 60000)
+	current = now + 8
+	limit := transmissionAPIRequest(
+		harness.mux, http.MethodPost, "/v1/transmissions",
+		transmissionBody(limitMedia.ID, "own_barycenter", "overlay", "file"),
+		owner.ControlToken, "strict-duration-limit-key1",
+	)
+	if limit.Code != http.StatusCreated {
+		t.Fatalf("exact 60-second overlay status=%d body=%s", limit.Code, limit.Body.String())
+	}
 
 	longMedia := readyTransmissionHTTPMedia(t, harness, owner, now+10, 60001)
 	current = now + 13
@@ -433,6 +446,22 @@ func TestTransmissionHTTPStrictJSONAndStableErrors(t *testing.T) {
 	)
 	if playHere.Code != http.StatusCreated || decodeObject(t, playHere)["include_origin"] != true {
 		t.Fatalf("play-here status=%d body=%s", playHere.Code, playHere.Body.String())
+	}
+}
+
+func TestTransmissionIncludeOriginDefaultsAreClosed(t *testing.T) {
+	for _, test := range []struct {
+		origin store.TransmissionOriginKind
+		want   bool
+	}{
+		{store.TransmissionOriginMicrophone, false},
+		{store.TransmissionOriginFile, true},
+		{store.TransmissionOriginTelegram, true},
+		{store.TransmissionOriginBuiltin, true},
+	} {
+		if got := defaultIncludeOrigin(test.origin); got != test.want {
+			t.Errorf("origin %q include_origin default=%v want=%v", test.origin, got, test.want)
+		}
 	}
 }
 

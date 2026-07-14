@@ -21,7 +21,10 @@ import (
 	"relux.works/duet/coordinator/internal/session"
 )
 
-const transmissionStorePreviousRevision = "0c1e1946ff692aa553c19ca6bf7328150d1a24b8"
+const (
+	transmissionStorePreviousRevision              = "0c1e1946ff692aa553c19ca6bf7328150d1a24b8"
+	transmissionStoreInitialSchemaPreviousRevision = "2aa97c2d08cb93b110200ae159fd43265410ff5a"
+)
 
 type exactTransmissionPreviousResult struct {
 	LegacyStatus      string `json:"legacy_status"`
@@ -31,13 +34,28 @@ type exactTransmissionPreviousResult struct {
 }
 
 func TestTransmissionStoreExactPreviousHeadRollback(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		revision string
+	}{
+		{"pre_scheduler_companion", transmissionStorePreviousRevision},
+		{"pre_transmission_schema", transmissionStoreInitialSchemaPreviousRevision},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			testTransmissionStoreExactPreviousHeadRollback(t, test.revision)
+		})
+	}
+}
+
+func testTransmissionStoreExactPreviousHeadRollback(t *testing.T, previousRevision string) {
+	t.Helper()
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("locate current transmission rollback test")
 	}
 	storeDir := filepath.Dir(currentFile)
 	repoRoot := filepath.Clean(filepath.Join(storeDir, "..", "..", ".."))
-	assertTransmissionStorePreviousRevision(t, repoRoot)
+	assertTransmissionStorePreviousRevision(t, repoRoot, previousRevision)
 
 	path := filepath.Join(t.TempDir(), "transmission-previous-head.db")
 	current, err := OpenWithOptions(path, Options{SelfServiceOnboarding: true})
@@ -84,6 +102,11 @@ func TestTransmissionStoreExactPreviousHeadRollback(t *testing.T) {
 	}
 	wantTransmission := created.Transmission
 	wantTargets := append([]TransmissionTarget(nil), created.Targets...)
+	wantWork, err := current.GetTransmissionSchedulerWork(wantTransmission.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantScheduler := wantWork.Scheduler
 	dissolveMedia := readyLifecycleMedia(
 		t, current, dissolve, now+10,
 		now+10+int64((7*24*time.Hour)/time.Millisecond),
@@ -98,11 +121,20 @@ func TestTransmissionStoreExactPreviousHeadRollback(t *testing.T) {
 	wantDissolvedSourceTargets := append(
 		[]TransmissionTarget(nil), dissolveCreated.Targets...,
 	)
+	wantDissolvedWork, err := current.GetTransmissionSchedulerWork(
+		wantDissolvedSourceTransmission.ID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantDissolvedScheduler := wantDissolvedWork.Scheduler
 	if err := current.Close(); err != nil {
 		t.Fatal(err)
 	}
 
-	previousDir := prepareTransmissionStorePreviousTree(t, repoRoot, storeDir)
+	previousDir := prepareTransmissionStorePreviousTree(
+		t, repoRoot, storeDir, previousRevision,
+	)
 	resultPath := filepath.Join(t.TempDir(), "transmission-previous-result.json")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -149,6 +181,11 @@ func TestTransmissionStoreExactPreviousHeadRollback(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(gotTargets, wantTargets) {
 		t.Fatalf("targets after rollback=%+v want=%+v err=%v", gotTargets, wantTargets, err)
 	}
+	gotWork, err := current.GetTransmissionSchedulerWork(wantTransmission.ID)
+	if err != nil || !reflect.DeepEqual(gotWork.Scheduler, wantScheduler) {
+		t.Fatalf("scheduler after rollback=%+v want=%+v err=%v",
+			gotWork.Scheduler, wantScheduler, err)
+	}
 	gotDissolvedSource, err := current.GetTransmission(wantDissolvedSourceTransmission.ID)
 	if err != nil || gotDissolvedSource == nil ||
 		!reflect.DeepEqual(*gotDissolvedSource, wantDissolvedSourceTransmission) {
@@ -161,6 +198,15 @@ func TestTransmissionStoreExactPreviousHeadRollback(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(gotDissolvedTargets, wantDissolvedSourceTargets) {
 		t.Fatalf("dissolved-source targets after rollback=%+v want=%+v err=%v",
 			gotDissolvedTargets, wantDissolvedSourceTargets, err)
+	}
+	gotDissolvedWork, err := current.GetTransmissionSchedulerWork(
+		wantDissolvedSourceTransmission.ID,
+	)
+	if err != nil || !reflect.DeepEqual(
+		gotDissolvedWork.Scheduler, wantDissolvedScheduler,
+	) {
+		t.Fatalf("dissolved-source scheduler after rollback=%+v want=%+v err=%v",
+			gotDissolvedWork.Scheduler, wantDissolvedScheduler, err)
 	}
 	dissolvedMediaAfter, err := current.GetMediaItem(dissolveMedia.ID)
 	if err != nil || dissolvedMediaAfter == nil ||
@@ -189,25 +235,34 @@ func TestTransmissionStoreExactPreviousHeadRollback(t *testing.T) {
 	}
 }
 
-func assertTransmissionStorePreviousRevision(t *testing.T, repoRoot string) {
+func assertTransmissionStorePreviousRevision(
+	t *testing.T,
+	repoRoot string,
+	previousRevision string,
+) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	command := exec.CommandContext(
-		ctx, "git", "rev-parse", transmissionStorePreviousRevision+"^{commit}",
+		ctx, "git", "rev-parse", previousRevision+"^{commit}",
 	)
 	command.Dir = repoRoot
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("resolve transmission predecessor revision: %v: %s", err, output)
 	}
-	if strings.TrimSpace(string(output)) != transmissionStorePreviousRevision {
+	if strings.TrimSpace(string(output)) != previousRevision {
 		t.Fatalf("resolved transmission predecessor=%q, want %q",
-			strings.TrimSpace(string(output)), transmissionStorePreviousRevision)
+			strings.TrimSpace(string(output)), previousRevision)
 	}
 }
 
-func prepareTransmissionStorePreviousTree(t *testing.T, repoRoot, storeDir string) string {
+func prepareTransmissionStorePreviousTree(
+	t *testing.T,
+	repoRoot string,
+	storeDir string,
+	previousRevision string,
+) string {
 	t.Helper()
 	extractRoot := filepath.Join(t.TempDir(), "transmission-previous-head")
 	if err := os.MkdirAll(extractRoot, 0o755); err != nil {
@@ -217,7 +272,7 @@ func prepareTransmissionStorePreviousTree(t *testing.T, repoRoot, storeDir strin
 	defer cancel()
 	archive := exec.CommandContext(
 		ctx, "git", "archive", "--format=tar.gz",
-		transmissionStorePreviousRevision, "coordinator",
+		previousRevision, "coordinator",
 	)
 	archive.Dir = repoRoot
 	compressed, err := archive.Output()

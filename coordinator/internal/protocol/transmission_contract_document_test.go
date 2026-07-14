@@ -64,3 +64,39 @@ func TestPhaseOneTransmissionContractExamplesAndDecisions(t *testing.T) {
 		}
 	}
 }
+
+func TestPhaseOneTransmissionGoldenSetIsComplete(t *testing.T) {
+	required := []string{
+		TypePrepareMedia,
+		TypePlayMediaAt,
+		TypeCancelMedia,
+		TypeMediaReady,
+		TypeMediaStarted,
+		TypeMediaEnded,
+		TypeMediaFailed,
+		TypeMediaCancelled,
+		TypeSetDND,
+		TypePresenceUpdate,
+	}
+	for _, messageType := range required {
+		path := filepath.Join(goldenDir(t), messageType+".json")
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Errorf("read required transmission golden %q: %v", messageType, err)
+			continue
+		}
+		var envelope Envelope
+		if err := json.Unmarshal(raw, &envelope); err != nil {
+			t.Errorf("decode required transmission golden %q: %v", messageType, err)
+			continue
+		}
+		if envelope.Type != messageType || !KnownType(messageType) {
+			t.Errorf("required transmission type %q is not registered: envelope=%q",
+				messageType, envelope.Type)
+			continue
+		}
+		if _, err := DecodePayloadStrict(envelope); err != nil {
+			t.Errorf("strict decode required transmission golden %q: %v", messageType, err)
+		}
+	}
+}

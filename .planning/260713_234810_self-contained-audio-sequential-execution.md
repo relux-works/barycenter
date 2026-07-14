@@ -13,9 +13,8 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-g9ycx5` — verify-current-store-policy
-  (queued until PR #30 lands)
 - Most recently accepted: `TASK-260712-2kec2s` — moderation-control-plane
-- Current branch: `task/task-260712-2kec2s-moderation-control-plane`
+- Current branch: `task/task-260712-g9ycx5-verify-current-store-policy`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -90,10 +89,11 @@ full tests, focused race, full pinned rollback matrix, Windows vet/test/cross-
 build and Swift release build passed. Local Swift tests were unavailable under
 the standalone CommandLineTools installation; hosted `node-core` ran them
 successfully. All four hosted jobs, including the signed packaged probe,
-passed in run `29342009648`. No physical-app or real-hardware result is
-claimed. Progress is 31/205 overall and 31/186 engineering; PR #30 is awaiting
-the tracking commit and merge before strict execution starts
-`TASK-260712-g9ycx5`.
+passed in run `29342009648`; tracking head `a268ebb` passed all four jobs in
+run `29342525843`. No physical-app or real-hardware result is claimed. Progress
+is 31/205 overall and 31/186 engineering. PR #30 landed at merge
+`c6f1afdb1040bc654b18e324f71b71fd524ca1e7`, and strict execution advanced to
+`TASK-260712-g9ycx5` from synchronized `main`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

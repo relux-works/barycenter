@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:57:28Z
 
 ## Last Update
-2026-07-12T16:00:43Z
+2026-07-14T14:52:20Z
 
 ## Blocked By
 - (none)
@@ -25,6 +25,7 @@ backlog
 - [ ] Reverify official policies immediately before external submission and record deltas
 
 ## Notes
+Strict inline execution started from synchronized main c6f1afdb1040bc654b18e324f71b71fd524ca1e7 after PR #30. Produce a dated, official-source-only Microsoft Store and IARC requirements matrix, map every mandatory rule and July 2026 finding to owned implementation or evidence, and retain pre-submit delta verification as an explicit later gate. No task-board spawn workflow and no manual hardware claim.
 
 ## Precondition Resources
 - [store-policy-baseline-2026-07-12.md](file://TASK-260712-g9ycx5/store-policy-baseline-2026-07-12.md) — Dated official Store policy and certification-finding snapshot

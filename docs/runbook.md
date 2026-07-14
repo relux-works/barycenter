@@ -135,6 +135,12 @@ processor/storage readiness and lifecycle backlog interpretation, use
 report filesystem free space; check the filesystem containing `media_dir`
 separately with `df -h` before enabling uploads.
 
+For phase-one clip-transmission deploy order, the mixed legacy-node window,
+capability-gated caller exposure and mandatory drain-before-rollback procedure,
+use `docs/analysis/p1-transmission-rollout-handoff.md`. There is no current
+transmission-wide runtime feature flag; withdraw every create surface before
+draining, and never down-migrate the additive transmission tables.
+
 ## 6a. Build machine: signing identity (once, before the first release)
 
 `scripts/setup-signing.sh` creates the self-signed identity `duet-nodeapp` in a

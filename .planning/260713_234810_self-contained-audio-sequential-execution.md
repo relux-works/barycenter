@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 39 accepted, 166 remain.
-- Routed inventory: 186 engineering tasks (39 accepted, 147 remain) and 19
+- Combined inventory: 205 original tasks; 40 accepted, 165 remain.
+- Routed inventory: 186 engineering tasks (40 accepted, 146 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-8mwyiv` — macos-interrupt-resume
-  (queued after PR #38 merges to synchronized `main`)
-- Most recently accepted: `TASK-260712-1g6lk8` — windows-interrupt-resume
-- Current branch: `task/task-260712-1g6lk8-windows-interrupt-resume`
+- Current engineering task: `TASK-260712-3d6cnn` — overlay-interrupt-regression-tests
+  (queued after PR #39 merges to synchronized `main`)
+- Most recently accepted: `TASK-260712-8mwyiv` — macos-interrupt-resume
+- Current branch: `task/task-260712-8mwyiv-macos-interrupt-resume`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 39 / 205 tasks (approximately 19.0%); 166 remain
-- Engineering progress: 39 / 186 tasks (approximately 21.0%); 147 remain
+- Accepted overall: 40 / 205 tasks (approximately 19.5%); 165 remain
+- Engineering progress: 40 / 186 tasks (approximately 21.5%); 146 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -290,8 +290,34 @@ Windows amd64 cross-build, coordinator tests and macOS release build passed.
 Exact engineering head `a29db301e139e46f00154a29c2411e8578268eab`
 passed all four hosted jobs in run `29356446731`. Physical Windows A4 timing
 and audible evidence remain unclaimed in `EPIC-260714-th54l3`. Progress is
-39/205 overall and 39/186 engineering; strict execution advances next to
-`TASK-260712-8mwyiv` after PR #38 lands.
+39/205 overall and 39/186 engineering. Tracking head `6b9d483` passed all four
+hosted jobs in run `29356669431`. PR #38 landed at merge
+`adaac8cbf9949fded51c95a28b906db420c65f99`, and strict execution advanced to
+`TASK-260712-8mwyiv` from synchronized `main`.
+
+Checkpoint 2026-07-14 (accepted): `TASK-260712-8mwyiv` extends the existing
+prepared macOS `AVAudioPlayerNode` mixer with exact interrupt ownership. The
+capability is advertised only after `PlayerCore` binds its controller. The
+mixer drives the wire-controlled 250 ms pre-fade, captures the audible anchor
+as extrapolated provider position minus queued ring tail at `T`, clears the
+buffer and pauses the provider off-render. Natural completion and cancellation
+serialize one exact seek/resume behind the provider command barrier and apply
+the 120 ms default fade-in; later load, pause, seek and stop commands wait for
+that barrier so an old provider command cannot overtake a new generation.
+Reconnect, stop and provider restart reset prepared generations and invalidate
+tokens. Cancel racing resume produces one terminal cancellation. Unsupported
+ownership fails as `interrupt_capability_lost` with no fallback; resume failure
+becomes `media_failed(stage=play, code=audio_graph_failed)` instead of a false
+completed playback, and the graph remains reusable. Deterministic tests cover
+the 9,950 ms anchor from 10,000 ms provider minus 50 ms ring tail, pre-fade,
+resume-once, failure recovery, cancel/resume races and reconnect late-callback
+suppression. The full 162-test Swift suite, 20 repeated focused runs, release
+build, coordinator tests, Windows race tests and Windows cross-build passed.
+Exact engineering head `2a06f2f55379a5aeeb5e1f27fb9733adc7e01e4f`
+passed all four hosted jobs in run `29357878003`. Physical macOS A4 remains
+unclaimed in `EPIC-260714-th54l3`. Progress is 40/205 overall and 40/186
+engineering; strict execution advances next to `TASK-260712-3d6cnn` after PR
+#39 lands.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -885,7 +911,9 @@ Story: `STORY-260712-fes2jj` — P1 Cross-platform overlay and interrupt mixer.
 - [x] `TASK-260712-1g6lk8` — windows-interrupt-resume (accepted on exact
   engineering head `a29db30`; all four hosted jobs in run `29356446731`
   green; physical/audible A4 remains manual; PR #38)
-- [ ] `TASK-260712-8mwyiv` — macos-interrupt-resume
+- [x] `TASK-260712-8mwyiv` — macos-interrupt-resume (accepted on exact
+  engineering head `2a06f2f`; all four hosted jobs in run `29357878003`
+  green; physical/audible A4 remains manual; PR #39)
 - [ ] `TASK-260712-3d6cnn` — overlay-interrupt-regression-tests
 - ↪ manual `TASK-260712-2hodti` — overlay-interrupt-live-evidence →
   `EPIC-260714-th54l3`

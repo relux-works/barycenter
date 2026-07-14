@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 16 accepted, 189 remain.
-- Routed inventory: 186 engineering tasks (16 accepted, 170 remain) and 19
+- Combined inventory: 205 original tasks; 17 accepted, 188 remain.
+- Routed inventory: 186 engineering tasks (17 accepted, 169 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -160,6 +160,21 @@ privacy, retention or compatibility regression. Final tracking CI run
 `29307610519` passed the same four jobs; PR #16 landed at
 `0d6863c462111da6ed27f851a636e40d95100d73`, and strict execution advanced to
 `TASK-260712-gj0cko`. No manual real-app or hardware result is claimed.
+
+Checkpoint 2026-07-14 for `TASK-260712-gj0cko`: generic media is now the
+logical authority for linked Telegram compatibility rows; terminal state,
+safe canonical/private-source cleanup and durable cancellation receipts remain
+consistent through exact rollback and roll-forward. The current serial session
+runtime disarms queued copies, stops an active voice and durably advances once;
+macOS and Windows generation-gate in-flight voice work and order insertion
+pause before the following load. Local coordinator vet/test/race, the complete
+pinned predecessor suite, portable Windows vet/test/race and amd64 cross-build,
+plus local macOS compilation are green. Hosted CI run `29309915183` passed
+coordinator, authoritative macOS Swift tests, portable Windows and signed-MSIX
+jobs on PR #17. Root delta-review also excluded linked rows from the unsafe
+legacy sweeper and pinned cleanup to the canonical/Telegram roots. Final
+tracking CI and merge acceptance are still pending; no manual real-app or
+hardware result is claimed.
 
 ## Operating contract
 

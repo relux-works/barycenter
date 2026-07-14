@@ -29,6 +29,7 @@ public final class CoordinatorClient: NSObject {
     private var session: URLSession!
     private var backoffSeconds: Double = 1
     private var stopped = false
+    private var healthy = false
 
     private var pingTimer: DispatchSourceTimer?
     private var heartbeatTimer: DispatchSourceTimer?
@@ -68,6 +69,7 @@ public final class CoordinatorClient: NSObject {
     public func stop() {
         queue.async {
             self.stopped = true
+            self.healthy = false
             self.pingTimer?.cancel()
             self.heartbeatTimer?.cancel()
             self.task?.cancel(with: .goingAway, reason: nil)
@@ -76,6 +78,7 @@ public final class CoordinatorClient: NSObject {
 
     private func connect() {
         guard !stopped else { return }
+        healthy = false
         log.info("connecting to coordinator", ["origin": URLRedactor.originOnly(url)])
         let t = session.webSocketTask(with: url)
         task = t
@@ -191,6 +194,7 @@ public final class CoordinatorClient: NSObject {
 
     private func scheduleReconnect() {
         guard !stopped else { return }
+        healthy = false
         pingTimer?.cancel()
         heartbeatTimer?.cancel()
         task?.cancel()
@@ -205,8 +209,15 @@ public final class CoordinatorClient: NSObject {
 
     /// Reset backoff after a confirmed healthy exchange (welcome received).
     public func markHealthy() {
-        queue.async { self.backoffSeconds = 1 }
+        queue.async {
+            self.backoffSeconds = 1
+            self.healthy = true
+        }
     }
+
+    /// Thread-safe UI/diagnostic projection. True only after an authenticated
+    /// welcome on the current socket; reconnect immediately clears it.
+    public var isHealthy: Bool { queue.sync { healthy } }
 
     /// Immutable snapshot for PlayerCore scheduling; avoids sharing mutable
     /// ClockSync storage across the coordinator and player queues.

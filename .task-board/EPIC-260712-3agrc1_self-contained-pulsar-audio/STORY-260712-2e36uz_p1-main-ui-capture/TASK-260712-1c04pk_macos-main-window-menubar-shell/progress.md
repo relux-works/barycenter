@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:29:06Z
 
 ## Last Update
-2026-07-12T15:42:52Z
+2026-07-14T23:20:19Z
 
 ## Blocked By
 - (none)
@@ -25,9 +25,10 @@ backlog
 - [ ] Ensure the main-window and menu-bar flows remain usable while unpaired, degraded or recording.
 
 ## Notes
+2026-07-15 strict sequential kickoff from synchronized main e10762bf6766bc4249d2ab6bedf46c256abe496a after PR #49. Implementing the macOS main-window and menu-bar shell inline with deterministic Swift tests and static verification; no real-app, audible, VoiceOver-on-device, or physical-hardware result will be claimed.
 
 ## Precondition Resources
 (none)
 
 ## Outcome Resources
-- [p1-main-ui-capture-components.puml](file://TASK-260712-1c04pk/p1-main-ui-capture-components.puml) — Component diagram for task placement and dependencies
+- [p1-main-ui-capture-components.puml](file://TASK-260712-1c04pk/p1-main-ui-capture-components.puml) — Component diagram for the accepted macOS shell runtime and strict future capture, self-test, and data-integration seams

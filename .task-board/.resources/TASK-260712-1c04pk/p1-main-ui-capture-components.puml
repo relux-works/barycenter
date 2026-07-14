@@ -1,5 +1,5 @@
 @startuml
-title P1 Main UI, Local Self-Test and Capture - task seams
+title TASK-260712-1c04pk - macOS shell runtime and future seams
 
 left to right direction
 skinparam packageStyle rectangle
@@ -7,64 +7,53 @@ skinparam shadowing false
 
 actor User
 
-package "Story TASKs" {
-  rectangle "TASK-260712-2lrpc0\nBuiltin cue + temp media contract" as Cue
-  rectangle "TASK-260712-9i5se7\nWindows shell" as WinShell
-  rectangle "TASK-260712-1p8ykc\nWindows capture/self-test" as WinCap
-  rectangle "TASK-260712-2fe5bz\nWindows integration" as WinData
-  rectangle "TASK-260712-1c04pk\nmacOS shell" as MacShell
-  rectangle "TASK-260712-1s6h6t\nmacOS capture/self-test" as MacCap
-  rectangle "TASK-260712-3dqc3l\nmacOS integration" as MacData
-  rectangle "TASK-260712-e5mfqj\nVerification evidence" as Verify
+package "NodeAppUI (SwiftUI, macOS 14)" {
+  rectangle "PulsarShellModel\n@Observable shared projection" as Model
+  rectangle "PulsarMainView\nNavigationSplitView" as Main
+  rectangle "EN/RU shell catalog\ntext + symbol state semantics" as Copy
+  rectangle "PulsarShellActions\ncapability seams" as Actions
 }
 
-package "External story dependencies" {
-  rectangle "STORY-260712-30ju1k\nWindows packaged-app spike" as WinSpike
-  rectangle "STORY-260712-2ve1c8\nIdentity + onboarding APIs" as Identity
-  rectangle "STORY-260712-ld674h\nMedia ingest + upload sessions" as Ingest
-  rectangle "STORY-260712-25lysg\nTransmission protocol + receipts" as Tx
-  rectangle "STORY-260712-34kbkn\nHistory/presence parity" as Presence
-  rectangle "STORY-260712-1i0doc\nCompliance + certification evidence" as Compliance
+package "Existing AppKit lifecycle" {
+  rectangle "PulsarMainWindowController\nNSHostingController bridge" as Window
+  rectangle "StatusMenuController\nNSStatusItem + commands" as Menu
+  rectangle "Onboarding + Sparkle + signals" as Lifecycle
 }
 
-User --> WinShell
-User --> MacShell
+package "Existing runtime" {
+  rectangle "CoordinatorClient\nauthenticated health" as Coordinator
+  rectangle "PlayerCore\nnow playing / DND / volume" as Player
+  rectangle "DirectOutputMonitor\ncurrent route" as Route
+}
 
-Cue --> WinCap
-Cue --> MacCap
+package "Strict later tasks" {
+  rectangle "Capture + hotkey\nTASK-260712-30abcm / ut6akw" as Capture
+  rectangle "Self-test + file intake\nTASK-260712-3lg0ht / 1s6h6t" as SelfTest
+  rectangle "HTTP data integration\nTASK-260712-3dqc3l" as Data
+}
 
-WinShell --> WinCap
-MacShell --> MacCap
+User --> Main
+User --> Menu
+Window --> Main
+Main --> Model
+Menu --> Model
+Copy --> Main
+Copy --> Menu
+Main --> Actions
+Menu --> Actions
+Lifecycle --> Window : preserves current process lifecycle
+Coordinator --> Model : online / reconnecting
+Player --> Model : now playing / DND / volume
+Route --> Model : output route
+Actions --> Player : local DND + volume
+Capture --> Actions : enable record / stop
+Capture --> Model : recording state
+SelfTest --> Actions : enable Try locally
+Data --> Model : presence + history
 
-WinShell --> WinData
-WinCap --> WinData
-MacShell --> MacData
-MacCap --> MacData
-
-WinSpike --> WinCap : prove capture/hotkey/picker\nunder AppContainer
-Identity --> WinData
-Identity --> MacData
-Ingest --> WinData
-Ingest --> MacData
-Tx --> WinData
-Tx --> MacData
-Presence --> WinData
-Presence --> MacData
-
-WinData --> Verify
-MacData --> Verify
-WinSpike --> Verify
-Compliance --> Verify
-
-note bottom of Verify
-A1 evidence plus negative cases:
-- mic denied
-- no capture device
-- hotkey conflict
-- coordinator outage draft retention
-- keyboard and screen-reader paths
-- Windows 125/150/200 DPI
-- macOS parity checks
+note bottom of Model
+Unpaired, degraded and recording remain explicit.
+Unavailable future capabilities stay visible but cannot fake success.
 end note
 
 @enduml

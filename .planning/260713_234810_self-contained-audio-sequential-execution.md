@@ -13,10 +13,10 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-1c04pk` — macos-main-window-menubar-shell
-  (strict kickoff waits only for PR #49 merge)
+  (in development from synchronized `main`)
 - Next engineering task: `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
 - Most recently accepted: `TASK-260712-1f9jtm` — telegram-parity-docs-handoff
-- Current branch: `task/task-260712-1f9jtm-telegram-parity-docs-handoff`
+- Current branch: `task/task-260712-1c04pk-macos-main-window-menubar-shell`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -549,8 +549,11 @@ passed all four hosted jobs in run `29374582024`; the best-effort engineering
 scope and `STORY-260712-34kbkn` are accepted. No real Telegram client, app,
 audible playback, packaged-device or physical-hardware result is claimed;
 those remain in `EPIC-260714-th54l3`. Progress is 50/205 overall and 50/186
-engineering. PR #49 tracking and merge remain before strict execution starts
-`TASK-260712-1c04pk`.
+engineering. Tracking head `c137399a59d83fe58e222191cb4eba57d4d4db28`
+passed all four hosted jobs in run `29374771223`; PR #49 landed at merge
+`e10762bf6766bc4249d2ab6bedf46c256abe496a`. Strict execution started
+`TASK-260712-1c04pk` from that synchronized `main` on branch
+`task/task-260712-1c04pk-macos-main-window-menubar-shell`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

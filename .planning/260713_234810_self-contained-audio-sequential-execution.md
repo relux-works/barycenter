@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 25 accepted, 180 remain.
-- Routed inventory: 186 engineering tasks (25 accepted, 161 remain) and 19
+- Combined inventory: 205 original tasks; 26 accepted, 179 remain.
+- Routed inventory: 186 engineering tasks (26 accepted, 160 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -14,8 +14,8 @@
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-2bbz13` — windows-transmission-client-hooks
 - Current branch: `task/task-260712-2bbz13-windows-transmission-client-hooks`
-- Accepted overall: 25 / 205 tasks (approximately 12.2%); 180 remain
-- Engineering progress: 25 / 186 tasks (approximately 13.4%); 161 remain
+- Accepted overall: 26 / 205 tasks (approximately 12.7%); 179 remain
+- Engineering progress: 26 / 186 tasks (approximately 14.0%); 160 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -43,8 +43,32 @@
   landed exact head through merge `30f1c552c9824934922becab4637c34746d190dc`.
   `TASK-260712-26ip33` landed through PR #24 at merge
   `0b54899073e4dc4948b248f7c77666e7151f5459` after exact code and tracking CI
-  runs `29324579129` and `29324846258`. Strict execution has advanced to
-  `TASK-260712-2bbz13` from that synchronized `main`.
+  runs `29324579129` and `29324846258`. `TASK-260712-2bbz13` is accepted on
+  exact engineering code head `219306ceda548b64a6bb72e279c9ac9da4e65313`;
+  all four hosted jobs passed in run `29326895259`. PR #25 remains the current
+  integration boundary; strict execution advances to `TASK-260712-31vvjt`
+  only after that PR lands and `main` is synchronized.
+
+Checkpoint 2026-07-14: `TASK-260712-2bbz13` now has a generation-safe Windows
+`media_clip_v1` client behind a delivery-capability-gated mixer seam. It
+performs authenticated same-origin fetch with redirect refusal, bounded exact
+size and SHA-256 verification, decoder-ready WAV validation, coordinator-clock
+scheduling with the exact 100 ms late window, idempotent prepare/play/cancel,
+exactly-once terminal receipts and cache cleanup. Durable local DND and a
+privacy-bounded presence projection use atomic Windows persistence; legacy
+`play_voice` and `solo_voice` remain supported with sanitized failures. Network
+I/O, decode, persistence and scheduling stay off the WebSocket read and render
+callback paths. Deterministic lifecycle, ordering, cancellation, deadline,
+redaction, persistence, fetch-policy and race regressions are green alongside
+Windows amd64/arm64 cross-builds, coordinator compatibility and Swift build.
+The first hosted attempt found a test-only POSIX permission assertion on
+Windows; `219306c` made that assertion platform-correct without weakening the
+runtime. Exact-code run `29326895259` then passed Windows unit/cross-build,
+native helper and signed-MSIX construction, coordinator and node-core. This
+does not advertise `overlay_mix_v1` or `interrupt_resume_v1` and claims no
+installation, audible playback, Windows 10/11 or physical-hardware evidence;
+those remain in their later engineering tasks and manual epic
+`EPIC-260714-th54l3`.
 
 Checkpoint 2026-07-14: `TASK-260712-26ip33` now has a generation-safe macOS
 `media_clip_v1` client runtime behind a delivery-capability-gated mixer seam.
@@ -453,7 +477,12 @@ Story: `STORY-260712-25lysg` — P1 Transmission protocol and scheduler.
   typed receipts, durable DND/presence and strict capability gating; hosted CI
   runs `29324261074` and `29324579129` green, with 145 Swift tests on the final
   head; PR #24)
-- [ ] `TASK-260712-2bbz13` — windows-transmission-client-hooks
+- [x] `TASK-260712-2bbz13` — windows-transmission-client-hooks (accepted on
+  exact code head `219306c`: generation-safe authenticated
+  prepare/schedule/cancel, typed receipts, durable DND/presence, strict
+  capability gating and legacy-path redaction; local vet/test/race,
+  cross-build and compatibility gates plus all four hosted jobs in run
+  `29326895259` green; PR #25 pending integration)
 - [ ] `TASK-260712-31vvjt` — overlay-controller-scheduler
 - [ ] `TASK-260712-2qc27p` — transmission-regression-coverage
 - [ ] `TASK-260712-2cdjq8` — transmission-rollout-handoff

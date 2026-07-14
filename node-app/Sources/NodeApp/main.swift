@@ -159,6 +159,13 @@ final class CoreRuntime {
         let cache = VoiceCache(cacheDir: config.cacheDir, nodeToken: config.coordinator.token, log: log)
         let player = PlayerCore(engine: engine, librespot: librespot, supervisor: supervisor,
                                 cache: cache, outputLatencyOffsetMs: config.audio.outputLatencyOffsetMs, log: log)
+        let cacheRoot = URL(fileURLWithPath: config.cacheDir, isDirectory: true)
+        try player.configureTransmissionHooks(
+            cacheDirectory: cacheRoot.appendingPathComponent("media-clips", isDirectory: true),
+            nodeToken: config.coordinator.token,
+            coordinatorURL: wsURL,
+            localStateURL: cacheRoot.deletingLastPathComponent()
+                .appendingPathComponent("node-state-\(config.nodeId).json"))
         player.setVolume(80) // spec 6.3 default; coordinator pushes the saved value
 
         let client = CoordinatorClient(
@@ -169,6 +176,7 @@ final class CoreRuntime {
                 appVersion: appVersion,
                 librespotVersion: supervisor.version
             ),
+            capabilities: player.advertisedCapabilities,
             log: log
         )
         player.coordinator = client
@@ -227,6 +235,7 @@ final class CoreRuntime {
             }
             player.handle(head, message)
         }
+        client.onConnected = { player.resendLocalDND() }
 
         client.start()
         return rt
@@ -238,6 +247,7 @@ final class CoreRuntime {
     func teardown() {
         log.info("core teardown (re-pair)")
         client.stop()
+        player.stopTransmissionHooks()
         librespot.stopEvents()
         supervisor.stop()
         airfoil?.stop()

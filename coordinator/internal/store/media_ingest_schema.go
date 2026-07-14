@@ -64,6 +64,9 @@ CREATE INDEX IF NOT EXISTS media_items_owner_created
   ON media_items(owner_orbit_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS media_items_retention
   ON media_items(status, expires_at);
+CREATE INDEX IF NOT EXISTS media_items_owner_canonical_hash
+  ON media_items(owner_orbit_id, sha256, published_at, id)
+  WHERE status = 'ready' AND sha256 <> '';
 CREATE UNIQUE INDEX IF NOT EXISTS media_items_storage_key
   ON media_items(storage_key) WHERE storage_key <> '';
 

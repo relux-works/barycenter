@@ -1481,6 +1481,46 @@ LIMIT ?`, kind, limit)
 	return operations, rows.Err()
 }
 
+func (s *Store) PendingMediaPublicationForMedia(mediaID string) (*MediaStorageOperation, error) {
+	if mediaID == "" {
+		return nil, fmt.Errorf("%w: invalid media publication query", ErrMediaInvalid)
+	}
+	operation, err := scanMediaStorageOperation(s.db.QueryRow(
+		`SELECT `+mediaStorageOperationColumns+`
+FROM media_storage_operations
+WHERE media_id = ? AND kind = 'publish' AND state = 'pending'
+ORDER BY created_at, id
+LIMIT 1`, mediaID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &operation, nil
+}
+
+// FindReadyMediaByCanonicalHash is deliberately orbit-scoped. Callers cannot
+// ask the repository whether another tenant owns identical content.
+func (s *Store) FindReadyMediaByCanonicalHash(ownerOrbitID int64, sha256, excludeMediaID string) (*MediaItem, error) {
+	if ownerOrbitID <= 0 || !lowerHexTokenPattern.MatchString(sha256) || excludeMediaID == "" {
+		return nil, fmt.Errorf("%w: invalid media dedupe query", ErrMediaInvalid)
+	}
+	item, err := scanMediaItem(s.db.QueryRow(
+		`SELECT `+mediaItemColumns+`
+FROM media_items
+WHERE owner_orbit_id = ? AND sha256 = ? AND id <> ? AND status = 'ready'
+ORDER BY published_at, id
+LIMIT 1`, ownerOrbitID, sha256, excludeMediaID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
 func (s *Store) CompleteMediaStorageCleanup(operationID string, expectedRevision, now int64) (MediaStorageOperation, error) {
 	if operationID == "" || expectedRevision <= 0 || now <= 0 {
 		return MediaStorageOperation{}, fmt.Errorf("%w: invalid cleanup completion", ErrMediaInvalid)

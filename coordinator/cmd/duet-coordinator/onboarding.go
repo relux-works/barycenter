@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"relux.works/duet/coordinator/internal/config"
+	"relux.works/duet/coordinator/internal/media"
 	"relux.works/duet/coordinator/internal/store"
 )
 
@@ -32,6 +33,7 @@ const (
 	errorUploadLengthMismatch   = "upload_length_mismatch"
 	errorUploadStateConflict    = "upload_state_conflict"
 	errorUploadQuota            = "upload_quota_exceeded"
+	errorMediaProcessing        = "media_processing_failed"
 	errorInternal               = "internal_error"
 )
 
@@ -81,6 +83,7 @@ func apiError(w http.ResponseWriter, status int, code string, retry time.Duratio
 		errorUploadLengthMismatch:   "The upload body length does not match the request.",
 		errorUploadStateConflict:    "The upload cannot be changed in its current state.",
 		errorUploadQuota:            "The media upload quota has been reached.",
+		errorMediaProcessing:        "The media could not be validated or prepared.",
 		errorInternal:               "An internal error occurred.",
 	}
 	var body apiErrorBody
@@ -204,6 +207,8 @@ type onboardingAPI struct {
 	mediaUploadLocks       [64]sync.Mutex
 	mediaUploadMaintenance sync.Mutex
 	mediaUploadInitErr     error
+	mediaSubmitter         mediaUploadSubmitter
+	mediaSubmitterInitErr  error
 	// testAfterAuth is nil in production. Tests use it to pause between
 	// middleware authentication and the immediate writer transaction.
 	testAfterAuth   func(store.ActorContext)
@@ -224,6 +229,11 @@ func newOnboardingAPI(st *store.Store, cfg *config.Config, log *slog.Logger, bot
 		mediaUploadNow:   time.Now,
 	}
 	api.mediaUploadInitErr = api.initializeMediaUploadStorage()
+	preset := media.Preset(cfg.Media.Preset)
+	if preset == "" {
+		preset = media.PresetDefault
+	}
+	api.mediaSubmitter, api.mediaSubmitterInitErr = media.NewSubmitService(st, cfg.MediaDir, preset)
 	return api
 }
 

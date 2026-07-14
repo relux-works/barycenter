@@ -41,6 +41,11 @@ func newOnboardingHarness(t *testing.T) onboardingHarness {
 	log := slog.New(slog.NewJSONHandler(logs, nil))
 	cfg := &config.Config{SelfServiceOnboarding: true, MediaDir: t.TempDir()}
 	api := newOnboardingAPI(st, cfg, log, "@barycenter_bot")
+	// Upload-session tests predating SubmitMedia assert the durable finalizing
+	// boundary with arbitrary bytes. SubmitMedia tests install an explicit
+	// fake or real processor instead.
+	api.mediaSubmitter = nil
+	api.mediaSubmitterInitErr = nil
 	mux := http.NewServeMux()
 	api.register(mux)
 	return onboardingHarness{store: st, api: api, mux: mux, logs: logs, path: path}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -10,14 +11,63 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"relux.works/duet/coordinator/internal/media"
 	"relux.works/duet/coordinator/internal/store"
 )
+
+type mediaUploadSubmitterFunc func(context.Context, string) (store.MediaItem, error)
+
+func (submit mediaUploadSubmitterFunc) SubmitUpload(ctx context.Context, sessionID string) (store.MediaItem, error) {
+	return submit(ctx, sessionID)
+}
+
+func completeStubbedMediaUpload(harness onboardingHarness, sessionID string) (store.MediaItem, error) {
+	session, err := harness.store.GetMediaUploadSession(sessionID)
+	if err != nil || session == nil || session.Status != store.UploadStatusFinalizing {
+		return store.MediaItem{}, fmt.Errorf("unexpected finalizing session: %+v: %v", session, err)
+	}
+	item, err := harness.store.GetMediaItem(session.MediaID)
+	if err != nil || item == nil {
+		return store.MediaItem{}, fmt.Errorf("load upload item: %v", err)
+	}
+	now := time.Now().UnixMilli()
+	operation, err := harness.store.StageMediaPublication(item.ID, item.Revision, now)
+	if err != nil {
+		return store.MediaItem{}, err
+	}
+	ready, err := harness.store.CompleteMediaPublication(
+		operation.ID,
+		operation.Revision,
+		store.MediaPublication{
+			MIME: "audio/wav", Codec: "pcm_s16le", DurationMS: 1000, SizeBytes: 4,
+			SHA256:       strings.Repeat("b", 64),
+			LoudnessJSON: `{"input_i":"-20.0","input_tp":"-3.0","output_i":"-14.0","output_tp":"-1.5"}`,
+		},
+		now+1,
+	)
+	if err != nil {
+		return store.MediaItem{}, err
+	}
+	path := filepath.Join(harness.api.mediaUploadDir, session.ID+".part")
+	if err := os.Remove(path); err != nil {
+		return store.MediaItem{}, err
+	}
+	completed, err := harness.store.GetMediaUploadSession(session.ID)
+	if err != nil || completed == nil {
+		return store.MediaItem{}, err
+	}
+	if _, err := harness.store.MarkMediaUploadTempCleaned(completed.ID, completed.Revision, now+2); err != nil {
+		return store.MediaItem{}, err
+	}
+	return ready, nil
+}
 
 func createMediaUploadRequest(handler http.Handler, bearer, idempotencyKey string, size int64) *httptest.ResponseRecorder {
 	body := fmt.Sprintf(`{"kind":"voice_clip","title":"Morning note","size_bytes":%d}`, size)
@@ -323,6 +373,8 @@ func TestMediaUploadHTTPRestartReconcilesCrashTail(t *testing.T) {
 	}
 	defer reopened.Close()
 	api := newOnboardingAPI(reopened, harness.api.config, harness.api.log, "@barycenter_bot")
+	api.mediaSubmitter = nil
+	api.mediaSubmitterInitErr = nil
 	mux := http.NewServeMux()
 	api.register(mux)
 	final := putMediaUploadRequest(mux, created.UploadID, created.UploadToken, "2", []byte("cd"), 2)
@@ -437,5 +489,185 @@ func TestMediaUploadHTTPRechecksControlInsideCreateTransaction(t *testing.T) {
 	}
 	if rows != 0 {
 		t.Fatalf("stale-control upload rows=%d", rows)
+	}
+}
+
+func TestMediaUploadHTTPFinalChunkInvokesSubmitMediaAndReturnsCompleted(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	identity := createViaAPI(t, harness)
+	control := identity["control_token"].(string)
+	called := 0
+	harness.api.mediaSubmitter = mediaUploadSubmitterFunc(func(_ context.Context, sessionID string) (store.MediaItem, error) {
+		called++
+		return completeStubbedMediaUpload(harness, sessionID)
+	})
+	harness.api.mediaSubmitterInitErr = nil
+
+	createdRecorder := createMediaUploadRequest(
+		harness.mux, control, "submitmedia-http-success-0001", 4,
+	)
+	if createdRecorder.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%q", createdRecorder.Code, createdRecorder.Body.String())
+	}
+	created := decodeMediaUpload(t, createdRecorder)
+	completedRecorder := putMediaUploadRequest(
+		harness.mux, created.UploadID, created.UploadToken, "0", []byte("RIFF"), 4,
+	)
+	if completedRecorder.Code != http.StatusOK || called != 1 {
+		t.Fatalf("complete status=%d calls=%d body=%q", completedRecorder.Code, called, completedRecorder.Body.String())
+	}
+	completed := decodeMediaUpload(t, completedRecorder)
+	if completed.Status != string(store.UploadStatusCompleted) || completed.Offset != 4 {
+		t.Fatalf("completed response=%+v", completed)
+	}
+	item, err := harness.store.GetMediaItem(created.MediaID)
+	if err != nil || item == nil || item.Status != store.MediaStatusReady || item.StorageKey == "" {
+		t.Fatalf("ready media=%+v err=%v", item, err)
+	}
+	if _, err := os.Stat(filepath.Join(harness.api.mediaUploadDir, created.UploadID+".part")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("completed upload source stat=%v", err)
+	}
+}
+
+func TestMediaUploadHTTPLiveSubmitMedia(t *testing.T) {
+	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skipf("%s not installed", tool)
+		}
+	}
+	harness := newOnboardingHarness(t)
+	submitter, err := media.NewSubmitService(
+		harness.store, harness.api.config.MediaDir, media.PresetDefault,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	harness.api.mediaSubmitter = submitter
+	harness.api.mediaSubmitterInitErr = nil
+	fixture := filepath.Join(t.TempDir(), "live-upload.wav")
+	generate := exec.Command(
+		"ffmpeg", "-v", "error", "-nostdin", "-y", "-f", "lavfi",
+		"-i", "sine=frequency=440:sample_rate=48000:duration=1",
+		"-af", "volume=0.2", "-ac", "1", "-ar", "48000",
+		"-c:a", "pcm_s16le", "-f", "wav", fixture,
+	)
+	if output, err := generate.CombinedOutput(); err != nil {
+		t.Fatalf("generate live upload fixture: %v\n%s", err, output)
+	}
+	raw, err := os.ReadFile(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity := createViaAPI(t, harness)
+	createdRecorder := createMediaUploadRequest(
+		harness.mux, identity["control_token"].(string), "submitmedia-http-live-0001", int64(len(raw)),
+	)
+	if createdRecorder.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%q", createdRecorder.Code, createdRecorder.Body.String())
+	}
+	created := decodeMediaUpload(t, createdRecorder)
+	completedRecorder := putMediaUploadRequest(
+		harness.mux, created.UploadID, created.UploadToken, "0", raw, int64(len(raw)),
+	)
+	if completedRecorder.Code != http.StatusOK {
+		t.Fatalf("live complete status=%d body=%q", completedRecorder.Code, completedRecorder.Body.String())
+	}
+	completed := decodeMediaUpload(t, completedRecorder)
+	if completed.Status != string(store.UploadStatusCompleted) || completed.Offset != int64(len(raw)) {
+		t.Fatalf("live completed response=%+v", completed)
+	}
+	item, err := harness.store.GetMediaItem(created.MediaID)
+	if err != nil || item == nil || item.Status != store.MediaStatusReady ||
+		item.MIME != "audio/wav" || item.Codec != "pcm_s16le" || item.SHA256 == "" {
+		t.Fatalf("live ready media=%+v err=%v", item, err)
+	}
+	canonical, ok := media.CanonicalPath(
+		filepath.Join(harness.api.config.MediaDir, "canonical"), item.StorageKey,
+	)
+	if !ok {
+		t.Fatalf("live canonical storage key=%q", item.StorageKey)
+	}
+	if info, err := os.Stat(canonical); err != nil || info.Size() != item.SizeBytes || info.Mode().Perm() != 0o600 {
+		t.Fatalf("live canonical info=%+v err=%v", info, err)
+	}
+}
+
+func TestMediaUploadHTTPProcessingFailureIsStableAndNonDisclosing(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	identity := createViaAPI(t, harness)
+	control := identity["control_token"].(string)
+	harness.api.mediaSubmitter = mediaUploadSubmitterFunc(func(_ context.Context, _ string) (store.MediaItem, error) {
+		return store.MediaItem{}, &media.ProcessingError{Code: "media_signature_unsupported"}
+	})
+	harness.api.mediaSubmitterInitErr = nil
+	createdRecorder := createMediaUploadRequest(
+		harness.mux, control, "submitmedia-http-failure-0001", 4,
+	)
+	if createdRecorder.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%q", createdRecorder.Code, createdRecorder.Body.String())
+	}
+	created := decodeMediaUpload(t, createdRecorder)
+	failed := putMediaUploadRequest(
+		harness.mux, created.UploadID, created.UploadToken, "0", []byte("nope"), 4,
+	)
+	assertAPIError(t, failed, http.StatusUnprocessableEntity, errorMediaProcessing, nil)
+	path := filepath.Join(harness.api.mediaUploadDir, created.UploadID+".part")
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("processing-failure source stat=%v", err)
+	}
+	session, err := harness.store.GetMediaUploadSession(created.UploadID)
+	if err != nil || session == nil || session.Status != store.UploadStatusFinalizing {
+		t.Fatalf("stubbed failure session=%+v err=%v", session, err)
+	}
+	logs := harness.logs.String()
+	for _, secret := range []string{control, created.UploadToken, path, "submitmedia-http-failure-0001"} {
+		if strings.Contains(logs, secret) {
+			t.Fatalf("processing failure logged private material (log_bytes=%d)", len(logs))
+		}
+	}
+}
+
+func TestMediaUploadHTTPFinalizingRetryRecoversInterruptedProcessor(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	identity := createViaAPI(t, harness)
+	control := identity["control_token"].(string)
+	privateFailure := filepath.Join(t.TempDir(), "private-worker-crash-detail")
+	harness.api.mediaSubmitter = mediaUploadSubmitterFunc(func(_ context.Context, _ string) (store.MediaItem, error) {
+		return store.MediaItem{}, errors.New(privateFailure)
+	})
+	harness.api.mediaSubmitterInitErr = nil
+	createdRecorder := createMediaUploadRequest(
+		harness.mux, control, "submitmedia-http-recovery-0001", 4,
+	)
+	if createdRecorder.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%q", createdRecorder.Code, createdRecorder.Body.String())
+	}
+	created := decodeMediaUpload(t, createdRecorder)
+	interrupted := putMediaUploadRequest(
+		harness.mux, created.UploadID, created.UploadToken, "0", []byte("RIFF"), 4,
+	)
+	assertAPIError(t, interrupted, http.StatusInternalServerError, errorInternal, nil)
+	session, err := harness.store.GetMediaUploadSession(created.UploadID)
+	if err != nil || session == nil || session.Status != store.UploadStatusFinalizing {
+		t.Fatalf("interrupted session=%+v err=%v", session, err)
+	}
+	if strings.Contains(harness.logs.String(), privateFailure) {
+		t.Fatalf("processor infrastructure detail entered logs (log_bytes=%d)", harness.logs.Len())
+	}
+
+	recoveryCalls := 0
+	harness.api.mediaSubmitter = mediaUploadSubmitterFunc(func(_ context.Context, sessionID string) (store.MediaItem, error) {
+		recoveryCalls++
+		return completeStubbedMediaUpload(harness, sessionID)
+	})
+	recovered := putMediaUploadRequest(
+		harness.mux, created.UploadID, created.UploadToken, "4", nil, 0,
+	)
+	if recovered.Code != http.StatusOK || recoveryCalls != 1 {
+		t.Fatalf("recovery status=%d calls=%d body=%q", recovered.Code, recoveryCalls, recovered.Body.String())
+	}
+	state := decodeMediaUpload(t, recovered)
+	if state.Status != string(store.UploadStatusCompleted) || state.Offset != 4 {
+		t.Fatalf("recovered response=%+v", state)
 	}
 }

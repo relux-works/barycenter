@@ -10,12 +10,12 @@ participant "Transmission Service" as Tx
 participant "Presence Surface" as Presence
 participant "App / Bot Read Views" as Views
 
-User -> Bot : send voice or clip-eligible audio
+User -> Bot : send voice, audio or document hint
 Bot -> Submit : submit(source=telegram)
 Submit -> History : media status = processing
 Submit --> Bot : media ready or error
 
-alt media failed or Phase-2-only attachment
+alt media failed, unsupported group or Phase-2-only attachment
   Bot -> Labels : map honest failure text
   Labels --> User : unsupported / too long / track path deferred
 else media ready

@@ -151,16 +151,17 @@ type mediaDone struct {
 	// orderAir is the session that owned the air when Telegram accepted the
 	// message. Two linked barycenters have different source orbit ids but one
 	// shared orderAir, so ffmpeg completion cannot reorder their voices.
-	orderAir   int64
-	mediaID    string
-	from       int64 // tg user id of the sender
-	fromName   string
-	acceptedAt int64
-	sequence   int64
-	personal   bool
-	result     media.Result
-	err        error
-	reply      func(string)
+	orderAir       int64
+	mediaID        string
+	from           int64 // tg user id of the sender
+	fromName       string
+	acceptedAt     int64
+	sequence       int64
+	personal       bool
+	attachmentKind string
+	result         media.Result
+	err            error
+	reply          func(string)
 }
 
 type mediaCancellationCall struct {
@@ -1013,10 +1014,16 @@ func (l *loop) handleBot(ev bot.Event) {
 	}
 	member, err := l.telegramCommandMember(ev.FromUserID)
 	if errors.Is(err, errTelegramActorLifecycleDenied) {
+		if ev.Callback != nil && ev.Callback.Answer != nil {
+			ev.Callback.Answer(bot.CallbackForbidden)
+		}
 		return
 	}
 	if err != nil {
 		l.log.Error("membership lookup failed", "err", err)
+		if ev.Callback != nil && ev.Callback.Answer != nil {
+			ev.Callback.Answer(bot.CallbackFailed)
+		}
 		return
 	}
 	if member == nil {
@@ -1031,12 +1038,28 @@ func (l *loop) handleBot(ev bot.Event) {
 	// air — the shared group session while an approach is active (§12 L1).
 	home := l.orbit(member.OrbitID)
 	o := l.stateFor(member.OrbitID)
+	if ev.Callback != nil {
+		// The durable inline action router is introduced by TASK-260712-21ers7.
+		// Until then every authenticated callback gets a prompt, honest terminal
+		// response and stale controls are removed instead of being ignored.
+		if ev.Callback.Answer != nil {
+			ev.Callback.Answer(bot.CallbackUnsupported)
+		}
+		if ev.Callback.ClearKeyboard != nil {
+			ev.Callback.ClearKeyboard()
+		}
+		return
+	}
 
-	if ev.Voice != nil {
+	if ev.Voice != nil || ev.Attachment != nil {
 		if member.Role == "satellite" && false { // satellites may voice: allowed by design
 			return
 		}
-		l.handleVoice(home, ev)
+		if ev.Voice != nil {
+			l.handleVoice(home, ev)
+		} else {
+			l.handleTelegramAttachment(home, ev)
+		}
 		return
 	}
 
@@ -1588,7 +1611,13 @@ func (l *loop) handleTelegramLink(ev bot.Event) {
 
 // handleStranger is the zero-context onboarding path (design §4).
 func (l *loop) handleStranger(ev bot.Event) {
-	if ev.Voice != nil {
+	if ev.Callback != nil {
+		if ev.Callback.Answer != nil {
+			ev.Callback.Answer(bot.CallbackForbidden)
+		}
+		return
+	}
+	if ev.Voice != nil || ev.Attachment != nil || ev.Callback != nil {
 		return // strangers' voices are ignored silently
 	}
 	switch ev.Command.Kind {
@@ -1664,14 +1693,34 @@ func (l *loop) injectTargets(o *orbitState, fromOrbit, from int64, target string
 
 func (l *loop) handleVoice(o *orbitState, ev bot.Event) {
 	v := ev.Voice
-	if v.Duration > l.cfg.Media.MaxVoiceS {
-		ev.Reply(fmt.Sprintf("голосовое длиннее %d минут, не возьму", l.cfg.Media.MaxVoiceS/60))
+	l.handleTelegramMedia(o, ev, "voice", v.TGFileID, ev.FromName, v.Personal, v.Broadcast)
+}
+
+func (l *loop) handleTelegramAttachment(o *orbitState, ev bot.Event) {
+	attachment := ev.Attachment
+	if attachment.MediaGroupID != "" {
+		ev.Reply(bot.AttachmentFailureText(bot.AttachmentGroupUnsupported))
 		return
 	}
-	if v.SizeBytes > 20*1024*1024 {
-		ev.Reply("файл больше 20 МБ, не возьму")
-		return
+	title := attachment.FileName
+	if title == "" {
+		title = ev.FromName
 	}
+	l.handleTelegramMedia(
+		o, ev, string(attachment.Kind), attachment.TGFileID, title,
+		attachment.Personal, attachment.Broadcast,
+	)
+}
+
+func (l *loop) handleTelegramMedia(
+	o *orbitState,
+	ev bot.Event,
+	attachmentKind string,
+	telegramFileID string,
+	title string,
+	personalHint bool,
+	broadcastHint bool,
+) {
 	if l.telegramMedia == nil || l.telegramMediaInitErr != nil {
 		l.log.Error("Telegram media adapter unavailable", "err", l.telegramMediaInitErr)
 		ev.Reply("внутренняя ошибка, голосовое не принято")
@@ -1681,8 +1730,9 @@ func (l *loop) handleVoice(o *orbitState, ev bot.Event) {
 	accepted, err := l.telegramMedia.Accept(media.TelegramVoice{
 		OwnerOrbitID:   o.id,
 		TelegramUserID: ev.FromUserID,
-		TelegramFileID: v.TGFileID,
-		Title:          ev.FromName,
+		TelegramFileID: telegramFileID,
+		AttachmentKind: attachmentKind,
+		Title:          title,
 		AcceptedAt:     acceptedAt.UnixMilli(),
 		ExpiresAt:      acceptedAt.AddDate(0, 0, l.cfg.Media.RetentionDays).UnixMilli(),
 	})
@@ -1693,12 +1743,16 @@ func (l *loop) handleVoice(o *orbitState, ev bot.Event) {
 	}
 	// Personal is the orbit default (design §5): an explicit «лично» caption
 	// forces it; «всем» forces broadcast.
-	personal := v.Personal || (o.voiceDefault == "personal" && !v.Broadcast)
-	if v.Broadcast {
+	personal := personalHint || (o.voiceDefault == "personal" && !broadcastHint)
+	if broadcastHint {
 		personal = false
 	}
 	reply := ev.Reply
-	ev.Reply("голосовое принято — поставлю по времени отправки, даже если другое обработается быстрее")
+	if attachmentKind == "voice" {
+		ev.Reply("голосовое принято — поставлю по времени отправки, даже если другое обработается быстрее")
+	} else {
+		ev.Reply("аудиовложение принято как неподтверждённый файл — тип, размер и длительность проверит общий ingest")
+	}
 	orbitID := o.id
 	orderAir := l.stateFor(orbitID).id
 	l.voiceAccepted[orderAir]++
@@ -1713,7 +1767,8 @@ func (l *loop) handleVoice(o *orbitState, ev bot.Event) {
 		l.mediaCh <- mediaDone{
 			orbit: orbitID, orderAir: orderAir, mediaID: accepted.MediaID, from: from, fromName: fromName,
 			acceptedAt: accepted.AcceptedAt, sequence: sequence, personal: personal,
-			result: res, err: err, reply: reply,
+			attachmentKind: attachmentKind,
+			result:         res, err: err, reply: reply,
 		}
 	}()
 }
@@ -1752,7 +1807,15 @@ func (l *loop) processMediaDone(d mediaDone) {
 		if err := l.st.UpdateMedia(store.MediaRecord{ID: d.mediaID, Status: "failed"}); err != nil {
 			l.log.Error("legacy Telegram media failure mapping failed", "media", d.mediaID, "err", err)
 		}
-		d.reply("не смог обработать голосовое, оставил исходник для разбора")
+		if d.attachmentKind == "audio" || d.attachmentKind == "document" {
+			code, ok := media.FailureCode(d.err)
+			if !ok {
+				code = "media_input_unavailable"
+			}
+			d.reply(bot.AttachmentFailureText(bot.AttachmentFailureFromIngest(bot.AttachmentKind(d.attachmentKind), code)))
+		} else {
+			d.reply("не смог обработать голосовое, оставил исходник для разбора")
+		}
 		return
 	}
 	if err := l.st.UpdateMedia(store.MediaRecord{
@@ -1760,7 +1823,11 @@ func (l *loop) processMediaDone(d mediaDone) {
 		PathWAV: d.result.WAVPath, LoudnormJSON: d.result.LoudnormJSON, Status: "ready",
 	}); err != nil {
 		l.log.Error("legacy Telegram media ready mapping failed", "media", d.mediaID, "err", err)
-		d.reply("не смог обработать голосовое, оставил исходник для разбора")
+		if d.attachmentKind == "audio" || d.attachmentKind == "document" {
+			d.reply(bot.AttachmentFailureText(bot.AttachmentDecodeFailed))
+		} else {
+			d.reply("не смог обработать голосовое, оставил исходник для разбора")
+		}
 		return
 	}
 	if l.orbitGone(d.orbit) { // L3: /dissolve raced the ffmpeg goroutine
@@ -1804,10 +1871,14 @@ func (l *loop) processMediaDone(d mediaDone) {
 
 	if o.sess.Mode == session.ModeShared {
 		l.apply(o, o.sess.EnqueueVoice(el))
+		mediaLabel := "голосовое"
+		if d.attachmentKind == "audio" || d.attachmentKind == "document" {
+			mediaLabel = "аудиоклип"
+		}
 		if target != "both" {
-			d.reply(fmt.Sprintf("личное голосовое от %s готово: после текущего трека, только адресату", esc(d.fromName)))
+			d.reply(fmt.Sprintf("личное %s от %s готово: после текущего трека, только адресату", mediaLabel, esc(d.fromName)))
 		} else {
-			d.reply(fmt.Sprintf("голосовое от %s готово: после текущего трека, для всех", esc(d.fromName)))
+			d.reply(fmt.Sprintf("%s от %s готово: после текущего трека, для всех", mediaLabel, esc(d.fromName)))
 		}
 		return
 	}

@@ -8,7 +8,7 @@ actor "Telegram User" as TgUser
 actor "Pulsar App" as App
 
 rectangle "STORY-260712-34kbkn\nTelegram parity + history/presence" {
-  [Telegram Transport\nvoice/audio/callback updates] as TgTransport
+  [Telegram Transport\nvoice/audio/document/callback updates] as TgTransport
   [Inline Action Router\nlegacy default + action callbacks] as InlineRouter
   [Delivery Presentation Model\nhuman labels + receipt wording] as Presentation
   [Presence Surface\nsanitized presence + DND/block] as Presence

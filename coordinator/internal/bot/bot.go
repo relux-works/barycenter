@@ -26,11 +26,47 @@ type Event struct {
 	FromName   string
 	Command    Command // for text messages
 	Voice      *VoiceEvent
+	Attachment *AttachmentEvent
+	Callback   *CallbackEvent
 	// Reply sends a response into the chat the message came from.
 	Reply func(text string)
 	// DeleteSource best-effort removes a secret-bearing source message. It is
 	// asynchronous and never changes the result of a committed consume.
 	DeleteSource func()
+}
+
+// AttachmentKind is the transport-observed Telegram update shape. It is not a
+// media classification: MIME type, filename, duration and size remain
+// untrusted hints until the common ingest service inspects bounded bytes.
+type AttachmentKind string
+
+const (
+	AttachmentAudio    AttachmentKind = "audio"
+	AttachmentDocument AttachmentKind = "document"
+)
+
+type AttachmentEvent struct {
+	Kind             AttachmentKind
+	TGFileID         string
+	OriginalUpdateID int64
+	FileName         string
+	MIMEType         string
+	Duration         int
+	SizeBytes        int64
+	MediaGroupID     string
+	Personal         bool
+	Broadcast        bool
+}
+
+// CallbackEvent is a transport event only. The coordinator must resolve the
+// clicking Telegram user into a fresh ActorContext before validating Data.
+// Answer and ClearKeyboard are asynchronous and safe to call from the loop.
+type CallbackEvent struct {
+	QueryID          string
+	Data             string
+	OriginalUpdateID int64
+	Answer           func(CallbackAnswerCode)
+	ClearKeyboard    func()
 }
 
 type VoiceEvent struct {
@@ -54,17 +90,24 @@ type API interface {
 
 // Update mirrors the subset of Telegram's Update we need.
 type Update struct {
-	UpdateID int64    `json:"update_id"`
-	Message  *Message `json:"message"`
+	UpdateID      int64          `json:"update_id"`
+	Message       *Message       `json:"message"`
+	CallbackQuery *CallbackQuery `json:"callback_query"`
 }
 
 type Message struct {
-	MessageID int64  `json:"message_id"`
-	From      *User  `json:"from"`
-	Chat      Chat   `json:"chat"`
-	Text      string `json:"text"`
-	Caption   string `json:"caption"`
-	Voice     *Voice `json:"voice"`
+	MessageID    int64                  `json:"message_id"`
+	From         *User                  `json:"from"`
+	Chat         Chat                   `json:"chat"`
+	Text         string                 `json:"text"`
+	Caption      string                 `json:"caption"`
+	Voice        *Voice                 `json:"voice"`
+	Audio        *Audio                 `json:"audio"`
+	Document     *Document              `json:"document"`
+	Video        *UnsupportedAttachment `json:"video"`
+	Animation    *UnsupportedAttachment `json:"animation"`
+	Sticker      *UnsupportedAttachment `json:"sticker"`
+	MediaGroupID string                 `json:"media_group_id"`
 }
 
 type User struct {
@@ -83,6 +126,34 @@ type Voice struct {
 	FileSize int64  `json:"file_size"`
 }
 
+type Audio struct {
+	FileID       string `json:"file_id"`
+	FileUniqueID string `json:"file_unique_id"`
+	FileName     string `json:"file_name"`
+	MIMEType     string `json:"mime_type"`
+	Duration     int    `json:"duration"`
+	FileSize     int64  `json:"file_size"`
+}
+
+type Document struct {
+	FileID       string `json:"file_id"`
+	FileUniqueID string `json:"file_unique_id"`
+	FileName     string `json:"file_name"`
+	MIMEType     string `json:"mime_type"`
+	FileSize     int64  `json:"file_size"`
+}
+
+type UnsupportedAttachment struct {
+	FileID string `json:"file_id"`
+}
+
+type CallbackQuery struct {
+	ID      string   `json:"id"`
+	From    *User    `json:"from"`
+	Message *Message `json:"message"`
+	Data    string   `json:"data"`
+}
+
 type Bot struct {
 	api API
 	log *slog.Logger
@@ -94,21 +165,28 @@ type Bot struct {
 	// so the FSM loop never blocks on a slow Telegram POST (bugs #2 /
 	// architecture #1.1). One drainer preserves per-chat message order.
 	outbox chan outMsg
+	// callbackOutbox is deliberately separate: a slow ordinary send must not
+	// leave Telegram's callback spinner waiting behind the chat backlog.
+	callbackOutbox chan outMsg
 }
 
 type outMsg struct {
-	chatID    int64
-	messageID int64
-	text      string
-	delete    bool
+	chatID        int64
+	messageID     int64
+	text          string
+	delete        bool
+	callbackID    string
+	callbackText  string
+	clearKeyboard bool
 }
 
 func New(api API, log *slog.Logger) *Bot {
 	b := &Bot{
-		api:    api,
-		log:    log,
-		Events: make(chan Event, 16),
-		outbox: make(chan outMsg, 1024),
+		api:            api,
+		log:            log,
+		Events:         make(chan Event, 16),
+		outbox:         make(chan outMsg, 1024),
+		callbackOutbox: make(chan outMsg, 128),
 	}
 	if u, err := api.GetMe(); err == nil {
 		b.Username = u
@@ -171,9 +249,45 @@ func (b *Bot) sender(stop <-chan struct{}) {
 	}
 }
 
+func (b *Bot) callbackSender(stop <-chan struct{}) {
+	for {
+		select {
+		case <-stop:
+			return
+		case m := <-b.callbackOutbox:
+			if m.callbackID != "" {
+				api, ok := b.api.(interface {
+					AnswerCallbackQuery(string, string) error
+				})
+				if !ok {
+					b.log.Warn("callback API unavailable", "operation", "answerCallbackQuery")
+					continue
+				}
+				if err := api.AnswerCallbackQuery(m.callbackID, m.callbackText); err != nil {
+					b.log.Warn("callback answer failed", "operation", "answerCallbackQuery", "err", safeTelegramLogError("answerCallbackQuery", err))
+				}
+				continue
+			}
+			if m.clearKeyboard {
+				api, ok := b.api.(interface {
+					ClearInlineKeyboard(int64, int64) error
+				})
+				if !ok {
+					b.log.Warn("callback API unavailable", "operation", "editMessageReplyMarkup")
+					continue
+				}
+				if err := api.ClearInlineKeyboard(m.chatID, m.messageID); err != nil {
+					b.log.Warn("keyboard cleanup failed", "operation", "editMessageReplyMarkup", "err", safeTelegramLogError("editMessageReplyMarkup", err))
+				}
+			}
+		}
+	}
+}
+
 // Run long-polls until stop closes (spec 3.3: outbound connection only).
 func (b *Bot) Run(stop <-chan struct{}) {
 	go b.sender(stop) // drain the outbox for the lifetime of the bot
+	go b.callbackSender(stop)
 	var offset int64
 	for {
 		select {
@@ -197,6 +311,10 @@ func (b *Bot) Run(stop <-chan struct{}) {
 }
 
 func (b *Bot) handleUpdate(u Update) {
+	if query := u.CallbackQuery; query != nil {
+		b.handleCallbackUpdate(u.UpdateID, query)
+		return
+	}
 	msg := u.Message
 	if msg == nil || msg.From == nil {
 		return
@@ -231,6 +349,28 @@ func (b *Bot) handleUpdate(u Update) {
 		}
 		return
 	}
+	if msg.Audio != nil {
+		b.emitAttachment(u.UpdateID, msg, AttachmentEvent{
+			Kind: AttachmentAudio, TGFileID: msg.Audio.FileID,
+			FileName: msg.Audio.FileName, MIMEType: msg.Audio.MIMEType, Duration: msg.Audio.Duration,
+			SizeBytes: msg.Audio.FileSize, MediaGroupID: msg.MediaGroupID,
+			Personal: IsPersonalCaption(msg.Caption), Broadcast: IsBroadcastCaption(msg.Caption),
+		})
+		return
+	}
+	if msg.Document != nil {
+		b.emitAttachment(u.UpdateID, msg, AttachmentEvent{
+			Kind: AttachmentDocument, TGFileID: msg.Document.FileID,
+			FileName: msg.Document.FileName, MIMEType: msg.Document.MIMEType, SizeBytes: msg.Document.FileSize,
+			MediaGroupID: msg.MediaGroupID, Personal: IsPersonalCaption(msg.Caption),
+			Broadcast: IsBroadcastCaption(msg.Caption),
+		})
+		return
+	}
+	if msg.Video != nil || msg.Animation != nil || msg.Sticker != nil {
+		reply(AttachmentFailureText(AttachmentNotAudio))
+		return
+	}
 
 	cmd, err := Parse(msg.Text)
 	if err != nil {
@@ -251,6 +391,47 @@ func (b *Bot) handleUpdate(u Update) {
 		Command:      cmd,
 		Reply:        reply,
 		DeleteSource: deleteSource,
+	}
+}
+
+func (b *Bot) emitAttachment(updateID int64, msg *Message, attachment AttachmentEvent) {
+	chatID := msg.Chat.ID
+	attachment.OriginalUpdateID = updateID
+	b.Events <- Event{
+		ChatID: chatID, ChatType: msg.Chat.Type, MessageID: msg.MessageID,
+		FromUserID: msg.From.ID, FromName: msg.From.FirstName,
+		Attachment: &attachment,
+		Reply:      func(text string) { b.SendTo(chatID, text) },
+	}
+}
+
+func (b *Bot) handleCallbackUpdate(updateID int64, query *CallbackQuery) {
+	if query.From == nil || query.Message == nil || query.ID == "" {
+		return
+	}
+	chatID := query.Message.Chat.ID
+	messageID := query.Message.MessageID
+	answer := func(code CallbackAnswerCode) {
+		text := CallbackAnswerText(code)
+		select {
+		case b.callbackOutbox <- outMsg{callbackID: query.ID, callbackText: text}:
+		default:
+			b.log.Warn("outbox full, cannot answer callback", "operation", "answerCallbackQuery")
+		}
+	}
+	clearKeyboard := func() {
+		select {
+		case b.callbackOutbox <- outMsg{chatID: chatID, messageID: messageID, clearKeyboard: true}:
+		default:
+			b.log.Warn("outbox full, cannot clear keyboard", "operation", "editMessageReplyMarkup")
+		}
+	}
+	b.Events <- Event{
+		ChatID: chatID, ChatType: query.Message.Chat.Type, MessageID: messageID,
+		FromUserID: query.From.ID, FromName: query.From.FirstName,
+		Callback: &CallbackEvent{QueryID: query.ID, Data: query.Data,
+			OriginalUpdateID: updateID, Answer: answer, ClearKeyboard: clearKeyboard},
+		Reply: func(text string) { b.SendTo(chatID, text) },
 	}
 }
 
@@ -485,6 +666,21 @@ func (a *HTTPAPI) DeleteMessage(chatID, messageID int64) error {
 	return a.call("deleteMessage", url.Values{
 		"chat_id":    {strconv.FormatInt(chatID, 10)},
 		"message_id": {strconv.FormatInt(messageID, 10)},
+	}, nil)
+}
+
+func (a *HTTPAPI) AnswerCallbackQuery(callbackQueryID, text string) error {
+	return a.call("answerCallbackQuery", url.Values{
+		"callback_query_id": {callbackQueryID},
+		"text":              {text},
+	}, nil)
+}
+
+func (a *HTTPAPI) ClearInlineKeyboard(chatID, messageID int64) error {
+	return a.call("editMessageReplyMarkup", url.Values{
+		"chat_id":      {strconv.FormatInt(chatID, 10)},
+		"message_id":   {strconv.FormatInt(messageID, 10)},
+		"reply_markup": {`{"inline_keyboard":[]}`},
 	}, nil)
 }
 

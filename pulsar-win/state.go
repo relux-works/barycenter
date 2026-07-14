@@ -63,7 +63,7 @@ func (p *Player) StatePayload(rttMS int64) protocol.StatePayload {
 func (p *Player) telemetryWatch() {
 	ticker := time.NewTicker(p.telemetryInterval)
 	defer ticker.Stop()
-	var lastFed, lastStarved, lastOverlayFrames, lastLimiterHits int64
+	var lastFed, lastStarved, lastOverlayFrames, lastInterruptFrames, lastLimiterHits int64
 	for {
 		select {
 		case <-p.done:
@@ -74,9 +74,11 @@ func (p *Player) telemetryWatch() {
 		fedDelta := s.Fed - lastFed
 		starvedDelta := s.Starved - lastStarved
 		overlayDelta := s.OverlayFrames - lastOverlayFrames
+		interruptDelta := s.InterruptFrames - lastInterruptFrames
 		limiterDelta := s.LimiterHits - lastLimiterHits
 		lastFed, lastStarved = s.Fed, s.Starved
-		lastOverlayFrames, lastLimiterHits = s.OverlayFrames, s.LimiterHits
+		lastOverlayFrames, lastInterruptFrames = s.OverlayFrames, s.InterruptFrames
+		lastLimiterHits = s.LimiterHits
 		if fedDelta > 0 && starvedDelta > 0 {
 			p.log.Warn("audible dropout",
 				"starved_cbs", starvedDelta,
@@ -91,6 +93,11 @@ func (p *Player) telemetryWatch() {
 			p.log.Info("overlay mixer telemetry",
 				"overlay_frames", overlayDelta,
 				"limiter_hits", limiterDelta,
+				"ring_fill_ms", p.ring.FillMS(sampleRate, channels))
+		}
+		if interruptDelta > 0 {
+			p.log.Info("interrupt mixer telemetry",
+				"interrupt_frames", interruptDelta,
 				"ring_fill_ms", p.ring.FillMS(sampleRate, channels))
 		}
 	}

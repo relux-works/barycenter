@@ -149,6 +149,7 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	daemon := NewDaemonClient(cfg.APIPort)
 	capabilities := []string{protocol.CapabilitySeamlessAdoption}
 	var mediaClips *MediaClipClient
+	var mediaMixer *WindowsOverlayMediaClipMixer
 	mediaFetcher, mediaErr := NewAuthenticatedMediaClipFetcher(
 		filepath.Join(cfg.CacheDir, "media-clips"), creds.Token, creds.WSURL)
 	if mediaErr != nil {
@@ -156,8 +157,8 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		// this installation cannot create its authenticated cache.
 		log.Error("media clip hooks unavailable")
 	} else {
-		mediaClips = NewMediaClipClient(
-			mediaFetcher, NewWindowsOverlayMediaClipMixer(engine), log, nil)
+		mediaMixer = NewWindowsOverlayMediaClipMixer(engine)
+		mediaClips = NewMediaClipClient(mediaFetcher, mediaMixer, log, nil)
 		capabilities = append(capabilities, mediaClips.AdvertisedCapabilities()...)
 	}
 	ws := NewWSClient(creds.WSURL, Identity{
@@ -175,6 +176,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	}
 
 	player := NewPlayer(daemon, ring, engine, cache, ws.Clock(), ws.Send, cfg.OutputLatencyOffsetMS, log)
+	if mediaMixer != nil {
+		mediaMixer.BindInterruptController(player)
+	}
 	player.ConfigureTransmissionHooks(
 		mediaClips,
 		NewNodePresenceStore(filepath.Join(dir, "node-presence.v1.json"), log),

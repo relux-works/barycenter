@@ -2,7 +2,10 @@ package media
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -22,6 +25,11 @@ type MediaTargetSnapshotReader interface {
 type MediaDownload struct {
 	Item store.MediaItem
 	File *os.File
+}
+
+type ModerationEvidenceDownload struct {
+	Evidence store.ModerationEvidence
+	File     *os.File
 }
 
 type DownloadService struct {
@@ -181,4 +189,54 @@ func (service *DownloadService) OpenAuthorized(
 		return MediaDownload{}, errors.New("media download descriptor not acquired")
 	}
 	return MediaDownload{Item: confirmed, File: file}, nil
+}
+
+// OpenModerationEvidence is a separate operator-only read path. Store
+// authorization commits the append-only access audit before filesystem bytes
+// are opened, and the evidence snapshot expires independently of user ACLs.
+func (service *DownloadService) OpenModerationEvidence(
+	ctx context.Context,
+	operatorID, token, reportID string,
+) (ModerationEvidenceDownload, error) {
+	if ctx == nil {
+		return ModerationEvidenceDownload{}, errors.New("nil moderation evidence context")
+	}
+	evidence, err := service.store.AuthorizeModerationEvidence(
+		operatorID, token, reportID, service.now().UnixMilli(),
+	)
+	if err != nil {
+		return ModerationEvidenceDownload{}, err
+	}
+	lock := canonicalStorageLock(evidence.StorageKey)
+	lock.Lock()
+	defer lock.Unlock()
+	path, ok := CanonicalPath(service.canonicalDir, evidence.StorageKey)
+	if !ok {
+		return ModerationEvidenceDownload{}, errors.New("invalid moderation evidence storage identity")
+	}
+	before, err := os.Lstat(path)
+	if err != nil || !before.Mode().IsRegular() || before.Size() != evidence.SizeBytes {
+		return ModerationEvidenceDownload{}, errors.New("inspect moderation evidence storage")
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return ModerationEvidenceDownload{}, errors.New("open moderation evidence storage")
+	}
+	after, err := file.Stat()
+	if err != nil || !after.Mode().IsRegular() || !os.SameFile(before, after) ||
+		after.Size() != evidence.SizeBytes {
+		file.Close()
+		return ModerationEvidenceDownload{}, errors.New("verify moderation evidence storage")
+	}
+	digest := sha256.New()
+	if _, err := io.Copy(digest, file); err != nil ||
+		hex.EncodeToString(digest.Sum(nil)) != evidence.SHA256 {
+		file.Close()
+		return ModerationEvidenceDownload{}, errors.New("verify moderation evidence digest")
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		file.Close()
+		return ModerationEvidenceDownload{}, errors.New("rewind moderation evidence storage")
+	}
+	return ModerationEvidenceDownload{Evidence: evidence, File: file}, nil
 }

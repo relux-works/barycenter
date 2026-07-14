@@ -129,6 +129,10 @@ func OpenWithOptions(path string, opts Options) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("store: init transmission schema: %w", err)
 	}
+	if err := s.initModerationSchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init moderation schema: %w", err)
+	}
 	if opts.SelfServiceOnboarding {
 		if err := s.ReconcileIdentity(); err != nil {
 			db.Close()

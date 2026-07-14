@@ -18,6 +18,7 @@ import (
 
 	"relux.works/duet/coordinator/internal/config"
 	"relux.works/duet/coordinator/internal/media"
+	"relux.works/duet/coordinator/internal/moderation"
 	"relux.works/duet/coordinator/internal/store"
 )
 
@@ -35,6 +36,11 @@ const (
 	errorUploadQuota            = "upload_quota_exceeded"
 	errorMediaProcessing        = "media_processing_failed"
 	errorMediaNotFound          = "media_not_found"
+	errorModerationNotFound     = "moderation_not_found"
+	errorModerationForbidden    = "moderation_forbidden"
+	errorModerationConflict     = "moderation_conflict"
+	errorEvidenceExpired        = "moderation_evidence_expired"
+	errorServiceUnavailable     = "service_unavailable"
 	errorInternal               = "internal_error"
 )
 
@@ -86,6 +92,11 @@ func apiError(w http.ResponseWriter, status int, code string, retry time.Duratio
 		errorUploadQuota:            "The media upload quota has been reached.",
 		errorMediaProcessing:        "The media could not be validated or prepared.",
 		errorMediaNotFound:          "The media item was not found.",
+		errorModerationNotFound:     "The moderation item was not found.",
+		errorModerationForbidden:    "This operator credential lacks the required capability.",
+		errorModerationConflict:     "A different moderation decision already exists.",
+		errorEvidenceExpired:        "The moderation evidence window has expired.",
+		errorServiceUnavailable:     "The service is temporarily unavailable.",
 		errorInternal:               "An internal error occurred.",
 	}
 	var body apiErrorBody
@@ -191,6 +202,13 @@ type actorRequest struct {
 
 type actorRequestKey struct{}
 
+type moderationOperatorRequest struct {
+	Context store.ModerationOperatorContext
+	Bearer  string
+}
+
+type moderationOperatorRequestKey struct{}
+
 type onboardingAPI struct {
 	store                  *store.Store
 	config                 *config.Config
@@ -215,6 +233,7 @@ type onboardingAPI struct {
 	mediaLifecycleInitErr  error
 	mediaDownload          *media.DownloadService
 	mediaDownloadInitErr   error
+	moderationService      *moderation.Service
 	transmissionNow        func() time.Time
 	transmissionPresence   transmissionPresenceSnapshotter
 	transmissionToken      func() (string, error)
@@ -324,6 +343,10 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/media/", api.secure(api.withActor(api.mediaItem)))
 	mux.HandleFunc("/v1/transmissions", api.secure(api.withControl(api.createTransmission)))
 	mux.HandleFunc("/v1/transmissions/", api.secure(api.withActor(api.transmissionItem)))
+	mux.HandleFunc("/v1/reports", api.secure(api.withControl(api.moderationReports)))
+	mux.HandleFunc("/v1/reports/", api.secure(api.withControl(api.moderationReportItem)))
+	mux.HandleFunc("/v1/moderation/reports", api.secure(api.withModerationOperator(api.moderationQueue)))
+	mux.HandleFunc("/v1/moderation/reports/", api.secure(api.withModerationOperator(api.moderationQueueItem)))
 }
 
 func (api *onboardingAPI) secure(next http.HandlerFunc) http.HandlerFunc {
@@ -416,6 +439,45 @@ func bearerToken(r *http.Request) (string, bool) {
 	}
 	token := strings.TrimPrefix(header, "Bearer ")
 	return token, lowerHexBearer.MatchString(token)
+}
+
+func moderationBearerToken(r *http.Request) (string, bool) {
+	values := r.Header.Values("Authorization")
+	if len(values) != 1 {
+		return "", false
+	}
+	header := values[0]
+	if !strings.HasPrefix(header, "Bearer mod_") || strings.Count(header, " ") != 1 {
+		return "", false
+	}
+	token := strings.TrimPrefix(header, "Bearer ")
+	if len(token) != 68 || !lowerHexBearer.MatchString(strings.TrimPrefix(token, "mod_")) {
+		return "", false
+	}
+	return token, true
+}
+
+func (api *onboardingAPI) withModerationOperator(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token, ok := moderationBearerToken(r)
+		if !ok {
+			apiError(w, http.StatusUnauthorized, errorUnauthorized, 0)
+			return
+		}
+		operator, err := api.store.ResolveModerationOperator(token)
+		if errors.Is(err, store.ErrUnauthorized) {
+			apiError(w, http.StatusUnauthorized, errorUnauthorized, 0)
+			return
+		}
+		if err != nil {
+			api.internalError(w, "resolve moderation operator", err)
+			return
+		}
+		request := moderationOperatorRequest{Context: operator, Bearer: token}
+		next(w, r.WithContext(context.WithValue(
+			r.Context(), moderationOperatorRequestKey{}, request,
+		)))
+	}
 }
 
 func (api *onboardingAPI) withActor(next http.HandlerFunc) http.HandlerFunc {

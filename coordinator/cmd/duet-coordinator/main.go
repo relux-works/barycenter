@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -21,6 +22,8 @@ import (
 	"relux.works/duet/coordinator/internal/config"
 	"relux.works/duet/coordinator/internal/hub"
 	"relux.works/duet/coordinator/internal/media"
+	"relux.works/duet/coordinator/internal/moderation"
+	"relux.works/duet/coordinator/internal/protocol"
 	"relux.works/duet/coordinator/internal/spotify"
 	"relux.works/duet/coordinator/internal/store"
 )
@@ -109,6 +112,12 @@ func main() {
 	showVersion := flag.Bool("version", false, "print version and exit")
 	projectIdentityRollback := flag.Bool("project-identity-rollback", false,
 		"project current identity state into the legacy schema, then exit")
+	provisionModerationOperator := flag.String("provision-moderation-operator", "",
+		"provision a named moderation operator and print its token once")
+	revokeModerationOperator := flag.String("revoke-moderation-operator", "",
+		"revoke a moderation operator id")
+	moderationOperatorScopes := flag.String("moderation-operator-scopes", "list,evidence,decide",
+		"comma-separated moderation scopes: list,evidence,decide")
 	flag.Parse()
 
 	if *showVersion {
@@ -121,6 +130,16 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("identity rollback projection complete")
+		return
+	}
+	if *provisionModerationOperator != "" || *revokeModerationOperator != "" {
+		if err := runModerationOperatorCommand(
+			*configPath, *provisionModerationOperator,
+			*revokeModerationOperator, *moderationOperatorScopes,
+		); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 		return
 	}
 
@@ -293,6 +312,22 @@ func main() {
 		onboarding.transmissionCancelled = l.transmissionCancelled
 		onboarding.mediaLifecycle = mediaLifecycle
 		onboarding.mediaLifecycleInitErr = mediaLifecycleInitErr
+		if mediaLifecycleInitErr == nil && onboarding.mediaDownloadInitErr == nil {
+			moderationService, err := moderation.NewService(
+				st, mediaLifecycle, onboarding.mediaDownload,
+				func(node store.ModerationNodeIdentity) {
+					h.Disconnect(hub.NodeKey{
+						Orbit: node.OrbitID, Slot: protocol.NodeID(node.Slot),
+					})
+				},
+				l.transmissionCancelled,
+			)
+			if err != nil {
+				log.Error("moderation control plane unavailable")
+			} else {
+				onboarding.moderationService = moderationService
+			}
+		}
 		go onboarding.runMediaUploadMaintenance(stop)
 	} else if mediaLifecycle != nil && mediaLifecycleInitErr == nil {
 		go runStandaloneMediaLifecycle(log, mediaLifecycle, stop)
@@ -303,6 +338,73 @@ func main() {
 		log.Error("http server", "err", err)
 		os.Exit(1)
 	}
+}
+
+func runModerationOperatorCommand(
+	configPath, provisionName, revokeID, scopes string,
+) error {
+	if (provisionName == "") == (revokeID == "") {
+		return errors.New("choose exactly one moderation operator command")
+	}
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(cfg.DBPath), 0o750); err != nil {
+		return fmt.Errorf("create moderation database directory: %w", err)
+	}
+	st, err := store.Open(cfg.DBPath)
+	if err != nil {
+		return fmt.Errorf("open store for moderation operator command: %w", err)
+	}
+	defer st.Close()
+	if revokeID != "" {
+		changed, err := st.RevokeModerationOperator(revokeID, time.Now().UnixMilli())
+		if err != nil {
+			return err
+		}
+		if !changed {
+			return errors.New("moderation operator not found or already revoked")
+		}
+		fmt.Printf("operator_id=%s\nrevoked=true\n", revokeID)
+		return nil
+	}
+	capabilities, err := parseModerationOperatorScopes(scopes)
+	if err != nil {
+		return err
+	}
+	credential, err := st.ProvisionModerationOperator(
+		provisionName, capabilities, time.Now().UnixMilli(),
+	)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("operator_id=%s\noperator_token=%s\nshown_once=true\n",
+		credential.Operator.ID, credential.Token)
+	return nil
+}
+
+func parseModerationOperatorScopes(scopes string) (store.ModerationOperatorCapabilities, error) {
+	var capabilities store.ModerationOperatorCapabilities
+	seen := map[string]bool{}
+	for _, raw := range strings.Split(scopes, ",") {
+		scope := strings.TrimSpace(raw)
+		if scope == "" || seen[scope] {
+			return store.ModerationOperatorCapabilities{}, errors.New("invalid moderation operator scopes")
+		}
+		seen[scope] = true
+		switch scope {
+		case "list":
+			capabilities.List = true
+		case "evidence":
+			capabilities.Evidence = true
+		case "decide":
+			capabilities.Decide = true
+		default:
+			return store.ModerationOperatorCapabilities{}, fmt.Errorf("unknown moderation operator scope %q", scope)
+		}
+	}
+	return capabilities, nil
 }
 
 func addMediaLifecycleHealth(

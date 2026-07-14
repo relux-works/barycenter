@@ -173,6 +173,23 @@ func (s *Store) CreateTransmissionBlock(
 		return TransmissionBlockCreation{}, err
 	}
 	defer tx.Rollback()
+	creation, err := createTransmissionBlockTx(tx, params)
+	if err != nil {
+		return TransmissionBlockCreation{}, err
+	}
+	if err := s.checkpoint("transmission_block_create_before_commit"); err != nil {
+		return TransmissionBlockCreation{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return TransmissionBlockCreation{}, err
+	}
+	return creation, nil
+}
+
+func createTransmissionBlockTx(
+	tx *sql.Tx,
+	params CreateTransmissionBlockParams,
+) (TransmissionBlockCreation, error) {
 	if err := authorizeBlockOwnerTx(
 		tx, params.OwnerScope, params.OwnerOrbitID, params.OwnerActorID,
 		params.AuthorizedByActorID,
@@ -191,9 +208,6 @@ WHERE owner_scope = ? AND owner_orbit_id = ? AND owner_actor_id = ?
 		params.BlockedKind, params.BlockedActorID, params.BlockedOrbitID,
 	))
 	if err == nil {
-		if err := tx.Commit(); err != nil {
-			return TransmissionBlockCreation{}, err
-		}
 		return TransmissionBlockCreation{Block: existing, Reused: true}, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -218,12 +232,6 @@ WHERE owner_scope = ? AND owner_orbit_id = ? AND owner_actor_id = ?
 		`SELECT `+transmissionBlockColumns+` FROM blocks WHERE id = ?`, id,
 	))
 	if err != nil {
-		return TransmissionBlockCreation{}, err
-	}
-	if err := s.checkpoint("transmission_block_create_before_commit"); err != nil {
-		return TransmissionBlockCreation{}, err
-	}
-	if err := tx.Commit(); err != nil {
 		return TransmissionBlockCreation{}, err
 	}
 	return TransmissionBlockCreation{Block: block}, nil

@@ -173,6 +173,39 @@ func TestRegisterRetainsUnknownCapabilitiesInCanonicalOrder(t *testing.T) {
 	}
 }
 
+func TestDisconnectClosesRevokedLiveGenerationImmediately(t *testing.T) {
+	h := New(slog.Default(), func(token string) (int64, string, bool) {
+		return 42, "a", token == "valid"
+	}, time.Second)
+	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
+	defer server.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(websocketTestURL(server.URL), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := conn.WriteJSON(registerWire([]any{})); err != nil {
+		t.Fatal(err)
+	}
+	key := NodeKey{Orbit: 42, Slot: "a"}
+	deadline := time.Now().Add(time.Second)
+	for !h.NodeSnapshots()[key].Connected && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if !h.Disconnect(key) {
+		t.Fatal("live node was not disconnected")
+	}
+	_, _, err = conn.ReadMessage()
+	var closeErr *websocket.CloseError
+	if !errors.As(err, &closeErr) || closeErr.Code != closeRevokedAuth {
+		t.Fatalf("revocation close=%v", err)
+	}
+	if h.Disconnect(key) {
+		t.Fatal("repeat disconnect reported a live generation")
+	}
+}
+
 func TestRTTSampleBelongsOnlyToCurrentAuthenticatedSocket(t *testing.T) {
 	h := New(slog.Default(), func(token string) (int64, string, bool) {
 		return 7, "a", token == "valid"

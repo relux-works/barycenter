@@ -2160,14 +2160,27 @@ LIMIT ?`, now, limit)
 }
 
 func (s *Store) PendingMediaStorageOperations(kind StorageOperationKind, limit int) ([]MediaStorageOperation, error) {
+	return s.PendingMediaStorageOperationsAt(kind, time.Now().UnixMilli(), limit)
+}
+
+// PendingMediaStorageOperationsAt keeps canonical bytes while an authorized
+// moderation evidence snapshot is inside its 30-day review window. Publish
+// operations are unaffected; cleanup resumes automatically after the hold.
+func (s *Store) PendingMediaStorageOperationsAt(kind StorageOperationKind, now int64, limit int) ([]MediaStorageOperation, error) {
 	if (kind != StorageOperationPublish && kind != StorageOperationCleanup) || limit <= 0 || limit > 1000 {
 		return nil, fmt.Errorf("%w: invalid storage operation query", ErrMediaInvalid)
 	}
 	rows, err := s.db.Query(`SELECT `+mediaStorageOperationColumns+`
-FROM media_storage_operations
+FROM media_storage_operations o
 WHERE kind = ? AND state = 'pending'
+  AND (kind <> 'cleanup' OR NOT EXISTS (
+    SELECT 1 FROM moderation_reports mr
+    WHERE mr.media_id = o.media_id
+      AND mr.evidence_storage_key = o.storage_key
+      AND mr.evidence_expires_at > ?
+  ))
 ORDER BY created_at, id
-LIMIT ?`, kind, limit)
+LIMIT ?`, kind, now, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -2205,6 +2218,10 @@ func (s *Store) GetMediaStorageOperation(operationID string) (*MediaStorageOpera
 // worker calls it after acquiring the per-key publication lock and then the
 // completion transaction repeats the same invariant.
 func (s *Store) MediaStorageCleanupCandidate(operationID string, expectedRevision int64) (MediaStorageOperation, error) {
+	return s.MediaStorageCleanupCandidateAt(operationID, expectedRevision, time.Now().UnixMilli())
+}
+
+func (s *Store) MediaStorageCleanupCandidateAt(operationID string, expectedRevision, now int64) (MediaStorageOperation, error) {
 	if operationID == "" || expectedRevision <= 0 {
 		return MediaStorageOperation{}, fmt.Errorf("%w: invalid storage cleanup candidate", ErrMediaInvalid)
 	}
@@ -2224,7 +2241,13 @@ WHERE o.id = ? AND o.kind = 'cleanup' AND o.state = 'pending' AND o.revision = ?
     SELECT 1 FROM media_storage_operations publisher
     WHERE publisher.storage_key = o.storage_key
       AND publisher.kind = 'publish' AND publisher.state = 'pending'
-  )`, operationID, expectedRevision))
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM moderation_reports mr
+    WHERE mr.media_id = o.media_id
+      AND mr.evidence_storage_key = o.storage_key
+      AND mr.evidence_expires_at > ?
+  )`, operationID, expectedRevision, now))
 	if errors.Is(err, sql.ErrNoRows) {
 		return MediaStorageOperation{}, ErrMediaStateConflict
 	}
@@ -2552,6 +2575,15 @@ func (s *Store) CompleteMediaStorageCleanup(operationID string, expectedRevision
 		return MediaStorageOperation{}, err
 	}
 	if liveReferences != 0 || pendingPublishers != 0 {
+		return MediaStorageOperation{}, ErrMediaStateConflict
+	}
+	var evidenceHolds int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM moderation_reports
+WHERE media_id = ? AND evidence_storage_key = ? AND evidence_expires_at > ?`,
+		operation.MediaID, operation.StorageKey, now).Scan(&evidenceHolds); err != nil {
+		return MediaStorageOperation{}, err
+	}
+	if evidenceHolds != 0 {
 		return MediaStorageOperation{}, ErrMediaStateConflict
 	}
 	result, err := tx.Exec(`UPDATE media_storage_operations

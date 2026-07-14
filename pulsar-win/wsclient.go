@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"log/slog"
+	"sort"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ type Identity struct {
 	AppVersion       string
 	LibrespotVersion func() string
 	HandshakeTimeout time.Duration
+	Capabilities     []string
 }
 
 type WSClient struct {
@@ -58,6 +60,11 @@ func NewWSClient(url string, identity Identity, log *slog.Logger) *WSClient {
 	}
 	if identity.HandshakeTimeout == 0 {
 		identity.HandshakeTimeout = 10 * time.Second
+	}
+	if len(identity.Capabilities) == 0 {
+		identity.Capabilities = []string{protocol.CapabilitySeamlessAdoption}
+	} else {
+		identity.Capabilities = canonicalNodeCapabilities(identity.Capabilities)
 	}
 	return &WSClient{
 		url:               url,
@@ -170,7 +177,7 @@ func (c *WSClient) run() {
 			Token:            c.identity.Token,
 			AppVersion:       c.identity.AppVersion,
 			LibrespotVersion: c.identity.LibrespotVersion(),
-			Capabilities:     []string{protocol.CapabilitySeamlessAdoption},
+			Capabilities:     append([]string(nil), c.identity.Capabilities...),
 		})
 		if c.OnConnected != nil {
 			c.OnConnected()
@@ -192,6 +199,21 @@ func (c *WSClient) run() {
 			return
 		}
 	}
+}
+
+func canonicalNodeCapabilities(values []string) []string {
+	unique := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		if value != "" {
+			unique[value] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(unique))
+	for value := range unique {
+		result = append(result, value)
+	}
+	sort.Strings(result)
+	return result
 }
 
 // timers drives the protocol ping (clock sync) and the state heartbeat for

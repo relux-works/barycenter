@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -55,13 +56,15 @@ type deadlineClock interface {
 }
 
 type Player struct {
-	daemon daemonAPI
-	ring   *Ring
-	engine *Engine
-	cache  *VoiceCache
-	clock  deadlineClock
-	send   func(msgType string, payload any)
-	log    *slog.Logger
+	daemon        daemonAPI
+	ring          *Ring
+	engine        *Engine
+	cache         *VoiceCache
+	clock         deadlineClock
+	send          func(msgType string, payload any)
+	log           *slog.Logger
+	mediaClips    *MediaClipClient
+	presenceStore *NodePresenceStore
 
 	// Poll knobs (shrunk by tests). Defaults mirror the macOS PlayerCore:
 	// ready 20x500ms, confirm 10x300ms, play retry after 2 s.
@@ -145,7 +148,28 @@ func (p *Player) Start() {
 
 // Close stops the background watchers (shutdown / test hygiene).
 func (p *Player) Close() {
+	p.mu.Lock()
+	mediaClips := p.mediaClips
+	p.mu.Unlock()
+	if mediaClips != nil {
+		mediaClips.Stop()
+	}
 	p.closeOnce.Do(func() { close(p.done) })
+}
+
+// ConfigureTransmissionHooks installs the P1 lifecycle before the WebSocket
+// starts dispatching. The client owns only protocol state; delivery audio
+// remains behind its mixer interface.
+func (p *Player) ConfigureTransmissionHooks(mediaClips *MediaClipClient, presenceStore *NodePresenceStore) {
+	p.mu.Lock()
+	p.mediaClips = mediaClips
+	p.presenceStore = presenceStore
+	latency := p.outputLatencyOffsetMS
+	p.mu.Unlock()
+	if mediaClips != nil {
+		mediaClips.Bind(p.clock, p.send, latency)
+		mediaClips.Synchronize()
+	}
 }
 
 // Handle dispatches one incoming coordinator envelope (spec 8.3).
@@ -178,11 +202,31 @@ func (p *Player) Handle(env protocol.Envelope, payload any) {
 	case *protocol.SoloVoicePayload:
 		// Phase 2 (goal §8): boundary interception lands with solo scope.
 		p.log.Warn("solo_voice not implemented until phase 2", "element", m.ElementID)
-	case *protocol.PrepareMediaPayload, *protocol.PlayMediaAtPayload, *protocol.CancelMediaPayload:
-		// Dedicated client hooks land later. This build does not advertise
-		// media_clip_v1, so receiving a clip command is a coordinator routing
-		// error and must never fall back locally to legacy play_voice.
-		p.log.Warn("ignoring unadvertised clip command", "type", env.Type)
+	case *protocol.PrepareMediaPayload:
+		if p.mediaClips != nil {
+			p.mediaClips.Prepare(m)
+		} else {
+			p.log.Warn("ignoring unadvertised clip command", "type", env.Type)
+		}
+	case *protocol.PlayMediaAtPayload:
+		if p.mediaClips != nil {
+			p.mediaClips.Play(m)
+		} else {
+			p.log.Warn("ignoring unadvertised clip command", "type", env.Type)
+		}
+	case *protocol.CancelMediaPayload:
+		if p.mediaClips != nil {
+			p.mediaClips.Cancel(m)
+		} else {
+			p.log.Warn("ignoring unadvertised clip command", "type", env.Type)
+		}
+	case *protocol.PresenceUpdatePayload:
+		if p.presenceStore != nil {
+			// Persistence must not stall the WebSocket read loop. Monotonic
+			// revisions make concurrent arrival safe: only the newest body wins.
+			update := clonePresenceUpdate(m)
+			go p.presenceStore.AcceptPresence(update)
+		}
 	default:
 		p.log.Debug("ignoring non-command", "type", env.Type)
 	}
@@ -484,17 +528,19 @@ func (p *Player) playVoice(m *protocol.PlayVoicePayload) {
 	el := m.ElementID
 	go func() {
 		if p.cache == nil {
-			p.sendError("media_download_failed", "voice cache not configured", el)
+			p.sendError("media_download_failed", "voice media unavailable", el)
 			return
 		}
 		path, err := p.cache.Fetch(context.Background(), m.FileURL)
 		if err != nil {
-			p.sendError("media_download_failed", err.Error(), el)
+			// Legacy compatibility keeps the same code/element behavior without
+			// reflecting request URLs or transport errors into logs or the wire.
+			p.sendError("media_download_failed", "voice media unavailable", el)
 			return
 		}
 		samples, err := loadVoiceFile(path)
 		if err != nil {
-			p.sendError("media_download_failed", err.Error(), el)
+			p.sendError("media_download_failed", "voice media unavailable", el)
 			return
 		}
 
@@ -639,8 +685,59 @@ func (p *Player) setMode(m string) {
 func (p *Player) setOffset(m *protocol.SetOffsetPayload) {
 	p.mu.Lock()
 	p.outputLatencyOffsetMS = int(m.OffsetMS)
+	mediaClips := p.mediaClips
 	p.mu.Unlock()
+	if mediaClips != nil {
+		mediaClips.SetOutputLatencyOffsetMS(int(m.OffsetMS))
+	}
 	p.log.Info("offset set", "offset_ms", m.OffsetMS)
+}
+
+// SetLocalDND is the exact-node mutation future UI code calls. It persists the
+// next revision before sending and cannot address another node or loosen an
+// orbit-wide policy.
+func (p *Player) SetLocalDND(mode string, mutedUntilCoordMS *int64) error {
+	p.mu.Lock()
+	store := p.presenceStore
+	p.mu.Unlock()
+	if store == nil {
+		return ErrPresencePersistence
+	}
+	coordinatorNow := nowMS()
+	if p.clock != nil {
+		if offset, ok := p.clock.OffsetMS(); ok {
+			coordinatorNow -= int64(math.Round(offset))
+		}
+	}
+	payload, err := store.NextLocalDND(mode, mutedUntilCoordMS, coordinatorNow)
+	if err != nil {
+		return err
+	}
+	p.send(protocol.TypeSetDND, payload)
+	return nil
+}
+
+// ResendLocalDND replays durable intent after every authenticated reconnect;
+// the same revision and body are idempotent at the coordinator.
+func (p *Player) ResendLocalDND() {
+	p.mu.Lock()
+	store := p.presenceStore
+	p.mu.Unlock()
+	if store != nil {
+		if payload := store.CurrentLocalDND(); payload != nil {
+			p.send(protocol.TypeSetDND, payload)
+		}
+	}
+}
+
+func (p *Player) LatestPresence() *protocol.PresenceUpdatePayload {
+	p.mu.Lock()
+	store := p.presenceStore
+	p.mu.Unlock()
+	if store == nil {
+		return nil
+	}
+	return store.LatestPresence()
 }
 
 func (p *Player) cancelResumeLocked() {

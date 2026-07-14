@@ -12,12 +12,14 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task after PR #29 lands: `TASK-260712-2kec2s` — moderation-control-plane
+- Current engineering task: `TASK-260712-2kec2s` — moderation-control-plane
 - Most recently accepted: `TASK-260712-16zfvu` — confirm-legal-ops-inputs
-- Current branch: `task/task-260712-16zfvu-confirm-legal-ops-inputs`
+- Current branch: `task/task-260712-2kec2s-moderation-control-plane`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
-  `29338589269`. PR #29 is ready to land.
+  `29338589269`; tracking head `5af1b56` passed all four jobs in run
+  `29339017452`. PR #29 landed at merge
+  `e588fc9b727d6264c289f69cc97ea77e4987f939`.
 - Accepted overall: 30 / 205 tasks (approximately 14.6%); 175 remain
 - Engineering progress: 30 / 186 tasks (approximately 16.1%); 156 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -104,8 +106,11 @@ jurisdictions; Monday-Friday 10:00-19:00 GMT+4 moderation with two-business-day
 normal and 24-hour urgent targets; and no separate counsel requirement with
 Ivan Oparin as EN/RU reviewer. All seven groups and `--require-approved` now
 pass locally. Exact head `3b12371` passed all four hosted jobs in run
-`29338589269`; the task is accepted and PR #29 is ready to merge. Progress is
-30/205.
+`29338589269`; the task is accepted. Progress is
+30/205. Tracking head `5af1b56` passed all four hosted jobs in run
+`29339017452`; PR #29 landed at merge
+`e588fc9b727d6264c289f69cc97ea77e4987f939`, and strict execution advanced to
+`TASK-260712-2kec2s` from synchronized `main`.
 
 Checkpoint 2026-07-14: `TASK-260712-2cdjq8` closes the P1 transmission story
 with one stable rollout/handoff entry point. It records the frozen strict HTTP

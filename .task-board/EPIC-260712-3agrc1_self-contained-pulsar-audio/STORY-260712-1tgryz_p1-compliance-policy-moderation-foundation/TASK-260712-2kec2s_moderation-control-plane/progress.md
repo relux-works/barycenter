@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:45:03Z
 
 ## Last Update
-2026-07-12T17:03:16Z
+2026-07-14T14:05:57Z
 
 ## Blocked By
 - TASK-260712-1bpog0
@@ -37,6 +37,7 @@ backlog
 - [ ] Apply the same frozen active-media delete policy for operator removal
 
 ## Notes
+Strict inline execution started from synchronized main e588fc9b727d6264c289f69cc97ea77e4987f939 after PR #29. Implement the least-privilege report/operator control plane by extending additive store migrations and reusing canonical media lifecycle, credential revocation, live disconnect, scheduler cancellation and block services. No task-board spawn workflow and no manual hardware claim.
 
 ## Precondition Resources
 (none)

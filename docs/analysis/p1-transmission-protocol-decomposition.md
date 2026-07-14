@@ -13,6 +13,8 @@ Story: `STORY-260712-25lysg`
 2. `TASK-260712-1aprcb` Add transmission persistence, target snapshots, and ACL enforcement
    - Additive schema, receipt state storage, block data, and target-snapshot
      media authorization.
+   - Implementation outcome:
+     [`p1-transmission-store-target-snapshots.md`](p1-transmission-store-target-snapshots.md).
 3. `TASK-260712-2qpp6w` Implement transmission HTTP API and audience resolution
    - Control-token endpoints, explicit target resolution, downgrade recording,
      and cancel/status behavior.

@@ -29,15 +29,17 @@ transport-neutral `SubmitMedia` processing service and one authoritative
 - Telegram acceptance-order and legacy `play_voice` compatibility; and
 - exact-predecessor migration, rollback and roll-forward regression gates.
 
-Two important boundaries remain deliberately closed:
+One important boundary remains deliberately closed:
 
-1. production node access to `GET /v1/media/{id}` is fail-closed until
-   `TASK-260712-1aprcb` connects persisted immutable transmission targets to
-   `MediaTargetSnapshotReader`; owning control access works now; and
-2. app-facing media routes currently use the existing
+- app-facing media routes currently use the existing
    `self_service_onboarding` gate (`DUET_SELF_SERVICE_ONBOARDING=1`). The
    conceptual separate `app_media_upload` flag from the product specification
    is not implemented yet.
+
+`TASK-260712-1aprcb` has connected persisted immutable transmission targets to
+`MediaTargetSnapshotReader`. Production node reads now succeed only for an
+exact accepted actor, orbit, slot and binding generation; an absent snapshot
+still fails closed and owning-control behavior is unchanged.
 
 ## Upload and retry contract
 

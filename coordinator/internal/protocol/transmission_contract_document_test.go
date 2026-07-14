@@ -43,6 +43,7 @@ func TestPhaseOneTransmissionContractExamplesAndDecisions(t *testing.T) {
 	}
 
 	required := []string{
+		"Media IDs use the existing `m_` plus 26-character ULID identifier",
 		"POST /v1/transmissions",
 		"GET /v1/transmissions/{id}",
 		"POST /v1/transmissions/{id}/cancel",

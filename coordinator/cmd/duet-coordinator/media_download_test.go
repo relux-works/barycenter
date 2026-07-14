@@ -240,6 +240,91 @@ func TestMediaDownloadHTTPEnforcesOwnerAndExactTargetACL(t *testing.T) {
 	}
 }
 
+func TestMediaDownloadHTTPUsesPersistedTransmissionTargetsInProductionWiring(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	source, err := harness.store.CreateSelfServiceOrbit("Persisted ACL source")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := harness.store.CreateSelfServiceOrbit("Persisted ACL target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nontarget, err := harness.store.CreateSelfServiceOrbit("Persisted ACL nontarget")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	payload := []byte("persisted-transmission-target-bytes")
+	ready := readyDownloadHTTPMedia(
+		t, harness, source, now,
+		now+int64((7*24*time.Hour)/time.Millisecond), payload,
+	)
+	code, err := harness.store.ProposeLink(source.OrbitID, source.ActorID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	linkID, _, err := harness.store.AcceptByCode(code, target.OrbitID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := harness.store.ActivateLink(linkID); err != nil {
+		t.Fatal(err)
+	}
+	created, err := harness.store.CreateTransmission(store.CreateTransmissionParams{
+		MediaID:            ready.ID,
+		SourceOrbitID:      source.OrbitID,
+		SourceActorID:      source.ActorID,
+		SourceSlot:         source.Slot,
+		PlaybackDomainKind: store.PlaybackDomainApproach,
+		PlaybackDomainID:   linkID,
+		AudienceKind:       store.TransmissionAudienceCurrentAir,
+		OriginKind:         store.TransmissionOriginFile,
+		IncludeOrigin:      false,
+		RequestedDelivery:  store.TransmissionDeliveryOverlay,
+		EffectiveDelivery:  store.TransmissionDeliveryOverlay,
+		AcceptedAt:         now + 3,
+		Targets: []store.CreateTransmissionTarget{{
+			OrbitID: target.OrbitID, ActorID: target.ActorID, Slot: target.Slot,
+			OnlineAtAcceptance: true, MediaClipCapable: true, OverlayCapable: true,
+			InterruptCapable: true, InterruptResumeReady: true,
+		}},
+	})
+	if err != nil || created.Transmission.MediaID != ready.ID {
+		t.Fatalf("create persisted ACL transmission=%+v err=%v", created, err)
+	}
+	response := apiRequest(
+		harness.mux, http.MethodGet, "/v1/media/"+ready.ID, "", target.NodeToken,
+	)
+	if response.Code != http.StatusOK || response.Body.String() != string(payload) {
+		t.Fatalf("persisted target status=%d body=%q", response.Code, response.Body.String())
+	}
+	unknown := apiRequest(
+		harness.mux, http.MethodGet, "/v1/media/m_00000000000000000000000000", "", target.NodeToken,
+	)
+	for name, token := range map[string]string{
+		"source without include-origin snapshot": source.NodeToken,
+		"copied ID nontarget":                    nontarget.NodeToken,
+	} {
+		denied := apiRequest(
+			harness.mux, http.MethodGet, "/v1/media/"+ready.ID, "", token,
+		)
+		if denied.Code != http.StatusNotFound || denied.Body.String() != unknown.Body.String() {
+			t.Fatalf("%s status=%d body=%q", name, denied.Code, denied.Body.String())
+		}
+	}
+	if err := harness.store.BreakLink(linkID); err != nil {
+		t.Fatal(err)
+	}
+	afterSplit := apiRequest(
+		harness.mux, http.MethodGet, "/v1/media/"+ready.ID, "", target.NodeToken,
+	)
+	if afterSplit.Code != http.StatusOK || afterSplit.Body.String() != string(payload) {
+		t.Fatalf("immutable target after split status=%d body=%q",
+			afterSplit.Code, afterSplit.Body.String())
+	}
+}
+
 func TestLegacyMediaHTTPKeepsOnlyNodeApproachCompatibility(t *testing.T) {
 	harness := newOnboardingHarness(t)
 	owner, err := harness.store.CreateSelfServiceOrbit("Legacy media owner")

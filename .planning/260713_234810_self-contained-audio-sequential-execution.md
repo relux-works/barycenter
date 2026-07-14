@@ -12,9 +12,9 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Landing engineering task: `TASK-260712-2qc27p` — transmission-regression-coverage
-- Next engineering task after landing: `TASK-260712-2cdjq8` — transmission-rollout-handoff
-- Current branch: `task/task-260712-2qc27p-transmission-regression-coverage`
+- Current engineering task: `TASK-260712-2cdjq8` — transmission-rollout-handoff
+- Next engineering task after landing: `TASK-260712-16zfvu` — confirm-legal-ops-inputs
+- Current branch: `task/task-260712-2cdjq8-transmission-rollout-handoff`
 - Accepted overall: 28 / 205 tasks (approximately 13.7%); 177 remain
 - Engineering progress: 28 / 186 tasks (approximately 15.1%); 158 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -58,8 +58,10 @@
   `TASK-260712-2qc27p` from that synchronized `main`. `TASK-260712-2qc27p` is
   accepted on exact engineering code head
   `c60bd99ed4717a62b69a10338e5b13b39001e419`; all four hosted jobs passed in
-  run `29333494719`, and PR #27 is landing the tracking update before strict
-  execution advances to `TASK-260712-2cdjq8`.
+  run `29333494719`, and tracking head `d45f535` passed all four jobs in run
+  `29333795623`. PR #27 landed at merge
+  `70f26072cb36f3ee6e5cd4358bdded2bf98b7214`, and strict execution advanced to
+  `TASK-260712-2cdjq8` from that synchronized `main`.
 
 Checkpoint 2026-07-14: `TASK-260712-2qc27p` closes the deterministic
 transmission regression matrix. Strict HTTP tests reject caller-controlled

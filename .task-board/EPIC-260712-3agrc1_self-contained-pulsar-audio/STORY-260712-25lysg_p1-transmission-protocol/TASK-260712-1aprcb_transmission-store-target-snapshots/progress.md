@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:39:19Z
 
 ## Last Update
-2026-07-14T07:20:55Z
+2026-07-14T07:25:10Z
 
 ## Blocked By
 - TASK-260712-51y5k9
@@ -33,6 +33,7 @@ codex-inline
 
 ## Notes
 Strict sequential handoff after accepted TASK-260712-51y5k9. Start only from merged PR #20/main; implement the frozen p1-transmission-v1 persistence and immutable ACL contract. Manual real-app and physical-hardware evidence remains in EPIC-260714-th54l3.
+Execution branch task/task-260712-1aprcb-transmission-store-target-snapshots started from clean main merge 2aa97c2d08cb93b110200ae159fd43265410ff5a after PR #20 and both hosted CI runs passed. Frozen input is docs/analysis/p1-transmission-contract-v1.md. Work remains inline and strict-sequential outside task-board spawn.
 
 ## Precondition Resources
 - [p1-transmission-protocol-components.puml](file://TASK-260712-1aprcb/p1-transmission-protocol-components.puml) — Store and ACL context for transmission persistence

@@ -13,7 +13,7 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-1aprcb` — transmission-store-target-snapshots
-- Current branch: `task/task-260712-1aprcb-transmission-store-target-snapshots` after PR #20 lands
+- Current branch: `task/task-260712-1aprcb-transmission-store-target-snapshots`
 - Accepted overall: 21 / 205 tasks (approximately 10.2%); 184 remain
 - Engineering progress: 21 / 186 tasks (approximately 11.3%); 165 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -32,9 +32,9 @@
   `TASK-260712-gj0cko` landed through PR #17 at merge commit `9f2aea8`;
   `TASK-260712-3huupe` landed through PR #18 at merge commit `cfe12ed`;
   `TASK-260712-jolzhh` landed through PR #19 at merge commit `c4cb324`;
-  `TASK-260712-51y5k9` is accepted on implementation commit `605859b` after
-  hosted CI run `29314060965`; strict execution advances to
-  `TASK-260712-1aprcb` after PR #20 lands.
+  `TASK-260712-51y5k9` landed through PR #20 at merge commit `2aa97c2` after
+  hosted CI runs `29314060965` and `29314299856`; strict execution is now on
+  `TASK-260712-1aprcb`.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -232,8 +232,10 @@ portable Windows tests, diff and board checks are green. Hosted CI run
 authoritative macOS NodeCore, portable Windows and the signed packaged probe
 on implementation commit `605859b`. Inline review closed aggregate reason,
 cancel/start race, capability refresh and DND acknowledgement gaps. The task
-is accepted, PR #20 is in final tracking, and execution points to
-`TASK-260712-1aprcb`. No manual real-app or hardware result is claimed.
+is accepted. Final tracking CI run `29314299856` passed the same four jobs;
+PR #20 landed at `2aa97c2d08cb93b110200ae159fd43265410ff5a`, and execution
+started `TASK-260712-1aprcb` from that clean main. No manual real-app or
+hardware result is claimed.
 
 ## Operating contract
 

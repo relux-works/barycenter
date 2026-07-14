@@ -617,6 +617,11 @@ capture. Это уменьшает, но не устраняет echo. UI не �
 Все имена ниже логические; точные URL могут быть адаптированы к существующему
 router, но семантика обязательна.
 
+Точный нормативный контракт Phase 1 для HTTP, WebSocket, scheduler, receipts,
+DND, downgrade, cancel и delete зафиксирован в
+[`docs/analysis/p1-transmission-contract-v1.md`](analysis/p1-transmission-contract-v1.md).
+Примеры ниже остаются обзором и не переопределяют этот контракт.
+
 ### 11.1 HTTP API
 
 | Method | Path | Auth | Назначение |

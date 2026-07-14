@@ -2,6 +2,11 @@
 
 Normative source: spec ch. 8 (`docs/spec.md` v1.2). Golden files: `protocol/golden/*.json`, one per message type; contract tests on both sides decode -> re-encode -> compare against them (spec 8.7). Any protocol change lands together with the golden change in the same commit (goal invariant 5).
 
+The exact additive phase-one clip-transmission, DND and presence payloads are
+frozen in [`docs/analysis/p1-transmission-contract-v1.md`](analysis/p1-transmission-contract-v1.md).
+They are implemented with their golden files by `TASK-260712-1g70av`; this note
+does not treat the pre-implementation examples as already shipped.
+
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 
 ## Envelope

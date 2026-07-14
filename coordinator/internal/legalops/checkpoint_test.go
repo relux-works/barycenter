@@ -16,12 +16,22 @@ func TestRepositoryLegalOpsCheckpointIsStrictAndBlocked(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := checkpoint.Validate(false); err != nil {
-		t.Fatalf("blocked checkpoint must remain structurally valid: %v", err)
+		t.Fatalf("partially approved checkpoint must remain structurally valid: %v", err)
+	}
+	expectedUnresolved := []string{
+		"hosting_and_data_locations",
+		"markets_age_and_disputes",
+		"moderation_ownership_and_response",
+		"policy_review_and_configuration",
+	}
+	unresolved := checkpoint.Unresolved()
+	if strings.Join(unresolved, ",") != strings.Join(expectedUnresolved, ",") {
+		t.Fatalf("unresolved inputs=%v, want %v", unresolved, expectedUnresolved)
 	}
 	if err := checkpoint.Validate(true); err == nil {
-		t.Fatal("unapproved checkpoint passed the external publication gate")
+		t.Fatal("partially approved checkpoint passed the external publication gate")
 	} else {
-		for _, id := range RequiredInputIDs {
+		for _, id := range expectedUnresolved {
 			if !strings.Contains(err.Error(), id) {
 				t.Errorf("approval failure does not name unresolved input %q: %v", id, err)
 			}
@@ -32,9 +42,13 @@ func TestRepositoryLegalOpsCheckpointIsStrictAndBlocked(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read concise legal/operations checklist: %v", err)
 	}
-	for _, id := range RequiredInputIDs {
-		if !strings.Contains(string(checklist), "- [ ] `"+id+"`") {
-			t.Errorf("concise checklist does not expose unresolved input %q", id)
+	for _, input := range checkpoint.Inputs {
+		marker := "- [x] `"
+		if input.Status != "approved" {
+			marker = "- [ ] `"
+		}
+		if !strings.Contains(string(checklist), marker+input.ID+"`") {
+			t.Errorf("concise checklist does not expose status %q for input %q", input.Status, input.ID)
 		}
 	}
 

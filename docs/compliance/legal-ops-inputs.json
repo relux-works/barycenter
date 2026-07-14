@@ -10,9 +10,8 @@
   "inputs": [
     {
       "id": "legal_identity_and_controller",
-      "status": "observed_unapproved",
-      "value": null,
-      "candidate": {
+      "status": "approved",
+      "value": {
         "legal_name": "Relux Works LLC",
         "registration_number": "999.110.1559507",
         "tax_id": "03036828",
@@ -20,40 +19,42 @@
         "data_controller": "Relux Works LLC",
         "registration_jurisdiction": "Republic of Armenia"
       },
-      "owner": null,
-      "approved_by": null,
-      "approved_at": null,
+      "candidate": null,
+      "owner": "Ivan Oparin",
+      "approved_by": "Ivan Oparin",
+      "approved_at": "2026-07-14T17:31:50+04:00",
       "evidence": [
         "https://relux.works/en/privacy-policy/",
         "https://relux.works/en/terms-of-use/",
-        "docs/decisions.md"
+        "docs/decisions.md",
+        "docs/analysis/p1-legal-ops-input-checkpoint.md#approval-record"
       ]
     },
     {
       "id": "contacts_and_public_urls",
-      "status": "observed_unapproved",
-      "value": null,
-      "candidate": {
+      "status": "approved",
+      "value": {
         "privacy_email": "privacy@relux.works",
         "legal_email": "legal@relux.works",
-        "support_email": null,
-        "moderation_email": null,
+        "support_email": "support@barycenter.live",
+        "moderation_email": "moderator@barycenter.live",
         "privacy_url_en": "https://relux.works/en/privacy-policy/",
         "privacy_url_ru": "https://relux.works/ru/privacy-policy/",
         "terms_url_en": "https://relux.works/en/terms-of-use/",
         "terms_url_ru": "https://relux.works/ru/terms-of-use/",
-        "product_privacy_url": null,
-        "product_terms_url": null,
-        "content_guidelines_url": null,
-        "support_url": null
+        "product_privacy_url": "https://barycenter.live/legal/privacy",
+        "product_terms_url": "https://barycenter.live/legal/terms",
+        "content_guidelines_url": "https://barycenter.live/legal/content-guidelines",
+        "support_url": "https://barycenter.live/legal/support"
       },
-      "owner": null,
-      "approved_by": null,
-      "approved_at": null,
+      "candidate": null,
+      "owner": "Ivan Oparin",
+      "approved_by": "Ivan Oparin",
+      "approved_at": "2026-07-14T17:31:50+04:00",
       "evidence": [
         "https://relux.works/en/privacy-policy/",
         "https://relux.works/en/terms-of-use/",
-        "docs/analysis/p1-legal-ops-input-checkpoint.md"
+        "docs/analysis/p1-legal-ops-input-checkpoint.md#approval-record"
       ]
     },
     {
@@ -61,12 +62,12 @@
       "status": "observed_unapproved",
       "value": null,
       "candidate": {
-        "service_owner": null,
+        "service_owner": "Ivan Oparin",
         "primary_host_owner": null,
-        "primary_data_country_or_region": null,
+        "primary_data_country_or_region": "United States",
         "object_backup_provider": null,
-        "backup_data_country_or_region": null,
-        "operational_owner": null,
+        "backup_data_country_or_region": "United States",
+        "operational_owner": "Ivan Oparin",
         "subprocessor_disclosure": null
       },
       "owner": null,
@@ -105,15 +106,16 @@
       "status": "observed_unapproved",
       "value": null,
       "candidate": {
-        "primary_operator": null,
-        "backup_operator": null,
-        "escalation_owner": null,
-        "privacy_mailbox_owner": null,
-        "support_mailbox_owner": null,
-        "moderation_mailbox_owner": null,
+        "primary_operator": "Ivan Oparin",
+        "backup_operator": "Ivan Oparin",
+        "escalation_owner": "Ivan Oparin",
+        "privacy_mailbox_owner": "Ivan Oparin",
+        "support_mailbox_owner": "Ivan Oparin",
+        "moderation_mailbox_owner": "Ivan Oparin",
         "normal_report_response_target": null,
         "urgent_removal_response_target": null,
-        "coverage_hours_and_timezone": null
+        "coverage_hours_and_timezone": "GMT+4; coverage hours not supplied",
+        "urgent_removal_email": "moderation-urgent@barycenter.live"
       },
       "owner": null,
       "approved_by": null,
@@ -126,25 +128,26 @@
     },
     {
       "id": "partner_center_and_submission",
-      "status": "observed_unapproved",
-      "value": null,
-      "candidate": {
+      "status": "approved",
+      "value": {
         "store_product_id": "9P26FDCWV1GC",
         "package_identity": "ReluxWorksLLC.PulsarBarycenter",
         "automation_application": "pulsar-store-ci",
         "automation_role": "Manager (Windows)",
-        "partner_center_account_owner": null,
-        "listing_asset_owner": null,
-        "final_external_submit_authority": null,
-        "emergency_withdrawal_authority": null
+        "partner_center_account_owner": "Ivan Oparin",
+        "listing_asset_owner": "Ivan Oparin",
+        "final_external_submit_authority": "Ivan Oparin",
+        "emergency_withdrawal_authority": "Ivan Oparin"
       },
-      "owner": null,
-      "approved_by": null,
-      "approved_at": null,
+      "candidate": null,
+      "owner": "Ivan Oparin",
+      "approved_by": "Ivan Oparin",
+      "approved_at": "2026-07-14T17:31:50+04:00",
       "evidence": [
         "docs/decisions.md",
         ".github/workflows/store-auth-check.yml",
-        ".github/workflows/store-submit.yml"
+        ".github/workflows/store-submit.yml",
+        "docs/analysis/p1-legal-ops-input-checkpoint.md#approval-record"
       ]
     },
     {
@@ -152,8 +155,8 @@
       "status": "observed_unapproved",
       "value": null,
       "candidate": {
-        "english_legal_reviewer": null,
-        "russian_legal_reviewer": null,
+        "english_legal_reviewer": "Ivan Oparin",
+        "russian_legal_reviewer": "Ivan Oparin",
         "counsel_review_required": null,
         "controlling_language_decision": "English text controls; Russian must be semantically equivalent",
         "checked_in_facts": [

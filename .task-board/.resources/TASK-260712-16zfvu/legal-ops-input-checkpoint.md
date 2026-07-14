@@ -1,25 +1,12 @@
 # Legal and operations input checkpoint
 
-- Task: `TASK-260712-16zfvu`
-- Engineering checkpoint: `18eae3fa3d2b8419cc2836acf7cf48cebcd5b576`
-- Tracking checkpoint: `e9542b7e3cca10ca83b82af609de12fea322aad1`
-- Pull request: `#29` (draft)
-- Hosted engineering CI: `29335621951`
-- Hosted tracking CI: `29335884943`
-- Publication state: blocked on explicit external approval
+- Task: TASK-260712-16zfvu
+- Pull request: #29 (draft)
+- Approval owner: Ivan Oparin
+- Publication state: blocked on four unresolved groups
 
-The canonical human checklist is
-[`docs/analysis/p1-legal-ops-input-checkpoint.md`](../../../docs/analysis/p1-legal-ops-input-checkpoint.md).
-The strict machine-readable contract is
-[`docs/compliance/legal-ops-inputs.json`](../../../docs/compliance/legal-ops-inputs.json).
+Approved groups: legal/controller identity; contacts and canonical public URLs; Partner Center and submission authority.
 
-The repository now distinguishes observed candidates from approved values,
-rejects unknown fields and placeholder approved values, requires an accountable
-owner/approver/timestamp for each group and gates the manual Store submission
-workflow before tooling installation or package download. All four hosted CI
-jobs passed on both the engineering and tracking checkpoints.
+Unresolved groups: hosting provider, backup provider and subprocessors; target and excluded markets; moderation coverage hours and normal/urgent response durations; counsel review requirement.
 
-The task is intentionally not accepted yet. Seven approval groups remain open:
-legal/controller identity; contacts and URLs; hosting and locations; markets,
-age and disputes; moderation ownership/response; Partner Center/submission; and
-policy review/configuration. No external value or authority is inferred.
+The Store workflow remains fail-closed. No missing value is inferred and overall task progress is not incremented until all four groups are approved.

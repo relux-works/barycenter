@@ -76,9 +76,10 @@ Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
 Relux Works legal identity, general privacy/legal contacts, Armenian law and
-Partner Center product identity, but no explicit Pulsar approval, moderation
-roster, support/moderation ownership, hosting/data locations, markets, final
-submit authority or policy reviewer. More critically, `barycenter.live` routes
+Partner Center product identity, but initially had no explicit Pulsar approval,
+moderation roster, support/moderation ownership, hosting/data locations,
+markets, final submit authority or policy reviewer. More critically,
+`barycenter.live` routes
 `/privacy`, `/terms` and `/support` return the homepage bytes rather than real
 documents, while the general Relux policy does not disclose Pulsar media,
 Telegram/Spotify, retention or moderation. The new validator rejects unknown
@@ -88,9 +89,16 @@ ordinary engineering remains unblocked. Local coordinator vet/full tests,
 focused race, Windows vet/tests, Swift release build, board validation and diff
 checks passed; hosted run `29335621951` passed all four jobs on code head
 `18eae3f`, and tracking head `e9542b7` passed all four jobs in run
-`29335884943`. The task and PR #29 remain open until an authorized user approves
-or corrects all seven groups; progress remains 29/205 rather than overstating
-it.
+`29335884943`, and doc-only head `174a236` passed all four jobs in run
+`29336133129`. Ivan Oparin then approved the observed Relux Works candidates,
+named himself common owner, and supplied product mailboxes, canonical future
+URLs, United States data regions, age 13, Armenian law/courts, English control,
+GMT+4, reviewers and Store authorities. Three groups are now approved: legal
+identity/controller, contacts/public URLs and Partner Center/submission. The
+task and PR #29 remain open on four explicit decisions: actual hosting/backup
+providers and subprocessors; target/excluded markets; moderation coverage hours
+and numeric response objectives; counsel review yes/no. Progress remains 29/205
+rather than overstating it.
 
 Checkpoint 2026-07-14: `TASK-260712-2cdjq8` closes the P1 transmission story
 with one stable rollout/handoff entry point. It records the frozen strict HTTP

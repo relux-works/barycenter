@@ -15,6 +15,9 @@
 - Current engineering task: `TASK-260712-16zfvu` — confirm-legal-ops-inputs
 - Next engineering task after landing: `TASK-260712-2kec2s` — moderation-control-plane
 - Current branch: `task/task-260712-16zfvu-confirm-legal-ops-inputs`
+- Current external-input gate: seven legal/operations groups await explicit
+  accountable-owner approval; Store submit is fail-closed and PR #29 remains
+  draft. Engineering checkpoint `18eae3f` passed hosted CI `29335621951`.
 - Accepted overall: 29 / 205 tasks (approximately 14.1%); 176 remain
 - Engineering progress: 29 / 186 tasks (approximately 15.6%); 157 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -68,6 +71,24 @@
   `29334859168`. PR #28 landed at merge
   `3c720410fb54ed92ecc16f905d170d4f411d1b93`, and strict execution advanced to
   `TASK-260712-16zfvu` from that synchronized `main`.
+
+Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
+machine-readable legal/operations approval contract and a seven-group human
+checklist. Repository and live-site audit found usable candidates for the
+Relux Works legal identity, general privacy/legal contacts, Armenian law and
+Partner Center product identity, but no explicit Pulsar approval, moderation
+roster, support/moderation ownership, hosting/data locations, markets, final
+submit authority or policy reviewer. More critically, `barycenter.live` routes
+`/privacy`, `/terms` and `/support` return the homepage bytes rather than real
+documents, while the general Relux policy does not disclose Pulsar media,
+Telegram/Spotify, retention or moderation. The new validator rejects unknown
+fields, unowned approvals and placeholder values. Manual Store submission now
+runs `--require-approved` before installing `msstore` or downloading an MSIX;
+ordinary engineering remains unblocked. Local coordinator vet/full tests,
+focused race, Windows vet/tests, Swift release build, board validation and diff
+checks passed; hosted run `29335621951` passed all four jobs on code head
+`18eae3f`. The task and PR #29 remain open until an authorized user approves or
+corrects all seven groups; progress remains 29/205 rather than overstating it.
 
 Checkpoint 2026-07-14: `TASK-260712-2cdjq8` closes the P1 transmission story
 with one stable rollout/handoff entry point. It records the frozen strict HTTP

@@ -98,7 +98,8 @@ identity/controller, contacts/public URLs and Partner Center/submission. The
 task and PR #29 remain open on four explicit decisions: actual hosting/backup
 providers and subprocessors; target/excluded markets; moderation coverage hours
 and numeric response objectives; counsel review yes/no. Progress remains 29/205
-rather than overstating it.
+rather than overstating it. Partial-approval head `86c7c4a` passed coordinator,
+node-core, pulsar-win and the signed packaged probe in hosted run `29337160625`.
 
 Checkpoint 2026-07-14: `TASK-260712-2cdjq8` closes the P1 transmission story
 with one stable rollout/handoff entry point. It records the frozen strict HTTP

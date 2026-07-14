@@ -1,6 +1,8 @@
 # Legal and operations input checkpoint
 
 - Task: TASK-260712-16zfvu
+- Partial-approval head: 86c7c4a
+- Hosted CI: 29337160625, all four jobs green
 - Pull request: #29 (draft)
 - Approval owner: Ivan Oparin
 - Publication state: blocked on four unresolved groups

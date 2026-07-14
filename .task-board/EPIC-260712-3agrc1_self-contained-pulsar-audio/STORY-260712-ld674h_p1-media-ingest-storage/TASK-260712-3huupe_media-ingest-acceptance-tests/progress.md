@@ -1,5 +1,5 @@
 ## Status
-reviewing
+done
 
 ## Assigned To
 codex-inline
@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:28:12Z
 
 ## Last Update
-2026-07-14T06:25:20Z
+2026-07-14T06:29:39Z
 
 ## Blocked By
 - TASK-260712-2af2dp
@@ -32,6 +32,7 @@ codex-inline
 Strict sequential inline execution started 2026-07-14 from clean main merge 9f2aea8e5b9200d1e4077a5576dde18f8051bba5. This task is limited to deterministic automated fixtures and unit/integration acceptance evidence; manual real-app and real-hardware verification remains deferred to EPIC-260714-th54l3.
 Automated acceptance delta implemented inline: common-service live matrix now covers WAV/PCM, MP3, M4A/AAC, M4A/ALAC, ADTS AAC, OGG/Opus, OGG/Vorbis and FLAC; adversarial common-service failures cover corrupt, truncated, polyglot, protocol-shaped, declared-length, compressed-duration, probe/worker timeout-crash and canonical-output classes; a synthetic HTTP test joins resumable upload, target ACL, non-disclosure, delete and cleanup. Cleanup crash retry now reopens SQLite and the lifecycle service. Local coordinator vet/test/race, focused race stress x20 and exact pinned predecessor suite are green. Local ffmpeg is absent, so live codec and 181-second AAC fixtures are pending authoritative hosted coordinator CI. No real-app or hardware result is claimed.
 Hosted CI run 29311147090 passed coordinator with real ffmpeg live codec and compressed-duration fixtures, macOS Swift tests, portable Windows and signed packaged probe. Inline root delta-review found no production-code regression or uncovered deterministic story criterion. Final tracking CI and PR #18 merge remain pending.
+Final tracking CI run 29311329355 passed all four hosted jobs. PR #18 merged into main as cfe12ed211e9f763d683a3fa3ace9cf8f4f1efc3 on 2026-07-14. Deterministic automated evidence is accepted; no manual real-app or real-hardware result is claimed.
 
 ## Precondition Resources
 (none)

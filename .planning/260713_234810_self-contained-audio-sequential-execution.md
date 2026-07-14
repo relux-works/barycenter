@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 18 accepted, 187 remain.
-- Routed inventory: 186 engineering tasks (18 accepted, 168 remain) and 19
+- Combined inventory: 205 original tasks; 19 accepted, 186 remain.
+- Routed inventory: 186 engineering tasks (19 accepted, 167 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3huupe` — media-ingest-acceptance-tests
-- Current branch: `task/task-260712-3huupe-media-ingest-acceptance-tests`
-- Accepted overall: 18 / 205 tasks (approximately 8.8%); 187 remain
-- Engineering progress: 18 / 186 tasks (approximately 9.7%); 168 remain
+- Current engineering task: `TASK-260712-jolzhh` — media-ingest-docs-handoff
+- Current branch: `task/task-260712-jolzhh-media-ingest-docs-handoff`
+- Accepted overall: 19 / 205 tasks (approximately 9.3%); 186 remain
+- Engineering progress: 19 / 186 tasks (approximately 10.2%); 167 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -29,8 +29,9 @@
   `TASK-260712-1sae4q` landed through PR #14 at merge commit `fe8e73c`; strict
   `TASK-260712-3mcof4` landed through PR #15 at merge commit `0f3148a`;
   `TASK-260712-12ojcb` landed through PR #16 at merge commit `0d6863c`;
-  `TASK-260712-gj0cko` landed through PR #17 at merge commit `9f2aea8`; strict
-  execution is now on `TASK-260712-3huupe`.
+  `TASK-260712-gj0cko` landed through PR #17 at merge commit `9f2aea8`;
+  `TASK-260712-3huupe` landed through PR #18 at merge commit `cfe12ed`; strict
+  execution is now on `TASK-260712-jolzhh`.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -189,8 +190,10 @@ pinned predecessor suite are green. Hosted CI run `29311147090` passed the
 real-ffmpeg eight-variant codec matrix, compact 181-second AAC rejection,
 macOS Swift tests, portable Windows and the signed-MSIX job on PR #18. Inline
 root delta-review found no production-code regression or uncovered
-deterministic story criterion. Final tracking CI and merge remain pending; no
-manual real-app or hardware result is claimed.
+deterministic story criterion. Final tracking CI run `29311329355` passed the
+same four jobs; PR #18 landed at
+`cfe12ed211e9f763d683a3fa3ace9cf8f4f1efc3`, and strict execution advanced to
+`TASK-260712-jolzhh`. No manual real-app or hardware result is claimed.
 
 ## Operating contract
 
@@ -292,7 +295,12 @@ Story: `STORY-260712-ld674h` — P1 Generic media ingest and storage.
   coordinator and Windows race suites, pinned rollback suite, macOS compile,
   and hosted CI runs `29309915183` / `29310143986` green; PR #17, merge
   `9f2aea8`)
-- [ ] `TASK-260712-3huupe` — media-ingest-acceptance-tests
+- [x] `TASK-260712-3huupe` — media-ingest-acceptance-tests (accepted and
+  landed: common-service eight-variant live codec matrix, compact duration-bomb
+  rejection, adversarial failure matrix, resumable HTTP-to-ACL/delete/cleanup
+  path and real SQLite cleanup restart; full local race, focused 20x stress,
+  pinned rollback and hosted CI runs `29311147090` / `29311329355` green;
+  PR #18, merge `cfe12ed`)
 - [ ] `TASK-260712-jolzhh` — media-ingest-docs-handoff
 
 ## 3. P1 transmission protocol and scheduler

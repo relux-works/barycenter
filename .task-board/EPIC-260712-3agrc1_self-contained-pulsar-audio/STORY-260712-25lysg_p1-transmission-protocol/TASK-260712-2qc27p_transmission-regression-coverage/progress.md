@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:39:19Z
 
 ## Last Update
-2026-07-12T16:15:45Z
+2026-07-14T12:27:04Z
 
 ## Blocked By
 - TASK-260712-1aprcb
@@ -33,6 +33,7 @@ backlog
 - [ ] Map automated evidence and required real-hardware timing evidence to every story criterion
 
 ## Notes
+Strict inline execution started 2026-07-14 from synchronized main merge 8d2b7d3825536ed9dc732f1e86040edc227a7acf (PR #26; tracking CI 29332298395 green). Scope is deterministic engineering regression, migration, protocol-mirror and compatibility evidence only. Any real-app playback, timing, packaged-install or physical-hardware proof is explicitly mapped to EPIC-260714-th54l3 and is neither executed nor claimed by this task.
 
 ## Precondition Resources
 - [p1-transmission-scheduler-sequence.puml](file://TASK-260712-2qc27p/p1-transmission-scheduler-sequence.puml) — Regression coverage reference for barrier flow and downgrade paths

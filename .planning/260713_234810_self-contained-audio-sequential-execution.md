@@ -12,9 +12,9 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Landing engineering task: `TASK-260712-31vvjt` — overlay-controller-scheduler
-- Next engineering task after landing: `TASK-260712-2qc27p` — transmission-regression-coverage
-- Current branch: `task/task-260712-31vvjt-overlay-controller-scheduler`
+- Current engineering task: `TASK-260712-2qc27p` — transmission-regression-coverage
+- Next engineering task after landing: `TASK-260712-2cdjq8` — transmission-rollout-handoff
+- Current branch: `task/task-260712-2qc27p-transmission-regression-coverage`
 - Accepted overall: 27 / 205 tasks (approximately 13.2%); 178 remain
 - Engineering progress: 27 / 186 tasks (approximately 14.5%); 159 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -52,8 +52,10 @@
   `TASK-260712-31vvjt` from that synchronized `main`. `TASK-260712-31vvjt` is
   accepted on exact engineering code head
   `d0e1b925aa72048c243739d61bcf61fb51443ab7`; all four hosted jobs passed in
-  run `29331940948`, and PR #26 is landing the tracking update before strict
-  execution advances to `TASK-260712-2qc27p`.
+  run `29331940948`; tracking head `baf8210` passed all four jobs in run
+  `29332298395`. PR #26 landed at merge
+  `8d2b7d3825536ed9dc732f1e86040edc227a7acf`, and strict execution advanced to
+  `TASK-260712-2qc27p` from that synchronized `main`.
 
 Checkpoint 2026-07-14: `TASK-260712-31vvjt` now has one durable scheduler per
 persisted orbit or approach playback domain. Overlay and interrupt share an

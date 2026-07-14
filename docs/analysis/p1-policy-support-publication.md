@@ -4,8 +4,10 @@
 - Task: `TASK-260712-1x0lot`
 - Source pack: `docs/compliance/policy-pack-2026-07-14.json`
 - Site repository: `relux-works/pulsar-site` (Cloudflare Pages)
-- Current state: **staged / publication hold** pending Ivan Oparin's approval of
-  the exact EN/RU source hashes, including the five new support sections.
+- Current state: **source-approved / deployment in progress**. Ivan Oparin
+  approved the exact EN/RU source hashes from commit
+  `43c0bd992e25c1e85aba6b7a086a94dad378eb35`, including the five new support
+  sections, for production publication on 2026-07-14.
 
 ## Route contract
 
@@ -64,9 +66,10 @@ rollback or forward correction, run `policy-site-check --require-proceed
 source-hash metadata and the cache contract for all 20 routes. Store submission
 and the scheduled uptime workflow run the same live gate.
 
-## Remaining publication gate
+## Remaining deployment gate
 
-The repository defaults approval is not approval of newly authored legal
-bytes. Until Ivan Oparin approves the exact hash set, the source pack remains
-`hold`, the generated deployment state remains `staged`, the website PR must
-not merge, and Store submission fails before upload.
+The exact source approval is recorded as `proceed`. The task is not accepted
+until the generated `ready` bundle lands on `pulsar-site/main` and the
+production live checker proves every route, byte hash and cache header. Store
+submission continues to fail before upload until that deployment evidence
+exists.

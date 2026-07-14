@@ -26,28 +26,26 @@ func repositoryFixture(t *testing.T) (string, Pack, legalops.Checkpoint) {
 	return repoRoot, pack, inputs
 }
 
-func TestRepositoryPolicyPackValidWhilePublicationHeld(t *testing.T) {
+func TestRepositoryPolicyPackHasExactOwnerApproval(t *testing.T) {
 	repoRoot, pack, inputs := repositoryFixture(t)
-	if err := pack.Validate(repoRoot, inputs, false); err != nil {
+	if err := pack.Validate(repoRoot, inputs, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := pack.Validate(repoRoot, inputs, true); err == nil ||
-		!strings.Contains(err.Error(), "want proceed") {
-		t.Fatalf("require-proceed error=%v", err)
+	if pack.Review.ApprovedBy == nil || *pack.Review.ApprovedBy != "Ivan Oparin" {
+		t.Fatalf("approved_by=%v", pack.Review.ApprovedBy)
 	}
 }
 
-func TestExactOwnerApprovalCanReleaseSameHashes(t *testing.T) {
+func TestHeldCopyFailsTheProceedGate(t *testing.T) {
 	repoRoot, pack, inputs := repositoryFixture(t)
-	approver := "Ivan Oparin"
-	approvedAt := "2026-07-14T20:00:00+04:00"
-	pack.Review.ExactContentReviewState = "approved"
-	pack.Review.PublicationDecision = "proceed"
-	pack.Review.ApprovedBy = &approver
-	pack.Review.ApprovedAt = &approvedAt
-	pack.Review.Reason = "Test-only copy of the manifest models approval of these exact immutable hashes."
-	if err := pack.Validate(repoRoot, inputs, true); err != nil {
-		t.Fatal(err)
+	pack.Review.ExactContentReviewState = "pending_owner_approval"
+	pack.Review.PublicationDecision = "hold"
+	pack.Review.ApprovedBy = nil
+	pack.Review.ApprovedAt = nil
+	pack.Review.Reason = "Test-only held copy."
+	if err := pack.Validate(repoRoot, inputs, true); err == nil ||
+		!strings.Contains(err.Error(), "want proceed") {
+		t.Fatalf("require-proceed error=%v", err)
 	}
 }
 

@@ -152,10 +152,12 @@ Generated `pulsar-site` head
 the exact Barycenter source commit. Local coordinator full/vet/race, Windows
 vet/race/amd64+arm64 cross-build, Swift release build, deterministic 33-file
 regeneration, 20-route local serving, JSON/YAML/diff and board validation pass.
-Cloudflare preview success is not a production publication. The source pack
-and site merge gate remain `hold` until Ivan Oparin approves the exact ten
-source hashes; task progress therefore remains 33/205 overall and 33/186
-engineering.
+Cloudflare preview success is not a production publication. Ivan Oparin then
+explicitly approved the exact ten source hashes from immutable source commit
+`43c0bd992e25c1e85aba6b7a086a94dad378eb35` at
+`2026-07-14T20:09:26+04:00`; the source pack is now `proceed`. Production
+deployment and live hash/cache verification remain before task acceptance, so
+progress is still 33/205 overall and 33/186 engineering.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

@@ -10,11 +10,11 @@
     "counsel_review_required": false,
     "english_reviewer": "Ivan Oparin",
     "russian_reviewer": "Ivan Oparin",
-    "exact_content_review_state": "pending_owner_approval",
-    "publication_decision": "hold",
-    "approved_by": null,
-    "approved_at": null,
-    "reason": "Approved legal and operations inputs are incorporated, but Ivan Oparin has not yet approved these exact EN/RU document hashes for publication."
+    "exact_content_review_state": "approved",
+    "publication_decision": "proceed",
+    "approved_by": "Ivan Oparin",
+    "approved_at": "2026-07-14T20:09:26+04:00",
+    "reason": "Ivan Oparin explicitly approved the exact EN/RU source hashes from commit 43c0bd992e25c1e85aba6b7a086a94dad378eb35 for production publication."
   },
   "canonical_urls": {
     "privacy": "https://barycenter.live/legal/privacy",

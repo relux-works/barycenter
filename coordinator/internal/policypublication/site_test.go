@@ -91,7 +91,7 @@ func TestRepositoryBundleIsDeterministicAndHashBound(t *testing.T) {
 	if len(files) != 33 {
 		t.Fatalf("file count=%d, want 33", len(files))
 	}
-	if manifest.PublicationDecision != "hold" || manifest.DeploymentState != "staged" || len(manifest.Routes) != 10 {
+	if manifest.PublicationDecision != "proceed" || manifest.DeploymentState != "ready" || len(manifest.Routes) != 10 {
 		t.Fatalf("manifest=%+v", manifest)
 	}
 	for _, route := range manifest.Routes {

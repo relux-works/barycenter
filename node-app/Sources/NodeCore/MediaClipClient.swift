@@ -242,7 +242,7 @@ final class AuthenticatedMediaClipFetcher: MediaClipFetching {
 final class PreparedMediaClip: @unchecked Sendable {
     let localURL: URL
     let decodedDurationMs: Int64
-    fileprivate let decoderHandle: AnyObject
+    let decoderHandle: AnyObject
 
     init(localURL: URL, decodedDurationMs: Int64, decoderHandle: AnyObject) {
         self.localURL = localURL

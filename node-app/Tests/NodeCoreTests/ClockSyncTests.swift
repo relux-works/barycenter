@@ -1,3 +1,4 @@
+import Darwin
 import Testing
 @testable import NodeCore
 
@@ -49,5 +50,12 @@ import Testing
     @Test func noSamplesMeansNoDeadline() {
         let sync = ClockSync()
         #expect(sync.localDeadline(forCoordinatorMs: 1, outputLatencyOffsetMs: 0) == nil)
+    }
+
+    @Test func hostClockSupportsLateAndFutureDeadlinesWithoutUnsignedTrap() {
+        let hostTime = mach_absolute_time()
+        #expect(HostClock.addMs(hostTime, ms: -10) < hostTime)
+        #expect(HostClock.addMs(hostTime, ms: 10) > hostTime)
+        #expect(HostClock.hostTime(forUnixMs: 1) <= mach_absolute_time())
     }
 }

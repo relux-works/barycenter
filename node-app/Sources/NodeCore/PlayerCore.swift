@@ -127,7 +127,7 @@ public final class PlayerCore {
             coordinatorURL: coordinatorURL)
         mediaClips = MediaClipClient(
             fetcher: fetcher,
-            mixer: PreparedOnlyMacMediaClipMixer(),
+            mixer: MacOverlayMediaClipMixer(audio: engine, log: log),
             log: log)
         presenceStore = NodePresenceStore(fileURL: localStateURL, log: log)
     }

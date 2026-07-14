@@ -1,13 +1,14 @@
 // Production audio graph (spec 6.3):
 //   FIFO -> reader thread (blocking, backpressure, no drops) -> SPSC ring
-//   -> AVAudioSourceNode "music" (with fade gain) \
-//                                                  -> mainMixer -> output
-//   AVAudioPlayerNode "inserts" (voice WAVs, clicks) /
+//   -> AVAudioSourceNode "music" (with fade/duck gain) \
+//   AVAudioPlayerNode "overlay" + legacy inserts       -> program mixer
+//   -> post-mix limiter -> final mainMixer volume -> output
 //
 // Render callback copies from the ring only: no locks, no allocation, no I/O.
 // Underrun = silence + counter. Volume: amplitude = (v/100)^2 on mainMixer.
 
 import AVFAudio
+import AudioToolbox
 import Foundation
 
 public final class AudioEngine {
@@ -17,6 +18,14 @@ public final class AudioEngine {
     private let engine = AVAudioEngine()
     private let ring: RingBuffer
     private let insertPlayer = AVAudioPlayerNode()
+    private let overlayPlayer = AVAudioPlayerNode()
+    private let programMixer = AVAudioMixerNode()
+    private let limiter = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
+        componentType: kAudioUnitType_Effect,
+        componentSubType: kAudioUnitSubType_DynamicsProcessor,
+        componentManufacturer: kAudioUnitManufacturer_Apple,
+        componentFlags: 0,
+        componentFlagsMask: 0))
     private var srcNode: AVAudioSourceNode!
     private let fifoPath: String
     private let log: Logger
@@ -170,8 +179,21 @@ public final class AudioEngine {
 
         engine.attach(srcNode)
         engine.attach(insertPlayer)
-        engine.connect(srcNode, to: engine.mainMixerNode, format: fmt)
-        engine.connect(insertPlayer, to: engine.mainMixerNode, format: nil)
+        engine.attach(overlayPlayer)
+        engine.attach(programMixer)
+        engine.attach(limiter)
+        // DynamicsProcessor guarantees threshold + headroom. Its minimum
+        // headroom is 0.1 dB, so -1.1 + 0.1 freezes the local -1 dBFS ceiling.
+        setLimiterParameter(kDynamicsProcessorParam_Threshold, value: -1.1)
+        setLimiterParameter(kDynamicsProcessorParam_HeadRoom, value: 0.1)
+        setLimiterParameter(kDynamicsProcessorParam_AttackTime, value: 0.001)
+        setLimiterParameter(kDynamicsProcessorParam_ReleaseTime, value: 0.05)
+        setLimiterParameter(kDynamicsProcessorParam_OverallGain, value: 0)
+        engine.connect(srcNode, to: programMixer, format: fmt)
+        engine.connect(insertPlayer, to: programMixer, format: nil)
+        engine.connect(overlayPlayer, to: programMixer, format: nil)
+        engine.connect(programMixer, to: limiter, format: nil)
+        engine.connect(limiter, to: engine.mainMixerNode, format: nil)
         startFirstSampleDispatcher()
     }
 
@@ -200,6 +222,7 @@ public final class AudioEngine {
     public func start() throws {
         try engine.start()
         insertPlayer.play()
+        overlayPlayer.play()
         startReader()
         log.info("audio engine started", ["output_rate": engine.outputNode.outputFormat(forBus: 0).sampleRate])
 
@@ -212,6 +235,7 @@ public final class AudioEngine {
             do {
                 try self.engine.start()
                 self.insertPlayer.play()
+                self.overlayPlayer.play()
                 self.log.info("audio engine restarted after output change",
                               ["output_rate": self.engine.outputNode.outputFormat(forBus: 0).sampleRate])
             } catch {
@@ -313,6 +337,48 @@ public final class AudioEngine {
         insertPlayer.play()
     }
 
+    // MARK: Prepared media overlay branch
+
+    func scheduleOverlay(
+        _ buffer: AVAudioPCMBuffer,
+        at when: AVAudioTime?,
+        completion: @escaping () -> Void
+    ) {
+        overlayPlayer.scheduleBuffer(
+            buffer,
+            at: when,
+            options: [],
+            completionCallbackType: .dataPlayedBack
+        ) { _ in completion() }
+        if !overlayPlayer.isPlaying { overlayPlayer.play() }
+    }
+
+    func stopOverlay() {
+        overlayPlayer.stop()
+        overlayPlayer.reset()
+        overlayPlayer.play()
+    }
+
+    func setOverlayGain(_ gain: Float) {
+        overlayPlayer.volume = min(max(gain, 0), 1)
+    }
+
+    private func setLimiterParameter(_ parameter: AudioUnitParameterID, value: AudioUnitParameterValue) {
+        AudioUnitSetParameter(
+            limiter.audioUnit, parameter, kAudioUnitScope_Global, 0, value, 0)
+    }
+
+    var limiterReductionDB: Float {
+        var value: AudioUnitParameterValue = 0
+        AudioUnitGetParameter(
+            limiter.audioUnit,
+            kDynamicsProcessorParam_CompressionAmount,
+            kAudioUnitScope_Global,
+            0,
+            &value)
+        return value
+    }
+
     /// offset_test clicks: `count` clicks starting at hostTime, every intervalMs.
     public func playClicks(count: Int, firstAtHostTime: UInt64, intervalMs: Int64) {
         let clickFrames = Int(sampleRate * 0.006) // 6 ms burst
@@ -391,14 +457,25 @@ public enum HostClock {
     }()
 
     public static func addMs(_ hostTime: UInt64, ms: Int64) -> UInt64 {
-        let nanos = UInt64(ms) * 1_000_000
-        let ticks = nanos * UInt64(timebase.denom) / UInt64(timebase.numer)
-        return hostTime + ticks
+        let (nanos, nanosOverflow) = ms.magnitude.multipliedReportingOverflow(by: 1_000_000)
+        let (scaled, scaledOverflow) = nanos.multipliedReportingOverflow(
+            by: UInt64(timebase.denom))
+        guard !nanosOverflow, !scaledOverflow else {
+            return ms >= 0 ? UInt64.max : 0
+        }
+        let ticks = scaled / UInt64(timebase.numer)
+        if ms >= 0 {
+            let (result, overflow) = hostTime.addingReportingOverflow(ticks)
+            return overflow ? UInt64.max : result
+        }
+        return ticks >= hostTime ? 0 : hostTime - ticks
     }
 
     /// Host time that corresponds to a wall-clock unix-ms deadline.
     public static func hostTime(forUnixMs deadline: Int64) -> UInt64 {
         let nowMs = Int64((Date().timeIntervalSince1970 * 1000).rounded())
-        return addMs(mach_absolute_time(), ms: deadline - nowMs)
+        let (delta, overflow) = deadline.subtractingReportingOverflow(nowMs)
+        if overflow { return deadline >= 0 ? UInt64.max : 0 }
+        return addMs(mach_absolute_time(), ms: delta)
     }
 }

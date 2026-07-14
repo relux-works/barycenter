@@ -73,3 +73,33 @@ ramps are terminal. Natural completion reports the last clip sample immediately
 and keeps the render-owned release tail until main gain reaches one. Sanitized
 telemetry exposes only aggregate overlay frame, limiter-hit, ring-fill and
 underrun counts—never PCM, media identity, paths or protocol payloads.
+
+## macOS overlay branch
+
+The macOS engine uses the same frozen pre-master order as Windows:
+
+```text
+DynamicsProcessor(main_source * duck_gain + overlay * overlay_gain + legacy inserts)
+    * final mainMixer gain
+```
+
+Preparation reads and decodes the whole clip away from the render callback,
+then converts it to the engine's 44.1 kHz stereo format. Arming only publishes
+the prepared buffer to a dedicated `AVAudioPlayerNode` at an absolute host
+time. A serial control queue schedules the T-250 pre-duck and catches a late
+control callback up to the envelope instead of restarting the attack at T.
+The defaults remain `-12 dB`, `250 ms` attack and `600 ms` release.
+
+The source node continues one unconditional ring read per render callback in
+every overlay state. Overlay scheduling, fade timers, decoding, completion
+dispatch and telemetry remain outside that callback. The Apple dynamics unit
+is configured with a `-1.1 dB` threshold and its minimum `0.1 dB` headroom,
+which freezes the final pre-master ceiling at `-1 dBFS`; the user's local
+master gain is applied after it.
+
+Natural completion releases the duck and immediately makes the graph available
+for a prepared successor. Cancellation applies a raised-cosine overlay fade,
+releases the music branch concurrently and acknowledges only after both active
+ramps finish. It then stops/resets the overlay node and restores unity gain.
+Telemetry is limited to aggregate overlay frames, limiter-hit windows, ring
+fill and underruns, matching the Windows privacy boundary.

@@ -4,18 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 12 accepted, 193 remain.
-- Routed inventory: 186 engineering tasks (12 accepted, 174 remain) and 19
+- Combined inventory: 205 original tasks; 13 accepted, 192 remain.
+- Routed inventory: 186 engineering tasks (13 accepted, 173 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-z6h6wh` — media-schema-repositories
-- Current branch: `task/task-260712-z6h6wh-media-schema-repositories`
-- Accepted overall: 12 / 205 tasks (approximately 5.9%); 193 remain
-- Engineering progress: 12 / 186 tasks (approximately 6.5%); 174 remain
+- Current engineering task: `TASK-260712-1bnos4` — upload-session-api-auth
+  (accepted on merge-bound PR #12; next task not started)
+- Current branch: `task/task-260712-1bnos4-upload-session-api-auth`
+- Accepted overall: 13 / 205 tasks (approximately 6.3%); 192 remain
+- Engineering progress: 13 / 186 tasks (approximately 7.0%); 173 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -23,8 +24,9 @@
   block best-effort coding, unit tests, deterministic integration tests, CI,
   packaging or engineering review. PR #10 landed this boundary and the Windows
   evidence harness on `main` at `06a06c099ed5b4f37f5e2dd3648772ffd041dfd9`.
-  `TASK-260712-z6h6wh` is accepted on the merge-bound PR #11 branch; the next
-  task does not start until that PR lands on `main`.
+  `TASK-260712-z6h6wh` landed through PR #11 at merge commit `31bbeb9`;
+  `TASK-260712-1bnos4` is accepted on merge-bound PR #12. The next task does
+  not start until this PR lands on `main`.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -56,8 +58,23 @@ artifact scans and an exact `06a06c0` predecessor round trip are green under
 Go test/race/vet. Root review R1 tightened MIME, codec, loudness JSON and scoped
 token validation; the remediated commit `ecc034b` passed all four jobs in
 hosted CI run `29298686287`, including node-core on `macos-15`, the exact
-predecessor coordinator gate and signed Windows packaging. The task is marked
-done on the merge-bound branch and becomes durable when PR #11 lands.
+predecessor coordinator gate and signed Windows packaging. The final tracking
+commit passed all jobs again in run `29298874048`; PR #11 landed at
+`31bbeb9257b2555c86858c4087521466b58d673a`, and strict execution advanced to
+`TASK-260712-1bnos4`.
+
+Checkpoint 2026-07-14: `TASK-260712-1bnos4` now exposes control-authenticated,
+idempotent upload creation and scoped append-only PUTs with HMAC-remintable
+capabilities, atomic start/concurrency/daily/hard-byte quotas, CAS offsets,
+actual-length enforcement and stable non-disclosing failures. Staged fsync,
+crash-tail truncation, zero-byte finalize recovery, scheduled expiry and a
+durably acknowledged temp cleanup survive a real store reopen. Full local Go
+test/race/vet, 20x focused concurrency stress, pulsar-win vet/test/cross-build,
+task-board validation and the exact `31bbeb9` predecessor round trip are green.
+All four hosted jobs passed on commit `b1b7576` in CI run `29300399021`,
+including node-core on macOS and the signed Windows package probe. Root delta
+review closed orphan staging cleanup, private-mode enforcement and concurrent
+quota reservation. PR #12 is merge-bound; no next-task work has started.
 
 ## Operating contract
 
@@ -125,10 +142,14 @@ passed.
 
 Story: `STORY-260712-ld674h` — P1 Generic media ingest and storage.
 
-- [x] `TASK-260712-z6h6wh` — media-schema-repositories (merge-bound acceptance:
+- [x] `TASK-260712-z6h6wh` — media-schema-repositories (accepted and landed:
   additive schema/CAS repositories, exact predecessor rollback, full local
-  race and hosted CI run `29298686287` green; PR #11)
-- [ ] `TASK-260712-1bnos4` — upload-session-api-auth
+  race plus hosted CI runs `29298686287` / `29298874048` green; PR #11,
+  merge `31bbeb9`)
+- [x] `TASK-260712-1bnos4` — upload-session-api-auth (merge-bound acceptance:
+  authenticated resumable HTTP, atomic quotas, crash-safe temp lifecycle,
+  exact immediate-predecessor rollback, full local race and hosted CI run
+  `29300399021` green; PR #12)
 - [ ] `TASK-260712-2af2dp` — submitmedia-processing-pipeline
 - [ ] `TASK-260712-1sae4q` — media-delete-retention-cleanup
 - [ ] `TASK-260712-3mcof4` — media-download-target-acl

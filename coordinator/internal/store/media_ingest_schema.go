@@ -1,5 +1,7 @@
 package store
 
+import "database/sql"
+
 // mediaIngestSchema is deliberately additive. The legacy media table remains
 // authoritative for the old-binary/Telegram WAV path during mixed rollout.
 //
@@ -90,6 +92,7 @@ CREATE TABLE IF NOT EXISTS media_upload_sessions (
   updated_at INTEGER NOT NULL CHECK(updated_at >= created_at),
   expires_at INTEGER NOT NULL CHECK(expires_at > created_at),
   completed_at INTEGER NOT NULL DEFAULT 0 CHECK(completed_at >= 0),
+  temp_cleaned_at INTEGER NOT NULL DEFAULT 0 CHECK(temp_cleaned_at >= 0),
   UNIQUE(media_id),
   UNIQUE(owner_orbit_id, actor_id, idempotency_key_hash),
   FOREIGN KEY(media_id, owner_orbit_id, actor_id)
@@ -99,7 +102,8 @@ CREATE TABLE IF NOT EXISTS media_upload_sessions (
   CHECK(
     (status = 'completed' AND completed_at > 0)
     OR (status <> 'completed' AND completed_at = 0)
-  )
+  ),
+  CHECK(temp_cleaned_at = 0 OR status IN ('completed', 'failed', 'expired'))
 );
 CREATE INDEX IF NOT EXISTS media_upload_sessions_expiry
   ON media_upload_sessions(status, expires_at);
@@ -164,6 +168,19 @@ func (s *Store) initMediaIngestSchema() error {
 	if _, err := tx.Exec(mediaIngestSchema); err != nil {
 		return err
 	}
+	// TASK-260712-1bnos4 follows the initial additive media schema in a
+	// rolling deployment, so databases created by that predecessor need the
+	// durable temp-cleanup acknowledgement column as an in-transaction add.
+	hasTempCleanedAt, err := txColumnExists(tx, "media_upload_sessions", "temp_cleaned_at")
+	if err != nil {
+		return err
+	}
+	if !hasTempCleanedAt {
+		if _, err := tx.Exec(`ALTER TABLE media_upload_sessions
+ADD COLUMN temp_cleaned_at INTEGER NOT NULL DEFAULT 0 CHECK(temp_cleaned_at >= 0)`); err != nil {
+			return err
+		}
+	}
 	if err := foreignKeyCheck(tx); err != nil {
 		return err
 	}
@@ -174,4 +191,24 @@ func (s *Store) initMediaIngestSchema() error {
 		return err
 	}
 	return s.reconcileOrphanedMediaItems()
+}
+
+func txColumnExists(tx *sql.Tx, table, column string) (bool, error) {
+	rows, err := tx.Query(`PRAGMA table_info(` + quoteIdent(table) + `)`)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid, notNull, pk int
+		var name, typ string
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultValue, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }

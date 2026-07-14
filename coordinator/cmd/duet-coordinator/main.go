@@ -233,7 +233,9 @@ func main() {
 	if tgBot != nil {
 		botUsername = tgBot.Username
 	}
-	registerOnboardingRoutes(mux, st, cfg, log, botUsername)
+	if onboarding := registerOnboardingRoutes(mux, st, cfg, log, botUsername); onboarding != nil {
+		go onboarding.runMediaUploadMaintenance(stop)
+	}
 
 	log.Info("listening", "addr", cfg.Listen)
 	if err := http.ListenAndServe(cfg.Listen, mux); err != nil {

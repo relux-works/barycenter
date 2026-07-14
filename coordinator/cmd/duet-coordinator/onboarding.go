@@ -26,6 +26,12 @@ const (
 	errorInsufficientCapability = "insufficient_capability"
 	errorCredentialInvalid      = "credential_invalid"
 	errorTooManyAttempts        = "too_many_attempts"
+	errorUploadCredential       = "upload_credential_invalid"
+	errorUploadTooLarge         = "upload_too_large"
+	errorUploadOffsetConflict   = "upload_offset_conflict"
+	errorUploadLengthMismatch   = "upload_length_mismatch"
+	errorUploadStateConflict    = "upload_state_conflict"
+	errorUploadQuota            = "upload_quota_exceeded"
 	errorInternal               = "internal_error"
 )
 
@@ -69,6 +75,12 @@ func apiError(w http.ResponseWriter, status int, code string, retry time.Duratio
 		errorInsufficientCapability: "This token does not have the required capability.",
 		errorCredentialInvalid:      "The provided credential is not valid.",
 		errorTooManyAttempts:        "Too many attempts. Please wait before retrying.",
+		errorUploadCredential:       "The upload credential is not valid.",
+		errorUploadTooLarge:         "The upload exceeds the allowed size.",
+		errorUploadOffsetConflict:   "The upload offset does not match the stored offset.",
+		errorUploadLengthMismatch:   "The upload body length does not match the request.",
+		errorUploadStateConflict:    "The upload cannot be changed in its current state.",
+		errorUploadQuota:            "The media upload quota has been reached.",
 		errorInternal:               "An internal error occurred.",
 	}
 	var body apiErrorBody
@@ -175,17 +187,23 @@ type actorRequest struct {
 type actorRequestKey struct{}
 
 type onboardingAPI struct {
-	store           *store.Store
-	config          *config.Config
-	log             *slog.Logger
-	botUsername     string
-	createIP        *attemptLimiter
-	createAttempt   *attemptLimiter
-	inviteConsumeIP *attemptLimiter
-	recoveryIP      *attemptLimiter
-	recoveryID      *attemptLimiter
-	rotateActor     *attemptLimiter
-	linkActor       *attemptLimiter
+	store                  *store.Store
+	config                 *config.Config
+	log                    *slog.Logger
+	botUsername            string
+	createIP               *attemptLimiter
+	createAttempt          *attemptLimiter
+	inviteConsumeIP        *attemptLimiter
+	recoveryIP             *attemptLimiter
+	recoveryID             *attemptLimiter
+	rotateActor            *attemptLimiter
+	linkActor              *attemptLimiter
+	mediaUploadDir         string
+	mediaUploadQuota       store.MediaUploadQuota
+	mediaUploadNow         func() time.Time
+	mediaUploadLocks       [64]sync.Mutex
+	mediaUploadMaintenance sync.Mutex
+	mediaUploadInitErr     error
 	// testAfterAuth is nil in production. Tests use it to pause between
 	// middleware authentication and the immediate writer transaction.
 	testAfterAuth   func(store.ActorContext)
@@ -193,23 +211,29 @@ type onboardingAPI struct {
 }
 
 func newOnboardingAPI(st *store.Store, cfg *config.Config, log *slog.Logger, botUsername string) *onboardingAPI {
-	return &onboardingAPI{
+	api := &onboardingAPI{
 		store: st, config: cfg, log: log, botUsername: strings.TrimPrefix(botUsername, "@"),
-		createIP:        newAttemptLimiter(5, time.Hour, 10_000),
-		createAttempt:   newAttemptLimiter(1, time.Hour, 10_000),
-		inviteConsumeIP: newAttemptLimiter(20, 15*time.Minute, 10_000),
-		recoveryIP:      newAttemptLimiter(30, 15*time.Minute, 10_000),
-		recoveryID:      newAttemptLimiter(10, 15*time.Minute, 10_000),
-		rotateActor:     newAttemptLimiter(10, time.Hour, 0),
-		linkActor:       newAttemptLimiter(10, time.Hour, 0),
+		createIP:         newAttemptLimiter(5, time.Hour, 10_000),
+		createAttempt:    newAttemptLimiter(1, time.Hour, 10_000),
+		inviteConsumeIP:  newAttemptLimiter(20, 15*time.Minute, 10_000),
+		recoveryIP:       newAttemptLimiter(30, 15*time.Minute, 10_000),
+		recoveryID:       newAttemptLimiter(10, 15*time.Minute, 10_000),
+		rotateActor:      newAttemptLimiter(10, time.Hour, 0),
+		linkActor:        newAttemptLimiter(10, time.Hour, 0),
+		mediaUploadQuota: store.DefaultMediaUploadQuota(),
+		mediaUploadNow:   time.Now,
 	}
+	api.mediaUploadInitErr = api.initializeMediaUploadStorage()
+	return api
 }
 
-func registerOnboardingRoutes(mux *http.ServeMux, st *store.Store, cfg *config.Config, log *slog.Logger, botUsername string) {
+func registerOnboardingRoutes(mux *http.ServeMux, st *store.Store, cfg *config.Config, log *slog.Logger, botUsername string) *onboardingAPI {
 	if !cfg.SelfServiceOnboarding {
-		return
+		return nil
 	}
-	newOnboardingAPI(st, cfg, log, botUsername).register(mux)
+	api := newOnboardingAPI(st, cfg, log, botUsername)
+	api.register(mux)
+	return api
 }
 
 func (api *onboardingAPI) register(mux *http.ServeMux) {
@@ -220,6 +244,8 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/recovery/rotate", api.secure(api.withControl(api.rotateRecovery)))
 	mux.HandleFunc("/v1/actor/context", api.secure(api.withActor(api.actorContext)))
 	mux.HandleFunc("/v1/telegram-links", api.secure(api.withControl(api.telegramLinks)))
+	mux.HandleFunc("/v1/media/uploads", api.secure(api.withControl(api.createMediaUpload)))
+	mux.HandleFunc("/v1/media/uploads/", api.secure(api.writeMediaUpload))
 }
 
 func (api *onboardingAPI) secure(next http.HandlerFunc) http.HandlerFunc {

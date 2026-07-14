@@ -1,7 +1,10 @@
 package store
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,7 +20,50 @@ var (
 	ErrMediaOwnerInvalid        = errors.New("media owner is not an active orbit member")
 	ErrMediaIdempotencyMismatch = errors.New("media idempotency key was reused for a different request")
 	ErrMediaInvalid             = errors.New("media input is invalid")
+	ErrMediaUploadTooLarge      = errors.New("media upload exceeds the item byte limit")
+	ErrMediaUploadRateLimited   = errors.New("media upload start rate limit reached")
+	ErrMediaUploadConcurrent    = errors.New("media concurrent processing limit reached")
+	ErrMediaUploadDailyBytes    = errors.New("media daily byte limit reached")
 )
+
+const (
+	DefaultMediaUploadMaxStarts     = 10
+	DefaultMediaUploadMaxConcurrent = 3
+	DefaultMediaUploadMaxDailyBytes = int64(1 << 30)
+	DefaultMediaUploadMaxItemBytes  = int64(50 << 20)
+)
+
+// MediaUploadQuota is evaluated in the same SQLite writer transaction that
+// creates the processing media row. Reserved open/finalizing bytes count at
+// their declared size so concurrent requests cannot oversubscribe the orbit.
+type MediaUploadQuota struct {
+	MaxStarts     int
+	StartWindow   time.Duration
+	MaxConcurrent int
+	MaxDailyBytes int64
+	DailyWindow   time.Duration
+	MaxItemBytes  int64
+}
+
+func DefaultMediaUploadQuota() MediaUploadQuota {
+	return MediaUploadQuota{
+		MaxStarts:     DefaultMediaUploadMaxStarts,
+		StartWindow:   time.Minute,
+		MaxConcurrent: DefaultMediaUploadMaxConcurrent,
+		MaxDailyBytes: DefaultMediaUploadMaxDailyBytes,
+		DailyWindow:   24 * time.Hour,
+		MaxItemBytes:  DefaultMediaUploadMaxItemBytes,
+	}
+}
+
+// MediaUploadRateLimitError carries only the duration needed for Retry-After;
+// no actor, orbit, request, or credential material crosses the repository.
+type MediaUploadRateLimitError struct {
+	RetryAfter time.Duration
+}
+
+func (e *MediaUploadRateLimitError) Error() string { return ErrMediaUploadRateLimited.Error() }
+func (e *MediaUploadRateLimitError) Unwrap() error { return ErrMediaUploadRateLimited }
 
 type MediaKind string
 
@@ -103,6 +149,7 @@ type MediaUploadSession struct {
 	UpdatedAt         int64
 	ExpiresAt         int64
 	CompletedAt       int64
+	TempCleanedAt     int64
 }
 
 type CreateMediaUploadParams struct {
@@ -112,10 +159,10 @@ type CreateMediaUploadParams struct {
 	IdempotencyKey    string
 }
 
-// MediaUploadCreation returns plaintext session material only for a newly
-// created row. An idempotent replay returns the same item/session identifiers
-// with Reused=true and an empty Token; the API layer can re-authorize and mint
-// a replacement capability without persisting the original plaintext.
+// MediaUploadCreation never reflects persisted plaintext. CreateMediaUpload
+// returns a random capability only for a new row; CreateAuthorizedMediaUpload
+// derives the capability again after control authorization and can therefore
+// return it on an idempotent replay without storing it.
 type MediaUploadCreation struct {
 	Media   MediaItem
 	Session MediaUploadSession
@@ -182,7 +229,7 @@ i.created_at, i.updated_at, i.expires_at, i.published_at, i.deleted_at`
 
 const mediaUploadColumns = `id, media_id, owner_orbit_id, actor_id,
 declared_size_bytes, received_size_bytes, status, revision, created_at,
-updated_at, expires_at, completed_at`
+updated_at, expires_at, completed_at, temp_cleaned_at`
 
 const mediaStorageOperationColumns = `id, media_id, kind, storage_key,
 media_revision, state, revision, created_at, updated_at, completed_at`
@@ -205,7 +252,7 @@ func scanMediaUpload(row sqlScanner) (MediaUploadSession, error) {
 		&session.ID, &session.MediaID, &session.OwnerOrbitID, &session.ActorID,
 		&session.DeclaredSizeBytes, &session.ReceivedSizeBytes, &session.Status,
 		&session.Revision, &session.CreatedAt, &session.UpdatedAt,
-		&session.ExpiresAt, &session.CompletedAt,
+		&session.ExpiresAt, &session.CompletedAt, &session.TempCleanedAt,
 	)
 	return session, err
 }
@@ -331,67 +378,77 @@ func mediaUploadRequestFingerprint(params CreateMediaUploadParams) (string, erro
 	return hashToken("barycenter/media-upload-request/v1:" + string(raw)), nil
 }
 
-func (s *Store) CreateMediaUpload(params CreateMediaUploadParams) (MediaUploadCreation, error) {
+func validateCreateMediaUpload(params CreateMediaUploadParams) error {
 	if err := validateCreateMediaItem(params.Media); err != nil {
-		return MediaUploadCreation{}, err
+		return err
 	}
 	if params.DeclaredSizeBytes <= 0 || params.SessionExpiresAt <= params.Media.CreatedAt ||
 		params.SessionExpiresAt > params.Media.ExpiresAt {
-		return MediaUploadCreation{}, fmt.Errorf("%w: invalid upload size or expiry", ErrMediaInvalid)
+		return fmt.Errorf("%w: invalid upload size or expiry", ErrMediaInvalid)
 	}
 	if len(params.IdempotencyKey) < 8 || len(params.IdempotencyKey) > 512 {
-		return MediaUploadCreation{}, fmt.Errorf("%w: invalid idempotency key length", ErrMediaInvalid)
+		return fmt.Errorf("%w: invalid idempotency key length", ErrMediaInvalid)
 	}
+	return nil
+}
+
+func validateMediaUploadQuota(quota MediaUploadQuota) error {
+	if quota.MaxStarts <= 0 || quota.StartWindow <= 0 ||
+		quota.MaxConcurrent <= 0 || quota.MaxDailyBytes <= 0 ||
+		quota.DailyWindow <= 0 || quota.MaxItemBytes <= 0 {
+		return fmt.Errorf("%w: invalid media upload quota", ErrMediaInvalid)
+	}
+	return nil
+}
+
+func mediaUploadIdentity(params CreateMediaUploadParams) (string, string, error) {
 	idempotencyHash := hashToken("barycenter/media-upload-idempotency/v1:" + params.IdempotencyKey)
 	fingerprint, err := mediaUploadRequestFingerprint(params)
 	if err != nil {
-		return MediaUploadCreation{}, err
+		return "", "", err
 	}
+	return idempotencyHash, fingerprint, nil
+}
 
-	tx, err := s.db.Begin()
-	if err != nil {
-		return MediaUploadCreation{}, err
-	}
-	defer tx.Rollback()
-	if err := validateMediaOwnerTx(tx, params.Media.OwnerOrbitID, params.Media.ActorID); err != nil {
-		return MediaUploadCreation{}, err
-	}
+func mediaUploadCapability(controlToken, idempotencyHash string, orbitID, actorID int64) string {
+	mac := hmac.New(sha256.New, []byte(controlToken))
+	_, _ = fmt.Fprintf(mac, "barycenter/media-upload-capability/v1\n%d\n%d\n%s",
+		orbitID, actorID, idempotencyHash)
+	return hex.EncodeToString(mac.Sum(nil))
+}
 
+func findMediaUploadTx(tx *sql.Tx, params CreateMediaUploadParams, idempotencyHash, fingerprint string) (MediaUploadCreation, bool, error) {
 	var existingID, existingFingerprint string
-	err = tx.QueryRow(`SELECT id, request_fingerprint
+	err := tx.QueryRow(`SELECT id, request_fingerprint
 FROM media_upload_sessions
 WHERE owner_orbit_id = ? AND actor_id = ? AND idempotency_key_hash = ?`,
 		params.Media.OwnerOrbitID, params.Media.ActorID, idempotencyHash).Scan(
 		&existingID, &existingFingerprint)
-	if err == nil {
-		if existingFingerprint != fingerprint {
-			return MediaUploadCreation{}, ErrMediaIdempotencyMismatch
-		}
-		session, err := scanMediaUpload(tx.QueryRow(
-			`SELECT `+mediaUploadColumns+` FROM media_upload_sessions WHERE id = ?`, existingID))
-		if err != nil {
-			return MediaUploadCreation{}, err
-		}
-		item, err := scanMediaItem(tx.QueryRow(
-			`SELECT `+mediaItemColumns+` FROM media_items WHERE id = ?`, session.MediaID))
-		if err != nil {
-			return MediaUploadCreation{}, err
-		}
-		if err := tx.Commit(); err != nil {
-			return MediaUploadCreation{}, err
-		}
-		return MediaUploadCreation{Media: item, Session: session, Reused: true}, nil
+	if errors.Is(err, sql.ErrNoRows) {
+		return MediaUploadCreation{}, false, nil
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return MediaUploadCreation{}, err
+	if err != nil {
+		return MediaUploadCreation{}, false, err
 	}
+	if existingFingerprint != fingerprint {
+		return MediaUploadCreation{}, true, ErrMediaIdempotencyMismatch
+	}
+	session, err := scanMediaUpload(tx.QueryRow(
+		`SELECT `+mediaUploadColumns+` FROM media_upload_sessions WHERE id = ?`, existingID))
+	if err != nil {
+		return MediaUploadCreation{}, true, err
+	}
+	item, err := scanMediaItem(tx.QueryRow(
+		`SELECT `+mediaItemColumns+` FROM media_items WHERE id = ?`, session.MediaID))
+	if err != nil {
+		return MediaUploadCreation{}, true, err
+	}
+	return MediaUploadCreation{Media: item, Session: session, Reused: true}, true, nil
+}
 
+func insertMediaUploadTx(tx *sql.Tx, params CreateMediaUploadParams, idempotencyHash, fingerprint, token string) (MediaUploadCreation, error) {
 	mediaID := ulid.NewMediaID(time.UnixMilli(params.Media.CreatedAt))
 	item, err := insertMediaItemTx(tx, params.Media, mediaID)
-	if err != nil {
-		return MediaUploadCreation{}, err
-	}
-	token, err := randomHexSecret(32)
 	if err != nil {
 		return MediaUploadCreation{}, err
 	}
@@ -414,13 +471,203 @@ WHERE owner_orbit_id = ? AND actor_id = ? AND idempotency_key_hash = ?`,
 	if err != nil {
 		return MediaUploadCreation{}, err
 	}
+	return MediaUploadCreation{Media: item, Session: session, Token: token}, nil
+}
+
+func (s *Store) CreateMediaUpload(params CreateMediaUploadParams) (MediaUploadCreation, error) {
+	if err := validateCreateMediaUpload(params); err != nil {
+		return MediaUploadCreation{}, err
+	}
+	idempotencyHash, fingerprint, err := mediaUploadIdentity(params)
+	if err != nil {
+		return MediaUploadCreation{}, err
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return MediaUploadCreation{}, err
+	}
+	defer tx.Rollback()
+	if err := validateMediaOwnerTx(tx, params.Media.OwnerOrbitID, params.Media.ActorID); err != nil {
+		return MediaUploadCreation{}, err
+	}
+	if existing, found, err := findMediaUploadTx(tx, params, idempotencyHash, fingerprint); err != nil {
+		return MediaUploadCreation{}, err
+	} else if found {
+		if err := tx.Commit(); err != nil {
+			return MediaUploadCreation{}, err
+		}
+		return existing, nil
+	}
+
+	token, err := randomHexSecret(32)
+	if err != nil {
+		return MediaUploadCreation{}, err
+	}
+	created, err := insertMediaUploadTx(tx, params, idempotencyHash, fingerprint, token)
+	if err != nil {
+		return MediaUploadCreation{}, err
+	}
 	if err := s.checkpoint("media_upload_create_before_commit"); err != nil {
 		return MediaUploadCreation{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return MediaUploadCreation{}, err
 	}
-	return MediaUploadCreation{Media: item, Session: session, Token: token}, nil
+	return created, nil
+}
+
+func mediaUploadStartRateTx(tx *sql.Tx, orbitID, actorID, now int64, quota MediaUploadQuota) error {
+	windowMS := quota.StartWindow.Milliseconds()
+	cutoff := now - windowMS
+	var actorCount, orbitCount int
+	var actorOldest, orbitOldest sql.NullInt64
+	if err := tx.QueryRow(`SELECT
+  COALESCE(SUM(CASE WHEN actor_id = ? THEN 1 ELSE 0 END), 0),
+  COUNT(*),
+  MIN(CASE WHEN actor_id = ? THEN created_at END),
+  MIN(created_at)
+FROM media_upload_sessions
+WHERE owner_orbit_id = ? AND created_at > ?`,
+		actorID, actorID, orbitID, cutoff).Scan(
+		&actorCount, &orbitCount, &actorOldest, &orbitOldest); err != nil {
+		return err
+	}
+	if actorCount < quota.MaxStarts && orbitCount < quota.MaxStarts {
+		return nil
+	}
+	oldest := orbitOldest.Int64
+	if actorCount >= quota.MaxStarts && actorOldest.Valid &&
+		(!orbitOldest.Valid || actorOldest.Int64 > oldest) {
+		oldest = actorOldest.Int64
+	}
+	retryMS := oldest + windowMS - now
+	if retryMS < 1 {
+		retryMS = 1
+	}
+	return &MediaUploadRateLimitError{RetryAfter: time.Duration(retryMS) * time.Millisecond}
+}
+
+func mediaUploadCapacityTx(tx *sql.Tx, params CreateMediaUploadParams, quota MediaUploadQuota) error {
+	if params.DeclaredSizeBytes > quota.MaxItemBytes {
+		return ErrMediaUploadTooLarge
+	}
+	if err := mediaUploadStartRateTx(
+		tx, params.Media.OwnerOrbitID, params.Media.ActorID, params.Media.CreatedAt, quota,
+	); err != nil {
+		return err
+	}
+	var actorConcurrent, orbitConcurrent int
+	if err := tx.QueryRow(`SELECT
+  COALESCE(SUM(CASE WHEN actor_id = ? THEN 1 ELSE 0 END), 0), COUNT(*)
+FROM media_items
+WHERE owner_orbit_id = ? AND status = 'processing'`,
+		params.Media.ActorID, params.Media.OwnerOrbitID).Scan(
+		&actorConcurrent, &orbitConcurrent); err != nil {
+		return err
+	}
+	if actorConcurrent >= quota.MaxConcurrent || orbitConcurrent >= quota.MaxConcurrent {
+		return ErrMediaUploadConcurrent
+	}
+	cutoff := params.Media.CreatedAt - quota.DailyWindow.Milliseconds()
+	var reserved int64
+	if err := tx.QueryRow(`SELECT COALESCE(SUM(
+  CASE WHEN status IN ('open', 'finalizing')
+    THEN declared_size_bytes ELSE received_size_bytes END
+), 0)
+FROM media_upload_sessions
+WHERE owner_orbit_id = ? AND created_at > ?`,
+		params.Media.OwnerOrbitID, cutoff).Scan(&reserved); err != nil {
+		return err
+	}
+	if params.DeclaredSizeBytes > quota.MaxDailyBytes-reserved {
+		return ErrMediaUploadDailyBytes
+	}
+	return nil
+}
+
+// CreateAuthorizedMediaUpload is the public-app creation boundary. It
+// rechecks the presented control bearer inside the same writer transaction as
+// idempotency, quota reservation, and row creation. The scoped capability is
+// deterministically derived from that high-entropy bearer and the request's
+// idempotency identity, allowing safe replay without storing plaintext.
+func (s *Store) CreateAuthorizedMediaUpload(expectedActorID int64, bearer string, params CreateMediaUploadParams, quota MediaUploadQuota) (MediaUploadCreation, error) {
+	if !s.selfServiceOnboarding {
+		return MediaUploadCreation{}, ErrSelfServiceOnboardingDisabled
+	}
+	if expectedActorID <= 0 || !lowerHexTokenPattern.MatchString(bearer) {
+		return MediaUploadCreation{}, ErrUnauthorized
+	}
+	if err := validateCreateMediaUpload(params); err != nil {
+		return MediaUploadCreation{}, err
+	}
+	if err := validateMediaUploadQuota(quota); err != nil {
+		return MediaUploadCreation{}, err
+	}
+	idempotencyHash, fingerprint, err := mediaUploadIdentity(params)
+	if err != nil {
+		return MediaUploadCreation{}, err
+	}
+	token := mediaUploadCapability(
+		bearer, idempotencyHash, params.Media.OwnerOrbitID, params.Media.ActorID,
+	)
+	presentedHash := hashToken(bearer)
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return MediaUploadCreation{}, err
+	}
+	defer tx.Rollback()
+	ctx, err := mutationActorContextTx(tx, expectedActorID, presentedHash)
+	if err != nil {
+		return MediaUploadCreation{}, err
+	}
+	if ctx.ActorID != params.Media.ActorID || ctx.OrbitID != params.Media.OwnerOrbitID ||
+		params.Media.Source != MediaSourceApp {
+		return MediaUploadCreation{}, ErrUnauthorized
+	}
+	if existing, found, err := findMediaUploadTx(tx, params, idempotencyHash, fingerprint); err != nil {
+		return MediaUploadCreation{}, err
+	} else if found {
+		if (existing.Session.Status == UploadStatusOpen || existing.Session.Status == UploadStatusFinalizing) &&
+			existing.Session.ExpiresAt > params.Media.CreatedAt {
+			result, err := tx.Exec(`UPDATE media_upload_sessions
+SET token_hash = ?, revision = revision + 1, updated_at = ?
+WHERE id = ? AND token_hash <> ?`, hashToken(token), params.Media.CreatedAt,
+				existing.Session.ID, hashToken(token))
+			if err != nil {
+				return MediaUploadCreation{}, err
+			}
+			if changed, err := result.RowsAffected(); err != nil {
+				return MediaUploadCreation{}, err
+			} else if changed == 1 {
+				existing.Session, err = scanMediaUpload(tx.QueryRow(
+					`SELECT `+mediaUploadColumns+` FROM media_upload_sessions WHERE id = ?`, existing.Session.ID))
+				if err != nil {
+					return MediaUploadCreation{}, err
+				}
+			}
+			existing.Token = token
+		}
+		if err := tx.Commit(); err != nil {
+			return MediaUploadCreation{}, err
+		}
+		return existing, nil
+	}
+	if err := mediaUploadCapacityTx(tx, params, quota); err != nil {
+		return MediaUploadCreation{}, err
+	}
+	created, err := insertMediaUploadTx(tx, params, idempotencyHash, fingerprint, token)
+	if err != nil {
+		return MediaUploadCreation{}, err
+	}
+	if err := s.checkpoint("media_upload_authorized_create_before_commit"); err != nil {
+		return MediaUploadCreation{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return MediaUploadCreation{}, err
+	}
+	return created, nil
 }
 
 func (s *Store) GetMediaItem(id string) (*MediaItem, error) {
@@ -454,6 +701,27 @@ func (s *Store) GetMediaUploadSessionByToken(token string) (*MediaUploadSession,
 	session, err := scanMediaUpload(s.db.QueryRow(
 		`SELECT `+mediaUploadColumns+` FROM media_upload_sessions WHERE token_hash = ?`,
 		hashToken(token)))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+// AuthorizeMediaUploadSession intentionally collapses unknown IDs, wrong
+// capabilities, terminal states, and expired capabilities to a nil result so
+// the HTTP layer has one non-disclosing credential response.
+func (s *Store) AuthorizeMediaUploadSession(sessionID, token string, now int64) (*MediaUploadSession, error) {
+	if sessionID == "" || !lowerHexTokenPattern.MatchString(token) || now <= 0 {
+		return nil, nil
+	}
+	session, err := scanMediaUpload(s.db.QueryRow(
+		`SELECT `+mediaUploadColumns+` FROM media_upload_sessions
+WHERE id = ? AND token_hash = ? AND expires_at > ?
+  AND status IN ('open', 'finalizing', 'completed')`,
+		sessionID, hashToken(token), now))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -544,6 +812,194 @@ WHERE id = ? AND status = 'open' AND revision = ? AND expires_at > ?
 		return MediaUploadSession{}, err
 	}
 	return session, nil
+}
+
+func (s *Store) ExpiredMediaUploadSessions(now int64, limit int) ([]MediaUploadSession, error) {
+	if now <= 0 || limit <= 0 || limit > 1000 {
+		return nil, fmt.Errorf("%w: invalid expired upload query", ErrMediaInvalid)
+	}
+	rows, err := s.db.Query(`SELECT `+mediaUploadColumns+`
+FROM media_upload_sessions
+WHERE status IN ('open', 'finalizing') AND expires_at <= ?
+ORDER BY expires_at, id
+LIMIT ?`, now, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	sessions := make([]MediaUploadSession, 0)
+	for rows.Next() {
+		session, err := scanMediaUpload(rows)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
+	}
+	return sessions, rows.Err()
+}
+
+func (s *Store) MediaUploadSessionsForTempCleanup(limit int) ([]MediaUploadSession, error) {
+	if limit <= 0 || limit > 1000 {
+		return nil, fmt.Errorf("%w: invalid upload cleanup query", ErrMediaInvalid)
+	}
+	rows, err := s.db.Query(`SELECT `+mediaUploadColumns+`
+FROM media_upload_sessions
+WHERE status IN ('failed', 'expired', 'completed') AND temp_cleaned_at = 0
+ORDER BY updated_at, id
+LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	sessions := make([]MediaUploadSession, 0)
+	for rows.Next() {
+		session, err := scanMediaUpload(rows)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
+	}
+	return sessions, rows.Err()
+}
+
+func (s *Store) MarkMediaUploadTempCleaned(sessionID string, expectedRevision, now int64) (MediaUploadSession, error) {
+	if sessionID == "" || expectedRevision <= 0 || now <= 0 {
+		return MediaUploadSession{}, fmt.Errorf("%w: invalid temp cleanup acknowledgement", ErrMediaInvalid)
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	defer tx.Rollback()
+	result, err := tx.Exec(`UPDATE media_upload_sessions
+SET temp_cleaned_at = ?, revision = revision + 1, updated_at = ?
+WHERE id = ? AND revision = ? AND temp_cleaned_at = 0
+  AND status IN ('failed', 'expired', 'completed')`,
+		now, now, sessionID, expectedRevision)
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	if changed, err := result.RowsAffected(); err != nil || changed != 1 {
+		if err != nil {
+			return MediaUploadSession{}, err
+		}
+		return MediaUploadSession{}, ErrMediaStateConflict
+	}
+	cleaned, err := scanMediaUpload(tx.QueryRow(
+		`SELECT `+mediaUploadColumns+` FROM media_upload_sessions WHERE id = ?`, sessionID))
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	if err := s.checkpoint("media_upload_temp_cleaned_before_commit"); err != nil {
+		return MediaUploadSession{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return MediaUploadSession{}, err
+	}
+	return cleaned, nil
+}
+
+func (s *Store) ExpireMediaUploadSession(sessionID string, expectedRevision, now int64) (MediaUploadSession, error) {
+	if sessionID == "" || expectedRevision <= 0 || now <= 0 {
+		return MediaUploadSession{}, fmt.Errorf("%w: invalid upload expiry", ErrMediaInvalid)
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	defer tx.Rollback()
+	session, err := scanMediaUpload(tx.QueryRow(
+		`SELECT `+mediaUploadColumns+` FROM media_upload_sessions WHERE id = ?`, sessionID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return MediaUploadSession{}, ErrMediaNotFound
+	}
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	if session.Revision != expectedRevision || session.ExpiresAt > now ||
+		(session.Status != UploadStatusOpen && session.Status != UploadStatusFinalizing) {
+		return MediaUploadSession{}, ErrMediaStateConflict
+	}
+	item, err := scanMediaItem(tx.QueryRow(
+		`SELECT `+mediaItemColumns+` FROM media_items WHERE id = ?`, session.MediaID))
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	if _, err := transitionMediaTerminalTx(
+		tx, item.ID, item.Revision, MediaStatusFailed, "upload_expired", now, false,
+	); err != nil {
+		return MediaUploadSession{}, err
+	}
+	result, err := tx.Exec(`UPDATE media_upload_sessions
+SET status = 'expired', revision = revision + 1, updated_at = ?
+WHERE id = ? AND status = 'failed' AND revision = ?`,
+		now, session.ID, expectedRevision+1)
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	if changed, err := result.RowsAffected(); err != nil || changed != 1 {
+		if err != nil {
+			return MediaUploadSession{}, err
+		}
+		return MediaUploadSession{}, ErrMediaStateConflict
+	}
+	expired, err := scanMediaUpload(tx.QueryRow(
+		`SELECT `+mediaUploadColumns+` FROM media_upload_sessions WHERE id = ?`, session.ID))
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	if err := s.checkpoint("media_upload_expire_before_commit"); err != nil {
+		return MediaUploadSession{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return MediaUploadSession{}, err
+	}
+	return expired, nil
+}
+
+func (s *Store) FailMediaUploadSession(sessionID string, expectedRevision int64, failureCode string, now int64) (MediaUploadSession, error) {
+	if sessionID == "" || expectedRevision <= 0 || now <= 0 ||
+		!mediaFailureCodePattern.MatchString(failureCode) {
+		return MediaUploadSession{}, fmt.Errorf("%w: invalid upload failure", ErrMediaInvalid)
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	defer tx.Rollback()
+	session, err := scanMediaUpload(tx.QueryRow(
+		`SELECT `+mediaUploadColumns+` FROM media_upload_sessions WHERE id = ?`, sessionID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return MediaUploadSession{}, ErrMediaNotFound
+	}
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	if session.Revision != expectedRevision || session.Status != UploadStatusOpen {
+		return MediaUploadSession{}, ErrMediaStateConflict
+	}
+	item, err := scanMediaItem(tx.QueryRow(
+		`SELECT `+mediaItemColumns+` FROM media_items WHERE id = ?`, session.MediaID))
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	if _, err := transitionMediaTerminalTx(
+		tx, item.ID, item.Revision, MediaStatusFailed, failureCode, now, false,
+	); err != nil {
+		return MediaUploadSession{}, err
+	}
+	failed, err := scanMediaUpload(tx.QueryRow(
+		`SELECT `+mediaUploadColumns+` FROM media_upload_sessions WHERE id = ?`, session.ID))
+	if err != nil {
+		return MediaUploadSession{}, err
+	}
+	if err := s.checkpoint("media_upload_fail_before_commit"); err != nil {
+		return MediaUploadSession{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return MediaUploadSession{}, err
+	}
+	return failed, nil
 }
 
 func newStorageKey() (string, error) {

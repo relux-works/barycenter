@@ -134,6 +134,14 @@ func assertTransmissionError(
 
 func TestTransmissionHTTPCreateReplayStatusAndCancel(t *testing.T) {
 	harness := newOnboardingHarness(t)
+	var acceptedSignals []string
+	var cancellationSignals []store.CancelTransmissionResult
+	harness.api.transmissionAccepted = func(id string) {
+		acceptedSignals = append(acceptedSignals, id)
+	}
+	harness.api.transmissionCancelled = func(result store.CancelTransmissionResult) {
+		cancellationSignals = append(cancellationSignals, result)
+	}
 	owner, err := harness.store.CreateSelfServiceOrbit("Transmission HTTP owner")
 	if err != nil {
 		t.Fatal(err)
@@ -173,6 +181,9 @@ func TestTransmissionHTTPCreateReplayStatusAndCancel(t *testing.T) {
 		createdBody["include_origin"] != true || createdBody["reused"] != false {
 		t.Fatalf("created body=%v", createdBody)
 	}
+	if len(acceptedSignals) != 1 || acceptedSignals[0] != transmissionID {
+		t.Fatalf("create scheduler signals=%v", acceptedSignals)
+	}
 	counts := createdBody["target_counts"].(map[string]any)
 	for _, name := range []string{
 		"accepted", "preparing", "ready", "scheduled", "playing", "cancelling",
@@ -195,6 +206,9 @@ func TestTransmissionHTTPCreateReplayStatusAndCancel(t *testing.T) {
 	if replayedBody["transmission_id"] != transmissionID || replayedBody["reused"] != true ||
 		replayedBody["accepted_at"] != acceptedAt {
 		t.Fatalf("replayed body=%v", replayedBody)
+	}
+	if len(acceptedSignals) != 2 || acceptedSignals[1] != transmissionID {
+		t.Fatalf("replay scheduler signals=%v", acceptedSignals)
 	}
 	conflict := transmissionAPIRequest(
 		harness.mux, http.MethodPost, "/v1/transmissions",
@@ -245,12 +259,20 @@ func TestTransmissionHTTPCreateReplayStatusAndCancel(t *testing.T) {
 		cancelledBody["reason_code"] != "sender_cancelled" {
 		t.Fatalf("cancel body=%v", cancelledBody)
 	}
+	if len(cancellationSignals) != 1 || !cancellationSignals[0].Changed ||
+		cancellationSignals[0].Transmission.ID != transmissionID {
+		t.Fatalf("cancel scheduler signals=%+v", cancellationSignals)
+	}
 	repeatedCancel := transmissionAPIRequest(
 		harness.mux, http.MethodPost, "/v1/transmissions/"+transmissionID+"/cancel",
 		`{}`, owner.ControlToken, "",
 	)
 	if repeatedCancel.Code != http.StatusOK || decodeObject(t, repeatedCancel)["changed"] != false {
 		t.Fatalf("repeat cancel status=%d body=%s", repeatedCancel.Code, repeatedCancel.Body.String())
+	}
+	if len(cancellationSignals) != 2 || cancellationSignals[1].Changed ||
+		cancellationSignals[1].Transmission.ID != transmissionID {
+		t.Fatalf("repeat cancel scheduler signals=%+v", cancellationSignals)
 	}
 }
 

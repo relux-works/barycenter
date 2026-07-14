@@ -86,6 +86,21 @@ func TestTrioPersonalVoiceWaits(t *testing.T) {
 	}
 }
 
+func TestTrioVoiceExactTargetsIgnoreLegacyBothFallback(t *testing.T) {
+	s := trioSession()
+	voice := voiceEl("v_exact", "both", 4_000)
+	voice.Targets = []protocol.NodeID{"c", "b", "b", "not-a-peer"}
+	effects := s.EnqueueVoice(voice)
+	plays := of[EffPlayVoice](t, effects)
+	waits := of[EffWait](t, effects)
+	if len(plays) != 2 || plays[0].To != "b" || plays[1].To != "c" {
+		t.Fatalf("exact target plays=%#v effects=%#v", plays, effects)
+	}
+	if len(waits) != 1 || waits[0].To != "a" {
+		t.Fatalf("exact target waits=%#v effects=%#v", waits, effects)
+	}
+}
+
 // One of three offline -> the whole orbit parks; survivors get the pause.
 func TestTrioOfflineParksAll(t *testing.T) {
 	s := trioSession()

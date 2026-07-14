@@ -4,18 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 26 accepted, 179 remain.
-- Routed inventory: 186 engineering tasks (26 accepted, 160 remain) and 19
+- Combined inventory: 205 original tasks; 27 accepted, 178 remain.
+- Routed inventory: 186 engineering tasks (27 accepted, 159 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2bbz13` — windows-transmission-client-hooks
-- Current branch: `task/task-260712-2bbz13-windows-transmission-client-hooks`
-- Accepted overall: 26 / 205 tasks (approximately 12.7%); 179 remain
-- Engineering progress: 26 / 186 tasks (approximately 14.0%); 160 remain
+- Landing engineering task: `TASK-260712-31vvjt` — overlay-controller-scheduler
+- Next engineering task after landing: `TASK-260712-2qc27p` — transmission-regression-coverage
+- Current branch: `task/task-260712-31vvjt-overlay-controller-scheduler`
+- Accepted overall: 27 / 205 tasks (approximately 13.2%); 178 remain
+- Engineering progress: 27 / 186 tasks (approximately 14.5%); 159 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -45,9 +46,34 @@
   `0b54899073e4dc4948b248f7c77666e7151f5459` after exact code and tracking CI
   runs `29324579129` and `29324846258`. `TASK-260712-2bbz13` is accepted on
   exact engineering code head `219306ceda548b64a6bb72e279c9ac9da4e65313`;
-  all four hosted jobs passed in run `29326895259`. PR #25 remains the current
-  integration boundary; strict execution advances to `TASK-260712-31vvjt`
-  only after that PR lands and `main` is synchronized.
+  all four hosted jobs passed in run `29326895259`, and tracking head `c85e8ad`
+  passed run `29327302466`. PR #25 landed at merge
+  `0c1e1946ff692aa553c19ca6bf7328150d1a24b8`; strict execution has advanced to
+  `TASK-260712-31vvjt` from that synchronized `main`. `TASK-260712-31vvjt` is
+  accepted on exact engineering code head
+  `d0e1b925aa72048c243739d61bcf61fb51443ab7`; all four hosted jobs passed in
+  run `29331940948`, and PR #26 is landing the tracking update before strict
+  execution advances to `TASK-260712-2qc27p`.
+
+Checkpoint 2026-07-14: `TASK-260712-31vvjt` now has one durable scheduler per
+persisted orbit or approach playback domain. Overlay and interrupt share an
+`accepted_at` plus ULID FIFO, including equal-time ties and opposite approach
+origins. The additive scheduler state persists the exact three-second prepare
+barrier, RTT-derived coordinator T and 100 ms late window; monotonic timer
+handling prevents wall-clock rollback from extending a deadline. Runtime
+rechecks exact binding, block, DND, liveness, immutable/current capability and
+fresh per-socket RTT evidence. Generation-bound receipts, bounded start/end/
+cancel watchdogs, strict `T < expires_at`, safety stop, restart reconciliation,
+media lifecycle, target revoke, leave and approach split flows converge without
+inventing interrupt fallback. Legacy `after_current` stays on the Session FSM
+with exact targets, idempotent enqueue/cancel and generic media ACL URLs. Local
+coordinator vet/full test/focused race/20x shuffled stress/build and exact
+previous-HEAD rollback passed; Windows vet/test/race/cross-build and macOS
+release build passed. Hosted run `29331940948` passed coordinator, node-core,
+pulsar-win and signed packaged-probe on exact code head `d0e1b92`. This is
+deterministic engineering evidence only: no real-app playback, audible mixing,
+measured multi-node p95 skew, packaged installation or physical-hardware result
+is claimed; those checks remain in `EPIC-260714-th54l3`.
 
 Checkpoint 2026-07-14: `TASK-260712-2bbz13` now has a generation-safe Windows
 `media_clip_v1` client behind a delivery-capability-gated mixer seam. It
@@ -482,8 +508,12 @@ Story: `STORY-260712-25lysg` — P1 Transmission protocol and scheduler.
   prepare/schedule/cancel, typed receipts, durable DND/presence, strict
   capability gating and legacy-path redaction; local vet/test/race,
   cross-build and compatibility gates plus all four hosted jobs in run
-  `29326895259` green; PR #25 pending integration)
-- [ ] `TASK-260712-31vvjt` — overlay-controller-scheduler
+  `29326895259` and tracking run `29327302466` green; PR #25, merge
+  `0c1e194`)
+- [x] `TASK-260712-31vvjt` — overlay-controller-scheduler (accepted on exact
+  code head `d0e1b92`: durable domain FIFO/barrier/T, authenticated receipts,
+  restart/lifecycle cancellation and exact legacy bridge; local full/race/
+  rollback gates and all four hosted jobs in run `29331940948` green; PR #26)
 - [ ] `TASK-260712-2qc27p` — transmission-regression-coverage
 - [ ] `TASK-260712-2cdjq8` — transmission-rollout-handoff
 

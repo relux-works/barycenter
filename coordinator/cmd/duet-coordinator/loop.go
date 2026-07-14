@@ -26,6 +26,7 @@ import (
 type nodeSender interface {
 	Send(key hub.NodeKey, msgType string, payload any) bool
 	Online(orbitID int64) map[protocol.NodeID]bool
+	NodeSnapshots() map[hub.NodeKey]hub.NodeSnapshot
 }
 
 type telegramMediaAdapter interface {
@@ -96,12 +97,17 @@ type loop struct {
 	linkOf map[int64]int64
 	groups map[int64]*orbitState
 
-	timeouts    chan orbitTimeout
-	mediaCh     chan mediaDone
-	mediaCancel chan mediaCancellationCall
-	playlistCh  chan playlistDone
-	resolveCh   chan resolveDone
-	trackMetaCh chan trackMetadataDone
+	timeouts             chan orbitTimeout
+	mediaCh              chan mediaDone
+	mediaCancel          chan mediaCancellationCall
+	playlistCh           chan playlistDone
+	resolveCh            chan resolveDone
+	trackMetaCh          chan trackMetadataDone
+	transmissionCh       chan transmissionSignal
+	transmissionTimer    *time.Timer
+	transmissionTimerC   <-chan time.Time
+	transmissionTimerDue int64
+	transmissionNow      func() int64
 	// Voice processing is concurrent, but airtime order is the serial Telegram
 	// acceptance order per air. Completed jobs wait here for older jobs.
 	voiceAccepted map[int64]int64
@@ -163,21 +169,25 @@ type mediaCancellationCall struct {
 
 func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store, b *bot.Bot, sp *spotify.Client) *loop {
 	l := &loop{
-		log:           log,
-		cfg:           cfg,
-		hub:           h,
-		st:            st,
-		bot:           b,
-		sp:            sp,
-		states:        map[int64]*orbitState{},
-		linkOf:        map[int64]int64{},
-		groups:        map[int64]*orbitState{},
-		timeouts:      make(chan orbitTimeout, 8),
-		mediaCh:       make(chan mediaDone, 8),
-		mediaCancel:   make(chan mediaCancellationCall, 8),
-		playlistCh:    make(chan playlistDone, 4),
-		resolveCh:     make(chan resolveDone, 8),
-		trackMetaCh:   make(chan trackMetadataDone, 8),
+		log:            log,
+		cfg:            cfg,
+		hub:            h,
+		st:             st,
+		bot:            b,
+		sp:             sp,
+		states:         map[int64]*orbitState{},
+		linkOf:         map[int64]int64{},
+		groups:         map[int64]*orbitState{},
+		timeouts:       make(chan orbitTimeout, 8),
+		mediaCh:        make(chan mediaDone, 8),
+		mediaCancel:    make(chan mediaCancellationCall, 8),
+		playlistCh:     make(chan playlistDone, 4),
+		resolveCh:      make(chan resolveDone, 8),
+		trackMetaCh:    make(chan trackMetadataDone, 8),
+		transmissionCh: make(chan transmissionSignal, 256),
+		transmissionNow: func() int64 {
+			return time.Now().UnixMilli()
+		},
 		voiceAccepted: map[int64]int64{},
 		voiceNext:     map[int64]int64{},
 		voicePending:  map[int64]map[int64]mediaDone{},
@@ -430,7 +440,14 @@ func (l *loop) warmup() {
 	for _, lk := range links {
 		l.group(lk.ID)
 	}
+	restartResults, err := l.st.ReconcileTransmissionSchedulerRestart(time.Now().UnixMilli())
+	if err != nil {
+		l.log.Error("transmission restart reconciliation failed", "err", err)
+	} else {
+		l.deliverTransmissionCancellations(restartResults)
+	}
 	l.log.Info("orbits warmed up", "count", len(ids), "links", len(links))
+	l.signalTransmission(transmissionSignal{})
 }
 
 func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
@@ -462,6 +479,19 @@ func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 			l.onResolveDone(d)
 		case d := <-l.trackMetaCh:
 			l.handleTrackMetadataDone(d)
+		case signal := <-l.transmissionCh:
+			l.handleTransmissionSignal(signal)
+		case <-l.transmissionTimerC:
+			due := l.transmissionTimerDue
+			l.transmissionTimerC = nil
+			l.transmissionTimerDue = 0
+			now := time.Now().UnixMilli()
+			if due > now {
+				// The timer itself is monotonic. If wall time moved backwards,
+				// persisted coordinator time must not extend the barrier/T guard.
+				now = due
+			}
+			l.runTransmissionScheduler(now)
 		}
 	}
 }
@@ -514,6 +544,18 @@ func (l *loop) applyMediaCancellation(request store.MediaDeliveryCancellation) e
 	if persistErr != nil {
 		return fmt.Errorf("persist media cancellation: %w", persistErr)
 	}
+	reason := store.TransmissionReasonMediaDeleted
+	if request.Reason == store.MediaCancellationExpired {
+		reason = store.TransmissionReasonMediaExpired
+	}
+	results, err := l.st.CancelTransmissionsForMedia(
+		request.MediaID, reason, time.Now().UnixMilli(),
+	)
+	if err != nil {
+		return fmt.Errorf("cancel media transmissions: %w", err)
+	}
+	l.deliverTransmissionCancellations(results)
+	l.runTransmissionScheduler(time.Now().UnixMilli())
 	return nil
 }
 
@@ -729,6 +771,15 @@ func (l *loop) emptyParkedSnapshot(donor int64) {
 // breakGroup dissolves an approach: the shared session dies, each orbit
 // returns to its own solo session (design §12: breaking up is painless).
 func (l *loop) breakGroup(linkID int64, orbits ...int64) {
+	results, err := l.st.CancelTransmissionPlaybackDomain(
+		store.PlaybackDomainApproach, linkID,
+		store.TransmissionReasonApproachApart, time.Now().UnixMilli(),
+	)
+	if err != nil {
+		l.log.Error("cancel approach transmissions", "link", linkID, "err", err)
+	} else {
+		l.deliverTransmissionCancellations(results)
+	}
 	if g := l.group(linkID); g != nil {
 		l.cancelReadyTimer(g)
 		for _, p := range g.sess.Peers {
@@ -777,6 +828,15 @@ func (l *loop) dissolveOrbit(home *orbitState) {
 			others = append(others, other)
 		}
 		l.breakGroup(linkID, others...)
+	}
+	results, err := l.st.CancelTransmissionPlaybackDomain(
+		store.PlaybackDomainOrbit, home.id,
+		store.TransmissionReasonApproachLeft, time.Now().UnixMilli(),
+	)
+	if err != nil {
+		l.log.Error("cancel dissolved-orbit transmissions", "orbit", home.id, "err", err)
+	} else {
+		l.deliverTransmissionCancellations(results)
 	}
 	o := l.stateFor(home.id) // the personal orbit again after any breakGroup
 	l.cancelReadyTimer(o)
@@ -840,6 +900,8 @@ func (l *loop) handleNode(ev hub.Event) {
 		if off, ok := o.offsets[n]; ok {
 			l.hub.Send(e.Key, protocol.TypeSetOffset, &protocol.SetOffsetPayload{OffsetMS: off})
 		}
+		l.reconcileTransmissionNode(e.Key, time.Now().UnixMilli())
+		l.signalTransmission(transmissionSignal{})
 	case hub.EvOnline:
 		o := l.stateFor(e.Key.Orbit)
 		peer := l.peerFor(o, e.Key)
@@ -850,11 +912,13 @@ func (l *loop) handleNode(ev hub.Event) {
 		} else {
 			l.apply(o, o.sess.OnNodeBack(peer))
 		}
+		l.signalTransmission(transmissionSignal{})
 	case hub.EvOffline:
 		o := l.stateFor(e.Key.Orbit)
 		l.log.Warn("node offline", "orbit", e.Key.Orbit, "slot", e.Key.Slot)
 		l.st.LogEvent(string(e.Key.Slot), "offline", nil)
 		l.apply(o, o.sess.OnNodeOffline(time.Now().UnixMilli(), l.peerFor(o, e.Key)))
+		l.signalTransmission(transmissionSignal{})
 	case hub.EvMessage:
 		l.handleNodeMessage(e)
 	}
@@ -885,6 +949,7 @@ func (l *loop) handleNodeMessage(m hub.EvMessage) {
 		if o.restoredPaused {
 			o.sess.RefreshSavedPosition()
 		}
+		l.signalTransmission(transmissionSignal{})
 	case *protocol.ReadyPayload:
 		l.apply(o, o.sess.OnReady(now, slot, p.ElementID))
 	case *protocol.StartedPayload:
@@ -893,7 +958,9 @@ func (l *loop) handleNodeMessage(m hub.EvMessage) {
 		l.apply(o, o.sess.OnEnded(slot, p.ElementID, p.Reason))
 	case *protocol.VoiceStartedPayload:
 		l.log.Info("voice started", "orbit", o.id, "slot", slot, "element", p.ElementID)
+		l.handleLegacyTransmissionStarted(m.Key, m.CredentialTokenHash, p.ElementID)
 	case *protocol.VoiceEndedPayload:
+		l.handleLegacyTransmissionEnded(m.Key, m.CredentialTokenHash, p.ElementID)
 		l.apply(o, o.sess.OnVoiceEnded(slot, p.ElementID))
 	case *protocol.WaitEndedPayload:
 		l.apply(o, o.sess.OnWaitEnded(slot, p.ElementID))
@@ -906,6 +973,18 @@ func (l *loop) handleNodeMessage(m hub.EvMessage) {
 		l.apply(o, o.sess.OnUserPause(now, slot))
 	case *protocol.UserResumePayload:
 		l.apply(o, o.sess.OnUserResume(slot))
+	case *protocol.MediaReadyPayload:
+		l.handleMediaReady(m.Key, m.CredentialTokenHash, p)
+	case *protocol.MediaStartedPayload:
+		l.handleMediaStarted(m.Key, m.CredentialTokenHash, p)
+	case *protocol.MediaEndedPayload:
+		l.handleMediaEnded(m.Key, m.CredentialTokenHash, p)
+	case *protocol.MediaFailedPayload:
+		l.handleMediaFailed(m.Key, m.CredentialTokenHash, p)
+	case *protocol.MediaCancelledPayload:
+		l.handleMediaCancelled(m.Key, m.CredentialTokenHash, p)
+	case *protocol.SetDNDPayload:
+		l.handleNodeDND(m.Key, m.CredentialTokenHash, p)
 	case *protocol.ExternalPlaybackPayload:
 		positionMS := int64(0)
 		if p.PositionMS != nil {
@@ -1005,7 +1084,11 @@ func (l *loop) handleBot(ev bot.Event) {
 		// lost/leaked one can't linger); the new code re-pairs in the app via
 		// "Подключить заново…". A brief tokenless gap is fine — you're re-pairing.
 		if old, _ := l.st.SlotOf(home.id, ev.FromUserID); old != "" {
+			identity, _ := l.st.CurrentInstallationTarget(home.id, old)
 			_, _ = l.st.RevokeSlot(home.id, old) // slot came from SlotOf — always live
+			l.cancelTransmissionInstallation(
+				identity, store.TransmissionReasonTargetRevoked, time.Now().UnixMilli(),
+			)
 			o := l.stateFor(home.id)
 			peer := protocol.NodeID(old)
 			if o.group() {
@@ -1049,6 +1132,7 @@ func (l *loop) handleBot(ev bot.Event) {
 			ev.Reply("отзывать дома может только primary")
 			return
 		}
+		identity, _ := l.st.CurrentInstallationTarget(home.id, cmd.Target)
 		found, err := l.st.RevokeSlot(home.id, cmd.Target)
 		if err != nil {
 			ev.Reply("не получилось")
@@ -1059,6 +1143,9 @@ func (l *loop) handleBot(ev bot.Event) {
 			ev.Reply(fmt.Sprintf("дома %s нет в орбите (/orbit покажет слоты)", cmd.Target))
 			return
 		}
+		l.cancelTransmissionInstallation(
+			identity, store.TransmissionReasonTargetRevoked, time.Now().UnixMilli(),
+		)
 		// The revoked slot leaves the peer set of the LIVE session (the
 		// group one during an approach) so it stops blocking ready barriers
 		// and offline gates (M2).
@@ -1309,6 +1396,10 @@ func (l *loop) handleBot(ev bot.Event) {
 		// Capture the leaver's home before the store forgets them, so its node
 		// leaves the live air.
 		slot, _ := l.st.SlotOf(home.id, ev.FromUserID)
+		var leavingIdentity *store.MediaTargetIdentity
+		if slot != "" {
+			leavingIdentity, _ = l.st.CurrentInstallationTarget(home.id, slot)
+		}
 		dissolved, promoted, err := l.st.LeaveOrbit(home.id, ev.FromUserID)
 		if err != nil {
 			ev.Reply("не смог выйти из барицентра")
@@ -1324,6 +1415,10 @@ func (l *loop) handleBot(ev bot.Event) {
 			ev.Reply("ты вышел — в барицентре больше никого, он распущен")
 			return
 		}
+		l.cancelTransmissionInstallation(
+			leavingIdentity, store.TransmissionReasonApproachLeft,
+			time.Now().UnixMilli(),
+		)
 		l.notify(home, fmt.Sprintf("%s покинул барицентр", esc(ev.FromName)))
 		if promoted != 0 {
 			l.notify(home, "главная звезда перешла следующему участнику")
@@ -1761,9 +1856,13 @@ func (l *loop) apply(o *orbitState, effs []session.Effect) {
 		case session.EffPause:
 			l.hub.Send(key(e.To), protocol.TypePause, &protocol.PausePayload{ElementID: e.ElementID, FadeMS: e.FadeMS})
 		case session.EffPlayVoice:
+			fileURL := l.mediaURL(e.MediaID)
+			if strings.HasPrefix(e.ElementID, "tr_") {
+				fileURL = l.genericMediaURL(e.MediaID)
+			}
 			l.hub.Send(key(e.To), protocol.TypePlayVoice, &protocol.PlayVoicePayload{
 				ElementID: e.ElementID,
-				FileURL:   l.mediaURL(e.MediaID),
+				FileURL:   fileURL,
 			})
 		case session.EffWait:
 			l.hub.Send(key(e.To), protocol.TypeWait, &protocol.WaitPayload{ElementID: e.ElementID, DurationMS: e.DurationMS})

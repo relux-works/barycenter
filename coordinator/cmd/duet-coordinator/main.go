@@ -289,6 +289,8 @@ func main() {
 	)
 	if onboarding != nil {
 		onboarding.transmissionPresence = transmissionPresenceSnapshotterForHub(h)
+		onboarding.transmissionAccepted = l.transmissionAccepted
+		onboarding.transmissionCancelled = l.transmissionCancelled
 		onboarding.mediaLifecycle = mediaLifecycle
 		onboarding.mediaLifecycleInitErr = mediaLifecycleInitErr
 		go onboarding.runMediaUploadMaintenance(stop)

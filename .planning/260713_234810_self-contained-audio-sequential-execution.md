@@ -13,7 +13,7 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-2qpp6w` — transmission-http-resolution
-- Current branch: `task/task-260712-1g70av-clip-transmission-wire-contract`
+- Current branch: `task/task-260712-2qpp6w-transmission-http-resolution`
 - Accepted overall: 23 / 205 tasks (approximately 11.2%); 182 remain
 - Engineering progress: 23 / 186 tasks (approximately 12.4%); 163 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -35,10 +35,10 @@
   `TASK-260712-51y5k9` landed through PR #20 at merge commit `2aa97c2` after
   hosted CI runs `29314060965` and `29314299856`; `TASK-260712-1aprcb` landed
   through PR #21 at merge commit `35d9974` after hosted CI runs `29315987760`,
-  `29316416647` and `29316678680`; `TASK-260712-1g70av` is accepted through
-  ready PR #22 after hosted CI runs `29318171135` and `29318440712`. Its final
-  tracking commit and merge are the only remaining landing steps before strict
-  execution starts `TASK-260712-2qpp6w`.
+  `29316416647` and `29316678680`; `TASK-260712-1g70av` landed through PR #22
+  at merge commit `2473020` after hosted CI runs `29318171135`, `29318440712`
+  and `29318696473`. Strict execution has started `TASK-260712-2qpp6w` from
+  that synchronized `main`.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup

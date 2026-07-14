@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:39:19Z
 
 ## Last Update
-2026-07-12T16:25:58Z
+2026-07-14T08:41:29Z
 
 ## Blocked By
 - TASK-260712-51y5k9
@@ -36,6 +36,7 @@ backlog
 - [ ] Return and consume a stable requires_confirmation contract before any interrupt fallback
 
 ## Notes
+Strict inline execution started from synchronized main merge 24730209e60cfcb24c8b41577a0648ba1d0a5327 on branch task/task-260712-2qpp6w-transmission-http-resolution. Scope is the frozen transmission-v1 create/status/cancel HTTP contract, immutable audience resolution, whole-transmission capability downgrade and explicit interrupt confirmation. Best-effort coding and automated tests only; real-app and physical-hardware checks remain in manual epic EPIC-260714-th54l3.
 
 ## Precondition Resources
 - [p1-transmission-protocol-components.puml](file://TASK-260712-2qpp6w/p1-transmission-protocol-components.puml) — HTTP API and audience resolution context

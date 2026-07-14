@@ -7,6 +7,10 @@ frozen in [`docs/analysis/p1-transmission-contract-v1.md`](analysis/p1-transmiss
 and shipped in the canonical Go codec plus the Windows and Swift mirrors. The
 files in `protocol/golden` remain the executable field-name contract.
 
+The stable deploy, mixed-version, rollback and downstream-consumer entry point
+is the [phase-one transmission rollout handoff](analysis/p1-transmission-rollout-handoff.md).
+It does not replace the frozen contract.
+
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 
 ## Envelope

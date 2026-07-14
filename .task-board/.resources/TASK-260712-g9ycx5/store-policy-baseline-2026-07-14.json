@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-07-14",
+  "policy": {
+    "document_version": "7.19",
+    "publish_date": "2025-09-10",
+    "effective_date": "2025-10-14"
+  },
+  "sources": [
+    {
+      "id": "store-policies",
+      "authority": "microsoft",
+      "title": "Microsoft Store Policies",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/store-policies",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "store-policy-history",
+      "authority": "microsoft",
+      "title": "Change history for Microsoft Store Policies",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/store-policies-change-history",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "store-app-quality",
+      "authority": "microsoft",
+      "title": "App Quality",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/store-app-quality",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "msix-listing",
+      "authority": "microsoft",
+      "title": "Add and edit Store listing info for MSIX apps",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/add-and-edit-store-listing-info",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "msix-assets",
+      "authority": "microsoft",
+      "title": "Add app screenshots, images, and trailers for MSIX apps",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/screenshots-and-images",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "msix-properties",
+      "authority": "microsoft",
+      "title": "Enter app properties for MSIX apps",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/enter-app-properties",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "msix-additional-information",
+      "authority": "microsoft",
+      "title": "Add additional information for MSIX apps",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/add-additional-information",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "store-submission-faq",
+      "authority": "microsoft",
+      "title": "Submit your app to Microsoft Store",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/faq/submit-your-app",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "microsoft-age-ratings",
+      "authority": "microsoft",
+      "title": "Generate age ratings",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/age-ratings",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "wack",
+      "authority": "microsoft",
+      "title": "Windows App Certification Kit",
+      "url": "https://learn.microsoft.com/en-us/windows/uwp/debug-test-perf/windows-app-certification-kit",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "iarc-about",
+      "authority": "iarc",
+      "title": "About IARC",
+      "url": "https://globalratings.com/about/",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "iarc-faq",
+      "authority": "iarc",
+      "title": "IARC FAQs",
+      "url": "https://globalratings.com/faq/",
+      "retrieved_date": "2026-07-14"
+    },
+    {
+      "id": "iarc-process",
+      "authority": "iarc",
+      "title": "How IARC Works",
+      "url": "https://globalratings.com/how-iarc-works/",
+      "retrieved_date": "2026-07-14"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "10.1",
+      "classification": "mandatory",
+      "summary": "The product and all metadata must accurately represent the shipped source, functions, features, experience and material limitations.",
+      "source_ids": ["store-policies", "msix-listing"],
+      "owner_tasks": ["TASK-260712-e1ie4x", "TASK-260712-2s4e9p", "TASK-260712-38lssj"],
+      "evidence_tasks": ["TASK-260712-e5mfqj", "TASK-260712-1xik11"]
+    },
+    {
+      "id": "10.3",
+      "classification": "mandatory",
+      "summary": "The submitted product must be testable; credentials are supplied only when login is actually required, and every server required by the reviewer path must remain functional.",
+      "source_ids": ["store-policies", "store-submission-faq"],
+      "owner_tasks": ["TASK-260712-1cdoxh", "TASK-260712-2s4e9p"],
+      "evidence_tasks": ["TASK-260712-e5mfqj", "TASK-260712-1xik11"]
+    },
+    {
+      "id": "10.5",
+      "classification": "mandatory",
+      "summary": "A Win32 product must expose an up-to-date privacy policy covering accessed personal information, use, storage, security, disclosure, controls and access; personal information must be transmitted and stored securely.",
+      "source_ids": ["store-policies", "msix-properties"],
+      "owner_tasks": ["TASK-260712-1epb3a", "TASK-260712-1x0lot"],
+      "evidence_tasks": ["TASK-260712-e1ie4x", "TASK-260712-1xik11"]
+    },
+    {
+      "id": "10.6",
+      "classification": "mandatory",
+      "summary": "Every declared capability must legitimately relate to shipped functionality and must not circumvent operating-system capability checks.",
+      "source_ids": ["store-policies", "msix-properties", "wack"],
+      "owner_tasks": ["TASK-260712-e1ie4x"],
+      "evidence_tasks": ["TASK-260712-1cdoxh", "TASK-260712-e5mfqj"]
+    },
+    {
+      "id": "10.7",
+      "classification": "mandatory",
+      "summary": "The product and listing must be localized for every declared language, disclose unavailable localized features and provide a reasonably similar experience across supported languages.",
+      "source_ids": ["store-policies", "msix-listing", "msix-assets"],
+      "owner_tasks": ["TASK-260712-e1ie4x", "TASK-260712-2s4e9p"],
+      "evidence_tasks": ["TASK-260712-e5mfqj", "TASK-260712-1xik11"]
+    },
+    {
+      "id": "11.11",
+      "classification": "mandatory",
+      "summary": "Partner Center must obtain an age rating from an accurately completed IARC questionnaire; content changes that can affect the rating require a questionnaire update.",
+      "source_ids": ["store-policies", "microsoft-age-ratings", "iarc-about", "iarc-faq", "iarc-process"],
+      "owner_tasks": ["TASK-260712-2s4e9p"],
+      "evidence_tasks": ["TASK-260712-1xik11"]
+    },
+    {
+      "id": "11.12",
+      "classification": "mandatory",
+      "summary": "Online UGC requires published terms or content guidelines, in-product reporting or proactive detection, and the ability to remove or disable UGC when Microsoft requests it.",
+      "source_ids": ["store-policies"],
+      "owner_tasks": ["TASK-260712-1epb3a", "TASK-260712-1x0lot", "TASK-260712-3t9nr8", "TASK-260712-pbfz37"],
+      "evidence_tasks": ["TASK-260712-2kec2s", "TASK-260712-2s4e9p", "TASK-260712-1xik11"]
+    }
+  ],
+  "certification_findings": [
+    {
+      "code": "10.3.1",
+      "title": "Product is Testable",
+      "provenance": "repository planning summary of July 2026 Partner Center feedback",
+      "raw_report_present": false,
+      "policy_anchor": "10.3",
+      "owner_tasks": ["TASK-260712-1cdoxh", "TASK-260712-2s4e9p"],
+      "evidence_tasks": ["TASK-260712-e5mfqj", "TASK-260712-1xik11"]
+    },
+    {
+      "code": "10.1.1.3",
+      "title": "Inaccurate Representation",
+      "provenance": "repository planning summary of July 2026 Partner Center feedback",
+      "raw_report_present": false,
+      "policy_anchor": "10.1",
+      "owner_tasks": ["TASK-260712-2s4e9p"],
+      "evidence_tasks": ["TASK-260712-e5mfqj", "TASK-260712-1xik11"]
+    }
+  ],
+  "pre_submit_delta_gate": {
+    "required": true,
+    "owner_tasks": ["TASK-260712-2s4e9p", "TASK-260712-1xik11"],
+    "required_fields": [
+      "verification_date",
+      "reviewer",
+      "policy_version",
+      "effective_date",
+      "source_urls",
+      "source_content_hashes",
+      "changed_requirements",
+      "created_or_reopened_task_ids",
+      "decision"
+    ]
+  }
+}

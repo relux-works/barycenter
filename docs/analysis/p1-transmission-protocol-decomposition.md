@@ -8,6 +8,8 @@ Story: `STORY-260712-25lysg`
    - Explicit blocking task because the source-of-truth defines behavior and
      example payloads, but it leaves the exact HTTP response fields, DND or
      presence payloads, and visible downgrade contract implicit.
+   - Normative outcome:
+     [`p1-transmission-contract-v1.md`](p1-transmission-contract-v1.md).
 2. `TASK-260712-1aprcb` Add transmission persistence, target snapshots, and ACL enforcement
    - Additive schema, receipt state storage, block data, and target-snapshot
      media authorization.

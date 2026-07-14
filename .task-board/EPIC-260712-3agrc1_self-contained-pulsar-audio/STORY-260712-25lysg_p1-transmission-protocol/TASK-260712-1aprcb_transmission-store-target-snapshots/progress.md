@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:39:19Z
 
 ## Last Update
-2026-07-12T17:03:16Z
+2026-07-14T07:20:55Z
 
 ## Blocked By
 - TASK-260712-51y5k9
@@ -32,6 +32,7 @@ backlog
 - [ ] Integrate the generic ACL service without authorizing from current membership
 
 ## Notes
+Strict sequential handoff after accepted TASK-260712-51y5k9. Start only from merged PR #20/main; implement the frozen p1-transmission-v1 persistence and immutable ACL contract. Manual real-app and physical-hardware evidence remains in EPIC-260714-th54l3.
 
 ## Precondition Resources
 - [p1-transmission-protocol-components.puml](file://TASK-260712-1aprcb/p1-transmission-protocol-components.puml) — Store and ACL context for transmission persistence

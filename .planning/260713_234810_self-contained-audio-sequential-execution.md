@@ -12,8 +12,8 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2qpp6w` — transmission-http-resolution
-- Current branch: `task/task-260712-2qpp6w-transmission-http-resolution`
+- Current engineering task: `TASK-260712-26ip33` — macos-transmission-client-hooks
+- Current branch: `task/task-260712-26ip33-macos-transmission-client-hooks`
 - Accepted overall: 24 / 205 tasks (approximately 11.7%); 181 remain
 - Engineering progress: 24 / 186 tasks (approximately 12.9%); 162 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -39,8 +39,10 @@
   at merge commit `2473020` after hosted CI runs `29318171135`, `29318440712`
   and `29318696473`. `TASK-260712-2qpp6w` is accepted on exact code head
   `4d737bcdbb0c40c53b8d2d64651756b4b9b077b2`; all four hosted jobs passed in
-  runs `29321759958` and `29322386396`, and PR #23 is awaiting its tracking-only
-  gate and merge.
+  runs `29321759958`, `29322386396` and tracking run `29322606238`; PR #23
+  landed exact head through merge `30f1c552c9824934922becab4637c34746d190dc`.
+  Strict execution has advanced to `TASK-260712-26ip33` from that synchronized
+  `main`.
 
 Checkpoint 2026-07-14: the `TASK-260712-2qpp6w` implementation candidate now
 exposes strict control-authenticated create/cancel and actor-authenticated
@@ -57,7 +59,8 @@ Windows vet/test/race/cross-build, Swift build, diff/resource comparison and
 task-board validation are green. The attached outcome explicitly leaves FIFO/
 barrier/disarm delivery to `TASK-260712-31vvjt` and claims no real-app or
 physical-hardware result. Exact remediated code head `4d737bc` passed all four
-hosted jobs in run `29322386396`; PR #23 has no review comments and is ready.
+hosted jobs in run `29322386396`; final tracking head `e0900ed` passed run
+`29322606238`, and PR #23 landed at `30f1c55`.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup

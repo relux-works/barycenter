@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:39:19Z
 
 ## Last Update
-2026-07-14T09:39:56Z
+2026-07-14T09:44:44Z
 
 ## Blocked By
 - TASK-260712-51y5k9
@@ -40,6 +40,7 @@ Strict inline execution started from synchronized main merge 24730209e60cfcb24c8
 Implemented strict create/status/cancel HTTP resolution with transactional bearer reauthentication, actor-scoped hashed idempotency, immutable live-binding audience snapshots, media/policy/capability evaluation, whole-delivery downgrade, hashed single-use interrupt confirmation, safe visibility and generation-bound cancellation handoff. Root review added omitted-vs-empty slot validation, empty-selector and corrupt-link fail-closed behavior, actual-socket presence, capability-aware can_cancel and non-disclosing block output. Local coordinator vet/test/race, 20x idempotency+confirmation stress, Windows vet/test/race/cross-build, Swift build, diff/resource comparison and board validation are green. Outcome resource attached. No real-app or physical-hardware result claimed; those remain in EPIC-260714-th54l3.
 PR self-review found and closed a stale-WebSocket binding TOCTOU: hub capability snapshots now carry a transient SHA-256 witness of the exact authenticated node/control credential, and transactional audience resolution compares it with the current installation generation before accepting online state or capabilities. The witness is never logged, returned or persisted. A negative stale-binding regression and current node/control cases pass focused, 20x stress, full vet/test and race gates.
 Accepted code head 4d737bcdbb0c40c53b8d2d64651756b4b9b077b2 in hosted CI run 29322386396: coordinator, node-core, pulsar-win and signed packaged probe all passed. PR #23 has no review comments and is ready. Scheduler disarm/FIFO work remains explicitly downstream; manual hardware evidence remains deferred.
+Final tracking head e0900ed9b0e143d871e059a0f8a8ffe1bec53097 passed all four jobs in CI run 29322606238. PR #23 merged exact head into main at merge commit 30f1c552c9824934922becab4637c34746d190dc.
 
 ## Precondition Resources
 - [p1-transmission-protocol-components.puml](file://TASK-260712-2qpp6w/p1-transmission-protocol-components.puml) — HTTP API and audience resolution context

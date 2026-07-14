@@ -184,6 +184,100 @@ func TestDownloadServiceRechecksDeleteAfterTargetAuthorization(t *testing.T) {
 	}
 }
 
+func TestDownloadServiceRechecksPersistedTargetBlockInsideDescriptorTransaction(t *testing.T) {
+	harness := newSubmitHarness(t)
+	ready := readyLifecycleFixture(t, harness, "download-persisted-block-race-0001")
+	target, err := harness.store.CreateSelfServiceOrbit("Persisted block race target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	acceptedAt := harness.nextMS()
+	created, err := harness.store.CreateTransmission(store.CreateTransmissionParams{
+		MediaID:            ready.ID,
+		SourceOrbitID:      harness.credentials.OrbitID,
+		SourceActorID:      harness.credentials.ActorID,
+		SourceSlot:         harness.credentials.Slot,
+		PlaybackDomainKind: store.PlaybackDomainOrbit,
+		PlaybackDomainID:   harness.credentials.OrbitID,
+		AudienceKind:       store.TransmissionAudienceExplicit,
+		OriginKind:         store.TransmissionOriginFile,
+		IncludeOrigin:      false,
+		RequestedDelivery:  store.TransmissionDeliveryOverlay,
+		EffectiveDelivery:  store.TransmissionDeliveryOverlay,
+		AcceptedAt:         acceptedAt,
+		Targets: []store.CreateTransmissionTarget{{
+			OrbitID: target.OrbitID, ActorID: target.ActorID, Slot: target.Slot,
+			OnlineAtAcceptance: true, MediaClipCapable: true, OverlayCapable: true,
+			InterruptCapable: true, InterruptResumeReady: true,
+		}},
+	})
+	if err != nil || created.Transmission.MediaID != ready.ID {
+		t.Fatalf("create persisted target=%+v err=%v", created, err)
+	}
+	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := NewDownloadService(harness.store, harness.mediaDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.now = func() time.Time { return time.UnixMilli(harness.nextMS()) }
+	service.SetTargetSnapshotReader(harness.store)
+	authorized := make(chan struct{})
+	release := make(chan struct{})
+	service.testAfterAuthorization = func() {
+		close(authorized)
+		<-release
+	}
+	result := make(chan error, 1)
+	go func() {
+		download, err := service.OpenAuthorized(
+			context.Background(), targetContext, target.NodeToken, ready.ID,
+		)
+		if err == nil {
+			download.File.Close()
+		}
+		result <- err
+	}()
+	select {
+	case <-authorized:
+	case <-time.After(5 * time.Second):
+		t.Fatal("persisted download did not reach post-authorization boundary")
+	}
+	block, err := harness.store.CreateTransmissionBlock(store.CreateTransmissionBlockParams{
+		OwnerScope: store.BlockOwnerActor, OwnerOrbitID: target.OrbitID,
+		OwnerActorID: target.ActorID, BlockedKind: store.BlockedSubjectActor,
+		BlockedActorID:      harness.credentials.ActorID,
+		AuthorizedByActorID: target.ActorID, CreatedAt: harness.nextMS(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	close(release)
+	select {
+	case err := <-result:
+		if !errors.Is(err, store.ErrMediaNotFound) {
+			t.Fatalf("block/open race error=%v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("persisted block/open race did not finish")
+	}
+	service.testAfterAuthorization = nil
+	if _, err := harness.store.RevokeTransmissionBlock(
+		block.Block.ID, target.ActorID, block.Block.Revision, harness.nextMS(),
+	); err != nil {
+		t.Fatal(err)
+	}
+	download, err := service.OpenAuthorized(
+		context.Background(), targetContext, target.NodeToken, ready.ID,
+	)
+	if err != nil {
+		t.Fatalf("download after block removal: %v", err)
+	}
+	download.File.Close()
+}
+
 func TestDownloadServicePinsAuthorizationUntilDescriptorOpen(t *testing.T) {
 	harness := newSubmitHarness(t)
 	ready := readyLifecycleFixture(t, harness, "download-open-revocation-0001")

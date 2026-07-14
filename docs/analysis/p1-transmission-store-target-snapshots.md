@@ -50,9 +50,10 @@ transactionally from target rows with the frozen precedence and reason map.
 The query never consults current approach or orbit membership. A later join,
 copied media ID or replacement slot cannot gain access; breaking an approach
 does not rewrite an already accepted row. The existing media service still
-re-resolves the bearer and ready/unexpired media state before opening bytes and
-again under the canonical-file lock. The coordinator now installs the store
-reader during production download-service construction.
+re-resolves the bearer, exact persisted row, active block and ready/unexpired
+media state before opening bytes and again inside the immediate descriptor-open
+transaction under the canonical-file lock. The coordinator now installs the
+store reader during production download-service construction.
 
 ## Repository seams
 
@@ -78,11 +79,12 @@ Unit and integration coverage proves:
 - deterministic played, failed and cancelled aggregate outcomes;
 - actor/orbit block ownership, revocation and node/orbit DND revision rules;
 - production HTTP download through persisted rows, uniform denial for copied
-  IDs and non-targets, approach-split stability and replacement-binding denial;
-  and
+  IDs and non-targets, approach-split stability, replacement-binding denial and
+  block-vs-descriptor-open race closure; and
 - exact rollback through merge `2aa97c2d08cb93b110200ae159fd43265410ff5a`,
-  previous-binary legacy/session/orbit mutation, roll-forward preservation and
-  final `foreign_key_check`.
+  previous-binary legacy/session mutation and source-orbit dissolution,
+  roll-forward transmission/target preservation, media revocation and final
+  `foreign_key_check`.
 
 The contract delta review also corrected the newly written logical `md_`
 examples to the already shipped and tested `m_<ULID>` media identifier. No

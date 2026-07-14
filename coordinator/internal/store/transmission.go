@@ -1086,23 +1086,39 @@ func deriveTransmissionAggregate(
 	}
 }
 
-// AllowsMediaDownload implements media.MediaTargetSnapshotReader without an
-// import cycle. It grants only an exact still-live installation generation
-// present in an accepted immutable target row. Current membership or approach
-// state is never consulted, and active recipient blocks revoke the grant.
-func (s *Store) AllowsMediaDownload(
-	ctx context.Context,
+// AuthorizePersistedMediaDownload performs the exact target-row check inside
+// the same immediate transaction as live bearer and media authorization.
+func (s *Store) AuthorizePersistedMediaDownload(
+	expected ActorContext,
+	bearer string,
 	target MediaTargetIdentity,
-) (bool, error) {
-	if ctx == nil {
-		return false, errors.New("nil transmission ACL context")
+	now int64,
+) (MediaItem, error) {
+	return s.authorizeMediaDownload(
+		expected, bearer, target.MediaID, true, &target, now, nil,
+	)
+}
+
+// WithAuthorizedPersistedMediaDownload keeps the persisted target and active
+// block decision pinned until authorized has acquired the canonical file
+// descriptor. The callback follows the same constraints as
+// WithAuthorizedMediaDownload.
+func (s *Store) WithAuthorizedPersistedMediaDownload(
+	expected ActorContext,
+	bearer string,
+	target MediaTargetIdentity,
+	now int64,
+	authorized func(MediaItem) error,
+) (MediaItem, error) {
+	if authorized == nil {
+		return MediaItem{}, fmt.Errorf("%w: nil media download callback", ErrMediaInvalid)
 	}
-	if !mediaItemIDPattern.MatchString(target.MediaID) || target.OrbitID <= 0 ||
-		target.ActorID <= 0 || !transmissionSlotPattern.MatchString(target.Slot) {
-		return false, nil
-	}
-	var matches int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*)
+	return s.authorizeMediaDownload(
+		expected, bearer, target.MediaID, true, &target, now, authorized,
+	)
+}
+
+const mediaTargetACLQuery = `SELECT COUNT(*)
 FROM transmission_targets tt
 JOIN transmissions tr ON tr.id = tt.transmission_id
 JOIN installation_credentials ic ON ic.actor_id = tt.actor_id
@@ -1122,9 +1138,33 @@ WHERE tr.media_id = ? AND tt.orbit_id = ? AND tt.actor_id = ? AND tt.slot = ?
         OR (b.owner_scope = 'actor' AND b.owner_actor_id = tt.actor_id))
       AND ((b.blocked_kind = 'actor' AND b.blocked_actor_id = tr.source_actor_id)
         OR (b.blocked_kind = 'orbit' AND b.blocked_orbit_id = tr.source_orbit_id))
-  )`, target.MediaID, target.OrbitID, target.ActorID, target.Slot).Scan(&matches)
-	if err != nil {
+  )`
+
+func allowsMediaDownloadRow(row *sql.Row) (bool, error) {
+	var matches int
+	if err := row.Scan(&matches); err != nil {
 		return false, err
 	}
 	return matches > 0, nil
+}
+
+// AllowsMediaDownload implements media.MediaTargetSnapshotReader without an
+// import cycle. It grants only an exact still-live installation generation
+// present in an accepted immutable target row. Current membership or approach
+// state is never consulted, and active recipient blocks revoke the grant.
+func (s *Store) AllowsMediaDownload(
+	ctx context.Context,
+	target MediaTargetIdentity,
+) (bool, error) {
+	if ctx == nil {
+		return false, errors.New("nil transmission ACL context")
+	}
+	if !mediaItemIDPattern.MatchString(target.MediaID) || target.OrbitID <= 0 ||
+		target.ActorID <= 0 || !transmissionSlotPattern.MatchString(target.Slot) {
+		return false, nil
+	}
+	return allowsMediaDownloadRow(s.db.QueryRowContext(
+		ctx, mediaTargetACLQuery,
+		target.MediaID, target.OrbitID, target.ActorID, target.Slot,
+	))
 }

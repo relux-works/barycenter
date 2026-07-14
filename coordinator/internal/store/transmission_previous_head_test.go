@@ -84,6 +84,20 @@ func TestTransmissionStoreExactPreviousHeadRollback(t *testing.T) {
 	}
 	wantTransmission := created.Transmission
 	wantTargets := append([]TransmissionTarget(nil), created.Targets...)
+	dissolveMedia := readyLifecycleMedia(
+		t, current, dissolve, now+10,
+		now+10+int64((7*24*time.Hour)/time.Millisecond),
+	)
+	dissolveCreated, err := current.CreateTransmission(transmissionParams(
+		dissolveMedia, dissolve, now+13, transmissionTarget(target, true),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantDissolvedSourceTransmission := dissolveCreated.Transmission
+	wantDissolvedSourceTargets := append(
+		[]TransmissionTarget(nil), dissolveCreated.Targets...,
+	)
 	if err := current.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -134,6 +148,25 @@ func TestTransmissionStoreExactPreviousHeadRollback(t *testing.T) {
 	gotTargets, err := current.TransmissionTargets(wantTransmission.ID)
 	if err != nil || !reflect.DeepEqual(gotTargets, wantTargets) {
 		t.Fatalf("targets after rollback=%+v want=%+v err=%v", gotTargets, wantTargets, err)
+	}
+	gotDissolvedSource, err := current.GetTransmission(wantDissolvedSourceTransmission.ID)
+	if err != nil || gotDissolvedSource == nil ||
+		!reflect.DeepEqual(*gotDissolvedSource, wantDissolvedSourceTransmission) {
+		t.Fatalf("dissolved-source transmission after rollback=%+v want=%+v err=%v",
+			gotDissolvedSource, wantDissolvedSourceTransmission, err)
+	}
+	gotDissolvedTargets, err := current.TransmissionTargets(
+		wantDissolvedSourceTransmission.ID,
+	)
+	if err != nil || !reflect.DeepEqual(gotDissolvedTargets, wantDissolvedSourceTargets) {
+		t.Fatalf("dissolved-source targets after rollback=%+v want=%+v err=%v",
+			gotDissolvedTargets, wantDissolvedSourceTargets, err)
+	}
+	dissolvedMediaAfter, err := current.GetMediaItem(dissolveMedia.ID)
+	if err != nil || dissolvedMediaAfter == nil ||
+		dissolvedMediaAfter.Status != MediaStatusDeleted {
+		t.Fatalf("dissolved-source media after rollback=%+v err=%v",
+			dissolvedMediaAfter, err)
 	}
 	allowed, err := current.AllowsMediaDownload(context.Background(), MediaTargetIdentity{
 		MediaID: media.ID, OrbitID: target.OrbitID,

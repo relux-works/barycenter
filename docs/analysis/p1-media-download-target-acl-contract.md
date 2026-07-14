@@ -63,14 +63,15 @@ middleware actor, orbit, role, slot and capability context. It then requires:
 - `ready` media with a non-empty generated storage key; and
 - `expires_at` strictly later than the authorization time.
 
-The service repeats that live credential and media-state check under the shared
-canonical-storage lock. It opens and verifies the file descriptor inside that
-second immediate SQLite transaction, before the transaction releases its
-writer reservation. Therefore a delete or actor revocation commits either
-before authorization (and denies the read) or after the descriptor is already
-open; there is no post-authorization/pre-open revocation window. A request
-holding an open descriptor may finish; delete revokes every later authorization
-and cleanup can unlink after the descriptor is acquired.
+The service repeats the live credential, persisted target, active-block and
+media-state checks under the shared canonical-storage lock. It opens and
+verifies the file descriptor inside that second immediate SQLite transaction,
+before the transaction releases its writer reservation. Therefore a delete,
+block, terminal blocked receipt or actor revocation commits either before
+authorization (and denies the read) or after the descriptor is already open;
+there is no post-authorization/pre-open revocation window. A request holding an
+open descriptor may finish; revocation denies every later authorization and
+cleanup can unlink after the descriptor is acquired.
 
 For a valid credential, unknown, guessed, foreign, unsnapshotted, deleted,
 expired, owner-disabled and copied-URL media all return the same

@@ -943,7 +943,9 @@ func (s *Store) AuthorizeMediaDownload(
 	targetSnapshot bool,
 	now int64,
 ) (MediaItem, error) {
-	return s.authorizeMediaDownload(expected, bearer, mediaID, targetSnapshot, now, nil)
+	return s.authorizeMediaDownload(
+		expected, bearer, mediaID, targetSnapshot, nil, now, nil,
+	)
 }
 
 // WithAuthorizedMediaDownload repeats the live download authorization and
@@ -963,7 +965,9 @@ func (s *Store) WithAuthorizedMediaDownload(
 	if authorized == nil {
 		return MediaItem{}, fmt.Errorf("%w: nil media download callback", ErrMediaInvalid)
 	}
-	return s.authorizeMediaDownload(expected, bearer, mediaID, targetSnapshot, now, authorized)
+	return s.authorizeMediaDownload(
+		expected, bearer, mediaID, targetSnapshot, nil, now, authorized,
+	)
 }
 
 func (s *Store) authorizeMediaDownload(
@@ -971,6 +975,7 @@ func (s *Store) authorizeMediaDownload(
 	bearer string,
 	mediaID string,
 	targetSnapshot bool,
+	persistedTarget *MediaTargetIdentity,
 	now int64,
 	authorized func(MediaItem) error,
 ) (MediaItem, error) {
@@ -1022,7 +1027,26 @@ WHERE i.id = ?
 			return MediaItem{}, ErrMediaNotFound
 		}
 	case ctx.Capabilities.Has(CapabilityNode):
-		if ctx.Slot == "" || !targetSnapshot {
+		if ctx.Slot == "" {
+			return MediaItem{}, ErrMediaNotFound
+		}
+		if persistedTarget != nil {
+			if persistedTarget.MediaID != mediaID ||
+				persistedTarget.OrbitID != ctx.OrbitID ||
+				persistedTarget.ActorID != ctx.ActorID ||
+				persistedTarget.Slot != ctx.Slot {
+				return MediaItem{}, ErrMediaNotFound
+			}
+			allowed, err := allowsMediaDownloadRow(tx.QueryRow(
+				mediaTargetACLQuery, mediaID, ctx.OrbitID, ctx.ActorID, ctx.Slot,
+			))
+			if err != nil {
+				return MediaItem{}, err
+			}
+			if !allowed {
+				return MediaItem{}, ErrMediaNotFound
+			}
+		} else if !targetSnapshot {
 			return MediaItem{}, ErrMediaNotFound
 		}
 	default:

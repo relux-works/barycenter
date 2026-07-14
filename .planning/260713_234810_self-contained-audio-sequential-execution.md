@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 40 accepted, 165 remain.
-- Routed inventory: 186 engineering tasks (40 accepted, 146 remain) and 19
+- Combined inventory: 205 original tasks; 41 accepted, 164 remain.
+- Routed inventory: 186 engineering tasks (41 accepted, 145 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,9 +13,10 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-3d6cnn` — overlay-interrupt-regression-tests
-  (queued after PR #39 merges to synchronized `main`)
-- Most recently accepted: `TASK-260712-8mwyiv` — macos-interrupt-resume
-- Current branch: `task/task-260712-8mwyiv-macos-interrupt-resume`
+  (accepted; PR #40 awaiting tracking merge)
+- Next engineering task: `TASK-260712-3coble` — phase1-history-presence-contract
+- Most recently accepted: `TASK-260712-3d6cnn` — overlay-interrupt-regression-tests
+- Current branch: `task/task-260712-3d6cnn-overlay-interrupt-regressions`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 40 / 205 tasks (approximately 19.5%); 165 remain
-- Engineering progress: 40 / 186 tasks (approximately 21.5%); 146 remain
+- Accepted overall: 41 / 205 tasks (20.0%); 164 remain
+- Engineering progress: 41 / 186 tasks (approximately 22.0%); 145 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -316,8 +317,29 @@ build, coordinator tests, Windows race tests and Windows cross-build passed.
 Exact engineering head `2a06f2f55379a5aeeb5e1f27fb9733adc7e01e4f`
 passed all four hosted jobs in run `29357878003`. Physical macOS A4 remains
 unclaimed in `EPIC-260714-th54l3`. Progress is 40/205 overall and 40/186
-engineering; strict execution advances next to `TASK-260712-3d6cnn` after PR
-#39 lands.
+engineering. Tracking head `34f1abe` passed all four hosted jobs in run
+`29358110382`. PR #39 landed at merge
+`a21c79bded4605b40781fdfdb1954bdadf4d1c29`, and strict execution advanced to
+`TASK-260712-3d6cnn` from synchronized `main`.
+
+Checkpoint 2026-07-14 (accepted): `TASK-260712-3d6cnn` freezes the common
+automated A3/A4 engineering gate without claiming real-app hardware results.
+Windows and macOS fixtures assert pre-duck and release ramps, exact gain order,
+limiter behavior and hit counters, 200/500 ms deterministic report bounds,
+audible interrupt anchor, resume-once, stale-generation rejection and active
+`media_deleted` recovery. Both implementations run 100 sequential overlays;
+the Windows fixture bounds retained heap growth and the macOS fixture proves
+prepared owners release. Render-source guards reject allocation, I/O, waits,
+locks and sleeps; Windows additionally measures zero allocations. The maximum
+180-second stereo PCM fixture remains one 63,504,000-byte backing buffer on
+both platforms, and macOS now rejects the shared P1 maximum before fetch just
+like Windows. Local Go, race, Windows cross-build, coordinator, 165-test Swift
+suite, focused repetitions and Swift release build passed. Exact engineering
+head `f45de46b3b8482620ddc057795383f0180026759` passed all four hosted jobs in
+run `29358958855`. Audible quality, real Spotify timing, routes and physical
+OS/device matrices remain unclaimed in `EPIC-260714-th54l3`. Progress is
+41/205 overall and 41/186 engineering; PR #40 awaits the tracking commit and
+merge before strict execution advances to `TASK-260712-3coble`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -914,7 +936,9 @@ Story: `STORY-260712-fes2jj` — P1 Cross-platform overlay and interrupt mixer.
 - [x] `TASK-260712-8mwyiv` — macos-interrupt-resume (accepted on exact
   engineering head `2a06f2f`; all four hosted jobs in run `29357878003`
   green; physical/audible A4 remains manual; PR #39)
-- [ ] `TASK-260712-3d6cnn` — overlay-interrupt-regression-tests
+- [x] `TASK-260712-3d6cnn` — overlay-interrupt-regression-tests (accepted on
+  exact engineering head `f45de46`; all four hosted jobs in run `29358958855`
+  green; physical/audible A3/A4 remains manual; PR #40)
 - ↪ manual `TASK-260712-2hodti` — overlay-interrupt-live-evidence →
   `EPIC-260714-th54l3`
 

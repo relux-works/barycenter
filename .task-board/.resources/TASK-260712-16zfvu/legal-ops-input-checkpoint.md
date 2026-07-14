@@ -2,8 +2,10 @@
 
 - Task: `TASK-260712-16zfvu`
 - Engineering checkpoint: `18eae3fa3d2b8419cc2836acf7cf48cebcd5b576`
+- Tracking checkpoint: `e9542b7e3cca10ca83b82af609de12fea322aad1`
 - Pull request: `#29` (draft)
 - Hosted engineering CI: `29335621951`
+- Hosted tracking CI: `29335884943`
 - Publication state: blocked on explicit external approval
 
 The canonical human checklist is
@@ -15,7 +17,7 @@ The repository now distinguishes observed candidates from approved values,
 rejects unknown fields and placeholder approved values, requires an accountable
 owner/approver/timestamp for each group and gates the manual Store submission
 workflow before tooling installation or package download. All four hosted CI
-jobs passed on the engineering checkpoint.
+jobs passed on both the engineering and tracking checkpoints.
 
 The task is intentionally not accepted yet. Seven approval groups remain open:
 legal/controller identity; contacts and URLs; hosting and locations; markets,

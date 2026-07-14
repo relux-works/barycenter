@@ -87,8 +87,10 @@ runs `--require-approved` before installing `msstore` or downloading an MSIX;
 ordinary engineering remains unblocked. Local coordinator vet/full tests,
 focused race, Windows vet/tests, Swift release build, board validation and diff
 checks passed; hosted run `29335621951` passed all four jobs on code head
-`18eae3f`. The task and PR #29 remain open until an authorized user approves or
-corrects all seven groups; progress remains 29/205 rather than overstating it.
+`18eae3f`, and tracking head `e9542b7` passed all four jobs in run
+`29335884943`. The task and PR #29 remain open until an authorized user approves
+or corrects all seven groups; progress remains 29/205 rather than overstating
+it.
 
 Checkpoint 2026-07-14: `TASK-260712-2cdjq8` closes the P1 transmission story
 with one stable rollout/handoff entry point. It records the frozen strict HTTP

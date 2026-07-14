@@ -141,14 +141,28 @@ func TestLifecycleCleanupCrashRetryConvergesFromMissingFile(t *testing.T) {
 	); err != nil || len(pending) != 1 {
 		t.Fatalf("cleanup receipt was not pending=%+v err=%v", pending, err)
 	}
-	lifecycle.testAfterStorageRemove = nil
-	if err := lifecycle.Sweep(context.Background()); err != nil {
+	if err := harness.store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if pending, err := harness.store.PendingMediaStorageOperations(
+	reopened, err := store.OpenWithOptions(
+		harness.dbPath, store.Options{SelfServiceOnboarding: true},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	restarted, err := NewLifecycleService(reopened, harness.mediaDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restarted.now = func() time.Time { return time.UnixMilli(harness.nextMS()) }
+	if err := restarted.Sweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if pending, err := reopened.PendingMediaStorageOperations(
 		store.StorageOperationCleanup, 10,
 	); err != nil || len(pending) != 0 {
-		t.Fatalf("cleanup did not converge=%+v err=%v", pending, err)
+		t.Fatalf("cleanup did not converge after restart=%+v err=%v", pending, err)
 	}
 }
 

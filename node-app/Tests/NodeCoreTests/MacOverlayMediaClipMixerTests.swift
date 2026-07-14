@@ -13,6 +13,7 @@ private final class StubMacOverlayAudio: MacOverlayAudioRouting, @unchecked Send
     private(set) var musicGains: [(Float, Int64)] = []
     private(set) var overlayGains: [Float] = []
     private(set) var scheduledFrames: [AVAudioFrameCount] = []
+    private(set) var scheduledBufferIDs: [ObjectIdentifier] = []
     private(set) var scheduledHostTimes: [UInt64] = []
     private(set) var stopCount = 0
 
@@ -27,6 +28,7 @@ private final class StubMacOverlayAudio: MacOverlayAudioRouting, @unchecked Send
     ) {
         lock.withLock {
             scheduledFrames.append(buffer.frameLength)
+            scheduledBufferIDs.append(ObjectIdentifier(buffer))
             scheduledHostTimes.append(when?.hostTime ?? 0)
             self.completion = completion
         }
@@ -48,6 +50,7 @@ private final class StubMacOverlayAudio: MacOverlayAudioRouting, @unchecked Send
     var musicGainSnapshot: [(Float, Int64)] { lock.withLock { musicGains } }
     var overlayGainSnapshot: [Float] { lock.withLock { overlayGains } }
     var scheduledFrameSnapshot: [AVAudioFrameCount] { lock.withLock { scheduledFrames } }
+    var scheduledBufferIDSnapshot: [ObjectIdentifier] { lock.withLock { scheduledBufferIDs } }
     var stops: Int { lock.withLock { stopCount } }
 }
 
@@ -109,6 +112,13 @@ private final class StubMacInterruptController: MacInterruptControlling, @unchec
 private func overlayBuffer(seconds: Int = 10) -> AVAudioPCMBuffer {
     let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
     let frames = AVAudioFrameCount(44_100 * seconds)
+    let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
+    buffer.frameLength = frames
+    return buffer
+}
+
+private func overlayBuffer(frames: AVAudioFrameCount) -> AVAudioPCMBuffer {
+    let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
     let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
     buffer.frameLength = frames
     return buffer
@@ -177,6 +187,69 @@ private func eventuallyOverlay(
         #expect(PlayerCore.audibleAnchorMs(providerPositionMs: 20, ringFillMs: -1) == 20)
     }
 
+    @Test func macOSRuns100SequentialOverlaysWithoutRetainedClipOwners() async throws {
+        let audio = StubMacOverlayAudio()
+        let now = Int64((Date().timeIntervalSince1970 * 1_000).rounded())
+        let mixer = MacOverlayMediaClipMixer(
+            audio: audio,
+            log: Logger(level: .error, path: nil),
+            nowLocalMs: { now })
+        let buffer = overlayBuffer(frames: 1)
+        let started = NSLockBox(0)
+        let ended = NSLockBox(0)
+        weak var lastClip: PreparedMediaClip?
+
+        for iteration in 0..<100 {
+            var clip: PreparedMediaClip? = preparedOverlay(buffer)
+            lastClip = clip
+            try mixer.arm(
+                clip!,
+                plan: overlayMixerPlan(startMs: now),
+                onStarted: { _ in started.withLock { $0 += 1 } },
+                onEnded: { _ in ended.withLock { $0 += 1 } },
+                onFailed: { failure in Issue.record("overlay failed: \(failure)") })
+            #expect(await eventuallyOverlay {
+                started.withLock { $0 == iteration + 1 }
+            })
+            audio.finishScheduledBuffer()
+            #expect(await eventuallyOverlay {
+                ended.withLock { $0 == iteration + 1 }
+            })
+            clip = nil
+            #expect(await eventuallyOverlay { lastClip == nil },
+                    "iteration \(iteration) retained a prepared clip owner")
+        }
+        #expect(audio.scheduledFrameSnapshot.count == 100)
+        #expect(audio.scheduledFrameSnapshot.allSatisfy { $0 == 1 })
+    }
+
+    @Test func maximumP1ClipUsesOneBoundedPreparedPCMBuffer() async throws {
+        let expectedFrames = AVAudioFrameCount(44_100 * 180)
+        let expectedBytes = Int64(expectedFrames) * 2 * Int64(MemoryLayout<Float>.size)
+        #expect(expectedBytes == MediaClipLimits.maximumDecodedPCMBytes)
+        #expect(expectedBytes < 64 * 1_024 * 1_024)
+
+        let audio = StubMacOverlayAudio()
+        let controller = StubMacInterruptController()
+        let mixer = MacOverlayMediaClipMixer(
+            audio: audio,
+            log: Logger(level: .error, path: nil))
+        mixer.bindInterruptController(controller)
+        let buffer = overlayBuffer(frames: expectedFrames)
+        let clip = preparedOverlay(buffer)
+        let start = Int64((Date().timeIntervalSince1970 * 1_000).rounded()) + 1_000
+        try mixer.arm(
+            clip,
+            plan: interruptMixerPlan(startMs: start),
+            onStarted: { _ in Issue.record("maximum fixture must remain armed") },
+            onEnded: { _ in },
+            onFailed: { failure in Issue.record("maximum fixture failed: \(failure)") })
+        #expect(audio.scheduledBufferIDSnapshot == [ObjectIdentifier(buffer)])
+        #expect(audio.scheduledFrameSnapshot == [expectedFrames])
+        mixer.dispose(clip)
+        #expect(await eventuallyOverlay { audio.stops == 1 })
+    }
+
     @Test func interruptWithoutExactControllerFailsBeforeSchedulingAndNeverFallsBack() throws {
         let audio = StubMacOverlayAudio()
         let mixer = MacOverlayMediaClipMixer(
@@ -210,18 +283,20 @@ private func eventuallyOverlay(
         mixer.bindInterruptController(controller)
         #expect(mixer.deliveryCapabilities == [overlayMixCapability, interruptResumeCapability])
         let clip = preparedOverlay(overlayBuffer(seconds: 1))
-        let started = NSLockBox(0)
+        let started = NSLockBox<[Int64]>([])
         let ended = NSLockBox(0)
         try mixer.arm(
             clip,
             plan: interruptMixerPlan(startMs: now + 250),
-            onStarted: { _ in started.withLock { $0 += 1 } },
+            onStarted: { value in started.withLock { $0.append(value) } },
             onEnded: { _ in ended.withLock { $0 += 1 } },
             onFailed: { failure in Issue.record("interrupt failed: \(failure)") })
 
         #expect(audio.musicGainSnapshot.first?.0 == 0)
         #expect(audio.musicGainSnapshot.first?.1 == 250)
-        #expect(await eventuallyOverlay { started.withLock { $0 == 1 } })
+        #expect(await eventuallyOverlay { started.withLock { $0.count == 1 } })
+        let interruptStart = try #require(started.withLock { $0.first })
+        #expect(abs(interruptStart - (now + 250)) <= 500)
         #expect(controller.suspends == 1)
         audio.finishScheduledBuffer()
         #expect(await eventuallyOverlay { ended.withLock { $0 == 1 } })
@@ -439,6 +514,8 @@ private func eventuallyOverlay(
             onFailed: { failure in Issue.record("overlay failed: \(failure)") })
 
         #expect(await eventuallyOverlay { !started.withLock { $0.isEmpty } })
+        let overlayStart = try #require(started.withLock { $0.first })
+        #expect(abs(overlayStart - now) <= 200)
         #expect(audio.scheduledFrameSnapshot == [buffer.frameLength])
         #expect(mixer.deliveryCapabilities == [overlayMixCapability])
         let duck = try #require(audio.musicGainSnapshot.first)

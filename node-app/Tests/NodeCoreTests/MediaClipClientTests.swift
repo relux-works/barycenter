@@ -604,6 +604,23 @@ private func makeClient(
         ])
     }
 
+    @Test func interruptDurationAboveMaximumP1BoundFailsBeforeFetch() {
+        let fetcher = StubMediaClipFetcher()
+        let mixer = StubMediaClipMixer(deliveryCapabilities: [interruptResumeCapability])
+        let recorder = MediaEventRecorder()
+        let client = makeClient(fetcher: fetcher, mixer: mixer, recorder: recorder)
+        defer { client.stop() }
+
+        client.prepare(preparePayload(
+            durationMs: MediaClipLimits.maximumP1DurationMs + 1,
+            delivery: "interrupt"))
+        client.synchronize()
+        #expect(fetcher.fetchCount == 0)
+        #expect(recorder.events == [
+            .init(kind: .failed, generation: 1, code: "internal_error", timestamp: nil)
+        ])
+    }
+
     @Test func missedPrepareDeadlineIsLeftForCoordinatorTimeout() {
         let fetcher = StubMediaClipFetcher()
         let mixer = StubMediaClipMixer()

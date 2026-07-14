@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 24 accepted, 181 remain.
-- Routed inventory: 186 engineering tasks (24 accepted, 162 remain) and 19
+- Combined inventory: 205 original tasks; 25 accepted, 180 remain.
+- Routed inventory: 186 engineering tasks (25 accepted, 161 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -14,8 +14,8 @@
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-26ip33` — macos-transmission-client-hooks
 - Current branch: `task/task-260712-26ip33-macos-transmission-client-hooks`
-- Accepted overall: 24 / 205 tasks (approximately 11.7%); 181 remain
-- Engineering progress: 24 / 186 tasks (approximately 12.9%); 162 remain
+- Accepted overall: 25 / 205 tasks (approximately 12.2%); 180 remain
+- Engineering progress: 25 / 186 tasks (approximately 13.4%); 161 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -43,6 +43,25 @@
   landed exact head through merge `30f1c552c9824934922becab4637c34746d190dc`.
   Strict execution has advanced to `TASK-260712-26ip33` from that synchronized
   `main`.
+
+Checkpoint 2026-07-14: `TASK-260712-26ip33` now has a generation-safe macOS
+`media_clip_v1` client runtime behind a delivery-capability-gated mixer seam.
+It performs same-origin authenticated fetch with redirect refusal, bounded
+exact-size and SHA-256 verification, decoder-open readiness and exact duration,
+coordinator-clock scheduling with the frozen 100 ms late window, idempotent
+prepare/play/cancel handling, exactly-once terminal receipts and cache cleanup.
+Coordinator sends are serialized off caller queues; node-local DND and the
+privacy-bounded presence projection persist across restart. This build does
+not advertise `overlay_mix_v1` or `interrupt_resume_v1`: those stay gated until
+their dedicated mixer tasks implement exact behavior. Deterministic Swift
+regressions cover lifecycle, stale/cancel races, capability gating, DND,
+presence and production downloader policy. Swift build/parser, coordinator
+vet/tests and Windows vet/tests/cross-build are green. Local `swift test`
+cannot enter the suite because this host toolchain lacks the existing
+`Testing` module. Hosted run `29324579129` passed all four jobs on exact code
+head `9622e00914195a5a17e4420cc1de5d8ce7a16921`; node-core reported 145 tests
+passed. Root hardening added an absolute streamed-body cutoff and async-safe
+test locking. No manual audio, packaged-app or hardware evidence is claimed.
 
 Checkpoint 2026-07-14: the `TASK-260712-2qpp6w` implementation candidate now
 exposes strict control-authenticated create/cancel and actor-authenticated
@@ -427,7 +446,11 @@ Story: `STORY-260712-25lysg` — P1 Transmission protocol and scheduler.
 - [x] `TASK-260712-1aprcb` — transmission-store-target-snapshots
 - [x] `TASK-260712-1g70av` — clip-transmission-wire-contract
 - [x] `TASK-260712-2qpp6w` — transmission-http-resolution
-- [ ] `TASK-260712-26ip33` — macos-transmission-client-hooks
+- [x] `TASK-260712-26ip33` — macos-transmission-client-hooks (accepted on exact
+  code head `9622e00`: generation-safe authenticated prepare/schedule/cancel,
+  typed receipts, durable DND/presence and strict capability gating; hosted CI
+  runs `29324261074` and `29324579129` green, with 145 Swift tests on the final
+  head; PR #24)
 - [ ] `TASK-260712-2bbz13` — windows-transmission-client-hooks
 - [ ] `TASK-260712-31vvjt` — overlay-controller-scheduler
 - [ ] `TASK-260712-2qc27p` — transmission-regression-coverage

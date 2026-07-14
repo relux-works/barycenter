@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 50 accepted, 155 remain.
-- Routed inventory: 186 engineering tasks (50 accepted, 136 remain) and 19
+- Combined inventory: 205 original tasks; 51 accepted, 154 remain.
+- Routed inventory: 186 engineering tasks (51 accepted, 135 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1c04pk` — macos-main-window-menubar-shell
-  (strict kickoff waits only for PR #49 merge)
-- Next engineering task: `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
-- Most recently accepted: `TASK-260712-1f9jtm` — telegram-parity-docs-handoff
-- Current branch: `task/task-260712-1f9jtm-telegram-parity-docs-handoff`
+- Current engineering task: `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
+  (strict kickoff waits only for PR #50 merge)
+- Next engineering task: `TASK-260712-30abcm` — macos-microphone-capture-engine
+- Most recently accepted: `TASK-260712-1c04pk` — macos-main-window-menubar-shell
+- Current branch: `task/task-260712-1c04pk-macos-main-window-menubar-shell`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 50 / 205 tasks (approximately 24.4%); 155 remain
-- Engineering progress: 50 / 186 tasks (approximately 26.9%); 136 remain
+- Accepted overall: 51 / 205 tasks (approximately 24.9%); 154 remain
+- Engineering progress: 51 / 186 tasks (approximately 27.4%); 135 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -549,8 +549,35 @@ passed all four hosted jobs in run `29374582024`; the best-effort engineering
 scope and `STORY-260712-34kbkn` are accepted. No real Telegram client, app,
 audible playback, packaged-device or physical-hardware result is claimed;
 those remain in `EPIC-260714-th54l3`. Progress is 50/205 overall and 50/186
-engineering. PR #49 tracking and merge remain before strict execution starts
-`TASK-260712-1c04pk`.
+engineering. Tracking head `c137399a59d83fe58e222191cb4eba57d4d4db28`
+passed all four hosted jobs in run `29374771223`; PR #49 landed at merge
+`e10762bf6766bc4249d2ab6bedf46c256abe496a`. Strict execution started
+`TASK-260712-1c04pk` from that synchronized `main` on branch
+`task/task-260712-1c04pk-macos-main-window-menubar-shell`.
+
+Checkpoint 2026-07-15 (accepted): `TASK-260712-1c04pk` adds a testable macOS
+14 SwiftUI shell without replacing the existing AppKit process lifecycle. A
+minimal `NSHostingController` bridge presents a `NavigationSplitView` with
+Home, Create, Join, Try locally, History and Settings; the status item and main
+menu expose the same primary actions and keyboard shortcuts. One stable
+main-actor action object and observable snapshot share paired/reconnecting/
+online/degraded, route, now-playing, DND, volume, recording and history state.
+Complete EN/RU copy and text-plus-symbol semantics keep unpaired, degraded and
+recording states non-color and VoiceOver-readable. Capture, local self-test and
+HTTP history/presence remain visible but honestly disabled seams for their
+strict later tasks. Coordinator health now requires `welcome` on the current
+socket, and local volume crosses the player queue instead of racing runtime
+commands. Information architecture, shortcut/failure matrices, deterministic
+catalog/state/action tests and the component diagram document the handoff.
+Coordinator full/vet/race, Windows native full/vet/race plus amd64/arm64 cross-
+test compilation, Swift release and package builds, PlantUML and board checks
+passed locally. Exact engineering head
+`895eddfdbab91c3e4cbdf1918136a704277627dd` passed all four hosted jobs in run
+`29375974503`. No real app, live VoiceOver, audible output, microphone,
+packaged-device, signing/notarization or physical-hardware result is claimed;
+those remain in `EPIC-260714-th54l3`. Progress is 51/205 overall and 51/186
+engineering. PR #50 tracking and merge remain before strict execution starts
+`TASK-260712-2lrpc0`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1192,7 +1219,9 @@ Story: `STORY-260712-34kbkn` — P1 Telegram adapter, history and presence.
 
 Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
 
-- [ ] `TASK-260712-1c04pk` — macos-main-window-menubar-shell
+- [x] `TASK-260712-1c04pk` — macos-main-window-menubar-shell (accepted on exact
+  engineering head `895eddf`; all four hosted jobs in run `29375974503` green;
+  no real-app/live-VoiceOver/audible/microphone/hardware result claimed; PR #50)
 - [ ] `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
 - [ ] `TASK-260712-30abcm` — macos-microphone-capture-engine
 - [ ] `TASK-260712-9i5se7` — windows-main-window-tray-shell

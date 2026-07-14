@@ -5,8 +5,10 @@ import AppKit
 import ServiceManagement
 import Sparkle
 import NodeCore
+import NodeAppUI
 
-final class StatusMenuController: NSObject, NSMenuDelegate {
+@MainActor
+final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation {
     private var item: NSStatusItem!
     private let menu = NSMenu()
 
@@ -20,6 +22,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     var connectionIdentity: String = ""
     // F3: opens the onboarding window to re-pair at any time.
     var rePairAction: (() -> Void)?
+    var shellModel: PulsarShellModel?
+    var shellActions = PulsarShellActions()
+    var showMainWindowAction: (() -> Void)?
 
     func install() {
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -29,35 +34,138 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         }
         menu.delegate = self
         item.menu = menu
+        installMainMenuCommands()
+    }
+
+    private func installMainMenuCommands() {
+        guard let mainMenu = NSApp.mainMenu else { return }
+        let copy = PulsarShellCopy(locale: shellModel?.locale ?? .preferred())
+
+        let windowRoot = NSMenuItem()
+        let windowMenu = NSMenu(title: localized(en: "Window", ru: "Окно"))
+        let open = NSMenuItem(
+            title: copy.text(.openMainWindow), action: #selector(showMainWindow), keyEquivalent: "0")
+        open.target = self
+        windowMenu.addItem(open)
+        let settings = NSMenuItem(
+            title: copy.text(.settings), action: #selector(showSettings), keyEquivalent: ",")
+        settings.target = self
+        windowMenu.addItem(settings)
+        windowRoot.submenu = windowMenu
+        mainMenu.addItem(windowRoot)
+
+        let actionRoot = NSMenuItem()
+        let actionMenu = NSMenu(title: localized(en: "Actions", ru: "Действия"))
+        for (title, selector, key) in [
+            (copy.text(.create), #selector(createOrbit), "1"),
+            (copy.text(.join), #selector(joinOrbit), "2"),
+        ] {
+            let item = NSMenuItem(title: title, action: selector, keyEquivalent: key)
+            item.target = self
+            actionMenu.addItem(item)
+        }
+        let local = NSMenuItem(
+            title: copy.text(.tryLocally), action: #selector(showSelfTest), keyEquivalent: "t")
+        local.keyEquivalentModifierMask = [.command, .shift]
+        local.target = self
+        actionMenu.addItem(local)
+        let record = NSMenuItem(
+            title: copy.text(.startRecording), action: #selector(toggleRecording), keyEquivalent: "r")
+        record.keyEquivalentModifierMask = [.command, .shift]
+        record.target = self
+        actionMenu.addItem(record)
+        let dnd = NSMenuItem(
+            title: copy.text(.dnd), action: #selector(toggleDND), keyEquivalent: "d")
+        dnd.keyEquivalentModifierMask = [.command, .shift]
+        dnd.target = self
+        actionMenu.addItem(dnd)
+        actionRoot.submenu = actionMenu
+        mainMenu.addItem(actionRoot)
     }
 
     // Menu is rebuilt on every open: cheap and always fresh.
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
+        let copy = PulsarShellCopy(locale: shellModel?.locale ?? .preferred())
+        let open = NSMenuItem(
+            title: copy.text(.openMainWindow),
+            action: #selector(showMainWindow),
+            keyEquivalent: "0")
+        open.target = self
+        menu.addItem(open)
+
+        let create = NSMenuItem(
+            title: copy.text(.create),
+            action: #selector(createOrbit),
+            keyEquivalent: "1")
+        create.target = self
+        menu.addItem(create)
+        let join = NSMenuItem(
+            title: copy.text(.join),
+            action: #selector(joinOrbit),
+            keyEquivalent: "2")
+        join.target = self
+        menu.addItem(join)
+        let local = NSMenuItem(
+            title: copy.text(.tryLocally),
+            action: #selector(showSelfTest),
+            keyEquivalent: "t")
+        local.keyEquivalentModifierMask = [.command, .shift]
+        local.target = self
+        menu.addItem(local)
+
+        let record = NSMenuItem(
+            title: shellModel?.snapshot.recording == .recording
+                ? copy.text(.stopRecording)
+                : copy.text(.startRecording),
+            action: #selector(toggleRecording),
+            keyEquivalent: "r")
+        record.keyEquivalentModifierMask = [.command, .shift]
+        record.target = self
+        record.isEnabled = shellModel?.snapshot.recordingAvailable == true
+            || shellModel?.snapshot.recording == .recording
+        menu.addItem(record)
+
+        let dnd = NSMenuItem(
+            title: copy.dndLabel(shellModel?.snapshot.dndMode ?? .allowAll),
+            action: #selector(toggleDND),
+            keyEquivalent: "d")
+        dnd.keyEquivalentModifierMask = [.command, .shift]
+        dnd.target = self
+        dnd.isEnabled = shellModel?.snapshot.connection.isPaired == true
+        menu.addItem(dnd)
+        menu.addItem(.separator())
+
         if let player {
             let st = player.menuStatus()
-            let link = coordinatorConnected() ? "Барицентр: в сети" : "Барицентр: переподключение…"
+            let link = coordinatorConnected()
+                ? copy.text(.connectionOnline)
+                : copy.text(.connectionReconnecting)
             menu.addItem(disabled(link))
             if !connectionIdentity.isEmpty {
                 menu.addItem(disabled(connectionIdentity))
             }
-            let mode = st.mode == "shared" ? "периастрон — общий эфир" : "апоастрон — каждый своё"
+            let mode = st.mode == "shared"
+                ? localized(en: "Shared air", ru: "периастрон — общий эфир")
+                : localized(en: "Personal playback", ru: "апоастрон — каждый своё")
             menu.addItem(disabled(mode))
             if st.playback == "playing", let uri = st.uri {
-                menu.addItem(disabled("играет: " + shortURI(uri)))
+                menu.addItem(disabled(localized(en: "Playing: ", ru: "Играет: ") + (st.title ?? shortURI(uri))))
             } else {
-                menu.addItem(disabled("тишина"))
+                menu.addItem(disabled(copy.text(.silence)))
             }
         } else {
-            menu.addItem(disabled("не спарен — введи код из @barycenter_bot"))
+            menu.addItem(disabled(copy.text(.connectionUnpaired)))
         }
         menu.addItem(.separator())
 
         // F3: re-pair anytime (after a coordinator move, a wrong pairing, or a
         // lost token). Opens the onboarding window; the core restarts on pair.
         if rePairAction != nil {
-            let rp = NSMenuItem(title: "Подключить заново…", action: #selector(rePair), keyEquivalent: "")
+            let rp = NSMenuItem(
+                title: localized(en: "Pair again…", ru: "Подключить заново…"),
+                action: #selector(rePair), keyEquivalent: "")
             rp.target = self
             menu.addItem(rp)
         }
@@ -65,27 +173,33 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         // #4/#6: the one-time Spotify step and the firewall/"can't see Pulsar"
         // help stay one click away for the whole run — the post-pair alert is
         // easy to dismiss and forget, so the menu keeps both reachable.
-        let howto = NSMenuItem(title: "Как включить звук…", action: #selector(showSpotifyHelp), keyEquivalent: "")
+        let howto = NSMenuItem(
+            title: localized(en: "How to enable sound…", ru: "Как включить звук…"),
+            action: #selector(showSpotifyHelp), keyEquivalent: "")
         howto.target = self
         menu.addItem(howto)
-        let noPulsar = NSMenuItem(title: "Не вижу Pulsar в Spotify?", action: #selector(openGuide), keyEquivalent: "")
+        let noPulsar = NSMenuItem(
+            title: localized(en: "Pulsar is missing in Spotify?", ru: "Не вижу Pulsar в Spotify?"),
+            action: #selector(openGuide), keyEquivalent: "")
         noPulsar.target = self
         menu.addItem(noPulsar)
 
         let policies = NSMenu()
         for (title, url) in [
-            ("Конфиденциальность", PublicPolicyLinks.privacy),
-            ("Условия использования", PublicPolicyLinks.terms),
-            ("Правила содержимого", PublicPolicyLinks.contentGuidelines),
-            ("Права на запись и загрузку", PublicPolicyLinks.uploadRights),
-            ("Поддержка и безопасность", PublicPolicyLinks.support),
+            (localized(en: "Privacy", ru: "Конфиденциальность"), PublicPolicyLinks.privacy),
+            (localized(en: "Terms of Use", ru: "Условия использования"), PublicPolicyLinks.terms),
+            (localized(en: "Content Guidelines", ru: "Правила содержимого"), PublicPolicyLinks.contentGuidelines),
+            (localized(en: "Recording and upload rights", ru: "Права на запись и загрузку"), PublicPolicyLinks.uploadRights),
+            (localized(en: "Support and safety", ru: "Поддержка и безопасность"), PublicPolicyLinks.support),
         ] {
             let policy = NSMenuItem(title: title, action: #selector(openPublicPolicy(_:)), keyEquivalent: "")
             policy.target = self
             policy.representedObject = url
             policies.addItem(policy)
         }
-        let policiesItem = NSMenuItem(title: "Правила и поддержка", action: nil, keyEquivalent: "")
+        let policiesItem = NSMenuItem(
+            title: localized(en: "Policies and support", ru: "Правила и поддержка"),
+            action: nil, keyEquivalent: "")
         menu.addItem(policiesItem)
         menu.setSubmenu(policies, for: policiesItem)
 
@@ -98,25 +212,47 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             mi.state = (name == current) ? .on : .off
             outMenu.addItem(mi)
         }
-        let outItem = NSMenuItem(title: "Колонка", action: nil, keyEquivalent: "")
+        let outItem = NSMenuItem(
+            title: localized(en: "Output", ru: "Колонка"), action: nil, keyEquivalent: "")
         menu.addItem(outItem)
         menu.setSubmenu(outMenu, for: outItem)
 
         // Login item toggle (macOS 13+).
-        let login = NSMenuItem(title: "Запускать при входе", action: #selector(toggleLogin), keyEquivalent: "")
+        let login = NSMenuItem(
+            title: localized(en: "Open at Login", ru: "Запускать при входе"),
+            action: #selector(toggleLogin), keyEquivalent: "")
         login.target = self
         login.state = (SMAppService.mainApp.status == .enabled) ? .on : .off
         menu.addItem(login)
 
         menu.addItem(.separator())
         if updater != nil {
-            let upd = NSMenuItem(title: "Проверить обновления…", action: #selector(checkUpdates), keyEquivalent: "")
+            let upd = NSMenuItem(
+                title: localized(en: "Check for Updates…", ru: "Проверить обновления…"),
+                action: #selector(checkUpdates), keyEquivalent: "")
             upd.target = self
             menu.addItem(upd)
         }
         menu.addItem(disabled("Pulsar \(appVersion)"))
-        let quit = NSMenuItem(title: "Выйти", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = NSMenuItem(
+            title: copy.text(.quit), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quit)
+    }
+
+    private func localized(en: String, ru: String) -> String {
+        shellModel?.locale == .ru ? ru : en
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        switch menuItem.action {
+        case #selector(toggleRecording):
+            shellModel?.snapshot.recordingAvailable == true
+                || shellModel?.snapshot.recording == .recording
+        case #selector(toggleDND):
+            shellModel?.snapshot.connection.isPaired == true
+        default:
+            true
+        }
     }
 
     private func disabled(_ title: String) -> NSMenuItem {
@@ -143,6 +279,38 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     @objc private func rePair() {
         rePairAction?()
+    }
+
+    @objc private func showMainWindow() {
+        showMainWindowAction?()
+    }
+
+    @objc private func showSettings() {
+        shellModel?.selectedSection = .settings
+        showMainWindowAction?()
+    }
+
+    @objc private func createOrbit() {
+        shellActions.createOrbit()
+    }
+
+    @objc private func joinOrbit() {
+        shellActions.joinOrbit()
+    }
+
+    @objc private func showSelfTest() {
+        shellModel?.selectedSection = .tryLocally
+        showMainWindowAction?()
+    }
+
+    @objc private func toggleRecording() {
+        shellActions.toggleRecording()
+    }
+
+    @objc private func toggleDND() {
+        let next: PulsarDNDMode = shellModel?.snapshot.dndMode == .allowAll
+            ? .messagesOnly : .allowAll
+        shellActions.setDND(next)
     }
 
     @objc private func showSpotifyHelp() {

@@ -19,14 +19,23 @@ let package = Package(
             dependencies: ["CAtomics", .product(name: "Yams", package: "Yams")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .target(
+            name: "NodeAppUI",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
         .executableTarget(
             name: "NodeApp",
-            dependencies: ["NodeCore", .product(name: "Sparkle", package: "Sparkle")],
+            dependencies: ["NodeCore", "NodeAppUI", .product(name: "Sparkle", package: "Sparkle")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
             name: "NodeCoreTests",
             dependencies: ["NodeCore"],
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .testTarget(
+            name: "NodeAppUITests",
+            dependencies: ["NodeAppUI"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]

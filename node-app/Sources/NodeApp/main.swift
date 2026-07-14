@@ -5,6 +5,7 @@
 import AppKit
 import Foundation
 import NodeCore
+import NodeAppUI
 import Sparkle
 
 let appVersion = "0.3.0-dev"
@@ -166,7 +167,7 @@ final class CoreRuntime {
             coordinatorURL: wsURL,
             localStateURL: cacheRoot.deletingLastPathComponent()
                 .appendingPathComponent("node-state-\(config.nodeId).json"))
-        player.setVolume(80) // spec 6.3 default; coordinator pushes the saved value
+        player.setLocalVolume(80) // spec 6.3 default; coordinator pushes the saved value
 
         let client = CoordinatorClient(
             url: wsURL,
@@ -271,7 +272,12 @@ final class CoreRuntime {
 // --- Bootstrap: paired -> core + menu bar; unpaired -> onboarding window ---
 
 var runtime: CoreRuntime?
-let statusMenu = StatusMenuController()
+@MainActor var shellRefreshTimer: Timer?
+@MainActor var shellConfiguredRoute: String?
+@MainActor var shellModel: PulsarShellModel!
+@MainActor var shellActions: PulsarShellActions!
+@MainActor var mainWindow: PulsarMainWindowController!
+@MainActor var statusMenu: StatusMenuController!
 let onboarding = OnboardingWindowController()
 // Sparkle: feed URL + EdDSA public key live in Info.plist (build-app.sh).
 // Bare-binary runs (dev/CLI) have no bundle keys — the controller stays idle.
@@ -289,6 +295,7 @@ func materializeSupportTree(_ config: NodeConfig) {
     }
 }
 
+@MainActor
 func startCore(with config: NodeConfig) {
     // L6: never stack a second core on a live one (two librespots fighting
     // for one token = hub last-write-wins flapping). Any path that reaches
@@ -303,10 +310,17 @@ func startCore(with config: NodeConfig) {
         runtime = rt
         statusMenu.player = rt.player
         statusMenu.updater = updater.updater
-        statusMenu.coordinatorConnected = { true } // refined by heartbeat later
+        statusMenu.coordinatorConnected = { [weak client = rt.client] in
+            client?.isHealthy == true
+        }
         statusMenu.connectionIdentity = connectionIdentity(config)
         statusMenu.rePairAction = { rePairFlow() }
+        shellConfiguredRoute = config.airfoil.isEnabled
+            ? (["Airfoil"] + config.airfoil.speakers).joined(separator: " · ")
+            : nil
         app.setActivationPolicy(config.airfoil.isEnabled ? .regular : .accessory)
+        startShellRefresh(identity: connectionIdentity(config))
+        mainWindow.show()
     } catch let err as ConfigError {
         failConfig(err.description)
     } catch {
@@ -325,6 +339,7 @@ func connectionIdentity(_ config: NodeConfig) -> String {
 // plays until Spotify picks "Pulsar" once (Premium required), so without this
 // the first track fails as track_unavailable and reads as "broken". The same
 // help stays in the menu bar afterwards ("Как включить звук").
+@MainActor
 func finishPairing(_ paired: NodeConfig) {
     startCore(with: paired)
     DispatchQueue.main.async { SpotifyHelp.presentHowToSound() }
@@ -333,13 +348,18 @@ func finishPairing(_ paired: NodeConfig) {
 // rePairFlow tears down the running core and reopens the onboarding window
 // so the user can pair against a fresh code (F3). A successful pair starts a
 // new core in place — no relaunch.
+@MainActor
 func rePairFlow() {
+    shellRefreshTimer?.invalidate()
+    shellRefreshTimer = nil
+    shellConfiguredRoute = nil
     runtime?.teardown()
     runtime = nil
     statusMenu.player = nil
     // L6: hide "Подключить заново…" while already unpaired — clicking it in
     // that state opened a duplicate onboarding window. startCore restores it.
     statusMenu.rePairAction = nil
+    shellModel.replaceSnapshot(.init(connection: .unpaired))
     app.setActivationPolicy(.regular)
     // Re-pair: LAN access was settled on the first run — don't re-prime it.
     onboarding.show(coordinatorBase: defaultCoordinatorBase, promptForNetwork: false) { _ in
@@ -352,7 +372,12 @@ func rePairFlow() {
     }
 }
 
+@MainActor
 func bootstrap() {
+    configureShell()
+    statusMenu.shellModel = shellModel
+    statusMenu.shellActions = shellActions
+    statusMenu.showMainWindowAction = { mainWindow.show() }
     statusMenu.install()
     // F2b: a dev-era ~/duet/node.yml pointing at a local coordinator hijacks
     // a paired app onto a dead server after moving to prod — retire it.
@@ -387,6 +412,7 @@ func bootstrap() {
             """)
         }
         app.setActivationPolicy(.regular)
+        shellModel.replaceSnapshot(.init(connection: .unpaired))
         // First launch: prime the Local Network permission before pairing, so the
         // system prompt lands on an explained button — not out of nowhere while a
         // headless daemon touches the LAN (the failure that hid Timur's speaker).
@@ -402,6 +428,81 @@ func bootstrap() {
         return
     }
     startCore(with: config)
+}
+
+@MainActor
+func configureShell() {
+    guard shellModel == nil else { return }
+    shellModel = PulsarShellModel()
+    shellActions = PulsarShellActions(
+        createOrbit: { openBotFlow("create") },
+        joinOrbit: { openBotFlow("join") },
+        tryLocally: { showShellSection(.tryLocally) },
+        setDND: { mode in
+            guard let player = runtime?.player else { return }
+            do {
+                try player.setLocalDND(mode: mode.rawValue)
+                shellModel.setDNDMode(mode)
+            } catch {
+                shellModel.updateConnection(
+                    .degraded("DND update failed"),
+                    identity: shellModel.snapshot.connectionIdentity)
+            }
+        },
+        setVolume: { volume in
+            runtime?.player.setLocalVolume(volume)
+            shellModel.setVolume(volume)
+        },
+        // Capture tasks replace this seam and set recordingAvailable=true. The
+        // visible disabled control is deliberate; this shell must not fake audio.
+        toggleRecording: {}
+    )
+    mainWindow = PulsarMainWindowController(model: shellModel, actions: shellActions)
+    statusMenu = StatusMenuController()
+}
+
+@MainActor
+func openBotFlow(_ flow: String) {
+    _ = flow
+    guard let url = URL(string: "https://t.me/barycenter_bot") else { return }
+    NSWorkspace.shared.open(url)
+}
+
+@MainActor
+func showShellSection(_ section: PulsarShellSection) {
+    mainWindow.show(section: section)
+}
+
+@MainActor
+func startShellRefresh(identity: String) {
+    shellRefreshTimer?.invalidate()
+    refreshShell(identity: identity)
+    shellRefreshTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+        Task { @MainActor in refreshShell(identity: identity) }
+    }
+}
+
+@MainActor
+func refreshShell(identity: String) {
+    guard let runtime else {
+        shellModel.replaceSnapshot(.init(connection: .unpaired))
+        return
+    }
+    let status = runtime.player.menuStatus()
+    let connection: PulsarConnectionState = runtime.client.isHealthy ? .online : .reconnecting
+    let route = shellConfiguredRoute ?? DirectOutputMonitor.currentOutputName()
+    let dnd = PulsarDNDMode(rawValue: runtime.player.localDNDMode) ?? .allowAll
+    shellModel.updateConnection(connection, identity: identity)
+    shellModel.updateRuntime(
+        routeName: route,
+        nowPlaying: status.title ?? status.uri.map(shortShellURI),
+        playbackState: status.playback,
+        dndMode: dnd,
+        volume: status.volume)
+}
+
+func shortShellURI(_ uri: String) -> String {
+    uri.hasPrefix("spotify:track:") ? String(uri.dropFirst("spotify:".count)) : uri
 }
 
 // --- Shutdown paths ---

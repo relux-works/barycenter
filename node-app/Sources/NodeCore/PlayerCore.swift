@@ -37,12 +37,18 @@ public final class PlayerCore: MacInterruptControlling {
         public let mode: String
         public let playback: String
         public let uri: String?
+        public let title: String?
         public let volume: Int
     }
 
     public func menuStatus() -> MenuStatus {
         queue.sync {
-            MenuStatus(mode: mode, playback: "\(playback)", uri: currentURI, volume: volume)
+            MenuStatus(
+                mode: mode,
+                playback: "\(playback)",
+                uri: currentURI,
+                title: metadataTitle,
+                volume: volume)
         }
     }
 
@@ -640,7 +646,13 @@ public final class PlayerCore: MacInterruptControlling {
         waitTimer = t
     }
 
-    public func setVolume(_ v: Int) {
+    /// UI-safe local volume mutation. The player queue remains the single
+    /// owner shared with coordinator and provider events.
+    public func setLocalVolume(_ v: Int) {
+        queue.async { self.setVolume(v) }
+    }
+
+    private func setVolume(_ v: Int) {
         volume = v
         engine.setVolume(v)
     }
@@ -731,6 +743,10 @@ public final class PlayerCore: MacInterruptControlling {
 
     public var latestPresence: PresenceUpdatePayload? {
         presenceStore?.latestPresence
+    }
+
+    public var localDNDMode: String {
+        presenceStore?.currentLocalDND?.mode ?? "allow_all"
     }
 
     private func offsetTest(_ p: OffsetTestPayload) {

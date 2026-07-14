@@ -9,7 +9,7 @@ import (
 	"relux.works/duet/coordinator/internal/store"
 )
 
-var mediaDeleteItemIDPattern = regexp.MustCompile(`^m_[0-9A-HJKMNP-TV-Z]{26}$`)
+var mediaItemIDPattern = regexp.MustCompile(`^m_[0-9A-HJKMNP-TV-Z]{26}$`)
 
 func (api *onboardingAPI) deleteMediaItem(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete || r.URL.RawQuery != "" ||
@@ -18,7 +18,7 @@ func (api *onboardingAPI) deleteMediaItem(w http.ResponseWriter, r *http.Request
 		return
 	}
 	mediaID := strings.TrimPrefix(r.URL.Path, "/v1/media/")
-	if !mediaDeleteItemIDPattern.MatchString(mediaID) || strings.Contains(mediaID, "/") {
+	if !mediaItemIDPattern.MatchString(mediaID) || strings.Contains(mediaID, "/") {
 		apiError(w, http.StatusNotFound, errorMediaNotFound, 0)
 		return
 	}

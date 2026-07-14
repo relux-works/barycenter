@@ -261,6 +261,28 @@ func (s *Store) LookupPlaybackToken(token string) (orbitID int64, slot string, o
 	return ctx.OrbitID, ctx.Slot, true, nil
 }
 
+// LookupLegacyMediaNodeToken narrows the legacy WAV endpoint to an actual node
+// credential when additive identity is enabled. Control credentials retain
+// their generic owner-read capability at /v1/media/{id}, but are not silently
+// accepted as old playback-node credentials.
+func (s *Store) LookupLegacyMediaNodeToken(token string) (orbitID int64, slot string, ok bool, err error) {
+	if !s.selfServiceOnboarding {
+		return s.LookupToken(token)
+	}
+	ctx, err := s.ResolveTokenActorContext(token)
+	if errors.Is(err, ErrUnauthorized) || errors.Is(err, ErrInsufficientCapability) ||
+		errors.Is(err, ErrOrbitDisabled) {
+		return 0, "", false, nil
+	}
+	if err != nil {
+		return 0, "", false, err
+	}
+	if !ctx.Capabilities.Has(CapabilityNode) || ctx.Capabilities.Has(CapabilityControl) {
+		return 0, "", false, nil
+	}
+	return ctx.OrbitID, ctx.Slot, true, nil
+}
+
 const secretAlphabet = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
 
 var (

@@ -19,9 +19,9 @@ CREATE TABLE IF NOT EXISTS media_items (
     CHECK(kind IN ('voice_clip', 'audio_clip', 'audio_track', 'builtin_cue')),
   source TEXT NOT NULL
     CHECK(source IN ('app', 'telegram', 'system')),
-  title TEXT NOT NULL DEFAULT '',
-  mime TEXT NOT NULL DEFAULT '',
-  codec TEXT NOT NULL DEFAULT '',
+  title TEXT NOT NULL DEFAULT '' CHECK(length(title) <= 512),
+  mime TEXT NOT NULL DEFAULT '' CHECK(length(mime) <= 128),
+  codec TEXT NOT NULL DEFAULT '' CHECK(length(codec) <= 64),
   duration_ms INTEGER NOT NULL DEFAULT 0 CHECK(duration_ms >= 0),
   size_bytes INTEGER NOT NULL DEFAULT 0 CHECK(size_bytes >= 0),
   sha256 TEXT NOT NULL DEFAULT ''
@@ -34,10 +34,10 @@ CREATE TABLE IF NOT EXISTS media_items (
       AND substr(storage_key, 1, 9) = 'media/v1/'
       AND substr(storage_key, 10) NOT GLOB '*[^0-9a-f]*'
     )),
-  loudness_json TEXT NOT NULL DEFAULT '',
+  loudness_json TEXT NOT NULL DEFAULT '' CHECK(length(loudness_json) <= 16384),
   status TEXT NOT NULL DEFAULT 'processing'
     CHECK(status IN ('processing', 'ready', 'failed', 'deleted', 'expired')),
-  failure_code TEXT NOT NULL DEFAULT '',
+  failure_code TEXT NOT NULL DEFAULT '' CHECK(length(failure_code) <= 64),
   revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
   created_at INTEGER NOT NULL CHECK(created_at > 0),
   updated_at INTEGER NOT NULL CHECK(updated_at >= created_at),

@@ -85,6 +85,9 @@ func TestMediaIngestFreshLifecycleIdempotencyAndLegacyWAV(t *testing.T) {
 	if err != nil || byToken == nil || byToken.ID != created.Session.ID {
 		t.Fatalf("token lookup session=%+v err=%v", byToken, err)
 	}
+	if malformed, err := store.GetMediaUploadSessionByToken("not-a-scoped-token"); err != nil || malformed != nil {
+		t.Fatalf("malformed token lookup session=%+v err=%v", malformed, err)
+	}
 
 	retryParams := params
 	// Server-derived timestamps naturally change when an HTTP request is
@@ -190,6 +193,31 @@ func TestMediaIngestFreshLifecycleIdempotencyAndLegacyWAV(t *testing.T) {
 	genericRead, err := store.MediaItemForLegacyWAV(legacy.ID)
 	if err != nil || genericRead == nil || genericRead.ID != ready.ID {
 		t.Fatalf("generic reverse lookup=%+v err=%v", genericRead, err)
+	}
+}
+
+func TestMediaIngestRejectsNonCanonicalPublicationMetadata(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*MediaPublication)
+	}{
+		{"header-shaped MIME", func(value *MediaPublication) { value.MIME = "audio/wav\r\nx-test: injected" }},
+		{"uppercase MIME", func(value *MediaPublication) { value.MIME = "Audio/WAV" }},
+		{"unsafe codec", func(value *MediaPublication) { value.Codec = "pcm s16le" }},
+		{"array loudness", func(value *MediaPublication) { value.LoudnessJSON = "[]" }},
+		{"null loudness", func(value *MediaPublication) { value.LoudnessJSON = "null" }},
+		{"oversized loudness", func(value *MediaPublication) {
+			value.LoudnessJSON = `{"padding":"` + strings.Repeat("x", 16384) + `"}`
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			publication := canonicalPublication()
+			test.mutate(&publication)
+			if err := validateMediaPublication(publication); !errors.Is(err, ErrMediaInvalid) {
+				t.Fatalf("validation error=%v", err)
+			}
+		})
 	}
 }
 

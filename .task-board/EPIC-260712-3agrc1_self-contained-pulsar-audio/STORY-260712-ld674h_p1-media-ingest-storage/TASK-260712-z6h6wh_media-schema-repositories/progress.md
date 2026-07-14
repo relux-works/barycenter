@@ -1,5 +1,5 @@
 ## Status
-to-review
+reviewing
 
 ## Assigned To
 codex-inline
@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:28:12Z
 
 ## Last Update
-2026-07-14T01:27:03Z
+2026-07-14T01:29:26Z
 
 ## Blocked By
 - (none)
@@ -31,6 +31,8 @@ codex-inline
 ## Notes
 Strict inline engineering execution started 2026-07-14 from merged main 06a06c099ed5b4f37f5e2dd3648772ffd041dfd9 on branch task/task-260712-z6h6wh-media-schema-repositories. Manual real-app acceptance is tracked separately in EPIC-260714-th54l3; this task retains coding, migrations, repositories and automatable tests only.
 Local implementation gate: additive five-table schema; media/upload/storage CAS repositories; legacy WAV bridge; atomic orbit revocation; exact predecessor 06a06c rollback and roll-forward cleanup. Green: coordinator go vet ./..., go test ./..., focused race, full tagged previous-head matrix, coordinator build, pulsar-win vet/tests, task-board validate and git diff check. Local node-app swift test is environment-limited because CommandLineTools-only Swift 6.2.3 cannot import the existing Testing module; hosted macos-15 CI remains authoritative. No physical/manual claim.
+Commit 23ef4f1 pushed; draft PR #11 opened: https://github.com/relux-works/barycenter/pull/11. Awaiting hosted CI and final root review before acceptance/merge.
+Root review R1 closed before acceptance: publication metadata now rejects header-shaped/uppercase MIME, unsafe codec names, non-object or oversized loudness JSON; malformed scoped tokens are rejected before database lookup. Focused store tests and vet are green on the remediated bytes.
 
 ## Precondition Resources
 (none)

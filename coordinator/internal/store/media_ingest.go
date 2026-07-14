@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"relux.works/duet/coordinator/internal/ulid"
@@ -165,7 +164,11 @@ type sqlScanner interface {
 	Scan(dest ...any) error
 }
 
-var mediaFailureCodePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,63}$`)
+var (
+	mediaFailureCodePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,63}$`)
+	mediaMIMEPattern        = regexp.MustCompile(`^[a-z0-9][a-z0-9!#$&^_.+-]{0,63}/[a-z0-9][a-z0-9!#$&^_.+-]{0,63}$`)
+	mediaCodecPattern       = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,63}$`)
+)
 
 const mediaItemColumns = `id, owner_orbit_id, actor_id, kind, source, title,
 mime, codec, duration_ms, size_bytes, sha256, storage_key, loudness_json,
@@ -445,7 +448,7 @@ func (s *Store) GetMediaUploadSession(id string) (*MediaUploadSession, error) {
 }
 
 func (s *Store) GetMediaUploadSessionByToken(token string) (*MediaUploadSession, error) {
-	if token == "" {
+	if !lowerHexTokenPattern.MatchString(token) {
 		return nil, nil
 	}
 	session, err := scanMediaUpload(s.db.QueryRow(
@@ -617,11 +620,13 @@ WHERE id = ? AND status = 'processing' AND revision = ? AND storage_key = ''`,
 }
 
 func validateMediaPublication(publication MediaPublication) error {
-	if strings.TrimSpace(publication.MIME) == "" || len(publication.MIME) > 128 ||
-		strings.TrimSpace(publication.Codec) == "" || len(publication.Codec) > 64 ||
+	var loudness map[string]json.RawMessage
+	if !mediaMIMEPattern.MatchString(publication.MIME) ||
+		!mediaCodecPattern.MatchString(publication.Codec) ||
 		publication.DurationMS < 0 || publication.SizeBytes <= 0 ||
 		!lowerHexTokenPattern.MatchString(publication.SHA256) ||
-		!json.Valid([]byte(publication.LoudnessJSON)) {
+		len(publication.LoudnessJSON) == 0 || len(publication.LoudnessJSON) > 16384 ||
+		json.Unmarshal([]byte(publication.LoudnessJSON), &loudness) != nil || loudness == nil {
 		return fmt.Errorf("%w: invalid canonical publication metadata", ErrMediaInvalid)
 	}
 	return nil

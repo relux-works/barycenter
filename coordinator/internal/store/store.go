@@ -121,6 +121,10 @@ func OpenWithOptions(path string, opts Options) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("store: init identity schema: %w", err)
 	}
+	if err := s.initMediaIngestSchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init media ingest schema: %w", err)
+	}
 	if opts.SelfServiceOnboarding {
 		if err := s.ReconcileIdentity(); err != nil {
 			db.Close()

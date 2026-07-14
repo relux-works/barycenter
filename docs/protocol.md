@@ -14,6 +14,8 @@ It does not replace the frozen contract.
 The normative Phase 1 app/bot history, receipt, presence, DND/block and opaque
 Telegram callback surface is frozen in the
 [history/presence/Telegram contract](analysis/p1-history-presence-telegram-contract-v1.md).
+Its transport-neutral RU/EN labels and privacy-safe metadata fallbacks are
+defined by the [shared delivery presentation model](analysis/p1-shared-delivery-presentation-model.md).
 
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 

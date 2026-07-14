@@ -481,7 +481,7 @@ func TestPhase1BotCommandsEndToEnd(t *testing.T) {
 		t.Fatalf("now text: %q", r.last(t))
 	}
 	l.handleBot(cmdEvent(t, "b", "/status", r))
-	if !strings.Contains(r.last(t), "каждый слушает своё") || !strings.Contains(r.last(t), "дом a") {
+	if !strings.Contains(r.last(t), "каждый слушает своё") || !strings.Contains(r.last(t), "Пульсар A") {
 		t.Fatalf("status text: %q", r.last(t))
 	}
 

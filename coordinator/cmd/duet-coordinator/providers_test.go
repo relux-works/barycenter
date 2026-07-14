@@ -211,7 +211,7 @@ func TestPeriastronP1RejectsUnresolved(t *testing.T) {
 
 	l.handleBot(cmdEvent(t, "a", link, r))
 	l.pumpResolve(t) // cascade returns unresolved, then the P1 gate rejects
-	want := "«Tester — Test Song»: нет у дома b (Яндекс), не ставлю"
+	want := "«Tester — Test Song»: нет у дома «Барицентр», Пульсар B (Яндекс), не ставлю"
 	if r.last(t) != want {
 		t.Fatalf("reply %q, want %q", r.last(t), want)
 	}

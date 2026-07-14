@@ -15,6 +15,7 @@ import (
 	"relux.works/duet/coordinator/internal/config"
 	"relux.works/duet/coordinator/internal/hub"
 	"relux.works/duet/coordinator/internal/media"
+	"relux.works/duet/coordinator/internal/presentation"
 	"relux.works/duet/coordinator/internal/protocol"
 	"relux.works/duet/coordinator/internal/session"
 	"relux.works/duet/coordinator/internal/spotify"
@@ -634,15 +635,14 @@ func (l *loop) humanizePeers(text string) string {
 }
 
 func (l *loop) namedGroupPeer(orbitID int64, slot string) string {
-	title := "?"
+	title := ""
 	if rec, err := l.st.GetOrbit(orbitID); err == nil && rec != nil {
 		title = rec.Title
 	}
 	slots, _ := l.st.ActiveSlots(orbitID)
-	if len(slots) > 1 {
-		return fmt.Sprintf("«%s», Пульсар %s", esc(title), strings.ToUpper(slot))
-	}
-	return "«" + esc(title) + "»"
+	return esc(presentation.TargetLabel(presentation.TargetMetadata{
+		OrbitTitle: title, Slot: slot, MultipleSlots: len(slots) > 1,
+	}).Text(presentation.Russian))
 }
 
 func (l *loop) notify(o *orbitState, text string) {
@@ -1966,7 +1966,10 @@ func stateLabel(state session.State) string {
 // as the Barycenter name, never as the internal "slot@orbit" identifier.
 func (l *loop) peerName(o *orbitState, id protocol.NodeID) string {
 	if !o.group() {
-		return string(id)
+		slots, _ := l.st.ActiveSlots(o.id)
+		return esc(presentation.TargetLabel(presentation.TargetMetadata{
+			OrbitTitle: o.title, Slot: string(id), MultipleSlots: len(slots) > 1,
+		}).Text(presentation.Russian))
 	}
 	orbit, slot, ok := splitComposite(id)
 	if !ok {
@@ -2011,12 +2014,10 @@ func (l *loop) orbitText(o *orbitState) string {
 	fmt.Fprintf(&b, "<b>«%s»</b>\n", esc(o.title))
 	members, _ := l.st.Members(o.id)
 	online := l.hub.Online(o.id)
+	slots, _ := l.st.ActiveSlots(o.id)
 	homed := 0
 	for _, m := range members {
-		name := esc(m.DisplayName)
-		if name == "" {
-			name = "участник " + strconv.FormatInt(m.TGUserID, 10)
-		}
+		name := esc(presentation.MemberLabel(m.DisplayName).Text(presentation.Russian))
 		home := "без своего дома"
 		if slot, _ := l.st.SlotOf(o.id, m.TGUserID); slot != "" {
 			homed++
@@ -2024,7 +2025,10 @@ func (l *loop) orbitText(o *orbitState) string {
 			if online[protocol.NodeID(slot)] {
 				mark = "в сети"
 			}
-			home = fmt.Sprintf("дом %s — %s", slot, mark)
+			target := presentation.TargetLabel(presentation.TargetMetadata{
+				OrbitTitle: o.title, Slot: slot, MultipleSlots: len(slots) > 1,
+			}).Text(presentation.Russian)
+			home = fmt.Sprintf("%s — %s", esc(target), mark)
 		}
 		fmt.Fprintf(&b, "· %s — %s, %s\n", name, memberRole(m.Role), home)
 	}
@@ -2088,7 +2092,8 @@ func (l *loop) queueText(o *orbitState) string {
 	} else {
 		b.WriteString("очередь:\n")
 		for i, el := range o.sess.Queue {
-			fmt.Fprintf(&b, "%d. %s <i>(от %s)</i>\n", i+1, l.elementLabel(o, el), esc(string(el.RequestedBy)))
+			requester := presentation.SenderLabel(string(el.RequestedBy)).Text(presentation.Russian)
+			fmt.Fprintf(&b, "%d. %s <i>(от %s)</i>\n", i+1, l.elementLabel(o, el), esc(requester))
 		}
 	}
 	if p := o.sess.Playlist; p != nil {
@@ -2107,10 +2112,7 @@ func (l *loop) elementLabel(o *orbitState, el session.Element) string {
 		if el.Target != "both" {
 			who = "лично в дом " + l.peerName(o, protocol.NodeID(el.Target))
 		}
-		from := string(el.RequestedBy)
-		if from == "" {
-			from = "неизвестного отправителя"
-		}
+		from := presentation.SenderLabel(string(el.RequestedBy)).Text(presentation.Russian)
 		return fmt.Sprintf("голосовое от %s · %s · %s", esc(from), fmtMS(el.DurationMS), who)
 	}
 	return trackLabel(el)

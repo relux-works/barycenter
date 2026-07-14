@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 41 accepted, 164 remain.
-- Routed inventory: 186 engineering tasks (41 accepted, 145 remain) and 19
+- Combined inventory: 205 original tasks; 42 accepted, 163 remain.
+- Routed inventory: 186 engineering tasks (42 accepted, 144 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3d6cnn` — overlay-interrupt-regression-tests
-  (accepted; PR #40 awaiting tracking merge)
-- Next engineering task: `TASK-260712-3coble` — phase1-history-presence-contract
-- Most recently accepted: `TASK-260712-3d6cnn` — overlay-interrupt-regression-tests
-- Current branch: `task/task-260712-3d6cnn-overlay-interrupt-regressions`
+- Current engineering task: `TASK-260712-3coble` — phase1-history-presence-contract
+  (accepted; PR #41 awaiting tracking merge)
+- Next engineering task: `TASK-260712-1gx6mh` — shared-delivery-presentation-model
+- Most recently accepted: `TASK-260712-3coble` — phase1-history-presence-contract
+- Current branch: `task/task-260712-3coble-history-presence-contract`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 41 / 205 tasks (20.0%); 164 remain
-- Engineering progress: 41 / 186 tasks (approximately 22.0%); 145 remain
+- Accepted overall: 42 / 205 tasks (approximately 20.5%); 163 remain
+- Engineering progress: 42 / 186 tasks (approximately 22.6%); 144 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -338,8 +338,31 @@ suite, focused repetitions and Swift release build passed. Exact engineering
 head `f45de46b3b8482620ddc057795383f0180026759` passed all four hosted jobs in
 run `29358958855`. Audible quality, real Spotify timing, routes and physical
 OS/device matrices remain unclaimed in `EPIC-260714-th54l3`. Progress is
-41/205 overall and 41/186 engineering; PR #40 awaits the tracking commit and
-merge before strict execution advances to `TASK-260712-3coble`.
+41/205 overall and 41/186 engineering. Tracking head `94da92b` passed all four
+hosted jobs in run `29359218926`. PR #40 landed at merge
+`8cc171f7429f25aac68c272b9a96b2a388be4b81`, and strict execution advanced to
+`TASK-260712-3coble` from synchronized `main`.
+
+Checkpoint 2026-07-14 (accepted): `TASK-260712-3coble` freezes normative
+`p1-history-presence-telegram-v1` for every downstream surface. The contract
+defines exact history list/detail authorization, stable snapshot cursors,
+30-day receipt/content action boundaries, sanitized presence, optimistic
+local/orbit DND ownership and precedence, opaque actor/orbit block references
+and exact receipt reasons. Telegram is clip-only at 20 MiB source, 34 MiB
+canonical and 180 seconds; Phase-2 track paths fail honestly. A 36-byte opaque
+callback stores only a keyed hash, expires after 15 minutes, deduplicates
+query IDs for 24 hours and binds current actor/role/orbit/chat/message/media
+generation. Ready media creates its legacy `after_current` immediately; a
+valid pre-start click atomically cancels/replaces it with one new trusted
+acceptance time, while interrupt confirmation leaves the default queued and a
+start race produces exactly one audible transmission. Eight JSON examples and
+critical decisions are guarded by a coordinator document test; the corrected
+sequence diagram now shows the real no-decision-window race. Coordinator full
+and race tests, Windows tests/cross-build, 165 Swift tests and release build
+passed. Exact engineering head `dfefae6680f2241acd51dcd9c3d4e7986723b967`
+passed all four hosted jobs in run `29360209758`. No hardware result is
+claimed. Progress is 42/205 overall and 42/186 engineering; PR #41 awaits its
+tracking commit before strict execution advances to `TASK-260712-1gx6mh`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -946,7 +969,9 @@ Story: `STORY-260712-fes2jj` — P1 Cross-platform overlay and interrupt mixer.
 
 Story: `STORY-260712-34kbkn` — P1 Telegram adapter, history and presence.
 
-- [ ] `TASK-260712-3coble` — phase1-history-presence-contract
+- [x] `TASK-260712-3coble` — phase1-history-presence-contract (accepted on
+  exact engineering head `dfefae6`; all four hosted jobs in run `29360209758`
+  green; no real-app/hardware result claimed; PR #41)
 - [ ] `TASK-260712-1gx6mh` — shared-delivery-presentation-model
 - [ ] `TASK-260712-3dmllz` — telegram-callback-audio-transport
 - [ ] `TASK-260712-1c1ska` — presence-dnd-block-surface

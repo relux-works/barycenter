@@ -23,13 +23,26 @@ func TestHomeRendersMembersByName(t *testing.T) {
 	r := &replies{}
 	l.handleBot(cmdEvent(t, "b", "/home", r))
 	got := r.last(t)
-	for _, want := range []string{"user-a", "user-b", "дом a", "дом b", "в сети", "главная звезда"} {
+	for _, want := range []string{"user-a", "user-b", "Пульсар A", "Пульсар B", "в сети", "главная звезда"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("/home missing %q in: %q", want, got)
 		}
 	}
 	if strings.Contains(got, "· 111") || strings.Contains(got, "участник 111") {
 		t.Fatalf("/home leaked a raw tg id: %q", got)
+	}
+}
+
+func TestHomeUsesStableFallbackInsteadOfTelegramID(t *testing.T) {
+	l, _ := newTestLoop(t)
+	if err := l.st.AddMember(1, 333333333, "companion"); err != nil {
+		t.Fatal(err)
+	}
+	r := &replies{}
+	l.handleBot(cmdEvent(t, "a", "/home", r))
+	got := r.last(t)
+	if !strings.Contains(got, "Неизвестный участник") || strings.Contains(got, "333333333") {
+		t.Fatalf("/home fallback leaked a Telegram id: %q", got)
 	}
 }
 

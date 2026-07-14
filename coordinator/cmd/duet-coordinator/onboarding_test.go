@@ -39,7 +39,7 @@ func newOnboardingHarness(t *testing.T) onboardingHarness {
 	t.Cleanup(func() { _ = st.Close() })
 	logs := new(bytes.Buffer)
 	log := slog.New(slog.NewJSONHandler(logs, nil))
-	cfg := &config.Config{SelfServiceOnboarding: true}
+	cfg := &config.Config{SelfServiceOnboarding: true, MediaDir: t.TempDir()}
 	api := newOnboardingAPI(st, cfg, log, "@barycenter_bot")
 	mux := http.NewServeMux()
 	api.register(mux)

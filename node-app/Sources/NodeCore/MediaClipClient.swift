@@ -29,7 +29,13 @@ protocol MediaClipFetching: AnyObject {
     func remove(_ localURL: URL)
 }
 
-private final class RejectRedirectsDelegate: NSObject, URLSessionTaskDelegate {
+private final class RejectRedirectsDelegate: NSObject, URLSessionDownloadDelegate {
+    private let maximumBytes: Int64
+
+    init(maximumBytes: Int64 = Int64(34 << 20)) {
+        self.maximumBytes = maximumBytes
+    }
+
     func urlSession(
         _ session: URLSession,
         task: URLSessionTask,
@@ -42,6 +48,24 @@ private final class RejectRedirectsDelegate: NSObject, URLSessionTaskDelegate {
         // redirects is the smaller, safer client contract.
         completionHandler(nil)
     }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didWriteData bytesWritten: Int64,
+        totalBytesWritten: Int64,
+        totalBytesExpectedToWrite: Int64
+    ) {
+        // Content-Length is not trusted. Stop an unbounded/chunked response
+        // before it can consume more disk than a canonical clip may use.
+        if totalBytesWritten > maximumBytes { downloadTask.cancel() }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didFinishDownloadingTo location: URL
+    ) {}
 }
 
 protocol MediaClipHTTPTransport: AnyObject {
@@ -126,12 +150,16 @@ final class AuthenticatedMediaClipFetcher: MediaClipFetching {
 
     func fetch(_ request: MediaClipFetchRequest) async throws -> URL {
         guard request.expectedSizeBytes > 0,
-              request.expectedSizeBytes <= Self.maximumCanonicalBytes,
-              request.expectedSHA256.count == 64,
+              request.expectedSizeBytes <= Self.maximumCanonicalBytes else {
+            throw MediaClipFailure.frozenCode("media_download_failed")
+        }
+        guard request.expectedSHA256.count == 64,
               request.expectedSHA256.utf8.allSatisfy({
                   ($0 >= 48 && $0 <= 57) || ($0 >= 97 && $0 <= 102)
-              }),
-              let remote = URL(string: request.remoteURL),
+              }) else {
+            throw MediaClipFailure.frozenCode("hash_mismatch")
+        }
+        guard let remote = URL(string: request.remoteURL),
               origin.permits(remote) else {
             throw MediaClipFailure.frozenCode("media_auth_failed")
         }
@@ -359,7 +387,7 @@ final class MediaClipClient: @unchecked Sendable {
         clock: @escaping () -> ClockSync?,
         outputLatencyOffsetMs: Int
     ) {
-        queue.async {
+        queue.sync {
             self.sendMessage = send
             self.clockProvider = clock
             self.outputLatencyOffsetMs = outputLatencyOffsetMs

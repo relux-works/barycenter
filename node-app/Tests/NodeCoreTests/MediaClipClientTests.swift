@@ -314,6 +314,20 @@ private func makeClient(
         #expect(mixer.disposeCount == 1)
     }
 
+    @Test func decoderFailureUsesFrozenCodeAndRemovesDownload() async {
+        let fetcher = StubMediaClipFetcher()
+        let mixer = StubMediaClipMixer()
+        mixer.prepareFailure = .frozenCode("decode_failed")
+        let recorder = MediaEventRecorder()
+        let client = makeClient(fetcher: fetcher, mixer: mixer, recorder: recorder)
+        defer { client.stop() }
+
+        client.prepare(preparePayload())
+        #expect(await eventually { recorder.events.count == 1 })
+        #expect(recorder.events.first?.code == "decode_failed")
+        #expect(fetcher.removed == [fetcher.resultURL])
+    }
+
     @Test func scheduledCallbacksEmitStartedAndEndedExactlyOnce() async {
         let fetcher = StubMediaClipFetcher()
         let mixer = StubMediaClipMixer(deliveryCapabilities: [overlayMixCapability])
@@ -398,6 +412,21 @@ private func makeClient(
         #expect(recorder.events.last?.code == "clock_unsynchronized")
     }
 
+    @Test func unadvertisedDeliveryCapabilityFailsBeforeArm() async {
+        let fetcher = StubMediaClipFetcher()
+        let mixer = StubMediaClipMixer()
+        let recorder = MediaEventRecorder()
+        let client = makeClient(fetcher: fetcher, mixer: mixer, recorder: recorder)
+        defer { client.stop() }
+
+        client.prepare(preparePayload())
+        #expect(await eventually { recorder.events.count == 1 })
+        client.play(overlayPlayPayload())
+        #expect(await eventually { recorder.events.count == 2 })
+        #expect(mixer.armCount == 0)
+        #expect(recorder.events.last?.code == "capability_lost")
+    }
+
     @Test func cancelTombstoneBlocksLatePrepareAndAcknowledgesOnce() async {
         let fetcher = StubMediaClipFetcher()
         let mixer = StubMediaClipMixer(deliveryCapabilities: [overlayMixCapability])
@@ -480,6 +509,19 @@ private func makeClient(
         #expect(recorder.events == [
             .init(kind: .failed, generation: 1, code: "media_expired", timestamp: nil)
         ])
+    }
+
+    @Test func missedPrepareDeadlineIsLeftForCoordinatorTimeout() {
+        let fetcher = StubMediaClipFetcher()
+        let mixer = StubMediaClipMixer()
+        let recorder = MediaEventRecorder()
+        let client = makeClient(fetcher: fetcher, mixer: mixer, recorder: recorder)
+        defer { client.stop() }
+
+        client.prepare(preparePayload(deadline: 9_000, expiry: 30_000))
+        client.synchronize()
+        #expect(fetcher.fetchCount == 0)
+        #expect(recorder.events.isEmpty)
     }
 }
 
@@ -572,6 +614,15 @@ private func makeClient(
         fetcher.remove(local)
         #expect(!FileManager.default.fileExists(atPath: local.path))
 
+        transport.statusCode = 401
+        do {
+            _ = try await fetcher.fetch(request)
+            Issue.record("HTTP authentication failure must be typed")
+        } catch let failure as MediaClipFailure {
+            #expect(failure.code == "media_auth_failed")
+        }
+        #expect(transport.requests.count == 2)
+
         do {
             _ = try await fetcher.fetch(MediaClipFetchRequest(
                 remoteURL: "https://other.example/v1/media/m_test",
@@ -581,6 +632,6 @@ private func makeClient(
         } catch let failure as MediaClipFailure {
             #expect(failure.code == "media_auth_failed")
         }
-        #expect(transport.requests.count == 1)
+        #expect(transport.requests.count == 2)
     }
 }

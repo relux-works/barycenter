@@ -4,25 +4,25 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 33 accepted, 172 remain.
-- Routed inventory: 186 engineering tasks (33 accepted, 153 remain) and 19
+- Combined inventory: 205 original tasks; 34 accepted, 171 remain.
+- Routed inventory: 186 engineering tasks (34 accepted, 152 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1x0lot` — publish-policy-support-pages
-  (in progress; exact-content approval remains the live-publication gate)
-- Most recently accepted: `TASK-260712-1epb3a` — privacy-ugc-policy-pack
-- Current branch: `task/task-260712-1x0lot-publish-policy-support-pages`
+- Current engineering task: `TASK-260712-3t9nr8` — moderation-runbook-mailbox
+  (next in strict order after the accepted publication task)
+- Most recently accepted: `TASK-260712-1x0lot` — publish-policy-support-pages
+- Current branch: pending synchronization from the accepted PR #33
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
   `29339017452`. PR #29 landed at merge
   `e588fc9b727d6264c289f69cc97ea77e4987f939`.
-- Accepted overall: 33 / 205 tasks (approximately 16.1%); 172 remain
-- Engineering progress: 33 / 186 tasks (approximately 17.7%); 153 remain
+- Accepted overall: 34 / 205 tasks (approximately 16.6%); 171 remain
+- Engineering progress: 34 / 186 tasks (approximately 18.3%); 152 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -158,6 +158,22 @@ explicitly approved the exact ten source hashes from immutable source commit
 `2026-07-14T20:09:26+04:00`; the source pack is now `proceed`. Production
 deployment and live hash/cache verification remain before task acceptance, so
 progress is still 33/205 overall and 33/186 engineering.
+
+Checkpoint 2026-07-14 (accepted): `TASK-260712-1x0lot` published the exact
+owner-approved EN/RU policy/support bundle. Barycenter engineering head
+`2da485fa2a094daec7622a14822d45ecfc2338db` passed all four hosted jobs in run
+`29348947568`. The first production probe correctly rejected clean-path empty
+responses and Cloudflare email/body rewriting; explicit 308 redirects and
+`no-transform` stable/immutable cache directives fixed both defects without
+weakening the exact-byte validator. `pulsar-site` PR #2 landed the corrected
+bundle on `main` at `6322e28a145b6c563184899fe84da81bc0733287` with Cloudflare
+Pages and exact-upstream-bundle checks green. The production deployment
+manifest names the exact upstream head and source-pack SHA-256
+`0626909361f478c372243af1a488ddbccfc3dad33493f8c3f4f8e12b414aabe7`;
+`policy-site-check --require-proceed --live` then matched all 20 page hashes,
+redirects and cache contracts. No packaged-app click is claimed. Progress is
+34/205 overall and 34/186 engineering; strict execution advances to
+`TASK-260712-3t9nr8`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -724,7 +740,11 @@ Story: `STORY-260712-1tgryz` — P1 Policy and moderation foundation.
   traceability, exact-hash parity validator and fail-closed Store publication
   gate; local full/race/platform gates and all four hosted jobs in run
   `29345880750` green; PR #32)
-- [ ] `TASK-260712-1x0lot` — publish-policy-support-pages
+- [x] `TASK-260712-1x0lot` — publish-policy-support-pages (accepted on exact
+  engineering head `2da485f`: deterministic exact-hash EN/RU bundle, product
+  and Store wiring, explicit clean-path redirects, edge byte-preservation and
+  live verification of all 20 routes; all four hosted jobs in run
+  `29348947568` green; `pulsar-site` production commit `6322e28`; PR #33)
 - [ ] `TASK-260712-3t9nr8` — moderation-runbook-mailbox
 
 ## 5. P1 cross-platform overlay and interrupt mixer

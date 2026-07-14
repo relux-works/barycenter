@@ -4,10 +4,14 @@
 - Task: `TASK-260712-1x0lot`
 - Source pack: `docs/compliance/policy-pack-2026-07-14.json`
 - Site repository: `relux-works/pulsar-site` (Cloudflare Pages)
-- Current state: **source-approved / deployment in progress**. Ivan Oparin
+- Current state: **published and verified**. Ivan Oparin
   approved the exact EN/RU source hashes from commit
   `43c0bd992e25c1e85aba6b7a086a94dad378eb35`, including the five new support
-  sections, for production publication on 2026-07-14.
+  sections, for production publication on 2026-07-14. The production bundle
+  landed in `relux-works/pulsar-site` at
+  `6322e28a145b6c563184899fe84da81bc0733287`; its Cloudflare Pages and
+  exact-upstream-bundle checks passed, and the live checker matched every
+  approved body hash, redirect and cache directive on 2026-07-14.
 
 ## Route contract
 
@@ -69,10 +73,20 @@ rollback or forward correction, run `policy-site-check --require-proceed
 source-hash metadata and the cache contract for all 20 routes. Store submission
 and the scheduled uptime workflow run the same live gate.
 
-## Remaining deployment gate
+## Production evidence
 
-The exact source approval is recorded as `proceed`. The task is not accepted
-until the generated `ready` bundle lands on `pulsar-site/main` and the
-production live checker proves every route, byte hash and cache header. Store
-submission continues to fail before upload until that deployment evidence
-exists.
+The exact source approval is recorded as `proceed`. The generated `ready`
+bundle landed on `pulsar-site/main` at
+`6322e28a145b6c563184899fe84da81bc0733287`. Production exposes source-pack
+SHA-256 `0626909361f478c372243af1a488ddbccfc3dad33493f8c3f4f8e12b414aabe7`
+and identifies Barycenter upstream commit
+`2da485fa2a094daec7622a14822d45ecfc2338db`.
+
+The first production probe rejected the deployment because the custom domain
+returned an empty `200` for clean paths and edge email obfuscation rewrote the
+reviewed bytes. Explicit 308 redirects and `no-transform` cache directives
+closed both defects. After propagation, `policy-site-check --require-proceed
+--live` passed all 20 stable/versioned routes and the public deployment
+manifest. The Store submission gate can therefore consume the same verified
+production evidence; packaged-app clicks remain deliberately assigned to the
+manual-test epic.

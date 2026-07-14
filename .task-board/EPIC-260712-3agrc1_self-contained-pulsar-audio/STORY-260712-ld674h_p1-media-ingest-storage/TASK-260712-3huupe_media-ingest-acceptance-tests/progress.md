@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:28:12Z
 
 ## Last Update
-2026-07-12T16:15:44Z
+2026-07-14T06:06:29Z
 
 ## Blocked By
 - TASK-260712-2af2dp
@@ -29,6 +29,7 @@ backlog
 - [ ] Exercise concurrent resume, stale worker, delete and cleanup-restart races
 
 ## Notes
+Strict sequential inline execution started 2026-07-14 from clean main merge 9f2aea8e5b9200d1e4077a5576dde18f8051bba5. This task is limited to deterministic automated fixtures and unit/integration acceptance evidence; manual real-app and real-hardware verification remains deferred to EPIC-260714-th54l3.
 
 ## Precondition Resources
 (none)

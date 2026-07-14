@@ -1,5 +1,5 @@
 ## Status
-to-review
+development
 
 ## Assigned To
 (none)
@@ -8,7 +8,7 @@ to-review
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-14T06:01:16Z
+2026-07-14T06:05:54Z
 
 ## Blocked By
 - STORY-260712-sskhip

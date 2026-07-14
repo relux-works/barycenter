@@ -1,48 +1,47 @@
 @startuml
-title P1 Telegram Media Flow - Legacy Default vs Inline Routing
+title TASK-260712-3d0zgu - Deterministic Parity Scenarios
 
-actor "Telegram User" as User
-participant "Telegram Transport" as Bot
-participant "SubmitMedia" as Submit
-participant "History Model" as History
-participant "Presentation Model" as Labels
-participant "Transmission Service" as Tx
-participant "Presence Surface" as Presence
-participant "App / Bot Read Views" as Views
+actor User
+participant "Telegram adapter" as Bot
+participant "SubmitMedia" as Ingest
+participant "Inline transaction" as Inline
+participant "Transmission scheduler" as Scheduler
+participant "History / Presence" as Views
+participant "Shared presentation" as Labels
 
-User -> Bot : send voice or clip-eligible audio
-Bot -> Submit : submit(source=telegram)
-Submit -> History : media status = processing
-Submit --> Bot : media ready or error
+User -> Bot : voice / audio / document
+Bot -> Ingest : bounded, untrusted attachment hints
+Ingest --> Bot : ready or exact sanitized failure
 
-alt media failed or Phase-2-only attachment
-  Bot -> Labels : map honest failure text
-  Labels --> User : unsupported / too long / track path deferred
-else media ready
-  Bot -> Labels : render delivery + audience labels
-  Labels --> User : inline actions\noverlay / interrupt / after_current
-
-  alt user takes no action
-    Bot -> Tx : legacy default after_current\npersonal/broadcast defaults
-    note right of Tx
-      Acceptance ordering stays by
-      coordinator acceptance time.
-    end note
-  else user taps inline action
-    User -> Bot : callback(delivery, audience)
-    Bot -> Tx : CreateTransmission(...)
-  end
-
-  Tx -> History : accepted / preparing / playing / played / partial / error
-  Tx -> Presence : DND/block/capability result
-  History -> Labels : sender + target + receipt labels
-  Presence -> Labels : current approach + availability labels
-  Labels --> Views : same wording for app and bot
+alt voice ready, no callback
+  Bot -> Inline : commit after_current default\nat trusted acceptance time
+  Inline -> Scheduler : schedule immediately
+  note right of Scheduler
+    Out-of-order processing cannot rewrite FIFO.
+    No synthetic callback decision wait exists.
+  end note
+else valid callback before playback
+  User -> Bot : opaque tg1_ callback
+  Bot -> Inline : re-resolve actor + exact message
+  Inline -> Inline : cancel default + create replacement\nin one writer transaction
+  Inline -> Scheduler : one replacement target set
+else playback start wins
+  User -> Bot : opaque tg1_ callback
+  Bot -> Inline : atomic apply
+  Inline --> Bot : too_late; no cancellation or replacement
+else forged / duplicate / cross-user callback
+  User -> Bot : invalid or replayed reference
+  Bot -> Inline : authorize + deduplicate
+  Inline --> Bot : expired / forbidden / already_applied
 end
 
+Scheduler -> Views : exact receipt + current policy result
+Views -> Labels : semantic keys and safe human metadata
+Labels --> User : same RU meaning as app EN/RU catalog
+
 note bottom
-  Pairwise approach remains the Phase 1 shared-air shape.
-  Track queue/replace and offline inbox stay deferred to Phase 2.
+  Mixed capabilities downgrade the whole transmission to after_current
+  with mandatory_target_missing_overlay_capability; protocols never split.
 end note
 
 @enduml

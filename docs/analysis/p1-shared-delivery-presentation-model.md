@@ -26,6 +26,8 @@ and may change only with an intentional golden digest update and review.
 - requested and effective overlay, interrupt and after-current delivery;
 - automatic downgrade and sender-confirmed fallback notices;
 - interrupt confirmation, fallback choices, expiry and too-late results;
+- finite callback outcomes (`applied`, replay, confirmation, expiry,
+  authorization, unsupported and failure) shared by app and Telegram;
 - every accepted aggregate/media/target state and every frozen transmission
   reason code.
 
@@ -82,3 +84,9 @@ restart and expiry outcomes.
 
 The next history, presence and Telegram tasks consume this package rather than
 adding local dictionaries or exposing raw identifiers.
+
+The parity regression review removed the final private Telegram callback-copy
+switch. `CallbackResultLabel` now supplies exact EN/RU `callback.*` labels and
+the Telegram transport selects Russian from that same catalog. The complete
+cross-surface evidence map is in
+`docs/analysis/p1-telegram-history-presence-parity-regressions.md`.

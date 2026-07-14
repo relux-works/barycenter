@@ -369,3 +369,81 @@ func TestTelegramInlineInterruptRequiresExplicitFallback(t *testing.T) {
 		t.Fatalf("confirmed fallback=%+v", confirmed)
 	}
 }
+
+func TestTelegramParityMixedCapabilitiesDowngradeAsOneTargetSet(t *testing.T) {
+	st, owner, telegramUserID := telegramRoutingFixture(t)
+	companion := addTransmissionInstallation(t, st, owner, "companion")
+	now := time.Now().UnixMilli()
+	media, _ := readyTelegramRoutingMedia(t, st, owner.OrbitID, telegramUserID, now)
+	ownerAvailability := fullTransmissionAvailability(owner, media.PublishedAt)
+	companionAvailability := fullTransmissionAvailability(companion, media.PublishedAt)
+	companionAvailability.OverlayCapable = false
+	availability := []TransmissionTargetAvailability{ownerAvailability, companionAvailability}
+	registered, err := st.RegisterTelegramInlineRoute(RegisterTelegramInlineRouteParams{
+		TelegramUserID: telegramUserID, MediaID: media.ID,
+		OriginalUpdateID: now, AttachmentKind: "voice", AcceptedAt: now,
+		AudienceKind: TransmissionAudienceOwnBarycenter, IncludeOrigin: true,
+		Availability: availability,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := mintTelegramChoice(t, st, registered.Route, telegramUserID,
+		TelegramChooseOverlay, TransmissionDeliveryOverlay,
+		TransmissionAudienceOwnBarycenter, "", now+20)
+	result, err := st.ApplyTelegramInlineCallback(ApplyTelegramInlineCallbackParams{
+		TelegramUserID: telegramUserID, QueryID: "mixed-capabilities", Token: token,
+		ChatID: 7001, MessageID: 8001, Now: now + 21, Availability: availability,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Outcome != TelegramCallbackApplied || result.Creation == nil ||
+		result.Creation.Transmission.RequestedDelivery != TransmissionDeliveryOverlay ||
+		result.Creation.Transmission.EffectiveDelivery != TransmissionDeliveryAfterCurrent ||
+		result.Creation.Transmission.DowngradeReason != TransmissionDowngradeMissingOverlay ||
+		len(result.Creation.Targets) != 2 {
+		t.Fatalf("mixed capability replacement=%+v", result)
+	}
+	for _, target := range result.Creation.Targets {
+		if target.Status != TransmissionTargetAccepted {
+			t.Fatalf("mixed target set did not share one schedulable state: %+v",
+				result.Creation.Targets)
+		}
+	}
+}
+
+func TestTelegramParityCrossUserCallbackAndQueryReplayCannotMutate(t *testing.T) {
+	st, owner, telegramUserID := telegramRoutingFixture(t)
+	const otherTelegramUserID = int64(7600713)
+	if err := st.AddMember(owner.OrbitID, otherTelegramUserID, "companion"); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	registered, availability := registerTelegramVoiceRoute(t, st, owner, telegramUserID, now, true)
+	token := mintTelegramChoice(t, st, registered.Route, telegramUserID,
+		TelegramChooseOverlay, TransmissionDeliveryOverlay,
+		TransmissionAudienceOwnBarycenter, "", now+20)
+	ownerResult := applyTelegramChoice(t, st, telegramUserID,
+		"owner-query", token, availability, now+21)
+	if ownerResult.Outcome != TelegramCallbackApplied || ownerResult.Creation == nil {
+		t.Fatalf("owner callback=%+v", ownerResult)
+	}
+	hijack, err := st.ApplyTelegramInlineCallback(ApplyTelegramInlineCallbackParams{
+		TelegramUserID: otherTelegramUserID, QueryID: "owner-query", Token: token,
+		ChatID: 7001, MessageID: 8001, Now: now + 22,
+		Availability: []TransmissionTargetAvailability{availability},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hijack.Outcome != TelegramCallbackForbidden || hijack.Creation != nil ||
+		hijack.Cancellation != nil {
+		t.Fatalf("cross-user query replay=%+v", hijack)
+	}
+	var transmissions int
+	if err := st.db.QueryRow(`SELECT COUNT(*) FROM transmissions WHERE media_id = ?`,
+		registered.Route.MediaID).Scan(&transmissions); err != nil || transmissions != 2 {
+		t.Fatalf("cross-user replay transmissions=%d err=%v", transmissions, err)
+	}
+}

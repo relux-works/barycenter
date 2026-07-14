@@ -9,6 +9,8 @@ import (
 	"io"
 	"sync"
 	"time"
+
+	"relux.works/duet/coordinator/internal/presentation"
 )
 
 const (
@@ -34,24 +36,7 @@ const (
 // CallbackAnswerText is deliberately finite and contains no callback, actor,
 // orbit, media or Telegram identifiers.
 func CallbackAnswerText(code CallbackAnswerCode) string {
-	switch code {
-	case CallbackApplied:
-		return "Готово"
-	case CallbackAlreadyApplied:
-		return "Уже применено"
-	case CallbackRequiresConfirmation:
-		return "Нужно подтверждение"
-	case CallbackTooLate:
-		return "Уже поздно менять"
-	case CallbackExpired:
-		return "Кнопка устарела"
-	case CallbackForbidden:
-		return "Недостаточно прав"
-	case CallbackUnsupported:
-		return "Действие пока недоступно"
-	default:
-		return "Не удалось выполнить"
-	}
+	return presentation.CallbackResultLabel(string(code)).Text(presentation.Russian)
 }
 
 type CallbackAction string

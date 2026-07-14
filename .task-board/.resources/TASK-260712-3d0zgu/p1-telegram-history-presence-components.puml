@@ -1,50 +1,51 @@
 @startuml
-title P1 Telegram Adapter, History and Presence - Component Boundaries
+title TASK-260712-3d0zgu - Parity Regression Evidence Boundaries
 
 left to right direction
 skinparam componentStyle rectangle
 
-actor "Telegram User" as TgUser
-actor "Pulsar App" as App
+actor "App client\nEN or RU" as App
+actor "Telegram user\nRU transport" as Telegram
 
-rectangle "STORY-260712-34kbkn\nTelegram parity + history/presence" {
-  [Telegram Transport\nvoice/audio/callback updates] as TgTransport
-  [Inline Action Router\nlegacy default + action callbacks] as InlineRouter
-  [Delivery Presentation Model\nhuman labels + receipt wording] as Presentation
-  [Presence Surface\nsanitized presence + DND/block] as Presence
-  [History/Receipt Query\nrecent transmissions + aggregates] as History
+rectangle "Shared runtime" {
+  [Presentation catalog\nsemantic key + EN + RU] as Presentation
+  [Telegram transport\nopaque callback + attachments] as Bot
+  [Inline route store\ndefault / replacement transaction] as Inline
+  [History command + query\nviewer-bound authorization] as History
+  [Presence + policy\nDND / block / sanitized projection] as Presence
+  [Transmission scheduler\nwhole-target capability policy] as Scheduler
 }
 
-rectangle "STORY-260712-2ve1c8\nIdentity + ActorContext" as Identity
-rectangle "STORY-260712-ld674h\nSubmitMedia + legacy voice bridge" as Ingest
-rectangle "STORY-260712-25lysg\nCreateTransmission + receipts + DND semantics" as Tx
-rectangle "STORY-260712-2e36uz\nWindows/macOS UI integration" as UI
+rectangle "Deterministic regression layers" {
+  [Unit and golden tests] as Unit
+  [SQLite transaction tests] as StoreTests
+  [HTTP integration tests] as HTTPTests
+  [Coordinator fake-transport tests] as LoopTests
+}
 
-TgUser --> TgTransport
-TgTransport --> Identity : authorize actor
-TgTransport --> Ingest : submit voice/audio
-TgTransport --> InlineRouter : callback events
-
-InlineRouter --> Tx : create transmission\nor legacy after_current
-InlineRouter --> Presentation
-
-Tx --> History : transmission + target states
-Tx --> Presence : target capability\nDND/block result
-
-Identity --> Presentation : actor + orbit labels
-Presentation --> History
-Presentation --> Presence
-
+App --> Presentation
+Telegram --> Bot
+Bot --> Presentation : callback + route text
+Bot --> Inline
+Inline --> Scheduler
+History --> Scheduler
+Presence --> Scheduler
 App --> History
 App --> Presence
-History --> UI
-Presence --> UI
+
+Unit ..> Presentation : exact EN/RU + leak canaries
+StoreTests ..> Inline : forgery / replay / race / rollback
+StoreTests ..> History : tenant + action authorization
+StoreTests ..> Presence : DND/block precedence + expiry
+HTTPTests ..> History : strict API + redaction
+HTTPTests ..> Presence : stale/sanitized projection
+LoopTests ..> Bot : attachment errors + no-action FIFO
+LoopTests ..> Scheduler : mixed fleet whole downgrade
 
 note bottom
-  This story owns presentation-oriented parity:
-  human names, routing labels, presence sanitization,
-  Telegram inline actions, and history/receipt read models.
-  It does not own SubmitMedia internals or transmission scheduling semantics.
+  Automated evidence stops at deterministic code boundaries.
+  Real Telegram rendering, audible playback, packaged apps and
+  physical hardware remain in EPIC-260714-th54l3.
 end note
 
 @enduml

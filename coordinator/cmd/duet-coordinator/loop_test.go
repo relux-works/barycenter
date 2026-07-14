@@ -592,6 +592,11 @@ func TestTelegramVoiceSubmitMediaAdapterPreservesFIFORepliesAndLegacyPlayback(t 
 		orbit.sess.QueueLen() != 1 || orbit.sess.Queue[0].MediaID != second.MediaID {
 		t.Fatalf("Telegram FIFO current=%+v queue=%+v", orbit.sess.Current, orbit.sess.Queue)
 	}
+	if orbit.sess.Current.CreatedAt != first.AcceptedAt || orbit.sess.Queue[0].CreatedAt != second.AcceptedAt {
+		t.Fatalf("Telegram acceptance order was rewritten: current=%d/%d queue=%d/%d",
+			orbit.sess.Current.CreatedAt, first.AcceptedAt,
+			orbit.sess.Queue[0].CreatedAt, second.AcceptedAt)
+	}
 	if firstReplies.last(t) != "голосовое от Alice готово: после текущего трека, для всех" ||
 		secondReplies.last(t) != "голосовое от Bob готово: после текущего трека, для всех" {
 		t.Fatalf("ready replies first=%v second=%v", firstReplies.texts, secondReplies.texts)
@@ -605,6 +610,9 @@ func TestTelegramVoiceSubmitMediaAdapterPreservesFIFORepliesAndLegacyPlayback(t 
 	plays := fake.ofType(protocol.TypePlayVoice)
 	if len(plays) != 2 {
 		t.Fatalf("legacy play_voice messages=%+v", plays)
+	}
+	if waits := fake.ofType(protocol.TypeWait); len(waits) != 0 {
+		t.Fatalf("no-action voice introduced a synthetic decision wait: %+v", waits)
 	}
 	for _, play := range plays {
 		payload := play.payload.(*protocol.PlayVoicePayload)

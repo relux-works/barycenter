@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 43 accepted, 162 remain.
-- Routed inventory: 186 engineering tasks (43 accepted, 143 remain) and 19
+- Combined inventory: 205 original tasks; 44 accepted, 161 remain.
+- Routed inventory: 186 engineering tasks (44 accepted, 142 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1gx6mh` — shared-delivery-presentation-model
-  (accepted; PR #42 awaiting tracking merge)
-- Next engineering task: `TASK-260712-3dmllz` — telegram-callback-audio-transport
-- Most recently accepted: `TASK-260712-1gx6mh` — shared-delivery-presentation-model
-- Current branch: `task/task-260712-1gx6mh-shared-delivery-presentation`
+- Current engineering task: `TASK-260712-3dmllz` — telegram-callback-audio-transport
+  (accepted on exact engineering head; PR #43 landing is in progress)
+- Next engineering task: `TASK-260712-1c1ska` — presence-dnd-block-surface
+- Most recently accepted: `TASK-260712-3dmllz` — telegram-callback-audio-transport
+- Current branch: `task/task-260712-3dmllz-telegram-callback-audio-transport`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 43 / 205 tasks (approximately 21.0%); 162 remain
-- Engineering progress: 43 / 186 tasks (approximately 23.1%); 143 remain
+- Accepted overall: 44 / 205 tasks (approximately 21.5%); 161 remain
+- Engineering progress: 44 / 186 tasks (approximately 23.7%); 142 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -382,8 +382,31 @@ Coordinator full/race, Windows test/cross-build, 165 Swift tests and release
 build passed. Exact engineering head
 `31024a2c089ad08e4359cf8843be037d14bc42eb` passed all four hosted jobs in run
 `29361254030`. No hardware result is claimed. Progress is 43/205 overall and
-43/186 engineering; PR #42 awaits tracking merge before strict execution
-advances to `TASK-260712-3dmllz`.
+43/186 engineering. Tracking head `bbd6c7a` passed all four hosted jobs in run
+`29361470602`. PR #42 landed at merge
+`c820a869c2d501f8b549a21a019e2cd9e0fc87e3`, and strict execution advanced to
+`TASK-260712-3dmllz` from synchronized `main`.
+
+Checkpoint 2026-07-14 (accepted): `TASK-260712-3dmllz` adds typed Telegram
+callback, audio and document transport while preserving the legacy voice path.
+Filename, MIME, duration and size remain hints: audio/documents enter the same
+20 MiB bounded download and common `SubmitMedia` signature, decoded-duration
+and canonical-size proof. Non-audio update shapes, media groups, actual
+oversize and decoded Phase-2-only tracks receive stable non-disclosing replies.
+Callback data is exactly a 36-byte `tg1_` opaque random reference indexed only
+by HMAC-SHA-256; its server row binds actor, role, source orbit, chat/message,
+original update, media generation, action and canonical options. Tokens expire
+in 15 minutes, query IDs are HMAC-indexed and actor-bound for 24-hour replay,
+failed actions remain retryable, and callbacks use a dedicated prompt queue
+with terminal keyboard cleanup. Deterministic tests cover contradictory media
+hints, unsupported shapes, forgery, expiry, cross-actor/role/orbit/message,
+source-primary authorization, replay, retry, exact HTTP forms and redaction.
+Local coordinator full/race, pinned rollback, Windows test/cross-build and Swift
+release gates passed; hosted macOS Swift tests and all other jobs passed on
+exact engineering head `773b417eaff6308fe3cfa14cbe3d80e812854e75`
+in run `29362994920`. No real Telegram client, audible or hardware result is
+claimed. Progress is 44/205 overall and 44/186 engineering. Tracking and PR #43
+landing follow before strict execution starts `TASK-260712-1c1ska`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

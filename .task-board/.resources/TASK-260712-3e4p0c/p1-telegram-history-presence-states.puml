@@ -32,12 +32,33 @@ state "Per-target receipt detail" as Receipt {
   accepted --> failed
 }
 
-History ..> Receipt : aggregates exact reasons
+History --> Receipt : aggregates exact reasons
 
-note bottom
+state "Explicit history action" as Action {
+  [*] --> reauthorize
+  reauthorize --> rejected : actor/item/action changed
+  reauthorize --> delegated : current action allowed
+  delegated --> replayed : new accepted_at +\nfresh target snapshot
+  delegated --> deleted : media tombstone +\ncancellation outbox
+  delegated --> reported : moderation evidence + audit
+  delegated --> blocked : canonical actor/orbit block
+  replayed --> idempotent_result : same actor/key/request
+  deleted --> idempotent_result : repeated owner delete
+  reported --> idempotent_result : same reporter/media
+  blocked --> idempotent_result : policy request replay
+  rejected --> [*]
+  idempotent_result --> [*]
+}
+
+History --> Action : hints only; command reauthorizes
+
+note bottom of Action
   Presence surfaces may show online/offline, output state,
   playback state, required capability support, DND, and block.
   They must never expose microphone state or local process names.
+  Replay is a new explicit delivery, never receipt resurrection or inbox
+  autoplay. Deleted/expired media cannot be revived. Manual app/hardware
+  verification remains in the dedicated testing epic.
 end note
 
 @enduml

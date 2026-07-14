@@ -342,10 +342,26 @@ func (s *Store) CreateModerationReport(
 	bearer string,
 	params CreateModerationReportParams,
 ) (ModerationReportCreation, error) {
+	if expectedActorID <= 0 || !lowerHexTokenPattern.MatchString(bearer) {
+		return ModerationReportCreation{}, ErrUnauthorized
+	}
+	return s.CreateModerationReportForIdentity(expectedActorID,
+		Identity{Kind: IdentityBearer, Token: bearer}, params)
+}
+
+// CreateModerationReportForIdentity lets app and verified Telegram history
+// consumers share the same reporting transaction. Exact target-evidence
+// checks below remain authoritative; transport capability alone is never a
+// grant to report arbitrary media.
+func (s *Store) CreateModerationReportForIdentity(
+	expectedActorID int64,
+	identity Identity,
+	params CreateModerationReportParams,
+) (ModerationReportCreation, error) {
 	if !s.selfServiceOnboarding {
 		return ModerationReportCreation{}, ErrSelfServiceOnboardingDisabled
 	}
-	if expectedActorID <= 0 || !lowerHexTokenPattern.MatchString(bearer) {
+	if expectedActorID <= 0 {
 		return ModerationReportCreation{}, ErrUnauthorized
 	}
 	params.Details = strings.TrimSpace(params.Details)
@@ -359,9 +375,15 @@ func (s *Store) CreateModerationReport(
 		return ModerationReportCreation{}, err
 	}
 	defer tx.Rollback()
-	ctx, err := mutationActorContextTx(tx, expectedActorID, hashToken(bearer))
-	if err != nil {
+	ctx, err := resolveActorContext(tx, identity)
+	if err != nil || ctx.ActorID != expectedActorID {
+		if err == nil {
+			err = ErrUnauthorized
+		}
 		return ModerationReportCreation{}, err
+	}
+	if !ctx.Capabilities.Has(CapabilityControl) && !ctx.Capabilities.Has(CapabilityTelegram) {
+		return ModerationReportCreation{}, ErrInsufficientCapability
 	}
 	existing, err := scanModerationReport(tx.QueryRow(
 		`SELECT `+moderationReportColumns+` FROM moderation_reports

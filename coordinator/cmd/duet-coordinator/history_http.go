@@ -1,13 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"relux.works/duet/coordinator/internal/historyactions"
 	"relux.works/duet/coordinator/internal/store"
 )
+
+const errorHistoryActionUnavailable = "history_action_unavailable"
 
 type historyMediaJSON struct {
 	MediaID          string `json:"media_id"`
@@ -255,6 +259,15 @@ type historyDetailJSON struct {
 }
 
 func (api *onboardingAPI) historyItem(w http.ResponseWriter, r *http.Request) {
+	id, action, validPath := parseHistoryItemPath(r.URL.Path)
+	if !validPath {
+		apiError(w, http.StatusNotFound, errorHistoryNotFound, 0)
+		return
+	}
+	if action != "" {
+		api.historyAction(w, r, id, action)
+		return
+	}
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
 		apiError(w, http.StatusMethodNotAllowed, errorInvalidRequest, 0)
@@ -262,11 +275,6 @@ func (api *onboardingAPI) historyItem(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.RawQuery != "" {
 		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
-		return
-	}
-	id := strings.TrimPrefix(r.URL.Path, "/v1/history/")
-	if strings.Contains(id, "/") {
-		apiError(w, http.StatusNotFound, errorHistoryNotFound, 0)
 		return
 	}
 	actor := r.Context().Value(actorRequestKey{}).(actorRequest)
@@ -296,6 +304,282 @@ func (api *onboardingAPI) historyItem(w http.ResponseWriter, r *http.Request) {
 		result.Targets = &targets
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func parseHistoryItemPath(path string) (historyItemID, action string, ok bool) {
+	parts := strings.Split(strings.TrimPrefix(path, "/v1/history/"), "/")
+	if len(parts) != 1 && (len(parts) != 3 || parts[1] != "actions") {
+		return "", "", false
+	}
+	if len(parts[0]) != 29 || !strings.HasPrefix(parts[0], "hi_") {
+		return "", "", false
+	}
+	if len(parts) == 3 {
+		return parts[0], parts[2], parts[2] != ""
+	}
+	return parts[0], "", true
+}
+
+type historyReplayRequest struct {
+	Audience             transmissionAudienceRequest  `json:"audience"`
+	Delivery             string                       `json:"delivery"`
+	IncludeOrigin        *bool                        `json:"include_origin,omitempty"`
+	FallbackConfirmation *transmissionFallbackRequest `json:"fallback_confirmation,omitempty"`
+}
+
+type canonicalHistoryReplayRequest struct {
+	HistoryItemID string                      `json:"history_item_id"`
+	Action        string                      `json:"action"`
+	Audience      transmissionAudienceRequest `json:"audience"`
+	Delivery      string                      `json:"delivery"`
+	IncludeOrigin bool                        `json:"include_origin"`
+}
+
+func validateHistoryReplayRequest(request historyReplayRequest) (bool, []store.TransmissionAudienceSelector) {
+	include := request.IncludeOrigin
+	probe := createTransmissionRequest{
+		MediaID: "m_00000000000000000000000000", Audience: request.Audience,
+		Delivery: request.Delivery, OriginKind: string(store.TransmissionOriginFile),
+		IncludeOrigin: include, FallbackConfirmation: request.FallbackConfirmation,
+	}
+	return validateTransmissionCreateRequest(probe)
+}
+
+func canonicalHistoryActionHash(value any) (string, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	return transmissionDigest(string(raw)), nil
+}
+
+func (api *onboardingAPI) historyActionService() (*historyactions.Service, error) {
+	return historyactions.NewService(api.store, api.mediaLifecycle, api.moderationService)
+}
+
+func (api *onboardingAPI) historyAction(w http.ResponseWriter, r *http.Request, historyItemID, action string) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		apiError(w, http.StatusMethodNotAllowed, errorInvalidRequest, 0)
+		return
+	}
+	if r.URL.RawQuery != "" {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	service, err := api.historyActionService()
+	if err != nil {
+		api.internalError(w, "initialize history actions", err)
+		return
+	}
+	actorRequest := r.Context().Value(actorRequestKey{}).(actorRequest)
+	actor := historyactions.Actor{ExpectedActorID: actorRequest.Context.ActorID,
+		Identity: store.Identity{Kind: store.IdentityBearer, Token: actorRequest.Bearer}}
+	now := api.transmissionNow().UTC().UnixMilli()
+	switch action {
+	case "replay":
+		api.replayHistoryAction(w, r, service, actorRequest, actor, historyItemID, now)
+	case "delete":
+		var request struct{}
+		if !decodeStrictTransmissionJSON(w, r, &request) {
+			apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+			return
+		}
+		item, err := service.Delete(actor, historyItemID, now)
+		if api.historyActionError(w, "delete history media", err) {
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"history_item_id": historyItemID, "media_id": item.ID, "deleted": true,
+		})
+	case "report":
+		var request struct {
+			Reason  store.ModerationReason `json:"reason"`
+			Details string                 `json:"details"`
+		}
+		if !decodeStrictJSON(w, r, 4096, &request) {
+			apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+			return
+		}
+		created, err := service.Report(actor, historyItemID, store.CreateModerationReportParams{
+			Reason: request.Reason, Details: request.Details,
+		}, now)
+		if api.historyActionError(w, "report history media", err) {
+			return
+		}
+		status := http.StatusCreated
+		if created.Reused {
+			status = http.StatusOK
+		}
+		response := reporterModerationView(created.Report)
+		response["history_item_id"] = historyItemID
+		response["reused"] = created.Reused
+		writeJSON(w, status, response)
+	case "block_actor", "block_orbit":
+		api.blockHistoryAction(w, r, service, actorRequest, actor, historyItemID, action, now)
+	default:
+		apiError(w, http.StatusNotFound, errorHistoryNotFound, 0)
+	}
+}
+
+func (api *onboardingAPI) replayHistoryAction(w http.ResponseWriter, r *http.Request, service *historyactions.Service, actorRequest actorRequest, actor historyactions.Actor, historyItemID string, now int64) {
+	idempotencyKey, ok := singleRequestHeader(r, "Idempotency-Key")
+	if !ok || !transmissionIdempotencyKey.MatchString(idempotencyKey) {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	var request historyReplayRequest
+	if !decodeStrictTransmissionJSON(w, r, &request) {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	valid, selectors := validateHistoryReplayRequest(request)
+	if !valid {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	if request.Delivery == "queue" || request.Delivery == "replace" {
+		writeTransmissionAPIError(w, http.StatusUnprocessableEntity, errorDeliveryNotSupported, nil)
+		return
+	}
+	if !api.reserveTransmission(w, actorRequest.Context) {
+		return
+	}
+	includeOrigin := true
+	if request.IncludeOrigin != nil {
+		includeOrigin = *request.IncludeOrigin
+	}
+	requestHash, err := canonicalHistoryActionHash(canonicalHistoryReplayRequest{
+		HistoryItemID: historyItemID, Action: "replay", Audience: request.Audience,
+		Delivery: request.Delivery, IncludeOrigin: includeOrigin,
+	})
+	if err != nil {
+		api.internalError(w, "hash history replay", err)
+		return
+	}
+	challengeToken := ""
+	if request.Delivery == "interrupt" {
+		challengeToken, err = api.transmissionToken()
+		if err != nil || !transmissionConfirmationToken.MatchString(challengeToken) {
+			api.internalError(w, "mint history replay confirmation", err)
+			return
+		}
+	}
+	params := historyactions.ReplayParams{
+		Actor: actor, HistoryItemID: historyItemID,
+		IdempotencyKeyHash: transmissionDigest(idempotencyKey), RequestHash: requestHash,
+		AudienceKind: store.TransmissionAudienceKind(request.Audience.Kind), Selectors: selectors,
+		OriginKind: store.TransmissionOriginFile, IncludeOrigin: includeOrigin,
+		RequestedDelivery: store.TransmissionDelivery(request.Delivery), AcceptedAt: now,
+		Availability: api.transmissionAvailability(),
+	}
+	if challengeToken != "" {
+		params.ChallengeTokenHash = transmissionDigest(challengeToken)
+	}
+	if request.FallbackConfirmation != nil {
+		params.Confirmation = &store.ConfirmTransmissionFallback{
+			TokenHash: transmissionDigest(request.FallbackConfirmation.Token),
+			Delivery:  store.TransmissionDelivery(request.FallbackConfirmation.Delivery),
+		}
+	}
+	result, err := service.Replay(params)
+	if api.historyReplayError(w, err) {
+		return
+	}
+	if result.Challenge != nil {
+		writeTransmissionChallenge(w, *result.Challenge, challengeToken)
+		return
+	}
+	status := http.StatusCreated
+	if result.Reused {
+		status = http.StatusOK
+	}
+	api.transmissionAccepted(result.Creation.Transmission.ID)
+	w.Header().Set("Location", "/v1/transmissions/"+result.Creation.Transmission.ID)
+	reused := result.Reused
+	writeJSON(w, status, transmissionResponseForCreation(result.Creation, &reused))
+}
+
+func (api *onboardingAPI) blockHistoryAction(w http.ResponseWriter, r *http.Request, service *historyactions.Service, actorRequest actorRequest, actor historyactions.Actor, historyItemID, action string, now int64) {
+	idempotencyKey, ok := singleRequestHeader(r, "Idempotency-Key")
+	if !ok || !transmissionIdempotencyKey.MatchString(idempotencyKey) {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	var request struct{}
+	if !decodeStrictTransmissionJSON(w, r, &request) {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	requestHash, err := canonicalHistoryActionHash(map[string]string{
+		"history_item_id": historyItemID, "action": action,
+	})
+	if err != nil {
+		api.internalError(w, "hash history block", err)
+		return
+	}
+	block, err := service.Block(historyactions.BlockParams{
+		Actor: actor, HistoryItemID: historyItemID, Kind: historyactions.BlockKind(action),
+		IdempotencyKeyHash: transmissionDigest(idempotencyKey), RequestHash: requestHash,
+		CreatedAt: now,
+	})
+	if api.historyActionError(w, "block history sender", err) {
+		return
+	}
+	if !block.Reused {
+		api.enforceBlock(actorRequest, block, now)
+	}
+	status := http.StatusCreated
+	if block.Reused {
+		status = http.StatusOK
+	}
+	reused := block.Reused
+	response := blockResponse(block)
+	response.Reused = &reused
+	writeJSON(w, status, response)
+}
+
+func (api *onboardingAPI) historyReplayError(w http.ResponseWriter, err error) bool {
+	if errors.Is(err, historyactions.ErrActionUnavailable) ||
+		errors.Is(err, store.ErrTransmissionMediaNotFound) ||
+		errors.Is(err, store.ErrTransmissionMediaNotReady) ||
+		errors.Is(err, store.ErrTransmissionMediaInvalid) {
+		apiError(w, http.StatusConflict, errorHistoryActionUnavailable, 0)
+		return true
+	}
+	return api.transmissionStoreError(w, "replay history", err)
+}
+
+func (api *onboardingAPI) historyActionError(w http.ResponseWriter, operation string, err error) bool {
+	if err == nil {
+		return false
+	}
+	switch {
+	case errors.Is(err, historyactions.ErrServiceUnavailable):
+		apiError(w, http.StatusServiceUnavailable, errorServiceUnavailable, 0)
+	case errors.Is(err, historyactions.ErrActionUnavailable),
+		errors.Is(err, store.ErrMediaNotFound), errors.Is(err, store.ErrMediaStateConflict),
+		errors.Is(err, store.ErrModerationNotFound):
+		apiError(w, http.StatusConflict, errorHistoryActionUnavailable, 0)
+	case errors.Is(err, store.ErrTransmissionNotFound):
+		apiError(w, http.StatusNotFound, errorHistoryNotFound, 0)
+	case errors.Is(err, store.ErrModerationInvalid):
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+	case errors.Is(err, store.ErrModerationRateLimited):
+		apiError(w, http.StatusTooManyRequests, errorTooManyAttempts, 0)
+	case errors.Is(err, store.ErrUnauthorized):
+		apiError(w, http.StatusUnauthorized, errorUnauthorized, 0)
+	case errors.Is(err, store.ErrInsufficientCapability),
+		errors.Is(err, store.ErrTransmissionPolicyForbidden),
+		errors.Is(err, store.ErrOrbitDisabled),
+		errors.Is(err, store.ErrSelfServiceOnboardingDisabled):
+		apiError(w, http.StatusForbidden, errorInsufficientCapability, 0)
+	case errors.Is(err, store.ErrTransmissionPolicyIdempotency):
+		apiError(w, http.StatusConflict, errorTransmissionIdempotency, 0)
+	default:
+		api.internalError(w, operation, err)
+	}
+	return true
 }
 
 func (api *onboardingAPI) historyError(w http.ResponseWriter, operation string, err error) {

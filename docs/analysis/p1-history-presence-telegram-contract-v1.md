@@ -188,7 +188,8 @@ cancel | delete | replay | report | block_actor | block_orbit | unblock
 Actions are hints, not grants; mutations reauthorize. `cancel` is only for the
 creator/current source primary while `can_cancel`. `delete` is for current
 media owner/control. `replay` requires current create authority and available
-content. `report` requires creator or exact target evidence access.
+content. `report` requires foreign media and exact current-target evidence
+access; a sender never receives a self-report action for their own media.
 `block_actor`/`block_orbit` require a received foreign subject and no matching
 block; `unblock` requires block ownership.
 

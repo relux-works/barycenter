@@ -1,14 +1,14 @@
 ## Status
-backlog
+done
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:52:48Z
 
 ## Last Update
-2026-07-12T16:19:49Z
+2026-07-14T22:26:41Z
 
 ## Blocked By
 - TASK-260712-3coble
@@ -26,15 +26,18 @@ backlog
 - TASK-260712-wt2n7m
 
 ## Checklist
-- [ ] Create replay as an explicit new transmission with new targets and accepted_at
-- [ ] Delegate delete, report and mute to owner services with ActorContext and audit enforcement
-- [ ] Cover expired, deleted, revoked, duplicate and racing actions
+- [x] Create replay as an explicit new transmission with new targets and accepted_at
+- [x] Delegate delete, report and mute to owner services with ActorContext and audit enforcement
+- [x] Cover expired, deleted, revoked, duplicate and racing actions
 
 ## Notes
+2026-07-15 kickoff: strict sequential inline execution started from synchronized main merge 912d080 after TASK-260712-21ers7 acceptance. Scope is one ActorContext-scoped history command layer for explicit replay, owner-policy delete, moderation report, and block/mute delegation with idempotency, audit, revocation and race coverage. No Phase 2 inbox autoplay or manual real-client, audible, app, or hardware evidence will be claimed.
+2026-07-15 engineering candidate: one transport-neutral history command service now backs app bearer and verified Telegram consumers. Replay accepts no client media ID or acceptance time, creates a fresh common-resolver transmission with newly resolved targets, DND/block/capability policy and actor-scoped idempotency; same-key retries survive later deletion without reviving content. Delete delegates to the audited media tombstone plus durable cancellation outbox; report delegates to exact-target moderation evidence/rate-limit/audit; actor/orbit mute delegates to viewer-bound block policy and existing cancellation enforcement. Tests cover fresh target-set changes, expired/deleted media, delete/replay race, repeated delete/replay/report/block, changed-request conflict, verified Telegram owner actions, revoked/foreign callers, strict HTTP parsing, outbox and audit evidence. Green locally: coordinator vet/full tests, focused full race, pinned previous-head compatibility, moderation ops check, Windows vet/native tests/windows cross-test compile, Swift release build, both PlantUML renders, and diff check. No manual real-client, audible, hardware or Phase 2 inbox evidence is claimed; it remains in EPIC-260714-th54l3.
+2026-07-15 accepted engineering evidence: exact code head 04f2b20c33b9af464e155b720f45838f70497ade passed all four hosted jobs in run 29372823415, including coordinator vet/full/pinned rollback, authoritative macOS Swift tests, portable Windows build and signed packaged probe. Best-effort code/unit/integration/static/CI scope is accepted; manual real-client, audible and physical-hardware evidence remains outside this task in EPIC-260714-th54l3. PR #47 tracking CI and merge remain.
 
 ## Precondition Resources
-- [p1-telegram-history-presence-components.puml](file://TASK-260712-3e4p0c/p1-telegram-history-presence-components.puml) — History action orchestration boundaries
-- [p1-telegram-history-presence-states.puml](file://TASK-260712-3e4p0c/p1-telegram-history-presence-states.puml) — History and receipt lifecycle context
+- [p1-telegram-history-presence-components.puml](file://TASK-260712-3e4p0c/p1-telegram-history-presence-components.puml) — History command ownership and delegation boundaries
+- [p1-telegram-history-presence-states.puml](file://TASK-260712-3e4p0c/p1-telegram-history-presence-states.puml) — History action authorization, delegation, and idempotency states
 
 ## Outcome Resources
-(none)
+- [TASK-260712-3e4p0c_history-replay-policy-actions.md](file://TASK-260712-3e4p0c/TASK-260712-3e4p0c_history-replay-policy-actions.md) — HTTP contract, transport-neutral orchestration, owner-service delegation, idempotency and automated evidence

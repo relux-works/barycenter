@@ -146,7 +146,7 @@ func TestHistoryTransmissionVisibilityRetentionAggregatesAndActions(t *testing.T
 	if sourceItem.Direction != HistorySentAndReceived || sourceItem.TargetCount != 3 || len(sourceItem.Targets) != 3 ||
 		sourceItem.TargetStatusCounts[TransmissionTargetAccepted] != 1 ||
 		sourceItem.TargetStatusCounts[TransmissionTargetMissedOffline] != 2 ||
-		!sourceItem.CanCancel || !sourceItem.CanDelete || !sourceItem.CanReplay || !sourceItem.CanReport {
+		!sourceItem.CanCancel || !sourceItem.CanDelete || !sourceItem.CanReplay || sourceItem.CanReport {
 		t.Fatalf("source projection=%+v", sourceItem)
 	}
 	nodeSent, err := st.QueryAuthorizedHistory(source.ActorID,

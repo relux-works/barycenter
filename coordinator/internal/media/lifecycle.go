@@ -156,9 +156,17 @@ func (service *LifecycleService) DeleteAuthorized(
 	bearer string,
 	mediaID string,
 ) (store.MediaItem, error) {
-	deleted, err := service.store.DeleteAuthorizedMedia(
-		expectedActorID, bearer, mediaID, service.now().UnixMilli(),
-	)
+	return service.DeleteAuthorizedForIdentity(expectedActorID,
+		store.Identity{Kind: store.IdentityBearer, Token: bearer}, mediaID)
+}
+
+func (service *LifecycleService) DeleteAuthorizedForIdentity(
+	expectedActorID int64,
+	identity store.Identity,
+	mediaID string,
+) (store.MediaItem, error) {
+	deleted, err := service.store.DeleteAuthorizedMediaForIdentity(
+		expectedActorID, identity, mediaID, service.now().UnixMilli())
 	if err != nil {
 		return store.MediaItem{}, err
 	}

@@ -23,6 +23,7 @@ type fakeCommandRunner struct {
 	probeFormat    string
 	probeBlock     bool
 	probeError     error
+	transcodeBlock bool
 	transcodeError error
 	loudness       string
 	output         []byte
@@ -89,6 +90,10 @@ func (runner *fakeCommandRunner) Run(ctx context.Context, spec commandSpec) (com
 			"streams": streams,
 		})
 		return commandResult{Stdout: payload}, err
+	}
+	if runner.transcodeBlock {
+		<-ctx.Done()
+		return commandResult{}, ctx.Err()
 	}
 	if runner.transcodeError != nil {
 		return commandResult{}, runner.transcodeError
@@ -157,6 +162,28 @@ func testFLACBytes() []byte {
 	copy(raw[:4], "fLaC")
 	raw[4], raw[7] = 0x80, 34 // final STREAMINFO block, exactly 34 bytes.
 	copy(raw[42:], []byte{0xff, 0xf8, 0x69, 0x08, 0x00, 0x00})
+	return raw
+}
+
+func testM4ABytes() []byte {
+	raw := make([]byte, 20)
+	binary.BigEndian.PutUint32(raw[:4], 12)
+	copy(raw[4:8], "ftyp")
+	copy(raw[8:12], "M4A ")
+	binary.BigEndian.PutUint32(raw[12:16], 8)
+	copy(raw[16:20], "mdat")
+	return raw
+}
+
+func testADTSBytes() []byte {
+	return []byte{0xff, 0xf1, 0x50, 0x80, 0x00, 0xe0, 0xfc}
+}
+
+func testOggBytes() []byte {
+	raw := make([]byte, 32)
+	copy(raw[:4], "OggS")
+	raw[4], raw[26], raw[27] = 0, 1, 4
+	copy(raw[28:], "data")
 	return raw
 }
 
@@ -234,6 +261,13 @@ func TestSignatureProbeRejectsUnsupportedTruncatedAndPolyglotBeforeWorker(t *tes
 		{"wav_zip_polyglot", append(testWAVBytes(10), []byte("PK\x03\x04payload")...), "media_polyglot_or_truncated"},
 		{"truncated_mp3", testMP3Bytes(1)[:400], "media_polyglot_or_truncated"},
 		{"mp3_zip_polyglot", append(testMP3Bytes(1), []byte("PK\x03\x04payload")...), "media_polyglot_or_truncated"},
+		{"truncated_m4a", testM4ABytes()[:19], "media_polyglot_or_truncated"},
+		{"m4a_zip_polyglot", append(testM4ABytes(), []byte("PK\x03\x04payload")...), "media_polyglot_or_truncated"},
+		{"truncated_aac", testADTSBytes()[:6], "media_polyglot_or_truncated"},
+		{"aac_zip_polyglot", append(testADTSBytes(), []byte("PK\x03\x04payload")...), "media_polyglot_or_truncated"},
+		{"truncated_ogg", testOggBytes()[:31], "media_polyglot_or_truncated"},
+		{"ogg_zip_polyglot", append(testOggBytes(), []byte("PK\x03\x04payload")...), "media_polyglot_or_truncated"},
+		{"truncated_flac", testFLACBytes()[:47], "media_polyglot_or_truncated"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -305,17 +339,6 @@ func TestProcessorRejectsProbeAndWorkerBoundaryFailures(t *testing.T) {
 }
 
 func TestSignatureProbeRecognizesSupportedContainersWithExactFraming(t *testing.T) {
-	bmff := make([]byte, 20)
-	binary.BigEndian.PutUint32(bmff[:4], 12)
-	copy(bmff[4:8], "ftyp")
-	copy(bmff[8:12], "M4A ")
-	binary.BigEndian.PutUint32(bmff[12:16], 8)
-	copy(bmff[16:20], "mdat")
-	adts := []byte{0xff, 0xf1, 0x50, 0x80, 0x00, 0xe0, 0xfc}
-	ogg := make([]byte, 32)
-	copy(ogg[:4], "OggS")
-	ogg[4], ogg[26], ogg[27] = 0, 1, 4
-	copy(ogg[28:], "data")
 	tests := []struct {
 		name   string
 		raw    []byte
@@ -324,9 +347,9 @@ func TestSignatureProbeRecognizesSupportedContainersWithExactFraming(t *testing.
 		{"wav", testWAVBytes(1), FormatWAV},
 		{"mp3", testMP3Bytes(1), FormatMP3},
 		{"mp3_id3", append([]byte{'I', 'D', '3', 4, 0, 0, 0, 0, 0, 0}, testMP3Bytes(1)...), FormatMP3},
-		{"m4a", bmff, FormatM4A},
-		{"aac_adts", adts, FormatAAC},
-		{"ogg", ogg, FormatOGG},
+		{"m4a", testM4ABytes(), FormatM4A},
+		{"aac_adts", testADTSBytes(), FormatAAC},
+		{"ogg", testOggBytes(), FormatOGG},
 		{"flac", testFLACBytes(), FormatFLAC},
 	}
 	for _, test := range tests {

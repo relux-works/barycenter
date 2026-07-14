@@ -178,6 +178,18 @@ tracking CI run `29310143986` passed the same four jobs; PR #17 landed at
 `9f2aea8e5b9200d1e4077a5576dde18f8051bba5`, and strict execution advanced to
 `TASK-260712-3huupe`. No manual real-app or hardware result is claimed.
 
+Checkpoint 2026-07-14 for `TASK-260712-3huupe`: the automated acceptance
+delta now exercises every accepted phase-one codec family through the common
+service, joins resumable HTTP upload to ACL/delete/cleanup, expands sanitized
+adversarial failure coverage, and restarts SQLite plus the lifecycle service
+after an unlink-before-receipt crash. The story acceptance map is recorded in
+`docs/analysis/p1-media-ingest-acceptance-evidence.md` and mirrored to the task
+board. Local coordinator vet/test/race, focused race stress x20 and the exact
+pinned predecessor suite are green. This machine has no ffmpeg, so the live
+eight-variant codec matrix and compact 181-second AAC rejection remain pending
+authoritative hosted coordinator CI. No manual real-app or hardware result is
+claimed.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the

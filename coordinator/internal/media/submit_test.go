@@ -20,6 +20,7 @@ type submitHarness struct {
 	credentials store.OnboardingCredentials
 	service     *SubmitService
 	runner      *fakeCommandRunner
+	dbPath      string
 	mediaDir    string
 	clock       atomic.Int64
 }
@@ -27,8 +28,9 @@ type submitHarness struct {
 func newSubmitHarness(t *testing.T) *submitHarness {
 	t.Helper()
 	root := t.TempDir()
+	dbPath := filepath.Join(root, "coordinator.db")
 	st, err := store.OpenWithOptions(
-		filepath.Join(root, "coordinator.db"),
+		dbPath,
 		store.Options{SelfServiceOnboarding: true},
 	)
 	if err != nil {
@@ -48,7 +50,7 @@ func newSubmitHarness(t *testing.T) *submitHarness {
 	}
 	harness := &submitHarness{
 		store: st, credentials: credentials, service: service,
-		runner: runner, mediaDir: mediaDir,
+		runner: runner, dbPath: dbPath, mediaDir: mediaDir,
 	}
 	harness.clock.Store(time.Now().UnixMilli())
 	service.now = func() time.Time { return time.UnixMilli(harness.nextMS()) }
@@ -170,21 +172,138 @@ func TestSubmitUploadPublishesCanonicalMetadataCleansSourceAndReplays(t *testing
 	}
 }
 
+func TestSubmitUploadLiveSupportedFormatAcceptanceMatrix(t *testing.T) {
+	requireLiveMediaTools(t)
+	for _, test := range liveFormatAcceptanceCases() {
+		t.Run(test.name, func(t *testing.T) {
+			raw, err := os.ReadFile(generateLiveFormatFixture(t, test))
+			if err != nil {
+				t.Fatal(err)
+			}
+			harness := newSubmitHarness(t)
+			service, err := NewSubmitService(
+				harness.store, harness.mediaDir, PresetDefault,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			harness.service = service
+			creation := harness.createFinalizingUpload(
+				t, harness.credentials, "live-acceptance-"+test.name+"-0001", raw,
+			)
+
+			ready, err := service.SubmitUpload(context.Background(), creation.Session.ID)
+			if err != nil {
+				t.Fatalf("submit %s: %v", test.name, err)
+			}
+			if ready.ID != creation.Media.ID || ready.Status != store.MediaStatusReady ||
+				ready.Source != store.MediaSourceApp || ready.MIME != "audio/wav" ||
+				ready.Codec != "pcm_s16le" || ready.DurationMS < 900 || ready.DurationMS > 1100 ||
+				ready.SizeBytes <= 44 || len(ready.SHA256) != 64 || ready.StorageKey == "" {
+				t.Fatalf("%s ready media=%+v", test.name, ready)
+			}
+			path, ok := CanonicalPath(service.canonicalDir, ready.StorageKey)
+			if !ok {
+				t.Fatalf("%s storage key=%q", test.name, ready.StorageKey)
+			}
+			info, err := os.Stat(path)
+			if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 ||
+				info.Size() != ready.SizeBytes {
+				t.Fatalf("%s canonical info=%+v err=%v", test.name, info, err)
+			}
+			replayed, err := service.SubmitUpload(context.Background(), creation.Session.ID)
+			if err != nil || replayed != ready {
+				t.Fatalf("%s replay=%+v err=%v", test.name, replayed, err)
+			}
+		})
+	}
+}
+
+func TestSubmitUploadLiveRejectsCompressedDurationBomb(t *testing.T) {
+	requireLiveMediaTools(t)
+	raw, err := os.ReadFile(generateLiveCompressedDurationBomb(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if int64(len(raw)) >= MaxClipBytes {
+		t.Fatalf("compressed duration fixture is not compact: %d bytes", len(raw))
+	}
+	harness := newSubmitHarness(t)
+	service, err := NewSubmitService(harness.store, harness.mediaDir, PresetDefault)
+	if err != nil {
+		t.Fatal(err)
+	}
+	harness.service = service
+	creation := harness.createFinalizingUpload(
+		t, harness.credentials, "live-duration-bomb-0001", raw,
+	)
+	sourcePath := filepath.Join(service.uploadDir, creation.Session.ID+".part")
+	_, err = service.SubmitUpload(context.Background(), creation.Session.ID)
+	assertProcessingCode(t, err, "media_duration_exceeded")
+	failed, lookupErr := harness.store.GetMediaItem(creation.Media.ID)
+	if lookupErr != nil || failed == nil || failed.Status != store.MediaStatusFailed ||
+		failed.FailureCode != "media_duration_exceeded" || failed.StorageKey != "" ||
+		failed.PublishedAt != 0 {
+		t.Fatalf("duration-bomb media=%+v err=%v", failed, lookupErr)
+	}
+	if _, statErr := os.Stat(sourcePath); statErr != nil {
+		t.Fatalf("duration-bomb source was not retained: %v", statErr)
+	}
+	entries, readErr := os.ReadDir(service.canonicalDir)
+	if readErr != nil || len(entries) != 0 {
+		t.Fatalf("duration-bomb canonical entries=%v err=%v", entries, readErr)
+	}
+}
+
 func TestSubmitMediaFailuresRemainNonReadyAndKeepSourceForRetention(t *testing.T) {
 	tests := []struct {
-		name      string
-		code      string
-		raw       func() []byte
-		configure func(*submitHarness)
+		name         string
+		code         string
+		raw          func() []byte
+		configure    func(*submitHarness)
+		beforeWorker bool
 	}{
 		{
-			name: "unsupported", code: "media_signature_unsupported",
-			raw: func() []byte { return []byte("not an audio container") },
+			name: "corrupt_unsupported", code: "media_signature_unsupported",
+			raw:          func() []byte { return []byte("not an audio container") },
+			beforeWorker: true,
 		},
 		{
-			name: "duration_bomb", code: "media_duration_exceeded",
+			name: "truncated_wav", code: "media_polyglot_or_truncated",
+			raw: func() []byte {
+				raw := testWAVBytes(10)
+				return raw[:len(raw)-1]
+			},
+			beforeWorker: true,
+		},
+		{
+			name: "wav_zip_polyglot", code: "media_polyglot_or_truncated",
+			raw: func() []byte {
+				return append(testWAVBytes(10), []byte("PK\x03\x04embedded-archive")...)
+			},
+			beforeWorker: true,
+		},
+		{
+			name: "network_playlist", code: "media_signature_unsupported",
+			raw: func() []byte {
+				return []byte("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://invalid.example/private.m3u8\n")
+			},
+			beforeWorker: true,
+		},
+		{
+			name: "compressed_duration_bomb", code: "media_duration_exceeded",
 			raw:       func() []byte { return testWAVBytes(10) },
 			configure: func(harness *submitHarness) { harness.runner.probeDuration = "180.001" },
+		},
+		{
+			name: "unsupported_stream_layout", code: "media_stream_layout_unsupported",
+			raw:       func() []byte { return testWAVBytes(10) },
+			configure: func(harness *submitHarness) { harness.runner.probeStreams = 2 },
+		},
+		{
+			name: "container_codec_mismatch", code: "media_codec_unsupported",
+			raw:       func() []byte { return testWAVBytes(10) },
+			configure: func(harness *submitHarness) { harness.runner.probeCodec = "aac" },
 		},
 		{
 			name: "probe_timeout", code: "ffprobe_timeout",
@@ -195,10 +314,39 @@ func TestSubmitMediaFailuresRemainNonReadyAndKeepSourceForRetention(t *testing.T
 			},
 		},
 		{
+			name: "probe_crash", code: "ffprobe_failed",
+			raw: func() []byte { return testWAVBytes(10) },
+			configure: func(harness *submitHarness) {
+				harness.runner.probeError = errors.New("private probe crash detail")
+			},
+		},
+		{
+			name: "worker_timeout", code: "ffmpeg_timeout",
+			raw: func() []byte { return testWAVBytes(10) },
+			configure: func(harness *submitHarness) {
+				harness.runner.transcodeBlock = true
+				harness.service.processor.limits.TranscodeTimeout = 5 * time.Millisecond
+			},
+		},
+		{
 			name: "worker_crash", code: "ffmpeg_failed",
 			raw: func() []byte { return testWAVBytes(10) },
 			configure: func(harness *submitHarness) {
 				harness.runner.transcodeError = errors.New("private worker crash detail")
+			},
+		},
+		{
+			name: "invalid_loudness", code: "loudness_invalid",
+			raw: func() []byte { return testWAVBytes(10) },
+			configure: func(harness *submitHarness) {
+				harness.runner.loudness = `{"input_i":"nan"}`
+			},
+		},
+		{
+			name: "invalid_canonical_output", code: "canonical_output_invalid",
+			raw: func() []byte { return testWAVBytes(10) },
+			configure: func(harness *submitHarness) {
+				harness.runner.output = make([]byte, 64)
 			},
 		},
 		{
@@ -223,8 +371,12 @@ func TestSubmitMediaFailuresRemainNonReadyAndKeepSourceForRetention(t *testing.T
 			sourcePath := filepath.Join(harness.service.uploadDir, creation.Session.ID+".part")
 			_, err := harness.service.SubmitUpload(context.Background(), creation.Session.ID)
 			assertProcessingCode(t, err, test.code)
-			if err.Error() != test.code || contains(err.Error(), sourcePath) || contains(err.Error(), "private worker") {
+			if err.Error() != test.code || contains(err.Error(), sourcePath) ||
+				contains(err.Error(), "private worker") || contains(err.Error(), "private probe") {
 				t.Fatalf("unsanitized processing error=%q", err)
+			}
+			if test.beforeWorker && len(harness.runner.commandSnapshot()) != 0 {
+				t.Fatal("pre-worker adversarial fixture invoked a media worker")
 			}
 			item, lookupErr := harness.store.GetMediaItem(creation.Media.ID)
 			if lookupErr != nil || item == nil || item.Status != store.MediaStatusFailed ||
@@ -244,6 +396,31 @@ func TestSubmitMediaFailuresRemainNonReadyAndKeepSourceForRetention(t *testing.T
 				t.Fatalf("failed canonical entries=%v err=%v", canonical, readErr)
 			}
 		})
+	}
+}
+
+func TestSubmitMediaDeclaredLengthMismatchNeverInvokesWorker(t *testing.T) {
+	harness := newSubmitHarness(t)
+	item := harness.createGenericItem(t, harness.credentials, store.MediaSourceTelegram)
+	raw := testWAVBytes(10)
+	sourcePath := filepath.Join(t.TempDir(), "declared-length-mismatch.wav")
+	if err := os.WriteFile(sourcePath, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := harness.service.SubmitMedia(context.Background(), Submission{
+		MediaID: item.ID, SourcePath: sourcePath, ExpectedSize: int64(len(raw) + 1),
+	})
+	assertProcessingCode(t, err, "media_input_length_mismatch")
+	if len(harness.runner.commandSnapshot()) != 0 {
+		t.Fatal("declared/actual mismatch invoked a media worker")
+	}
+	failed, lookupErr := harness.store.GetMediaItem(item.ID)
+	if lookupErr != nil || failed == nil || failed.Status != store.MediaStatusFailed ||
+		failed.FailureCode != "media_input_length_mismatch" || failed.StorageKey != "" {
+		t.Fatalf("length-mismatch media=%+v err=%v", failed, lookupErr)
+	}
+	if _, statErr := os.Stat(sourcePath); statErr != nil {
+		t.Fatalf("length-mismatch source was not retained: %v", statErr)
 	}
 }
 

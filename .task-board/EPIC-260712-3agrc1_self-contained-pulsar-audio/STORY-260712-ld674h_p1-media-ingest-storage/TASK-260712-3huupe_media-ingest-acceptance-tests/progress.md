@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:28:12Z
 
 ## Last Update
-2026-07-14T06:06:29Z
+2026-07-14T06:21:51Z
 
 ## Blocked By
 - TASK-260712-2af2dp
@@ -30,9 +30,10 @@ codex-inline
 
 ## Notes
 Strict sequential inline execution started 2026-07-14 from clean main merge 9f2aea8e5b9200d1e4077a5576dde18f8051bba5. This task is limited to deterministic automated fixtures and unit/integration acceptance evidence; manual real-app and real-hardware verification remains deferred to EPIC-260714-th54l3.
+Automated acceptance delta implemented inline: common-service live matrix now covers WAV/PCM, MP3, M4A/AAC, M4A/ALAC, ADTS AAC, OGG/Opus, OGG/Vorbis and FLAC; adversarial common-service failures cover corrupt, truncated, polyglot, protocol-shaped, declared-length, compressed-duration, probe/worker timeout-crash and canonical-output classes; a synthetic HTTP test joins resumable upload, target ACL, non-disclosure, delete and cleanup. Cleanup crash retry now reopens SQLite and the lifecycle service. Local coordinator vet/test/race, focused race stress x20 and exact pinned predecessor suite are green. Local ffmpeg is absent, so live codec and 181-second AAC fixtures are pending authoritative hosted coordinator CI. No real-app or hardware result is claimed.
 
 ## Precondition Resources
 (none)
 
 ## Outcome Resources
-(none)
+- [p1-media-ingest-acceptance-evidence.md](file://TASK-260712-3huupe/p1-media-ingest-acceptance-evidence.md) — Story acceptance criteria mapped to deterministic tests and explicit manual deferrals

@@ -21,6 +21,7 @@ public final class CoordinatorClient: NSObject {
 
     private let url: URL
     private let identity: Identity
+    private let capabilities: [String]
     private let log: Logger
     private let queue = DispatchQueue(label: "duet.coordinator-client")
 
@@ -42,9 +43,17 @@ public final class CoordinatorClient: NSObject {
     /// Supplies the current state snapshot for the 5 s heartbeat (spec 8.4).
     public var stateProvider: (() -> StatePayload)?
 
-    public init(url: URL, identity: Identity, log: Logger) {
+    public init(
+        url: URL,
+        identity: Identity,
+        capabilities: [String] = [seamlessAdoptionCapability],
+        log: Logger
+    ) {
+        precondition(ProtocolCapabilities.areCanonical(capabilities),
+                     "coordinator capabilities must be unique canonical ASCII")
         self.url = url
         self.identity = identity
+        self.capabilities = capabilities
         self.log = log
         super.init()
         let cfg = URLSessionConfiguration.default
@@ -72,12 +81,12 @@ public final class CoordinatorClient: NSObject {
         task = t
         t.resume()
         receiveNext()
-        sendMessage(.register(RegisterPayload(
+        sendMessageOnQueue(.register(RegisterPayload(
             nodeId: identity.nodeId,
             token: identity.token,
             appVersion: identity.appVersion,
             librespotVersion: identity.librespotVersion,
-            capabilities: [seamlessAdoptionCapability]
+            capabilities: capabilities
         )))
         startTimers()
         onConnected?()
@@ -89,7 +98,7 @@ public final class CoordinatorClient: NSObject {
         ping.schedule(deadline: .now() + 1, repeating: 10) // spec 8.5: every 10 s
         ping.setEventHandler { [weak self] in
             guard let self else { return }
-            self.sendMessage(.ping(PingPayload(t1: Self.nowMs())))
+            self.sendMessageOnQueue(.ping(PingPayload(t1: Self.nowMs())))
         }
         ping.resume()
         pingTimer = ping
@@ -99,7 +108,7 @@ public final class CoordinatorClient: NSObject {
         hb.schedule(deadline: .now() + 2, repeating: 5) // spec 8.4: every 5 s
         hb.setEventHandler { [weak self] in
             guard let self, let provider = self.stateProvider else { return }
-            self.sendMessage(.state(provider()))
+            self.sendMessageOnQueue(.state(provider()))
         }
         hb.resume()
         heartbeatTimer = hb
@@ -110,6 +119,12 @@ public final class CoordinatorClient: NSObject {
     }
 
     public func sendMessage(_ message: Message) {
+        // Every caller, including PlayerCore and async media workers, crosses
+        // this non-blocking boundary before touching the WebSocket task.
+        queue.async { self.sendMessageOnQueue(message) }
+    }
+
+    private func sendMessageOnQueue(_ message: Message) {
         let id = "msg_" + ULID.new()
         do {
             let data = try ProtocolCodec.encode(id: id, ts: Self.nowMs(), message: message)
@@ -192,6 +207,16 @@ public final class CoordinatorClient: NSObject {
     public func markHealthy() {
         queue.async { self.backoffSeconds = 1 }
     }
+
+    /// Immutable snapshot for PlayerCore scheduling; avoids sharing mutable
+    /// ClockSync storage across the coordinator and player queues.
+    public func clockSnapshot() -> ClockSync {
+        queue.sync { clock }
+    }
+
+    /// Test/diagnostic hook. Values are already public protocol names and do
+    /// not expose identity or bearer material.
+    public var registeredCapabilities: [String] { capabilities }
 }
 
 // Minimal ULID (Crockford base32, 48-bit ms time + 80-bit random).

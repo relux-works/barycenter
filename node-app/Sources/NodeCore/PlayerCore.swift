@@ -19,7 +19,18 @@ public final class PlayerCore {
     private let queue = DispatchQueue(label: "duet.player-core")
 
     // Coordinator link is set after init (mutual wiring).
-    public weak var coordinator: CoordinatorClient?
+    public weak var coordinator: CoordinatorClient? {
+        didSet {
+            guard let mediaClips, let coordinator else { return }
+            mediaClips.bind(
+                send: { [weak coordinator] message in coordinator?.sendMessage(message) },
+                clock: { [weak coordinator] in coordinator?.clockSnapshot() },
+                outputLatencyOffsetMs: outputLatencyOffsetMs)
+        }
+    }
+
+    private var mediaClips: MediaClipClient?
+    private var presenceStore: NodePresenceStore?
 
     /// MenuStatus is a thread-safe snapshot for the menu bar (R2).
     public struct MenuStatus {
@@ -101,6 +112,39 @@ public final class PlayerCore {
         startStarvationWatch()
     }
 
+    /// Installs the P1 transmission hooks before the coordinator connects.
+    /// The base media capability is safe now; exact delivery capabilities are
+    /// supplied only by mixer implementations that can actually execute them.
+    public func configureTransmissionHooks(
+        cacheDirectory: URL,
+        nodeToken: String,
+        coordinatorURL: URL,
+        localStateURL: URL
+    ) throws {
+        let fetcher = try AuthenticatedMediaClipFetcher(
+            cacheDirectory: cacheDirectory,
+            nodeToken: nodeToken,
+            coordinatorURL: coordinatorURL)
+        mediaClips = MediaClipClient(
+            fetcher: fetcher,
+            mixer: PreparedOnlyMacMediaClipMixer(),
+            log: log)
+        presenceStore = NodePresenceStore(fileURL: localStateURL, log: log)
+    }
+
+    /// Canonical register capabilities for this exact build. Later mixer
+    /// tasks extend this list through MediaClipMixer.deliveryCapabilities.
+    public var advertisedCapabilities: [String] {
+        Array(Set(
+            [seamlessAdoptionCapability] +
+            (mediaClips?.advertisedCapabilities ?? [])
+        )).sorted()
+    }
+
+    public func stopTransmissionHooks() {
+        mediaClips?.stop()
+    }
+
     private func nowMs() -> Int64 { Int64((Date().timeIntervalSince1970 * 1000).rounded()) }
 
     // MARK: Position (spec 6.3: audible_position = librespot_position - ring_fill)
@@ -158,15 +202,14 @@ public final class PlayerCore {
             case .soloVoice(let p):
                 // Phase 2 (goal §8): boundary interception lands with solo scope.
                 self.log.warn("solo_voice not implemented until phase 2", ["element": p.elementId])
-            case .prepareMedia, .playMediaAt, .cancelMedia:
-                // Client hooks land in their dedicated follow-up task. This
-                // build does not advertise media_clip_v1, so receipt is a
-                // coordinator capability-routing error rather than a command
-                // that may be approximated through legacy play_voice.
-                self.log.warn("ignoring unadvertised clip command", ["type": head.type])
+            case .prepareMedia(let p): self.mediaClips?.prepare(p)
+            case .playMediaAt(let p): self.mediaClips?.play(p)
+            case .cancelMedia(let p): self.mediaClips?.cancel(p)
+            case .presenceUpdate(let p):
+                _ = self.presenceStore?.acceptPresence(p)
             case .welcome, .pong, .register, .state, .ready, .started, .ended,
                  .voiceStarted, .voiceEnded, .waitEnded, .error, .ping, .externalPlayback,
-                 .setProvider, .userPause, .userResume, .presenceUpdate, .mediaReady,
+                 .setProvider, .userPause, .userResume, .mediaReady,
                  .mediaStarted, .mediaEnded, .mediaFailed, .mediaCancelled, .setDND:
                 self.log.debug("ignoring non-command", ["type": head.type])
             }
@@ -490,7 +533,39 @@ public final class PlayerCore {
 
     private func setOffset(_ p: SetOffsetPayload) {
         outputLatencyOffsetMs = Int(p.offsetMs)
+        mediaClips?.setOutputLatencyOffsetMs(outputLatencyOffsetMs)
         log.info("offset set", ["offset_ms": p.offsetMs])
+    }
+
+    // MARK: Local DND and privacy-bounded presence
+
+    /// Future UI calls this exact-node mutation. It persists the next revision
+    /// before sending and cannot address another node or loosen orbit DND.
+    public func setLocalDND(mode: String, mutedUntilCoordMs: Int64? = nil) throws {
+        guard let presenceStore else { throw NodePresenceStoreError.persistenceFailed }
+        let localNow = nowMs()
+        let coordinatorNow: Int64
+        if let offset = coordinator?.clockSnapshot().offsetMs {
+            coordinatorNow = localNow - Int64(offset.rounded())
+        } else {
+            coordinatorNow = localNow
+        }
+        let payload = try presenceStore.nextLocalDND(
+            mode: mode,
+            mutedUntilCoordMs: mutedUntilCoordMs,
+            coordinatorNowMs: coordinatorNow)
+        coordinator?.sendMessage(.setDND(payload))
+    }
+
+    /// Replays durable intent after each authenticated reconnect. The same
+    /// revision/body pair is idempotent in the frozen coordinator contract.
+    public func resendLocalDND() {
+        guard let payload = presenceStore?.currentLocalDND else { return }
+        coordinator?.sendMessage(.setDND(payload))
+    }
+
+    public var latestPresence: PresenceUpdatePayload? {
+        presenceStore?.latestPresence
     }
 
     private func offsetTest(_ p: OffsetTestPayload) {

@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 49 accepted, 156 remain.
-- Routed inventory: 186 engineering tasks (49 accepted, 137 remain) and 19
+- Combined inventory: 205 original tasks; 50 accepted, 155 remain.
+- Routed inventory: 186 engineering tasks (50 accepted, 136 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1f9jtm` — telegram-parity-docs-handoff
-  (strict kickoff waits only for PR #48 merge)
-- Next engineering task: `TASK-260712-1c04pk` — macos-main-window-menubar-shell
-- Most recently accepted: `TASK-260712-3d0zgu` — telegram-parity-regression-tests
-- Current branch: `task/task-260712-3d0zgu-telegram-parity-regression-tests`
+- Current engineering task: `TASK-260712-1c04pk` — macos-main-window-menubar-shell
+  (strict kickoff waits only for PR #49 merge)
+- Next engineering task: `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
+- Most recently accepted: `TASK-260712-1f9jtm` — telegram-parity-docs-handoff
+- Current branch: `task/task-260712-1f9jtm-telegram-parity-docs-handoff`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 49 / 205 tasks (approximately 23.9%); 156 remain
-- Engineering progress: 49 / 186 tasks (approximately 26.3%); 137 remain
+- Accepted overall: 50 / 205 tasks (approximately 24.4%); 155 remain
+- Engineering progress: 50 / 186 tasks (approximately 26.9%); 136 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -526,8 +526,31 @@ renders, diff and board validation passed. Exact engineering head
 `29373913897`; the best-effort engineering scope is accepted. No real Telegram
 client, app, audible playback, packaged-device or physical-hardware result is
 claimed; those remain in `EPIC-260714-th54l3`. Progress is 49/205 overall and
-49/186 engineering. PR #48 tracking and merge remain before strict execution
-starts `TASK-260712-1f9jtm`.
+49/186 engineering. Tracking head
+`17be7458f7829485d0297efb4232a53d79b6e1db` passed all four hosted jobs in run
+`29374119932`; PR #48 landed at merge
+`b6e49cb111c316d530161fff7e70c2a8420906b0`, and strict execution advanced to
+`TASK-260712-1f9jtm` from synchronized `main`.
+
+Checkpoint 2026-07-15 (accepted): `TASK-260712-1f9jtm` publishes the durable
+Phase 1 Telegram/history/presence rollout and downstream-consumer handoff. It
+freezes the application HTTP inventory, attachment proof matrix, immediate
+voice default, opaque callback authorization/race rules, shared EN/RU labels,
+history/presence/DND/block projection, mixed-version whole downgrade,
+coordinator-first bounded exposure, privacy-safe operations signals and
+drain-first rollback. The obsolete pre-implementation decomposition and all
+three story diagrams now show accepted ownership and runtime/rollout states;
+an executable documentation guard keeps the critical exclusions and protocol
+entry point from silently drifting. Coordinator vet/full/presentation-race,
+pinned previous-head compatibility, Windows vet/tests/amd64+arm64 builds,
+Swift release build, all PlantUML renders, diff and board validation passed.
+Exact engineering head `14d3d5a6f99a614f4886d42246fd33a61a51459d`
+passed all four hosted jobs in run `29374582024`; the best-effort engineering
+scope and `STORY-260712-34kbkn` are accepted. No real Telegram client, app,
+audible playback, packaged-device or physical-hardware result is claimed;
+those remain in `EPIC-260714-th54l3`. Progress is 50/205 overall and 50/186
+engineering. PR #49 tracking and merge remain before strict execution starts
+`TASK-260712-1c04pk`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1160,7 +1183,10 @@ Story: `STORY-260712-34kbkn` — P1 Telegram adapter, history and presence.
 - [x] `TASK-260712-3d0zgu` — telegram-parity-regression-tests (accepted on
   exact engineering head `24a043e`; all four hosted jobs in run `29373913897`
   green; no real-app/Telegram-client/audible/hardware result claimed; PR #48)
-- [ ] `TASK-260712-1f9jtm` — telegram-parity-docs-handoff
+- [x] `TASK-260712-1f9jtm` — telegram-parity-docs-handoff (accepted on exact
+  engineering head `14d3d5a`; all four hosted jobs in run `29374582024` green;
+  final story handoff published; no real-client/audible/hardware result
+  claimed; PR #49)
 
 ## 7. P1 main UI, local self-test and capture
 

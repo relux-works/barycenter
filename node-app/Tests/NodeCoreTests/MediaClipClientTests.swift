@@ -67,6 +67,7 @@ private final class StubMediaClipMixer: MediaClipMixer {
     private let lock = NSLock()
     private var started: ((Int64) -> Void)?
     private var ended: ((Int64) -> Void)?
+    private var failed: ((MediaClipFailure) -> Void)?
     private var _armCount = 0
     private var _cancelCount = 0
     private var _disposeCount = 0
@@ -88,13 +89,15 @@ private final class StubMediaClipMixer: MediaClipMixer {
         _ clip: PreparedMediaClip,
         plan: MediaClipPlayPlan,
         onStarted: @escaping (Int64) -> Void,
-        onEnded: @escaping (Int64) -> Void
+        onEnded: @escaping (Int64) -> Void,
+        onFailed: @escaping (MediaClipFailure) -> Void
     ) throws {
         lock.withLock {
             _armCount += 1
             _lastControl = plan.control
             started = onStarted
             ended = onEnded
+            failed = onFailed
         }
     }
 
@@ -119,6 +122,11 @@ private final class StubMediaClipMixer: MediaClipMixer {
     func fireEnded(_ localMs: Int64) {
         let callback = lock.withLock { ended }
         callback?(localMs)
+    }
+
+    func fireFailed(_ failure: MediaClipFailure) {
+        let callback = lock.withLock { failed }
+        callback?(failure)
     }
 
     var armCount: Int {
@@ -218,6 +226,20 @@ private func overlayPlayPayload(generation: Int64 = 1) -> PlayMediaAtPayload {
         releaseMs: 600,
         fadeOutMs: nil,
         fadeInMs: nil)
+}
+
+private func interruptPlayPayload(generation: Int64 = 1) -> PlayMediaAtPayload {
+    PlayMediaAtPayload(
+        transmissionId: "tr_test",
+        generation: generation,
+        tCoordMs: 11_000,
+        startDeadlineCoordMs: 11_100,
+        delivery: "interrupt",
+        duckDb: nil,
+        attackMs: nil,
+        releaseMs: nil,
+        fadeOutMs: 250,
+        fadeInMs: 120)
 }
 
 private func eventually(
@@ -341,6 +363,53 @@ private func makeClient(
         #expect(recorder.events[1].timestamp == 11_010)
         #expect(recorder.events[2].timestamp == 15_210)
         #expect(fetcher.removed == [fetcher.resultURL])
+    }
+
+    @Test func interruptPlaybackFailureIsTerminalInsteadOfFalseEnded() async {
+        let fetcher = StubMediaClipFetcher()
+        let mixer = StubMediaClipMixer(deliveryCapabilities: [interruptResumeCapability])
+        let recorder = MediaEventRecorder()
+        let client = makeClient(fetcher: fetcher, mixer: mixer, recorder: recorder)
+        defer { client.stop() }
+
+        client.prepare(preparePayload(delivery: "interrupt"))
+        #expect(await eventually { recorder.events.count == 1 })
+        client.play(interruptPlayPayload())
+        client.synchronize()
+        mixer.fireStarted(11_000)
+        #expect(await eventually { recorder.events.count == 2 })
+        mixer.fireFailed(.frozenCode("audio_graph_failed"))
+        #expect(await eventually { recorder.events.count == 3 })
+        mixer.fireEnded(15_000)
+        client.synchronize()
+
+        #expect(recorder.events.map(\.kind) == [.ready, .started, .failed])
+        #expect(recorder.events.last?.code == "audio_graph_failed")
+        #expect(mixer.disposeCount == 1)
+    }
+
+    @Test func reconnectResetCancelsInterruptAndRejectsLateCallbacks() async {
+        let fetcher = StubMediaClipFetcher()
+        let mixer = StubMediaClipMixer(deliveryCapabilities: [interruptResumeCapability])
+        let recorder = MediaEventRecorder()
+        let client = makeClient(fetcher: fetcher, mixer: mixer, recorder: recorder)
+        defer { client.stop() }
+
+        client.prepare(preparePayload(delivery: "interrupt"))
+        #expect(await eventually { recorder.events.count == 1 })
+        client.play(interruptPlayPayload())
+        client.synchronize()
+        mixer.fireStarted(11_000)
+        #expect(await eventually { recorder.events.count == 2 })
+
+        client.reset()
+        client.synchronize()
+        #expect(mixer.cancelCount == 1)
+        #expect(mixer.disposeCount == 1)
+        mixer.fireEnded(15_000)
+        mixer.fireFailed(.frozenCode("audio_graph_failed"))
+        client.synchronize()
+        #expect(recorder.events.map(\.kind) == [.ready, .started])
     }
 
     @Test func playingGenerationCannotBeReplacedAndHigherCancelStopsFirst() async {

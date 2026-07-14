@@ -129,3 +129,30 @@ provide exact pause/seek/resume ownership, scheduling fails explicitly as
 Telemetry remains aggregate-only: interrupt frame count, ring fill, limiter
 hits and underruns. Audible quality and the 500 ms physical-position tolerance
 remain part of the separate manual hardware-testing epic.
+
+## macOS interrupt branch
+
+The macOS prepared mixer advertises `interrupt_resume_v1` only after binding
+the exact `PlayerCore` pause/seek/resume controller. It schedules the existing
+prepared `AVAudioPlayerNode` branch at absolute host time, drives the
+wire-controlled 250 ms raised-cosine music fade before `T`, and captures the
+resume anchor at the replacement boundary as extrapolated provider position
+minus the main ring's queued frames. The ring is then cleared and the provider
+pause runs away from both the source callback and mixer control queue.
+
+Natural completion and active cancellation wait for one serialized provider
+barrier: seek the captured position, resume the same element/load generation,
+then apply the 120 ms default main fade-in. A later load waits for that barrier,
+so an old pause, seek or resume cannot overtake the new provider command. Stop,
+provider restart and reconnect invalidate the token and reset every prepared or
+armed media generation. A cancellation racing the resume handshake produces
+one cancellation acknowledgement and suppresses the stale natural completion.
+
+An unavailable controller fails before audio scheduling with
+`interrupt_capability_lost` and never becomes overlay or `after_current`. A
+pause/seek/resume failure attempts safe main recovery but terminates the media
+lifecycle as `media_failed(stage=play, code=audio_graph_failed)`, rather than
+claiming a false completed playback. Aggregate interrupt frames, limiter
+windows, ring fill and underruns follow the same privacy boundary as overlay.
+Physical audible-position tolerance and route evidence remain in the manual
+hardware-testing epic.

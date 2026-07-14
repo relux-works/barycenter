@@ -230,7 +230,7 @@ final class CoreRuntime {
                     "state": w.sessionSnapshot.state,
                     "volume": w.sessionSnapshot.volume,
                 ])
-                player.setVolume(w.sessionSnapshot.volume)
+                player.applyWelcome(w)
                 return
             }
             player.handle(head, message)

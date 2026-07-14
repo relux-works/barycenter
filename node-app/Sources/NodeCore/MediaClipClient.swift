@@ -324,7 +324,8 @@ protocol MediaClipMixer: AnyObject {
         _ clip: PreparedMediaClip,
         plan: MediaClipPlayPlan,
         onStarted: @escaping (Int64) -> Void,
-        onEnded: @escaping (Int64) -> Void
+        onEnded: @escaping (Int64) -> Void,
+        onFailed: @escaping (MediaClipFailure) -> Void
     ) throws
     func cancel(
         _ clip: PreparedMediaClip,
@@ -374,7 +375,8 @@ final class PreparedOnlyMacMediaClipMixer: MediaClipMixer {
         _ clip: PreparedMediaClip,
         plan: MediaClipPlayPlan,
         onStarted: @escaping (Int64) -> Void,
-        onEnded: @escaping (Int64) -> Void
+        onEnded: @escaping (Int64) -> Void,
+        onFailed: @escaping (MediaClipFailure) -> Void
     ) throws {
         let code = plan.payload.delivery == "interrupt"
             ? "interrupt_capability_lost" : "capability_lost"
@@ -479,6 +481,15 @@ final class MediaClipClient: @unchecked Sendable {
 
     func stop() {
         queue.sync {
+            for entry in self.entries.values { self.discard(entry) }
+            self.entries.removeAll()
+        }
+    }
+
+    /// Reconnect reconciliation is ordered with later prepare/play commands
+    /// without stopping the reusable lifecycle queue.
+    func reset() {
+        queue.async {
             for entry in self.entries.values { self.discard(entry) }
             self.entries.removeAll()
         }
@@ -662,6 +673,10 @@ final class MediaClipClient: @unchecked Sendable {
                 onEnded: { [weak self, weak entry] localMs in
                     guard let self, let entry else { return }
                     self.queue.async { self.handleEnded(entry, localMs: localMs) }
+                },
+                onFailed: { [weak self, weak entry] failure in
+                    guard let self, let entry else { return }
+                    self.queue.async { self.handlePlaybackFailure(entry, failure: failure) }
                 })
         } catch let failure as MediaClipFailure {
             entry.phase = .ready
@@ -697,6 +712,13 @@ final class MediaClipClient: @unchecked Sendable {
             generation: entry.generation,
             tLastSampleCoordMs: coordinatorTimestamp(forLocalMs: localMs),
             reason: "completed")))
+    }
+
+    private func handlePlaybackFailure(_ entry: Entry, failure: MediaClipFailure) {
+        guard isCurrent(entry),
+              entry.phase == .armed || entry.phase == .playing,
+              !entry.terminalSent else { return }
+        fail(entry, stage: "play", code: failure.code)
     }
 
     private func beginCancel(_ payload: CancelMediaPayload) {

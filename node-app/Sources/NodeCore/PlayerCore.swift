@@ -6,7 +6,7 @@
 import AVFAudio
 import Foundation
 
-public final class PlayerCore {
+public final class PlayerCore: MacInterruptControlling {
     public enum Playback: String {
         case stopped, loading, paused, playing, voice, wait
     }
@@ -76,6 +76,7 @@ public final class PlayerCore {
     // A following load awaits the tail so an old pause cannot overtake it.
     private var insertPauseTask: Task<Void, Never>?
     private var loadGeneration: UInt64 = 0
+    private var interruptAnchor: MacInterruptAnchor?
     private var pauseWorkItem: DispatchWorkItem?
     private var resumeTimer: DispatchSourceTimer?
     // Personal pause (2026-07-10): the USER paused this Pulsar in the Spotify
@@ -104,6 +105,8 @@ public final class PlayerCore {
         }
         supervisor.onCrash = { [weak self] in
             self?.queue.async {
+                self?.cancelTimers()
+                self?.mediaClips?.reset()
                 self?.sendError(code: "librespot_restart", message: "daemon exited, supervisor restarting")
             }
         }
@@ -125,9 +128,11 @@ public final class PlayerCore {
             cacheDirectory: cacheDirectory,
             nodeToken: nodeToken,
             coordinatorURL: coordinatorURL)
+        let mixer = MacOverlayMediaClipMixer(audio: engine, log: log)
+        mixer.bindInterruptController(self)
         mediaClips = MediaClipClient(
             fetcher: fetcher,
-            mixer: MacOverlayMediaClipMixer(audio: engine, log: log),
+            mixer: mixer,
             log: log)
         presenceStore = NodePresenceStore(fileURL: localStateURL, log: log)
     }
@@ -145,6 +150,17 @@ public final class PlayerCore {
         mediaClips?.stop()
     }
 
+    /// Reconnect owns a fresh command generation. Reset prepared/armed media
+    /// before any reissued commands and invalidate an old interrupt token.
+    public func applyWelcome(_ payload: WelcomePayload) {
+        queue.async {
+            self.cancelTimers()
+            self.mediaClips?.reset()
+            self.setVolume(payload.sessionSnapshot.volume)
+            self.mode = payload.sessionSnapshot.mode
+        }
+    }
+
     private func nowMs() -> Int64 { Int64((Date().timeIntervalSince1970 * 1000).rounded()) }
 
     // MARK: Position (spec 6.3: audible_position = librespot_position - ring_fill)
@@ -154,7 +170,132 @@ public final class PlayerCore {
         if extrapolate {
             pos += Int64(Date().timeIntervalSince(anchorAt) * 1000)
         }
-        return max(0, pos - engine.ringFillMs)
+        return Self.audibleAnchorMs(providerPositionMs: pos, ringFillMs: engine.ringFillMs)
+    }
+
+    static func audibleAnchorMs(providerPositionMs: Int64, ringFillMs: Int64) -> Int64 {
+        max(0, providerPositionMs - max(0, ringFillMs))
+    }
+
+    var interruptReady: Bool {
+        queue.sync {
+            playback == .playing && currentElementID != nil && interruptAnchor == nil
+        }
+    }
+
+    func suspendForInterrupt() -> MacInterruptAnchor? {
+        queue.sync {
+            guard playback == .playing, let elementID = currentElementID,
+                  interruptAnchor == nil else { return nil }
+            cancelTimers()
+            let providerPosition = anchorPositionMs +
+                (extrapolate ? Int64(Date().timeIntervalSince(anchorAt) * 1_000) : 0)
+            let anchor = MacInterruptAnchor(
+                elementID: elementID,
+                loadGeneration: loadGeneration,
+                positionMs: Self.audibleAnchorMs(
+                    providerPositionMs: providerPosition,
+                    ringFillMs: engine.ringFillMs))
+            playback = .paused
+            pausedLocally = false
+            draining = false
+            setAnchor(anchor.positionMs, extrapolating: false)
+            interruptAnchor = anchor
+            engine.expectingMusic = false
+            engine.clearRing()
+            let pauseTask = Task { [weak self, weak anchor] in
+                guard let self, let anchor else { return false }
+                let paused: Bool
+                do {
+                    try await self.librespot.pause()
+                    paused = true
+                } catch {
+                    self.log.warn("interrupt provider pause failed", ["err": "\(error)"])
+                    paused = false
+                }
+                self.engine.clearRing()
+                return paused && self.queue.sync {
+                    self.interruptAnchor === anchor &&
+                    self.loadGeneration == anchor.loadGeneration &&
+                    self.currentElementID == anchor.elementID
+                }
+            }
+            anchor.pauseTask = pauseTask
+            insertPauseTask = Task { _ = await pauseTask.value }
+            return anchor
+        }
+    }
+
+    func resumeFromInterrupt(
+        _ anchor: MacInterruptAnchor,
+        fadeInMs: Int64,
+        completion: @escaping (Bool) -> Void
+    ) {
+        let operation: Task<Bool, Never> = queue.sync {
+            let operation = Task<Bool, Never> { [weak self, weak anchor] in
+                guard let self, let anchor else { return false }
+                let pauseSucceeded = await anchor.pauseTask?.value ?? false
+                guard self.validInterruptAnchor(anchor) else { return false }
+                self.engine.clearRing()
+                var seekSucceeded = true
+                do {
+                    try await self.librespot.seek(positionMS: anchor.positionMs)
+                } catch {
+                    seekSucceeded = false
+                    self.log.warn("interrupt resume seek failed", ["err": "\(error)"])
+                }
+                guard self.validInterruptAnchor(anchor) else { return false }
+                self.queue.sync {
+                    self.playback = .playing
+                    self.pausedLocally = false
+                    self.draining = false
+                    self.setAnchor(anchor.positionMs, extrapolating: true)
+                    self.engine.setMusicGain(0, fadeMs: 0)
+                    self.engine.setMusicGain(1, fadeMs: max(fadeInMs, 0))
+                    self.engine.expectingMusic = true
+                }
+                var resumeSucceeded = true
+                do {
+                    try await self.librespot.resume()
+                } catch {
+                    resumeSucceeded = false
+                    self.log.warn("interrupt provider resume failed", ["err": "\(error)"])
+                    self.queue.sync {
+                        guard self.loadGeneration == anchor.loadGeneration,
+                              self.currentElementID == anchor.elementID else { return }
+                        self.playback = .paused
+                        self.extrapolate = false
+                        self.interruptAnchor = nil
+                        self.engine.expectingMusic = false
+                    }
+                }
+                let stillCurrent = self.queue.sync {
+                    let valid = self.interruptAnchor === anchor &&
+                        self.loadGeneration == anchor.loadGeneration &&
+                        self.currentElementID == anchor.elementID
+                    if valid { self.interruptAnchor = nil }
+                    return valid
+                }
+                return pauseSucceeded && seekSucceeded && resumeSucceeded && stillCurrent
+            }
+            insertPauseTask = Task { _ = await operation.value }
+            return operation
+        }
+        Task { completion(await operation.value) }
+    }
+
+    func abandonInterrupt(_ anchor: MacInterruptAnchor) {
+        queue.sync {
+            guard self.interruptAnchor === anchor else { return }
+            self.interruptAnchor = nil
+        }
+    }
+
+    private func validInterruptAnchor(_ anchor: MacInterruptAnchor) -> Bool {
+        queue.sync {
+            interruptAnchor === anchor && loadGeneration == anchor.loadGeneration &&
+            currentElementID == anchor.elementID
+        }
     }
 
     private func setAnchor(_ positionMs: Int64, extrapolating: Bool) {
@@ -381,6 +522,8 @@ public final class PlayerCore {
     private func pauseCmd(_ p: PausePayload) {
         guard p.elementId == currentElementID || p.elementId.isEmpty else { return }
         cancelTimers()
+        let generation = loadGeneration
+        let providerBarrier = insertPauseTask
         pausedLocally = false
         engine.setMusicGain(0, fadeMs: p.fadeMs)
         playback = .paused
@@ -391,7 +534,15 @@ public final class PlayerCore {
             guard let self,
                   (element.isEmpty || self.currentElementID == element),
                   self.playback == .paused else { return }
-            Task { try? await self.librespot.pause() }
+            Task {
+                if let providerBarrier { await providerBarrier.value }
+                let current = self.queue.sync {
+                    self.loadGeneration == generation &&
+                    (element.isEmpty || self.currentElementID == element) &&
+                    self.playback == .paused
+                }
+                if current { try? await self.librespot.pause() }
+            }
         }
         pauseWorkItem = item
         queue.asyncAfter(
@@ -402,9 +553,18 @@ public final class PlayerCore {
 
     private func seekCmd(_ p: SeekPayload) {
         guard p.elementId == currentElementID else { return }
+        interruptAnchor = nil
+        let generation = loadGeneration
+        let providerBarrier = insertPauseTask
         engine.clearRing()
         setAnchor(p.positionMs, extrapolating: playback == .playing)
-        Task { try? await self.librespot.seek(positionMS: p.positionMs) }
+        Task {
+            if let providerBarrier { await providerBarrier.value }
+            let current = self.queue.sync {
+                self.loadGeneration == generation && self.currentElementID == p.elementId
+            }
+            if current { try? await self.librespot.seek(positionMS: p.positionMs) }
+        }
     }
 
     private func playVoice(_ p: PlayVoicePayload) {
@@ -494,6 +654,8 @@ public final class PlayerCore {
     private func stopAll() {
         let wasInsert = playback == .voice || playback == .wait
         cancelTimers()
+        let providerBarrier = insertPauseTask
+        mediaClips?.reset()
         pausedLocally = false
         engine.stopInsert()
         draining = false
@@ -516,7 +678,10 @@ public final class PlayerCore {
             self.engine.clearRing()
             self.engine.setMusicGain(1, fadeMs: 0) // ready for the next element
         }
-        Task { try? await self.librespot.stop() }
+        Task {
+            if let providerBarrier { await providerBarrier.value }
+            try? await self.librespot.stop()
+        }
     }
 
     @discardableResult
@@ -673,6 +838,10 @@ public final class PlayerCore {
             }
             // fireResume marks .playing before the daemon resumes. A matching
             // event while stopped/paused therefore means the user selected it.
+            if interruptAnchor != nil, playback == .paused {
+                engine.setMusicGain(0, fadeMs: 0)
+                return
+            }
             let insertionActive = playback == .voice || playback == .wait
             let matchesMetadata = uri != nil && uri == metadataURI
             reportExternalSelection(
@@ -763,6 +932,7 @@ public final class PlayerCore {
 
     private func cancelTimers() {
         loadGeneration &+= 1
+        interruptAnchor = nil
         loadTask?.cancel()
         loadTask = nil
         voiceTask?.cancel()

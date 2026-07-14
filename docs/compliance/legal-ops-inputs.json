@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "task_id": "TASK-260712-16zfvu",
+  "observed_at": "2026-07-14",
+  "publication_gate": {
+    "state": "approved",
+    "approved_by": "Ivan Oparin",
+    "approved_at": "2026-07-14T17:52:59+04:00"
+  },
+  "inputs": [
+    {
+      "id": "legal_identity_and_controller",
+      "status": "approved",
+      "value": {
+        "legal_name": "Relux Works LLC",
+        "registration_number": "999.110.1559507",
+        "tax_id": "03036828",
+        "registered_address": "Orbeli Brothers St. 19, Tsaghkadzor, Kotayq, Armenia 2310",
+        "data_controller": "Relux Works LLC",
+        "registration_jurisdiction": "Republic of Armenia"
+      },
+      "candidate": null,
+      "owner": "Ivan Oparin",
+      "approved_by": "Ivan Oparin",
+      "approved_at": "2026-07-14T17:31:50+04:00",
+      "evidence": [
+        "https://relux.works/en/privacy-policy/",
+        "https://relux.works/en/terms-of-use/",
+        "docs/decisions.md",
+        "docs/analysis/p1-legal-ops-input-checkpoint.md#approval-record"
+      ]
+    },
+    {
+      "id": "contacts_and_public_urls",
+      "status": "approved",
+      "value": {
+        "privacy_email": "privacy@relux.works",
+        "legal_email": "legal@relux.works",
+        "support_email": "support@barycenter.live",
+        "moderation_email": "moderator@barycenter.live",
+        "privacy_url_en": "https://relux.works/en/privacy-policy/",
+        "privacy_url_ru": "https://relux.works/ru/privacy-policy/",
+        "terms_url_en": "https://relux.works/en/terms-of-use/",
+        "terms_url_ru": "https://relux.works/ru/terms-of-use/",
+        "product_privacy_url": "https://barycenter.live/legal/privacy",
+        "product_terms_url": "https://barycenter.live/legal/terms",
+        "content_guidelines_url": "https://barycenter.live/legal/content-guidelines",
+        "support_url": "https://barycenter.live/legal/support"
+      },
+      "candidate": null,
+      "owner": "Ivan Oparin",
+      "approved_by": "Ivan Oparin",
+      "approved_at": "2026-07-14T17:31:50+04:00",
+      "evidence": [
+        "https://relux.works/en/privacy-policy/",
+        "https://relux.works/en/terms-of-use/",
+        "docs/analysis/p1-legal-ops-input-checkpoint.md#approval-record"
+      ]
+    },
+    {
+      "id": "hosting_and_data_locations",
+      "status": "approved",
+      "value": {
+        "service_owner": "Ivan Oparin",
+        "primary_host_owner": "Relux Works LLC-operated Coolify infrastructure",
+        "primary_data_country_or_region": "United States",
+        "object_backup_provider": "Relux Works LLC-operated S3-compatible object storage",
+        "backup_data_country_or_region": "United States",
+        "operational_owner": "Ivan Oparin",
+        "subprocessor_disclosure": "No subprocessors are used for coordinator hosting or object backups"
+      },
+      "candidate": null,
+      "owner": "Ivan Oparin",
+      "approved_by": "Ivan Oparin",
+      "approved_at": "2026-07-14T17:52:59+04:00",
+      "evidence": [
+        "docs/v2-direction.md",
+        "docs/backup-restore.md",
+        "deploy/coolify.env.example",
+        "docs/analysis/p1-legal-ops-input-checkpoint.md#approval-record"
+      ]
+    },
+    {
+      "id": "markets_age_and_disputes",
+      "status": "approved",
+      "value": {
+        "target_markets": "All Microsoft Store markets where Pulsar and its service are lawfully available",
+        "excluded_markets": "Sanctioned, embargoed, or otherwise legally prohibited jurisdictions",
+        "minimum_age": 13,
+        "age_positioning": "not directed at children under 13",
+        "governing_law": "Republic of Armenia",
+        "dispute_forum": "competent courts of the Republic of Armenia",
+        "controlling_policy_language": "English"
+      },
+      "candidate": null,
+      "owner": "Ivan Oparin",
+      "approved_by": "Ivan Oparin",
+      "approved_at": "2026-07-14T17:52:59+04:00",
+      "evidence": [
+        "https://relux.works/en/privacy-policy/",
+        "https://relux.works/en/terms-of-use/",
+        "https://relux.works/ru/terms-of-use/",
+        "docs/analysis/p1-legal-ops-input-checkpoint.md#approval-record"
+      ]
+    },
+    {
+      "id": "moderation_ownership_and_response",
+      "status": "approved",
+      "value": {
+        "primary_operator": "Ivan Oparin",
+        "backup_operator": "Ivan Oparin",
+        "escalation_owner": "Ivan Oparin",
+        "privacy_mailbox_owner": "Ivan Oparin",
+        "support_mailbox_owner": "Ivan Oparin",
+        "moderation_mailbox_owner": "Ivan Oparin",
+        "normal_report_response_target": "2 business days",
+        "urgent_removal_response_target": "24 hours",
+        "coverage_hours_and_timezone": "Monday-Friday 10:00-19:00 GMT+4",
+        "urgent_removal_email": "moderation-urgent@barycenter.live"
+      },
+      "candidate": null,
+      "owner": "Ivan Oparin",
+      "approved_by": "Ivan Oparin",
+      "approved_at": "2026-07-14T17:52:59+04:00",
+      "evidence": [
+        "docs/spec-self-contained-audio.md#153-user-generated-content",
+        "docs/spec-self-contained-audio.md#155-reporting-operations",
+        ".task-board/.resources/STORY-260712-1tgryz/p1-root-review-amendments.md",
+        "docs/analysis/p1-legal-ops-input-checkpoint.md#approval-record"
+      ]
+    },
+    {
+      "id": "partner_center_and_submission",
+      "status": "approved",
+      "value": {
+        "store_product_id": "9P26FDCWV1GC",
+        "package_identity": "ReluxWorksLLC.PulsarBarycenter",
+        "automation_application": "pulsar-store-ci",
+        "automation_role": "Manager (Windows)",
+        "partner_center_account_owner": "Ivan Oparin",
+        "listing_asset_owner": "Ivan Oparin",
+        "final_external_submit_authority": "Ivan Oparin",
+        "emergency_withdrawal_authority": "Ivan Oparin"
+      },
+      "candidate": null,
+      "owner": "Ivan Oparin",
+      "approved_by": "Ivan Oparin",
+      "approved_at": "2026-07-14T17:31:50+04:00",
+      "evidence": [
+        "docs/decisions.md",
+        ".github/workflows/store-auth-check.yml",
+        ".github/workflows/store-submit.yml",
+        "docs/analysis/p1-legal-ops-input-checkpoint.md#approval-record"
+      ]
+    },
+    {
+      "id": "policy_review_and_configuration",
+      "status": "approved",
+      "value": {
+        "english_legal_reviewer": "Ivan Oparin",
+        "russian_legal_reviewer": "Ivan Oparin",
+        "counsel_review_required": false,
+        "controlling_language_decision": "English text controls; Russian must be semantically equivalent",
+        "checked_in_facts": [
+          "legal identity and registration facts",
+          "approved governing law and age positioning"
+        ],
+        "runtime_configurable_facts": [
+          "policy and support URLs",
+          "public contact mailboxes",
+          "operational response targets",
+          "hosting and subprocessor disclosures"
+        ]
+      },
+      "candidate": null,
+      "owner": "Ivan Oparin",
+      "approved_by": "Ivan Oparin",
+      "approved_at": "2026-07-14T17:52:59+04:00",
+      "evidence": [
+        "https://relux.works/en/privacy-policy/",
+        "https://relux.works/ru/privacy-policy/",
+        ".task-board/.resources/STORY-260712-1tgryz/p1-root-review-amendments.md",
+        "docs/analysis/p1-legal-ops-input-checkpoint.md#approval-record"
+      ]
+    }
+  ]
+}

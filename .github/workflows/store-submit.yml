@@ -26,6 +26,14 @@ jobs:
   submit:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: coordinator/go.mod
+      - name: Require approved legal and operations inputs
+        run: |
+          cd coordinator
+          go run ./cmd/legal-ops-check --require-approved ../docs/compliance/legal-ops-inputs.json
       - name: Install msstore CLI + a Linux secret service
         run: |
           sudo apt-get update

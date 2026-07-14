@@ -51,6 +51,61 @@ private final class StubMacOverlayAudio: MacOverlayAudioRouting, @unchecked Send
     var stops: Int { lock.withLock { stopCount } }
 }
 
+private final class StubMacInterruptController: MacInterruptControlling, @unchecked Sendable {
+    private let lock = NSLock()
+    var ready = true
+    var resumeResult = true
+    var holdResume = false
+    let anchor = MacInterruptAnchor(
+        elementID: "el_interrupt", loadGeneration: 7, positionMs: 9_950)
+    private var heldCompletion: ((Bool) -> Void)?
+    private(set) var suspendCount = 0
+    private(set) var resumeCalls: [(Int64, Int64)] = []
+    private(set) var abandonCount = 0
+
+    var interruptReady: Bool { lock.withLock { ready } }
+
+    func suspendForInterrupt() -> MacInterruptAnchor? {
+        lock.withLock {
+            guard ready else { return nil }
+            suspendCount += 1
+            return anchor
+        }
+    }
+
+    func resumeFromInterrupt(
+        _ anchor: MacInterruptAnchor,
+        fadeInMs: Int64,
+        completion: @escaping (Bool) -> Void
+    ) {
+        let result = lock.withLock { () -> Bool? in
+            resumeCalls.append((anchor.positionMs, fadeInMs))
+            if holdResume {
+                heldCompletion = completion
+                return nil
+            }
+            return resumeResult
+        }
+        if let result { completion(result) }
+    }
+
+    func abandonInterrupt(_ anchor: MacInterruptAnchor) {
+        lock.withLock { abandonCount += 1 }
+    }
+
+    func completeHeldResume(_ result: Bool) {
+        let callback = lock.withLock { () -> ((Bool) -> Void)? in
+            defer { heldCompletion = nil }
+            return heldCompletion
+        }
+        callback?(result)
+    }
+
+    var suspends: Int { lock.withLock { suspendCount } }
+    var resumes: [(Int64, Int64)] { lock.withLock { resumeCalls } }
+    var abandons: Int { lock.withLock { abandonCount } }
+}
+
 private func overlayBuffer(seconds: Int = 10) -> AVAudioPCMBuffer {
     let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
     let frames = AVAudioFrameCount(44_100 * seconds)
@@ -78,6 +133,25 @@ private func overlayMixerPlan(startMs: Int64, releaseMs: Int64 = 600) -> MediaCl
         control: MixerControlParameters(payload)!)
 }
 
+private func interruptMixerPlan(startMs: Int64) -> MediaClipPlayPlan {
+    let payload = PlayMediaAtPayload(
+        transmissionId: "tr_macos_interrupt",
+        generation: 1,
+        tCoordMs: startMs,
+        startDeadlineCoordMs: startMs + 100,
+        delivery: "interrupt",
+        duckDb: nil,
+        attackMs: nil,
+        releaseMs: nil,
+        fadeOutMs: 250,
+        fadeInMs: 120)
+    return MediaClipPlayPlan(
+        payload: payload,
+        localStartMs: startMs,
+        localStartDeadlineMs: startMs + 100,
+        control: MixerControlParameters(payload)!)
+}
+
 private func preparedOverlay(_ buffer: AVAudioPCMBuffer) -> PreparedMediaClip {
     PreparedMediaClip(
         localURL: URL(fileURLWithPath: "/tmp/macos-overlay.wav"),
@@ -97,6 +171,191 @@ private func eventuallyOverlay(
 }
 
 @Suite struct MacOverlayMediaClipMixerTests {
+    @Test func audibleInterruptAnchorSubtractsQueuedRingTail() {
+        #expect(PlayerCore.audibleAnchorMs(providerPositionMs: 10_000, ringFillMs: 50) == 9_950)
+        #expect(PlayerCore.audibleAnchorMs(providerPositionMs: 20, ringFillMs: 50) == 0)
+        #expect(PlayerCore.audibleAnchorMs(providerPositionMs: 20, ringFillMs: -1) == 20)
+    }
+
+    @Test func interruptWithoutExactControllerFailsBeforeSchedulingAndNeverFallsBack() throws {
+        let audio = StubMacOverlayAudio()
+        let mixer = MacOverlayMediaClipMixer(
+            audio: audio,
+            log: Logger(level: .error, path: nil))
+        let now = Int64((Date().timeIntervalSince1970 * 1_000).rounded())
+        let clip = preparedOverlay(overlayBuffer(seconds: 1))
+        do {
+            try mixer.arm(
+                clip,
+                plan: interruptMixerPlan(startMs: now),
+                onStarted: { _ in },
+                onEnded: { _ in },
+                onFailed: { _ in })
+            Issue.record("unbound exact interrupt unexpectedly armed")
+        } catch let failure as MediaClipFailure {
+            #expect(failure.code == "interrupt_capability_lost")
+        }
+        #expect(audio.scheduledFrameSnapshot.isEmpty)
+        #expect(audio.musicGainSnapshot.isEmpty)
+    }
+
+    @Test func interruptFadesAtTMinus250ResumesExactAnchorOnceAndReusesGraph() async throws {
+        let audio = StubMacOverlayAudio()
+        let controller = StubMacInterruptController()
+        let now = Int64((Date().timeIntervalSince1970 * 1_000).rounded())
+        let mixer = MacOverlayMediaClipMixer(
+            audio: audio,
+            log: Logger(level: .error, path: nil),
+            nowLocalMs: { now })
+        mixer.bindInterruptController(controller)
+        #expect(mixer.deliveryCapabilities == [overlayMixCapability, interruptResumeCapability])
+        let clip = preparedOverlay(overlayBuffer(seconds: 1))
+        let started = NSLockBox(0)
+        let ended = NSLockBox(0)
+        try mixer.arm(
+            clip,
+            plan: interruptMixerPlan(startMs: now + 250),
+            onStarted: { _ in started.withLock { $0 += 1 } },
+            onEnded: { _ in ended.withLock { $0 += 1 } },
+            onFailed: { failure in Issue.record("interrupt failed: \(failure)") })
+
+        #expect(audio.musicGainSnapshot.first?.0 == 0)
+        #expect(audio.musicGainSnapshot.first?.1 == 250)
+        #expect(await eventuallyOverlay { started.withLock { $0 == 1 } })
+        #expect(controller.suspends == 1)
+        audio.finishScheduledBuffer()
+        #expect(await eventuallyOverlay { ended.withLock { $0 == 1 } })
+        #expect(controller.resumes.count == 1)
+        #expect(controller.resumes.first?.0 == 9_950)
+        #expect(controller.resumes.first?.1 == 120)
+        #expect(mixer.interruptFrames == Int64(overlayBuffer(seconds: 1).frameLength))
+
+        let replacement = preparedOverlay(overlayBuffer(seconds: 1))
+        try mixer.arm(
+            replacement,
+            plan: overlayMixerPlan(startMs: now),
+            onStarted: { _ in },
+            onEnded: { _ in },
+            onFailed: { _ in })
+        mixer.dispose(replacement)
+    }
+
+    @Test func interruptResumeFailureIsDistinctAndLeavesGraphReusable() async throws {
+        let audio = StubMacOverlayAudio()
+        let controller = StubMacInterruptController()
+        controller.resumeResult = false
+        let mixer = MacOverlayMediaClipMixer(
+            audio: audio,
+            log: Logger(level: .error, path: nil))
+        mixer.bindInterruptController(controller)
+        let now = Int64((Date().timeIntervalSince1970 * 1_000).rounded())
+        let clip = preparedOverlay(overlayBuffer(seconds: 1))
+        let started = NSLockBox(false)
+        let ended = NSLockBox(false)
+        let failureCode = NSLockBox<String?>(nil)
+        try mixer.arm(
+            clip,
+            plan: interruptMixerPlan(startMs: now),
+            onStarted: { _ in started.withLock { $0 = true } },
+            onEnded: { _ in ended.withLock { $0 = true } },
+            onFailed: { failure in failureCode.withLock { $0 = failure.code } })
+        #expect(await eventuallyOverlay { started.withLock { $0 } })
+        audio.finishScheduledBuffer()
+        #expect(await eventuallyOverlay { failureCode.withLock { $0 != nil } })
+        #expect(failureCode.withLock { $0 } == "audio_graph_failed")
+        #expect(!ended.withLock { $0 })
+        #expect(audio.stops == 1)
+
+        let replacement = preparedOverlay(overlayBuffer(seconds: 1))
+        try mixer.arm(
+            replacement,
+            plan: overlayMixerPlan(startMs: now),
+            onStarted: { _ in },
+            onEnded: { _ in },
+            onFailed: { _ in })
+        mixer.dispose(replacement)
+    }
+
+    @Test func activeInterruptCancelFadesAndAcknowledgesOneResume() async throws {
+        let audio = StubMacOverlayAudio()
+        let controller = StubMacInterruptController()
+        let mixer = MacOverlayMediaClipMixer(
+            audio: audio,
+            log: Logger(level: .error, path: nil))
+        mixer.bindInterruptController(controller)
+        let now = Int64((Date().timeIntervalSince1970 * 1_000).rounded())
+        let clip = preparedOverlay(overlayBuffer(seconds: 1))
+        let started = NSLockBox(false)
+        let ended = NSLockBox(false)
+        try mixer.arm(
+            clip,
+            plan: interruptMixerPlan(startMs: now),
+            onStarted: { _ in started.withLock { $0 = true } },
+            onEnded: { _ in ended.withLock { $0 = true } },
+            onFailed: { failure in Issue.record("interrupt failed: \(failure)") })
+        #expect(await eventuallyOverlay { started.withLock { $0 } })
+
+        let cancelled = NSLockBox<[Bool]>([])
+        mixer.cancel(
+            clip,
+            command: CancelMediaPayload(
+                transmissionId: "tr_macos_interrupt", generation: 1,
+                reason: "media_deleted", action: "fade_stop",
+                resumeMain: true, fadeMs: 10)
+        ) { result in
+            if case .success(let resumed) = result {
+                cancelled.withLock { $0.append(resumed) }
+            }
+        }
+        #expect(await eventuallyOverlay { cancelled.withLock { $0 == [true] } })
+        #expect(controller.resumes.count == 1)
+        #expect(!ended.withLock { $0 })
+        #expect(audio.overlayGainSnapshot.contains { $0 < 1 })
+        #expect(audio.stops == 1)
+    }
+
+    @Test func cancelDuringResumeProducesOneCancelledTerminalState() async throws {
+        let audio = StubMacOverlayAudio()
+        let controller = StubMacInterruptController()
+        controller.holdResume = true
+        let mixer = MacOverlayMediaClipMixer(
+            audio: audio,
+            log: Logger(level: .error, path: nil))
+        mixer.bindInterruptController(controller)
+        let now = Int64((Date().timeIntervalSince1970 * 1_000).rounded())
+        let clip = preparedOverlay(overlayBuffer(seconds: 1))
+        let started = NSLockBox(false)
+        let ended = NSLockBox(0)
+        try mixer.arm(
+            clip,
+            plan: interruptMixerPlan(startMs: now),
+            onStarted: { _ in started.withLock { $0 = true } },
+            onEnded: { _ in ended.withLock { $0 += 1 } },
+            onFailed: { failure in Issue.record("interrupt failed: \(failure)") })
+        #expect(await eventuallyOverlay { started.withLock { $0 } })
+        audio.finishScheduledBuffer()
+        #expect(await eventuallyOverlay { controller.resumes.count == 1 })
+
+        let cancelled = NSLockBox<[Bool]>([])
+        mixer.cancel(
+            clip,
+            command: CancelMediaPayload(
+                transmissionId: "tr_macos_interrupt", generation: 1,
+                reason: "coordinator_restarted", action: "fade_stop",
+                resumeMain: true, fadeMs: 0)
+        ) { result in
+            if case .success(let resumed) = result {
+                cancelled.withLock { $0.append(resumed) }
+            }
+        }
+        controller.completeHeldResume(true)
+        #expect(await eventuallyOverlay { cancelled.withLock { $0 == [true] } })
+        #expect(ended.withLock { $0 } == 0)
+        controller.completeHeldResume(true)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(cancelled.withLock { $0 } == [true])
+    }
+
     @Test func preparationConvertsDecodedAudioOffRenderToEngineFormat() throws {
         let audio = StubMacOverlayAudio()
         let mixer = MacOverlayMediaClipMixer(
@@ -138,7 +397,8 @@ private func eventuallyOverlay(
             clip,
             plan: overlayMixerPlan(startMs: now + 250),
             onStarted: { _ in Issue.record("future clip must remain armed") },
-            onEnded: { _ in Issue.record("disposed clip must not end") })
+            onEnded: { _ in Issue.record("disposed clip must not end") },
+            onFailed: { _ in Issue.record("disposed clip must not fail") })
 
         let duck = try #require(audio.musicGainSnapshot.first)
         #expect(abs(duck.0 - Float(pow(10, -12.0 / 20))) < 0.0001)
@@ -153,7 +413,8 @@ private func eventuallyOverlay(
             replacement,
             plan: overlayMixerPlan(startMs: now + 250),
             onStarted: { _ in },
-            onEnded: { _ in })
+            onEnded: { _ in },
+            onFailed: { _ in })
         mixer.dispose(replacement)
     }
 
@@ -174,7 +435,8 @@ private func eventuallyOverlay(
             clip,
             plan: overlayMixerPlan(startMs: now),
             onStarted: { value in started.withLock { $0.append(value) } },
-            onEnded: { value in ended.withLock { $0.append(value) } })
+            onEnded: { value in ended.withLock { $0.append(value) } },
+            onFailed: { failure in Issue.record("overlay failed: \(failure)") })
 
         #expect(await eventuallyOverlay { !started.withLock { $0.isEmpty } })
         #expect(audio.scheduledFrameSnapshot == [buffer.frameLength])
@@ -198,7 +460,8 @@ private func eventuallyOverlay(
             next,
             plan: overlayMixerPlan(startMs: now),
             onStarted: { _ in },
-            onEnded: { _ in })
+            onEnded: { _ in },
+            onFailed: { _ in })
     }
 
     @Test func cancellationFadesOverlayReleasesDuckAndAcknowledgesOnce() async throws {
@@ -214,7 +477,8 @@ private func eventuallyOverlay(
             clip,
             plan: overlayMixerPlan(startMs: now, releaseMs: 30),
             onStarted: { _ in started.withLock { $0 = true } },
-            onEnded: { _ in Issue.record("cancelled overlay must not report ended") })
+            onEnded: { _ in Issue.record("cancelled overlay must not report ended") },
+            onFailed: { failure in Issue.record("overlay failed: \(failure)") })
         #expect(await eventuallyOverlay { started.withLock { $0 } })
 
         let cancelled = NSLockBox(0)
@@ -243,7 +507,8 @@ private func eventuallyOverlay(
             replacement,
             plan: overlayMixerPlan(startMs: now),
             onStarted: { _ in },
-            onEnded: { _ in })
+            onEnded: { _ in },
+            onFailed: { _ in })
     }
 }
 

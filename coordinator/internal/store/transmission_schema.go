@@ -223,6 +223,50 @@ CREATE UNIQUE INDEX IF NOT EXISTS blocks_one_active
 CREATE INDEX IF NOT EXISTS blocks_recipient_lookup
   ON blocks(owner_orbit_id, owner_actor_id, revoked_at, blocked_kind);
 
+-- Public policy surfaces never serialize the internal integer ids above.
+-- History mints actor-bound subject references; blocks receive their own
+-- opaque ids.  Keeping both mappings additive preserves rollback compatibility.
+CREATE TABLE IF NOT EXISTS transmission_subject_refs (
+  public_id TEXT PRIMARY KEY
+    CHECK((length(public_id) = 29 AND substr(public_id, 1, 3) = 'ar_')
+      OR (length(public_id) = 29 AND substr(public_id, 1, 3) = 'or_')),
+  viewer_actor_id INTEGER NOT NULL CHECK(viewer_actor_id > 0),
+  subject_kind TEXT NOT NULL CHECK(subject_kind IN ('actor', 'orbit')),
+  subject_id INTEGER NOT NULL CHECK(subject_id > 0),
+  display_name TEXT NOT NULL CHECK(length(display_name) BETWEEN 1 AND 480),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  expires_at INTEGER NOT NULL CHECK(expires_at > created_at)
+);
+CREATE INDEX IF NOT EXISTS transmission_subject_refs_viewer
+  ON transmission_subject_refs(viewer_actor_id, expires_at, public_id);
+
+CREATE TABLE IF NOT EXISTS transmission_block_public_ids (
+  block_id INTEGER PRIMARY KEY REFERENCES blocks(id) ON DELETE CASCADE,
+  public_id TEXT NOT NULL UNIQUE
+    CHECK(length(public_id) = 29 AND substr(public_id, 1, 3) = 'bl_'),
+  subject_ref TEXT NOT NULL REFERENCES transmission_subject_refs(public_id)
+);
+
+-- Idempotency keys and request bodies are retained only as SHA-256 digests.
+-- A response revision/public id is enough to reconstruct an exact replay.
+CREATE TABLE IF NOT EXISTS transmission_policy_requests (
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  operation TEXT NOT NULL CHECK(operation IN (
+    'dnd_local', 'dnd_orbit', 'block_create', 'block_delete'
+  )),
+  idempotency_key_hash TEXT NOT NULL
+    CHECK(length(idempotency_key_hash) = 64
+      AND idempotency_key_hash NOT GLOB '*[^0-9a-f]*'),
+  request_hash TEXT NOT NULL
+    CHECK(length(request_hash) = 64
+      AND request_hash NOT GLOB '*[^0-9a-f]*'),
+  resource_id TEXT NOT NULL DEFAULT '',
+  resource_revision INTEGER NOT NULL DEFAULT 0 CHECK(resource_revision >= 0),
+  response_json TEXT NOT NULL DEFAULT '' CHECK(length(response_json) <= 4096),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  PRIMARY KEY(actor_id, operation, idempotency_key_hash)
+);
+
 CREATE TABLE IF NOT EXISTS node_dnd_settings (
   orbit_id INTEGER NOT NULL CHECK(orbit_id > 0),
   actor_id INTEGER NOT NULL CHECK(actor_id > 0),

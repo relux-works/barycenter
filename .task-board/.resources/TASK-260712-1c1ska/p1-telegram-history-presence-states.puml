@@ -1,43 +1,45 @@
 @startuml
-title P1 History and Receipt Lifecycle
+title P1 Presence, DND and Block State
 
 hide empty description
 
-state "Client-visible history item" as History {
-  [*] --> processing
-  processing --> ready : media normalized
-  processing --> error : probe/transcode failed
-  ready --> playing : started on target set
-  ready --> partial : mixed target outcome
-  ready --> error : no playable targets\nor cancelled failure
-  playing --> played : all started targets ended
-  playing --> partial : some targets failed or missed
-  partial --> [*]
-  played --> [*]
-  error --> [*]
+state "Presence generation" as Presence {
+  [*] --> online : authenticated message <= 12 s
+  online --> offline : heartbeat stale > 12 s
+  offline --> online : current binding authenticates
+  online : output ready/degraded
+  online : playback idle/main/overlay/interrupt/unknown
+  offline : output unavailable
+  offline : playback unknown
+  offline : interrupt-resume false
 }
 
-state "Per-target receipt detail" as Receipt {
-  [*] --> accepted
-  accepted --> preparing
-  preparing --> ready
-  ready --> scheduled
-  scheduled --> playing
-  playing --> played
-
-  accepted --> missed_offline
-  accepted --> missed_dnd
-  accepted --> missed_not_ready
-  accepted --> blocked
-  accepted --> failed
+state "Layered DND" as DND {
+  [*] --> allow_all
+  allow_all --> messages_only : expected revision + 1
+  allow_all --> muted_until : expected revision + 1
+  messages_only --> allow_all : owner mutation
+  messages_only --> muted_until : stricter layer
+  muted_until --> allow_all : coordinator deadline expires
+  muted_until --> messages_only : owner mutation
 }
 
-History ..> Receipt : aggregates exact reasons
+state "Recipient block" as Block {
+  [*] --> active : viewer-scoped ar_/or_ ref
+  active --> revoked : owner delete
+  revoked --> [*] : never resurrect queued work
+}
+
+DND --> missed_dnd : non-started suppression
+DND --> cancelled_dnd : active fade-stop
+Block --> blocked : pre-play actor/orbit block
+Block --> sender_blocked : active fade-stop
 
 note bottom
-  Presence surfaces may show online/offline, output state,
-  playback state, required capability support, DND, and block.
-  They must never expose microphone state or local process names.
+  Effective DND is the stricter local/orbit layer. Remote orbit state
+  cannot loosen local state. Exact retries are actor-scoped and durable.
+  Presence never exposes actor ids, credentials, device/process names,
+  microphone/capture state, levels, paths, addresses or media URLs.
 end note
 
 @enduml

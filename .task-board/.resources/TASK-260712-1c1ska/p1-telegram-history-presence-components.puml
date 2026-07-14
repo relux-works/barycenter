@@ -11,7 +11,9 @@ rectangle "STORY-260712-34kbkn\nTelegram parity + history/presence" {
   [Telegram Transport\nvoice/audio/callback updates] as TgTransport
   [Inline Action Router\nlegacy default + action callbacks] as InlineRouter
   [Delivery Presentation Model\nhuman labels + receipt wording] as Presentation
-  [Presence Surface\nsanitized presence + DND/block] as Presence
+  [Presence HTTP Surface\nsanitized domain projection] as Presence
+  [Shared Policy Service\nActorContext + DND/block] as Policy
+  database "Additive Policy Store\nDND revisions + digest-only retries\nopaque subject/block refs" as PolicyStore
   [History/Receipt Query\nrecent transmissions + aggregates] as History
 }
 
@@ -29,11 +31,16 @@ InlineRouter --> Tx : create transmission\nor legacy after_current
 InlineRouter --> Presentation
 
 Tx --> History : transmission + target states
-Tx --> Presence : target capability\nDND/block result
+Tx --> Policy : acceptance + runtime enforcement
+Policy --> Tx : generation-safe cancel results
 
 Identity --> Presentation : actor + orbit labels
 Presentation --> History
 Presentation --> Presence
+Presence --> Policy : bearer ActorContext
+TgTransport --> Policy : verified Telegram ActorContext
+Policy --> PolicyStore
+History --> PolicyStore : mint viewer-scoped ar_/or_ refs
 
 App --> History
 App --> Presence
@@ -44,6 +51,8 @@ note bottom
   This story owns presentation-oriented parity:
   human names, routing labels, presence sanitization,
   Telegram inline actions, and history/receipt read models.
+  App and Telegram policy mutations share ActorContext authorization;
+  no transport receives raw actor/orbit ids as block selectors.
   It does not own SubmitMedia internals or transmission scheduling semantics.
 end note
 

@@ -2222,39 +2222,38 @@ func (l *loop) livePosition(o *orbitState) int64 {
 func (l *loop) statusText(o *orbitState) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "<b>«%s»</b> — %s, %s\n", esc(o.title), modeLabel(o.sess.Mode), stateLabel(o.sess.State))
-	online := l.onlineMap(o)
+	now := time.Now().UnixMilli()
+	snapshots := l.hub.NodeSnapshots()
 	for _, n := range l.sessionPeers(o) {
 		name := l.peerName(o, n)
-		if !online[n] {
-			fmt.Fprintf(&b, "дом %s: офлайн\n", name)
+		key := l.nodeKey(o, n)
+		snapshot, exists := snapshots[key]
+		online := exists && snapshot.Connected &&
+			snapshot.LastSeenAt > now-int64((12*time.Second)/time.Millisecond)
+		if !online {
+			fmt.Fprintf(&b, "Пульсар %s: офлайн, выход unavailable, воспроизведение unknown\n", name)
 			continue
 		}
-		st := o.lastSeen[n]
-		if st == nil {
-			fmt.Fprintf(&b, "дом %s: онлайн, ждём heartbeat\n", name)
-			continue
+		output := "degraded"
+		if snapshot.Capabilities.Supports(protocol.CapabilityMediaClip) && !snapshot.OutputDegraded {
+			output = "ready"
 		}
-		mark := ""
-		if st.Degraded {
-			mark = " [есть проблема со звуком]"
+		playback := snapshot.PlaybackState
+		if playback == "" {
+			playback = "unknown"
 		}
-		var speakers []string
-		for _, sp := range st.Speakers {
-			c := "✗"
-			if sp.Connected {
-				c = "✓"
+		dnd := string(store.DNDAllowAll)
+		if target, err := l.st.CurrentInstallationTargetForSocket(
+			key.Orbit, string(key.Slot), snapshot.CredentialTokenHash,
+		); err == nil && target != nil {
+			if effective, err := l.st.EffectiveDND(context.Background(), *target, now); err == nil {
+				dnd = string(effective.Mode)
 			}
-			speakers = append(speakers, sp.Name+c)
 		}
-		fmt.Fprintf(&b, "дом %s: онлайн%s, поз %s, громкость %d, rtt %d мс, offset %d мс, колонки: %s\n",
-			name, mark, fmtMS(st.PositionMS), st.Volume, st.RTTMS, o.offsets[n], strings.Join(speakers, " "))
-	}
-	if o.lastDesyncMS > 0 {
-		fmt.Fprintf(&b, "рассинхрон последнего старта: %d мс\n", o.lastDesyncMS)
+		capabilities := snapshot.Capabilities.Values()
+		fmt.Fprintf(&b, "Пульсар %s: онлайн, выход %s, воспроизведение %s, DND %s, возможности %s\n",
+			name, output, playback, dnd, strings.Join(capabilities, ","))
 	}
 	fmt.Fprintf(&b, "координатор %s", version)
-	for n, v := range o.versions {
-		fmt.Fprintf(&b, ", Пульсар %s %s", l.peerName(o, n), v)
-	}
 	return b.String()
 }

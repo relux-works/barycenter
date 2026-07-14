@@ -40,6 +40,10 @@ const (
 	errorModerationForbidden    = "moderation_forbidden"
 	errorModerationConflict     = "moderation_conflict"
 	errorEvidenceExpired        = "moderation_evidence_expired"
+	errorDNDRevisionConflict    = "dnd_revision_conflict"
+	errorPolicyIdempotency      = "policy_idempotency_conflict"
+	errorBlockSubjectNotFound   = "block_subject_not_found"
+	errorBlockNotFound          = "block_not_found"
 	errorServiceUnavailable     = "service_unavailable"
 	errorInternal               = "internal_error"
 )
@@ -96,6 +100,10 @@ func apiError(w http.ResponseWriter, status int, code string, retry time.Duratio
 		errorModerationForbidden:    "This operator credential lacks the required capability.",
 		errorModerationConflict:     "A different moderation decision already exists.",
 		errorEvidenceExpired:        "The moderation evidence window has expired.",
+		errorDNDRevisionConflict:    "The DND layer changed; retry with its current revision.",
+		errorPolicyIdempotency:      "The idempotency key was already used for different input.",
+		errorBlockSubjectNotFound:   "The blocking subject is unavailable.",
+		errorBlockNotFound:          "The block was not found.",
 		errorServiceUnavailable:     "The service is temporarily unavailable.",
 		errorInternal:               "An internal error occurred.",
 	}
@@ -343,6 +351,11 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/media/", api.secure(api.withActor(api.mediaItem)))
 	mux.HandleFunc("/v1/transmissions", api.secure(api.withControl(api.createTransmission)))
 	mux.HandleFunc("/v1/transmissions/", api.secure(api.withActor(api.transmissionItem)))
+	mux.HandleFunc("/v1/presence", api.secure(api.withActor(api.presence)))
+	mux.HandleFunc("/v1/presence/dnd/local", api.secure(api.withControl(api.localDND)))
+	mux.HandleFunc("/v1/presence/dnd/orbit", api.secure(api.withControl(api.orbitDND)))
+	mux.HandleFunc("/v1/blocks", api.secure(api.withControl(api.blocks)))
+	mux.HandleFunc("/v1/blocks/", api.secure(api.withControl(api.blockItem)))
 	mux.HandleFunc("/v1/reports", api.secure(api.withControl(api.moderationReports)))
 	mux.HandleFunc("/v1/reports/", api.secure(api.withControl(api.moderationReportItem)))
 	mux.HandleFunc("/v1/moderation/reports", api.secure(api.withModerationOperator(api.moderationQueue)))

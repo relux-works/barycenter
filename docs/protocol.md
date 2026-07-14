@@ -18,6 +18,8 @@ Its transport-neutral RU/EN labels and privacy-safe metadata fallbacks are
 defined by the [shared delivery presentation model](analysis/p1-shared-delivery-presentation-model.md).
 The implemented Telegram transport boundary and automated evidence are described
 in [P1 Telegram callback and audio transport](analysis/p1-telegram-callback-audio-transport.md).
+The implemented privacy projection and shared policy mutation boundary are
+described in [P1 presence, DND and block implementation](analysis/p1-presence-dnd-block-surface.md).
 
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 

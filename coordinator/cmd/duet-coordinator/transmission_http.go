@@ -56,6 +56,8 @@ type transmissionPresenceState struct {
 	OverlayCapable       bool
 	InterruptCapable     bool
 	MainActive           bool
+	PlaybackState        string
+	OutputDegraded       bool
 	InterruptResumeReady bool
 }
 
@@ -78,7 +80,9 @@ func transmissionPresenceSnapshotterForHub(h *hub.Hub) transmissionPresenceSnaps
 					// Until the later presence/client-hook tasks expose a finer
 					// runtime signal, an authenticated exact-resume capability is
 					// the conservative readiness boundary.
-					MainActive: true, InterruptResumeReady: interrupt,
+					MainActive: true, PlaybackState: snapshot.PlaybackState,
+					OutputDegraded:       snapshot.OutputDegraded,
+					InterruptResumeReady: interrupt,
 				}
 		}
 		return result
@@ -188,7 +192,11 @@ func decodeStrictTransmissionJSON(
 	r *http.Request,
 	target any,
 ) bool {
-	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, transmissionRequestMaxBytes))
+	return decodeStrictJSON(w, r, transmissionRequestMaxBytes, target)
+}
+
+func decodeStrictJSON(w http.ResponseWriter, r *http.Request, maxBytes int64, target any) bool {
+	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBytes))
 	if err != nil || !utf8.Valid(raw) {
 		return false
 	}

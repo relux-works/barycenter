@@ -484,6 +484,11 @@ func TestPhase1BotCommandsEndToEnd(t *testing.T) {
 	if !strings.Contains(r.last(t), "каждый слушает своё") || !strings.Contains(r.last(t), "Пульсар A") {
 		t.Fatalf("status text: %q", r.last(t))
 	}
+	for _, forbidden := range []string{"колонки:", "громкость", "offset", "rtt", "поз ", "librespot", "microphone", "process"} {
+		if strings.Contains(strings.ToLower(r.last(t)), forbidden) {
+			t.Fatalf("status leaked private diagnostic %q: %q", forbidden, r.last(t))
+		}
+	}
 
 	// Back to shared resumes the interrupted element.
 	l.handleBot(cmdEvent(t, "a", "/mode shared", r))

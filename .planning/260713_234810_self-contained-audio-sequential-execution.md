@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3dmllz` — telegram-callback-audio-transport
-  (accepted on exact engineering head; PR #43 landing is in progress)
-- Next engineering task: `TASK-260712-1c1ska` — presence-dnd-block-surface
+- Current engineering task: `TASK-260712-1c1ska` — presence-dnd-block-surface
+  (engineering candidate complete; hosted CI pending)
+- Next engineering task: `TASK-260712-2hcq1g` — transmission-history-receipt-query
 - Most recently accepted: `TASK-260712-3dmllz` — telegram-callback-audio-transport
-- Current branch: `task/task-260712-3dmllz-telegram-callback-audio-transport`
+- Current branch: `task/task-260712-1c1ska-presence-dnd-block-surface`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -405,8 +405,29 @@ Local coordinator full/race, pinned rollback, Windows test/cross-build and Swift
 release gates passed; hosted macOS Swift tests and all other jobs passed on
 exact engineering head `773b417eaff6308fe3cfa14cbe3d80e812854e75`
 in run `29362994920`. No real Telegram client, audible or hardware result is
-claimed. Progress is 44/205 overall and 44/186 engineering. Tracking and PR #43
-landing follow before strict execution starts `TASK-260712-1c1ska`.
+claimed. Progress is 44/205 overall and 44/186 engineering. Tracking head
+`c5bdf42abb51c4b5c23f66500b672cc3ad84771c` passed all four hosted jobs in
+run `29363292374`. PR #43 landed at merge
+`4f026a0e290e899a813b8cf2ab78ef9c5386d178`, and strict execution advanced to
+`TASK-260712-1c1ska` from synchronized `main`.
+
+Checkpoint 2026-07-14 (candidate): `TASK-260712-1c1ska` adds the privacy-
+allowlisted `GET /v1/presence`, exact-installation local DND, primary-owned
+orbit DND and opaque actor/orbit block controls. Presence resolves only the
+caller orbit/current pairwise approach, validates the current socket binding,
+becomes offline after 12 seconds, and exposes only output, sanitized playback,
+effective DND and sorted capabilities. Heartbeats project the closed
+`idle/main/interrupt/unknown` playback vocabulary and reset at reconnect.
+Telegram `/status` no longer exposes speaker names, position, volume, RTT,
+offsets or process/library versions. DND authorization, expected revision and
+digest-only actor-scoped idempotency commit in one writer transaction; app and
+verified Telegram identities call the same `ActorContext` policy service.
+History-facing `ar_`/`or_` refs and public `bl_` ids keep internal identity out
+of HTTP; new DND/block policy cancels only matching current-generation pending
+or active work, and unblock never resurrects it. Coordinator vet/full/race,
+exact previous-head rollback, Windows vet/tests, Swift release build, board
+validation and diff checks pass. No real-app, audible, physical-device or
+hardware result is claimed; hosted CI is the remaining engineering gate.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1019,7 +1040,9 @@ Story: `STORY-260712-34kbkn` — P1 Telegram adapter, history and presence.
 - [x] `TASK-260712-1gx6mh` — shared-delivery-presentation-model (accepted on
   exact engineering head `31024a2`; all four hosted jobs in run `29361254030`
   green; no real-app/hardware result claimed; PR #42)
-- [ ] `TASK-260712-3dmllz` — telegram-callback-audio-transport
+- [x] `TASK-260712-3dmllz` — telegram-callback-audio-transport (accepted on
+  exact engineering head `773b417`; all four hosted jobs in run `29362994920`
+  green; no real Telegram/audible/hardware result claimed; PR #43)
 - [ ] `TASK-260712-1c1ska` — presence-dnd-block-surface
 - [ ] `TASK-260712-2hcq1g` — transmission-history-receipt-query
 - [ ] `TASK-260712-21ers7` — telegram-inline-routing-compat

@@ -1,5 +1,5 @@
 ## Status
-development
+done
 
 ## Assigned To
 root-coordinator
@@ -8,7 +8,7 @@ root-coordinator
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-13T23:28:34Z
+2026-07-14T00:49:30Z
 
 ## Blocked By
 - (none)
@@ -38,6 +38,7 @@ Reviewed docs/spec-self-contained-audio.md in full plus goal, protocol and curre
 agent completed: [analyst] solution-architect (codex) (exit=0)
 agent spawned: codex (pid=61191, exit=0)
 Root decomposition review completed. Tightened official-API, ABI/thread, redistribution, signed-package and minimum-OS decision criteria; expanded real Win10/Win11 evidence to cold permission, hotkey conflict, picker-token access, device removal and no developer-mode assumptions. Final hardware matrix now explicitly gates the Windows capture engine.
+Engineering spike accepted: all four coding and packaging tasks are done. Physical H00-H17 execution moved to EPIC-260714-th54l3 and is not claimed passed.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-30ju1k/spec-entry.md) — Authoritative specification entry point

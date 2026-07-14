@@ -1,10 +1,10 @@
-# Self-contained Pulsar Audio
+# Self-contained Pulsar Audio engineering
 
 ## Description
-Deliver the user-approved goal in three sequential shippable phases: Store-ready clips without required Spotify or Telegram, Air rooms plus bounded-memory long audio, then near-live PTT, capture quality, E2EE and safe automation. docs/spec-self-contained-audio.md is authoritative.
+Deliver the user-approved self-contained audio implementation in three sequential engineering phases. Coding, schemas, protocols, clients, migrations, automated tests, deterministic integration checks, packaging, documentation and reviews remain here; hands-on real-app and hardware acceptance is owned by EPIC-260714-th54l3.
 
 ## Scope
-All coordinator, Windows Pulsar, macOS Pulsar, Telegram adapter, protocol, persistence, media pipeline, privacy/UGC operations, Store metadata, migrations, rollout and evidence required by specification sections 19-21. Preserve current production behavior and credentials.
+All coordinator, Windows Pulsar, macOS Pulsar, Telegram adapter, protocol, persistence, media pipeline, privacy and UGC operations, migrations, rollout tooling and best-effort evidence required by docs/spec-self-contained-audio.md. Exclude the 19 extracted manual physical, production-shaped and multi-day acceptance tasks while preserving their prerequisites and immutable handoff contracts.
 
 ## Acceptance Criteria
-All A1-A8, B1-B7 and C1-C7 have reproducible evidence; every phase exit gate and non-functional gate passes in order; unit/integration/golden/migration/security/platform suites are green; Windows-Windows, Windows-macOS and macOS-macOS matrices are proven where applicable; rollback preserves data and legacy operation; docs, policies, runbook and Store listing match the implementation.
+All implementation and review tasks are complete; unit, integration, golden, migration, security, cross-build and package checks available to CI or the development hosts are green; unsupported environments and unverified hardware claims are explicit. Engineering completion must not be described as Store, hardware, beta or production acceptance. Those claims require EPIC-260714-th54l3.

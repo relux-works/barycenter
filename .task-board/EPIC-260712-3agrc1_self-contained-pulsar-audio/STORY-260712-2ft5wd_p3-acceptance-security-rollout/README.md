@@ -1,10 +1,10 @@
-# P3 Security acceptance and rollout
+# P3 security and engineering completion
 
 ## Description
-Prove C1-C7, security review closure and seven-day phase-three beta stability.
+Close Phase 3 implementation, review, observability and engineering handoff without claiming the extracted manual C1-C7, rollout or beta program passed.
 
 ## Scope
-Integrate phase three, prove C1-C7, run external security review, cross-platform live/audio/crypto matrices, privacy and Store disclosure updates, rollback/recovery drills and a seven-day real beta without stuck capture, key loss or unsafe automation.
+Freeze evidence contracts, complete code and security reviews, deterministic checks, observability, privacy and Store disclosures, engineering rollback tooling, promotion handoff and the final root engineering audit. Index all deferred manual acceptance tasks in EPIC-260714-th54l3.
 
 ## Acceptance Criteria
-All C evidence and non-functional gates pass. Critical/high security findings are closed, key and capture failure drills are reproducible, docs/policies/Store claims match enabled flags, live_ptt and e2ee_media remain independently gated, and seven real beta days complete without the prohibited incidents before epic completion.
+All Phase 3 implementation, deterministic tests, reviews, documentation and available recovery checks pass with no open critical or high engineering finding. The final audit may declare engineering complete or held but cannot authorize production; C1-C7 hardware, real-environment and beta acceptance remains owned by EPIC-260714-th54l3.

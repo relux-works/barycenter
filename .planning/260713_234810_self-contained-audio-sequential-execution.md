@@ -1,18 +1,27 @@
 # Sequential execution plan: Self-contained Pulsar Audio
 
 - Date: 2026-07-13
-- Epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio
+- Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
+- Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Inventory: 19 stories, 205 tasks; 11 accepted, 194 remain.
+- Combined inventory: 205 original tasks; 11 accepted, 194 remain.
+- Routed inventory: 186 engineering tasks (11 accepted, 175 remain) and 19
+  deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current task: `TASK-260712-1vtwkl` — blocked on real Windows 10/11 hardware access
-- Current branch: `task/task-260712-1vtwkl-win10-win11-evidence`
-- Accepted: 11 / 205 tasks (approximately 5.4%); 194 remain
-- State: H00-H17 and the accepted package provenance are frozen in draft PR #10; the fail-closed evidence/cleanup kit passed hosted Windows CI, but no admissible physical Windows host or console operator is currently accessible, so no hardware row is claimed passed and later work has not started
+- Current engineering task: `TASK-260712-z6h6wh` — media-schema-repositories
+- Transition branch: `task/task-260712-1vtwkl-win10-win11-evidence` / draft PR #10
+- Accepted overall: 11 / 205 tasks (approximately 5.4%); 194 remain
+- Engineering progress: 11 / 186 tasks (approximately 5.9%); 175 remain
+- Manual-test progress: 0 / 19 tasks; all remain deferred
+- State: the physical H00-H17 task and 18 later real-app, platform,
+  production-shaped or beta acceptance tasks were moved to
+  `EPIC-260714-th54l3`. Their evidence is not claimed passed and they no longer
+  block best-effort coding, unit tests, deterministic integration tests, CI,
+  packaging or engineering review.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -29,12 +38,11 @@ artifact/receipt hashes are recorded on the board. A repeated access audit
 still found no Windows boot volume, Windows Tailscale peer, SSH alias or
 authorized self-hosted runner inventory.
 
-Current blocker details and the exact unblock contract are recorded in the
-task-board outcome resource
-`TASK-260712-1vtwkl_hardware-readiness-audit.md`. The strict Windows 10 row is
-Enterprise LTSC 2021 while it remains in mainstream support; ordinary 22H2 is
-already end-of-support and requires an explicit product decision rather than a
-silent substitution.
+The H00-H17 readiness details remain recorded in the task-board outcome
+resource `TASK-260712-1vtwkl_hardware-readiness-audit.md`. That task is now a
+manual-program backlog item, still at 0/36 physical rows. The complete manual
+sequence is tracked in
+`.planning/260714_045154_epic-260714-th54l3.md`.
 
 ## Operating contract
 
@@ -43,9 +51,11 @@ existing task briefs, acceptance criteria and evidence. Status, assignment and
 notes are mirrored to task-board for tracking, but implementation and review
 are performed inline without the task-board spawn workflow.
 
-Execute exactly one unchecked task at a time, from top to bottom. Do not begin
-the next task until the current task's implementation, tests, evidence and
-required review are accepted and landed on `main`. Within a task:
+Execute exactly one unchecked engineering task at a time, from top to bottom.
+Rows marked `↪ manual` are routing records, not executable steps in this plan.
+Do not begin the next engineering task until the current task's implementation,
+automatable tests, available evidence and required engineering review are
+accepted and landed on `main`. Within a task:
 
 1. start from a clean, current `origin/main` and read the task README plus its
    precondition resources and the authoritative specification;
@@ -60,10 +70,13 @@ required review are accepted and landed on `main`. Within a task:
    and rollback instructions;
 7. land the accepted change before checking the item and moving to the next one.
 
-If a task needs real hardware, signing identity, Partner Center authority,
-legal/support data, public hosting, external reviewers or elapsed beta time,
-stop at that task. Do not count a mock, developer-mode path, fabricated input or
-unreviewed build as evidence and do not skip ahead to a dependent task.
+If a task's remaining acceptance is hands-on real-app, physical-hardware,
+production-shaped rollout or elapsed beta work, route that acceptance to
+`EPIC-260714-th54l3` and continue engineering from documented assumptions. Do
+not count a mock, developer-mode path, fabricated input or unreviewed build as
+manual evidence. Missing legal/support data, public hosting, external reviewers
+or mutation authority remains an honest engineering blocker unless the task can
+produce a useful non-authoritative draft or handoff without it.
 
 ## 0. Landed and accepted baseline — do not reimplement
 
@@ -81,15 +94,17 @@ silently inherit the old verdict.
 ## 1. Close the landed foundation checkpoints
 
 Exit gate: both onboarding clients are accepted, auth migration/rollback is
-proven, the lifecycle implementation has a fresh review boundary, and a signed
-Windows 10/11 hardware matrix establishes which downstream assumptions are real.
+proven, and the lifecycle, signed-package and evidence harness engineering is
+accepted. The physical Windows 10/11 matrix is deferred without being called
+passed.
 
 - [x] `TASK-260712-2u1w16` — macos-keychain-onboarding-client (R5 accepted 2026-07-14; focused 75/75, full 125/125, recovery/clipboard stress 100/100, release/format/privacy gates green)
 - [x] `TASK-260712-47uve0` — windows-dpapi-onboarding-client (R4 code checkpoint accepted 2026-07-14 after same-executor cold R3 remediation; focused x50, full/race, privacy, amd64/arm64 cross-build gates green; native DPAPI/NTFS/HWND, installed-MSIX and Windows 10/11 claims remain explicit downstream gates)
 - [x] `TASK-260712-38qsku` — auth-migration-rollback-verification (accepted 2026-07-14; exact pinned predecessor Store/config gates, callable fail-closed projection, physical SQLite secret scan, coordinator/macOS/Windows full matrices and operator runbook green; no live production or native Windows claim)
 - [x] `TASK-260712-2y74io` — handle-probe-lifecycle-cleanup (accepted by frozen R13 adversarial review and root audit; signed Windows evidence remains in downstream packaging/hardware tasks)
 - [x] `TASK-260712-13rbnw` — package-signed-msix-probe (accepted 2026-07-14; current Partner Center identity/PFN/AUMID frozen, non-exportable local signing and Store routes documented, signed MSIX build/registration/digest receipt green in CI; real Win10/11 hardware remains in the next task)
-- [ ] `TASK-260712-1vtwkl` — run-win10-win11-evidence-matrix
+- ↪ manual `TASK-260712-1vtwkl` — run-win10-win11-evidence-matrix →
+  `EPIC-260714-th54l3` / `STORY-260714-36vmp0`
 
 ## 2. P1 generic media ingest and storage
 
@@ -140,7 +155,8 @@ Story: `STORY-260712-fes2jj` — P1 Cross-platform overlay and interrupt mixer.
 - [ ] `TASK-260712-1g6lk8` — windows-interrupt-resume
 - [ ] `TASK-260712-8mwyiv` — macos-interrupt-resume
 - [ ] `TASK-260712-3d6cnn` — overlay-interrupt-regression-tests
-- [ ] `TASK-260712-2hodti` — overlay-interrupt-live-evidence
+- ↪ manual `TASK-260712-2hodti` — overlay-interrupt-live-evidence →
+  `EPIC-260714-th54l3`
 
 ## 6. P1 Telegram adapter, history and presence
 
@@ -173,12 +189,14 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
 - [ ] `TASK-260712-1p8ykc` — windows-local-capture-self-test
 - [ ] `TASK-260712-3dqc3l` — macos-ui-data-integration
 - [ ] `TASK-260712-2fe5bz` — windows-ui-data-integration
-- [ ] `TASK-260712-e5mfqj` — cross-platform-ui-verification
+- ↪ manual `TASK-260712-e5mfqj` — cross-platform-ui-verification →
+  `EPIC-260714-th54l3`
 
-## 8. P1 Store compliance and acceptance
+## 8. P1 Store compliance and engineering readiness
 
-Story: `STORY-260712-1i0doc` — P1 Store compliance and acceptance. This is the
-hard stop before P2.
+Story: `STORY-260712-1i0doc` — P1 Store compliance and engineering readiness.
+This is the engineering stop before P2; it cannot assert manual or Store
+acceptance.
 
 - [ ] `TASK-260712-1cdoxh` — acceptance-env-gate-repair
 - [ ] `TASK-260712-pbfz37` — windows-report-block-delete
@@ -191,7 +209,7 @@ hard stop before P2.
 - [ ] `TASK-260712-wy05n6` — p1-independent-security-review
 - [ ] `TASK-260712-2s4e9p` — store-listing-iarc-assets
 - [ ] `TASK-260712-38lssj` — p1-root-integration-review
-- [ ] `TASK-260712-1xik11` — a1-a8-evidence-store-submit
+- [ ] `TASK-260712-1xik11` — p1-engineering-readiness-handoff
 
 ## 9. P2 Air rooms and approach migration
 
@@ -256,13 +274,15 @@ Story: `STORY-260712-2ori1t` — P2 Streamed user audio tracks.
 - [ ] `TASK-260712-wt2n7m` — telegram-explicit-target-parity
 - [ ] `TASK-260712-3lximx` — windows-stream-track-ui
 - [ ] `TASK-260712-2psvhu` — macos-stream-track-ui
-- [ ] `TASK-260712-1fpb9q` — streamed-track-regression-evidence
+- ↪ manual `TASK-260712-1fpb9q` — streamed-track-regression-evidence →
+  `EPIC-260714-th54l3`
 - [ ] `TASK-260712-2ubzyf` — streamed-track-rollout-handoff
 
-## 13. P2 acceptance, capacity and rollout
+## 13. P2 engineering integration and rollout readiness
 
-Story: `STORY-260712-1qfbiw` — P2 Acceptance, capacity and rollout. The
-promotion packet is the hard stop before P3.
+Story: `STORY-260712-1qfbiw` — P2 engineering integration and rollout
+readiness. The engineering handoff packet is the stop before P3 development;
+manual promotion remains separate.
 
 - [ ] `TASK-260712-14rxuk` — phase2-gate-matrix-evidence-contract
 - [ ] `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
@@ -271,19 +291,20 @@ promotion packet is the hard stop before P3.
 - [ ] `TASK-260712-n11rg6` — p2-independent-target-security-review
 - [ ] `TASK-260712-qi81vf` — phase2-observability-quota-views
 - [ ] `TASK-260712-1kfnpu` — p2-root-integration-review
-- [ ] `TASK-260712-21kz3b` — phase2-b2-b4-air-scale-acceptance
-- [ ] `TASK-260712-2bdi4a` — phase2-b1-track-platform-matrix
-- [ ] `TASK-260712-3qybi2` — phase2-rollout-migration-rollback
-- [ ] `TASK-260712-3u5cdn` — phase2-b5-b7-rights-mixed-fleet
-- [ ] `TASK-260712-2pnc5a` — phase2-beta-quota-calibration
-- [ ] `TASK-260712-3a0cf9` — phase2-promotion-packet
+- ↪ manual `TASK-260712-21kz3b` — phase2-b2-b4-air-scale-acceptance
+- ↪ manual `TASK-260712-2bdi4a` — phase2-b1-track-platform-matrix
+- ↪ manual `TASK-260712-3qybi2` — phase2-rollout-migration-rollback
+- ↪ manual `TASK-260712-3u5cdn` — phase2-b5-b7-rights-mixed-fleet
+- ↪ manual `TASK-260712-2pnc5a` — phase2-beta-quota-calibration
+- [ ] `TASK-260712-3a0cf9` — phase2-engineering-handoff-packet
 
 ## 14. P3 near-live push-to-talk
 
 Story: `STORY-260712-sskhip` — P3 Near-live push-to-talk. This story is
 executed before soundboard automation because it is on the epic critical path.
 
-- [ ] `TASK-260712-9wivva` — store-safe-hold-input-spike
+- ↪ manual `TASK-260712-9wivva` — store-safe-hold-input-spike →
+  `EPIC-260714-th54l3`
 - [ ] `TASK-260712-lo7a68` — live-codec-transport-spike
 - [ ] `TASK-260712-3qviqc` — live-ptt-wire-contract-codec-policy
 - [ ] `TASK-260712-3vzbbl` — coordinator-live-ptt-session-runtime
@@ -293,7 +314,8 @@ executed before soundboard automation because it is on the epic critical path.
 - [ ] `TASK-260712-ezdhpf` — windows-live-capture-sender
 - [ ] `TASK-260712-2kj9kj` — macos-live-ptt-node-integration
 - [ ] `TASK-260712-2jbo5i` — windows-live-ptt-node-integration
-- [ ] `TASK-260712-1rzqh9` — live-ptt-regression-evidence
+- ↪ manual `TASK-260712-1rzqh9` — live-ptt-regression-evidence →
+  `EPIC-260714-th54l3`
 
 ## 15. P3 soundboard and safe automation
 
@@ -344,8 +366,8 @@ executed before capture quality because it is on the epic critical path.
 Story: `STORY-260712-3pt00e` — P3 Capture quality and diagnostics.
 
 - [ ] `TASK-260712-1gmsvh` — freeze-capture-quality-contract
-- [ ] `TASK-260712-265o0f` — probe-windows-voice-processing-path
-- [ ] `TASK-260712-2gaswa` — probe-macos-voice-processing-path
+- ↪ manual `TASK-260712-265o0f` — probe-windows-voice-processing-path
+- ↪ manual `TASK-260712-2gaswa` — probe-macos-voice-processing-path
 - [ ] `TASK-260712-1pw1l1` — capture-diagnostics-capability-surface
 - [ ] `TASK-260712-39czd2` — capture-quality-regression-harness
 - [ ] `TASK-260712-2egweh` — macos-live-capture-effects
@@ -353,9 +375,9 @@ Story: `STORY-260712-3pt00e` — P3 Capture quality and diagnostics.
 - [ ] `TASK-260712-1getbv` — macos-capture-quality-ui
 - [ ] `TASK-260712-39zh8g` — windows-capture-quality-ui
 - [ ] `TASK-260712-1023d7` — capture-quality-integrated-regressions
-- [ ] `TASK-260712-2e80pr` — c3-evidence-capability-matrix
+- ↪ manual `TASK-260712-2e80pr` — c3-evidence-capability-matrix
 
-## 18. P3 security acceptance and rollout
+## 18. P3 security and engineering completion
 
 Story: `STORY-260712-2ft5wd` — P3 Security acceptance and rollout. No
 capability is released merely because another capability passed its gate.
@@ -367,34 +389,41 @@ capability is released merely because another capability passed its gate.
 - [ ] `TASK-260712-3j4a06` — phase3-independent-realtime-review
 - [ ] `TASK-260712-1x5jfo` — phase3-independent-automation-review
 - [ ] `TASK-260712-7ng1vs` — phase3-independent-privacy-store-review
-- [ ] `TASK-260712-flaiie` — phase3-c1-c3-live-platform-matrix
-- [ ] `TASK-260712-yj668d` — phase3-c4-c6-reviewed-e2ee-acceptance
-- [ ] `TASK-260712-1gyohk` — phase3-c7-automation-safety-acceptance
-- [ ] `TASK-260712-30xwu2` — phase3-rollout-rollback-recovery-drills
+- ↪ manual `TASK-260712-flaiie` — phase3-c1-c3-live-platform-matrix
+- ↪ manual `TASK-260712-yj668d` — phase3-c4-c6-reviewed-e2ee-acceptance
+- ↪ manual `TASK-260712-1gyohk` — phase3-c7-automation-safety-acceptance
+- ↪ manual `TASK-260712-30xwu2` — phase3-rollout-rollback-recovery-drills
 - [ ] `TASK-260712-6mz9xg` — phase3-independent-migration-recovery-review
-- [ ] `TASK-260712-1actom` — phase3-beta-soak-incident-review
-- [ ] `TASK-260712-3b7bp4` — phase3-promotion-packet-disclosures
-- [ ] `TASK-260712-2b5685` — phase3-root-final-release-audit
+- ↪ manual `TASK-260712-1actom` — phase3-beta-soak-incident-review
+- [ ] `TASK-260712-3b7bp4` — phase3-engineering-handoff-disclosures
+- [ ] `TASK-260712-2b5685` — phase3-root-engineering-completion-audit
 
 ## Milestone gates
 
-- P1 closes only after `TASK-260712-1xik11` has reproducible A1-A8 evidence and
-  the actual Store submission state is captured.
-- P2 starts only after P1 closes; P3 starts only after
-  `TASK-260712-3a0cf9` and the required seven-day P2 beta gate close.
-- Phase 3 release requires independent capability evidence for live PTT, E2EE,
-  capture quality and automation, followed by the final root audit.
+- P1 engineering closes after `TASK-260712-1xik11` freezes the reviewed build,
+  automated evidence and exact manual-test handoff. It does not submit or claim
+  acceptance in Partner Center.
+- P2 engineering starts after P1 engineering closes; P3 engineering starts
+  after `TASK-260712-3a0cf9` publishes the reviewed engineering packet. The
+  seven-day P2 beta remains pending in the manual epic.
+- `TASK-260712-2b5685` closes engineering only. Store or production promotion
+  additionally requires every applicable task in `EPIC-260714-th54l3`.
 - Any code change after a frozen review/build hash triggers delta review and, if
   it affects a soak candidate, resets the corresponding elapsed-time gate.
 
-## External inputs that can legitimately stop the sequence
+## External inputs routed outside the engineering sequence
 
-- real supported Windows 10 and Windows 11 hardware and signing/Store identity;
+- real supported Windows 10 and Windows 11 hardware and physical audio devices;
 - supported macOS hardware and representative speaker/headphone/Bluetooth/USB
   routes;
+- real multi-home beta participants, two networks and uninterrupted seven-day
+  P2/P3 soak windows.
+
+These inputs hold `EPIC-260714-th54l3`, not this engineering sequence. The
+following non-test inputs may still block the engineering task that consumes
+them:
+
 - real legal entity, support and moderation contacts plus public policy hosting;
 - Partner Center authority, current Store declarations and real screenshots;
 - qualified independent crypto, realtime, automation, privacy/Store and
   migration/recovery reviewers;
-- real multi-home beta participants, two networks and uninterrupted seven-day
-  P2/P3 soak windows.

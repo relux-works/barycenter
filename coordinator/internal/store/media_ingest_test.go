@@ -100,6 +100,13 @@ func TestCreateTelegramMediaAtomicallyProjectsFeatureOffMemberAndLegacyWAV(t *te
 		created.Legacy.OrbitID != orbit.ID || created.Legacy.CreatedAt != now {
 		t.Fatalf("Telegram media creation=%+v", created)
 	}
+	linked, err := st.MediaItemForLegacyWAV(created.Legacy.ID)
+	if err != nil || linked == nil || linked.ID != created.Media.ID {
+		t.Fatalf("atomic Telegram compatibility link=%+v err=%v", linked, err)
+	}
+	if expired, err := st.ExpiredMedia(created.Media.ExpiresAt + 1); err != nil || len(expired) != 0 {
+		t.Fatalf("legacy sweeper claimed generic-owned compatibility row=%+v err=%v", expired, err)
+	}
 	var kind, externalRef, displayName, role string
 	var leftAt sql.NullInt64
 	err = st.db.QueryRow(`SELECT a.kind, a.external_ref, a.display_name, m.role, m.left_at
@@ -132,7 +139,9 @@ func TestCreateTelegramMediaRollsBackBothRegistriesAndActorProjection(t *testing
 		t.Fatal("Telegram media acceptance unexpectedly committed")
 	}
 	st.testCheckpoint = nil
-	for _, table := range []string{"media_items", "media", "actors", "memberships"} {
+	for _, table := range []string{
+		"media_items", "media", "media_legacy_wav_links", "actors", "memberships",
+	} {
 		var count int
 		if err := st.db.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&count); err != nil {
 			t.Fatal(err)
@@ -140,6 +149,142 @@ func TestCreateTelegramMediaRollsBackBothRegistriesAndActorProjection(t *testing
 		if count != 0 {
 			t.Fatalf("rollback left %d row(s) in %s", count, table)
 		}
+	}
+}
+
+func TestTelegramCompatibilityStateFollowsGenericLifecycleAndCannotResurrect(t *testing.T) {
+	st, orbit := newFeatureOffTelegramMediaStore(t)
+	now := time.Now().UnixMilli()
+	created, err := st.CreateTelegramMedia(CreateTelegramMediaParams{
+		OwnerOrbitID: orbit.ID, TelegramUserID: 7001,
+		TelegramFileID: "tg-lifecycle", Title: "Lifecycle sender",
+		CreatedAt: now, ExpiresAt: now + int64((30*24*time.Hour)/time.Millisecond),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	operation, err := st.StageMediaPublication(created.Media.ID, created.Media.Revision, now+1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ready, err := st.CompleteMediaPublication(
+		operation.ID, operation.Revision, canonicalPublication(), now+2,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const legacyPath = "/managed/media/canonical/compatibility.wav"
+	if err := st.UpdateMedia(MediaRecord{
+		ID: ready.ID, DurationMS: ready.DurationMS, PathWAV: legacyPath,
+		LoudnormJSON: ready.LoudnessJSON, Status: "ready",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := st.DeleteMediaItem(ready.ID, ready.Revision, now+3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := st.GetMedia(ready.ID)
+	if err != nil || legacy == nil || legacy.Status != "deleted" || legacy.PathWAV != legacyPath {
+		t.Fatalf("logically revoked legacy=%+v err=%v", legacy, err)
+	}
+	if err := st.UpdateMedia(MediaRecord{
+		ID: ready.ID, PathWAV: legacyPath, Status: "ready",
+	}); !errors.Is(err, ErrMediaStateConflict) {
+		t.Fatalf("late legacy ready mapping error=%v", err)
+	}
+	cleanups, err := st.PendingLegacyMediaCleanups(10)
+	if err != nil || len(cleanups) != 1 || cleanups[0].MediaID != ready.ID ||
+		cleanups[0].MediaRevision != deleted.Revision ||
+		cleanups[0].LegacyMediaID != ready.ID || cleanups[0].PathWAV != legacyPath ||
+		cleanups[0].Source != MediaSourceTelegram || cleanups[0].Status != MediaStatusDeleted {
+		t.Fatalf("legacy cleanup=%+v err=%v", cleanups, err)
+	}
+	if err := st.CompleteLegacyMediaCleanup(ready.ID, deleted.Revision, now+4); err != nil {
+		t.Fatal(err)
+	}
+	legacy, err = st.GetMedia(ready.ID)
+	if err != nil || legacy == nil || legacy.Status != "deleted" || legacy.PathWAV != "" {
+		t.Fatalf("cleaned legacy tombstone=%+v err=%v", legacy, err)
+	}
+	if cleanups, err = st.PendingLegacyMediaCleanups(10); err != nil || len(cleanups) != 0 {
+		t.Fatalf("completed legacy cleanup=%+v err=%v", cleanups, err)
+	}
+}
+
+func TestTelegramCompatibilityMirrorsGenericFailure(t *testing.T) {
+	st, orbit := newFeatureOffTelegramMediaStore(t)
+	now := time.Now().UnixMilli()
+	created, err := st.CreateTelegramMedia(CreateTelegramMediaParams{
+		OwnerOrbitID: orbit.ID, TelegramUserID: 7001,
+		TelegramFileID: "tg-failed", CreatedAt: now,
+		ExpiresAt: now + int64((30*24*time.Hour)/time.Millisecond),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.MarkMediaItemFailed(
+		created.Media.ID, created.Media.Revision, "media_signature_unsupported", now+1,
+	); err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := st.GetMedia(created.Legacy.ID)
+	if err != nil || legacy == nil || legacy.Status != "failed" {
+		t.Fatalf("failed legacy projection=%+v err=%v", legacy, err)
+	}
+}
+
+func TestTelegramLegacyLinkReconcileUpgradesPrecedingRolloutRows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "telegram-link-rollforward.db")
+	st, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orbit, err := st.BootstrapLegacyOrbit(
+		map[string]string{"a": strings.Repeat("a", 64)},
+		map[int64]string{7001: "a"},
+	)
+	if err != nil || orbit == nil {
+		t.Fatalf("bootstrap legacy orbit=%+v err=%v", orbit, err)
+	}
+	now := time.Now().UnixMilli()
+	created, err := st.CreateTelegramMedia(CreateTelegramMediaParams{
+		OwnerOrbitID: orbit.ID, TelegramUserID: 7001,
+		TelegramFileID: "tg-preceding-rollout", CreatedAt: now,
+		ExpiresAt: now + int64((30*24*time.Hour)/time.Millisecond),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.MarkMediaItemFailed(
+		created.Media.ID, created.Media.Revision, "media_signature_unsupported", now+1,
+	); err != nil {
+		t.Fatal(err)
+	}
+	// Recreate the exact predecessor shape: both same-ID rows exist, but the
+	// explicit link does not and a legacy writer may have left a stale status.
+	if _, err := st.db.Exec(`DELETE FROM media_legacy_wav_links WHERE media_id = ?`, created.Media.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.db.Exec(`UPDATE media SET status = 'ready' WHERE id = ?`, created.Legacy.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	st, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	linked, err := st.MediaItemForLegacyWAV(created.Legacy.ID)
+	if err != nil || linked == nil || linked.ID != created.Media.ID || linked.Status != MediaStatusFailed {
+		t.Fatalf("reconciled generic link=%+v err=%v", linked, err)
+	}
+	legacy, err := st.GetMedia(created.Legacy.ID)
+	if err != nil || legacy == nil || legacy.Status != "failed" {
+		t.Fatalf("reconciled legacy status=%+v err=%v", legacy, err)
 	}
 }
 
@@ -651,6 +796,9 @@ func TestMediaIngestConcurrentIdempotencyCreatesOneUpload(t *testing.T) {
 func TestMediaIngestSchemaInstallIsAtomic(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "media-schema-atomic.db")
 	store := openMigrationStore(t, path)
+	if _, err := store.db.Exec(schema); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := store.db.Exec(orbitSchema); err != nil {
 		t.Fatal(err)
 	}

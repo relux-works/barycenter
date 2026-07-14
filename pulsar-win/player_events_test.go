@@ -317,6 +317,43 @@ func TestPlayVoiceDownloadFailureSendsError(t *testing.T) {
 	}
 }
 
+func TestStopDuringVoiceDownloadCannotResurrectCancelledInsert(t *testing.T) {
+	wav := makeWAV16(2, 44100, make([]int16, 100))
+	started := make(chan struct{})
+	release := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-release
+		w.Write(wav)
+	}))
+	defer ts.Close()
+
+	daemon := newFakeDaemon()
+	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
+	cache, err := NewVoiceCache(t.TempDir(), "tok", 0, testLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.cache = cache
+	p.Handle(protocol.Envelope{Type: protocol.TypePlayVoice},
+		&protocol.PlayVoicePayload{ElementID: "el_cancelled", FileURL: ts.URL + "/media/m_cancelled.wav"})
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("voice download did not start")
+	}
+	p.Handle(protocol.Envelope{Type: protocol.TypeStop}, &protocol.StopPayload{})
+	close(release)
+
+	expectNothing(t, sent, 150*time.Millisecond)
+	if p.engine.VoiceActive() {
+		t.Fatal("completed stale download resurrected a cancelled voice insert")
+	}
+	if st := p.StatePayload(0); st.Playback != "stopped" {
+		t.Fatalf("state after cancelled download %+v", st)
+	}
+}
+
 func TestWaitSendsWaitEnded(t *testing.T) {
 	daemon := newFakeDaemon()
 	p, sent, _ := newTestPlayer(t, daemon, fixedClock{ok: true})
@@ -342,8 +379,12 @@ func TestWaitCancelledByStop(t *testing.T) {
 
 	p.Handle(protocol.Envelope{Type: protocol.TypeWait},
 		&protocol.WaitPayload{ElementID: "el_w", DurationMS: 60})
+	expectCall(t, daemon, "pause")
 	p.Handle(protocol.Envelope{Type: protocol.TypeStop}, &protocol.StopPayload{})
-	expectCall(t, daemon, "stop")
+	// Wait already paused the underlying music. Do not launch an asynchronous
+	// daemon stop here: it could arrive after the scheduler's immediately
+	// following load and stop the new element instead.
+	neverCall(t, daemon, "stop", 100*time.Millisecond)
 
 	expectNothing(t, sent, 120*time.Millisecond) // no wait_ended after stop
 }

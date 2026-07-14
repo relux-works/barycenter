@@ -60,6 +60,10 @@ public final class PlayerCore {
     private var metadataPosition: Int64?
     private var metadataTitle: String?
     private var loadTask: Task<Void, Never>?
+    private var voiceTask: Task<Void, Never>?
+    // Insertion pauses are chained and retained as a daemon-command barrier.
+    // A following load awaits the tail so an old pause cannot overtake it.
+    private var insertPauseTask: Task<Void, Never>?
     private var loadGeneration: UInt64 = 0
     private var pauseWorkItem: DispatchWorkItem?
     private var resumeTimer: DispatchSourceTimer?
@@ -189,9 +193,12 @@ public final class PlayerCore {
         setAnchor(p.positionMs, extrapolating: false)
 
         let generation = loadGeneration
+        let insertPauseBarrier = insertPauseTask
         loadTask = Task { [weak self] in
             guard let self else { return }
             do {
+                if let insertPauseBarrier { await insertPauseBarrier.value }
+                try Task.checkCancellation()
                 // The daemon needs seconds after (re)start to authenticate;
                 // a load racing that window must wait, not fail as
                 // "track unavailable" (R0 finding, prod 2026-07-05).
@@ -359,29 +366,43 @@ public final class PlayerCore {
         engine.expectingMusic = false
         engine.clearRing()
         engine.setMusicGain(0, fadeMs: 0)
-        Task { try? await self.librespot.pause() }
-        Task {
+        let pauseBarrier = enqueueInsertPause()
+        voiceTask = Task { [weak self] in
+            guard let self else { return }
             do {
                 let file = try await self.cache.fetch(fileURL: p.fileUrl)
+                await pauseBarrier.value
+                try Task.checkCancellation()
                 var when: AVAudioTime?
                 if let tCoord = p.tCoordMs, let clock = self.coordinator?.clock,
                    let tLocal = clock.localDeadline(forCoordinatorMs: tCoord,
                                                     outputLatencyOffsetMs: self.outputLatencyOffsetMs) {
                     when = AVAudioTime(hostTime: HostClock.hostTime(forUnixMs: tLocal))
                 }
-                self.coordinator?.sendMessage(.voiceStarted(VoiceStartedPayload(elementId: p.elementId)))
-                try self.engine.playInsert(fileURL: file, at: when) {
-                    self.queue.async {
-                        guard self.currentElementID == p.elementId,
-                              self.playback == .voice else { return }
-                        self.playback = .stopped
-                        self.coordinator?.sendMessage(.voiceEnded(VoiceEndedPayload(elementId: p.elementId)))
-                    }
-                }
-            } catch {
                 self.queue.async {
                     guard self.currentElementID == p.elementId,
                           self.playback == .voice else { return }
+                    self.voiceTask = nil
+                    do {
+                        try self.engine.playInsert(fileURL: file, at: when) {
+                            self.queue.async {
+                                guard self.currentElementID == p.elementId,
+                                      self.playback == .voice else { return }
+                                self.playback = .stopped
+                                self.coordinator?.sendMessage(.voiceEnded(VoiceEndedPayload(elementId: p.elementId)))
+                            }
+                        }
+                        self.coordinator?.sendMessage(.voiceStarted(VoiceStartedPayload(elementId: p.elementId)))
+                    } catch {
+                        self.sendError(code: "media_download_failed", message: "\(error)", elementId: p.elementId)
+                    }
+                }
+            } catch {
+                if Task.isCancelled { return }
+                self.queue.async {
+                    guard self.currentElementID == p.elementId,
+                          self.playback == .voice else { return }
+                    self.voiceTask = nil
                     self.sendError(code: "media_download_failed", message: "\(error)", elementId: p.elementId)
                 }
             }
@@ -396,7 +417,7 @@ public final class PlayerCore {
         engine.expectingMusic = false
         engine.clearRing()
         engine.setMusicGain(0, fadeMs: 0)
-        Task { try? await self.librespot.pause() }
+        _ = enqueueInsertPause()
         let t = DispatchSource.makeTimerSource(queue: queue)
         t.schedule(deadline: .now() + .milliseconds(Int(p.durationMs)))
         t.setEventHandler { [weak self] in
@@ -421,6 +442,7 @@ public final class PlayerCore {
     }
 
     private func stopAll() {
+        let wasInsert = playback == .voice || playback == .wait
         cancelTimers()
         pausedLocally = false
         engine.stopInsert()
@@ -429,6 +451,14 @@ public final class PlayerCore {
         currentURI = nil
         playback = .stopped
         engine.expectingMusic = false
+        if wasInsert {
+            // Voice/wait already silenced the music branch. Reset
+            // synchronously so an immediately following load cannot be
+            // erased by the ordinary delayed music-stop tail cleanup.
+            engine.clearRing()
+            engine.setMusicGain(1, fadeMs: 0)
+            return
+        }
         // Mode switches yank someone's music away (spec 4.3) — land it softly:
         // raised-cosine fade out, then stop the daemon and drop the tail.
         engine.setMusicGain(0, fadeMs: 250)
@@ -437,6 +467,18 @@ public final class PlayerCore {
             self.engine.setMusicGain(1, fadeMs: 0) // ready for the next element
         }
         Task { try? await self.librespot.stop() }
+    }
+
+    @discardableResult
+    private func enqueueInsertPause() -> Task<Void, Never> {
+        let previous = insertPauseTask
+        let task = Task { [weak self] in
+            if let previous { await previous.value }
+            guard let self else { return }
+            try? await self.librespot.pause()
+        }
+        insertPauseTask = task
+        return task
     }
 
     private func setOffset(_ p: SetOffsetPayload) {
@@ -641,6 +683,8 @@ public final class PlayerCore {
         loadGeneration &+= 1
         loadTask?.cancel()
         loadTask = nil
+        voiceTask?.cancel()
+        voiceTask = nil
         pauseWorkItem?.cancel()
         pauseWorkItem = nil
         resumeTimer?.cancel()

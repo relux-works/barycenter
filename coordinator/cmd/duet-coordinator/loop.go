@@ -94,6 +94,7 @@ type loop struct {
 
 	timeouts    chan orbitTimeout
 	mediaCh     chan mediaDone
+	mediaCancel chan mediaCancellationCall
 	playlistCh  chan playlistDone
 	resolveCh   chan resolveDone
 	trackMetaCh chan trackMetadataDone
@@ -102,6 +103,7 @@ type loop struct {
 	voiceAccepted map[int64]int64
 	voiceNext     map[int64]int64
 	voicePending  map[int64]map[int64]mediaDone
+	stopped       chan struct{}
 }
 
 type orbitTimeout struct {
@@ -150,6 +152,11 @@ type mediaDone struct {
 	reply      func(string)
 }
 
+type mediaCancellationCall struct {
+	request store.MediaDeliveryCancellation
+	result  chan error
+}
+
 func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store, b *bot.Bot, sp *spotify.Client) *loop {
 	l := &loop{
 		log:           log,
@@ -163,12 +170,14 @@ func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store
 		groups:        map[int64]*orbitState{},
 		timeouts:      make(chan orbitTimeout, 8),
 		mediaCh:       make(chan mediaDone, 8),
+		mediaCancel:   make(chan mediaCancellationCall, 8),
 		playlistCh:    make(chan playlistDone, 4),
 		resolveCh:     make(chan resolveDone, 8),
 		trackMetaCh:   make(chan trackMetadataDone, 8),
 		voiceAccepted: map[int64]int64{},
 		voiceNext:     map[int64]int64{},
 		voicePending:  map[int64]map[int64]mediaDone{},
+		stopped:       make(chan struct{}),
 	}
 	if sp != nil {
 		l.fetchTrackMetadata = func(ref string) (trackMetadata, error) {
@@ -418,6 +427,7 @@ func (l *loop) warmup() {
 }
 
 func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
+	defer close(l.stopped)
 	var botEvents chan bot.Event
 	if l.bot != nil {
 		botEvents = l.bot.Events
@@ -437,6 +447,8 @@ func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 			l.handleBot(ev)
 		case done := <-l.mediaCh:
 			l.handleMediaDone(done)
+		case call := <-l.mediaCancel:
+			call.result <- l.applyMediaCancellation(call.request)
 		case d := <-l.playlistCh:
 			l.handlePlaylistDone(d)
 		case d := <-l.resolveCh:
@@ -445,6 +457,57 @@ func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 			l.handleTrackMetadataDone(d)
 		}
 	}
+}
+
+// CancelMedia adapts the frozen generic lifecycle outbox to the current
+// single-threaded legacy session runtime. The later transmission scheduler can
+// replace this sink without changing delete or retention persistence.
+func (l *loop) CancelMedia(ctx context.Context, request store.MediaDeliveryCancellation) error {
+	if ctx == nil {
+		return errors.New("nil media cancellation context")
+	}
+	if request.MediaID == "" || request.PolicyVersion != store.MediaLifecyclePolicyV1 ||
+		request.NotStartedAction != store.MediaNotStartedActionCancel ||
+		request.ActiveAction != store.MediaActiveActionFadeStop ||
+		request.InterruptedMainAction != store.MediaInterruptedMainActionResumeOnce {
+		return errors.New("unsupported media cancellation policy")
+	}
+	call := mediaCancellationCall{request: request, result: make(chan error, 1)}
+	select {
+	case l.mediaCancel <- call:
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-l.stopped:
+		return errors.New("media cancellation runtime stopped")
+	}
+	select {
+	case err := <-call.result:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-l.stopped:
+		return errors.New("media cancellation runtime stopped")
+	}
+}
+
+func (l *loop) applyMediaCancellation(request store.MediaDeliveryCancellation) error {
+	var persistErr error
+	for _, state := range l.states {
+		l.apply(state, state.sess.CancelMedia(request.MediaID))
+		if err := l.saveSession(state); err != nil {
+			persistErr = errors.Join(persistErr, err)
+		}
+	}
+	for _, state := range l.groups {
+		l.apply(state, state.sess.CancelMedia(request.MediaID))
+		if err := l.saveSession(state); err != nil {
+			persistErr = errors.Join(persistErr, err)
+		}
+	}
+	if persistErr != nil {
+		return fmt.Errorf("persist media cancellation: %w", persistErr)
+	}
+	return nil
 }
 
 func (l *loop) enrichSpotifyTrack(
@@ -722,7 +785,13 @@ func (l *loop) dissolveOrbit(home *orbitState) {
 }
 
 func (l *loop) persist(o *orbitState) {
-	err := l.st.SaveSession(o.id, store.SessionSnapshot{
+	if err := l.saveSession(o); err != nil {
+		l.log.Error("persist failed", "orbit", o.id, "err", err)
+	}
+}
+
+func (l *loop) saveSession(o *orbitState) error {
+	return l.st.SaveSession(o.id, store.SessionSnapshot{
 		Mode:            o.sess.Mode,
 		State:           o.sess.State,
 		Current:         o.sess.Current,
@@ -730,9 +799,6 @@ func (l *loop) persist(o *orbitState) {
 		Queue:           o.sess.Queue,
 		Playlist:        o.sess.Playlist,
 	})
-	if err != nil {
-		l.log.Error("persist failed", "orbit", o.id, "err", err)
-	}
 }
 
 // --- Node events ---

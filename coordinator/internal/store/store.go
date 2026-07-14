@@ -240,10 +240,65 @@ func (s *Store) InsertMedia(m MediaRecord) error {
 }
 
 func (s *Store) UpdateMedia(m MediaRecord) error {
-	_, err := s.db.Exec(
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var genericStatus MediaItemStatus
+	err = tx.QueryRow(`SELECT i.status
+FROM media_legacy_wav_links l
+JOIN media_items i ON i.id = l.media_id
+WHERE l.legacy_media_id = ?`, m.ID).Scan(&genericStatus)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	linked := err == nil
+	if linked {
+		allowed := false
+		legacyStates := ""
+		switch m.Status {
+		case "processing":
+			allowed = genericStatus == MediaStatusProcessing
+			legacyStates = "'processing'"
+		case "ready":
+			allowed = genericStatus == MediaStatusReady
+			legacyStates = "'processing', 'ready'"
+		case "failed":
+			allowed = genericStatus == MediaStatusFailed
+			legacyStates = "'processing', 'failed'"
+		case "deleted":
+			allowed = genericStatus == MediaStatusDeleted || genericStatus == MediaStatusExpired
+			legacyStates = "'processing', 'ready', 'failed', 'deleted', 'expired'"
+		case "expired":
+			allowed = genericStatus == MediaStatusExpired
+			legacyStates = "'processing', 'ready', 'failed', 'expired'"
+		}
+		if !allowed {
+			return ErrMediaStateConflict
+		}
+		result, err := tx.Exec(
+			`UPDATE media SET duration_ms = ?, path_wav = ?, loudnorm_json = ?, status = ?
+WHERE id = ? AND status IN (`+legacyStates+`)`,
+			m.DurationMS, m.PathWAV, m.LoudnormJSON, m.Status, m.ID,
+		)
+		if err != nil {
+			return err
+		}
+		if changed, err := result.RowsAffected(); err != nil || changed != 1 {
+			if err != nil {
+				return err
+			}
+			return ErrMediaStateConflict
+		}
+	} else if _, err := tx.Exec(
 		`UPDATE media SET duration_ms = ?, path_wav = ?, loudnorm_json = ?, status = ? WHERE id = ?`,
-		m.DurationMS, m.PathWAV, m.LoudnormJSON, m.Status, m.ID)
-	return err
+		m.DurationMS, m.PathWAV, m.LoudnormJSON, m.Status, m.ID,
+	); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) GetMedia(id string) (*MediaRecord, error) {
@@ -272,6 +327,16 @@ func (s *Store) GetMediaForOrbit(id string, orbitID int64) (*MediaRecord, error)
 	if err != nil || m == nil {
 		return nil, err
 	}
+	// Once a legacy WAV is linked into the generic ingest model, that model is
+	// the revocation authority. This defensive read-side join keeps an old or
+	// racing compatibility write from serving a failed/deleted/expired item.
+	linked, err := s.MediaItemForLegacyWAV(id)
+	if err != nil {
+		return nil, err
+	}
+	if linked != nil && linked.Status != MediaStatusReady {
+		return nil, nil
+	}
 	if m.OrbitID != orbitID {
 		if _, other, ok, err := s.ActiveLink(orbitID); err != nil || !ok || other != m.OrbitID {
 			return nil, err // not yours and not linked: indistinguishable from missing
@@ -282,7 +347,17 @@ func (s *Store) GetMediaForOrbit(id string, orbitID int64) (*MediaRecord, error)
 
 // ExpiredMedia lists media past expires_at for the daily retention sweep.
 func (s *Store) ExpiredMedia(now int64) ([]MediaRecord, error) {
-	rows, err := s.db.Query(`SELECT id, path_wav FROM media WHERE expires_at < ? AND status != 'deleted'`, now)
+	// Linked rows are owned by the generic lifecycle worker, which validates
+	// storage roots, fsyncs the unlink and acknowledges a durable receipt. The
+	// legacy daily sweeper remains only for rows that predate generic ingest;
+	// allowing both workers to touch a linked path would bypass those safety
+	// and retry guarantees.
+	rows, err := s.db.Query(`SELECT id, path_wav
+FROM media
+WHERE expires_at < ? AND status != 'deleted'
+  AND NOT EXISTS (
+    SELECT 1 FROM media_legacy_wav_links l WHERE l.legacy_media_id = media.id
+  )`, now)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -11,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"relux.works/duet/coordinator/internal/hub"
+	"relux.works/duet/coordinator/internal/media"
+	"relux.works/duet/coordinator/internal/session"
 	"relux.works/duet/coordinator/internal/store"
 )
 
@@ -93,6 +97,30 @@ func TestLegacyRetentionRetriesBeforeCommittingDeletedState(t *testing.T) {
 	legacy, err = st.GetMedia(mediaID)
 	if err != nil || legacy == nil || legacy.Status != "deleted" {
 		t.Fatalf("cleanup retry media=%+v err=%v", legacy, err)
+	}
+}
+
+func TestMediaLifecycleHealthIsVisibleWithoutSelfServiceRoutes(t *testing.T) {
+	mediaDir := t.TempDir()
+	st, err := store.Open(filepath.Join(t.TempDir(), "standalone-health.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	lifecycle, err := media.NewLifecycleService(st, mediaDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := map[string]any{"status": "ok"}
+	addMediaLifecycleHealth(body, lifecycle, nil)
+	metrics, ok := body["media_lifecycle"].(media.MediaLifecycleMetrics)
+	if !ok || !metrics.Healthy || body["status"] != "ok" {
+		t.Fatalf("standalone lifecycle health=%+v", body)
+	}
+	unavailable := map[string]any{"status": "ok"}
+	addMediaLifecycleHealth(unavailable, nil, errors.New("injected init failure"))
+	if unavailable["status"] != "degraded" {
+		t.Fatalf("unavailable lifecycle health=%+v", unavailable)
 	}
 }
 
@@ -199,6 +227,107 @@ func TestMediaDeleteHTTPIsImmediateIdempotentAndNonDisclosing(t *testing.T) {
 		if strings.Contains(harness.logs.String(), secret) {
 			t.Fatalf("delete logs contain request identity")
 		}
+	}
+}
+
+func TestMediaLifecycleHTTPIntegratesSnapshotACLQueueCancellationAndCleanup(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	owner, err := harness.store.CreateSelfServiceOrbit("Integrated media owner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := harness.store.CreateSelfServiceOrbit("Integrated media target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := harness.store.CreateSelfServiceOrbit("Integrated media foreign")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	payload := []byte("integrated-private-canonical-wav")
+	ready := readyDownloadHTTPMedia(
+		t, harness, owner, now,
+		now+int64((7*24*time.Hour)/time.Millisecond), payload,
+	)
+	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	harness.api.mediaDownload.SetTargetSnapshotReader(&httpTargetSnapshotReader{
+		grants: map[store.MediaTargetIdentity]bool{{
+			MediaID: ready.ID, OrbitID: targetContext.OrbitID,
+			ActorID: targetContext.ActorID, Slot: targetContext.Slot,
+		}: true},
+	})
+
+	fake := &fakeSender{}
+	l := newLoop(harness.api.log, harness.api.config, fake, harness.store, nil, nil)
+	l.warmup()
+	state := l.orbit(owner.OrbitID)
+	state.sess.Queue = []session.Element{{
+		ID: "integrated-queued-voice", Kind: session.KindVoice,
+		MediaID: ready.ID, Target: "both", DurationMS: ready.DurationMS,
+	}}
+	stop := make(chan struct{})
+	go l.run(stop, make(chan hub.Event))
+	t.Cleanup(func() {
+		close(stop)
+		<-l.stopped
+	})
+	harness.api.mediaLifecycle.SetDeliveryCancellationSink(l)
+
+	if response := apiRequest(
+		harness.mux, http.MethodGet, "/v1/media/"+ready.ID, "", target.NodeToken,
+	); response.Code != http.StatusOK || response.Body.String() != string(payload) {
+		t.Fatalf("snapshotted target GET status=%d body=%q", response.Code, response.Body.String())
+	}
+	unknown := apiRequest(
+		harness.mux, http.MethodGet, "/v1/media/m_00000000000000000000000000", "", foreign.NodeToken,
+	)
+	foreignRead := apiRequest(
+		harness.mux, http.MethodGet, "/v1/media/"+ready.ID, "", foreign.NodeToken,
+	)
+	if unknown.Code != http.StatusNotFound || foreignRead.Code != http.StatusNotFound ||
+		unknown.Body.String() != foreignRead.Body.String() {
+		t.Fatalf("integrated non-disclosure unknown=(%d,%q) foreign=(%d,%q)",
+			unknown.Code, unknown.Body.String(), foreignRead.Code, foreignRead.Body.String())
+	}
+	canonicalPath, ok := media.CanonicalPath(
+		filepath.Join(harness.api.config.MediaDir, "canonical"), ready.StorageKey,
+	)
+	if !ok {
+		t.Fatal("invalid integrated canonical path")
+	}
+	if response := deleteMediaRequest(harness.mux, ready.ID, owner.ControlToken); response.Code != http.StatusNoContent {
+		t.Fatalf("integrated DELETE status=%d body=%q", response.Code, response.Body.String())
+	}
+	if response := apiRequest(
+		harness.mux, http.MethodGet, "/v1/media/"+ready.ID, "", target.NodeToken,
+	); response.Code != http.StatusNotFound || response.Body.String() != unknown.Body.String() {
+		t.Fatalf("post-delete GET status=%d body=%q", response.Code, response.Body.String())
+	}
+	if _, err := os.Stat(canonicalPath); err != nil {
+		t.Fatalf("DELETE blocked on physical cleanup: %v", err)
+	}
+	if len(state.sess.Queue) != 1 {
+		t.Fatalf("delivery cancelled before durable outbox sweep: queue=%+v", state.sess.Queue)
+	}
+	if err := harness.api.mediaLifecycle.Sweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(canonicalPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("canonical bytes survived integrated sweep: %v", err)
+	}
+	if len(state.sess.Queue) != 0 {
+		t.Fatalf("queued delivery survived integrated cancellation: %+v", state.sess.Queue)
+	}
+	snapshot, err := harness.store.LoadSession(owner.OrbitID)
+	if err != nil || snapshot == nil || len(snapshot.Queue) != 0 {
+		t.Fatalf("durable cancelled session=%+v err=%v", snapshot, err)
+	}
+	if pending, err := harness.store.PendingMediaDeliveryCancellations(10); err != nil || len(pending) != 0 {
+		t.Fatalf("integrated cancellation receipt=%+v err=%v", pending, err)
 	}
 }
 

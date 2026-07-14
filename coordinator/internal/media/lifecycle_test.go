@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -184,6 +185,114 @@ func TestLifecycleExpiresReadyClipAtSevenDayBoundary(t *testing.T) {
 	}
 }
 
+func TestLifecycleDeleteRevokesAndCleansLinkedTelegramCompatibilityBytes(t *testing.T) {
+	harness := newTelegramAdapterHarness(t, testWAVBytes(100))
+	accepted := harness.accept(t)
+	result, err := harness.adapter.Submit(context.Background(), accepted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ready, err := harness.store.GetMediaItem(accepted.MediaID)
+	if err != nil || ready == nil || ready.Status != store.MediaStatusReady {
+		t.Fatalf("ready Telegram media=%+v err=%v", ready, err)
+	}
+	if err := harness.store.UpdateMedia(store.MediaRecord{
+		ID: ready.ID, DurationMS: result.DurationMS, PathWAV: result.WAVPath,
+		LoudnormJSON: result.LoudnormJSON, Status: "ready",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := harness.store.DeleteMediaItem(
+		ready.ID, ready.Revision, harness.now().UnixMilli(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := harness.store.GetMedia(ready.ID)
+	if err != nil || legacy == nil || legacy.Status != "deleted" || legacy.PathWAV == "" {
+		t.Fatalf("immediately revoked legacy=%+v err=%v", legacy, err)
+	}
+	if _, err := os.Stat(result.WAVPath); err != nil {
+		t.Fatalf("DELETE removed compatibility bytes synchronously: %v", err)
+	}
+
+	lifecycle, err := NewLifecycleService(harness.store, harness.mediaDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lifecycle.now = harness.now
+	if err := lifecycle.Sweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(result.WAVPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("compatibility WAV survived lifecycle sweep: %v", err)
+	}
+	legacy, err = harness.store.GetMedia(ready.ID)
+	if err != nil || legacy == nil || legacy.Status != string(deleted.Status) || legacy.PathWAV != "" {
+		t.Fatalf("legacy tombstone=%+v err=%v", legacy, err)
+	}
+	if pending, err := harness.store.PendingLegacyMediaCleanups(10); err != nil || len(pending) != 0 {
+		t.Fatalf("legacy cleanup receipt pending=%+v err=%v", pending, err)
+	}
+	metrics := lifecycle.Metrics()
+	if metrics.LegacyCleanupsTotal != 1 || metrics.LegacyCleanupFailures != 0 ||
+		metrics.PendingLegacyCleanup != 0 {
+		t.Fatalf("legacy cleanup metrics=%+v", metrics)
+	}
+}
+
+func TestLifecycleTelegramSourceCleanupRetriesAfterUnlinkCrash(t *testing.T) {
+	harness := newTelegramAdapterHarness(t, []byte("private failed Telegram source"))
+	harness.downloader.err = errors.New("injected bounded download failure")
+	accepted := harness.accept(t)
+	if _, err := harness.adapter.Submit(context.Background(), accepted); err == nil {
+		t.Fatal("Telegram failure unexpectedly succeeded")
+	}
+	failed, err := harness.store.GetMediaItem(accepted.MediaID)
+	if err != nil || failed == nil || failed.Status != store.MediaStatusFailed {
+		t.Fatalf("failed Telegram media=%+v err=%v", failed, err)
+	}
+	sourcePath := harness.downloader.paths[0]
+	if _, err := os.Stat(sourcePath); err != nil {
+		t.Fatalf("failed Telegram source was not retained: %v", err)
+	}
+	deleted, err := harness.store.DeleteMediaItem(
+		failed.ID, failed.Revision, harness.now().UnixMilli(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lifecycle, err := NewLifecycleService(harness.store, harness.mediaDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lifecycle.now = harness.now
+	injected := errors.New("process stopped after legacy unlink")
+	lifecycle.testAfterLegacyRemove = func() error { return injected }
+	if err := lifecycle.Sweep(context.Background()); err == nil {
+		t.Fatal("interrupted legacy cleanup was hidden")
+	}
+	if _, err := os.Stat(sourcePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Telegram source survived interrupted unlink: %v", err)
+	}
+	if pending, err := harness.store.PendingLegacyMediaCleanups(10); err != nil ||
+		len(pending) != 1 || pending[0].MediaRevision != deleted.Revision {
+		t.Fatalf("legacy receipt after crash=%+v err=%v", pending, err)
+	}
+	lifecycle.testAfterLegacyRemove = nil
+	if err := lifecycle.Sweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if pending, err := harness.store.PendingLegacyMediaCleanups(10); err != nil || len(pending) != 0 {
+		t.Fatalf("legacy cleanup retry did not converge=%+v err=%v", pending, err)
+	}
+	metrics := lifecycle.Metrics()
+	if metrics.LegacyCleanupFailures != 1 || metrics.LegacyCleanupsTotal != 1 ||
+		metrics.PendingLegacyCleanup != 0 || !metrics.Healthy {
+		t.Fatalf("legacy retry metrics=%+v", metrics)
+	}
+}
+
 func TestLifecycleCleanupRefusesSymlinkAndLeavesTargetUntouched(t *testing.T) {
 	harness := newSubmitHarness(t)
 	ready := readyLifecycleFixture(t, harness, "lifecycle-symlink-refusal-0001")
@@ -221,6 +330,74 @@ func TestLifecycleCleanupRefusesSymlinkAndLeavesTargetUntouched(t *testing.T) {
 	metrics := lifecycle.Metrics()
 	if metrics.Healthy || metrics.StorageFailuresTotal != 1 || metrics.PendingStorageCleanup != 1 {
 		t.Fatalf("symlink refusal metrics=%+v", metrics)
+	}
+}
+
+func TestLifecycleCleanupRefusesRedirectedCanonicalDirectory(t *testing.T) {
+	harness := newSubmitHarness(t)
+	ready := readyLifecycleFixture(t, harness, "lifecycle-directory-symlink-refusal-0001")
+	canonicalPath, _ := CanonicalPath(harness.service.canonicalDir, ready.StorageKey)
+	lifecycle, err := NewLifecycleService(harness.store, harness.mediaDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lifecycle.now = func() time.Time { return time.UnixMilli(harness.nextMS()) }
+	if _, err := harness.store.DeleteAuthorizedMedia(
+		harness.credentials.ActorID, harness.credentials.ControlToken,
+		ready.ID, harness.nextMS(),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(canonicalPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(lifecycle.canonicalDir); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	outsidePath := filepath.Join(outside, filepath.Base(canonicalPath))
+	if err := os.WriteFile(outsidePath, []byte("outside-sentinel"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, lifecycle.canonicalDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := lifecycle.Sweep(context.Background()); err == nil {
+		t.Fatal("redirected canonical directory was accepted")
+	}
+	if bytes, err := os.ReadFile(outsidePath); err != nil || string(bytes) != "outside-sentinel" {
+		t.Fatalf("redirected cleanup changed outside bytes=%q err=%v", bytes, err)
+	}
+	if pending, err := harness.store.PendingMediaStorageOperations(
+		store.StorageOperationCleanup, 10,
+	); err != nil || len(pending) != 1 {
+		t.Fatalf("redirected cleanup receipt=%+v err=%v", pending, err)
+	}
+}
+
+func TestManagedLegacyPathRefusesSiblingMediaStorage(t *testing.T) {
+	mediaDir := t.TempDir()
+	canonicalDir := filepath.Join(mediaDir, "canonical")
+	uploadDir := filepath.Join(mediaDir, ".uploads")
+	if err := os.MkdirAll(canonicalDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(uploadDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	canonicalReal, err := filepath.EvalSymlinks(canonicalDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(uploadDir, "unrelated.part")
+	if err := os.WriteFile(path, []byte("unrelated upload"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := managedLegacyPath(path, canonicalDir, canonicalReal); err == nil {
+		t.Fatal("legacy WAV cleanup accepted a sibling private storage path")
+	}
+	if bytes, err := os.ReadFile(path); err != nil || string(bytes) != "unrelated upload" {
+		t.Fatalf("refused sibling storage changed bytes=%q err=%v", bytes, err)
 	}
 }
 

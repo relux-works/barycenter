@@ -243,6 +243,9 @@ func main() {
 			"odesli_key_set", os.Getenv("DUET_ODESLI_KEY") != "")
 	}
 	l.warmup()
+	if mediaLifecycle != nil && mediaLifecycleInitErr == nil {
+		mediaLifecycle.SetDeliveryCancellationSink(l)
+	}
 	go l.run(stop, h.Events)
 
 	go retentionSweep(log, st, cfg.MediaDir, stop)
@@ -263,24 +266,11 @@ func main() {
 			body["status"] = "degraded"
 			body["media_processing"] = map[string]string{"status": "unavailable"}
 		}
-		if mediaLifecycleInitErr != nil {
-			body["status"] = "degraded"
-			body["media_lifecycle"] = map[string]string{"status": "unavailable"}
-		}
+		addMediaLifecycleHealth(body, mediaLifecycle, mediaLifecycleInitErr)
 		if onboarding != nil {
 			if onboarding.mediaSubmitter == nil || onboarding.mediaSubmitterInitErr != nil {
 				body["status"] = "degraded"
 				body["media_processing"] = map[string]string{"status": "unavailable"}
-			}
-			if onboarding.mediaLifecycle == nil || onboarding.mediaLifecycleInitErr != nil {
-				body["status"] = "degraded"
-				body["media_lifecycle"] = map[string]string{"status": "unavailable"}
-			} else {
-				metrics := onboarding.mediaLifecycle.Metrics()
-				body["media_lifecycle"] = metrics
-				if !metrics.Healthy {
-					body["status"] = "degraded"
-				}
 			}
 		}
 		json.NewEncoder(w).Encode(body)
@@ -309,6 +299,23 @@ func main() {
 	if err := http.ListenAndServe(cfg.Listen, mux); err != nil {
 		log.Error("http server", "err", err)
 		os.Exit(1)
+	}
+}
+
+func addMediaLifecycleHealth(
+	body map[string]any,
+	lifecycle *media.LifecycleService,
+	initErr error,
+) {
+	if initErr != nil || lifecycle == nil {
+		body["status"] = "degraded"
+		body["media_lifecycle"] = map[string]string{"status": "unavailable"}
+		return
+	}
+	metrics := lifecycle.Metrics()
+	body["media_lifecycle"] = metrics
+	if !metrics.Healthy {
+		body["status"] = "degraded"
 	}
 }
 

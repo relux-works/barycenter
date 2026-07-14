@@ -44,9 +44,10 @@ transmission target rows. It must not derive a grant from:
 
 The reader is intentionally unset in production until transmission persistence
 lands. That state is fail-closed for node downloads; owning control reads remain
-available. `TASK-260712-1aprcb` connects the reader to immutable target rows,
-and `TASK-260712-gj0cko` exercises the integrated download, delete and scheduler
-revocation path. Neither task may introduce a live-membership fallback.
+available. `TASK-260712-gj0cko` exercises the complete reader-to-delete-to-
+cancellation path with an immutable snapshot implementation, and
+`TASK-260712-1aprcb` later connects that interface to accepted persisted target
+rows. Neither task may introduce a live-membership fallback.
 
 Target-reader errors are reflected only as a generic internal failure and are
 logged without media, actor, slot, token or local-path fields. Implementations

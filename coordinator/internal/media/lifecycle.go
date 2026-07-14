@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -36,6 +37,8 @@ type MediaLifecycleMetrics struct {
 	StorageBytesTotal     uint64 `json:"storage_bytes_total"`
 	StorageFailuresTotal  uint64 `json:"storage_failures_total"`
 	StorageRefusalsTotal  uint64 `json:"storage_refusals_total"`
+	LegacyCleanupsTotal   uint64 `json:"legacy_cleanups_total"`
+	LegacyCleanupFailures uint64 `json:"legacy_cleanup_failures_total"`
 	CancellationsTotal    uint64 `json:"cancellations_total"`
 	CancellationFailures  uint64 `json:"cancellation_failures_total"`
 	AuditEventsPruned     uint64 `json:"audit_events_pruned_total"`
@@ -43,6 +46,7 @@ type MediaLifecycleMetrics struct {
 	PendingStorageCleanup int64  `json:"pending_storage_cleanup"`
 	PendingCancellation   int64  `json:"pending_cancellation"`
 	PendingTempCleanup    int64  `json:"pending_temp_cleanup"`
+	PendingLegacyCleanup  int64  `json:"pending_legacy_cleanup"`
 }
 
 type lifecycleCounters struct {
@@ -56,6 +60,8 @@ type lifecycleCounters struct {
 	storageBytes          atomic.Uint64
 	storageFailures       atomic.Uint64
 	storageRefusals       atomic.Uint64
+	legacyCleanups        atomic.Uint64
+	legacyCleanupFailures atomic.Uint64
 	cancellations         atomic.Uint64
 	cancellationFailures  atomic.Uint64
 	auditEventsPruned     atomic.Uint64
@@ -63,13 +69,17 @@ type lifecycleCounters struct {
 	pendingStorageCleanup atomic.Int64
 	pendingCancellation   atomic.Int64
 	pendingTempCleanup    atomic.Int64
+	pendingLegacyCleanup  atomic.Int64
 }
 
 type LifecycleService struct {
-	store        *store.Store
-	canonicalDir string
-	now          func() time.Time
-	wake         chan struct{}
+	store                 *store.Store
+	canonicalDir          string
+	canonicalDirReal      string
+	telegramSourceDir     string
+	telegramSourceDirReal string
+	now                   func() time.Time
+	wake                  chan struct{}
 
 	sinkMu sync.RWMutex
 	sink   DeliveryCancellationSink
@@ -79,21 +89,43 @@ type LifecycleService struct {
 	// Tests inject a process interruption after unlink+directory fsync and
 	// before the durable cleanup receipt. A retry must converge from ENOENT.
 	testAfterStorageRemove func() error
+	testAfterLegacyRemove  func() error
 }
 
 func NewLifecycleService(st *store.Store, mediaDir string) (*LifecycleService, error) {
 	if st == nil || mediaDir == "" {
 		return nil, errors.New("invalid media lifecycle configuration")
 	}
-	canonicalDir := filepath.Join(mediaDir, "canonical")
-	if err := os.MkdirAll(canonicalDir, 0o700); err != nil {
-		return nil, errors.New("initialize media lifecycle storage")
+	mediaDir, err := filepath.Abs(mediaDir)
+	if err != nil {
+		return nil, errors.New("resolve media lifecycle storage")
 	}
-	if err := os.Chmod(canonicalDir, 0o700); err != nil {
-		return nil, errors.New("secure media lifecycle storage")
+	canonicalDir := filepath.Join(mediaDir, "canonical")
+	telegramSourceDir := filepath.Join(mediaDir, ".telegram")
+	for _, directory := range []string{canonicalDir, telegramSourceDir} {
+		if err := os.MkdirAll(directory, 0o700); err != nil {
+			return nil, errors.New("initialize media lifecycle storage")
+		}
+		info, err := os.Lstat(directory)
+		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return nil, errors.New("inspect media lifecycle storage")
+		}
+		if err := os.Chmod(directory, 0o700); err != nil {
+			return nil, errors.New("secure media lifecycle storage")
+		}
+	}
+	canonicalDirReal, err := filepath.EvalSymlinks(canonicalDir)
+	if err != nil {
+		return nil, errors.New("resolve real canonical lifecycle storage")
+	}
+	telegramSourceDirReal, err := filepath.EvalSymlinks(telegramSourceDir)
+	if err != nil {
+		return nil, errors.New("resolve real Telegram lifecycle storage")
 	}
 	service := &LifecycleService{
-		store: st, canonicalDir: canonicalDir, now: time.Now,
+		store: st, canonicalDir: canonicalDir, canonicalDirReal: canonicalDirReal,
+		telegramSourceDir: telegramSourceDir, telegramSourceDirReal: telegramSourceDirReal,
+		now:  time.Now,
 		wake: make(chan struct{}, 1),
 	}
 	service.metrics.healthy.Store(true)
@@ -147,6 +179,8 @@ func (service *LifecycleService) Metrics() MediaLifecycleMetrics {
 		StorageBytesTotal:     service.metrics.storageBytes.Load(),
 		StorageFailuresTotal:  service.metrics.storageFailures.Load(),
 		StorageRefusalsTotal:  service.metrics.storageRefusals.Load(),
+		LegacyCleanupsTotal:   service.metrics.legacyCleanups.Load(),
+		LegacyCleanupFailures: service.metrics.legacyCleanupFailures.Load(),
 		CancellationsTotal:    service.metrics.cancellations.Load(),
 		CancellationFailures:  service.metrics.cancellationFailures.Load(),
 		AuditEventsPruned:     service.metrics.auditEventsPruned.Load(),
@@ -154,6 +188,7 @@ func (service *LifecycleService) Metrics() MediaLifecycleMetrics {
 		PendingStorageCleanup: service.metrics.pendingStorageCleanup.Load(),
 		PendingCancellation:   service.metrics.pendingCancellation.Load(),
 		PendingTempCleanup:    service.metrics.pendingTempCleanup.Load(),
+		PendingLegacyCleanup:  service.metrics.pendingLegacyCleanup.Load(),
 	}
 }
 
@@ -170,6 +205,9 @@ func (service *LifecycleService) Sweep(ctx context.Context) error {
 	}
 	if err := service.cleanupStorage(ctx, now); err != nil {
 		sweepErr = errors.Join(sweepErr, errors.New("clean media lifecycle storage"))
+	}
+	if err := service.cleanupLegacyMedia(ctx, now); err != nil {
+		sweepErr = errors.Join(sweepErr, errors.New("clean legacy media compatibility storage"))
 	}
 	if err := service.deliverCancellations(ctx, now); err != nil {
 		sweepErr = errors.Join(sweepErr, errors.New("deliver media lifecycle cancellations"))
@@ -190,6 +228,7 @@ func (service *LifecycleService) Sweep(ctx context.Context) error {
 		service.metrics.pendingStorageCleanup.Store(backlog.PendingStorageCleanup)
 		service.metrics.pendingCancellation.Store(backlog.PendingCancellation)
 		service.metrics.pendingTempCleanup.Store(backlog.PendingTempCleanup)
+		service.metrics.pendingLegacyCleanup.Store(backlog.PendingLegacyCleanup)
 	}
 	service.metrics.lastSweepUnixMS.Store(now)
 	if sweepErr != nil {
@@ -264,6 +303,9 @@ func (service *LifecycleService) cleanupStorageOperation(
 	if err != nil {
 		return 0, err
 	}
+	if err := service.validateCanonicalDirectory(); err != nil {
+		return 0, err
+	}
 	path, ok := CanonicalPath(service.canonicalDir, current.StorageKey)
 	if !ok {
 		return 0, errors.New("invalid canonical cleanup identity")
@@ -299,6 +341,136 @@ func (service *LifecycleService) cleanupStorageOperation(
 		return 0, err
 	}
 	return removedBytes, nil
+}
+
+func validateManagedDirectory(directory, expectedReal string) error {
+	info, err := os.Lstat(directory)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("refuse replaced media cleanup directory")
+	}
+	real, err := filepath.EvalSymlinks(directory)
+	if err != nil || real != expectedReal {
+		return errors.New("refuse redirected media cleanup directory")
+	}
+	return nil
+}
+
+func (service *LifecycleService) validateCanonicalDirectory() error {
+	return validateManagedDirectory(service.canonicalDir, service.canonicalDirReal)
+}
+
+func (service *LifecycleService) cleanupLegacyMedia(ctx context.Context, now int64) error {
+	cleanups, err := service.store.PendingLegacyMediaCleanups(mediaLifecycleBatchLimit)
+	if err != nil {
+		return err
+	}
+	var result error
+	for _, cleanup := range cleanups {
+		if err := ctx.Err(); err != nil {
+			return errors.Join(result, err)
+		}
+		if err := service.cleanupLegacyMediaItem(cleanup, now); err != nil {
+			if !errors.Is(err, store.ErrMediaStateConflict) &&
+				!errors.Is(err, store.ErrMediaNotFound) {
+				service.metrics.legacyCleanupFailures.Add(1)
+				result = errors.Join(result, err)
+			}
+			continue
+		}
+		service.metrics.legacyCleanups.Add(1)
+	}
+	return result
+}
+
+func (service *LifecycleService) cleanupLegacyMediaItem(
+	selected store.LegacyMediaCleanup,
+	now int64,
+) error {
+	current, err := service.store.LegacyMediaCleanupCandidate(
+		selected.MediaID, selected.MediaRevision,
+	)
+	if err != nil {
+		return err
+	}
+	paths := make([]string, 0, 2)
+	if current.PathWAV != "" {
+		path, err := managedLegacyPath(
+			current.PathWAV, service.canonicalDir, service.canonicalDirReal,
+		)
+		if err != nil {
+			return err
+		}
+		paths = append(paths, path)
+	}
+	if current.Source == store.MediaSourceTelegram {
+		path, err := managedLegacyPath(
+			filepath.Join(service.telegramSourceDir, current.MediaID+".source"),
+			service.telegramSourceDir, service.telegramSourceDirReal,
+		)
+		if err != nil {
+			return err
+		}
+		paths = append(paths, path)
+	}
+
+	directories := make(map[string]struct{})
+	for _, path := range paths {
+		info, err := os.Lstat(path)
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+		case err != nil:
+			return errors.New("inspect legacy media cleanup target")
+		case !info.Mode().IsRegular():
+			return errors.New("refuse non-regular legacy media cleanup target")
+		default:
+			if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return errors.New("remove legacy media cleanup target")
+			}
+		}
+		directories[filepath.Dir(path)] = struct{}{}
+	}
+	for directory := range directories {
+		if err := syncDirectory(directory); err != nil {
+			return errors.New("sync legacy media cleanup directory")
+		}
+	}
+	if service.testAfterLegacyRemove != nil {
+		if err := service.testAfterLegacyRemove(); err != nil {
+			return err
+		}
+	}
+	if err := service.store.CompleteLegacyMediaCleanup(
+		current.MediaID, current.MediaRevision, now,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+func managedLegacyPath(path, directory, expectedReal string) (string, error) {
+	if err := validateManagedDirectory(directory, expectedReal); err != nil {
+		return "", err
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", errors.New("resolve legacy media cleanup target")
+	}
+	clean := filepath.Clean(absolute)
+	relative, err := filepath.Rel(directory, clean)
+	if err != nil || relative == "." || relative == ".." ||
+		strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
+		return "", errors.New("refuse unmanaged legacy media cleanup target")
+	}
+	realParent, err := filepath.EvalSymlinks(filepath.Dir(clean))
+	if err != nil {
+		return "", errors.New("resolve legacy media cleanup parent")
+	}
+	realRelative, err := filepath.Rel(expectedReal, realParent)
+	if err != nil || realRelative == ".." ||
+		strings.HasPrefix(realRelative, ".."+string(filepath.Separator)) || filepath.IsAbs(realRelative) {
+		return "", errors.New("refuse redirected legacy media cleanup target")
+	}
+	return clean, nil
 }
 
 func (service *LifecycleService) deliverCancellations(ctx context.Context, now int64) error {

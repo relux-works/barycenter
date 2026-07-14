@@ -249,11 +249,26 @@ type MediaDeliveryCancellation struct {
 	CompletedAt           int64
 }
 
+// LegacyMediaCleanup is the durable mixed-rollout cleanup projection for a
+// generic item that also has a legacy /media/{id}.wav representation. The
+// legacy row keeps its path only until the worker has durably removed the
+// compatibility WAV and deterministic private Telegram source, then the link
+// receipt is acknowledged and the path is erased from the tombstone.
+type LegacyMediaCleanup struct {
+	MediaID       string
+	MediaRevision int64
+	LegacyMediaID string
+	Source        MediaSource
+	PathWAV       string
+	Status        MediaItemStatus
+}
+
 type MediaLifecycleBacklog struct {
 	ExpirableMedia        int64
 	PendingStorageCleanup int64
 	PendingCancellation   int64
 	PendingTempCleanup    int64
+	PendingLegacyCleanup  int64
 }
 
 // MediaTargetIdentity is the immutable installation identity a transmission
@@ -572,6 +587,16 @@ func (s *Store) CreateTelegramMedia(params CreateTelegramMediaParams) (TelegramM
   created_at, expires_at, status, orbit_id
 ) VALUES(?, ?, 0, '', '', ?, ?, 'processing', ?)`,
 		legacy.ID, legacy.TGFileID, legacy.CreatedAt, legacy.ExpiresAt, legacy.OrbitID); err != nil {
+		return TelegramMediaCreation{}, err
+	}
+	if _, err := tx.Exec(`INSERT INTO media_legacy_wav_links(
+  media_id, legacy_media_id, linked_at
+) VALUES(?, ?, ?)`, item.ID, legacy.ID, params.CreatedAt); err != nil {
+		return TelegramMediaCreation{}, err
+	}
+	if err := insertMediaAuditTx(
+		tx, item, "media.legacy_wav_linked", "", "", params.CreatedAt,
+	); err != nil {
 		return TelegramMediaCreation{}, err
 	}
 	if err := s.checkpoint("telegram_media_create_before_commit"); err != nil {
@@ -1623,6 +1648,19 @@ WHERE id = ? AND revision = ?`,
 		return MediaItem{}, ErrMediaStateConflict
 	}
 	newRevision := expectedRevision + 1
+	// The generic item is authoritative once a compatibility link exists.
+	// Mirror the logical state in the same writer transaction so legacy WAV
+	// reads cannot remain ready after a generic delete/expiry, and so a late
+	// Telegram completion cannot resurrect a terminal item. Physical legacy
+	// bytes and the stored path are handled asynchronously by the durable link
+	// cleanup receipt.
+	if _, err := tx.Exec(`UPDATE media
+SET status = ?
+WHERE id = (
+  SELECT legacy_media_id FROM media_legacy_wav_links WHERE media_id = ?
+)`, string(target), mediaID); err != nil {
+		return MediaItem{}, err
+	}
 	if _, err := tx.Exec(`UPDATE media_storage_operations
 SET state = 'cancelled', revision = revision + 1, updated_at = ?, completed_at = ?
 WHERE media_id = ? AND kind = 'publish' AND state = 'pending'`, now, now, mediaID); err != nil {
@@ -1661,6 +1699,141 @@ WHERE media_id = ? AND status IN ('open', 'finalizing')`, uploadTarget, now, med
 		return MediaItem{}, err
 	}
 	return updated, nil
+}
+
+// reconcileTelegramLegacyLinks upgrades voices accepted by the immediately
+// preceding Telegram rollout, which atomically wrote both rows with the same
+// ID before it started writing the explicit compatibility link. Conflicting
+// manual links fail closed rather than silently reassigning a legacy path.
+func (s *Store) reconcileTelegramLegacyLinks() error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	rows, err := tx.Query(`SELECT i.id, i.created_at
+FROM media_items i
+JOIN media m ON m.id = i.id AND m.orbit_id = i.owner_orbit_id
+WHERE i.source = 'telegram'
+ORDER BY i.created_at, i.id`)
+	if err != nil {
+		return err
+	}
+	type candidate struct {
+		mediaID  string
+		linkedAt int64
+	}
+	candidates := make([]candidate, 0)
+	for rows.Next() {
+		var value candidate
+		if err := rows.Scan(&value.mediaID, &value.linkedAt); err != nil {
+			rows.Close()
+			return err
+		}
+		candidates = append(candidates, value)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, value := range candidates {
+		var legacyMediaID string
+		err := tx.QueryRow(`SELECT legacy_media_id FROM media_legacy_wav_links
+WHERE media_id = ?`, value.mediaID).Scan(&legacyMediaID)
+		if err == nil {
+			if legacyMediaID != value.mediaID {
+				return ErrMediaStateConflict
+			}
+			continue
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		var linkedMediaID string
+		err = tx.QueryRow(`SELECT media_id FROM media_legacy_wav_links
+WHERE legacy_media_id = ?`, value.mediaID).Scan(&linkedMediaID)
+		if err == nil {
+			if linkedMediaID != value.mediaID {
+				return ErrMediaStateConflict
+			}
+			continue
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if _, err := tx.Exec(`INSERT INTO media_legacy_wav_links(
+  media_id, legacy_media_id, linked_at
+) VALUES(?, ?, ?)`, value.mediaID, value.mediaID, value.linkedAt); err != nil {
+			return err
+		}
+		item, err := scanMediaItem(tx.QueryRow(
+			`SELECT `+mediaItemColumns+` FROM media_items WHERE id = ?`, value.mediaID,
+		))
+		if err != nil {
+			return err
+		}
+		if err := insertMediaAuditTx(
+			tx, item, "media.legacy_wav_linked", "", "", value.linkedAt,
+		); err != nil {
+			return err
+		}
+	}
+	// The generic model is authoritative for non-playable states. Ready and
+	// processing are deliberately not copied: only the Telegram loop knows
+	// when a canonical path has been mapped into the legacy row.
+	// If a rollback binary rewrote an already-cleaned terminal mapping, reopen
+	// its durable receipt before erasing the stale status/path so roll-forward
+	// cannot strand bytes reintroduced by that older writer.
+	reconciledAt := time.Now().UnixMilli()
+	if _, err := tx.Exec(`UPDATE media_delivery_cancellations
+SET state = 'pending', revision = revision + 1,
+    updated_at = MAX(updated_at + 1, ?), completed_at = 0
+WHERE state = 'done'
+  AND media_id IN (
+    SELECT i.id
+    FROM media_items i
+    JOIN media_legacy_wav_links l ON l.media_id = i.id
+    JOIN media m ON m.id = l.legacy_media_id
+    WHERE i.status IN ('deleted', 'expired')
+      AND l.cleanup_completed_at > 0
+      AND (m.status <> i.status OR m.path_wav <> '')
+  )`, reconciledAt); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE media_legacy_wav_links
+SET cleanup_completed_at = 0
+WHERE cleanup_completed_at > 0
+  AND media_id IN (
+    SELECT i.id
+    FROM media_items i
+    JOIN media_legacy_wav_links l ON l.media_id = i.id
+    JOIN media m ON m.id = l.legacy_media_id
+    WHERE i.status IN ('deleted', 'expired')
+      AND (m.status <> i.status OR m.path_wav <> '')
+  )`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE media
+SET status = (
+  SELECT i.status
+  FROM media_legacy_wav_links l
+  JOIN media_items i ON i.id = l.media_id
+  WHERE l.legacy_media_id = media.id
+)
+WHERE id IN (
+  SELECT l.legacy_media_id
+  FROM media_legacy_wav_links l
+  JOIN media_items i ON i.id = l.media_id
+  WHERE i.status IN ('failed', 'deleted', 'expired')
+)`); err != nil {
+		return err
+	}
+	if err := s.checkpoint("telegram_legacy_link_reconcile_before_commit"); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // reconcileOrphanedMediaItems handles the one mutation an older coordinator
@@ -2034,6 +2207,138 @@ WHERE o.id = ? AND o.kind = 'cleanup' AND o.state = 'pending' AND o.revision = ?
 	return operation, err
 }
 
+const legacyMediaCleanupColumns = `i.id, i.revision, l.legacy_media_id,
+i.source, m.path_wav, i.status`
+
+func scanLegacyMediaCleanup(row sqlScanner) (LegacyMediaCleanup, error) {
+	var cleanup LegacyMediaCleanup
+	err := row.Scan(
+		&cleanup.MediaID, &cleanup.MediaRevision, &cleanup.LegacyMediaID,
+		&cleanup.Source, &cleanup.PathWAV, &cleanup.Status,
+	)
+	return cleanup, err
+}
+
+// PendingLegacyMediaCleanups returns compatibility mappings whose generic
+// authority is already terminal but whose legacy bytes/path receipt has not
+// been durably acknowledged. It is intentionally independent of the legacy
+// daily expiry query so an explicit sender delete does not retain a failed
+// Telegram source until its original expiry.
+func (s *Store) PendingLegacyMediaCleanups(limit int) ([]LegacyMediaCleanup, error) {
+	if limit <= 0 || limit > 1000 {
+		return nil, fmt.Errorf("%w: invalid legacy cleanup query", ErrMediaInvalid)
+	}
+	rows, err := s.db.Query(`SELECT `+legacyMediaCleanupColumns+`
+FROM media_legacy_wav_links l
+JOIN media_items i ON i.id = l.media_id
+JOIN media m ON m.id = l.legacy_media_id
+WHERE i.status IN ('deleted', 'expired') AND l.cleanup_completed_at = 0
+ORDER BY i.deleted_at, i.id
+LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	cleanups := make([]LegacyMediaCleanup, 0)
+	for rows.Next() {
+		cleanup, err := scanLegacyMediaCleanup(rows)
+		if err != nil {
+			return nil, err
+		}
+		cleanups = append(cleanups, cleanup)
+	}
+	return cleanups, rows.Err()
+}
+
+// LegacyMediaCleanupCandidate repeats the terminal/link receipt check after
+// the filesystem worker is ready to act. A stale selection cannot erase a
+// compatibility path after the generic row has changed revision.
+func (s *Store) LegacyMediaCleanupCandidate(mediaID string, expectedRevision int64) (LegacyMediaCleanup, error) {
+	if mediaID == "" || expectedRevision <= 0 {
+		return LegacyMediaCleanup{}, fmt.Errorf("%w: invalid legacy cleanup candidate", ErrMediaInvalid)
+	}
+	cleanup, err := scanLegacyMediaCleanup(s.db.QueryRow(
+		`SELECT `+legacyMediaCleanupColumns+`
+FROM media_legacy_wav_links l
+JOIN media_items i ON i.id = l.media_id
+JOIN media m ON m.id = l.legacy_media_id
+WHERE i.id = ? AND i.revision = ? AND i.status IN ('deleted', 'expired')
+  AND l.cleanup_completed_at = 0`, mediaID, expectedRevision,
+	))
+	if errors.Is(err, sql.ErrNoRows) {
+		return LegacyMediaCleanup{}, ErrMediaStateConflict
+	}
+	return cleanup, err
+}
+
+// CompleteLegacyMediaCleanup clears the historical absolute path only after
+// both compatibility locations have been removed and directory-synced. The
+// generic status remains authoritative and is copied back in case a previous
+// coordinator touched the unconstrained legacy status during rollback.
+func (s *Store) CompleteLegacyMediaCleanup(mediaID string, expectedRevision, now int64) error {
+	if mediaID == "" || expectedRevision <= 0 || now <= 0 {
+		return fmt.Errorf("%w: invalid legacy cleanup completion", ErrMediaInvalid)
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	item, err := scanMediaItem(tx.QueryRow(
+		`SELECT `+mediaItemColumns+` FROM media_items
+WHERE id = ? AND revision = ? AND status IN ('deleted', 'expired')`,
+		mediaID, expectedRevision,
+	))
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrMediaStateConflict
+	}
+	if err != nil {
+		return err
+	}
+	var legacyMediaID string
+	err = tx.QueryRow(`SELECT legacy_media_id FROM media_legacy_wav_links
+WHERE media_id = ? AND cleanup_completed_at = 0`, mediaID).Scan(&legacyMediaID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrMediaStateConflict
+	}
+	if err != nil {
+		return err
+	}
+	result, err := tx.Exec(`UPDATE media
+SET path_wav = '', status = ?
+WHERE id = ?`, string(item.Status), legacyMediaID)
+	if err != nil {
+		return err
+	}
+	if changed, err := result.RowsAffected(); err != nil || changed != 1 {
+		if err != nil {
+			return err
+		}
+		return ErrMediaStateConflict
+	}
+	result, err = tx.Exec(`UPDATE media_legacy_wav_links
+SET cleanup_completed_at = ?
+WHERE media_id = ? AND cleanup_completed_at = 0`, now, mediaID)
+	if err != nil {
+		return err
+	}
+	if changed, err := result.RowsAffected(); err != nil || changed != 1 {
+		if err != nil {
+			return err
+		}
+		return ErrMediaStateConflict
+	}
+	if err := insertMediaAuditTx(
+		tx, item, "media.legacy_cleanup_completed", "", "", now,
+	); err != nil {
+		return err
+	}
+	if err := s.checkpoint("media_legacy_cleanup_complete_before_commit"); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) PendingMediaDeliveryCancellations(limit int) ([]MediaDeliveryCancellation, error) {
 	if limit <= 0 || limit > 1000 {
 		return nil, fmt.Errorf("%w: invalid delivery cancellation query", ErrMediaInvalid)
@@ -2117,9 +2422,14 @@ func (s *Store) MediaLifecycleBacklog(now int64) (MediaLifecycleBacklog, error) 
     WHERE kind = 'cleanup' AND state = 'pending'),
   (SELECT COUNT(*) FROM media_delivery_cancellations WHERE state = 'pending'),
   (SELECT COUNT(*) FROM media_upload_sessions
-    WHERE status IN ('failed', 'expired', 'completed') AND temp_cleaned_at = 0)`, now).Scan(
+    WHERE status IN ('failed', 'expired', 'completed') AND temp_cleaned_at = 0),
+  (SELECT COUNT(*)
+    FROM media_legacy_wav_links l
+    JOIN media_items i ON i.id = l.media_id
+    WHERE i.status IN ('deleted', 'expired') AND l.cleanup_completed_at = 0)`, now).Scan(
 		&backlog.ExpirableMedia, &backlog.PendingStorageCleanup,
 		&backlog.PendingCancellation, &backlog.PendingTempCleanup,
+		&backlog.PendingLegacyCleanup,
 	)
 	return backlog, err
 }

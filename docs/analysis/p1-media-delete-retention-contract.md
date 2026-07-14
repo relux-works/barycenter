@@ -55,11 +55,13 @@ autoplay after this decision. A cancellation consumer is at-least-once and must
 be idempotent by `(media_id, media_revision)`: a crash may occur after target
 state changes but before the outbox receipt commits.
 
-Until transmission persistence exists, the production sink is intentionally
-unset and requests remain visible as pending. `TASK-260712-gj0cko` connects this
-interface to immutable target snapshots and the scheduler after those rows and
-cancel hooks land. Exact wire receipt names and ramp parameters remain owned by
-`TASK-260712-51y5k9`; they may not weaken the actions above.
+`TASK-260712-gj0cko` installs an at-least-once adapter for the current serial
+shared-session runtime: queued copies are disarmed, an active legacy voice is
+stopped, and the advanced snapshot is durably persisted. The later
+transmission store and scheduler replace that adapter through the same
+interface for immutable target snapshots, prepare/play states and the final
+click-free `fade_stop` behavior. Exact wire receipt names and ramp parameters
+remain owned by `TASK-260712-51y5k9`; they may not weaken the actions above.
 
 ## Retention and cleanup
 
@@ -71,6 +73,7 @@ Phase 1 uses these server-side bounds:
 | failed upload/source bytes | removed by the 15-minute maintenance loop, comfortably within the 24-hour maximum |
 | ready clip bytes | `expires_at` is seven days from creation; expiry revokes reads, queues cancellation and unlinks canonical bytes |
 | deleted/expired canonical bytes | asynchronous durable cleanup; DELETE does not wait for disk I/O |
+| linked legacy WAV / private Telegram source | asynchronous durable cleanup with a separate link receipt; explicit delete does not wait for original expiry |
 | transmission/history metadata | separate 30-day policy; this worker never deletes it |
 | reported evidence | separate restricted review policy, up to 30 days; this worker never deletes it |
 | content-free media ingest audit | pruned after 90 days |
@@ -87,13 +90,15 @@ the other tenant-local reference.
 
 ## Operator visibility
 
-`/healthz` exposes content-free `media_lifecycle` counters and backlogs:
+`/healthz` exposes content-free `media_lifecycle` counters and backlogs even
+when self-service routes are disabled:
 sweeps/failures, accepted deletes, expired items, completed cleanup count and
 bytes, safe cleanup-state refusals, completed cancellation deliveries/failures,
-pruned audit rows, and current expirable, storage-cleanup, cancellation and
-temp-cleanup backlog. The health bit records whether the latest sweep completed
-without an operational error and recovers after a successful retry. Metrics
-contain no title, filename, actor, token, local path or audio content.
+linked-legacy cleanup successes/failures, pruned audit rows, and current
+expirable, storage-cleanup, cancellation, temp-cleanup and legacy-cleanup
+backlog. The health bit records whether the latest sweep completed without an
+operational error and recovers after a successful retry. Metrics contain no
+title, filename, actor, token, local path or audio content.
 
 ## Backup and privacy handoff
 

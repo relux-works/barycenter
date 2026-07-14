@@ -94,17 +94,17 @@ type Player struct {
 	// pausedLocally (personal pause, 2026-07-10): the USER paused this Pulsar
 	// in the Spotify app while the shared air was playing. Cleared by any
 	// coordinator ownership act (load / pause command / stop / mode switch).
-	pausedLocally bool
-	waitTimer             *time.Timer
-	pauseTimer            *time.Timer
-	startedPending        bool
-	draining              bool // daemon says ended; ring tail still sounding
-	lastExternalReport    time.Time
-	lastExternalURI       string
-	metadataURI           string
-	metadataPosition      *int64
-	metadataTitle         string
-	speakerName           string
+	pausedLocally      bool
+	waitTimer          *time.Timer
+	pauseTimer         *time.Timer
+	startedPending     bool
+	draining           bool // daemon says ended; ring tail still sounding
+	lastExternalReport time.Time
+	lastExternalURI    string
+	metadataURI        string
+	metadataPosition   *int64
+	metadataTitle      string
+	speakerName        string
 }
 
 func NewPlayer(daemon daemonAPI, ring *Ring, engine *Engine, cache *VoiceCache,
@@ -464,6 +464,7 @@ func (p *Player) playVoice(m *protocol.PlayVoicePayload) {
 	p.mu.Lock()
 	p.cancelTimersLocked()
 	p.loadGen++ // voice supersedes any in-flight track load
+	gen := p.loadGen
 	p.elementID = m.ElementID
 	p.playback = PlaybackVoice
 	p.draining = false
@@ -473,7 +474,7 @@ func (p *Player) playVoice(m *protocol.PlayVoicePayload) {
 	p.ring.Clear()
 	p.engine.SetExpectingMusic(false)
 	p.engine.gain.SetMusicGain(0, 0)
-	go p.daemon.Pause(context.Background())
+	p.pauseForInsert()
 
 	el := m.ElementID
 	go func() {
@@ -498,6 +499,11 @@ func (p *Player) playVoice(m *protocol.PlayVoicePayload) {
 				startAt = time.UnixMilli(tLocal)
 			}
 		}
+		p.mu.Lock()
+		if p.loadGen != gen || p.playback != PlaybackVoice || p.elementID != el {
+			p.mu.Unlock()
+			return
+		}
 		p.send(protocol.TypeVoiceStarted, &protocol.VoiceStartedPayload{ElementID: el})
 		p.engine.PlayVoice(samples, startAt, func() {
 			// The engine fired this after the LAST sample rendered — that is
@@ -512,6 +518,7 @@ func (p *Player) playVoice(m *protocol.PlayVoicePayload) {
 				p.send(protocol.TypeVoiceEnded, &protocol.VoiceEndedPayload{ElementID: el})
 			}
 		})
+		p.mu.Unlock()
 	}()
 }
 
@@ -538,7 +545,18 @@ func (p *Player) waitCmd(m *protocol.WaitPayload) {
 	p.ring.Clear()
 	p.engine.SetExpectingMusic(false)
 	p.engine.gain.SetMusicGain(0, 0)
-	go p.daemon.Pause(context.Background())
+	p.pauseForInsert()
+}
+
+func (p *Player) pauseForInsert() {
+	// Coordinator commands arrive serially on the websocket reader. Complete
+	// the local pause before returning so a later stop+load cannot be overtaken
+	// by an old asynchronous pause and silence the newly loaded element.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := p.daemon.Pause(ctx); err != nil {
+		p.log.Warn("pause for insert failed", "err", err)
+	}
 }
 
 func (p *Player) offsetTest(m *protocol.OffsetTestPayload) {
@@ -555,6 +573,7 @@ func (p *Player) offsetTest(m *protocol.OffsetTestPayload) {
 
 func (p *Player) stopAll() {
 	p.mu.Lock()
+	wasInsert := p.playback == PlaybackVoice || p.playback == PlaybackWait
 	p.cancelTimersLocked()
 	p.pausedLocally = false
 	p.loadGen++ // invalidate any in-flight load
@@ -567,6 +586,15 @@ func (p *Player) stopAll() {
 	p.anchorPosMS = 0
 	p.mu.Unlock()
 	p.engine.SetExpectingMusic(false)
+	p.engine.StopVoice()
+	if wasInsert {
+		// Voice/wait already silenced the music branch. Drop the insert and
+		// reset synchronously so a coordinator cancellation can load the next
+		// element immediately without a delayed stop timer erasing that load.
+		p.ring.Clear()
+		p.engine.gain.SetMusicGain(1, 0)
+		return
+	}
 	// Mode switches yank someone's music away (spec 4.3) — land it softly:
 	// raised-cosine fade out, then drop the tail and re-arm the gain.
 	p.engine.gain.SetMusicGain(0, 250)

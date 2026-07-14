@@ -120,7 +120,7 @@ type (
 	// EffElementDone: journal entry for the elements table (spec 5.3).
 	EffElementDone struct {
 		Element Element
-		Status  string // "eof" | "skipped" | "error"
+		Status  string // "eof" | "skipped" | "cancelled" | "error"
 	}
 	// EffPersist: session state changed in a way worth persisting.
 	EffPersist struct{}
@@ -385,6 +385,50 @@ func (s *Session) Cancel(n int) ([]Effect, error) {
 	}
 	s.Queue = append(s.Queue[:n-1], s.Queue[n:]...)
 	return []Effect{EffPersist{}}, nil
+}
+
+// CancelMedia applies the media_lifecycle_v1 cancellation policy to the
+// currently materialized session. Queued copies are disarmed; an active voice
+// is stopped and the session advances exactly once. Replaying the same durable
+// outbox request is a no-op, which makes the session side safe for at-least-once
+// delivery.
+func (s *Session) CancelMedia(mediaID string) []Effect {
+	if mediaID == "" {
+		return nil
+	}
+	queue := s.Queue
+	filtered := queue[:0]
+	removed := false
+	for _, element := range s.Queue {
+		if element.MediaID == mediaID {
+			removed = true
+			continue
+		}
+		filtered = append(filtered, element)
+	}
+	for i := len(filtered); i < len(queue); i++ {
+		queue[i] = Element{}
+	}
+	s.Queue = filtered
+	if s.Current != nil && s.Current.MediaID == mediaID {
+		done := EffElementDone{Element: *s.Current, Status: "cancelled"}
+		var stop []Effect
+		if s.Current.Kind == KindVoice {
+			for _, peer := range s.Peers {
+				if s.counts(peer) {
+					stop = append(stop, EffStop{To: peer})
+				}
+			}
+		} else {
+			stop = s.pauseBoth(300)
+		}
+		effects := s.advance()
+		return append(append([]Effect{done, EffCancelReadyTimer{}}, stop...), effects...)
+	}
+	if removed {
+		return []Effect{EffPersist{}}
+	}
+	return nil
 }
 
 func (s *Session) maybeAdvanceFromIdle() []Effect {

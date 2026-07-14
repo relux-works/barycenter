@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	sectionPattern     = regexp.MustCompile(`(?m)^## ([PCTU]-[0-9]{2})\.`)
+	sectionPattern     = regexp.MustCompile(`(?m)^## ([PCTUS]-[0-9]{2})\.`)
 	taskIDPattern      = regexp.MustCompile(`^TASK-[0-9]{6}-[a-z0-9]+$`)
 	placeholderPattern = regexp.MustCompile(`(?i)\b(todo|tbd|changeme|insert here|example\.com)\b`)
 	unsupportedClaims  = []*regexp.Regexp{
@@ -46,6 +46,7 @@ var artifactContract = []struct {
 	{"terms", "terms", "docs/legal/en/terms.md", "docs/legal/ru/terms.md", "T", 15},
 	{"content_guidelines", "content_guidelines", "docs/legal/en/content-guidelines.md", "docs/legal/ru/content-guidelines.md", "C", 11},
 	{"upload_rights_notice", "terms", "docs/legal/en/upload-rights-notice.md", "docs/legal/ru/upload-rights-notice.md", "U", 4},
+	{"support", "support", "docs/legal/en/support.md", "docs/legal/ru/support.md", "S", 5},
 }
 
 var requiredSourceIDs = []string{

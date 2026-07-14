@@ -13,9 +13,9 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-1x0lot` — publish-policy-support-pages
-  (queued until PR #32 lands; exact-content approval remains a publication gate)
+  (in progress; exact-content approval remains the live-publication gate)
 - Most recently accepted: `TASK-260712-1epb3a` — privacy-ugc-policy-pack
-- Current branch: `task/task-260712-1epb3a-privacy-ugc-policy-pack`
+- Current branch: `task/task-260712-1x0lot-publish-policy-support-pages`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -135,8 +135,10 @@ exact authored bytes: approved defaults are incorporated, but the exact-content
 decision remains honestly `hold`. Local full/vet/race/platform gates passed;
 hosted run `29345880750` passed all four jobs. No public-URL, real-app or
 physical-hardware result is claimed. Progress is 33/205 overall and 33/186
-engineering; PR #32 awaits its tracking commit and merge before strict
-execution starts `TASK-260712-1x0lot`.
+engineering. Tracking head `388f71c7844566f4c0a3f1d989627d9f821ba122`
+passed all four hosted jobs in run `29346224420`; PR #32 landed at merge
+`f1048c280aa7bdf6bfd92c7b2a971fc9dc027983`, and strict execution advanced to
+`TASK-260712-1x0lot` from synchronized `main`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

@@ -22,6 +22,12 @@ const (
 	// the one-line hint).
 	uiGuideURL = "https://barycenter.live/guide"
 	uiBotURL   = "https://t.me/barycenter_bot"
+
+	uiPrivacyURL           = "https://barycenter.live/legal/privacy/ru"
+	uiTermsURL             = "https://barycenter.live/legal/terms/ru"
+	uiContentGuidelinesURL = "https://barycenter.live/legal/content-guidelines/ru"
+	uiUploadRightsURL      = "https://barycenter.live/legal/upload-rights/ru"
+	uiSupportURL           = "https://barycenter.live/legal/support/ru"
 )
 
 // Onboarding window strings. CRLF, not LF: Win32 STATIC controls only break
@@ -74,7 +80,20 @@ const (
 const (
 	uiMenuHowToSound = "Как включить звук…"
 	uiMenuNoPulsar   = "Не вижу Pulsar в Spotify?"
+	uiMenuPrivacy    = "Конфиденциальность"
+	uiMenuTerms      = "Условия использования"
+	uiMenuGuidelines = "Правила содержимого"
+	uiMenuUpload     = "Права на запись и загрузку"
+	uiMenuSupport    = "Поддержка и безопасность"
 )
+
+var uiPublicPolicyURLs = []string{
+	uiPrivacyURL,
+	uiTermsURL,
+	uiContentGuidelinesURL,
+	uiUploadRightsURL,
+	uiSupportURL,
+}
 
 // Tray menu strings (mirror StatusMenuController.menuNeedsUpdate).
 const (

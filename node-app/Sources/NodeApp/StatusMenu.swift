@@ -72,6 +72,23 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         noPulsar.target = self
         menu.addItem(noPulsar)
 
+        let policies = NSMenu()
+        for (title, url) in [
+            ("Конфиденциальность", PublicPolicyLinks.privacy),
+            ("Условия использования", PublicPolicyLinks.terms),
+            ("Правила содержимого", PublicPolicyLinks.contentGuidelines),
+            ("Права на запись и загрузку", PublicPolicyLinks.uploadRights),
+            ("Поддержка и безопасность", PublicPolicyLinks.support),
+        ] {
+            let policy = NSMenuItem(title: title, action: #selector(openPublicPolicy(_:)), keyEquivalent: "")
+            policy.target = self
+            policy.representedObject = url
+            policies.addItem(policy)
+        }
+        let policiesItem = NSMenuItem(title: "Правила и поддержка", action: nil, keyEquivalent: "")
+        menu.addItem(policiesItem)
+        menu.setSubmenu(policies, for: policiesItem)
+
         // Output devices submenu.
         let outMenu = NSMenu()
         let current = DirectOutputMonitor.currentOutputName()
@@ -134,6 +151,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     @objc private func openGuide() {
         SpotifyHelp.openGuide()
+    }
+
+    @objc private func openPublicPolicy(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        NSWorkspace.shared.open(url)
     }
 
     @objc private func toggleLogin() {

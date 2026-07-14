@@ -58,6 +58,15 @@
       "en_sha256": "a25d1b46b530fb64f18224618701f67ed80ace9ce5c1b1cfb1a7c3d70a1988ca",
       "ru_sha256": "4726df3e447674a5d6a87a34a5f05363c53604a80da3c1d6e69a3f9c05f41082",
       "sections": ["U-01", "U-02", "U-03", "U-04"]
+    },
+    {
+      "kind": "support",
+      "canonical_url": "https://barycenter.live/legal/support",
+      "en_path": "docs/legal/en/support.md",
+      "ru_path": "docs/legal/ru/support.md",
+      "en_sha256": "f851e4cfcdde8e1cf013c09aa5335b4c26f7b35b0d86aa4e7b8c302c3588ba14",
+      "ru_sha256": "ffb0138bcfe5c05c1c9a3e8d42792410dda83238a15f9329517427248d8c6f17",
+      "sections": ["S-01", "S-02", "S-03", "S-04", "S-05"]
     }
   ],
   "sources": [
@@ -96,14 +105,15 @@
     {"sections": ["U-01"], "evidence": ["spec-privacy-ugc", "microsoft-store-7.19"]},
     {"sections": ["U-02"], "evidence": ["spec-privacy-ugc", "media-retention"]},
     {"sections": ["U-03"], "evidence": ["media-retention", "moderation-control", "backup-contract"]},
-    {"sections": ["U-04"], "evidence": ["spec-privacy-ugc", "microsoft-store-7.19"]}
+    {"sections": ["U-04"], "evidence": ["spec-privacy-ugc", "microsoft-store-7.19"]},
+    {"sections": ["S-01", "S-02", "S-03", "S-04", "S-05"], "evidence": ["approved-inputs", "moderation-control", "microsoft-store-7.19"]}
   ],
   "surface_consumers": [
-    {"surface": "website", "tasks": ["TASK-260712-1x0lot"], "artifacts": ["privacy", "terms", "content_guidelines"]},
-    {"surface": "desktop_app", "tasks": ["TASK-260712-e1ie4x", "TASK-260712-pbfz37", "TASK-260712-34stvx"], "artifacts": ["privacy", "terms", "content_guidelines", "upload_rights_notice"]},
-    {"surface": "telegram", "tasks": ["TASK-260712-dlltnr", "TASK-260712-1x0lot"], "artifacts": ["privacy", "terms", "content_guidelines", "upload_rights_notice"]},
-    {"surface": "microsoft_store", "tasks": ["TASK-260712-2s4e9p", "TASK-260712-1xik11"], "artifacts": ["privacy", "terms", "content_guidelines"]},
-    {"surface": "moderation_operations", "tasks": ["TASK-260712-3t9nr8"], "artifacts": ["privacy", "terms", "content_guidelines"]}
+    {"surface": "website", "tasks": ["TASK-260712-1x0lot"], "artifacts": ["privacy", "terms", "content_guidelines", "upload_rights_notice", "support"]},
+    {"surface": "desktop_app", "tasks": ["TASK-260712-e1ie4x", "TASK-260712-pbfz37", "TASK-260712-34stvx"], "artifacts": ["privacy", "terms", "content_guidelines", "upload_rights_notice", "support"]},
+    {"surface": "telegram", "tasks": ["TASK-260712-dlltnr", "TASK-260712-1x0lot"], "artifacts": ["privacy", "terms", "content_guidelines", "upload_rights_notice", "support"]},
+    {"surface": "microsoft_store", "tasks": ["TASK-260712-2s4e9p", "TASK-260712-1xik11"], "artifacts": ["privacy", "terms", "content_guidelines", "support"]},
+    {"surface": "moderation_operations", "tasks": ["TASK-260712-3t9nr8"], "artifacts": ["privacy", "terms", "content_guidelines", "support"]}
   ],
   "delta_triggers": [
     "data_category", "recipient", "provider", "subprocessor", "region", "retention", "public_broadcast", "advertising", "sale_or_sharing", "payment", "third_party_integration", "children", "e2ee", "proactive_scanning", "automated_decision", "moderation_action", "official_rule"

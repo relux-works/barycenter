@@ -38,6 +38,10 @@ jobs:
         run: |
           cd coordinator
           go run ./cmd/policy-pack-check --require-proceed
+      - name: Require published policy pages to match approved hashes
+        run: |
+          cd coordinator
+          go run ./cmd/policy-site-check --require-proceed --live
       - name: Require a fresh Store policy delta decision
         run: |
           cd coordinator

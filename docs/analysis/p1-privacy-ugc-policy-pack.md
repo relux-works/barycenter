@@ -24,6 +24,7 @@ review record from `hold` to `proceed`.
 | Terms of Service | [`docs/legal/en/terms.md`](../legal/en/terms.md) | [`docs/legal/ru/terms.md`](../legal/ru/terms.md) | `https://barycenter.live/legal/terms` |
 | Content Guidelines | [`docs/legal/en/content-guidelines.md`](../legal/en/content-guidelines.md) | [`docs/legal/ru/content-guidelines.md`](../legal/ru/content-guidelines.md) | `https://barycenter.live/legal/content-guidelines` |
 | Upload/recording notice | [`docs/legal/en/upload-rights-notice.md`](../legal/en/upload-rights-notice.md) | [`docs/legal/ru/upload-rights-notice.md`](../legal/ru/upload-rights-notice.md) | in-product notice linking Terms and Guidelines |
+| Support and safety contacts | [`docs/legal/en/support.md`](../legal/en/support.md) | [`docs/legal/ru/support.md`](../legal/ru/support.md) | `https://barycenter.live/legal/support` |
 
 ## Disclosure coverage from specification sections 15.1 and 15.2
 

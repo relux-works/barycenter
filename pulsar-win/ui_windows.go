@@ -99,34 +99,39 @@ const (
 	mfSeparator = 0x0800
 	mfGrayed    = 0x0001
 
-	tpmLeftAlign  = 0x0000
-	tpmRightBtn   = 0x0002
-	tpmReturnCmd  = 0x0100
-	nimAdd        = 0x00000000
-	nimModify     = 0x00000001
-	nimDelete     = 0x00000002
-	nifMessage    = 0x00000001
-	nifIcon       = 0x00000002
-	nifTip        = 0x00000004
-	trayCallback  = wmApp + 1
+	tpmLeftAlign = 0x0000
+	tpmRightBtn  = 0x0002
+	tpmReturnCmd = 0x0100
+	nimAdd       = 0x00000000
+	nimModify    = 0x00000001
+	nimDelete    = 0x00000002
+	nifMessage   = 0x00000001
+	nifIcon      = 0x00000002
+	nifTip       = 0x00000004
+	trayCallback = wmApp + 1
 	// wmAppPairDone: posted back to the onboarding window by the pairing
 	// goroutine (M6 — the HTTP exchange must not block the wndproc: the
 	// window went "Not Responding" for up to 15 s and queued clicks replayed
 	// against an already-used code).
-	wmAppPairDone = wmApp + 2
-	idcArrow      = 32512
-	colorWindow   = 5
-	esCenter      = 0x0001
-	essUppercase  = 0x0008 // ES_UPPERCASE
-	editStyle     = wsChild | wsVisible | wsBorder | wsTabStop | esCenter | essUppercase
-	buttonStyle   = wsChild | wsVisible | wsTabStop
-	staticCenter  = wsChild | wsVisible | 0x0001 /* SS_CENTER */
-	idSubmit      = 1001
-	idCodeEdit    = 1002
-	menuRePairCmd = 2001
-	menuQuitCmd   = 2002
-	menuSoundCmd  = 2003 // "Как включить звук" — reopen the Spotify-step modal
-	menuNoPulsar  = 2004 // "Не вижу Pulsar в Spotify?" — open the guide
+	wmAppPairDone  = wmApp + 2
+	idcArrow       = 32512
+	colorWindow    = 5
+	esCenter       = 0x0001
+	essUppercase   = 0x0008 // ES_UPPERCASE
+	editStyle      = wsChild | wsVisible | wsBorder | wsTabStop | esCenter | essUppercase
+	buttonStyle    = wsChild | wsVisible | wsTabStop
+	staticCenter   = wsChild | wsVisible | 0x0001 /* SS_CENTER */
+	idSubmit       = 1001
+	idCodeEdit     = 1002
+	menuRePairCmd  = 2001
+	menuQuitCmd    = 2002
+	menuSoundCmd   = 2003 // "Как включить звук" — reopen the Spotify-step modal
+	menuNoPulsar   = 2004 // "Не вижу Pulsar в Spotify?" — open the guide
+	menuPrivacy    = 2005
+	menuTerms      = 2006
+	menuGuidelines = 2007
+	menuUpload     = 2008
+	menuSupport    = 2009
 
 	// MessageBoxW flags: MB_OK + an information icon. The OS renders the modal,
 	// so Cyrillic and DPI are handled for us (unlike the hand-built window).
@@ -552,6 +557,16 @@ func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintp
 		case menuNoPulsar:
 			// #6: firewall / same-Wi-Fi / VPN walkthrough lives in the guide.
 			openURL(uiGuideURL)
+		case menuPrivacy:
+			openURL(uiPrivacyURL)
+		case menuTerms:
+			openURL(uiTermsURL)
+		case menuGuidelines:
+			openURL(uiContentGuidelinesURL)
+		case menuUpload:
+			openURL(uiUploadRightsURL)
+		case menuSupport:
+			openURL(uiSupportURL)
 		case menuQuitCmd:
 			if curTray != nil && curTray.OnQuit != nil {
 				curTray.OnQuit()
@@ -586,6 +601,12 @@ func showTrayMenu(hwnd windows.Handle) {
 	add(mfSeparator, 0, "")
 	add(mfString, menuSoundCmd, uiMenuHowToSound)
 	add(mfString, menuNoPulsar, uiMenuNoPulsar)
+	add(mfSeparator, 0, "")
+	add(mfString, menuPrivacy, uiMenuPrivacy)
+	add(mfString, menuTerms, uiMenuTerms)
+	add(mfString, menuGuidelines, uiMenuGuidelines)
+	add(mfString, menuUpload, uiMenuUpload)
+	add(mfString, menuSupport, uiMenuSupport)
 	add(mfSeparator, 0, "")
 	add(mfString, menuQuitCmd, uiMenuQuit)
 

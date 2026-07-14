@@ -17,3 +17,15 @@ jobs:
           out=$(curl -sf -m 15 https://barycenter.relux.works/healthz)
           echo "$out"
           echo "$out" | grep -q '"status":"ok"'
+
+  policy-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: coordinator/go.mod
+      - name: Verify public policy hashes, locale routes and cache contract
+        run: |
+          cd coordinator
+          go run ./cmd/policy-site-check --require-proceed --live

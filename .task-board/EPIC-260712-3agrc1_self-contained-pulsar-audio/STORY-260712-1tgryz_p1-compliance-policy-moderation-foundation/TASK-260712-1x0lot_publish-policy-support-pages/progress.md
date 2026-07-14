@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:57:28Z
 
 ## Last Update
-2026-07-12T16:19:47Z
+2026-07-14T15:59:35Z
 
 ## Blocked By
 - TASK-260712-1epb3a
@@ -30,9 +30,11 @@ backlog
 - [ ] Verify deployed page hashes and rollback or cache behavior before certification
 
 ## Notes
+2026-07-14 kickoff: strict sequential execution started inline from synchronized main f1048c280aa7bdf6bfd92c7b2a971fc9dc027983. Repository implementation, locale rendering, link checks and deployment/rollback controls may proceed. Live publication and a proceed decision remain gated on Ivan Oparin approving the exact EN/RU hashes from TASK-260712-1epb3a; defaults approval is not recorded as exact-content approval. Real-app/manual link observation remains in the manual-test boundary where applicable.
+2026-07-14 staging checkpoint: deterministic generator builds five EN/RU documents into 10 stable and 10 immutable versioned HTML routes with source/rendered hashes, locale switches, stable anchors, cache headers and a public deployment manifest. macOS, Windows, Telegram and Store source links are wired and unit-checked. Local coordinator full/vet/race, Windows vet/race/cross-build, Swift release build, JSON/diff and deterministic regeneration pass. Source pack remains hold and no live publication is claimed until Ivan Oparin approves the exact 10 source hashes.
 
 ## Precondition Resources
 - [p1-store-compliance-flows.puml](file://TASK-260712-1x0lot/p1-store-compliance-flows.puml) — Policy, moderation and reviewer flow context
 
 ## Outcome Resources
-(none)
+- [p1-policy-support-publication.md](file://TASK-260712-1x0lot/p1-policy-support-publication.md) — Stable/versioned route contract, surface wiring, cache policy, live hash gate and rollback procedure

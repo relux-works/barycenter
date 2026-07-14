@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -57,7 +58,8 @@ func TestNodePresenceStorePersistsDNDAndPrivacyBoundedProjection(t *testing.T) {
 			t.Fatalf("persisted state contains forbidden field %q: %s", forbidden, raw)
 		}
 	}
-	if info, err := os.Stat(path); err != nil || info.Mode().Perm()&0o077 != 0 {
+	if info, err := os.Stat(path); err != nil ||
+		(runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0) {
 		t.Fatalf("state permissions too broad: info=%v err=%v", info, err)
 	}
 }

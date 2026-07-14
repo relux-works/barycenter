@@ -15,11 +15,13 @@ rectangle "Coordinator" {
   [Signature Probe + ffprobe] as Probe
   [ffmpeg Normalizer] as Normalize
   [Media ACL + Delete API] as MediaAPI
+  [Immutable Target Reader] as Targets
   [Legacy Voice Mapper] as Legacy
   [Retention + Failed Upload Cleanup] as Retention
+  [Lifecycle Cancellation Adapter] as Cancel
 }
 
-database "SQLite\nmedia_items/uploads/audit" as DB
+database "SQLite\nmedia_items/uploads/audit\nlegacy links + cleanup receipts" as DB
 folder "Storage\n(temp bytes + canonical WAV)" as Blob
 collections "Transmission / Legacy Queue State" as Delivery
 
@@ -37,14 +39,19 @@ Normalize --> DB : duration/hash/loudness/status
 SubmitMedia --> DB : upload/media state\naudit metadata
 SubmitMedia --> Legacy : compatibility WAV mapping
 Legacy --> Delivery : after_current / play_voice bridge
+Legacy --> DB : same-ID compatibility link\nterminal status mirror
 
 Control --> MediaAPI : GET / DELETE media
 Node --> MediaAPI : GET canonical media
 MediaAPI --> DB : owner/target ACL\nrevocation/deleted state
+MediaAPI --> Targets : exact media/orbit/actor/slot
 MediaAPI --> Blob
+MediaAPI --> DB : durable cancellation outbox
 
 Retention --> DB : expiry scan
-Retention --> Blob : purge failed/temp/deleted bytes
+Retention --> Blob : purge canonical/legacy/source bytes
+Retention --> Cancel : at-least-once cancellation
+Cancel --> Delivery : disarm queued\nstop active legacy voice\npersist advanced session
 
 note right of SubmitMedia
   Common entry point for app uploads and Telegram.
@@ -55,7 +62,8 @@ end note
 note bottom of MediaAPI
   Phase 1 keeps legacy WAV compatibility while
   moving authorization and lifecycle into the
-  generic media model.
+  generic media model. Target reader is fail-closed
+  until accepted transmission snapshots land.
 end note
 
 @enduml

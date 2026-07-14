@@ -8,11 +8,10 @@ backlog
 2026-07-12T16:25:28Z
 
 ## Last Update
-2026-07-12T16:43:47Z
+2026-07-14T00:48:45Z
 
 ## Blocked By
 - TASK-260712-1gmsvh
-- TASK-260712-265o0f
 - STORY-260712-2e36uz
 - STORY-260712-sskhip
 - STORY-260712-fes2jj

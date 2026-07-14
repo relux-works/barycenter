@@ -8,7 +8,7 @@ to-review
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-13T23:23:16Z
+2026-07-14T00:54:11Z
 
 ## Blocked By
 - STORY-260712-sskhip
@@ -23,6 +23,7 @@ to-review
 
 ## Notes
 User mandate 2026-07-12: do not accept agent code without scrupulous root review. to-review is only a handoff. Root must inspect diffs and affected seams, map every AC, rerun tests, validate evidence, and require independent review for high-risk changes before done.
+2026-07-14 execution policy update: 19 hands-on real-app, physical-platform, production-shaped and beta tasks moved to EPIC-260714-th54l3. Engineering inventory is 186 tasks: 11 accepted, 175 remaining. Next strict engineering task is TASK-260712-z6h6wh media-schema-repositories. Manual results remain unpassed.
 
 ## Precondition Resources
 (none)

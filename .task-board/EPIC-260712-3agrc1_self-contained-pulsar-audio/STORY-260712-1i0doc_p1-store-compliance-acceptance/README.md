@@ -1,10 +1,10 @@
-# P1 Store compliance and acceptance
+# P1 Store compliance and engineering readiness
 
 ## Description
-Ship privacy/UGC/reporting, Store metadata and evidence for A1-A8 and phase-one exit.
+Implement privacy, UGC, reporting, Store metadata and the automated and reviewable P1 engineering gate while routing hands-on A1-A8 hardware acceptance to EPIC-260714-th54l3.
 
 ## Scope
-Create privacy and UGC policies, in-product report/block/delete surfaces, moderation/admin workflow and runbook. Add microphone declarations, honest RU/EN localization, listing metadata, screenshots and certification notes. Run the full A1-A8, test, migration, rollback and platform evidence gate including repair of baseline test-environment gaps.
+Create policy and moderation surfaces, declarations, localization, listing assets, certification notes, reproducible builds, automated acceptance fixtures and root plus independent reviews. Freeze a signed P1 candidate and a manual-test handoff without executing physical matrices or Partner Center submission in this story.
 
 ## Acceptance Criteria
-A1-A8 and phase-one non-functional gates have reproducible evidence. Store reviewer can exercise primary functionality without Spotify or Telegram credentials. UGC report to disable/delete is operational. RU/EN UI and metadata match. Coordinator, Windows, Swift, cross-build, golden, migration and rollback checks are green. Store submission is accepted or remaining feedback is demonstrably outside testability, metadata and self-contained functionality.
+Coordinator, Windows, Swift, cross-build, golden, migration, rollback, security, manifest and package checks available to engineering are green; policy and Store preparation match the candidate; every manual A1-A8 and hardware gap links to EPIC-260714-th54l3. The story authorizes P2 engineering only, not Store submission or production release.

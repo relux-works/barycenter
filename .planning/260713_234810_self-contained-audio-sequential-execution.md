@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 34 accepted, 171 remain.
-- Routed inventory: 186 engineering tasks (34 accepted, 152 remain) and 19
+- Combined inventory: 205 original tasks; 35 accepted, 170 remain.
+- Routed inventory: 186 engineering tasks (35 accepted, 151 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3t9nr8` — moderation-runbook-mailbox
-  (next in strict order after the accepted publication task)
-- Most recently accepted: `TASK-260712-1x0lot` — publish-policy-support-pages
-- Current branch: `task/task-260712-3t9nr8-moderation-runbook-mailbox`
+- Current engineering task: `TASK-260712-1hqiek` — render-safe-clip-state-foundation
+  (next in strict order after the accepted moderation operations task)
+- Most recently accepted: `TASK-260712-3t9nr8` — moderation-runbook-mailbox
+- Current branch: pending synchronization from PR #34
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 34 / 205 tasks (approximately 16.6%); 171 remain
-- Engineering progress: 34 / 186 tasks (approximately 18.3%); 152 remain
+- Accepted overall: 35 / 205 tasks (approximately 17.1%); 170 remain
+- Engineering progress: 35 / 186 tasks (approximately 18.8%); 151 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -179,7 +179,7 @@ redirects and cache contracts. No packaged-app click is claimed. Progress is
 34/205 overall and 34/186 engineering; strict execution advances to
 `TASK-260712-3t9nr8`.
 
-Checkpoint 2026-07-14 (in progress): `TASK-260712-3t9nr8` now has an
+Checkpoint 2026-07-14 (accepted): `TASK-260712-3t9nr8` now has an
 accountable moderation operations contract and runbook for Ivan Oparin's
 approved primary/backup/escalation roles, GMT+4 coverage, ordinary and urgent
 targets, reporter-safe intake, verified Microsoft requests, evidence privacy,
@@ -195,7 +195,12 @@ race, exact moderation predecessor rollback, Windows vet/tests/cross-build,
 Swift release build, JSON and board validation pass. A broader coordinator
 race run passed `internal/store` but hit an unrelated Telegram SQLite-busy
 flaky test; the changed HTTP moderation path passed independently under race.
-Hosted CI and final external-boundary tracking remain before acceptance.
+Exact engineering head `9bcce41920a6c64eb823e41de2f691db456bd849`
+passed all four hosted jobs in run `29350324690`. The real-delivery checklist
+item remains honestly unchecked and transferred to `TASK-260714-200ib8`; Store
+submission is fail-closed until it passes. Under the owner-approved external-
+question boundary, engineering progress is 35/205 overall and 35/186
+engineering, and strict execution advances to `TASK-260712-1hqiek`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -767,7 +772,11 @@ Story: `STORY-260712-1tgryz` — P1 Policy and moderation foundation.
   and Store wiring, explicit clean-path redirects, edge byte-preservation and
   live verification of all 20 routes; all four hosted jobs in run
   `29348947568` green; `pulsar-site` production commit `6322e28`; PR #33)
-- [ ] `TASK-260712-3t9nr8` — moderation-runbook-mailbox
+- [x] `TASK-260712-3t9nr8` — moderation-runbook-mailbox (engineering accepted
+  on exact head `9bcce41`: accountable runbook, report-scoped content-free
+  audit export, deterministic operations validator and fail-closed Store mail
+  gate; all four hosted jobs in run `29350324690` green; real MX/delivery
+  remains external `TASK-260714-200ib8`; PR #34)
 
 ## 5. P1 cross-platform overlay and interrupt mixer
 

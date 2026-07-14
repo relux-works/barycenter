@@ -1,5 +1,5 @@
 ## Status
-development
+done
 
 ## Assigned To
 codex-inline
@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:45:04Z
 
 ## Last Update
-2026-07-14T16:35:34Z
+2026-07-14T16:39:14Z
 
 ## Blocked By
 - TASK-260712-1epb3a
@@ -31,6 +31,7 @@ codex-inline
 ## Notes
 2026-07-14 kickoff: strict sequential inline execution started from synchronized main merge 867f3d2b262ceed67a7bd75cb90d25bd91c5bcfb after TASK-260712-1x0lot acceptance. Approved defaults: owner and approver Ivan Oparin; support@barycenter.live, moderator@barycenter.live and moderation-urgent@barycenter.live; GMT+4 operations. Reversible repository work, unit tests and deterministic checks proceed. Actual mailbox delivery, human rotation acknowledgment or external Microsoft request receipt will not be invented; any irreversible owner decision is recorded under EPIC-260714-zmnd4n without stopping safe best-effort engineering.
 2026-07-14 engineering checkpoint: added report-scoped content-free audit export under list authority, complete operator runbook, machine-readable operations validator, CI contract check and Store-submit mailbox-ready gate. Full coordinator vet/tests, targeted moderation race, exact previous-head moderation rollback, Windows vet/tests/cross-build, Swift release build, JSON and board validation pass. Broad race passed internal/store but an unrelated Telegram test hit SQLITE_BUSY; the changed ModerationHTTP suite passes independently under race. DNS has no barycenter.live MX, so mailbox delivery remains honestly external_action_required and is rerouted to TASK-260714-200ib8 under EPIC-260714-zmnd4n; provider action does not stop reversible engineering.
+Engineering acceptance 2026-07-14 on exact head 9bcce41920a6c64eb823e41de2f691db456bd849: all four hosted jobs passed in run 29350324690. Checklist item 5 remains deliberately unchecked because DNS proves no live mailbox delivery; its provider-side completion is explicitly transferred to external owner task TASK-260714-200ib8. This boundary follows owner direction to continue best-effort engineering without inventing external evidence. Store submission remains fail-closed until that task changes the contract to ready and live MX verification passes.
 
 ## Precondition Resources
 (none)

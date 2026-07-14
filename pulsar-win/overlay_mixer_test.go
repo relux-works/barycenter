@@ -244,13 +244,14 @@ func TestWindowsOverlayKeepsContinuityAcrossRepeatedMainHandoffs(t *testing.T) {
 	}
 }
 
-func TestWindowsOverlayMixerAdvertisesOnlyOverlayAndPreparesPCM(t *testing.T) {
+func TestWindowsMixerAdvertisesExactImplementedDeliveriesAndPreparesPCM(t *testing.T) {
 	ring := NewRing(4096)
 	engine, gain := newTestEngine(ring)
 	t.Cleanup(engine.Close)
 	t.Cleanup(gain.Close)
 	mixer := NewWindowsOverlayMediaClipMixer(engine)
-	if capabilities := mixer.DeliveryCapabilities(); len(capabilities) != 1 || capabilities[0] != protocol.CapabilityOverlayMix {
+	if capabilities := mixer.DeliveryCapabilities(); len(capabilities) != 2 ||
+		capabilities[0] != protocol.CapabilityOverlayMix || capabilities[1] != protocol.CapabilityInterruptResume {
 		t.Fatalf("capabilities=%v", capabilities)
 	}
 	path := filepath.Join(t.TempDir(), "overlay.wav")
@@ -264,10 +265,16 @@ func TestWindowsOverlayMixerAdvertisesOnlyOverlayAndPreparesPCM(t *testing.T) {
 	if _, ok := clip.Decoder.(*windowsOverlayPrepared); !ok {
 		t.Fatalf("decoder=%T", clip.Decoder)
 	}
-	interruptPlan := overlayPlan(time.Now(), sampleRate/10)
-	interruptPlan.Control.Delivery = "interrupt"
-	if err := mixer.Arm(clip, interruptPlan, func(int64) {}, func(int64) {}); mediaClipFailureCode(err, "") != "capability_lost" {
+	interruptClip, err := mixer.Prepare(path, "interrupt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := windowsInterruptPlan(time.Now())
+	if err := mixer.Arm(interruptClip, plan, func(int64) {}, func(int64) {}); mediaClipFailureCode(err, "") != "interrupt_capability_lost" {
 		t.Fatalf("interrupt arm error=%v", err)
+	}
+	if engine.InterruptActive() || engine.OverlayActive() {
+		t.Fatal("unsupported interrupt must not arm any fallback")
 	}
 }
 
@@ -326,8 +333,10 @@ func TestWindowsOverlayMixerRunsMediaClientLifecycle(t *testing.T) {
 		events[1].generation != 1 || events[2].code != "completed" {
 		t.Fatalf("lifecycle events=%+v", events)
 	}
-	if capabilities := client.AdvertisedCapabilities(); len(capabilities) != 2 || capabilities[0] != protocol.CapabilityMediaClip ||
-		capabilities[1] != protocol.CapabilityOverlayMix {
+	if capabilities := client.AdvertisedCapabilities(); len(capabilities) != 3 ||
+		capabilities[0] != protocol.CapabilityInterruptResume ||
+		capabilities[1] != protocol.CapabilityMediaClip ||
+		capabilities[2] != protocol.CapabilityOverlayMix {
 		t.Fatalf("client capabilities=%v", capabilities)
 	}
 }

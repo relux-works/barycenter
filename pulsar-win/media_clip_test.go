@@ -339,6 +339,47 @@ func TestMediaClipScheduledCallbacksAreGenerationSafeAndTerminalOnce(t *testing.
 	}
 }
 
+func TestWelcomeReconnectResetsActiveInterruptBeforeNewSessionCommands(t *testing.T) {
+	fetcher := &stubMediaClipFetcher{}
+	mixer := &stubMediaClipMixer{
+		capabilities: []string{protocol.CapabilityInterruptResume},
+		mainResumed:  true,
+	}
+	recorder := &mediaEventRecorder{}
+	client := newTestMediaClipClient(fetcher, mixer, recorder, nil, fixedClock{ok: true})
+	player, sent, _ := newTestPlayer(t, newFakeDaemon(), fixedClock{ok: true})
+	player.ConfigureTransmissionHooks(client, nil)
+
+	prepare := testPrepareMedia(1)
+	prepare.Delivery = "interrupt"
+	client.Prepare(&prepare)
+	expectSent(t, sent, protocol.TypeMediaReady)
+	play := testInterruptPlay(1)
+	client.Play(&play)
+	client.Synchronize()
+	mixer.fireStarted(11_000)
+	expectSent(t, sent, protocol.TypeMediaStarted)
+
+	player.ApplyWelcome(&protocol.WelcomePayload{SessionSnapshot: protocol.SessionSnapshot{
+		Mode: "shared", State: "playing", Volume: 80,
+	}})
+	client.Synchronize()
+	_, cancelCount, disposeCount := mixer.counts()
+	if cancelCount != 1 || disposeCount != 1 || len(client.entries) != 0 {
+		t.Fatalf("reconnect cancel=%d dispose=%d entries=%d", cancelCount, disposeCount, len(client.entries))
+	}
+
+	// A callback already queued by the old render generation cannot publish a
+	// second terminal state or affect the newly reconciled session.
+	mixer.fireEnded(15_200)
+	client.Synchronize()
+	select {
+	case event := <-sent:
+		t.Fatalf("stale reconnect callback emitted %+v", event)
+	default:
+	}
+}
+
 func TestMediaClipDuplicateAndReorderedCommandsAreIdempotent(t *testing.T) {
 	fetcher := &stubMediaClipFetcher{}
 	mixer := &stubMediaClipMixer{capabilities: []string{protocol.CapabilityOverlayMix}}

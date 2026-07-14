@@ -103,3 +103,29 @@ releases the music branch concurrently and acknowledges only after both active
 ramps finish. It then stops/resets the overlay node and restores unity gain.
 Telemetry is limited to aggregate overlay frames, limiter-hit windows, ring
 fill and underruns, matching the Windows privacy boundary.
+
+## Windows interrupt branch
+
+The Windows interrupt path reuses the single media render owner. It applies a
+raised-cosine main fade during the wire-controlled interval before `T`, stops
+consuming the main ring at the exact replacement boundary, and renders the
+prepared clip through the same post-mix limiter and local master gain. Overlay
+and interrupt branches therefore cannot own the graph simultaneously.
+
+At the first replacement sample the control dispatcher snapshots the audible
+music anchor as provider/extrapolated position minus the frames still queued in
+the ring. It marks the exact `(element_id, load_generation)` paused, clears the
+buffered tail and pauses the provider away from the render callback. Natural
+completion or cancellation waits for any requested replacement fade, seeks to
+that audible anchor exactly once, resumes the same provider generation and
+applies the wire-controlled 120 ms default main fade-in. No buffered-ahead
+provider position is used as the resume point.
+
+Load, stop, legacy voice replacement and reconnect reset the interrupt token
+and all prepared media generations. A callback from an older generation may
+neither seek nor resume the newly reconciled session. If the player cannot
+provide exact pause/seek/resume ownership, scheduling fails explicitly as
+`interrupt_capability_lost`; it never degrades to overlay or `after_current`.
+Telemetry remains aggregate-only: interrupt frame count, ring fill, limiter
+hits and underruns. Audible quality and the 500 ms physical-position tolerance
+remain part of the separate manual hardware-testing epic.

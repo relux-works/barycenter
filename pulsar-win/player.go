@@ -108,6 +108,7 @@ type Player struct {
 	metadataPosition   *int64
 	metadataTitle      string
 	speakerName        string
+	interruptAnchor    *windowsInterruptAnchor
 }
 
 func NewPlayer(daemon daemonAPI, ring *Ring, engine *Engine, cache *VoiceCache,
@@ -237,6 +238,12 @@ func (p *Player) Handle(env protocol.Envelope, payload any) {
 // Scope: adopt the broadcast volume and mode; the coordinator re-issues
 // load/resume for anything in flight.
 func (p *Player) ApplyWelcome(w *protocol.WelcomePayload) {
+	p.mu.Lock()
+	mediaClips := p.mediaClips
+	p.mu.Unlock()
+	if mediaClips != nil {
+		mediaClips.Reset()
+	}
 	p.SetVolume(w.SessionSnapshot.Volume)
 	p.mu.Lock()
 	p.mode = w.SessionSnapshot.Mode
@@ -253,6 +260,7 @@ func (p *Player) load(m *protocol.LoadPayload) {
 	p.cancelTimersLocked()
 	p.pausedLocally = false
 	p.loadGen++
+	p.interruptAnchor = nil
 	gen := p.loadGen
 	p.elementID = m.ElementID
 	p.uri = m.URI
@@ -480,6 +488,7 @@ func (p *Player) pauseCmd(m *protocol.PausePayload) {
 		return
 	}
 	p.cancelTimersLocked()
+	p.interruptAnchor = nil
 	p.pausedLocally = false
 	p.playback = PlaybackPaused
 	p.extrapolate = false
@@ -503,6 +512,7 @@ func (p *Player) seekCmd(m *protocol.SeekPayload) {
 		return
 	}
 	p.anchorPosMS = m.PositionMS
+	p.interruptAnchor = nil
 	p.anchorAt = time.Now()
 	p.extrapolate = p.playback == PlaybackPlaying
 	p.mu.Unlock()
@@ -514,6 +524,7 @@ func (p *Player) playVoice(m *protocol.PlayVoicePayload) {
 	p.mu.Lock()
 	p.cancelTimersLocked()
 	p.loadGen++ // voice supersedes any in-flight track load
+	p.interruptAnchor = nil
 	gen := p.loadGen
 	p.elementID = m.ElementID
 	p.playback = PlaybackVoice
@@ -578,6 +589,7 @@ func (p *Player) waitCmd(m *protocol.WaitPayload) {
 	p.mu.Lock()
 	p.cancelTimersLocked()
 	p.loadGen++
+	p.interruptAnchor = nil
 	p.elementID = m.ElementID
 	p.playback = PlaybackWait
 	el := m.ElementID
@@ -625,10 +637,12 @@ func (p *Player) offsetTest(m *protocol.OffsetTestPayload) {
 
 func (p *Player) stopAll() {
 	p.mu.Lock()
+	mediaClips := p.mediaClips
 	wasInsert := p.playback == PlaybackVoice || p.playback == PlaybackWait
 	p.cancelTimersLocked()
 	p.pausedLocally = false
 	p.loadGen++ // invalidate any in-flight load
+	p.interruptAnchor = nil
 	p.elementID = ""
 	p.uri = ""
 	p.playback = PlaybackStopped
@@ -637,6 +651,9 @@ func (p *Player) stopAll() {
 	p.draining = false
 	p.anchorPosMS = 0
 	p.mu.Unlock()
+	if mediaClips != nil {
+		mediaClips.Reset()
+	}
 	p.engine.SetExpectingMusic(false)
 	p.engine.StopVoice()
 	if wasInsert {
@@ -867,7 +884,8 @@ func (p *Player) HandleLibrespotEvent(ev LibrespotEvent) {
 		// so its own playing event is ignored. A same-URI playing event while
 		// stopped/paused is a fresh Spotify selection and must be adopted.
 		p.mu.Lock()
-		insertionActive := p.playback == PlaybackVoice || p.playback == PlaybackWait
+		insertionActive := p.playback == PlaybackVoice || p.playback == PlaybackWait ||
+			p.interruptAnchor != nil
 		p.mu.Unlock()
 		p.reportExternalSelection(ev.URI, nil, true, ev.PlayOrigin)
 		if insertionActive {

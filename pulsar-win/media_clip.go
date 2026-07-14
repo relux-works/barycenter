@@ -500,6 +500,19 @@ func (c *MediaClipClient) Synchronize() {
 	<-done
 }
 
+// Reset is ordered with subsequently received WebSocket commands. It cancels
+// every prepared/armed generation after reconnect without stopping the client
+// loop, so an old render callback cannot survive into the new session view.
+func (c *MediaClipClient) Reset() {
+	c.post(func() bool {
+		for _, entry := range c.entries {
+			c.discard(entry)
+		}
+		c.entries = map[string]*mediaClipEntry{}
+		return false
+	})
+}
+
 func (c *MediaClipClient) Stop() {
 	c.stopOnce.Do(func() {
 		done := make(chan struct{})

@@ -34,6 +34,7 @@ const (
 	errorUploadStateConflict    = "upload_state_conflict"
 	errorUploadQuota            = "upload_quota_exceeded"
 	errorMediaProcessing        = "media_processing_failed"
+	errorMediaNotFound          = "media_not_found"
 	errorInternal               = "internal_error"
 )
 
@@ -84,6 +85,7 @@ func apiError(w http.ResponseWriter, status int, code string, retry time.Duratio
 		errorUploadStateConflict:    "The upload cannot be changed in its current state.",
 		errorUploadQuota:            "The media upload quota has been reached.",
 		errorMediaProcessing:        "The media could not be validated or prepared.",
+		errorMediaNotFound:          "The media item was not found.",
 		errorInternal:               "An internal error occurred.",
 	}
 	var body apiErrorBody
@@ -209,6 +211,8 @@ type onboardingAPI struct {
 	mediaUploadInitErr     error
 	mediaSubmitter         mediaUploadSubmitter
 	mediaSubmitterInitErr  error
+	mediaLifecycle         *media.LifecycleService
+	mediaLifecycleInitErr  error
 	// testAfterAuth is nil in production. Tests use it to pause between
 	// middleware authentication and the immediate writer transaction.
 	testAfterAuth   func(store.ActorContext)
@@ -234,6 +238,7 @@ func newOnboardingAPI(st *store.Store, cfg *config.Config, log *slog.Logger, bot
 		preset = media.PresetDefault
 	}
 	api.mediaSubmitter, api.mediaSubmitterInitErr = media.NewSubmitService(st, cfg.MediaDir, preset)
+	api.mediaLifecycle, api.mediaLifecycleInitErr = media.NewLifecycleService(st, cfg.MediaDir)
 	return api
 }
 
@@ -256,6 +261,7 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/telegram-links", api.secure(api.withControl(api.telegramLinks)))
 	mux.HandleFunc("/v1/media/uploads", api.secure(api.withControl(api.createMediaUpload)))
 	mux.HandleFunc("/v1/media/uploads/", api.secure(api.writeMediaUpload))
+	mux.HandleFunc("/v1/media/", api.secure(api.withControl(api.deleteMediaItem)))
 }
 
 func (api *onboardingAPI) secure(next http.HandlerFunc) http.HandlerFunc {

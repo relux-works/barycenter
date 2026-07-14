@@ -554,7 +554,8 @@ func TestMediaIngestSchemaInstallIsAtomic(t *testing.T) {
 	}
 	for _, table := range []string{
 		"media_items", "media_upload_sessions", "media_storage_operations",
-		"media_legacy_wav_links", "media_ingest_audit_events",
+		"media_delivery_cancellations", "media_legacy_wav_links",
+		"media_ingest_audit_events",
 	} {
 		exists, err := tableExists(store.db, table)
 		if err != nil {

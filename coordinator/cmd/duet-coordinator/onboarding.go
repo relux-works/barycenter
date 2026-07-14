@@ -215,6 +215,11 @@ type onboardingAPI struct {
 	mediaLifecycleInitErr  error
 	mediaDownload          *media.DownloadService
 	mediaDownloadInitErr   error
+	transmissionNow        func() time.Time
+	transmissionPresence   transmissionPresenceSnapshotter
+	transmissionToken      func() (string, error)
+	transmissionActor      *attemptLimiter
+	transmissionOrbit      *attemptLimiter
 	// testAfterAuth is nil in production. Tests use it to pause between
 	// middleware authentication and the immediate writer transaction.
 	testAfterAuth   func(store.ActorContext)
@@ -233,6 +238,13 @@ func newOnboardingAPIBase(st *store.Store, cfg *config.Config, log *slog.Logger,
 		linkActor:        newAttemptLimiter(10, time.Hour, 0),
 		mediaUploadQuota: store.DefaultMediaUploadQuota(),
 		mediaUploadNow:   time.Now,
+		transmissionNow:  time.Now,
+		transmissionPresence: func() map[transmissionPresenceKey]transmissionPresenceState {
+			return map[transmissionPresenceKey]transmissionPresenceState{}
+		},
+		transmissionToken: newTransmissionConfirmationToken,
+		transmissionActor: newAttemptLimiter(120, time.Minute, 10_000),
+		transmissionOrbit: newAttemptLimiter(600, time.Minute, 10_000),
 	}
 	api.mediaUploadInitErr = api.initializeMediaUploadStorage()
 	api.mediaLifecycle, api.mediaLifecycleInitErr = media.NewLifecycleService(st, cfg.MediaDir)
@@ -306,6 +318,8 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/media/uploads", api.secure(api.withControl(api.createMediaUpload)))
 	mux.HandleFunc("/v1/media/uploads/", api.secure(api.writeMediaUpload))
 	mux.HandleFunc("/v1/media/", api.secure(api.withActor(api.mediaItem)))
+	mux.HandleFunc("/v1/transmissions", api.secure(api.withControl(api.createTransmission)))
+	mux.HandleFunc("/v1/transmissions/", api.secure(api.withActor(api.transmissionItem)))
 }
 
 func (api *onboardingAPI) secure(next http.HandlerFunc) http.HandlerFunc {

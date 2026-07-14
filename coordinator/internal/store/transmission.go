@@ -537,6 +537,28 @@ func (s *Store) CreateTransmission(params CreateTransmissionParams) (Transmissio
 	if err != nil {
 		return TransmissionCreation{}, err
 	}
+	creation, err := s.createTransmissionTx(tx, params, mediaItem)
+	if err != nil {
+		return TransmissionCreation{}, err
+	}
+	if err := s.checkpoint("transmission_create_before_commit"); err != nil {
+		return TransmissionCreation{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return TransmissionCreation{}, err
+	}
+	return creation, nil
+}
+
+// createTransmissionTx writes an already-authorized acceptance snapshot into
+// the caller's immediate writer transaction. Audience resolution, policy
+// decisions, confirmation consumption and idempotency records can therefore
+// be sealed atomically by higher-level repository entry points.
+func (s *Store) createTransmissionTx(
+	tx *sql.Tx,
+	params CreateTransmissionParams,
+	mediaItem MediaItem,
+) (TransmissionCreation, error) {
 	expiresAt := transmissionExpiry(params.AcceptedAt, mediaItem.ExpiresAt, params.RequestedDelivery)
 	if expiresAt <= params.AcceptedAt {
 		return TransmissionCreation{}, ErrTransmissionMediaInvalid
@@ -596,12 +618,6 @@ WHERE transmission_id = ? AND orbit_id = ? AND slot = ?`,
 	}
 	transmission, err := recomputeTransmissionTx(tx, id, params.AcceptedAt)
 	if err != nil {
-		return TransmissionCreation{}, err
-	}
-	if err := s.checkpoint("transmission_create_before_commit"); err != nil {
-		return TransmissionCreation{}, err
-	}
-	if err := tx.Commit(); err != nil {
 		return TransmissionCreation{}, err
 	}
 	return TransmissionCreation{Transmission: transmission, Targets: createdTargets}, nil

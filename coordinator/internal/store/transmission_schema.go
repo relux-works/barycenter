@@ -50,6 +50,49 @@ CREATE INDEX IF NOT EXISTS transmissions_media_lifecycle
 CREATE INDEX IF NOT EXISTS transmissions_source_history
   ON transmissions(source_actor_id, accepted_at DESC, id DESC);
 
+-- Caller idempotency is scoped to the resolved actor. Only digests are
+-- durable: neither the Idempotency-Key nor the canonical request body is
+-- persisted in plaintext.
+CREATE TABLE IF NOT EXISTS transmission_requests (
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  idempotency_key_hash TEXT NOT NULL
+    CHECK(length(idempotency_key_hash) = 64
+      AND idempotency_key_hash NOT GLOB '*[^0-9a-f]*'),
+  request_hash TEXT NOT NULL
+    CHECK(length(request_hash) = 64
+      AND request_hash NOT GLOB '*[^0-9a-f]*'),
+  transmission_id TEXT NOT NULL REFERENCES transmissions(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  PRIMARY KEY (actor_id, idempotency_key_hash),
+  UNIQUE (transmission_id)
+);
+
+-- Interrupt fallback challenges are deliberately separate from accepted
+-- transmissions: issuing a challenge must not reserve a FIFO position. The
+-- opaque token is retained only as a digest and exact replay is rejected even
+-- while the consumed row is retained for the contract's five-minute window.
+CREATE TABLE IF NOT EXISTS transmission_fallback_confirmations (
+  token_hash TEXT PRIMARY KEY
+    CHECK(length(token_hash) = 64
+      AND token_hash NOT GLOB '*[^0-9a-f]*'),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  idempotency_key_hash TEXT NOT NULL
+    CHECK(length(idempotency_key_hash) = 64
+      AND idempotency_key_hash NOT GLOB '*[^0-9a-f]*'),
+  request_hash TEXT NOT NULL
+    CHECK(length(request_hash) = 64
+      AND request_hash NOT GLOB '*[^0-9a-f]*'),
+  overlay_available INTEGER NOT NULL CHECK(overlay_available IN (0, 1)),
+  after_current_available INTEGER NOT NULL
+    CHECK(after_current_available IN (0, 1)),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  expires_at INTEGER NOT NULL CHECK(expires_at > created_at),
+  consumed_at INTEGER NOT NULL DEFAULT 0 CHECK(consumed_at >= 0),
+  CHECK(consumed_at = 0 OR consumed_at >= created_at)
+);
+CREATE INDEX IF NOT EXISTS transmission_confirmations_expiry
+  ON transmission_fallback_confirmations(expires_at, consumed_at);
+
 CREATE TABLE IF NOT EXISTS transmission_targets (
   transmission_id TEXT NOT NULL REFERENCES transmissions(id) ON DELETE CASCADE,
   orbit_id INTEGER NOT NULL CHECK(orbit_id > 0),

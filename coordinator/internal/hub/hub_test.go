@@ -163,4 +163,11 @@ func TestRegisterRetainsUnknownCapabilitiesInCanonicalOrder(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("valid registration did not emit")
 	}
+	key := NodeKey{Orbit: 42, Slot: "b"}
+	snapshot := h.NodeSnapshots()[key]
+	if !snapshot.Connected || snapshot.LastSeenAt <= 0 ||
+		!snapshot.Capabilities.Supports(protocol.CapabilityMediaClip) ||
+		!snapshot.Capabilities.Supports("unknown_future_v2") {
+		t.Fatalf("node snapshot=%+v capabilities=%v", snapshot, snapshot.Capabilities.Values())
+	}
 }

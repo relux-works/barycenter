@@ -40,6 +40,21 @@
   and `29318696473`. Strict execution has started `TASK-260712-2qpp6w` from
   that synchronized `main`.
 
+Checkpoint 2026-07-14: the `TASK-260712-2qpp6w` implementation candidate now
+exposes strict control-authenticated create/cancel and actor-authenticated
+status endpoints. One immediate SQLite transaction reauthenticates the bearer,
+resolves live media and audience bindings, applies block/DND/presence and
+capability policy, consumes hashed fallback proofs and seals idempotency plus
+immutable target rows. Whole-delivery overlay downgrade, explicit single-use
+interrupt fallback, non-disclosing visibility and generation-bound sender
+cancel handoff are covered. Root review added exact omitted-versus-empty slot
+handling, empty-selector and corrupt-link fail-closed behavior, actual-socket
+presence and credential-aware cancellation output. Coordinator vet/full test/
+race, 20x idempotency and confirmation stress, Windows vet/test/race/cross-
+build, Swift build, diff/resource comparison and task-board validation are
+green. The attached outcome explicitly leaves FIFO/barrier/disarm delivery to
+`TASK-260712-31vvjt` and claims no real-app or physical-hardware result.
+
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
 verification, and negative contract tests. Local Go vet/test, Windows amd64

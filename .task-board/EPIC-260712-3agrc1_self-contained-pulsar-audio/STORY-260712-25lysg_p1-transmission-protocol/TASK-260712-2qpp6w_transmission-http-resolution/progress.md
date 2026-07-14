@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:39:19Z
 
 ## Last Update
-2026-07-14T08:41:29Z
+2026-07-14T09:25:42Z
 
 ## Blocked By
 - TASK-260712-51y5k9
@@ -28,18 +28,19 @@ codex-inline
 - TASK-260712-25862f
 
 ## Checklist
-- [ ] Implement create, status, and cancel handlers with control versus audience auth
-- [ ] Resolve audiences into explicit targets and persist effective delivery data
-- [ ] Preserve acceptance ordering inputs and unauthorized media error behavior
-- [ ] Enforce origin defaults, clip-delivery matrix, overlay duration and coordinator-owned ordering
-- [ ] Apply one stable after_current downgrade to the entire transmission when any mandatory target lacks capability
-- [ ] Return and consume a stable requires_confirmation contract before any interrupt fallback
+- [x] Implement create, status, and cancel handlers with control versus audience auth
+- [x] Resolve audiences into explicit targets and persist effective delivery data
+- [x] Preserve acceptance ordering inputs and unauthorized media error behavior
+- [x] Enforce origin defaults, clip-delivery matrix, overlay duration and coordinator-owned ordering
+- [x] Apply one stable after_current downgrade to the entire transmission when any mandatory target lacks capability
+- [x] Return and consume a stable requires_confirmation contract before any interrupt fallback
 
 ## Notes
 Strict inline execution started from synchronized main merge 24730209e60cfcb24c8b41577a0648ba1d0a5327 on branch task/task-260712-2qpp6w-transmission-http-resolution. Scope is the frozen transmission-v1 create/status/cancel HTTP contract, immutable audience resolution, whole-transmission capability downgrade and explicit interrupt confirmation. Best-effort coding and automated tests only; real-app and physical-hardware checks remain in manual epic EPIC-260714-th54l3.
+Implemented strict create/status/cancel HTTP resolution with transactional bearer reauthentication, actor-scoped hashed idempotency, immutable live-binding audience snapshots, media/policy/capability evaluation, whole-delivery downgrade, hashed single-use interrupt confirmation, safe visibility and generation-bound cancellation handoff. Root review added omitted-vs-empty slot validation, empty-selector and corrupt-link fail-closed behavior, actual-socket presence, capability-aware can_cancel and non-disclosing block output. Local coordinator vet/test/race, 20x idempotency+confirmation stress, Windows vet/test/race/cross-build, Swift build, diff/resource comparison and board validation are green. Outcome resource attached. No real-app or physical-hardware result claimed; those remain in EPIC-260714-th54l3.
 
 ## Precondition Resources
 - [p1-transmission-protocol-components.puml](file://TASK-260712-2qpp6w/p1-transmission-protocol-components.puml) — HTTP API and audience resolution context
 
 ## Outcome Resources
-(none)
+- [TASK-260712-2qpp6w_transmission-http-resolution.md](file://TASK-260712-2qpp6w/TASK-260712-2qpp6w_transmission-http-resolution.md) — Accepted HTTP resolution boundary, automated evidence and scheduler/client handoff

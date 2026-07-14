@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 27 accepted, 178 remain.
-- Routed inventory: 186 engineering tasks (27 accepted, 159 remain) and 19
+- Combined inventory: 205 original tasks; 28 accepted, 177 remain.
+- Routed inventory: 186 engineering tasks (28 accepted, 158 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Landing engineering task: `TASK-260712-31vvjt` — overlay-controller-scheduler
-- Next engineering task after landing: `TASK-260712-2qc27p` — transmission-regression-coverage
-- Current branch: `task/task-260712-31vvjt-overlay-controller-scheduler`
-- Accepted overall: 27 / 205 tasks (approximately 13.2%); 178 remain
-- Engineering progress: 27 / 186 tasks (approximately 14.5%); 159 remain
+- Landing engineering task: `TASK-260712-2qc27p` — transmission-regression-coverage
+- Next engineering task after landing: `TASK-260712-2cdjq8` — transmission-rollout-handoff
+- Current branch: `task/task-260712-2qc27p-transmission-regression-coverage`
+- Accepted overall: 28 / 205 tasks (approximately 13.7%); 177 remain
+- Engineering progress: 28 / 186 tasks (approximately 15.1%); 158 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -52,8 +52,31 @@
   `TASK-260712-31vvjt` from that synchronized `main`. `TASK-260712-31vvjt` is
   accepted on exact engineering code head
   `d0e1b925aa72048c243739d61bcf61fb51443ab7`; all four hosted jobs passed in
-  run `29331940948`, and PR #26 is landing the tracking update before strict
-  execution advances to `TASK-260712-2qc27p`.
+  run `29331940948`; tracking head `baf8210` passed all four jobs in run
+  `29332298395`. PR #26 landed at merge
+  `8d2b7d3825536ed9dc732f1e86040edc227a7acf`, and strict execution advanced to
+  `TASK-260712-2qc27p` from that synchronized `main`. `TASK-260712-2qc27p` is
+  accepted on exact engineering code head
+  `c60bd99ed4717a62b69a10338e5b13b39001e419`; all four hosted jobs passed in
+  run `29333494719`, and PR #27 is landing the tracking update before strict
+  execution advances to `TASK-260712-2cdjq8`.
+
+Checkpoint 2026-07-14: `TASK-260712-2qc27p` closes the deterministic
+transmission regression matrix. Strict HTTP tests reject caller-controlled
+acceptance/ID fields and cover origin defaults plus the exact 60,000/60,001 ms
+overlay boundary. A persisted table covers all 35 valid terminal
+status/reason pairs. Multi-target integration proves one T derived from fresh
+maximum RTT; mixed fleets use one visible legacy delivery for every target;
+terminal convergence clears the scheduler timer and makes stale wakes inert.
+The exact rollback gate now runs both the pre-scheduler `0c1e194` coordinator
+and pre-transmission-schema `2aa97c2` coordinator while preserving
+transmissions, target ACL, legacy state and scheduler state. Coordinator
+vet/full/race, 20x shuffled regressions, Windows vet/unit/race and amd64/arm64
+cross-build, Swift release build and both pinned rollback cases passed locally;
+hosted run `29333494719` passed coordinator, node-core, pulsar-win and signed
+packaged-probe on exact head `c60bd99`. The criterion map explicitly leaves
+real-app playback, audible non-overlap, physical p95 skew and late-work
+inaudibility unpassed in `EPIC-260714-th54l3` / `TASK-260712-2hodti`.
 
 Checkpoint 2026-07-14: `TASK-260712-31vvjt` now has one durable scheduler per
 persisted orbit or approach playback domain. Overlay and interrupt share an
@@ -514,7 +537,11 @@ Story: `STORY-260712-25lysg` — P1 Transmission protocol and scheduler.
   code head `d0e1b92`: durable domain FIFO/barrier/T, authenticated receipts,
   restart/lifecycle cancellation and exact legacy bridge; local full/race/
   rollback gates and all four hosted jobs in run `29331940948` green; PR #26)
-- [ ] `TASK-260712-2qc27p` — transmission-regression-coverage
+- [x] `TASK-260712-2qc27p` — transmission-regression-coverage (accepted on
+  exact code head `c60bd99`: complete story-criterion evidence map, 35-pair
+  receipt vocabulary, caller-order/ACL/downgrade/barrier/timer adversarial
+  coverage and dual exact rollback; local full/race/shuffle/platform gates and
+  all four hosted jobs in run `29333494719` green; PR #27)
 - [ ] `TASK-260712-2cdjq8` — transmission-rollout-handoff
 
 ## 4. P1 policy and moderation foundation

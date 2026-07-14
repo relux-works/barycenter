@@ -369,6 +369,101 @@ func TestTransmissionTargetConcurrentTerminalReceiptsCommitExactlyOneOutcome(t *
 	}
 }
 
+func TestTransmissionReceiptVocabularyIsClosedAndPersistent(t *testing.T) {
+	st, source := newMediaIngestTestStore(t)
+	target, err := st.CreateSelfServiceOrbit("Receipt vocabulary target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	media := readyLifecycleMedia(
+		t, st, source, now, now+int64((7*24*time.Hour)/time.Millisecond),
+	)
+	tests := []struct {
+		status TransmissionTargetStatus
+		reason TransmissionReason
+	}{
+		{TransmissionTargetPlayed, TransmissionReasonCompleted},
+		{TransmissionTargetMissedOffline, TransmissionReasonOfflineAtAcceptance},
+		{TransmissionTargetMissedOffline, TransmissionReasonOfflineBeforePrepare},
+		{TransmissionTargetMissedOffline, TransmissionReasonOfflineBeforeStart},
+		{TransmissionTargetMissedDND, TransmissionReasonLocalDND},
+		{TransmissionTargetMissedDND, TransmissionReasonOrbitDND},
+		{TransmissionTargetMissedNotReady, TransmissionReasonPrepareDeadline},
+		{TransmissionTargetBlocked, TransmissionReasonActorBlocked},
+		{TransmissionTargetBlocked, TransmissionReasonOrbitBlocked},
+		{TransmissionTargetFailed, TransmissionReasonMediaDownloadFailed},
+		{TransmissionTargetFailed, TransmissionReasonMediaAuthFailed},
+		{TransmissionTargetFailed, TransmissionReasonMediaExpired},
+		{TransmissionTargetFailed, TransmissionReasonHashMismatch},
+		{TransmissionTargetFailed, TransmissionReasonDecodeFailed},
+		{TransmissionTargetFailed, TransmissionReasonDurationMismatch},
+		{TransmissionTargetFailed, TransmissionReasonClockUnsynchronized},
+		{TransmissionTargetFailed, TransmissionReasonStalePlay},
+		{TransmissionTargetFailed, TransmissionReasonDeviceUnavailable},
+		{TransmissionTargetFailed, TransmissionReasonAudioGraphFailed},
+		{TransmissionTargetFailed, TransmissionReasonConnectionLost},
+		{TransmissionTargetFailed, TransmissionReasonCapabilityLost},
+		{TransmissionTargetFailed, TransmissionReasonInterruptCapabilityLost},
+		{TransmissionTargetFailed, TransmissionReasonCancelUnacknowledged},
+		{TransmissionTargetFailed, TransmissionReasonInternalError},
+		{TransmissionTargetCancelled, TransmissionReasonSenderCancelled},
+		{TransmissionTargetCancelled, TransmissionReasonMediaDeleted},
+		{TransmissionTargetCancelled, TransmissionReasonMediaExpired},
+		{TransmissionTargetCancelled, TransmissionReasonModerationDisabled},
+		{TransmissionTargetCancelled, TransmissionReasonApproachLeft},
+		{TransmissionTargetCancelled, TransmissionReasonApproachApart},
+		{TransmissionTargetCancelled, TransmissionReasonTargetRevoked},
+		{TransmissionTargetCancelled, TransmissionReasonDNDEnabled},
+		{TransmissionTargetCancelled, TransmissionReasonSenderBlocked},
+		{TransmissionTargetCancelled, TransmissionReasonCoordinatorRestarted},
+		{TransmissionTargetExpired, TransmissionReasonDeliveryExpired},
+	}
+	if len(tests) != 35 {
+		t.Fatalf("receipt vocabulary has %d rows, want 35", len(tests))
+	}
+	for index, test := range tests {
+		t.Run(string(test.status)+"/"+string(test.reason), func(t *testing.T) {
+			acceptedAt := now + 100 + int64(index*10)
+			created, err := st.CreateTransmission(transmissionParams(
+				media, source, acceptedAt, transmissionTarget(target, true),
+			))
+			if err != nil {
+				t.Fatal(err)
+			}
+			current := created.Targets[0]
+			if test.status == TransmissionTargetPlayed {
+				playing, err := st.TransitionTransmissionTarget(TransitionTransmissionTargetParams{
+					TransmissionID: current.TransmissionID, OrbitID: current.OrbitID,
+					ActorID: current.ActorID, Slot: current.Slot,
+					ExpectedRevision: current.Revision, Generation: current.Generation,
+					Status: TransmissionTargetPlaying, OccurredAt: acceptedAt + 1,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				current = playing.Target
+			}
+			transition, err := st.TransitionTransmissionTarget(
+				TransitionTransmissionTargetParams{
+					TransmissionID: current.TransmissionID, OrbitID: current.OrbitID,
+					ActorID: current.ActorID, Slot: current.Slot,
+					ExpectedRevision: current.Revision, Generation: current.Generation,
+					Status: test.status, ReasonCode: test.reason,
+					OccurredAt: acceptedAt + 2,
+				},
+			)
+			if err != nil || !transition.Changed || transition.Target.Status != test.status ||
+				transition.Target.ReasonCode != test.reason ||
+				transition.Target.EndedAt != acceptedAt+2 ||
+				transition.Target.LastReceiptAt != acceptedAt+2 ||
+				transition.Transmission.CompletedAt != acceptedAt+2 {
+				t.Fatalf("persisted receipt=%+v err=%v", transition, err)
+			}
+		})
+	}
+}
+
 func TestTransmissionTargetSnapshotIsTheOnlyGenericMediaACL(t *testing.T) {
 	st, source := newMediaIngestTestStore(t)
 	targetCredentials, err := st.CreateSelfServiceOrbit("ACL target")

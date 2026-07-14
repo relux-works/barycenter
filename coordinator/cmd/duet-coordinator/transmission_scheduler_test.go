@@ -175,6 +175,99 @@ func TestOverlayControllerRuntimeSendsExactPrepareAndRTTSchedule(t *testing.T) {
 	})
 }
 
+func TestOverlayControllerMultiTargetBarrierUsesFreshMaximumRTTAndOneT(t *testing.T) {
+	l, fake, harness, owner, mediaItem := schedulerTestLoop(t)
+	companion := installTransmissionCompanion(t, harness, owner)
+	now := time.Now().UnixMilli()
+	created, err := harness.store.CreateTransmission(store.CreateTransmissionParams{
+		MediaID: mediaItem.ID, SourceOrbitID: owner.OrbitID,
+		SourceActorID: owner.ActorID, SourceSlot: owner.Slot,
+		PlaybackDomainKind: store.PlaybackDomainOrbit, PlaybackDomainID: owner.OrbitID,
+		AudienceKind: store.TransmissionAudienceOwnBarycenter,
+		OriginKind:   store.TransmissionOriginFile, IncludeOrigin: true,
+		RequestedDelivery: store.TransmissionDeliveryOverlay,
+		EffectiveDelivery: store.TransmissionDeliveryOverlay,
+		AcceptedAt:        now + 3,
+		Targets: []store.CreateTransmissionTarget{
+			{
+				OrbitID: owner.OrbitID, ActorID: owner.ActorID, Slot: owner.Slot,
+				OnlineAtAcceptance: true, MediaClipCapable: true, OverlayCapable: true,
+			},
+			{
+				OrbitID: companion.OrbitID, ActorID: companion.ActorID, Slot: companion.Slot,
+				OnlineAtAcceptance: true, MediaClipCapable: true, OverlayCapable: true,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	barrierAt := now + 1000
+	targets := []struct {
+		credentials store.OnboardingCredentials
+		rtt         int64
+	}{
+		{owner, 20},
+		{companion, 140},
+	}
+	for _, target := range targets {
+		key := hub.NodeKey{
+			Orbit: target.credentials.OrbitID,
+			Slot:  protocol.NodeID(target.credentials.Slot),
+		}
+		fake.snapshots[key] = hub.NodeSnapshot{
+			Connected: true, LastSeenAt: barrierAt,
+			Capabilities:        schedulerCapabilities(t),
+			CredentialTokenHash: tokenWitness(target.credentials.NodeToken),
+			RTTMS:               target.rtt, RTTSampledAt: barrierAt,
+		}
+	}
+	l.runTransmissionScheduler(barrierAt)
+	if got := len(fake.ofType(protocol.TypePrepareMedia)); got != 2 {
+		t.Fatalf("multi-target prepare messages=%+v", fake.sent)
+	}
+	for _, target := range targets {
+		key := hub.NodeKey{
+			Orbit: target.credentials.OrbitID,
+			Slot:  protocol.NodeID(target.credentials.Slot),
+		}
+		l.handleMediaReady(key, tokenWitness(target.credentials.NodeToken),
+			&protocol.MediaReadyPayload{
+				TransmissionID: created.Transmission.ID, Generation: 1,
+				DecodedDurationMS: mediaItem.DurationMS,
+			})
+	}
+	decisionAt := barrierAt + 10
+	for _, target := range targets {
+		key := hub.NodeKey{
+			Orbit: target.credentials.OrbitID,
+			Slot:  protocol.NodeID(target.credentials.Slot),
+		}
+		snapshot := fake.snapshots[key]
+		snapshot.LastSeenAt = decisionAt
+		snapshot.RTTSampledAt = decisionAt
+		fake.snapshots[key] = snapshot
+	}
+	l.runTransmissionScheduler(decisionAt)
+	plays := fake.ofType(protocol.TypePlayMediaAt)
+	if len(plays) != 2 {
+		t.Fatalf("multi-target play messages=%+v", fake.sent)
+	}
+	wantT := decisionAt + 530 // 2*max(20, 140) + 250 ms.
+	seen := make(map[protocol.NodeID]bool, 2)
+	for _, message := range plays {
+		payload := message.payload.(*protocol.PlayMediaAtPayload)
+		if payload.TransmissionID != created.Transmission.ID ||
+			payload.TCoordMS != wantT || payload.StartDeadlineCoordMS != wantT+100 {
+			t.Fatalf("multi-target schedule node=%s payload=%+v", message.node, payload)
+		}
+		seen[message.node] = true
+	}
+	if !seen[protocol.NodeID(owner.Slot)] || !seen[protocol.NodeID(companion.Slot)] {
+		t.Fatalf("multi-target schedule recipients=%v", seen)
+	}
+}
+
 func TestOverlayControllerRejectsEarlyCompletedReceipt(t *testing.T) {
 	l, fake, harness, owner, mediaItem := schedulerTestLoop(t)
 	now := time.Now().UnixMilli()
@@ -283,6 +376,79 @@ func TestOverlayControllerLegacyBridgeUsesGenericACLAndExactTargets(t *testing.T
 	l.runTransmissionScheduler(now + 5)
 	if got := len(fake.ofType(protocol.TypePlayVoice)); got != 1 {
 		t.Fatalf("legacy bridge replayed %d times", got)
+	}
+}
+
+func TestOverlayControllerWholeDowngradeNeverSplitsTargetProtocols(t *testing.T) {
+	l, fake, harness, owner, mediaItem := schedulerTestLoop(t)
+	companion := installTransmissionCompanion(t, harness, owner)
+	now := time.Now().UnixMilli()
+	created, err := harness.store.CreateTransmission(store.CreateTransmissionParams{
+		MediaID: mediaItem.ID, SourceOrbitID: owner.OrbitID,
+		SourceActorID: owner.ActorID, SourceSlot: owner.Slot,
+		PlaybackDomainKind: store.PlaybackDomainOrbit, PlaybackDomainID: owner.OrbitID,
+		AudienceKind: store.TransmissionAudienceOwnBarycenter,
+		OriginKind:   store.TransmissionOriginFile, IncludeOrigin: true,
+		RequestedDelivery: store.TransmissionDeliveryOverlay,
+		EffectiveDelivery: store.TransmissionDeliveryAfterCurrent,
+		DowngradeReason:   store.TransmissionDowngradeMissingOverlay,
+		AcceptedAt:        now + 3,
+		Targets: []store.CreateTransmissionTarget{
+			{
+				OrbitID: owner.OrbitID, ActorID: owner.ActorID, Slot: owner.Slot,
+				OnlineAtAcceptance: true, MediaClipCapable: true, OverlayCapable: true,
+			},
+			{
+				OrbitID: companion.OrbitID, ActorID: companion.ActorID, Slot: companion.Slot,
+				OnlineAtAcceptance: true,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := l.orbit(owner.OrbitID)
+	for _, credentials := range []store.OnboardingCredentials{owner, companion} {
+		node := protocol.NodeID(credentials.Slot)
+		state.sess.EnsurePeer(node)
+		l.handleNode(hub.EvOnline{Key: hub.NodeKey{Orbit: credentials.OrbitID, Slot: node}})
+	}
+	l.runTransmissionScheduler(now + 4)
+
+	if got := len(fake.ofType(protocol.TypePrepareMedia)); got != 0 {
+		t.Fatalf("whole downgrade sent %d prepare_media messages", got)
+	}
+	if got := len(fake.ofType(protocol.TypePlayMediaAt)); got != 0 {
+		t.Fatalf("whole downgrade sent %d play_media_at messages", got)
+	}
+	legacy := fake.ofType(protocol.TypePlayVoice)
+	if len(legacy) != 2 {
+		t.Fatalf("whole downgrade legacy messages=%+v", fake.sent)
+	}
+	wantNodes := map[protocol.NodeID]bool{
+		protocol.NodeID(owner.Slot):     true,
+		protocol.NodeID(companion.Slot): true,
+	}
+	for _, message := range legacy {
+		payload := message.payload.(*protocol.PlayVoicePayload)
+		if !wantNodes[message.node] || payload.ElementID != created.Transmission.ID ||
+			payload.FileURL != "https://coord.example/v1/media/"+mediaItem.ID {
+			t.Fatalf("split downgrade legacy message=%+v payload=%+v", message, payload)
+		}
+		delete(wantNodes, message.node)
+	}
+	if len(wantNodes) != 0 {
+		t.Fatalf("whole downgrade missed legacy nodes=%v", wantNodes)
+	}
+	work, err := harness.store.GetTransmissionSchedulerWork(created.Transmission.ID)
+	if err != nil || work.Transmission.EffectiveDelivery != store.TransmissionDeliveryAfterCurrent ||
+		work.Scheduler.LegacyElementID != created.Transmission.ID || len(work.Targets) != 2 {
+		t.Fatalf("whole downgrade work=%+v err=%v", work, err)
+	}
+	for _, target := range work.Targets {
+		if target.Status != store.TransmissionTargetScheduled {
+			t.Fatalf("whole downgrade split target=%+v", target)
+		}
 	}
 }
 
@@ -626,5 +792,58 @@ func TestOverlayControllerTimerNeverExtendsAnArmedDeadline(t *testing.T) {
 	l.clearTransmissionTimer()
 	if l.transmissionTimerC != nil || l.transmissionTimerDue != 0 {
 		t.Fatalf("timer not cleared: due=%d channel=%v", l.transmissionTimerDue, l.transmissionTimerC)
+	}
+}
+
+func TestOverlayControllerTerminalWorkClearsTimerAndStaleWakeIsInert(t *testing.T) {
+	l, fake, harness, owner, mediaItem := schedulerTestLoop(t)
+	now := time.Now().UnixMilli()
+	created := runtimeTransmission(
+		t, harness, owner, mediaItem, now, store.TransmissionDeliveryOverlay,
+	)
+	key := hub.NodeKey{Orbit: owner.OrbitID, Slot: protocol.NodeID(owner.Slot)}
+	witness := tokenWitness(owner.NodeToken)
+	fake.snapshots[key] = hub.NodeSnapshot{
+		Connected: true, LastSeenAt: now + 1,
+		Capabilities: schedulerCapabilities(t), CredentialTokenHash: witness,
+		RTTMS: 10, RTTSampledAt: now + 1,
+	}
+	l.runTransmissionScheduler(now + 1)
+	if l.transmissionTimerC == nil || l.transmissionTimerDue == 0 {
+		t.Fatalf("open barrier did not arm a persisted deadline: due=%d", l.transmissionTimerDue)
+	}
+	l.handleMediaReady(key, witness, &protocol.MediaReadyPayload{
+		TransmissionID: created.Transmission.ID, Generation: 1,
+		DecodedDurationMS: mediaItem.DurationMS,
+	})
+	fake.snapshots[key] = hub.NodeSnapshot{
+		Connected: true, LastSeenAt: now + 2,
+		Capabilities: schedulerCapabilities(t), CredentialTokenHash: witness,
+		RTTMS: 10, RTTSampledAt: now + 2,
+	}
+	l.runTransmissionScheduler(now + 2)
+	work, err := harness.store.GetTransmissionSchedulerWork(created.Transmission.ID)
+	if err != nil || work.Scheduler.TCoordMS == 0 || l.transmissionTimerC == nil {
+		t.Fatalf("scheduled work=%+v timer_due=%d err=%v", work, l.transmissionTimerDue, err)
+	}
+	l.handleMediaStarted(key, witness, &protocol.MediaStartedPayload{
+		TransmissionID: created.Transmission.ID, Generation: 1,
+		TFirstSampleCoordMS: work.Scheduler.TCoordMS,
+	})
+	endedAt := work.Scheduler.TCoordMS + mediaItem.DurationMS
+	l.handleMediaEnded(key, witness, &protocol.MediaEndedPayload{
+		TransmissionID: created.Transmission.ID, Generation: 1,
+		TLastSampleCoordMS: endedAt, Reason: string(store.TransmissionReasonCompleted),
+	})
+	l.runTransmissionScheduler(endedAt)
+	if l.transmissionTimerC != nil || l.transmissionTimerDue != 0 {
+		t.Fatalf("terminal work retained orphan timer: due=%d channel=%v",
+			l.transmissionTimerDue, l.transmissionTimerC)
+	}
+	messages := len(fake.sent)
+	l.runTransmissionScheduler(endedAt + 60_000)
+	if len(fake.sent) != messages || l.transmissionTimerC != nil || l.transmissionTimerDue != 0 {
+		t.Fatalf("stale wake recreated work: messages=%d/%d due=%d channel=%v",
+			messages, len(fake.sent), l.transmissionTimerDue, l.transmissionTimerC)
 	}
 }

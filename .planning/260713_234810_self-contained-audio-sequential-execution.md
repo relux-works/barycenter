@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 28 accepted, 177 remain.
-- Routed inventory: 186 engineering tasks (28 accepted, 158 remain) and 19
+- Combined inventory: 205 original tasks; 29 accepted, 176 remain.
+- Routed inventory: 186 engineering tasks (29 accepted, 157 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -15,8 +15,8 @@
 - Current engineering task: `TASK-260712-2cdjq8` — transmission-rollout-handoff
 - Next engineering task after landing: `TASK-260712-16zfvu` — confirm-legal-ops-inputs
 - Current branch: `task/task-260712-2cdjq8-transmission-rollout-handoff`
-- Accepted overall: 28 / 205 tasks (approximately 13.7%); 177 remain
-- Engineering progress: 28 / 186 tasks (approximately 15.1%); 158 remain
+- Accepted overall: 29 / 205 tasks (approximately 14.1%); 176 remain
+- Engineering progress: 29 / 186 tasks (approximately 15.6%); 157 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -61,7 +61,28 @@
   run `29333494719`, and tracking head `d45f535` passed all four jobs in run
   `29333795623`. PR #27 landed at merge
   `70f26072cb36f3ee6e5cd4358bdded2bf98b7214`, and strict execution advanced to
-  `TASK-260712-2cdjq8` from that synchronized `main`.
+  `TASK-260712-2cdjq8` from that synchronized `main`. `TASK-260712-2cdjq8` is
+  accepted on exact documentation/code head
+  `cd234c913634db2fef5bbfcd866e8298e45f23cb`; all four hosted jobs passed in
+  run `29334550550`.
+
+Checkpoint 2026-07-14: `TASK-260712-2cdjq8` closes the P1 transmission story
+with one stable rollout/handoff entry point. It records the frozen strict HTTP
+request, immutable target ACL, closed receipt/status vocabulary, privacy-
+bounded presence, DND/block precedence and whole-transmission legacy downgrade
+without creating a second normative contract. The rollout is honestly
+coordinator-first and caller-surface-last because no transmission-wide runtime
+feature flag exists; current macOS and Windows clients advertise
+`media_clip_v1` but withhold overlay/interrupt capabilities until their mixer
+tasks land. Rollback requires withdrawal of every creator and a zero count for
+`transmissions.completed_at = 0`, forbids manual scheduler/receipt mutation and
+preserves every additive table for roll-forward. A document guard verifies the
+contract, diagrams, evidence links and runbook/protocol entry points. Local
+coordinator vet/unit/race, Windows vet/unit/race and amd64/arm64 builds, Swift
+release build, board validation and diff checks passed; hosted run
+`29334550550` passed all four jobs on exact head `cd234c9`. Physical playback,
+audibility, packaging and hardware timing remain unpassed in
+`EPIC-260714-th54l3`.
 
 Checkpoint 2026-07-14: `TASK-260712-2qc27p` closes the deterministic
 transmission regression matrix. Strict HTTP tests reject caller-controlled
@@ -544,7 +565,11 @@ Story: `STORY-260712-25lysg` — P1 Transmission protocol and scheduler.
   receipt vocabulary, caller-order/ACL/downgrade/barrier/timer adversarial
   coverage and dual exact rollback; local full/race/shuffle/platform gates and
   all four hosted jobs in run `29333494719` green; PR #27)
-- [ ] `TASK-260712-2cdjq8` — transmission-rollout-handoff
+- [x] `TASK-260712-2cdjq8` — transmission-rollout-handoff (accepted on exact
+  documentation/code head `cd234c9`: one guarded contract/evidence index,
+  coordinator-first mixed-version rollout, drain-before-rollback procedure and
+  exact downstream semantics; local full/race/platform gates and all four
+  hosted jobs in run `29334550550` green; PR #28)
 
 ## 4. P1 policy and moderation foundation
 

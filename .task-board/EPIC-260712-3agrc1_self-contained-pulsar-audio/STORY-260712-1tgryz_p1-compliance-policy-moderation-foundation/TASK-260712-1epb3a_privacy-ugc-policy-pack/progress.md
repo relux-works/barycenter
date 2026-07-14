@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:45:03Z
 
 ## Last Update
-2026-07-12T16:00:40Z
+2026-07-14T15:15:35Z
 
 ## Blocked By
 - TASK-260712-g9ycx5
@@ -32,6 +32,7 @@ backlog
 - [ ] Record legal review status and trace every factual statement to a shipped control or approved input
 
 ## Notes
+2026-07-14 kickoff: strict sequential execution started inline from synchronized main d40b754493b78bb58c24b4fc759312c4a0463533. Approved legal/ops defaults in docs/compliance/legal-ops-inputs.json are canonical. Real-app and physical-hardware validation remains in the separate manual-test epic; this task covers policy sources, traceability, automated validation, and best-effort repository verification.
 
 ## Precondition Resources
 (none)

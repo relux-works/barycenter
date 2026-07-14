@@ -13,9 +13,9 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-1epb3a` — privacy-ugc-policy-pack
-  (queued until PR #31 lands)
+  (in progress)
 - Most recently accepted: `TASK-260712-g9ycx5` — verify-current-store-policy
-- Current branch: `task/task-260712-g9ycx5-verify-current-store-policy`
+- Current branch: `task/task-260712-1epb3a-privacy-ugc-policy-pack`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -113,8 +113,10 @@ validator plus Store workflow gate now requires a tag-bound policy verification
 no older than 24 hours and task IDs for every delta; the initial checked-in
 record is deliberately `hold`. Local full/vet/race/platform gates passed, and
 hosted run `29343948310` passed all four jobs. Progress is 32/205 overall and
-32/186 engineering; PR #31 awaits its tracking commit and merge before strict
-execution starts `TASK-260712-1epb3a`.
+32/186 engineering; tracking head `869b551436e8439a0023f0467246c64a4d7a6be7`
+passed all four jobs in run `29344280643`. PR #31 landed at merge
+`d40b754493b78bb58c24b4fc759312c4a0463533`, and strict execution advanced to
+`TASK-260712-1epb3a` from synchronized `main`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

@@ -1,5 +1,5 @@
 ## Status
-backlog
+development
 
 ## Assigned To
 (none)
@@ -8,7 +8,7 @@ backlog
 2026-07-12T17:03:00Z
 
 ## Last Update
-2026-07-14T15:10:57Z
+2026-07-14T15:15:35Z
 
 ## Blocked By
 - STORY-260712-2ve1c8

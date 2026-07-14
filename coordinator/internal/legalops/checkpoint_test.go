@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestRepositoryLegalOpsCheckpointIsStrictAndBlocked(t *testing.T) {
+func TestRepositoryLegalOpsCheckpointIsStrictAndApproved(t *testing.T) {
 	repositoryRoot := filepath.Join("..", "..", "..")
 	checkpointPath := filepath.Join(repositoryRoot, "docs", "compliance", "legal-ops-inputs.json")
 	checkpoint, err := Load(checkpointPath)
@@ -16,26 +16,14 @@ func TestRepositoryLegalOpsCheckpointIsStrictAndBlocked(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := checkpoint.Validate(false); err != nil {
-		t.Fatalf("partially approved checkpoint must remain structurally valid: %v", err)
+		t.Fatalf("approved checkpoint must remain structurally valid: %v", err)
 	}
-	expectedUnresolved := []string{
-		"hosting_and_data_locations",
-		"markets_age_and_disputes",
-		"moderation_ownership_and_response",
-		"policy_review_and_configuration",
+	if err := checkpoint.Validate(true); err != nil {
+		t.Fatalf("approved checkpoint must pass the publication gate: %v", err)
 	}
 	unresolved := checkpoint.Unresolved()
-	if strings.Join(unresolved, ",") != strings.Join(expectedUnresolved, ",") {
-		t.Fatalf("unresolved inputs=%v, want %v", unresolved, expectedUnresolved)
-	}
-	if err := checkpoint.Validate(true); err == nil {
-		t.Fatal("partially approved checkpoint passed the external publication gate")
-	} else {
-		for _, id := range expectedUnresolved {
-			if !strings.Contains(err.Error(), id) {
-				t.Errorf("approval failure does not name unresolved input %q: %v", id, err)
-			}
-		}
+	if len(unresolved) != 0 {
+		t.Fatalf("approved checkpoint has unresolved inputs: %v", unresolved)
 	}
 
 	checklist, err := os.ReadFile(filepath.Join(repositoryRoot, "docs", "analysis", "p1-legal-ops-input-checkpoint.md"))
@@ -43,12 +31,8 @@ func TestRepositoryLegalOpsCheckpointIsStrictAndBlocked(t *testing.T) {
 		t.Fatalf("read concise legal/operations checklist: %v", err)
 	}
 	for _, input := range checkpoint.Inputs {
-		marker := "- [x] `"
-		if input.Status != "approved" {
-			marker = "- [ ] `"
-		}
-		if !strings.Contains(string(checklist), marker+input.ID+"`") {
-			t.Errorf("concise checklist does not expose status %q for input %q", input.Status, input.ID)
+		if !strings.Contains(string(checklist), "- [x] `"+input.ID+"`") {
+			t.Errorf("final checklist does not expose approved input %q", input.ID)
 		}
 	}
 

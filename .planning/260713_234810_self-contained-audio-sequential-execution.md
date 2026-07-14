@@ -95,11 +95,16 @@ named himself common owner, and supplied product mailboxes, canonical future
 URLs, United States data regions, age 13, Armenian law/courts, English control,
 GMT+4, reviewers and Store authorities. Three groups are now approved: legal
 identity/controller, contacts/public URLs and Partner Center/submission. The
-task and PR #29 remain open on four explicit decisions: actual hosting/backup
-providers and subprocessors; target/excluded markets; moderation coverage hours
-and numeric response objectives; counsel review yes/no. Progress remains 29/205
-rather than overstating it. Partial-approval head `86c7c4a` passed coordinator,
-node-core, pulsar-win and the signed packaged probe in hosted run `29337160625`.
+partial-approval head `86c7c4a` passed coordinator, node-core, pulsar-win and
+the signed packaged probe in hosted run `29337160625`. Ivan Oparin subsequently
+approved the proposed best-effort defaults for the remaining four groups:
+Relux-operated United States hosting and backup with no subprocessors; all
+lawful Microsoft Store markets except sanctioned, embargoed or prohibited
+jurisdictions; Monday-Friday 10:00-19:00 GMT+4 moderation with two-business-day
+normal and 24-hour urgent targets; and no separate counsel requirement with
+Ivan Oparin as EN/RU reviewer. All seven groups and `--require-approved` now
+pass locally. The task and PR #29 remain in progress only until full hosted CI
+and merge; progress remains 29/205 until acceptance.
 
 Checkpoint 2026-07-14: `TASK-260712-2cdjq8` closes the P1 transmission story
 with one stable rollout/handoff entry point. It records the frozen strict HTTP

@@ -1,14 +1,11 @@
 # Legal and operations input checkpoint
 
 - Task: TASK-260712-16zfvu
-- Partial-approval head: 86c7c4a
-- Hosted CI: 29337160625, all four jobs green
-- Pull request: #29 (draft)
-- Approval owner: Ivan Oparin
-- Publication state: blocked on four unresolved groups
+- Approver and owner: Ivan Oparin
+- Approval timestamp: 2026-07-14T17:52:59+04:00
+- Pull request: #29
+- Publication state: approved
 
-Approved groups: legal/controller identity; contacts and canonical public URLs; Partner Center and submission authority.
+All seven groups are approved: legal/controller identity; contacts and canonical URLs; Relux-operated United States hosting and backup with no subprocessors; lawful Microsoft Store markets, age 13, Armenian law/courts and English control; moderation ownership, hours and response targets; Partner Center submission authority; EN/RU review with no separate counsel requirement.
 
-Unresolved groups: hosting provider, backup provider and subprocessors; target and excluded markets; moderation coverage hours and normal/urgent response durations; counsel review requirement.
-
-The Store workflow remains fail-closed. No missing value is inferred and overall task progress is not incremented until all four groups are approved.
+Both validator modes pass, including --require-approved. Passing this gate records approved inputs; it does not claim that future pages are already published or that a Store submission has occurred.

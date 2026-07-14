@@ -2,7 +2,7 @@
 
 - Date: 2026-07-14
 - Task: `TASK-260712-16zfvu`
-- State: **partially approved; publication blocked on four unresolved groups**
+- State: **approved by Ivan Oparin; legal/operations publication gate open**
 - Machine-readable source: [`legal-ops-inputs.json`](../compliance/legal-ops-inputs.json)
 
 This checkpoint separates facts observed in the repository or on an official
@@ -21,7 +21,10 @@ authority is inferred.
 | General policies | Relux Works EN privacy policy and Terms of Use are approved source inputs; the Terms select Armenian law and courts | The existing text still does not describe Pulsar media upload, Telegram/Spotify integrations, retention, backups, target sharing, reports or moderation. Later policy tasks must create the product-specific text. |
 | Product site | `https://barycenter.live/guide/` is live | On 2026-07-14, `/privacy`, `/terms` and `/support` returned homepage fallback bytes. The approved future `/legal/*` routes are not claimed published. |
 | Partner Center | Approved by Ivan Oparin: product `9P26FDCWV1GC`, package identity `ReluxWorksLLC.PulsarBarycenter`, automation app `pulsar-store-ci` with Manager (Windows), and Ivan Oparin as account/listing/submit/withdrawal owner | None for this input group. |
-| Hosting | Ivan Oparin approved the United States as the primary and backup data region and is the common service/operational owner | `USA` identifies a location, not the host or backup provider. Actual provider/operator entities and any subprocessors remain unresolved. |
+| Hosting | Approved by Ivan Oparin: Relux Works LLC-operated Coolify infrastructure and S3-compatible object storage in the United States, with no hosting or backup subprocessors | None for this input group. A later provider change requires a new approval record and policy update before deployment. |
+| Markets, age and disputes | Approved by Ivan Oparin: all lawful Microsoft Store markets, excluding sanctioned, embargoed or prohibited jurisdictions; age 13; Armenian law/courts; English controls | None for this input group. |
+| Moderation operations | Approved by Ivan Oparin: he owns all primary/backup/escalation and mailbox roles; coverage is Monday-Friday 10:00-19:00 GMT+4; normal target is two business days and urgent removal target is 24 hours | None for this input group. |
+| Policy review | Approved by Ivan Oparin: separate counsel review is not required; Ivan Oparin reviews both EN and RU; English controls and Russian must be semantically equivalent | None for this input group. |
 
 The old [`docs/store-listing.md`](../store-listing.md) is a draft for the
 Spotify-first product and says that Pulsar collects no personal data. It is not
@@ -42,28 +45,31 @@ response is normalized only where intent is unambiguous:
   13, `English`, `GMT+4` and `moderation-urgent@barycenter.live`;
 - blank owner fields use the explicitly named common owner, Ivan Oparin.
 
-No duration, market, provider, subprocessor or counsel decision is inferred
-from an empty field or from a mailbox supplied in an SLA field.
+No duration, market, provider, subprocessor or counsel decision was inferred
+from an empty field or from a mailbox supplied in an SLA field. Ivan Oparin
+explicitly approved the proposed best-effort defaults on 2026-07-14 at
+`2026-07-14T17:52:59+04:00`:
 
-## One concise remaining approval checklist
+- Relux Works LLC-operated Coolify and S3-compatible storage in the United
+  States, with no hosting or backup subprocessors;
+- all lawful Microsoft Store markets except sanctioned, embargoed or otherwise
+  prohibited jurisdictions;
+- Monday-Friday 10:00-19:00 GMT+4 moderation coverage, two business days for a
+  normal report and 24 hours for urgent removal;
+- no separate counsel review, with Ivan Oparin as the final EN and RU reviewer.
 
-Three input groups are approved. Four remain open:
+## Final approval checklist
+
+All seven input groups are approved:
 
 - [x] `legal_identity_and_controller` — approved by Ivan Oparin.
 - [x] `contacts_and_public_urls` — approved by Ivan Oparin with the normalized
   canonical product URLs recorded above.
-- [ ] `hosting_and_data_locations` — state the service/host operator, primary
-  provider/operator entity, backup provider entity and subprocessors, or say
-  explicitly that there are no subprocessors. United States regions and Ivan
-  Oparin's ownership are already recorded.
-- [ ] `markets_age_and_disputes` — state target and excluded markets. Age 13,
-  Armenian law/courts and English control are already recorded.
-- [ ] `moderation_ownership_and_response` — state coverage hours and numeric
-  normal-report and urgent Microsoft-removal response objectives. Ivan Oparin,
-  `GMT+4` and the moderation mailboxes are already recorded.
+- [x] `hosting_and_data_locations` — approved by Ivan Oparin.
+- [x] `markets_age_and_disputes` — approved by Ivan Oparin.
+- [x] `moderation_ownership_and_response` — approved by Ivan Oparin.
 - [x] `partner_center_and_submission` — approved by Ivan Oparin.
-- [ ] `policy_review_and_configuration` — choose whether counsel review is
-  required. Ivan Oparin is already recorded as both EN and RU reviewer.
+- [x] `policy_review_and_configuration` — approved by Ivan Oparin.
 
 An approval must identify the approving person and timestamp. Silence, a
 publicly visible candidate, repository access or ability to dispatch a GitHub
@@ -71,8 +77,8 @@ workflow is not approval.
 
 ## Fail-closed publication gate
 
-The validator accepts this file as a well-formed blocked checkpoint, while the
-approval mode fails and lists unresolved group IDs:
+The validator accepts the approved checkpoint in both structural and
+approval-required modes:
 
 ```sh
 cd coordinator
@@ -81,10 +87,11 @@ go run ./cmd/legal-ops-check --require-approved ../docs/compliance/legal-ops-inp
 ```
 
 The manual Store submission workflow runs the second command before it installs
-submission tooling or downloads an MSIX. Therefore a missing approval blocks
-the external side effect without blocking ordinary engineering CI. Approved
-values must contain no placeholder token and must have an owner, approver,
-timestamp and evidence.
+submission tooling or downloads an MSIX. The gate now passes for this exact
+approved record. It will fail closed again if any group, owner, approver,
+timestamp or evidence is removed, or if a placeholder is introduced. Passing
+this input gate does not claim that future policy pages are published or that a
+Store package is otherwise ready to submit.
 
 ## Sources checked
 

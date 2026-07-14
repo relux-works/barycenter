@@ -2,14 +2,17 @@
 // AVAudioEngine graph (AudioEngine.swift), pulled per callback by the WASAPI
 // render loop (audio_windows.go):
 //
-//	music ring -> music fade gain \
-//	voice samples (REPLACE music)  +-> click overlay -> master amplitude -> dst
+//	music ring -> music fade -> overlay duck \
+//	media overlay (additive) + click cues     +-> limiter -> master gain -> dst
+//	legacy voice (REPLACES music, separate compatibility path)
 //
 // Semantics ported from the mac node:
 //   - Voice REPLACES music: while a voice insert is sounding the music ring
 //     is not consumed (the coordinator paused the daemon anyway; the ring
 //     tail stays for the resume) — spec 6.3 play_voice.
 //   - offset_test clicks are ADDED on top (the AVAudioPlayerNode branch).
+//   - Media overlay continuously consumes music, begins ducking 250 ms before
+//     clip start, and applies a post-mix ceiling before local master gain.
 //   - Master amplitude ((v/100)^2, glided) scales everything, like the
 //     mainMixer output volume did.
 //   - Dropout telemetry: fed vs starved callbacks, starved streak gated on
@@ -42,11 +45,61 @@ type clickSchedule struct {
 	starts []time.Time
 }
 
+type overlayCancelRequest struct {
+	fadeMS int64
+	done   func()
+}
+
+type overlayState struct {
+	samples   []float32
+	cursor    int
+	startAt   time.Time
+	preDuckAt time.Time
+	control   MixerControlParameters
+	onStarted func(int64)
+	onEnded   func(int64)
+	cancel    atomic.Pointer[overlayCancelRequest]
+
+	started      bool
+	ended        bool
+	cancelling   bool
+	cancelActive *overlayCancelRequest
+	duckStarted  bool
+	duckCurrent  float32
+	duckStart    float32
+	duckTarget   float32
+	duckTotal    int
+	duckDone     int
+	overlayGain  float32
+	overlayStart float32
+	overlayTotal int
+	overlayDone  int
+}
+
+type renderCompletionKind uint8
+
+const (
+	renderVoiceDone renderCompletionKind = iota
+	renderOverlayStarted
+	renderOverlayEnded
+	renderOverlayCancelled
+)
+
+type renderCompletion struct {
+	kind    renderCompletionKind
+	voice   *voiceState
+	overlay *overlayState
+	cancel  *overlayCancelRequest
+	localMS int64
+}
+
 // RenderStats is a snapshot of the dropout telemetry counters.
 type RenderStats struct {
 	Fed           int64 // callbacks fully served from the music ring
 	Starved       int64 // callbacks that zero-filled a shortfall
 	StarvedStreak int64 // consecutive starved callbacks while expecting music
+	OverlayFrames int64 // clip frames mixed into the output
+	LimiterHits   int64 // samples constrained by the post-mix ceiling
 }
 
 type Engine struct {
@@ -55,13 +108,16 @@ type Engine struct {
 	now   func() time.Time // injectable for click/voice scheduling tests
 
 	voice          atomic.Pointer[voiceState]
+	overlay        atomic.Pointer[overlayState]
 	clicks         atomic.Pointer[clickSchedule]
 	clickBurst     []float32 // precomputed mono burst
 	expectingMusic atomic.Bool
 	fed            atomic.Int64
 	starved        atomic.Int64
 	starvedStreak  atomic.Int64
-	doneCallbacks  chan func()
+	overlayFrames  atomic.Int64
+	limiterHits    atomic.Int64
+	completions    chan renderCompletion
 	done           chan struct{}
 	closeOnce      sync.Once
 }
@@ -73,8 +129,8 @@ func NewEngine(music *Ring, gain *Gain) *Engine {
 	}
 	e := &Engine{
 		music: music, gain: gain, now: time.Now, clickBurst: burst,
-		doneCallbacks: make(chan func(), 8),
-		done:          make(chan struct{}),
+		completions: make(chan renderCompletion, 16),
+		done:        make(chan struct{}),
 	}
 	go e.dispatchDoneCallbacks()
 	return e
@@ -83,11 +139,31 @@ func NewEngine(music *Ring, gain *Gain) *Engine {
 func (e *Engine) dispatchDoneCallbacks() {
 	for {
 		select {
-		case callback := <-e.doneCallbacks:
-			callback()
+		case completion := <-e.completions:
+			switch completion.kind {
+			case renderVoiceDone:
+				if completion.voice.onDone != nil {
+					completion.voice.onDone()
+				}
+			case renderOverlayStarted:
+				completion.overlay.onStarted(completion.localMS)
+			case renderOverlayEnded:
+				completion.overlay.onEnded(completion.localMS)
+			case renderOverlayCancelled:
+				completion.cancel.done()
+			}
 		case <-e.done:
 			return
 		}
+	}
+}
+
+func (e *Engine) postCompletion(completion renderCompletion) {
+	select {
+	case e.completions <- completion:
+	default:
+		// The queue is fixed and intentionally non-blocking. A full queue means
+		// the control consumer is stalled; audio timing always wins.
 	}
 }
 
@@ -160,7 +236,175 @@ func (e *Engine) ScheduledClickCount() int {
 func (e *Engine) Stats() RenderStats {
 	return RenderStats{
 		Fed: e.fed.Load(), Starved: e.starved.Load(), StarvedStreak: e.starvedStreak.Load(),
+		OverlayFrames: e.overlayFrames.Load(), LimiterHits: e.limiterHits.Load(),
 	}
+}
+
+// ArmOverlay publishes a fully decoded immutable clip to the render consumer.
+// Only the render callback mutates cursors and ramps after this CAS succeeds.
+func (e *Engine) ArmOverlay(samples []float32, plan MediaClipPlayPlan, started, ended func(int64)) (*overlayState, error) {
+	if len(samples) < channels || len(samples)%channels != 0 || plan.Control.Delivery != "overlay" ||
+		plan.Control.Interrupt || started == nil || ended == nil {
+		return nil, mediaClipFailure("audio_graph_failed")
+	}
+	startAt := time.UnixMilli(plan.LocalStartMS)
+	state := &overlayState{
+		samples: samples, startAt: startAt, preDuckAt: startAt.Add(-250 * time.Millisecond),
+		control: plan.Control, onStarted: started, onEnded: ended,
+		duckCurrent: 1, duckStart: 1, duckTarget: 1, overlayGain: 1, overlayStart: 1,
+	}
+	if !e.overlay.CompareAndSwap(nil, state) {
+		return nil, mediaClipFailure("audio_graph_failed")
+	}
+	return state, nil
+}
+
+// CancelOverlay posts a fixed cancellation request. The render callback owns
+// the fade/release and acknowledges only after ducking is fully restored.
+func (e *Engine) CancelOverlay(state *overlayState, fadeMS int64, done func()) bool {
+	if state == nil || done == nil || e.overlay.Load() != state {
+		return false
+	}
+	request := &overlayCancelRequest{fadeMS: max(fadeMS, 0), done: done}
+	return state.cancel.CompareAndSwap(nil, request)
+}
+
+func (e *Engine) OverlayActive() bool { return e.overlay.Load() != nil }
+
+func dbAmplitude(db float64) float32 {
+	return float32(math.Pow(10, db/20))
+}
+
+func rampValue(current, start, target float32, total, done *int) float32 {
+	if *total <= 0 || *done >= *total {
+		*total = 0
+		return target
+	}
+	t := float64(*done) / float64(*total)
+	s := 0.5 * (1 - math.Cos(math.Pi*t))
+	current = start + (target-start)*float32(s)
+	*done = *done + 1
+	return current
+}
+
+func (e *Engine) beginDuckRamp(state *overlayState, target float32, durationMS int64) {
+	state.duckStart = state.duckCurrent
+	state.duckTarget = target
+	state.duckDone = 0
+	state.duckTotal = sampleRate * int(durationMS) / 1000
+	if durationMS > 0 && state.duckTotal < 1 {
+		state.duckTotal = 1
+	}
+}
+
+func (e *Engine) mixOverlay(dst []float32, state *overlayState, now time.Time) {
+	if request := state.cancel.Load(); request != nil && !state.cancelling {
+		state.cancelling = true
+		state.cancelActive = request
+		state.overlayStart = state.overlayGain
+		state.overlayDone = 0
+		state.overlayTotal = sampleRate * int(request.fadeMS) / 1000
+		if request.fadeMS > 0 && state.overlayTotal < 1 {
+			state.overlayTotal = 1
+		}
+		e.beginDuckRamp(state, 1, state.control.ReleaseMS)
+	}
+
+	frames := len(dst) / channels
+	for frame := 0; frame < frames; frame++ {
+		frameAt := now.Add(time.Duration(frame) * time.Second / sampleRate)
+		if !state.duckStarted && !state.cancelling && !frameAt.Before(state.preDuckAt) {
+			state.duckStarted = true
+			e.beginDuckRamp(state, dbAmplitude(state.control.DuckDB), state.control.AttackMS)
+			// Arm normally precedes pre-duck. If scheduling arrives later but is
+			// still within the start deadline, catch the envelope up to absolute
+			// time instead of restarting a 250 ms attack at the first callback.
+			elapsed := frameAt.Sub(state.preDuckAt)
+			elapsedFrames := int(elapsed * sampleRate / time.Second)
+			if elapsedFrames > state.duckTotal {
+				elapsedFrames = state.duckTotal
+			}
+			state.duckDone = max(elapsedFrames, 0)
+		}
+
+		state.duckCurrent = rampValue(
+			state.duckCurrent, state.duckStart, state.duckTarget,
+			&state.duckTotal, &state.duckDone)
+		if state.cancelling {
+			state.overlayGain = rampValue(
+				state.overlayGain, state.overlayStart, 0,
+				&state.overlayTotal, &state.overlayDone)
+		}
+		for channel := 0; channel < channels; channel++ {
+			dst[frame*channels+channel] *= state.duckCurrent
+		}
+
+		if !state.started && !state.cancelling && !frameAt.Before(state.startAt) {
+			state.started = true
+			e.postCompletion(renderCompletion{
+				kind: renderOverlayStarted, overlay: state, localMS: frameAt.UnixMilli(),
+			})
+		}
+		if state.started && !state.ended && state.cursor < len(state.samples) {
+			for channel := 0; channel < channels; channel++ {
+				dst[frame*channels+channel] += state.samples[state.cursor+channel] * state.overlayGain
+			}
+			state.cursor += channels
+			e.overlayFrames.Add(1)
+			if state.cursor >= len(state.samples) && !state.cancelling {
+				state.ended = true
+				e.beginDuckRamp(state, 1, state.control.ReleaseMS)
+				e.postCompletion(renderCompletion{
+					kind: renderOverlayEnded, overlay: state,
+					localMS: frameAt.Add(time.Second / sampleRate).UnixMilli(),
+				})
+			}
+		}
+	}
+
+	duckReleased := state.duckTotal == 0 && state.duckCurrent == 1
+	if state.cancelling && state.overlayTotal == 0 && state.overlayGain == 0 && duckReleased {
+		if e.overlay.CompareAndSwap(state, nil) {
+			e.postCompletion(renderCompletion{
+				kind: renderOverlayCancelled, overlay: state, cancel: state.cancelActive,
+			})
+		}
+	} else if state.ended && duckReleased {
+		e.overlay.CompareAndSwap(state, nil)
+	}
+}
+
+func (e *Engine) applyOverlayLimiter(dst []float32, ceilingDB float64) {
+	ceiling := dbAmplitude(ceilingDB)
+	for index, sample := range dst {
+		if sample > ceiling {
+			dst[index] = ceiling
+			e.limiterHits.Add(1)
+		} else if sample < -ceiling {
+			dst[index] = -ceiling
+			e.limiterHits.Add(1)
+		}
+	}
+}
+
+func (e *Engine) renderMusic(dst []float32) int {
+	got := e.music.Read(dst)
+	for index := got; index < len(dst); index++ {
+		dst[index] = 0
+	}
+	e.gain.ApplyMusicRamp(dst)
+	if got < len(dst) {
+		e.starved.Add(1)
+		if e.expectingMusic.Load() {
+			e.starvedStreak.Add(1)
+		} else {
+			e.starvedStreak.Store(0)
+		}
+	} else {
+		e.fed.Add(1)
+		e.starvedStreak.Store(0)
+	}
+	return got
 }
 
 // Render fills dst (interleaved stereo f32) and returns how many floats were
@@ -171,10 +415,14 @@ func (e *Engine) Stats() RenderStats {
 func (e *Engine) Render(dst []float32) int {
 	now := e.now()
 
-	var doneCb func()
 	musicFloats := 0
-
-	if v := e.voice.Load(); v != nil && !now.Before(v.startAt) {
+	activeOverlay := e.overlay.Load()
+	if activeOverlay != nil {
+		// Overlay never pauses the program timeline: consume the main ring on
+		// every callback, including silence and pre-duck/release tails.
+		musicFloats = e.renderMusic(dst)
+		e.mixOverlay(dst, activeOverlay, now)
+	} else if v := e.voice.Load(); v != nil && !now.Before(v.startAt) {
 		// Voice REPLACES music: the ring is left untouched.
 		n := copy(dst, v.samples[v.cursor:])
 		v.cursor += n
@@ -183,27 +431,11 @@ func (e *Engine) Render(dst []float32) int {
 		}
 		if v.cursor >= len(v.samples) {
 			if e.voice.CompareAndSwap(v, nil) {
-				doneCb = v.onDone
+				e.postCompletion(renderCompletion{kind: renderVoiceDone, voice: v})
 			}
 		}
 	} else {
-		got := e.music.Read(dst)
-		for i := got; i < len(dst); i++ {
-			dst[i] = 0
-		}
-		e.gain.ApplyMusicRamp(dst)
-		musicFloats = got
-		if got < len(dst) {
-			e.starved.Add(1)
-			if e.expectingMusic.Load() {
-				e.starvedStreak.Add(1)
-			} else {
-				e.starvedStreak.Store(0)
-			}
-		} else {
-			e.fed.Add(1)
-			e.starvedStreak.Store(0)
-		}
+		musicFloats = e.renderMusic(dst)
 	}
 
 	// Click overlay (additive, like the mac insert player node).
@@ -234,6 +466,9 @@ func (e *Engine) Render(dst []float32) int {
 			e.clicks.CompareAndSwap(schedule, nil)
 		}
 	}
+	if activeOverlay != nil {
+		e.applyOverlayLimiter(dst, activeOverlay.control.LimiterCeilingDB)
+	}
 
 	// Master amplitude last: scales music, voice and clicks alike.
 	amp := e.gain.Amplitude()
@@ -241,14 +476,5 @@ func (e *Engine) Render(dst []float32) int {
 		dst[i] *= amp
 	}
 
-	if doneCb != nil {
-		select {
-		case e.doneCallbacks <- doneCb:
-		default:
-			// The queue is preallocated and intentionally non-blocking. There
-			// can only be one active voice, so a full queue means the callback
-			// consumer is stalled; preserve audio timing instead of waiting.
-		}
-	}
 	return musicFloats
 }

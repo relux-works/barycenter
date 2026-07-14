@@ -130,6 +130,8 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 
 	stop := make(chan struct{})
 	ring := NewRing(cfg.RingBufferMS * sampleRate * channels / 1000)
+	gain := NewGain()
+	engine := NewEngine(ring, gain)
 
 	// Daemon supervision: bundled go-librespot.exe beside our own binary.
 	deviceName := cfg.DeviceName
@@ -155,7 +157,7 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		log.Error("media clip hooks unavailable")
 	} else {
 		mediaClips = NewMediaClipClient(
-			mediaFetcher, PreparedOnlyWindowsMediaClipMixer{}, log, nil)
+			mediaFetcher, NewWindowsOverlayMediaClipMixer(engine), log, nil)
 		capabilities = append(capabilities, mediaClips.AdvertisedCapabilities()...)
 	}
 	ws := NewWSClient(creds.WSURL, Identity{
@@ -166,8 +168,6 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		Capabilities:     capabilities,
 	}, log)
 
-	gain := NewGain()
-	engine := NewEngine(ring, gain)
 	cache, err := NewVoiceCache(cfg.CacheDir, creds.Token, 0 /* default 2 GiB */, log)
 	if err != nil {
 		// Voice inserts degrade to media_download_failed errors; music works.

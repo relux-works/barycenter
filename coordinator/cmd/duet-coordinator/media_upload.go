@@ -563,10 +563,17 @@ func (api *onboardingAPI) mediaUploadInternalError(w http.ResponseWriter, operat
 func (api *onboardingAPI) runMediaUploadMaintenance(stop <-chan struct{}) {
 	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
+	var lifecycleWake <-chan struct{}
+	if api.mediaLifecycle != nil && api.mediaLifecycleInitErr == nil {
+		lifecycleWake = api.mediaLifecycle.Wake()
+		api.runMediaLifecycleSweep()
+	}
 	for {
 		select {
 		case <-stop:
 			return
+		case <-lifecycleWake:
+			api.runMediaLifecycleSweep()
 		case now := <-ticker.C:
 			api.mediaUploadMaintenance.Lock()
 			var err error
@@ -581,6 +588,17 @@ func (api *onboardingAPI) runMediaUploadMaintenance(stop <-chan struct{}) {
 				// File-system errors may carry absolute local paths.
 				api.log.Error("scheduled media upload maintenance failed")
 			}
+			api.runMediaLifecycleSweep()
 		}
+	}
+}
+
+func (api *onboardingAPI) runMediaLifecycleSweep() {
+	if api.mediaLifecycleInitErr != nil || api.mediaLifecycle == nil {
+		return
+	}
+	if err := api.mediaLifecycle.Sweep(context.Background()); err != nil {
+		// Lifecycle errors are intentionally sanitized at the service boundary.
+		api.log.Error("scheduled media lifecycle sweep failed")
 	}
 }

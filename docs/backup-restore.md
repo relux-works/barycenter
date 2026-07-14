@@ -25,6 +25,15 @@ storage.
 faithfully replicates (garbage in → garbage in the replica). For that, restore
 to a point in time *before* the bad write, using the retention window.
 
+Litestream replicates the SQLite database only. Canonical and temporary media
+bytes under `media_dir` are not copied into this replica. A recovery point can
+still contain pre-delete media metadata for up to the seven-day backup window;
+after any restore, start the current coordinator and let its media lifecycle
+reconciliation/retention sweep complete before making media endpoints
+available. See `docs/analysis/p1-media-delete-retention-contract.md` for the
+privacy and deletion handoff. Any separate volume snapshot or media-object
+backup needs its own published retention policy.
+
 ## One-time setup
 
 1. **Create a bucket** at any S3-compatible provider (AWS S3, Cloudflare R2,

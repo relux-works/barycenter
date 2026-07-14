@@ -213,16 +213,30 @@ func main() {
 	go retentionSweep(log, st, stop)
 
 	mux := http.NewServeMux()
+	var onboarding *onboardingAPI
 	mux.HandleFunc("/ws", h.HandleWS)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		orbits, _ := st.OrbitIDs()
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		body := map[string]any{
 			"status":          "ok",
 			"version":         version,
 			"orbits":          len(orbits),
 			"nodes_connected": h.Stats(),
-		})
+		}
+		if onboarding != nil {
+			if onboarding.mediaLifecycle == nil || onboarding.mediaLifecycleInitErr != nil {
+				body["status"] = "degraded"
+				body["media_lifecycle"] = map[string]string{"status": "unavailable"}
+			} else {
+				metrics := onboarding.mediaLifecycle.Metrics()
+				body["media_lifecycle"] = metrics
+				if !metrics.Healthy {
+					body["status"] = "degraded"
+				}
+			}
+		}
+		json.NewEncoder(w).Encode(body)
 	})
 	// /pair is unauthenticated (code-gated) — cap attempts per IP to blunt
 	// brute-force of pairing codes and DB-exhaustion spam.
@@ -233,7 +247,8 @@ func main() {
 	if tgBot != nil {
 		botUsername = tgBot.Username
 	}
-	if onboarding := registerOnboardingRoutes(mux, st, cfg, log, botUsername); onboarding != nil {
+	onboarding = registerOnboardingRoutes(mux, st, cfg, log, botUsername)
+	if onboarding != nil {
 		go onboarding.runMediaUploadMaintenance(stop)
 	}
 

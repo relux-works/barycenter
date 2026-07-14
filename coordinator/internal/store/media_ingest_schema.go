@@ -136,6 +136,32 @@ CREATE TABLE IF NOT EXISTS media_storage_operations (
 CREATE INDEX IF NOT EXISTS media_storage_operations_pending
   ON media_storage_operations(kind, state, created_at);
 
+-- This outbox is the stable ingest-to-transmission cancellation seam. It is
+-- deliberately independent of transmission tables so media deletion can land
+-- first and a later scheduler rollout can consume the same durable request.
+CREATE TABLE IF NOT EXISTS media_delivery_cancellations (
+  media_id TEXT PRIMARY KEY REFERENCES media_items(id),
+  media_revision INTEGER NOT NULL CHECK(media_revision > 0),
+  reason TEXT NOT NULL CHECK(reason IN ('media_deleted', 'media_expired')),
+  policy_version TEXT NOT NULL CHECK(policy_version = 'media_lifecycle_v1'),
+  not_started_action TEXT NOT NULL CHECK(not_started_action = 'cancel'),
+  active_action TEXT NOT NULL CHECK(active_action = 'fade_stop'),
+  interrupted_main_action TEXT NOT NULL
+    CHECK(interrupted_main_action = 'resume_once'),
+  state TEXT NOT NULL DEFAULT 'pending'
+    CHECK(state IN ('pending', 'done')),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  updated_at INTEGER NOT NULL CHECK(updated_at >= created_at),
+  completed_at INTEGER NOT NULL DEFAULT 0 CHECK(completed_at >= 0),
+  CHECK(
+    (state = 'pending' AND completed_at = 0)
+    OR (state = 'done' AND completed_at > 0)
+  )
+);
+CREATE INDEX IF NOT EXISTS media_delivery_cancellations_pending
+  ON media_delivery_cancellations(state, created_at, media_id);
+
 CREATE TABLE IF NOT EXISTS media_legacy_wav_links (
   media_id TEXT PRIMARY KEY REFERENCES media_items(id),
   legacy_media_id TEXT NOT NULL UNIQUE,
@@ -193,7 +219,10 @@ ADD COLUMN temp_cleaned_at INTEGER NOT NULL DEFAULT 0 CHECK(temp_cleaned_at >= 0
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	return s.reconcileOrphanedMediaItems()
+	if err := s.reconcileOrphanedMediaItems(); err != nil {
+		return err
+	}
+	return s.reconcileMediaLifecycleOutboxes()
 }
 
 func txColumnExists(tx *sql.Tx, table, column string) (bool, error) {

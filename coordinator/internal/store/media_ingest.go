@@ -185,6 +185,22 @@ const (
 	StorageOperationCancelled StorageOperationState = "cancelled"
 )
 
+type MediaCancellationReason string
+
+const (
+	MediaCancellationDeleted MediaCancellationReason = "media_deleted"
+	MediaCancellationExpired MediaCancellationReason = "media_expired"
+
+	// MediaLifecyclePolicyV1 is the canonical cancellation seam exposed before
+	// transmission persistence lands. Anything not yet playing is cancelled;
+	// active audio fade-stops without a confirmation click; an interrupted main
+	// program may resume exactly once through generation-safe scheduler state.
+	MediaLifecyclePolicyV1               = "media_lifecycle_v1"
+	MediaNotStartedActionCancel          = "cancel"
+	MediaActiveActionFadeStop            = "fade_stop"
+	MediaInterruptedMainActionResumeOnce = "resume_once"
+)
+
 type MediaStorageOperation struct {
 	ID            string
 	MediaID       string
@@ -196,6 +212,28 @@ type MediaStorageOperation struct {
 	CreatedAt     int64
 	UpdatedAt     int64
 	CompletedAt   int64
+}
+
+type MediaDeliveryCancellation struct {
+	MediaID               string
+	MediaRevision         int64
+	Reason                MediaCancellationReason
+	PolicyVersion         string
+	NotStartedAction      string
+	ActiveAction          string
+	InterruptedMainAction string
+	State                 StorageOperationState
+	Revision              int64
+	CreatedAt             int64
+	UpdatedAt             int64
+	CompletedAt           int64
+}
+
+type MediaLifecycleBacklog struct {
+	ExpirableMedia        int64
+	PendingStorageCleanup int64
+	PendingCancellation   int64
+	PendingTempCleanup    int64
 }
 
 type MediaPublication struct {
@@ -215,6 +253,7 @@ var (
 	mediaFailureCodePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,63}$`)
 	mediaMIMEPattern        = regexp.MustCompile(`^[a-z0-9][a-z0-9!#$&^_.+-]{0,63}/[a-z0-9][a-z0-9!#$&^_.+-]{0,63}$`)
 	mediaCodecPattern       = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,63}$`)
+	mediaItemIDPattern      = regexp.MustCompile(`^m_[0-9A-HJKMNP-TV-Z]{26}$`)
 )
 
 const mediaItemColumns = `id, owner_orbit_id, actor_id, kind, source, title,
@@ -233,6 +272,10 @@ updated_at, expires_at, completed_at, temp_cleaned_at`
 
 const mediaStorageOperationColumns = `id, media_id, kind, storage_key,
 media_revision, state, revision, created_at, updated_at, completed_at`
+
+const mediaDeliveryCancellationColumns = `media_id, media_revision, reason,
+policy_version, not_started_action, active_action, interrupted_main_action,
+state, revision, created_at, updated_at, completed_at`
 
 func scanMediaItem(row sqlScanner) (MediaItem, error) {
 	var item MediaItem
@@ -265,6 +308,18 @@ func scanMediaStorageOperation(row sqlScanner) (MediaStorageOperation, error) {
 		&operation.CreatedAt, &operation.UpdatedAt, &operation.CompletedAt,
 	)
 	return operation, err
+}
+
+func scanMediaDeliveryCancellation(row sqlScanner) (MediaDeliveryCancellation, error) {
+	var cancellation MediaDeliveryCancellation
+	err := row.Scan(
+		&cancellation.MediaID, &cancellation.MediaRevision, &cancellation.Reason,
+		&cancellation.PolicyVersion, &cancellation.NotStartedAction,
+		&cancellation.ActiveAction, &cancellation.InterruptedMainAction,
+		&cancellation.State, &cancellation.Revision, &cancellation.CreatedAt,
+		&cancellation.UpdatedAt, &cancellation.CompletedAt,
+	)
+	return cancellation, err
 }
 
 func validateCreateMediaItem(params CreateMediaItemParams) error {
@@ -1222,6 +1277,24 @@ ON CONFLICT(media_id, kind, storage_key) DO NOTHING`,
 	return err
 }
 
+func scheduleMediaDeliveryCancellationTx(
+	tx *sql.Tx,
+	mediaID string,
+	mediaRevision int64,
+	reason MediaCancellationReason,
+	now int64,
+) error {
+	_, err := tx.Exec(`INSERT INTO media_delivery_cancellations(
+  media_id, media_revision, reason, policy_version, not_started_action,
+  active_action, interrupted_main_action, state, revision, created_at, updated_at
+) VALUES(?, ?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?)
+ON CONFLICT(media_id) DO NOTHING`,
+		mediaID, mediaRevision, reason, MediaLifecyclePolicyV1,
+		MediaNotStartedActionCancel, MediaActiveActionFadeStop,
+		MediaInterruptedMainActionResumeOnce, now, now)
+	return err
+}
+
 func transitionMediaTerminalTx(tx *sql.Tx, mediaID string, expectedRevision int64, target MediaItemStatus, failureCode string, now int64, requireExpired bool) (MediaItem, error) {
 	item, err := scanMediaItem(tx.QueryRow(
 		`SELECT `+mediaItemColumns+` FROM media_items WHERE id = ?`, mediaID))
@@ -1280,6 +1353,15 @@ WHERE media_id = ? AND kind = 'publish' AND state = 'pending'`, now, now, mediaI
 	}
 	for _, key := range keys {
 		if err := scheduleStorageCleanupTx(tx, mediaID, key, newRevision, now); err != nil {
+			return MediaItem{}, err
+		}
+	}
+	if target == MediaStatusDeleted || target == MediaStatusExpired {
+		reason := MediaCancellationDeleted
+		if target == MediaStatusExpired {
+			reason = MediaCancellationExpired
+		}
+		if err := scheduleMediaDeliveryCancellationTx(tx, mediaID, newRevision, reason, now); err != nil {
 			return MediaItem{}, err
 		}
 	}
@@ -1350,6 +1432,61 @@ ORDER BY i.created_at, i.id`)
 		return err
 	}
 	if err := s.checkpoint("media_orphan_reconcile_before_commit"); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// reconcileMediaLifecycleOutboxes backfills tombstones written by the exact
+// predecessor, which knew deleted/expired media but not the delivery
+// cancellation seam. It is additive and idempotent across rollback/rollforward.
+func (s *Store) reconcileMediaLifecycleOutboxes() error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	rows, err := tx.Query(`SELECT ` + qualifiedMediaItemColumns + `
+FROM media_items i
+WHERE i.status IN ('deleted', 'expired')
+  AND NOT EXISTS (
+    SELECT 1 FROM media_delivery_cancellations c WHERE c.media_id = i.id
+  )
+ORDER BY i.deleted_at, i.id`)
+	if err != nil {
+		return err
+	}
+	items := make([]MediaItem, 0)
+	for rows.Next() {
+		item, err := scanMediaItem(rows)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, item := range items {
+		reason := MediaCancellationDeleted
+		if item.Status == MediaStatusExpired {
+			reason = MediaCancellationExpired
+		}
+		createdAt := item.DeletedAt
+		if createdAt <= 0 {
+			createdAt = item.UpdatedAt
+		}
+		if err := scheduleMediaDeliveryCancellationTx(
+			tx, item.ID, item.Revision, reason, createdAt,
+		); err != nil {
+			return err
+		}
+	}
+	if err := s.checkpoint("media_lifecycle_reconcile_before_commit"); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1435,6 +1572,73 @@ func (s *Store) DeleteMediaItem(mediaID string, expectedRevision, now int64) (Me
 	return item, nil
 }
 
+// DeleteAuthorizedMedia is the owner/control mutation boundary. The control
+// bearer and live orbit membership are rechecked in the same writer
+// transaction as logical revocation, cleanup scheduling, and the delivery
+// cancellation outbox. A valid caller receives the same not-found result for
+// unknown, foreign, and already-expired media; repeated deletion of its own
+// tombstone is idempotent.
+func (s *Store) DeleteAuthorizedMedia(expectedActorID int64, bearer, mediaID string, now int64) (MediaItem, error) {
+	if !s.selfServiceOnboarding {
+		return MediaItem{}, ErrSelfServiceOnboardingDisabled
+	}
+	if expectedActorID <= 0 || !lowerHexTokenPattern.MatchString(bearer) {
+		return MediaItem{}, ErrUnauthorized
+	}
+	if !mediaItemIDPattern.MatchString(mediaID) || now <= 0 {
+		return MediaItem{}, ErrMediaNotFound
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return MediaItem{}, err
+	}
+	defer tx.Rollback()
+	ctx, err := mutationActorContextTx(tx, expectedActorID, hashToken(bearer))
+	if err != nil {
+		return MediaItem{}, err
+	}
+	item, err := scanMediaItem(tx.QueryRow(
+		`SELECT `+mediaItemColumns+` FROM media_items WHERE id = ? AND owner_orbit_id = ?`,
+		mediaID, ctx.OrbitID,
+	))
+	if errors.Is(err, sql.ErrNoRows) {
+		return MediaItem{}, ErrMediaNotFound
+	}
+	if err != nil {
+		return MediaItem{}, err
+	}
+	if item.Status == MediaStatusExpired {
+		return MediaItem{}, ErrMediaNotFound
+	}
+	if item.Status == MediaStatusDeleted {
+		if err := scheduleMediaDeliveryCancellationTx(
+			tx, item.ID, item.Revision, MediaCancellationDeleted, item.DeletedAt,
+		); err != nil {
+			return MediaItem{}, err
+		}
+		if err := tx.Commit(); err != nil {
+			return MediaItem{}, err
+		}
+		return item, nil
+	}
+	deleted, err := transitionMediaTerminalTx(
+		tx, item.ID, item.Revision, MediaStatusDeleted, "", now, false,
+	)
+	if err != nil {
+		if errors.Is(err, ErrMediaStateConflict) {
+			return MediaItem{}, ErrMediaNotFound
+		}
+		return MediaItem{}, err
+	}
+	if err := s.checkpoint("media_authorized_delete_before_commit"); err != nil {
+		return MediaItem{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return MediaItem{}, err
+	}
+	return deleted, nil
+}
+
 func (s *Store) ExpireMediaItem(mediaID string, expectedRevision, now int64) (MediaItem, error) {
 	if mediaID == "" || expectedRevision <= 0 || now <= 0 {
 		return MediaItem{}, fmt.Errorf("%w: invalid expiry transition", ErrMediaInvalid)
@@ -1455,6 +1659,30 @@ func (s *Store) ExpireMediaItem(mediaID string, expectedRevision, now int64) (Me
 		return MediaItem{}, err
 	}
 	return item, nil
+}
+
+func (s *Store) ExpiredMediaItems(now int64, limit int) ([]MediaItem, error) {
+	if now <= 0 || limit <= 0 || limit > 1000 {
+		return nil, fmt.Errorf("%w: invalid media retention query", ErrMediaInvalid)
+	}
+	rows, err := s.db.Query(`SELECT `+mediaItemColumns+`
+FROM media_items
+WHERE status IN ('processing', 'ready', 'failed') AND expires_at <= ?
+ORDER BY expires_at, id
+LIMIT ?`, now, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]MediaItem, 0)
+	for rows.Next() {
+		item, err := scanMediaItem(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
 }
 
 func (s *Store) PendingMediaStorageOperations(kind StorageOperationKind, limit int) ([]MediaStorageOperation, error) {
@@ -1479,6 +1707,159 @@ LIMIT ?`, kind, limit)
 		operations = append(operations, operation)
 	}
 	return operations, rows.Err()
+}
+
+func (s *Store) GetMediaStorageOperation(operationID string) (*MediaStorageOperation, error) {
+	if operationID == "" {
+		return nil, fmt.Errorf("%w: invalid storage operation query", ErrMediaInvalid)
+	}
+	operation, err := scanMediaStorageOperation(s.db.QueryRow(
+		`SELECT `+mediaStorageOperationColumns+` FROM media_storage_operations WHERE id = ?`,
+		operationID,
+	))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &operation, nil
+}
+
+// MediaStorageCleanupCandidate rechecks that a pending operation still points
+// at terminal media and that no ready item references the key. The filesystem
+// worker calls it after acquiring the per-key publication lock and then the
+// completion transaction repeats the same invariant.
+func (s *Store) MediaStorageCleanupCandidate(operationID string, expectedRevision int64) (MediaStorageOperation, error) {
+	if operationID == "" || expectedRevision <= 0 {
+		return MediaStorageOperation{}, fmt.Errorf("%w: invalid storage cleanup candidate", ErrMediaInvalid)
+	}
+	operation, err := scanMediaStorageOperation(s.db.QueryRow(
+		`SELECT `+mediaStorageOperationColumns+`
+FROM media_storage_operations o
+WHERE o.id = ? AND o.kind = 'cleanup' AND o.state = 'pending' AND o.revision = ?
+  AND EXISTS (
+    SELECT 1 FROM media_items i
+    WHERE i.id = o.media_id AND i.status IN ('failed', 'deleted', 'expired')
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM media_items live
+    WHERE live.storage_key = o.storage_key AND live.status = 'ready'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM media_storage_operations publisher
+    WHERE publisher.storage_key = o.storage_key
+      AND publisher.kind = 'publish' AND publisher.state = 'pending'
+  )`, operationID, expectedRevision))
+	if errors.Is(err, sql.ErrNoRows) {
+		return MediaStorageOperation{}, ErrMediaStateConflict
+	}
+	return operation, err
+}
+
+func (s *Store) PendingMediaDeliveryCancellations(limit int) ([]MediaDeliveryCancellation, error) {
+	if limit <= 0 || limit > 1000 {
+		return nil, fmt.Errorf("%w: invalid delivery cancellation query", ErrMediaInvalid)
+	}
+	rows, err := s.db.Query(`SELECT `+mediaDeliveryCancellationColumns+`
+FROM media_delivery_cancellations
+WHERE state = 'pending'
+ORDER BY created_at, media_id
+LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	cancellations := make([]MediaDeliveryCancellation, 0)
+	for rows.Next() {
+		cancellation, err := scanMediaDeliveryCancellation(rows)
+		if err != nil {
+			return nil, err
+		}
+		cancellations = append(cancellations, cancellation)
+	}
+	return cancellations, rows.Err()
+}
+
+func (s *Store) CompleteMediaDeliveryCancellation(mediaID string, expectedRevision, now int64) (MediaDeliveryCancellation, error) {
+	if mediaID == "" || expectedRevision <= 0 || now <= 0 {
+		return MediaDeliveryCancellation{}, fmt.Errorf("%w: invalid delivery cancellation completion", ErrMediaInvalid)
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return MediaDeliveryCancellation{}, err
+	}
+	defer tx.Rollback()
+	result, err := tx.Exec(`UPDATE media_delivery_cancellations
+SET state = 'done', revision = revision + 1, updated_at = ?, completed_at = ?
+WHERE media_id = ? AND state = 'pending' AND revision = ?`,
+		now, now, mediaID, expectedRevision)
+	if err != nil {
+		return MediaDeliveryCancellation{}, err
+	}
+	if changed, err := result.RowsAffected(); err != nil || changed != 1 {
+		if err != nil {
+			return MediaDeliveryCancellation{}, err
+		}
+		return MediaDeliveryCancellation{}, ErrMediaStateConflict
+	}
+	completed, err := scanMediaDeliveryCancellation(tx.QueryRow(
+		`SELECT `+mediaDeliveryCancellationColumns+` FROM media_delivery_cancellations WHERE media_id = ?`,
+		mediaID,
+	))
+	if err != nil {
+		return MediaDeliveryCancellation{}, err
+	}
+	item, err := scanMediaItem(tx.QueryRow(
+		`SELECT `+mediaItemColumns+` FROM media_items WHERE id = ?`, mediaID,
+	))
+	if err != nil {
+		return MediaDeliveryCancellation{}, err
+	}
+	if err := insertMediaAuditTx(tx, item, "media.delivery_cancellation_completed", "", "", now); err != nil {
+		return MediaDeliveryCancellation{}, err
+	}
+	if err := s.checkpoint("media_delivery_cancellation_complete_before_commit"); err != nil {
+		return MediaDeliveryCancellation{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return MediaDeliveryCancellation{}, err
+	}
+	return completed, nil
+}
+
+func (s *Store) MediaLifecycleBacklog(now int64) (MediaLifecycleBacklog, error) {
+	if now <= 0 {
+		return MediaLifecycleBacklog{}, fmt.Errorf("%w: invalid lifecycle backlog query", ErrMediaInvalid)
+	}
+	var backlog MediaLifecycleBacklog
+	err := s.db.QueryRow(`SELECT
+  (SELECT COUNT(*) FROM media_items
+    WHERE status IN ('processing', 'ready', 'failed') AND expires_at <= ?),
+  (SELECT COUNT(*) FROM media_storage_operations
+    WHERE kind = 'cleanup' AND state = 'pending'),
+  (SELECT COUNT(*) FROM media_delivery_cancellations WHERE state = 'pending'),
+  (SELECT COUNT(*) FROM media_upload_sessions
+    WHERE status IN ('failed', 'expired', 'completed') AND temp_cleaned_at = 0)`, now).Scan(
+		&backlog.ExpirableMedia, &backlog.PendingStorageCleanup,
+		&backlog.PendingCancellation, &backlog.PendingTempCleanup,
+	)
+	return backlog, err
+}
+
+func (s *Store) PruneMediaIngestAudit(cutoff int64, limit int) (int64, error) {
+	if cutoff <= 0 || limit <= 0 || limit > 1000 {
+		return 0, fmt.Errorf("%w: invalid media audit retention request", ErrMediaInvalid)
+	}
+	result, err := s.db.Exec(`DELETE FROM media_ingest_audit_events
+WHERE id IN (
+  SELECT id FROM media_ingest_audit_events
+  WHERE created_at <= ? ORDER BY created_at, id LIMIT ?
+)`, cutoff, limit)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 func (s *Store) PendingMediaPublicationForMedia(mediaID string) (*MediaStorageOperation, error) {
@@ -1542,6 +1923,26 @@ func (s *Store) CompleteMediaStorageCleanup(operationID string, expectedRevision
 		operation.Revision != expectedRevision {
 		return MediaStorageOperation{}, ErrMediaStateConflict
 	}
+	item, err := scanMediaItem(tx.QueryRow(
+		`SELECT `+mediaItemColumns+` FROM media_items WHERE id = ?`, operation.MediaID))
+	if err != nil {
+		return MediaStorageOperation{}, err
+	}
+	if item.Status != MediaStatusFailed && item.Status != MediaStatusDeleted && item.Status != MediaStatusExpired {
+		return MediaStorageOperation{}, ErrMediaStateConflict
+	}
+	var liveReferences, pendingPublishers int
+	if err := tx.QueryRow(`SELECT
+  (SELECT COUNT(*) FROM media_items
+    WHERE storage_key = ? AND status = 'ready'),
+  (SELECT COUNT(*) FROM media_storage_operations
+    WHERE storage_key = ? AND kind = 'publish' AND state = 'pending')`,
+		operation.StorageKey, operation.StorageKey).Scan(&liveReferences, &pendingPublishers); err != nil {
+		return MediaStorageOperation{}, err
+	}
+	if liveReferences != 0 || pendingPublishers != 0 {
+		return MediaStorageOperation{}, ErrMediaStateConflict
+	}
 	result, err := tx.Exec(`UPDATE media_storage_operations
 SET state = 'done', revision = revision + 1, updated_at = ?, completed_at = ?
 WHERE id = ? AND kind = 'cleanup' AND state = 'pending' AND revision = ?`,
@@ -1557,11 +1958,6 @@ WHERE id = ? AND kind = 'cleanup' AND state = 'pending' AND revision = ?`,
 	}
 	completed, err := scanMediaStorageOperation(tx.QueryRow(
 		`SELECT `+mediaStorageOperationColumns+` FROM media_storage_operations WHERE id = ?`, operationID))
-	if err != nil {
-		return MediaStorageOperation{}, err
-	}
-	item, err := scanMediaItem(tx.QueryRow(
-		`SELECT `+mediaItemColumns+` FROM media_items WHERE id = ?`, operation.MediaID))
 	if err != nil {
 		return MediaStorageOperation{}, err
 	}

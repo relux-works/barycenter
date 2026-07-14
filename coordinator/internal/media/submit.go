@@ -247,7 +247,41 @@ func (service *SubmitService) SubmitMedia(ctx context.Context, submission Submis
 			operation = &operationValue
 		}
 	}
-	if err := service.publishCanonical(*item, *operation, processed); err != nil {
+	ready, err := service.publishAndComplete(*item, *operation, processed)
+	if err != nil {
+		return store.MediaItem{}, err
+	}
+	service.cleanupSource(submission)
+	return ready, nil
+}
+
+func (service *SubmitService) publishAndComplete(
+	item store.MediaItem,
+	operation store.MediaStorageOperation,
+	processed Result,
+) (store.MediaItem, error) {
+	lock := canonicalStorageLock(operation.StorageKey)
+	lock.Lock()
+	defer lock.Unlock()
+
+	// Deletion can cancel the outbox operation while ffmpeg is running. Check
+	// again under the same key lock used by physical cleanup so a cleanup
+	// receipt for an absent path cannot be followed by a stale link.
+	currentOperation, err := service.store.GetMediaStorageOperation(operation.ID)
+	if err != nil {
+		return store.MediaItem{}, errors.New("reload media publication")
+	}
+	if currentOperation == nil || currentOperation.Kind != store.StorageOperationPublish ||
+		currentOperation.State != store.StorageOperationPending ||
+		currentOperation.Revision != operation.Revision ||
+		currentOperation.StorageKey != operation.StorageKey {
+		current, lookupErr := service.store.GetMediaItem(item.ID)
+		if lookupErr == nil && current != nil && current.Status == store.MediaStatusReady {
+			return *current, nil
+		}
+		return store.MediaItem{}, processingError("media_state_invalid", nil)
+	}
+	if err := service.publishCanonical(item, operation, processed); err != nil {
 		return store.MediaItem{}, err
 	}
 	if service.testAfterPublish != nil {
@@ -264,18 +298,40 @@ func (service *SubmitService) SubmitMedia(ctx context.Context, submission Submis
 		},
 		service.now().UnixMilli(),
 	)
-	if err != nil {
-		if errors.Is(err, store.ErrMediaStateConflict) {
-			current, lookupErr := service.store.GetMediaItem(item.ID)
-			if lookupErr == nil && current != nil && current.Status == store.MediaStatusReady {
-				service.cleanupSource(submission)
+	if err == nil {
+		return ready, nil
+	}
+	if errors.Is(err, store.ErrMediaStateConflict) {
+		current, lookupErr := service.store.GetMediaItem(item.ID)
+		if lookupErr == nil && current != nil {
+			if current.Status == store.MediaStatusReady {
 				return *current, nil
 			}
+			if current.Status == store.MediaStatusFailed || current.Status == store.MediaStatusDeleted ||
+				current.Status == store.MediaStatusExpired {
+				_ = service.removeCancelledCanonical(operation.StorageKey)
+			}
 		}
-		return store.MediaItem{}, errors.New("complete media publication")
 	}
-	service.cleanupSource(submission)
-	return ready, nil
+	return store.MediaItem{}, errors.New("complete media publication")
+}
+
+func (service *SubmitService) removeCancelledCanonical(storageKey string) error {
+	path, ok := CanonicalPath(service.canonicalDir, storageKey)
+	if !ok {
+		return errors.New("invalid cancelled canonical identity")
+	}
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil || !info.Mode().IsRegular() {
+		return errors.New("inspect cancelled canonical storage")
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return errors.New("remove cancelled canonical storage")
+	}
+	return syncDirectory(service.canonicalDir)
 }
 
 func (service *SubmitService) acquireWorker(ctx context.Context) error {

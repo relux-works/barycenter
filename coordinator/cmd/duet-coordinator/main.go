@@ -288,6 +288,7 @@ func main() {
 		mux, st, cfg, log, botUsername, mediaSubmitter, mediaSubmitterInitErr,
 	)
 	if onboarding != nil {
+		onboarding.transmissionPresence = transmissionPresenceSnapshotterForHub(h)
 		onboarding.mediaLifecycle = mediaLifecycle
 		onboarding.mediaLifecycleInitErr = mediaLifecycleInitErr
 		go onboarding.runMediaUploadMaintenance(stop)

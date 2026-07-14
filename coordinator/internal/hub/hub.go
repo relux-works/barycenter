@@ -4,6 +4,8 @@
 package hub
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -30,6 +32,19 @@ type NodeKey struct {
 	Slot  protocol.NodeID
 }
 
+// NodeSnapshot is a defensive, authorization-free projection for application
+// services that must make a point-in-time delivery decision. The store still
+// resolves the authoritative actor and binding generation transactionally.
+type NodeSnapshot struct {
+	Connected    bool
+	LastSeenAt   int64
+	Capabilities protocol.CapabilitySet
+	// CredentialTokenHash is a transient high-entropy witness for matching the
+	// current authenticated socket to the authoritative slot generation. It
+	// must never be logged, serialized to clients or persisted in receipts.
+	CredentialTokenHash string
+}
+
 type (
 	EvRegistered struct {
 		Key              NodeKey
@@ -50,10 +65,11 @@ type (
 type TokenLookup func(token string) (orbitID int64, slot string, ok bool)
 
 type conn struct {
-	ws   *websocket.Conn
-	send chan protocol.Envelope
-	stop chan struct{}
-	once sync.Once
+	ws                  *websocket.Conn
+	send                chan protocol.Envelope
+	stop                chan struct{}
+	once                sync.Once
+	credentialTokenHash string
 }
 
 func (c *conn) close() {
@@ -70,10 +86,11 @@ type Hub struct {
 
 	Events chan Event
 
-	mu       sync.Mutex
-	conns    map[NodeKey]*conn
-	lastSeen map[NodeKey]time.Time
-	online   map[NodeKey]bool
+	mu           sync.Mutex
+	conns        map[NodeKey]*conn
+	lastSeen     map[NodeKey]time.Time
+	online       map[NodeKey]bool
+	capabilities map[NodeKey]protocol.CapabilitySet
 }
 
 func New(log *slog.Logger, lookup TokenLookup, offlineAfter time.Duration) *Hub {
@@ -83,10 +100,11 @@ func New(log *slog.Logger, lookup TokenLookup, offlineAfter time.Duration) *Hub 
 		offlineAfter: offlineAfter,
 		// Liveness (EvOnline/EvOffline) must never be dropped (bugs #3): the
 		// buffer absorbs bursts and emit() blocks rather than drops when full.
-		Events:   make(chan Event, 256),
-		conns:    map[NodeKey]*conn{},
-		lastSeen: map[NodeKey]time.Time{},
-		online:   map[NodeKey]bool{},
+		Events:       make(chan Event, 256),
+		conns:        map[NodeKey]*conn{},
+		lastSeen:     map[NodeKey]time.Time{},
+		online:       map[NodeKey]bool{},
+		capabilities: map[NodeKey]protocol.CapabilitySet{},
 	}
 }
 
@@ -159,6 +177,29 @@ func (h *Hub) Stats() (connected int) {
 	return
 }
 
+// NodeSnapshots returns exact current connection capability sets and liveness
+// timestamps without exposing mutable hub maps. Unknown future capability
+// names remain present in the immutable CapabilitySet value.
+func (h *Hub) NodeSnapshots() map[NodeKey]NodeSnapshot {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make(map[NodeKey]NodeSnapshot, len(h.lastSeen))
+	for key, seen := range h.lastSeen {
+		connection, connected := h.conns[key]
+		credentialTokenHash := ""
+		if connection != nil {
+			credentialTokenHash = connection.credentialTokenHash
+		}
+		out[key] = NodeSnapshot{
+			Connected:           connected,
+			LastSeenAt:          seen.UnixMilli(),
+			Capabilities:        h.capabilities[key],
+			CredentialTokenHash: credentialTokenHash,
+		}
+	}
+	return out
+}
+
 // Send wraps payload into an envelope and queues it to the node.
 // Returns false if the node has no live connection (spec 8.6: no delivery
 // guarantee; confirmation loops live in the session layer).
@@ -205,7 +246,11 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return // awaitRegister closed the socket
 	}
 
-	c := &conn{ws: ws, send: make(chan protocol.Envelope, 32), stop: make(chan struct{})}
+	tokenDigest := sha256.Sum256([]byte(reg.Token))
+	c := &conn{
+		ws: ws, send: make(chan protocol.Envelope, 32), stop: make(chan struct{}),
+		credentialTokenHash: hex.EncodeToString(tokenDigest[:]),
+	}
 
 	h.mu.Lock()
 	if old := h.conns[key]; old != nil {
@@ -214,6 +259,7 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	}
 	h.conns[key] = c
 	h.lastSeen[key] = time.Now()
+	h.capabilities[key] = capabilities
 	wasOnline := h.online[key]
 	h.online[key] = true
 	h.mu.Unlock()

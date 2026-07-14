@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"relux.works/duet/coordinator/internal/media"
 	"relux.works/duet/coordinator/internal/store"
 )
 
@@ -39,6 +41,10 @@ type mediaUploadResponse struct {
 	ExpiresAt   string `json:"expires_at"`
 	Status      string `json:"status"`
 	Reused      bool   `json:"reused,omitempty"`
+}
+
+type mediaUploadSubmitter interface {
+	SubmitUpload(context.Context, string) (store.MediaItem, error)
 }
 
 func (api *onboardingAPI) initializeMediaUploadStorage() error {
@@ -300,7 +306,22 @@ func (api *onboardingAPI) writeMediaUpload(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if session.Status != store.UploadStatusOpen {
-		writeMediaUploadState(w, http.StatusOK, *session)
+		lock := api.mediaUploadLock(sessionID)
+		lock.Lock()
+		defer lock.Unlock()
+		session, err = api.store.AuthorizeMediaUploadSession(sessionID, token, now.UnixMilli())
+		if err != nil {
+			api.mediaUploadInternalError(w, "reauthorize finalized media upload")
+			return
+		}
+		if session == nil {
+			apiError(w, http.StatusUnauthorized, errorUploadCredential, 0)
+			return
+		}
+		processed, ok := api.processFinalizingMediaUpload(w, r, session)
+		if ok {
+			writeMediaUploadState(w, http.StatusOK, *processed)
+		}
 		return
 	}
 	if !api.mediaUploadStorageReady(w, now) {
@@ -433,6 +454,10 @@ func (api *onboardingAPI) writeMediaUpload(w http.ResponseWriter, r *http.Reques
 		session = &advanced
 	}
 	if session.ReceivedSizeBytes == session.DeclaredSizeBytes {
+		if err := target.Close(); err != nil {
+			api.mediaUploadInternalError(w, "close media upload before processing")
+			return
+		}
 		finalizing, err := api.store.BeginMediaUploadFinalization(
 			session.ID, session.Revision, now.UnixMilli(),
 		)
@@ -449,7 +474,47 @@ func (api *onboardingAPI) writeMediaUpload(w http.ResponseWriter, r *http.Reques
 		}
 		session = &finalizing
 	}
-	writeMediaUploadState(w, http.StatusOK, *session)
+	processed, ok := api.processFinalizingMediaUpload(w, r, session)
+	if !ok {
+		return
+	}
+	writeMediaUploadState(w, http.StatusOK, *processed)
+}
+
+func (api *onboardingAPI) processFinalizingMediaUpload(
+	w http.ResponseWriter,
+	r *http.Request,
+	session *store.MediaUploadSession,
+) (*store.MediaUploadSession, bool) {
+	if session.Status != store.UploadStatusFinalizing {
+		return session, true
+	}
+	if api.mediaSubmitterInitErr != nil {
+		api.mediaUploadInternalError(w, "initialize media processor")
+		return nil, false
+	}
+	if api.mediaSubmitter != nil {
+		_, err := api.mediaSubmitter.SubmitUpload(context.WithoutCancel(r.Context()), session.ID)
+		if err != nil {
+			if _, processing := media.FailureCode(err); processing {
+				apiError(w, http.StatusUnprocessableEntity, errorMediaProcessing, 0)
+				return nil, false
+			}
+			api.mediaUploadInternalError(w, "process media upload")
+			return nil, false
+		}
+		completed, err := api.store.GetMediaUploadSession(session.ID)
+		if err != nil || completed == nil {
+			api.mediaUploadInternalError(w, "load completed media upload")
+			return nil, false
+		}
+		if completed.Status != store.UploadStatusCompleted {
+			api.mediaUploadInternalError(w, "verify completed media upload")
+			return nil, false
+		}
+		session = completed
+	}
+	return session, true
 }
 
 func (api *onboardingAPI) reconcileMediaUploadFile(session store.MediaUploadSession) (*os.File, error) {

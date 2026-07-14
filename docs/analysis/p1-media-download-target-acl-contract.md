@@ -42,12 +42,12 @@ transmission target rows. It must not derive a grant from:
 - a copied media ID, URL, hash or legacy WAV mapping; or
 - a control credential belonging to a targeted orbit.
 
-The reader is intentionally unset in production until transmission persistence
-lands. That state is fail-closed for node downloads; owning control reads remain
-available. `TASK-260712-gj0cko` exercises the complete reader-to-delete-to-
-cancellation path with an immutable snapshot implementation, and
-`TASK-260712-1aprcb` later connects that interface to accepted persisted target
-rows. Neither task may introduce a live-membership fallback.
+`TASK-260712-1aprcb` installs the store as the production reader. It queries
+accepted persisted target rows and verifies the exact current actor, slot and
+snapshotted binding generation. `TASK-260712-gj0cko` exercises the complete
+reader-to-delete-to-cancellation path. Neither integration introduces a
+live-membership fallback; no target row remains fail-closed while owning
+control reads remain available.
 
 Target-reader errors are reflected only as a generic internal failure and are
 logged without media, actor, slot, token or local-path fields. Implementations
@@ -63,14 +63,15 @@ middleware actor, orbit, role, slot and capability context. It then requires:
 - `ready` media with a non-empty generated storage key; and
 - `expires_at` strictly later than the authorization time.
 
-The service repeats that live credential and media-state check under the shared
-canonical-storage lock. It opens and verifies the file descriptor inside that
-second immediate SQLite transaction, before the transaction releases its
-writer reservation. Therefore a delete or actor revocation commits either
-before authorization (and denies the read) or after the descriptor is already
-open; there is no post-authorization/pre-open revocation window. A request
-holding an open descriptor may finish; delete revokes every later authorization
-and cleanup can unlink after the descriptor is acquired.
+The service repeats the live credential, persisted target, active-block and
+media-state checks under the shared canonical-storage lock. It opens and
+verifies the file descriptor inside that second immediate SQLite transaction,
+before the transaction releases its writer reservation. Therefore a delete,
+block, terminal blocked receipt or actor revocation commits either before
+authorization (and denies the read) or after the descriptor is already open;
+there is no post-authorization/pre-open revocation window. A request holding an
+open descriptor may finish; revocation denies every later authorization and
+cleanup can unlink after the descriptor is acquired.
 
 For a valid credential, unknown, guessed, foreign, unsnapshotted, deleted,
 expired, owner-disabled and copied-URL media all return the same

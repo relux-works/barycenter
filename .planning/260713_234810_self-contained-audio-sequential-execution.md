@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 21 accepted, 184 remain.
-- Routed inventory: 186 engineering tasks (21 accepted, 165 remain) and 19
+- Combined inventory: 205 original tasks; 22 accepted, 183 remain.
+- Routed inventory: 186 engineering tasks (22 accepted, 164 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1aprcb` — transmission-store-target-snapshots
-- Current branch: `task/task-260712-1aprcb-transmission-store-target-snapshots` after PR #20 lands
-- Accepted overall: 21 / 205 tasks (approximately 10.2%); 184 remain
-- Engineering progress: 21 / 186 tasks (approximately 11.3%); 165 remain
+- Current engineering task: `TASK-260712-1g70av` — clip-transmission-wire-contract
+- Current branch: `task/task-260712-1aprcb-transmission-store-target-snapshots`
+- Accepted overall: 22 / 205 tasks (approximately 10.7%); 183 remain
+- Engineering progress: 22 / 186 tasks (approximately 11.8%); 164 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -32,9 +32,11 @@
   `TASK-260712-gj0cko` landed through PR #17 at merge commit `9f2aea8`;
   `TASK-260712-3huupe` landed through PR #18 at merge commit `cfe12ed`;
   `TASK-260712-jolzhh` landed through PR #19 at merge commit `c4cb324`;
-  `TASK-260712-51y5k9` is accepted on implementation commit `605859b` after
-  hosted CI run `29314060965`; strict execution advances to
-  `TASK-260712-1aprcb` after PR #20 lands.
+  `TASK-260712-51y5k9` landed through PR #20 at merge commit `2aa97c2` after
+  hosted CI runs `29314060965` and `29314299856`; `TASK-260712-1aprcb` is
+  accepted through ready PR #21 after hosted CI runs `29315987760` and
+  `29316416647`. Its final tracking commit and merge are the only remaining
+  landing steps before strict execution starts `TASK-260712-1g70av`.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -232,8 +234,29 @@ portable Windows tests, diff and board checks are green. Hosted CI run
 authoritative macOS NodeCore, portable Windows and the signed packaged probe
 on implementation commit `605859b`. Inline review closed aggregate reason,
 cancel/start race, capability refresh and DND acknowledgement gaps. The task
-is accepted, PR #20 is in final tracking, and execution points to
-`TASK-260712-1aprcb`. No manual real-app or hardware result is claimed.
+is accepted. Final tracking CI run `29314299856` passed the same four jobs;
+PR #20 landed at `2aa97c2d08cb93b110200ae159fd43265410ff5a`, and execution
+started `TASK-260712-1aprcb` from that clean main. No manual real-app or
+hardware result is claimed.
+
+Checkpoint 2026-07-14 for `TASK-260712-1aprcb`: the coordinator now persists
+immutable accepted transmission and exact target snapshots, trusted FIFO and
+expiry fields, requested plus effective delivery, generation-safe receipt
+transitions, deterministic aggregate lifecycle, actor/orbit blocks and layered
+DND state. Generic media downloads are authorized from the stored target
+identity rather than current membership, and production descriptor opening
+rechecks both the exact target and active block within the immediate database
+transaction. The additive schema deliberately avoids legacy identity foreign
+keys so transmission history survives source-orbit dissolution and remains
+readable by the exact previous binary. Fresh/migrated schema tests, concurrent
+CAS and block-versus-open races, production HTTP ACL coverage, full Go
+test/vet/race, deterministic integration coverage and the pinned previous-head
+rollback suite are green. Inline review closed the descriptor-open race and
+strengthened rollback coverage. Hosted CI runs `29315987760` and `29316416647`
+both passed coordinator, authoritative macOS NodeCore, Windows unit/cross-build
+and signed packaged-probe jobs on implementation commits `ab9b9b7` and
+`a4610b4`. PR #21 is ready and mergeable. No manual real-app or physical-
+hardware result is claimed; those checks remain in `EPIC-260714-th54l3`.
 
 ## Operating contract
 
@@ -353,7 +376,7 @@ Story: `STORY-260712-ld674h` — P1 Generic media ingest and storage.
 Story: `STORY-260712-25lysg` — P1 Transmission protocol and scheduler.
 
 - [x] `TASK-260712-51y5k9` — transmission-contract-clarification
-- [ ] `TASK-260712-1aprcb` — transmission-store-target-snapshots
+- [x] `TASK-260712-1aprcb` — transmission-store-target-snapshots
 - [ ] `TASK-260712-1g70av` — clip-transmission-wire-contract
 - [ ] `TASK-260712-2qpp6w` — transmission-http-resolution
 - [ ] `TASK-260712-26ip33` — macos-transmission-client-hooks

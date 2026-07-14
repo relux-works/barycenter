@@ -27,9 +27,9 @@ For linked rows:
 - owning-control and exact target-snapshot generic GET rules remain unchanged.
 
 Unknown, copied, foreign, deleted and expired generic IDs retain the same
-non-disclosing `404 media_not_found` response. Production node access remains
-fail-closed until transmission persistence installs its immutable target
-reader; owning control access is available now.
+non-disclosing `404 media_not_found` response. `TASK-260712-1aprcb` now installs
+the immutable transmission-target store as the production reader. A node with
+no exact accepted row remains fail-closed; owning control access is unchanged.
 
 ## Delete and delivery cancellation
 

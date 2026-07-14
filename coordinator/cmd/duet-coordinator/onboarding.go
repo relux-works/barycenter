@@ -237,6 +237,9 @@ func newOnboardingAPIBase(st *store.Store, cfg *config.Config, log *slog.Logger,
 	api.mediaUploadInitErr = api.initializeMediaUploadStorage()
 	api.mediaLifecycle, api.mediaLifecycleInitErr = media.NewLifecycleService(st, cfg.MediaDir)
 	api.mediaDownload, api.mediaDownloadInitErr = media.NewDownloadService(st, cfg.MediaDir)
+	if api.mediaDownloadInitErr == nil {
+		api.mediaDownload.SetTargetSnapshotReader(st)
+	}
 	return api
 }
 

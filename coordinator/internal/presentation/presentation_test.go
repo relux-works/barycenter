@@ -234,3 +234,45 @@ func TestPresentationHandoffStaysLinkedAndComplete(t *testing.T) {
 		t.Fatal("protocol entry point lost shared presentation handoff")
 	}
 }
+
+func TestTelegramParityRolloutHandoffStaysComplete(t *testing.T) {
+	repositoryRoot := filepath.Join("..", "..", "..")
+	path := filepath.Join(repositoryRoot, "docs", "analysis",
+		"p1-telegram-history-presence-rollout-handoff.md")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handoff := string(raw)
+	for _, required := range []string{
+		"p1-history-presence-telegram-v1",
+		"EPIC-260714-th54l3",
+		"GET /v1/history",
+		"GET /v1/presence",
+		"track_not_available_phase1",
+		"media_group_not_supported_phase1",
+		"tg1_",
+		"15 minutes",
+		"24 hours",
+		"synthetic `wait`",
+		"mandatory_target_missing_overlay_capability",
+		"callback.failed",
+		"Phase 1 history is not an inbox",
+		"global runtime flag",
+		"Drain-first rollback",
+		"STORY-260712-2e36uz",
+		"p1-telegram-history-presence-parity-regressions.md",
+	} {
+		if !strings.Contains(handoff, required) {
+			t.Errorf("Telegram parity rollout handoff lost %q", required)
+		}
+	}
+	protocolRaw, err := os.ReadFile(filepath.Join(repositoryRoot, "docs", "protocol.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(protocolRaw),
+		"p1-telegram-history-presence-rollout-handoff.md") {
+		t.Fatal("protocol entry point lost Telegram parity rollout handoff")
+	}
+}

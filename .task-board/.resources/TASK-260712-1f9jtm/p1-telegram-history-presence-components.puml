@@ -1,50 +1,59 @@
 @startuml
-title P1 Telegram Adapter, History and Presence - Component Boundaries
+title P1 Telegram / History / Presence - Final Ownership Handoff
 
 left to right direction
 skinparam componentStyle rectangle
 
-actor "Telegram User" as TgUser
-actor "Pulsar App" as App
+actor "Telegram user" as Telegram
+actor "App client" as App
 
-rectangle "STORY-260712-34kbkn\nTelegram parity + history/presence" {
-  [Telegram Transport\nvoice/audio/callback updates] as TgTransport
-  [Inline Action Router\nlegacy default + action callbacks] as InlineRouter
-  [Delivery Presentation Model\nhuman labels + receipt wording] as Presentation
-  [Presence Surface\nsanitized presence + DND/block] as Presence
-  [History/Receipt Query\nrecent transmissions + aggregates] as History
+rectangle "STORY-260712-34kbkn owns" {
+  [Telegram adapter\nattachments + opaque callbacks] as Adapter
+  [Inline route adapter\ndefault + replacement command] as Inline
+  [Shared presentation\nsemantic key + EN + RU] as Labels
+  [History projection + commands] as History
+  [Presence / DND / block surface] as Presence
 }
 
-rectangle "STORY-260712-2ve1c8\nIdentity + ActorContext" as Identity
-rectangle "STORY-260712-ld674h\nSubmitMedia + legacy voice bridge" as Ingest
-rectangle "STORY-260712-25lysg\nCreateTransmission + receipts + DND semantics" as Tx
-rectangle "STORY-260712-2e36uz\nWindows/macOS UI integration" as UI
+rectangle "Canonical upstream owners" {
+  [Identity / ActorContext] as Identity
+  [SubmitMedia / lifecycle] as Media
+  [Transmission resolver / scheduler] as Tx
+  [Moderation evidence] as Moderation
+}
 
-TgUser --> TgTransport
-TgTransport --> Identity : authorize actor
-TgTransport --> Ingest : submit voice/audio
-TgTransport --> InlineRouter : callback events
+rectangle "Downstream consumers" {
+  [Windows / macOS UI] as UI
+  [Overlay / interrupt mixer] as Mixer
+  [Store compliance] as Store
+  [Phase 2 Air / targets / tracks] as P2
+}
 
-InlineRouter --> Tx : create transmission\nor legacy after_current
-InlineRouter --> Presentation
-
-Tx --> History : transmission + target states
-Tx --> Presence : target capability\nDND/block result
-
-Identity --> Presentation : actor + orbit labels
-Presentation --> History
-Presentation --> Presence
-
+Telegram --> Adapter
 App --> History
 App --> Presence
+Adapter --> Identity : re-resolve every action
+Adapter --> Media : untrusted attachment hints
+Adapter --> Inline
+Inline --> Tx : common create / cancel
+History --> Tx : projection / fresh replay
+History --> Media : owner delete
+History --> Moderation : exact-target report
+Presence --> Tx : canonical DND / block policy
+Adapter --> Labels
+History --> Labels
+Presence --> Labels
+
+Labels --> UI
 History --> UI
 Presence --> UI
+Tx --> Mixer : capability-gated commands
+Labels --> Store
+History --> P2 : versioned extension only
 
 note bottom
-  This story owns presentation-oriented parity:
-  human names, routing labels, presence sanitization,
-  Telegram inline actions, and history/receipt read models.
-  It does not own SubmitMedia internals or transmission scheduling semantics.
+  No raw Telegram authorization, second media/scheduler/policy domain,
+  Phase 2 track/offline inbox semantics or inferred manual evidence.
 end note
 
 @enduml

@@ -1659,3 +1659,35 @@ ORDER BY t.accepted_at, t.id`, sourceActorID, recipientOrbitID,
 		},
 	)
 }
+
+// CancelTransmissionsFromSourceOrbitToNode is the orbit-block counterpart of
+// CancelTransmissionsFromSourceActorToNode. Unblocking deliberately has no
+// inverse operation: previously disarmed work is never resurrected.
+func (s *Store) CancelTransmissionsFromSourceOrbitToNode(
+	sourceOrbitID, recipientOrbitID, recipientActorID int64,
+	recipientSlot string,
+	reason TransmissionReason,
+	now int64,
+) ([]CancelTransmissionResult, error) {
+	if sourceOrbitID <= 0 || recipientOrbitID <= 0 || recipientActorID <= 0 ||
+		!transmissionSlotPattern.MatchString(recipientSlot) {
+		return nil, ErrTransmissionInvalid
+	}
+	ids, err := schedulerTransmissionIDs(s, `SELECT t.id
+FROM transmissions t
+JOIN transmission_targets tt ON tt.transmission_id = t.id
+WHERE t.source_orbit_id = ? AND tt.orbit_id = ? AND tt.actor_id = ?
+  AND tt.slot = ? AND t.completed_at = 0
+ORDER BY t.accepted_at, t.id`, sourceOrbitID, recipientOrbitID,
+		recipientActorID, recipientSlot)
+	if err != nil {
+		return nil, err
+	}
+	return cancelSchedulerWork(
+		s, ids, reason, now, false,
+		func(target TransmissionTarget) bool {
+			return target.OrbitID == recipientOrbitID &&
+				target.ActorID == recipientActorID && target.Slot == recipientSlot
+		},
+	)
+}

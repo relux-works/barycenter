@@ -14,6 +14,19 @@ import (
 	"relux.works/duet/coordinator/internal/protocol"
 )
 
+func TestPresencePlaybackStateIsClosedAndSanitized(t *testing.T) {
+	cases := map[string]string{
+		"stopped": "idle", "paused": "idle", "wait": "idle",
+		"loading": "main", "playing": "main", "voice": "interrupt",
+		"microphone_capture_process": "unknown", "": "unknown",
+	}
+	for input, expected := range cases {
+		if got := presencePlaybackState(input); got != expected {
+			t.Fatalf("playback %q=%q want %q", input, got, expected)
+		}
+	}
+}
+
 func websocketTestURL(raw string) string {
 	return "ws" + strings.TrimPrefix(raw, "http")
 }
@@ -270,6 +283,7 @@ func TestRTTSampleBelongsOnlyToCurrentAuthenticatedSocket(t *testing.T) {
 	key := NodeKey{Orbit: 7, Slot: "a"}
 	before := h.NodeSnapshots()[key]
 	if before.RTTMS != 87 || before.RTTSampledAt <= 0 || !before.Connected ||
+		before.PlaybackState != "main" || before.OutputDegraded ||
 		received.CredentialTokenHash == "" ||
 		received.CredentialTokenHash != before.CredentialTokenHash {
 		t.Fatalf("current RTT snapshot=%+v", before)
@@ -283,6 +297,7 @@ func TestRTTSampleBelongsOnlyToCurrentAuthenticatedSocket(t *testing.T) {
 	})
 	after := h.NodeSnapshots()[key]
 	if !after.Connected || after.RTTMS != 0 || after.RTTSampledAt != 0 ||
+		after.PlaybackState != "" || after.OutputDegraded ||
 		after.CredentialTokenHash == "" {
 		t.Fatalf("reconnect retained predecessor RTT=%+v", after)
 	}

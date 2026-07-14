@@ -421,6 +421,17 @@ func (s *Store) SetNodeDND(params SetNodeDNDParams) (DNDMutation, error) {
 		return DNDMutation{}, err
 	}
 	defer tx.Rollback()
+	mutation, err := setNodeDNDTx(tx, params)
+	if err != nil {
+		return DNDMutation{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return DNDMutation{}, err
+	}
+	return mutation, nil
+}
+
+func setNodeDNDTx(tx *sql.Tx, params SetNodeDNDParams) (DNDMutation, error) {
 	pairedAt, err := resolveLiveBindingPairedAtTx(
 		tx, params.OrbitID, params.ActorID, params.Slot,
 	)
@@ -446,9 +457,6 @@ WHERE orbit_id = ? AND actor_id = ? AND slot = ?`,
 			return DNDMutation{}, ErrDNDRevisionConflict
 		}
 		if params.Revision == current.Revision {
-			if err := tx.Commit(); err != nil {
-				return DNDMutation{}, err
-			}
 			return DNDMutation{Setting: current}, nil
 		}
 		if params.UpdatedAt < current.UpdatedAt {
@@ -479,9 +487,6 @@ WHERE orbit_id = ? AND actor_id = ? AND slot = ?`,
 		&current.BindingPairedAt, &current.Mode, &current.MutedUntil,
 		&current.Revision, &current.UpdatedAt)
 	if err != nil {
-		return DNDMutation{}, err
-	}
-	if err := tx.Commit(); err != nil {
 		return DNDMutation{}, err
 	}
 	return DNDMutation{Setting: current, Changed: true}, nil
@@ -521,13 +526,24 @@ func (s *Store) SetOrbitDND(params SetOrbitDNDParams) (DNDMutation, error) {
 		return DNDMutation{}, err
 	}
 	defer tx.Rollback()
+	mutation, err := setOrbitDNDTx(tx, params)
+	if err != nil {
+		return DNDMutation{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return DNDMutation{}, err
+	}
+	return mutation, nil
+}
+
+func setOrbitDNDTx(tx *sql.Tx, params SetOrbitDNDParams) (DNDMutation, error) {
 	if err := authorizeOrbitDNDMutationTx(
 		tx, params.OrbitID, params.AuthorizedByActorID,
 	); err != nil {
 		return DNDMutation{}, err
 	}
 	var current DNDSetting
-	err = tx.QueryRow(`SELECT orbit_id, mode, muted_until, revision,
+	err := tx.QueryRow(`SELECT orbit_id, mode, muted_until, revision,
        updated_by_actor_id, updated_at
 FROM orbit_dnd_settings WHERE orbit_id = ?`, params.OrbitID).Scan(
 		&current.OrbitID, &current.Mode, &current.MutedUntil,
@@ -540,9 +556,6 @@ FROM orbit_dnd_settings WHERE orbit_id = ?`, params.OrbitID).Scan(
 			return DNDMutation{}, ErrDNDRevisionConflict
 		}
 		if params.Revision == current.Revision {
-			if err := tx.Commit(); err != nil {
-				return DNDMutation{}, err
-			}
 			return DNDMutation{Setting: current}, nil
 		}
 		if params.UpdatedAt < current.UpdatedAt {
@@ -570,9 +583,6 @@ FROM orbit_dnd_settings WHERE orbit_id = ?`, params.OrbitID).Scan(
 		&current.Revision, &current.UpdatedByActorID, &current.UpdatedAt,
 	)
 	if err != nil {
-		return DNDMutation{}, err
-	}
-	if err := tx.Commit(); err != nil {
 		return DNDMutation{}, err
 	}
 	return DNDMutation{Setting: current, Changed: true}, nil

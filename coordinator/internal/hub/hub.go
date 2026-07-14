@@ -37,9 +37,11 @@ type NodeKey struct {
 // services that must make a point-in-time delivery decision. The store still
 // resolves the authoritative actor and binding generation transactionally.
 type NodeSnapshot struct {
-	Connected    bool
-	LastSeenAt   int64
-	Capabilities protocol.CapabilitySet
+	Connected      bool
+	LastSeenAt     int64
+	Capabilities   protocol.CapabilitySet
+	PlaybackState  string
+	OutputDegraded bool
 	// RTT is tied to the authenticated socket generation. Reconnect clears the
 	// sample so a scheduler cannot arm media from a predecessor connection's
 	// clock evidence.
@@ -49,6 +51,19 @@ type NodeSnapshot struct {
 	// current authenticated socket to the authoritative slot generation. It
 	// must never be logged, serialized to clients or persisted in receipts.
 	CredentialTokenHash string
+}
+
+func presencePlaybackState(playback string) string {
+	switch playback {
+	case "stopped", "paused", "wait":
+		return "idle"
+	case "loading", "playing":
+		return "main"
+	case "voice":
+		return "interrupt"
+	default:
+		return "unknown"
+	}
 }
 
 type (
@@ -93,13 +108,15 @@ type Hub struct {
 
 	Events chan Event
 
-	mu           sync.Mutex
-	conns        map[NodeKey]*conn
-	lastSeen     map[NodeKey]time.Time
-	online       map[NodeKey]bool
-	capabilities map[NodeKey]protocol.CapabilitySet
-	rttMS        map[NodeKey]int64
-	rttSampledAt map[NodeKey]time.Time
+	mu             sync.Mutex
+	conns          map[NodeKey]*conn
+	lastSeen       map[NodeKey]time.Time
+	online         map[NodeKey]bool
+	capabilities   map[NodeKey]protocol.CapabilitySet
+	rttMS          map[NodeKey]int64
+	rttSampledAt   map[NodeKey]time.Time
+	playbackState  map[NodeKey]string
+	outputDegraded map[NodeKey]bool
 }
 
 func New(log *slog.Logger, lookup TokenLookup, offlineAfter time.Duration) *Hub {
@@ -109,13 +126,15 @@ func New(log *slog.Logger, lookup TokenLookup, offlineAfter time.Duration) *Hub 
 		offlineAfter: offlineAfter,
 		// Liveness (EvOnline/EvOffline) must never be dropped (bugs #3): the
 		// buffer absorbs bursts and emit() blocks rather than drops when full.
-		Events:       make(chan Event, 256),
-		conns:        map[NodeKey]*conn{},
-		lastSeen:     map[NodeKey]time.Time{},
-		online:       map[NodeKey]bool{},
-		capabilities: map[NodeKey]protocol.CapabilitySet{},
-		rttMS:        map[NodeKey]int64{},
-		rttSampledAt: map[NodeKey]time.Time{},
+		Events:         make(chan Event, 256),
+		conns:          map[NodeKey]*conn{},
+		lastSeen:       map[NodeKey]time.Time{},
+		online:         map[NodeKey]bool{},
+		capabilities:   map[NodeKey]protocol.CapabilitySet{},
+		rttMS:          map[NodeKey]int64{},
+		rttSampledAt:   map[NodeKey]time.Time{},
+		playbackState:  map[NodeKey]string{},
+		outputDegraded: map[NodeKey]bool{},
 	}
 }
 
@@ -209,6 +228,8 @@ func (h *Hub) NodeSnapshots() map[NodeKey]NodeSnapshot {
 			Connected:           connected,
 			LastSeenAt:          seen.UnixMilli(),
 			Capabilities:        h.capabilities[key],
+			PlaybackState:       h.playbackState[key],
+			OutputDegraded:      h.outputDegraded[key],
 			CredentialTokenHash: credentialTokenHash,
 			RTTMS:               h.rttMS[key],
 			RTTSampledAt:        rttSampledAt,
@@ -306,6 +327,8 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	h.capabilities[key] = capabilities
 	delete(h.rttMS, key)
 	delete(h.rttSampledAt, key)
+	delete(h.playbackState, key)
+	delete(h.outputDegraded, key)
 	wasOnline := h.online[key]
 	h.online[key] = true
 	h.mu.Unlock()
@@ -431,6 +454,8 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 		if state, ok := payload.(*protocol.StatePayload); ok {
 			h.rttMS[key] = state.RTTMS
 			h.rttSampledAt[key] = receivedAt
+			h.playbackState[key] = presencePlaybackState(state.Playback)
+			h.outputDegraded[key] = state.Degraded
 		}
 		cameBack := !h.online[key]
 		h.online[key] = true

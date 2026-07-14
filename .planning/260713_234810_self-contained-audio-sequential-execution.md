@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 23 accepted, 182 remain.
-- Routed inventory: 186 engineering tasks (23 accepted, 163 remain) and 19
+- Combined inventory: 205 original tasks; 24 accepted, 181 remain.
+- Routed inventory: 186 engineering tasks (24 accepted, 162 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -14,8 +14,8 @@
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-2qpp6w` — transmission-http-resolution
 - Current branch: `task/task-260712-2qpp6w-transmission-http-resolution`
-- Accepted overall: 23 / 205 tasks (approximately 11.2%); 182 remain
-- Engineering progress: 23 / 186 tasks (approximately 12.4%); 163 remain
+- Accepted overall: 24 / 205 tasks (approximately 11.7%); 181 remain
+- Engineering progress: 24 / 186 tasks (approximately 12.9%); 162 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -37,8 +37,10 @@
   through PR #21 at merge commit `35d9974` after hosted CI runs `29315987760`,
   `29316416647` and `29316678680`; `TASK-260712-1g70av` landed through PR #22
   at merge commit `2473020` after hosted CI runs `29318171135`, `29318440712`
-  and `29318696473`. Strict execution has started `TASK-260712-2qpp6w` from
-  that synchronized `main`.
+  and `29318696473`. `TASK-260712-2qpp6w` is accepted on exact code head
+  `4d737bcdbb0c40c53b8d2d64651756b4b9b077b2`; all four hosted jobs passed in
+  runs `29321759958` and `29322386396`, and PR #23 is awaiting its tracking-only
+  gate and merge.
 
 Checkpoint 2026-07-14: the `TASK-260712-2qpp6w` implementation candidate now
 exposes strict control-authenticated create/cancel and actor-authenticated
@@ -54,7 +56,8 @@ output. Coordinator vet/full test/race, 20x idempotency and confirmation stress,
 Windows vet/test/race/cross-build, Swift build, diff/resource comparison and
 task-board validation are green. The attached outcome explicitly leaves FIFO/
 barrier/disarm delivery to `TASK-260712-31vvjt` and claims no real-app or
-physical-hardware result.
+physical-hardware result. Exact remediated code head `4d737bc` passed all four
+hosted jobs in run `29322386396`; PR #23 has no review comments and is ready.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -420,7 +423,7 @@ Story: `STORY-260712-25lysg` — P1 Transmission protocol and scheduler.
 - [x] `TASK-260712-51y5k9` — transmission-contract-clarification
 - [x] `TASK-260712-1aprcb` — transmission-store-target-snapshots
 - [x] `TASK-260712-1g70av` — clip-transmission-wire-contract
-- [ ] `TASK-260712-2qpp6w` — transmission-http-resolution
+- [x] `TASK-260712-2qpp6w` — transmission-http-resolution
 - [ ] `TASK-260712-26ip33` — macos-transmission-client-hooks
 - [ ] `TASK-260712-2bbz13` — windows-transmission-client-hooks
 - [ ] `TASK-260712-31vvjt` — overlay-controller-scheduler

@@ -1,5 +1,5 @@
 ## Status
-development
+done
 
 ## Assigned To
 codex-inline
@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:39:19Z
 
 ## Last Update
-2026-07-14T09:36:09Z
+2026-07-14T09:39:56Z
 
 ## Blocked By
 - TASK-260712-51y5k9
@@ -39,6 +39,7 @@ codex-inline
 Strict inline execution started from synchronized main merge 24730209e60cfcb24c8b41577a0648ba1d0a5327 on branch task/task-260712-2qpp6w-transmission-http-resolution. Scope is the frozen transmission-v1 create/status/cancel HTTP contract, immutable audience resolution, whole-transmission capability downgrade and explicit interrupt confirmation. Best-effort coding and automated tests only; real-app and physical-hardware checks remain in manual epic EPIC-260714-th54l3.
 Implemented strict create/status/cancel HTTP resolution with transactional bearer reauthentication, actor-scoped hashed idempotency, immutable live-binding audience snapshots, media/policy/capability evaluation, whole-delivery downgrade, hashed single-use interrupt confirmation, safe visibility and generation-bound cancellation handoff. Root review added omitted-vs-empty slot validation, empty-selector and corrupt-link fail-closed behavior, actual-socket presence, capability-aware can_cancel and non-disclosing block output. Local coordinator vet/test/race, 20x idempotency+confirmation stress, Windows vet/test/race/cross-build, Swift build, diff/resource comparison and board validation are green. Outcome resource attached. No real-app or physical-hardware result claimed; those remain in EPIC-260714-th54l3.
 PR self-review found and closed a stale-WebSocket binding TOCTOU: hub capability snapshots now carry a transient SHA-256 witness of the exact authenticated node/control credential, and transactional audience resolution compares it with the current installation generation before accepting online state or capabilities. The witness is never logged, returned or persisted. A negative stale-binding regression and current node/control cases pass focused, 20x stress, full vet/test and race gates.
+Accepted code head 4d737bcdbb0c40c53b8d2d64651756b4b9b077b2 in hosted CI run 29322386396: coordinator, node-core, pulsar-win and signed packaged probe all passed. PR #23 has no review comments and is ready. Scheduler disarm/FIFO work remains explicitly downstream; manual hardware evidence remains deferred.
 
 ## Precondition Resources
 - [p1-transmission-protocol-components.puml](file://TASK-260712-2qpp6w/p1-transmission-protocol-components.puml) — HTTP API and audience resolution context

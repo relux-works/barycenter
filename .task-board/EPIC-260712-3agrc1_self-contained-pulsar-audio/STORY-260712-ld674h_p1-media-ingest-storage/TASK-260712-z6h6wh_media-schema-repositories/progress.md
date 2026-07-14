@@ -1,14 +1,14 @@
 ## Status
-backlog
+to-review
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:28:12Z
 
 ## Last Update
-2026-07-12T16:19:32Z
+2026-07-14T01:27:03Z
 
 ## Blocked By
 - (none)
@@ -23,15 +23,18 @@ backlog
 - TASK-260712-1n5fks
 
 ## Checklist
-- [ ] Add additive schema and repository methods for media items, upload sessions and audit metadata
-- [ ] Preserve legacy media reads and compatibility WAV mapping during rollout
-- [ ] Cover fresh DB, migrated DB and rollback behavior with migration tests
-- [ ] Use conditional state transitions and server-generated storage keys to defeat stale workers and user paths
+- [x] Add additive schema and repository methods for media items, upload sessions and audit metadata
+- [x] Preserve legacy media reads and compatibility WAV mapping during rollout
+- [x] Cover fresh DB, migrated DB and rollback behavior with migration tests
+- [x] Use conditional state transitions and server-generated storage keys to defeat stale workers and user paths
 
 ## Notes
+Strict inline engineering execution started 2026-07-14 from merged main 06a06c099ed5b4f37f5e2dd3648772ffd041dfd9 on branch task/task-260712-z6h6wh-media-schema-repositories. Manual real-app acceptance is tracked separately in EPIC-260714-th54l3; this task retains coding, migrations, repositories and automatable tests only.
+Local implementation gate: additive five-table schema; media/upload/storage CAS repositories; legacy WAV bridge; atomic orbit revocation; exact predecessor 06a06c rollback and roll-forward cleanup. Green: coordinator go vet ./..., go test ./..., focused race, full tagged previous-head matrix, coordinator build, pulsar-win vet/tests, task-board validate and git diff check. Local node-app swift test is environment-limited because CommandLineTools-only Swift 6.2.3 cannot import the existing Testing module; hosted macos-15 CI remains authoritative. No physical/manual claim.
 
 ## Precondition Resources
 (none)
 
 ## Outcome Resources
 - [p1-media-ingest-component.puml](file://TASK-260712-z6h6wh/p1-media-ingest-component.puml) — Schema and repository context for generic ingest persistence
+- [p1-media-ingest-persistence-contract.md](file://TASK-260712-z6h6wh/p1-media-ingest-persistence-contract.md) — Additive schema, CAS lifecycle, outbox recovery, migration and exact-predecessor rollback contract

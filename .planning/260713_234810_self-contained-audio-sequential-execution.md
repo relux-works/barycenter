@@ -13,7 +13,7 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-z6h6wh` — media-schema-repositories
-- Transition branch: `task/task-260712-1vtwkl-win10-win11-evidence` / draft PR #10
+- Current branch: `task/task-260712-z6h6wh-media-schema-repositories`
 - Accepted overall: 11 / 205 tasks (approximately 5.4%); 194 remain
 - Engineering progress: 11 / 186 tasks (approximately 5.9%); 175 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -21,7 +21,9 @@
   production-shaped or beta acceptance tasks were moved to
   `EPIC-260714-th54l3`. Their evidence is not claimed passed and they no longer
   block best-effort coding, unit tests, deterministic integration tests, CI,
-  packaging or engineering review.
+  packaging or engineering review. PR #10 landed this boundary and the Windows
+  evidence harness on `main` at `06a06c099ed5b4f37f5e2dd3648772ffd041dfd9`;
+  `TASK-260712-z6h6wh` is now in local review.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -43,6 +45,16 @@ resource `TASK-260712-1vtwkl_hardware-readiness-audit.md`. That task is now a
 manual-program backlog item, still at 0/36 physical rows. The complete manual
 sequence is tracked in
 `.planning/260714_045154_epic-260714-th54l3.md`.
+
+Checkpoint 2026-07-14: `TASK-260712-z6h6wh` now has an additive five-table
+generic media model, CAS-protected upload/media/storage transitions, a durable
+publish/cleanup outbox, an explicit legacy WAV bridge and atomic media
+revocation on orbit dissolution. Fresh/migrated DB tests, concurrent
+idempotency/offset tests, injected publish/cleanup rollback, SQLite plaintext
+artifact scans and an exact `06a06c0` predecessor round trip are green under
+Go test/race/vet. The existing node-app suite cannot import Swift `Testing` on
+this CommandLineTools-only host; hosted `macos-15` CI remains the required
+cross-repo gate. The task is not counted accepted until that CI and merge land.
 
 ## Operating contract
 

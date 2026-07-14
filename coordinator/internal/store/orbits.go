@@ -585,12 +585,16 @@ func (s *Store) DeleteOrbit(orbitID int64) error {
 }
 
 func (s *Store) deleteOrbitTx(tx *sql.Tx, orbitID int64) error {
+	now := time.Now().UnixMilli()
+	if err := revokeOrbitMediaTx(tx, orbitID, now); err != nil {
+		return err
+	}
 	// Additive children are removed even when the flag is off. This lets the
 	// current binary run legacy mutations with foreign_keys enabled and lets a
 	// previous binary safely ignore the same rows with foreign_keys disabled.
 	if _, err := tx.Exec(`UPDATE actors SET revoked_at = COALESCE(revoked_at, ?)
 WHERE id IN (SELECT actor_id FROM installation_credentials WHERE slot_orbit_id = ?)`,
-		time.Now().UnixMilli(), orbitID); err != nil {
+		now, orbitID); err != nil {
 		return err
 	}
 	stmts := []string{

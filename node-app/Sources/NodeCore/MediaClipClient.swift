@@ -251,6 +251,12 @@ final class PreparedMediaClip: @unchecked Sendable {
     }
 }
 
+enum MediaClipLimits {
+    static let maximumP1DurationMs: Int64 = 180_000
+    static let maximumOverlayDurationMs: Int64 = 60_000
+    static let maximumDecodedPCMBytes: Int64 = 63_504_000
+}
+
 struct MediaClipPlayPlan {
     let payload: PlayMediaAtPayload
     let localStartMs: Int64
@@ -961,7 +967,9 @@ final class MediaClipClient: @unchecked Sendable {
         payload.sizeBytes > 0 &&
         payload.sizeBytes <= AuthenticatedMediaClipFetcher.maximumCanonicalBytes &&
         payload.durationMs > 0 &&
-        (payload.delivery != "overlay" || payload.durationMs <= 60_000) &&
+        payload.durationMs <= MediaClipLimits.maximumP1DurationMs &&
+        (payload.delivery != "overlay" ||
+            payload.durationMs <= MediaClipLimits.maximumOverlayDurationMs) &&
         payload.mediaExpiresAtCoordMs > 0 &&
         payload.prepareDeadlineCoordMs > 0 &&
         payload.prepareDeadlineCoordMs <= payload.mediaExpiresAtCoordMs &&

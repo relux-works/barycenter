@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:39:19Z
 
 ## Last Update
-2026-07-12T16:19:32Z
+2026-07-14T06:52:45Z
 
 ## Blocked By
 - (none)
@@ -31,6 +31,7 @@ backlog
 - [ ] Freeze sender-delete behavior and receipts for queued, prepared, scheduled and already-playing media
 
 ## Notes
+Strict sequential inline execution started 2026-07-14 from clean main merge c4cb324bb4e783e97bb1fbf1bb61efef9dfbf10f after TASK-260712-jolzhh and the full P1 media ingest story were accepted. Scope is contract clarification and durable documentation; implementation remains in the ordered downstream tasks. Manual real-app and physical-hardware evidence stays in EPIC-260714-th54l3.
 
 ## Precondition Resources
 - [p1-transmission-scheduler-sequence.puml](file://TASK-260712-51y5k9/p1-transmission-scheduler-sequence.puml) — Clarification diagram for transmission flow, receipts, and legacy downgrade

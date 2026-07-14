@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 19 accepted, 186 remain.
-- Routed inventory: 186 engineering tasks (19 accepted, 167 remain) and 19
+- Combined inventory: 205 original tasks; 20 accepted, 185 remain.
+- Routed inventory: 186 engineering tasks (20 accepted, 166 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-jolzhh` — media-ingest-docs-handoff
-- Current branch: `task/task-260712-jolzhh-media-ingest-docs-handoff`
-- Accepted overall: 19 / 205 tasks (approximately 9.3%); 186 remain
-- Engineering progress: 19 / 186 tasks (approximately 10.2%); 167 remain
+- Current engineering task: `TASK-260712-51y5k9` — transmission-contract-clarification
+- Current branch: `task/task-260712-51y5k9-transmission-contract-clarification`
+- Accepted overall: 20 / 205 tasks (approximately 9.8%); 185 remain
+- Engineering progress: 20 / 186 tasks (approximately 10.8%); 166 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -30,8 +30,9 @@
   `TASK-260712-3mcof4` landed through PR #15 at merge commit `0f3148a`;
   `TASK-260712-12ojcb` landed through PR #16 at merge commit `0d6863c`;
   `TASK-260712-gj0cko` landed through PR #17 at merge commit `9f2aea8`;
-  `TASK-260712-3huupe` landed through PR #18 at merge commit `cfe12ed`; strict
-  execution is now on `TASK-260712-jolzhh`.
+  `TASK-260712-3huupe` landed through PR #18 at merge commit `cfe12ed`;
+  `TASK-260712-jolzhh` landed through PR #19 at merge commit `c4cb324`; strict
+  execution is now on `TASK-260712-51y5k9`.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -209,8 +210,11 @@ at the known workstation `no such module 'Testing'` toolchain gap. Hosted CI
 run `29312221521` passed coordinator with live ffmpeg and pinned rollback,
 authoritative macOS Swift tests, portable Windows and the signed-MSIX probe on
 code commit `fc99fac`. Inline root delta review found no unresolved contract,
-security, migration or handoff issue; final tracking CI remains before merge.
-No manual real-app or hardware result is claimed.
+security, migration or handoff issue. Final tracking CI run `29312378238`
+passed the same four jobs; PR #19 landed at
+`c4cb324bb4e783e97bb1fbf1bb61efef9dfbf10f`, completed the P1 media ingest
+story, and advanced strict execution to `TASK-260712-51y5k9`. No manual
+real-app or hardware result is claimed.
 
 ## Operating contract
 
@@ -318,7 +322,12 @@ Story: `STORY-260712-ld674h` — P1 Generic media ingest and storage.
   path and real SQLite cleanup restart; full local race, focused 20x stress,
   pinned rollback and hosted CI runs `29311147090` / `29311329355` green;
   PR #18, merge `cfe12ed`)
-- [ ] `TASK-260712-jolzhh` — media-ingest-docs-handoff
+- [x] `TASK-260712-jolzhh` — media-ingest-docs-handoff (accepted and landed:
+  authoritative retry/state/retention/compatibility and cross-story handoff,
+  seven-day generic/Telegram default convergence with explicit override,
+  rollout/readiness/rollback instructions, full local coordinator race and
+  pinned rollback plus hosted CI runs `29312221521` / `29312378238` green;
+  PR #19, merge `c4cb324`)
 
 ## 3. P1 transmission protocol and scheduler
 

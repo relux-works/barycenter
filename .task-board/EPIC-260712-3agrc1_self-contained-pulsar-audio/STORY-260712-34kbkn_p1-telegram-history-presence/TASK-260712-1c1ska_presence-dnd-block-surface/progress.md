@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:40:21Z
 
 ## Last Update
-2026-07-14T20:25:28Z
+2026-07-14T20:30:12Z
 
 ## Blocked By
 - TASK-260712-3coble
@@ -34,6 +34,7 @@ codex-inline
 ## Notes
 2026-07-14 kickoff: strict sequential inline execution started from synchronized main merge 4f026a0 after TASK-260712-3dmllz acceptance. Scope is privacy-safe heartbeat presence, layered local/orbit DND and role-scoped actor/orbit block surfaces with exact scheduler reasons. Execution remains outside task-board spawn workflow; no manual, real-app or hardware evidence will be claimed.
 2026-07-14 engineering gate: added privacy-allowlisted GET /v1/presence with current-generation 12-second liveness, sanitized heartbeat playback/output state and deterministic capability ordering; atomic expected-revision DND with digest-only actor-scoped idempotency; viewer-scoped ar_/or_ subject refs and bl_ block IDs; app/verified-Telegram shared ActorContext services; generation-safe pending/active DND and sender-block cancellation; and privacy-safe Telegram /status. Added HTTP/store/hub tests, implementation handoff and updated component/state diagrams. Coordinator vet/full/race, exact previous-head rollback, Windows vet/tests, Swift release build, board validation and diff checks are green. No real-app, audible, physical-device or hardware evidence is claimed; it remains in EPIC-260714-th54l3.
+Exact engineering head a65fc659e3ae389484163723aa63a3806f4b986d passed all four hosted CI jobs in run 29365735642, including authoritative macOS Swift tests and the signed packaged Windows probe. Engineering acceptance is complete; physical/manual evidence remains unclaimed.
 
 ## Precondition Resources
 (none)

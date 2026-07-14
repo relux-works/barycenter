@@ -963,8 +963,9 @@ not smuggled in from a node.
   rows.
 - A ready legacy Telegram voice immediately creates its existing
   `after_current` default. A later inline action may replace it only under the
-  separately frozen history/Telegram race contract and receives a new
-  `accepted_at`.
+  separately frozen
+  [`p1-history-presence-telegram-v1`](p1-history-presence-telegram-contract-v1.md)
+  race contract and receives a new `accepted_at`.
 - Bot/UI labels always show requested and effective delivery. Automatic
   overlay downgrade is not rendered as a successful overlay. Interrupt
   challenge is a pending choice, not a transmission or receipt.

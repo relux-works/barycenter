@@ -19,18 +19,27 @@ alt media failed or Phase-2-only attachment
   Bot -> Labels : map honest failure text
   Labels --> User : unsupported / too long / track path deferred
 else media ready
+  Bot -> Tx : atomically create legacy after_current\nwith trusted accepted_at
+  Tx -> History : default transmission + routing choice generation
   Bot -> Labels : render delivery + audience labels
-  Labels --> User : inline actions\noverlay / interrupt / after_current
+  Labels --> User : opaque 15-minute inline actions\noverlay / interrupt / after_current
 
   alt user takes no action
-    Bot -> Tx : legacy default after_current\npersonal/broadcast defaults
     note right of Tx
-      Acceptance ordering stays by
-      coordinator acceptance time.
+      No decision window: legacy order
+      keeps its original acceptance time.
     end note
   else user taps inline action
-    User -> Bot : callback(delivery, audience)
-    Bot -> Tx : CreateTransmission(...)
+    User -> Bot : opaque callback token
+    Bot -> Tx : lock choice + default\nre-authorize current actor
+    alt default not started and exact action valid
+      Tx -> Tx : cancel default + create replacement atomically\nwith a new accepted_at
+    else interrupt requires confirmation
+      Tx --> Bot : no mutation; exact fallback challenge
+      Bot --> User : opaque confirmation tokens\ndefault stays queued
+    else default already started
+      Tx --> Bot : too_late; create nothing
+    end
   end
 
   Tx -> History : accepted / preparing / playing / played / partial / error

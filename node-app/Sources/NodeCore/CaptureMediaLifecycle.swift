@@ -200,10 +200,11 @@ public final class CaptureMediaStore: @unchecked Sendable {
             UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         }
     ) {
-        // Canonicalize existing path prefixes (notably macOS /var ->
-        // /private/var) so handles returned before and after recovery compare
-        // identically and ownership checks cannot be bypassed by aliases.
-        self.root = root.standardizedFileURL.resolvingSymlinksInPath()
+        // Canonicalize the nearest existing prefix (notably macOS /var ->
+        // /private/var) even when the app-specific leaf does not exist yet.
+        // Handles returned before and after recovery then compare identically,
+        // and ownership checks cannot be bypassed by path aliases.
+        self.root = Self.canonicalRoot(root, fileManager: fileManager)
         self.fileManager = fileManager
         self.idProvider = idProvider
     }
@@ -294,7 +295,7 @@ public final class CaptureMediaStore: @unchecked Sendable {
                 }
                 try fileManager.moveItem(at: handle.fileURL, to: destination)
                 movedDestination = destination
-                try setOwnerOnly(destination)
+                try setOwnerOnly(destination, isDirectory: false)
                 try syncDirectory(destination.deletingLastPathComponent())
                 return CaptureMediaHandle(id: handle.id, storageClass: handle.storageClass,
                                           state: state, fileURL: destination)
@@ -394,22 +395,37 @@ public final class CaptureMediaStore: @unchecked Sendable {
     private var selfTestDirectory: URL { root.appendingPathComponent("self-tests", isDirectory: true) }
     private var draftDirectory: URL { root.appendingPathComponent("drafts", isDirectory: true) }
 
+    private static func canonicalRoot(_ input: URL, fileManager: FileManager) -> URL {
+        var ancestor = input.standardizedFileURL
+        var missingComponents: [String] = []
+        while !fileManager.fileExists(atPath: ancestor.path),
+              ancestor.path != "/" {
+            missingComponents.append(ancestor.lastPathComponent)
+            ancestor.deleteLastPathComponent()
+        }
+        var result = ancestor.resolvingSymlinksInPath()
+        for component in missingComponents.reversed() {
+            result.appendPathComponent(component, isDirectory: true)
+        }
+        return URL(fileURLWithPath: result.standardizedFileURL.path, isDirectory: true)
+    }
+
     private func prepareDirectories() throws {
         do {
             for directory in [root, partialDirectory, selfTestDirectory, draftDirectory] {
                 try fileManager.createDirectory(
                     at: directory, withIntermediateDirectories: true,
                     attributes: [.posixPermissions: 0o700])
-                try setOwnerOnly(directory)
+                try setOwnerOnly(directory, isDirectory: true)
             }
         } catch {
             throw CaptureMediaStoreError.storage
         }
     }
 
-    private func setOwnerOnly(_ url: URL) throws {
+    private func setOwnerOnly(_ url: URL, isDirectory: Bool) throws {
         try fileManager.setAttributes(
-            [.posixPermissions: NSNumber(value: url.hasDirectoryPath ? 0o700 : 0o600)],
+            [.posixPermissions: NSNumber(value: isDirectory ? 0o700 : 0o600)],
             ofItemAtPath: url.path)
     }
 

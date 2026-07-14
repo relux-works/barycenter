@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 11 accepted, 194 remain.
-- Routed inventory: 186 engineering tasks (11 accepted, 175 remain) and 19
+- Combined inventory: 205 original tasks; 12 accepted, 193 remain.
+- Routed inventory: 186 engineering tasks (12 accepted, 174 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -14,16 +14,17 @@
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-z6h6wh` — media-schema-repositories
 - Current branch: `task/task-260712-z6h6wh-media-schema-repositories`
-- Accepted overall: 11 / 205 tasks (approximately 5.4%); 194 remain
-- Engineering progress: 11 / 186 tasks (approximately 5.9%); 175 remain
+- Accepted overall: 12 / 205 tasks (approximately 5.9%); 193 remain
+- Engineering progress: 12 / 186 tasks (approximately 6.5%); 174 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
   `EPIC-260714-th54l3`. Their evidence is not claimed passed and they no longer
   block best-effort coding, unit tests, deterministic integration tests, CI,
   packaging or engineering review. PR #10 landed this boundary and the Windows
-  evidence harness on `main` at `06a06c099ed5b4f37f5e2dd3648772ffd041dfd9`;
-  `TASK-260712-z6h6wh` is now in local review.
+  evidence harness on `main` at `06a06c099ed5b4f37f5e2dd3648772ffd041dfd9`.
+  `TASK-260712-z6h6wh` is accepted on the merge-bound PR #11 branch; the next
+  task does not start until that PR lands on `main`.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -52,9 +53,11 @@ publish/cleanup outbox, an explicit legacy WAV bridge and atomic media
 revocation on orbit dissolution. Fresh/migrated DB tests, concurrent
 idempotency/offset tests, injected publish/cleanup rollback, SQLite plaintext
 artifact scans and an exact `06a06c0` predecessor round trip are green under
-Go test/race/vet. The existing node-app suite cannot import Swift `Testing` on
-this CommandLineTools-only host; hosted `macos-15` CI remains the required
-cross-repo gate. The task is not counted accepted until that CI and merge land.
+Go test/race/vet. Root review R1 tightened MIME, codec, loudness JSON and scoped
+token validation; the remediated commit `ecc034b` passed all four jobs in
+hosted CI run `29298686287`, including node-core on `macos-15`, the exact
+predecessor coordinator gate and signed Windows packaging. The task is marked
+done on the merge-bound branch and becomes durable when PR #11 lands.
 
 ## Operating contract
 
@@ -122,7 +125,9 @@ passed.
 
 Story: `STORY-260712-ld674h` — P1 Generic media ingest and storage.
 
-- [ ] `TASK-260712-z6h6wh` — media-schema-repositories
+- [x] `TASK-260712-z6h6wh` — media-schema-repositories (merge-bound acceptance:
+  additive schema/CAS repositories, exact predecessor rollback, full local
+  race and hosted CI run `29298686287` green; PR #11)
 - [ ] `TASK-260712-1bnos4` — upload-session-api-auth
 - [ ] `TASK-260712-2af2dp` — submitmedia-processing-pipeline
 - [ ] `TASK-260712-1sae4q` — media-delete-retention-cleanup

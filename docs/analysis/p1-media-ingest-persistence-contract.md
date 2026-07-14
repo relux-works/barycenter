@@ -103,5 +103,11 @@ injection, conditional failed/deleted/expired transitions, immediate and
 predecessor orbit dissolution, SQLite artifact scans for plaintext session
 tokens/idempotency keys, and rejection of caller-shaped storage paths.
 
+Hosted CI run `29298686287` passed the remediated commit `ecc034b` in all four
+jobs: coordinator vet/tests plus exact-predecessor compatibility, node-core on
+`macos-15`, portable Windows tests/cross-build, and the signed packaged-probe
+contract. Root review R1 on those bytes added canonical MIME/codec validation,
+bounded object-shaped loudness JSON, and malformed scoped-token rejection.
+
 No result in this document claims a real-app, production, Store, beta or
 physical-hardware pass. Those checks belong to `EPIC-260714-th54l3`.

@@ -326,7 +326,13 @@ const helpText = `<b>Барицентр</b> — общая музыка на д�
 <b>Слушать с друзьями</b>
 /approach — соединить эфир с другим барицентром, /apart — разойтись
 
-Тонкая настройка звука и режимы — на barycenter.live.`
+Тонкая настройка звука и режимы — на barycenter.live.
+
+Конфиденциальность: https://barycenter.live/legal/privacy/ru
+Условия: https://barycenter.live/legal/terms/ru
+Правила содержимого: https://barycenter.live/legal/content-guidelines/ru
+Права на запись и загрузку: https://barycenter.live/legal/upload-rights/ru
+Поддержка и безопасность: https://barycenter.live/legal/support/ru`
 
 // IsPersonalCaption: the "лично" caption on a voice message (spec 9.1).
 func IsPersonalCaption(caption string) bool {

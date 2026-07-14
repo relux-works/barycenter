@@ -6,15 +6,16 @@
 - Controlling language: English
 - Canonical machine record:
   [`policy-pack-2026-07-14.json`](../compliance/policy-pack-2026-07-14.json)
-- Publication state: **hold** — approved inputs are frozen, but Ivan Oparin has
-  not yet approved the exact authored EN/RU bytes for publication.
+- Publication state: **proceed** — Ivan Oparin approved the exact authored EN/RU
+  source hashes from commit `43c0bd992e25c1e85aba6b7a086a94dad378eb35`
+  for production publication on 2026-07-14.
 
 This pack turns the approved legal/operations inputs and shipped Phase 1
-contracts into publishable-source English and Russian documents. It is not
-evidence that the future `/legal/*` URLs are live. Publishing those routes and
-wiring every product surface belongs to `TASK-260712-1x0lot`; Store submission
-must continue to fail closed until the content owner changes the exact-hash
-review record from `hold` to `proceed`.
+contracts into publishable-source English and Russian documents. Exact source
+approval does not itself prove that `/legal/*` is live. Publishing those routes,
+wiring every surface and verifying deployed hashes belongs to
+`TASK-260712-1x0lot`; Store submission continues to fail closed until its live
+publication check passes.
 
 ## Artifacts
 
@@ -24,6 +25,7 @@ review record from `hold` to `proceed`.
 | Terms of Service | [`docs/legal/en/terms.md`](../legal/en/terms.md) | [`docs/legal/ru/terms.md`](../legal/ru/terms.md) | `https://barycenter.live/legal/terms` |
 | Content Guidelines | [`docs/legal/en/content-guidelines.md`](../legal/en/content-guidelines.md) | [`docs/legal/ru/content-guidelines.md`](../legal/ru/content-guidelines.md) | `https://barycenter.live/legal/content-guidelines` |
 | Upload/recording notice | [`docs/legal/en/upload-rights-notice.md`](../legal/en/upload-rights-notice.md) | [`docs/legal/ru/upload-rights-notice.md`](../legal/ru/upload-rights-notice.md) | in-product notice linking Terms and Guidelines |
+| Support and safety contacts | [`docs/legal/en/support.md`](../legal/en/support.md) | [`docs/legal/ru/support.md`](../legal/ru/support.md) | `https://barycenter.live/legal/support` |
 
 ## Disclosure coverage from specification sections 15.1 and 15.2
 
@@ -91,9 +93,10 @@ Retrieved 2026-07-14:
 - [California Attorney General CCPA overview](https://oag.ca.gov/privacy/ccpa), for applicable know/delete/correct/opt-out/non-discrimination disclosures. Pulsar states that it does not sell or cross-contextually share personal information rather than presenting an inapplicable sale opt-out.
 
 These sources inform the pack; they do not substitute for factual product
-controls. The exact public policy bytes remain on `hold` until Ivan Oparin
-reviews them. Separate counsel review is not required by the approved input,
-but that decision does not convert a pending owner review into approval.
+controls. Ivan Oparin approved the exact source hashes for publication.
+Separate counsel review is not required by the approved input; any later
+source-byte change must produce new hashes and a new owner review before
+publication.
 
 ## Delta triggers
 

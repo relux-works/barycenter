@@ -44,13 +44,16 @@ The old “collects no personal data” statement is withdrawn. The self-contain
 product processes accountless identifiers, targeted audio and metadata,
 delivery state and optional Telegram/Spotify integration data. Phase 1 audio is
 readable by the coordinator and is not E2EE. The source Privacy Policy is
-[`docs/legal/en/privacy.md`](legal/en/privacy.md); its future canonical URL is
-https://barycenter.live/legal/privacy. Neither this historical paragraph nor
-the future URL is evidence that the public policy page is already live.
+[`docs/legal/en/privacy.md`](legal/en/privacy.md); its canonical publication URL
+is https://barycenter.live/legal/privacy. The submission-ready EN/RU link source
+is [`docs/compliance/store-public-links.json`](compliance/store-public-links.json),
+but this historical listing remains non-submittable and the live hash gate must
+still pass before certification.
 
 ## Support
 
 Site & guide: https://barycenter.live/guide
+Support: https://barycenter.live/legal/support
 Source: https://github.com/relux-works/barycenter
 
 ## Screenshot requirements (cert rejection 2026-07-09, policy 10.1.1.3)

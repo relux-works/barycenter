@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "task_id": "TASK-260712-1x0lot",
+  "controlling_language": "en",
+  "fallback_behavior": "English stable URL is the canonical fallback; Russian listing copy uses the explicit /ru route.",
+  "english": {
+    "privacy": "https://barycenter.live/legal/privacy",
+    "terms": "https://barycenter.live/legal/terms",
+    "content_guidelines": "https://barycenter.live/legal/content-guidelines",
+    "support": "https://barycenter.live/legal/support"
+  },
+  "russian": {
+    "privacy": "https://barycenter.live/legal/privacy/ru",
+    "terms": "https://barycenter.live/legal/terms/ru",
+    "content_guidelines": "https://barycenter.live/legal/content-guidelines/ru",
+    "support": "https://barycenter.live/legal/support/ru"
+  },
+  "publication_gate": "The listing owner must run policy-site-check --live --require-proceed immediately before submission."
+}

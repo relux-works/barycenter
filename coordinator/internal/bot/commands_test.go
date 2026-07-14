@@ -2,6 +2,7 @@ package bot
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -106,6 +107,20 @@ func TestParseUserErrors(t *testing.T) {
 				t.Fatal("reply text empty")
 			}
 		})
+	}
+}
+
+func TestHelpPublishesStablePolicyAndSupportLinks(t *testing.T) {
+	for _, path := range []string{
+		"/legal/privacy/ru",
+		"/legal/terms/ru",
+		"/legal/content-guidelines/ru",
+		"/legal/upload-rights/ru",
+		"/legal/support/ru",
+	} {
+		if !strings.Contains(helpText, "https://barycenter.live"+path) {
+			t.Fatalf("help lacks %s", path)
+		}
 	}
 }
 

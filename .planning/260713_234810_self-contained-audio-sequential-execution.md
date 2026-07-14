@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 14 accepted, 191 remain.
-- Routed inventory: 186 engineering tasks (14 accepted, 172 remain) and 19
+- Combined inventory: 205 original tasks; 15 accepted, 190 remain.
+- Routed inventory: 186 engineering tasks (15 accepted, 171 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -14,8 +14,8 @@
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-1sae4q` — media-delete-retention-cleanup
 - Current branch: `task/task-260712-1sae4q-media-delete-retention-cleanup`
-- Accepted overall: 14 / 205 tasks (approximately 6.8%); 191 remain
-- Engineering progress: 14 / 186 tasks (approximately 7.5%); 172 remain
+- Accepted overall: 15 / 205 tasks (approximately 7.3%); 190 remain
+- Engineering progress: 15 / 186 tasks (approximately 8.1%); 171 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -97,16 +97,19 @@ passed all four jobs again in CI run `29302971194`; PR #13 landed at
 `451e50bb1375b7db85b6e909c0ae4ef256efd2cc`, and strict execution advanced to
 `TASK-260712-1sae4q`. No manual real-app or hardware claim is inherited.
 
-Checkpoint 2026-07-14: `TASK-260712-1sae4q` is in review on branch
+Checkpoint 2026-07-14: `TASK-260712-1sae4q` is accepted on branch
 `task/task-260712-1sae4q-media-delete-retention-cleanup`. It implements atomic
 owner-orbit control deletion, immediate read revocation, the frozen
 `media_lifecycle_v1` cancellation outbox, seven-day clip expiry, crash-safe
 canonical and temporary cleanup, 90-day content-free audit pruning, health
 metrics and the backup/privacy handoff. Coordinator vet, full tests, full race,
 the exact `451e50b` predecessor round-trip, and portable Windows vet/test/build
-are green. The production cancellation sink remains deliberately pending for
-the later transmission tasks; local Swift lacks the `Testing` module and awaits
-hosted macOS CI. No manual real-app or hardware result is claimed.
+are green. Hosted CI run `29304495443` passed coordinator, macOS Swift,
+portable Windows and the signed-MSIX probe on code commit `a627593`. Root delta
+review closed the unlink-before-directory-fsync crash window. The production
+cancellation sink remains deliberately pending for the later transmission
+tasks. Final tracking CI and PR #14 merge remain; no manual real-app or
+hardware result is claimed.
 
 ## Operating contract
 
@@ -186,8 +189,10 @@ Story: `STORY-260712-ld674h` — P1 Generic media ingest and storage.
   landed: shared constrained processing, durable atomic publication,
   retry/dedupe/failure lifecycle, exact predecessor rollback, hosted CI runs
   `29302835228` / `29302971194` green; PR #13, merge `451e50b`)
-- [ ] `TASK-260712-1sae4q` — media-delete-retention-cleanup (implementation and
-  local review evidence complete; hosted CI and merge pending)
+- [x] `TASK-260712-1sae4q` — media-delete-retention-cleanup (accepted on code
+  commit `a627593`: atomic non-disclosing delete, durable expiry/cleanup and
+  frozen cancellation seam, exact predecessor rollback, full local race plus
+  hosted CI run `29304495443` green; PR #14 pending final tracking merge)
 - [ ] `TASK-260712-3mcof4` — media-download-target-acl
 - [ ] `TASK-260712-12ojcb` — telegram-submitmedia-compat
 - [ ] `TASK-260712-gj0cko` — media-acl-delete-retention

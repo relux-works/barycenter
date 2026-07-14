@@ -22,7 +22,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
 }
 
 Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force -Path $NativeBuild, $Stage, (Join-Path $Stage "Assets"), $OutputDirectory | Out-Null
+New-Item -ItemType Directory -Force -Path $NativeBuild, $Stage, (Join-Path $Stage "Assets"), (Join-Path $Stage "Assets\Audio"), $OutputDirectory | Out-Null
 
 Invoke-NativeChecked -Name "CMake configure" -Command {
     cmake -S (Join-Path $PulsarRoot "native\pulsar-capture") -B $NativeBuild -A x64 -DBUILD_TESTING=ON
@@ -54,6 +54,13 @@ if (-not (Test-Path $NativeDLL)) {
 }
 Copy-Item $NativeDLL (Join-Path $Stage "pulsar-capture.dll")
 Copy-Item (Join-Path $PulsarRoot "msix\Assets\*.png") (Join-Path $Stage "Assets")
+$RecordingCue = Join-Path $RepoRoot "assets\audio\pulsar-recording-cue.wav"
+$RecordingCueSHA256 = "479b1a9d605ac12454e3449e129991b7ce8599251506ca54a93be0b6144730fd"
+if (-not (Test-Path $RecordingCue) -or
+    (Get-FileHash $RecordingCue -Algorithm SHA256).Hash.ToLowerInvariant() -cne $RecordingCueSHA256) {
+    throw "canonical recording cue is missing or has an unreviewed digest"
+}
+Copy-Item $RecordingCue (Join-Path $Stage "Assets\Audio\pulsar-recording-cue.wav")
 $RenderedManifestPath = Join-Path $Stage "AppxManifest.xml"
 (Get-Content (Join-Path $PSScriptRoot "AppxManifest.xml.in") -Raw).Replace("@VERSION@", $Version) |
     Set-Content -Encoding utf8 $RenderedManifestPath
@@ -63,7 +70,8 @@ $ManifestContract = Assert-ProbeManifestContract -Manifest $RenderedManifest
 $RequiredPayload = @(
     (Join-Path $Stage "AppxManifest.xml"),
     (Join-Path $Stage "pulsar-win-probe-amd64.exe"),
-    (Join-Path $Stage "pulsar-capture.dll")
+    (Join-Path $Stage "pulsar-capture.dll"),
+    (Join-Path $Stage "Assets\Audio\pulsar-recording-cue.wav")
 )
 foreach ($Path in $RequiredPayload) {
     if (-not (Test-Path $Path)) { throw "package payload missing $Path" }
@@ -118,6 +126,10 @@ $MetadataPath = "$Package.json"
     trustLevel = $ManifestContract.TrustLevel
     runtimeBehavior = $ManifestContract.RuntimeBehavior
     capabilities = @($ManifestContract.Capabilities)
+    recordingCue = [ordered]@{
+        packagePath = "Assets/Audio/pulsar-recording-cue.wav"
+        sha256 = $RecordingCueSHA256
+    }
     signature = if ($Signed) { "certificate-store-sha256" } else { "unsigned-store-upload-candidate" }
     privateSigningMaterialIncluded = $false
 } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 $MetadataPath

@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +25,18 @@ func createHistoryHTTPMedia(t *testing.T, harness onboardingHarness, owner store
 		t.Fatal(err)
 	}
 	return item
+}
+
+func historyActionRequest(handler http.Handler, path, body, bearer, key string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	req.RemoteAddr = "127.0.0.1:34567"
+	req.Header.Set("Authorization", "Bearer "+bearer)
+	if key != "" {
+		req.Header.Set("Idempotency-Key", key)
+	}
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	return recorder
 }
 
 func TestHistoryHTTPMediaPaginationValidationAndRedaction(t *testing.T) {
@@ -142,7 +155,7 @@ func TestHistoryHTTPTransmissionListAndDetail(t *testing.T) {
 	if counts["played"] != float64(0) || counts["other"] != float64(1) {
 		t.Fatalf("compact counts=%v", counts)
 	}
-	wantActions := []string{"cancel", "delete", "replay", "report"}
+	wantActions := []string{"cancel", "delete", "replay"}
 	gotActions := item["actions"].([]any)
 	if len(gotActions) != len(wantActions) {
 		t.Fatalf("actions=%v", gotActions)
@@ -201,6 +214,166 @@ func TestHistoryHTTPTransmissionListAndDetail(t *testing.T) {
 			t.Fatalf("deleted content retained action %q: %v", action, deletedBody["actions"])
 		}
 	}
+}
+
+func TestHistoryHTTPReplayDeleteUsesFreshResolutionAndStrictIdempotency(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	owner, err := harness.store.CreateSelfServiceOrbit("HTTP history actions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	current := time.Date(2026, 7, 14, 18, 0, 0, 0, time.UTC).UnixMilli()
+	harness.api.transmissionNow = func() time.Time { return time.UnixMilli(current) }
+	media := readyTransmissionHTTPMedia(t, harness, owner, current-10, 1400)
+	harness.api.transmissionPresence = func() map[transmissionPresenceKey]transmissionPresenceState {
+		return map[transmissionPresenceKey]transmissionPresenceState{
+			{OrbitID: owner.OrbitID, Slot: owner.Slot}: transmissionPresenceFor(owner, current),
+		}
+	}
+	created := transmissionAPIRequest(harness.mux, http.MethodPost, "/v1/transmissions",
+		transmissionBody(media.ID, "own_barycenter", "after_current", "file"), owner.ControlToken,
+		"history-action-origin-key-001")
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create=%d %s", created.Code, created.Body.String())
+	}
+	original := decodeObject(t, created)
+	listed := apiRequest(harness.mux, http.MethodGet, "/v1/history?view=sent", "", owner.ControlToken)
+	historyID := decodeObject(t, listed)["items"].([]any)[0].(map[string]any)["history_item_id"].(string)
+
+	invite, err := harness.store.IssueDeviceInvite(owner.ActorID, owner.ControlToken, "companion")
+	if err != nil {
+		t.Fatal(err)
+	}
+	companion, err := harness.store.ConsumeDeviceInvite(invite.Code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current++
+	harness.api.transmissionPresence = func() map[transmissionPresenceKey]transmissionPresenceState {
+		return map[transmissionPresenceKey]transmissionPresenceState{
+			{OrbitID: owner.OrbitID, Slot: owner.Slot}:         transmissionPresenceFor(owner, current),
+			{OrbitID: companion.OrbitID, Slot: companion.Slot}: transmissionPresenceFor(companion, current),
+		}
+	}
+	path := "/v1/history/" + historyID + "/actions/replay"
+	body := `{"audience":{"kind":"own_barycenter"},"delivery":"after_current"}`
+	replay := historyActionRequest(harness.mux, path, body, owner.ControlToken,
+		"history-action-replay-key-001")
+	if replay.Code != http.StatusCreated {
+		t.Fatalf("replay=%d %s", replay.Code, replay.Body.String())
+	}
+	replayed := decodeObject(t, replay)
+	if replayed["transmission_id"] == original["transmission_id"] ||
+		replayed["accepted_at"] == original["accepted_at"] ||
+		replayed["audience"].(map[string]any)["target_count"] != float64(2) {
+		t.Fatalf("replay did not resolve fresh state: original=%v replay=%v", original, replayed)
+	}
+	repeated := historyActionRequest(harness.mux, path, body, owner.ControlToken,
+		"history-action-replay-key-001")
+	if repeated.Code != http.StatusOK || decodeObject(t, repeated)["transmission_id"] != replayed["transmission_id"] {
+		t.Fatalf("repeated=%d %s", repeated.Code, repeated.Body.String())
+	}
+	conflict := historyActionRequest(harness.mux, path,
+		`{"audience":{"kind":"this_pulsar"},"delivery":"after_current"}`,
+		owner.ControlToken, "history-action-replay-key-001")
+	assertTransmissionError(t, conflict, http.StatusConflict, errorTransmissionIdempotency)
+
+	deleteResponse := historyActionRequest(harness.mux,
+		"/v1/history/"+historyID+"/actions/delete", `{}`, owner.ControlToken, "")
+	if deleteResponse.Code != http.StatusOK || decodeObject(t, deleteResponse)["deleted"] != true {
+		t.Fatalf("delete=%d %s", deleteResponse.Code, deleteResponse.Body.String())
+	}
+	repeatedDelete := historyActionRequest(harness.mux,
+		"/v1/history/"+historyID+"/actions/delete", `{}`, owner.ControlToken, "")
+	if repeatedDelete.Code != http.StatusOK || decodeObject(t, repeatedDelete)["deleted"] != true {
+		t.Fatalf("repeated delete=%d %s", repeatedDelete.Code, repeatedDelete.Body.String())
+	}
+	current++
+	replayRetryAfterDelete := historyActionRequest(harness.mux, path, body, owner.ControlToken,
+		"history-action-replay-key-001")
+	if replayRetryAfterDelete.Code != http.StatusOK ||
+		decodeObject(t, replayRetryAfterDelete)["transmission_id"] != replayed["transmission_id"] {
+		t.Fatalf("replay retry after delete=%d %s", replayRetryAfterDelete.Code, replayRetryAfterDelete.Body.String())
+	}
+	afterDelete := historyActionRequest(harness.mux, path, body, owner.ControlToken,
+		"history-action-replay-key-002")
+	assertTransmissionError(t, afterDelete, http.StatusConflict, errorHistoryActionUnavailable)
+
+	unknown := historyActionRequest(harness.mux,
+		"/v1/history/"+historyID+"/actions/archive", `{}`, owner.ControlToken, "")
+	assertTransmissionError(t, unknown, http.StatusNotFound, errorHistoryNotFound)
+	badBody := historyActionRequest(harness.mux,
+		"/v1/history/"+historyID+"/actions/delete", `{"media_id":"`+media.ID+`"}`,
+		owner.ControlToken, "")
+	assertTransmissionError(t, badBody, http.StatusBadRequest, errorInvalidRequest)
+}
+
+func TestHistoryHTTPReportAndBlockShareCanonicalOwnerServices(t *testing.T) {
+	fixture := newModerationHTTPFixture(t)
+	listed := apiRequest(fixture.harness.mux, http.MethodGet,
+		"/v1/history?view=received", "", fixture.reporter.ControlToken)
+	if listed.Code != http.StatusOK {
+		t.Fatalf("history=%d %s", listed.Code, listed.Body.String())
+	}
+	items := decodeObject(t, listed)["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("history items=%v", items)
+	}
+	item := items[0].(map[string]any)
+	historyID := item["history_item_id"].(string)
+	actions := item["actions"].([]any)
+	if !containsJSONValue(actions, "report") || !containsJSONValue(actions, "block_actor") {
+		t.Fatalf("actions=%v", actions)
+	}
+
+	reportPath := "/v1/history/" + historyID + "/actions/report"
+	report := historyActionRequest(fixture.harness.mux, reportPath,
+		`{"reason":"harassment","details":"history-visible evidence"}`,
+		fixture.reporter.ControlToken, "")
+	if report.Code != http.StatusCreated {
+		t.Fatalf("report=%d %s", report.Code, report.Body.String())
+	}
+	reportBody := decodeObject(t, report)
+	if reportBody["media_id"] != fixture.media.ID || reportBody["history_item_id"] != historyID || reportBody["reused"] != false {
+		t.Fatalf("report body=%v", reportBody)
+	}
+	repeatedReport := historyActionRequest(fixture.harness.mux, reportPath,
+		`{"reason":"spam","details":"ignored on exact duplicate"}`,
+		fixture.reporter.ControlToken, "")
+	if repeatedReport.Code != http.StatusOK || decodeObject(t, repeatedReport)["id"] != reportBody["id"] {
+		t.Fatalf("repeated report=%d %s", repeatedReport.Code, repeatedReport.Body.String())
+	}
+
+	blockPath := "/v1/history/" + historyID + "/actions/block_actor"
+	block := historyActionRequest(fixture.harness.mux, blockPath, `{}`,
+		fixture.reporter.ControlToken, "history-action-block-key-001")
+	if block.Code != http.StatusCreated {
+		t.Fatalf("block=%d %s", block.Code, block.Body.String())
+	}
+	blockBody := decodeObject(t, block)
+	if blockBody["scope"] != "actor" || blockBody["reused"] != false {
+		t.Fatalf("block body=%v", blockBody)
+	}
+	repeatedBlock := historyActionRequest(fixture.harness.mux, blockPath, `{}`,
+		fixture.reporter.ControlToken, "history-action-block-key-001")
+	if repeatedBlock.Code != http.StatusOK || decodeObject(t, repeatedBlock)["block_id"] != blockBody["block_id"] {
+		t.Fatalf("repeated block=%d %s", repeatedBlock.Code, repeatedBlock.Body.String())
+	}
+	detail := apiRequest(fixture.harness.mux, http.MethodGet,
+		"/v1/history/"+historyID, "", fixture.reporter.ControlToken)
+	detailActions := decodeObject(t, detail)["actions"].([]any)
+	if containsJSONValue(detailActions, "block_actor") || !containsJSONValue(detailActions, "unblock") {
+		t.Fatalf("post-block actions=%v", detailActions)
+	}
+}
+
+func containsJSONValue(values []any, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestHistoryClientStateMappingIsClosedAndDeterministic(t *testing.T) {

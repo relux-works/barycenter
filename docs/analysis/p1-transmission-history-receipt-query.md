@@ -46,7 +46,9 @@ most 128 live cursor rows are retained per actor.
 Action hints are recomputed for every query in the contract order:
 `cancel`, `delete`, `replay`, `report`, `block_actor`, `block_orbit`, `unblock`.
 They reflect current control capability, media availability, target evidence,
-role and active block ownership. They are not mutation grants; every mutation
+role and active block ownership. Report is offered only for foreign media with
+an exact current target binding, matching the moderation evidence boundary;
+senders do not receive a self-report action for their own media. Hints are not mutation grants; every mutation
 reauthorizes. Replay remains only a hint for the separate create-transmission
 flow—history never queues, autoplays, or creates a Phase 2 inbox item.
 

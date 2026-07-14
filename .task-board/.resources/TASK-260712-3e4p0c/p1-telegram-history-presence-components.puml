@@ -13,11 +13,13 @@ rectangle "STORY-260712-34kbkn\nTelegram parity + history/presence" {
   [Delivery Presentation Model\nhuman labels + receipt wording] as Presentation
   [Presence Surface\nsanitized presence + DND/block] as Presence
   [History/Receipt Query\nrecent transmissions + aggregates] as History
+  [History Command Service\nActorContext-scoped orchestration] as Commands
 }
 
 rectangle "STORY-260712-2ve1c8\nIdentity + ActorContext" as Identity
 rectangle "STORY-260712-ld674h\nSubmitMedia + legacy voice bridge" as Ingest
 rectangle "STORY-260712-25lysg\nCreateTransmission + receipts + DND semantics" as Tx
+rectangle "STORY-260712-1tgryz\nModeration control plane" as Moderation
 rectangle "STORY-260712-2e36uz\nWindows/macOS UI integration" as UI
 
 TgUser --> TgTransport
@@ -37,14 +39,23 @@ Presentation --> Presence
 
 App --> History
 App --> Presence
+App --> Commands : replay/delete/report/block
+TgTransport --> Commands : same commands\nverified Telegram identity
 History --> UI
 Presence --> UI
+
+Commands --> History : authorize current item\nand action hint
+Commands --> Tx : replay with new accepted_at\nand fresh target resolution
+Commands --> Ingest : owner delete +\ncancellation outbox
+Commands --> Presence : actor/orbit block contract
+Commands --> Moderation : exact-target report
 
 note bottom
   This story owns presentation-oriented parity:
   human names, routing labels, presence sanitization,
-  Telegram inline actions, and history/receipt read models.
-  It does not own SubmitMedia internals or transmission scheduling semantics.
+  Telegram inline actions, history/receipt read models, and one
+  transport-neutral command orchestrator. Mutation policy and audit
+  remain owned by media, transmission, block, and moderation services.
 end note
 
 @enduml

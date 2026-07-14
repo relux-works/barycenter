@@ -2053,10 +2053,22 @@ func (s *Store) DeleteMediaItem(mediaID string, expectedRevision, now int64) (Me
 // unknown, foreign, and already-expired media; repeated deletion of its own
 // tombstone is idempotent.
 func (s *Store) DeleteAuthorizedMedia(expectedActorID int64, bearer, mediaID string, now int64) (MediaItem, error) {
+	if expectedActorID <= 0 || !lowerHexTokenPattern.MatchString(bearer) {
+		return MediaItem{}, ErrUnauthorized
+	}
+	return s.DeleteAuthorizedMediaForIdentity(expectedActorID,
+		Identity{Kind: IdentityBearer, Token: bearer}, mediaID, now)
+}
+
+// DeleteAuthorizedMediaForIdentity is the transport-neutral owner mutation
+// boundary used by history commands. Capability policy remains here: verified
+// Telegram acts only as its current actor and orbit; history action policy
+// still decides whether that actor owns the selected media.
+func (s *Store) DeleteAuthorizedMediaForIdentity(expectedActorID int64, identity Identity, mediaID string, now int64) (MediaItem, error) {
 	if !s.selfServiceOnboarding {
 		return MediaItem{}, ErrSelfServiceOnboardingDisabled
 	}
-	if expectedActorID <= 0 || !lowerHexTokenPattern.MatchString(bearer) {
+	if expectedActorID <= 0 {
 		return MediaItem{}, ErrUnauthorized
 	}
 	if !mediaItemIDPattern.MatchString(mediaID) || now <= 0 {
@@ -2067,9 +2079,15 @@ func (s *Store) DeleteAuthorizedMedia(expectedActorID int64, bearer, mediaID str
 		return MediaItem{}, err
 	}
 	defer tx.Rollback()
-	ctx, err := mutationActorContextTx(tx, expectedActorID, hashToken(bearer))
-	if err != nil {
+	ctx, err := resolveActorContext(tx, identity)
+	if err != nil || ctx.ActorID != expectedActorID {
+		if err == nil {
+			err = ErrUnauthorized
+		}
 		return MediaItem{}, err
+	}
+	if !ctx.Capabilities.Has(CapabilityControl) && !ctx.Capabilities.Has(CapabilityTelegram) {
+		return MediaItem{}, ErrInsufficientCapability
 	}
 	item, err := scanMediaItem(tx.QueryRow(
 		`SELECT `+mediaItemColumns+` FROM media_items WHERE id = ? AND owner_orbit_id = ?`,

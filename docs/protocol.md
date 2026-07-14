@@ -75,6 +75,11 @@ ordinary load/seek/resume catch-up path and does not block adoption.
 
 ## Phase-one clip transmission, DND and presence
 
+The application HTTP contracts and authorization boundaries are documented in
+[the frozen transmission contract](analysis/p1-transmission-contract-v1.md),
+[the history/receipt query](analysis/p1-transmission-history-receipt-query.md),
+and [the history replay/policy command layer](analysis/p1-history-replay-policy-actions.md).
+
 The following v1 message types are additive. Every clip lifecycle payload is
 bound to `(transmission_id, generation)`; target identity comes only from the
 authenticated WebSocket connection and is never accepted from a payload.

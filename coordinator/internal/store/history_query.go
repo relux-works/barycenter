@@ -186,10 +186,10 @@ func historyTransmissionItemTx(tx *sql.Tx, ctx ActorContext, id string, now int6
 		Transmission: &t, Targets: visible, TargetCount: len(creation.Targets),
 		TargetStatusCounts: map[TransmissionTargetStatus]int{}, SourceActorID: t.SourceActorID,
 		SourceOrbitID: t.SourceOrbitID, CanCancel: showAll && ctx.Capabilities.Has(CapabilityControl) && senderCancellationAllowed(t, creation.Targets),
-		CanDelete: ctx.Capabilities.Has(CapabilityControl) && media.DeletedAt == 0 && media.ExpiresAt > now &&
+		CanDelete: canUseHistoryControls && media.DeletedAt == 0 && media.ExpiresAt > now &&
 			media.Status != MediaStatusDeleted && media.Status != MediaStatusExpired &&
 			(ctx.ActorID == media.ActorID || (ctx.Role == "primary" && ctx.OrbitID == media.OwnerOrbitID)),
-		CanReport: canUseHistoryControls && (ctx.ActorID == t.SourceActorID || received),
+		CanReport: canUseHistoryControls && received && media.ActorID != ctx.ActorID,
 	}
 	item.CanReplay = item.CanDelete && media.Status == MediaStatusReady && media.DeletedAt == 0 && media.ExpiresAt > now
 	if received && t.SourceActorID != ctx.ActorID {
@@ -235,9 +235,9 @@ func historyMediaItemTx(tx *sql.Tx, ctx ActorContext, id string, now int64) (His
 	canContent := media.Status == MediaStatusReady && media.DeletedAt == 0 && media.ExpiresAt > now
 	return HistoryQueryItem{HistoryItemID: historyID("media", media.ID), ItemKind: "media",
 		OccurredAt: media.CreatedAt, Direction: HistorySent, Media: media,
-		CanDelete: ctx.Capabilities.Has(CapabilityControl) && media.DeletedAt == 0 && media.ExpiresAt > now &&
+		CanDelete: canUseHistoryControls && media.DeletedAt == 0 && media.ExpiresAt > now &&
 			media.Status != MediaStatusDeleted && media.Status != MediaStatusExpired,
-		CanReplay: ctx.Capabilities.Has(CapabilityControl) && canContent}, true, nil
+		CanReplay: canUseHistoryControls && canContent}, true, nil
 }
 
 func (s *Store) QueryAuthorizedHistory(expectedActorID int64, identity Identity, view string, limit int, cursor string, now int64) (HistoryPage, error) {

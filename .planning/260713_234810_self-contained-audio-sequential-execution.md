@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-21ers7` — telegram-inline-routing-compat
-  (accepted; tracking CI and merge pending)
-- Next engineering task: `TASK-260712-3e4p0c` — history-replay-policy-actions
+- Current engineering task: `TASK-260712-3e4p0c` — history-replay-policy-actions
+  (in progress from synchronized `main`)
+- Next engineering task: `TASK-260712-3d0zgu` — telegram-parity-regression-tests
 - Most recently accepted: `TASK-260712-21ers7` — telegram-inline-routing-compat
-- Current branch: `task/task-260712-21ers7-telegram-inline-routing-compat`
+- Current branch: `task/task-260712-3e4p0c-history-replay-policy-actions`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -477,7 +477,30 @@ Telegram client, audible or hardware evidence is claimed. Exact commit, hosted
 Exact engineering head `8fc47cf75b0f1ba521e80bd9d8a42885edacb217`
 passed all four hosted jobs in run `29370460972`; the best-effort engineering
 scope is accepted. Progress is 47/205 overall and 47/186 engineering. PR #46
-tracking CI and merge remain.
+tracking head `a9c6defb8def8aea277e24ece687ce9377c1e150` passed all four
+jobs in run `29370645888`; PR #46 landed at merge
+`912d08018cccda0589d5de7356bb8af8a20fd6f1`, and strict execution advanced to
+`TASK-260712-3e4p0c` from synchronized `main`.
+
+Checkpoint 2026-07-15 (engineering candidate): `TASK-260712-3e4p0c` adds one
+transport-neutral history command service for application bearer and verified
+Telegram identities. Strict `POST /v1/history/{history_item_id}/actions/...`
+routes expose replay, owner delete, exact-target report and actor/orbit block
+without accepting a client media ID, acceptance time or old target snapshot.
+Replay uses a new coordinator `accepted_at` and the common current audience,
+binding, presence, capability, DND and block resolver; same-key retries return
+the existing transmission after later deletion, while a new request cannot
+revive deleted or expired content. Delete reuses the audited media tombstone
+and durable cancellation outbox, report reuses moderation evidence/rate-limit/
+audit, and block reuses viewer-bound subject refs, role policy, idempotency and
+active cancellation enforcement. App and Telegram owner paths share the same
+service; revoked, departed, node-only, foreign and racing callers do not gain
+authority. Coordinator vet/full tests and focused full race, pinned previous-
+head compatibility, moderation operations validation, Windows vet/native/
+cross-test compilation, Swift release build, both PlantUML renders and diff
+checks are green. No real client, audible, physical-hardware or Phase 2 inbox
+evidence is claimed; those remain in `EPIC-260714-th54l3`. Exact engineering
+commit and hosted CI evidence remain pending before acceptance.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1102,7 +1125,8 @@ Story: `STORY-260712-34kbkn` — P1 Telegram adapter, history and presence.
   client/audible/hardware result claimed; PR #45, merge `77cf82f`)
 - [x] `TASK-260712-21ers7` — telegram-inline-routing-compat (accepted on exact
   engineering head `8fc47cf`; all four hosted jobs in run `29370460972` green;
-  no real-app/Telegram-client/audible/hardware result claimed; PR #46)
+  tracking head `a9c6def` passed run `29370645888`; no real-app/Telegram-client/
+  audible/hardware result claimed; PR #46, merge `912d080`)
 - [ ] `TASK-260712-3e4p0c` — history-replay-policy-actions
 - [ ] `TASK-260712-3d0zgu` — telegram-parity-regression-tests
 - [ ] `TASK-260712-1f9jtm` — telegram-parity-docs-handoff

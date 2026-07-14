@@ -50,8 +50,17 @@ func (service *Service) CreateReport(
 	bearer string,
 	params store.CreateModerationReportParams,
 ) (store.ModerationReportCreation, error) {
+	return service.CreateReportForIdentity(expectedActorID,
+		store.Identity{Kind: store.IdentityBearer, Token: bearer}, params)
+}
+
+func (service *Service) CreateReportForIdentity(
+	expectedActorID int64,
+	identity store.Identity,
+	params store.CreateModerationReportParams,
+) (store.ModerationReportCreation, error) {
 	params.CreatedAt = service.now().UnixMilli()
-	return service.store.CreateModerationReport(expectedActorID, bearer, params)
+	return service.store.CreateModerationReportForIdentity(expectedActorID, identity, params)
 }
 
 func (service *Service) BlockReportedSender(

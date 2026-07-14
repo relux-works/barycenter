@@ -3,6 +3,9 @@
 - Task: `TASK-260712-2qc27p`
 - Story: `STORY-260712-25lysg`
 - Engineering base: `8d2b7d3825536ed9dc732f1e86040edc227a7acf`
+- Exact engineering code: `c60bd99ed4717a62b69a10338e5b13b39001e419`
+- Pull request: `#27`
+- Hosted exact-code CI: `29333494719`
 - Manual test program: `EPIC-260714-th54l3`
 
 ## Evidence boundary
@@ -56,7 +59,7 @@ behavior. Those observations remain deferred and unpassed in the manual epic.
 - `TestTransmissionSchemaInstallIsAtomic` and foreign-key checks retain the
   failure-atomic and referential-integrity guards.
 
-## Candidate verification
+## Accepted engineering verification
 
 - Coordinator vet, full unit suite and full race suite: passed locally.
 - Focused scheduler/store/protocol suite with shuffled order for 20 runs:
@@ -64,7 +67,8 @@ behavior. Those observations remain deferred and unpassed in the manual epic.
 - Both exact previous-version rollback subtests: passed locally.
 - Windows vet, unit and race suites: passed locally.
 - Swift release build: passed locally. The workstation still cannot compile
-  the repository's existing `Testing`-based test target; hosted macOS CI is the
-  required Swift test result and will be recorded after the exact code commit.
+  the repository's existing `Testing`-based test target; hosted macOS
+  `node-core` passed the full Swift test suite on the exact code commit.
+- Hosted run `29333494719` passed coordinator, node-core, pulsar-win and the
+  signed packaged-probe job on exact code head `c60bd99`.
 - Real-app and real-hardware rows: not run, not inferred and not claimed.
-

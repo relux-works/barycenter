@@ -4,24 +4,25 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 30 accepted, 175 remain.
-- Routed inventory: 186 engineering tasks (30 accepted, 156 remain) and 19
+- Combined inventory: 205 original tasks; 31 accepted, 174 remain.
+- Routed inventory: 186 engineering tasks (31 accepted, 155 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2kec2s` — moderation-control-plane
-- Most recently accepted: `TASK-260712-16zfvu` — confirm-legal-ops-inputs
+- Current engineering task: `TASK-260712-g9ycx5` — verify-current-store-policy
+  (queued until PR #30 lands)
+- Most recently accepted: `TASK-260712-2kec2s` — moderation-control-plane
 - Current branch: `task/task-260712-2kec2s-moderation-control-plane`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
   `29339017452`. PR #29 landed at merge
   `e588fc9b727d6264c289f69cc97ea77e4987f939`.
-- Accepted overall: 30 / 205 tasks (approximately 14.6%); 175 remain
-- Engineering progress: 30 / 186 tasks (approximately 16.1%); 156 remain
+- Accepted overall: 31 / 205 tasks (approximately 15.1%); 174 remain
+- Engineering progress: 31 / 186 tasks (approximately 16.7%); 155 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -73,6 +74,26 @@
   `29334859168`. PR #28 landed at merge
   `3c720410fb54ed92ecc16f905d170d4f411d1b93`, and strict execution advanced to
   `TASK-260712-16zfvu` from that synchronized `main`.
+
+Checkpoint 2026-07-14: `TASK-260712-2kec2s` implements the least-privilege
+moderation control plane on exact engineering code head
+`2a0b1352bd79ef8b51863ba5f2ab77188d66ff22`. Additive persistence covers
+hashed and independently scoped operator credentials, privacy-safe user
+reports, immutable accepted-target snapshots, time-limited digest-verified
+evidence, crash-resumable one-decision state and append-only audit records.
+Actor APIs permit only accessible foreign media and keep operator credentials
+separate; operator actions reuse canonical block, media lifecycle, credential
+revocation, scheduler cancellation and live disconnect paths. Report rate
+state, evidence retention, idempotence, audit tamper resistance and exact
+previous-head migration/rollback are covered deterministically. Local Go vet,
+full tests, focused race, full pinned rollback matrix, Windows vet/test/cross-
+build and Swift release build passed. Local Swift tests were unavailable under
+the standalone CommandLineTools installation; hosted `node-core` ran them
+successfully. All four hosted jobs, including the signed packaged probe,
+passed in run `29342009648`. No physical-app or real-hardware result is
+claimed. Progress is 31/205 overall and 31/186 engineering; PR #30 is awaiting
+the tracking commit and merge before strict execution starts
+`TASK-260712-g9ycx5`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -625,7 +646,11 @@ Story: `STORY-260712-1tgryz` — P1 Policy and moderation foundation.
   `3b12371`: all seven owner-approved legal/operations groups, strict
   machine-readable validation and pre-submit fail-closed gate; local full/race/
   platform gates and all four hosted jobs in run `29338589269` green; PR #29)
-- [ ] `TASK-260712-2kec2s` — moderation-control-plane
+- [x] `TASK-260712-2kec2s` — moderation-control-plane (accepted on exact code
+  head `2a0b135`: additive least-privilege report/operator/evidence/decision
+  control plane with canonical enforcement, deterministic retention,
+  migration and rollback coverage; local platform gates and all four hosted
+  jobs in run `29342009648` green; PR #30)
 - [ ] `TASK-260712-g9ycx5` — verify-current-store-policy
 - [ ] `TASK-260712-1epb3a` — privacy-ugc-policy-pack
 - [ ] `TASK-260712-1x0lot` — publish-policy-support-pages

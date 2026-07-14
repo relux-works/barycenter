@@ -12,9 +12,9 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2cdjq8` — transmission-rollout-handoff
-- Next engineering task after landing: `TASK-260712-16zfvu` — confirm-legal-ops-inputs
-- Current branch: `task/task-260712-2cdjq8-transmission-rollout-handoff`
+- Current engineering task: `TASK-260712-16zfvu` — confirm-legal-ops-inputs
+- Next engineering task after landing: `TASK-260712-2kec2s` — moderation-control-plane
+- Current branch: `task/task-260712-16zfvu-confirm-legal-ops-inputs`
 - Accepted overall: 29 / 205 tasks (approximately 14.1%); 176 remain
 - Engineering progress: 29 / 186 tasks (approximately 15.6%); 157 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -64,7 +64,10 @@
   `TASK-260712-2cdjq8` from that synchronized `main`. `TASK-260712-2cdjq8` is
   accepted on exact documentation/code head
   `cd234c913634db2fef5bbfcd866e8298e45f23cb`; all four hosted jobs passed in
-  run `29334550550`.
+  run `29334550550`, and tracking head `e715202` passed all four jobs in run
+  `29334859168`. PR #28 landed at merge
+  `3c720410fb54ed92ecc16f905d170d4f411d1b93`, and strict execution advanced to
+  `TASK-260712-16zfvu` from that synchronized `main`.
 
 Checkpoint 2026-07-14: `TASK-260712-2cdjq8` closes the P1 transmission story
 with one stable rollout/handoff entry point. It records the frozen strict HTTP

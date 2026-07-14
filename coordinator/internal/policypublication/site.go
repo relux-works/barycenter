@@ -27,8 +27,8 @@ const (
 	SchemaVersion          = 1
 	TaskID                 = "TASK-260712-1x0lot"
 	ProductionOrigin       = "https://barycenter.live"
-	StableCacheControl     = "public, max-age=300, must-revalidate"
-	VersionedCacheControl  = "public, max-age=31536000, immutable"
+	StableCacheControl     = "public, max-age=300, must-revalidate, no-transform"
+	VersionedCacheControl  = "public, max-age=31536000, immutable, no-transform"
 	DeploymentManifestPath = "legal/deployment-manifest.json"
 )
 
@@ -162,6 +162,7 @@ func Build(repoRoot, packPath, upstreamCommit string, pack policypack.Pack) ([]F
 	files = append(files,
 		File{Path: DeploymentManifestPath, Data: manifestBytes},
 		File{Path: "_headers", Data: []byte(headersFile())},
+		File{Path: "_redirects", Data: []byte(redirectsFile(manifest.Routes))},
 	)
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 	return files, manifest, nil
@@ -621,6 +622,18 @@ func headersFile() string {
   Cache-Control: no-cache, no-store, must-revalidate
   X-Content-Type-Options: nosniff
 `
+}
+
+func redirectsFile(routes []DeploymentRoute) string {
+	var output strings.Builder
+	output.WriteString("# Explicit clean-URL redirects keep custom domains from returning an empty 200.\n")
+	for _, route := range routes {
+		for _, rawURL := range []string{route.StableURL, route.VersionedURL} {
+			path := strings.TrimPrefix(rawURL, ProductionOrigin)
+			fmt.Fprintf(&output, "%s %s/ 308\n", path, path)
+		}
+	}
+	return output.String()
 }
 
 func digest(content []byte) string {

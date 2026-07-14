@@ -48,10 +48,13 @@ rendering, link structure and live unauthenticated HTTPS are engineering scope.
 
 ## Cache, deployment and rollback
 
-Stable routes use `Cache-Control: public, max-age=300, must-revalidate` so a
-correction converges quickly. Immutable version routes use one-year immutable
-caching. The deployment manifest is `no-store` and is the certification probe's
-entry point.
+Stable routes use `Cache-Control: public, max-age=300, must-revalidate,
+no-transform` so a correction converges quickly while intermediaries preserve
+the reviewed bytes. Immutable version routes use one-year immutable caching
+with the same `no-transform` constraint. Explicit 308 rules normalize clean
+URLs to their directory form; this prevents a custom Pages domain from
+returning an empty `200` for an extensionless route. The deployment manifest is
+`no-store` and is the certification probe's entry point.
 
 Cloudflare Pages deploys `pulsar-site/main`. Its pull-request workflow checks
 out the exact upstream Barycenter commit named in the deployment manifest,

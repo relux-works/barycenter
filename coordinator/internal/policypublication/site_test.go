@@ -88,8 +88,8 @@ func TestRepositorySurfacesUseTheStableLocaleContract(t *testing.T) {
 
 func TestRepositoryBundleIsDeterministicAndHashBound(t *testing.T) {
 	_, files, manifest := repositoryBundle(t)
-	if len(files) != 33 {
-		t.Fatalf("file count=%d, want 33", len(files))
+	if len(files) != 34 {
+		t.Fatalf("file count=%d, want 34", len(files))
 	}
 	if manifest.PublicationDecision != "proceed" || manifest.DeploymentState != "ready" || len(manifest.Routes) != 10 {
 		t.Fatalf("manifest=%+v", manifest)
@@ -109,6 +109,27 @@ func TestRepositoryBundleIsDeterministicAndHashBound(t *testing.T) {
 	for _, marker := range []string{`id="P-01"`, `hreflang="ru"`, `pulsar-policy-source-sha256`, `not end-to-end encrypted`, `mailto:support@barycenter.live`} {
 		if !bytes.Contains(privacy, []byte(marker)) {
 			t.Fatalf("privacy output lacks %q", marker)
+		}
+	}
+}
+
+func TestGeneratedHeadersPreventEdgeTransformationAndCleanURLsRedirect(t *testing.T) {
+	_, files, _ := repositoryBundle(t)
+	content := make(map[string]string, len(files))
+	for _, file := range files {
+		content[file.Path] = string(file.Data)
+	}
+	if !strings.Contains(content["_headers"], "must-revalidate, no-transform") ||
+		!strings.Contains(content["_headers"], "immutable, no-transform") {
+		t.Fatal("legal cache headers do not forbid edge body transformation")
+	}
+	for _, redirect := range []string{
+		"/legal/privacy /legal/privacy/ 308",
+		"/legal/privacy/ru /legal/privacy/ru/ 308",
+		"/legal/versions/1.0/en/privacy /legal/versions/1.0/en/privacy/ 308",
+	} {
+		if !strings.Contains(content["_redirects"], redirect) {
+			t.Fatalf("redirect output lacks %q", redirect)
 		}
 	}
 }

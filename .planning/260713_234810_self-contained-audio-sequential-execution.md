@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 13 accepted, 192 remain.
-- Routed inventory: 186 engineering tasks (13 accepted, 173 remain) and 19
+- Combined inventory: 205 original tasks; 14 accepted, 191 remain.
+- Routed inventory: 186 engineering tasks (14 accepted, 172 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -14,8 +14,8 @@
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-2af2dp` — submitmedia-processing-pipeline
 - Current branch: `task/task-260712-2af2dp-submitmedia-processing-pipeline`
-- Accepted overall: 13 / 205 tasks (approximately 6.3%); 192 remain
-- Engineering progress: 13 / 186 tasks (approximately 7.0%); 173 remain
+- Accepted overall: 14 / 205 tasks (approximately 6.8%); 191 remain
+- Engineering progress: 14 / 186 tasks (approximately 7.5%); 172 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -25,7 +25,8 @@
   evidence harness on `main` at `06a06c099ed5b4f37f5e2dd3648772ffd041dfd9`.
   `TASK-260712-z6h6wh` landed through PR #11 at merge commit `31bbeb9`;
   `TASK-260712-1bnos4` landed through PR #12 at merge commit `050c979`;
-  `TASK-260712-2af2dp` is now in development.
+  `TASK-260712-2af2dp` is accepted on its branch and pending final tracking CI
+  plus merge through PR #13.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -87,8 +88,12 @@ state, cleanup, idempotent and concurrent retry, same-orbit-only physical
 dedupe and crash recovery after the atomic link; HTTP tests cover interrupted
 `finalizing` recovery and non-disclosing errors. The exact immediate
 predecessor `050c979` rollback test and local full Go test/race/vet gates are
-green. Hosted Linux ffmpeg format/rlimit execution, root delta review, commit,
-PR and merge remain before this checkbox may be accepted.
+green. Root delta review then closed aggregate worker admission, staging and
+recovered-file fsync, MP3/FLAC framing, chapter stripping and app session/path
+binding. Hosted CI run `29302835228` passed all four jobs on final code commit
+`097bcf8`, including the live Linux six-format, HTTP and rlimit paths, macOS
+Swift, portable Windows and signed-MSIX regressions. PR #13 final tracking and
+merge remain; no manual real-app or hardware claim is inherited.
 
 ## Operating contract
 
@@ -164,7 +169,10 @@ Story: `STORY-260712-ld674h` — P1 Generic media ingest and storage.
   authenticated resumable HTTP, atomic quotas, crash-safe temp lifecycle,
   exact immediate-predecessor rollback, full local race plus hosted CI runs
   `29300399021` / `29300559446` green; PR #12, merge `050c979`)
-- [ ] `TASK-260712-2af2dp` — submitmedia-processing-pipeline
+- [x] `TASK-260712-2af2dp` — submitmedia-processing-pipeline (accepted on
+  final code commit `097bcf8`: shared constrained processing, durable atomic
+  publication, retry/dedupe/failure lifecycle, exact predecessor rollback and
+  hosted CI run `29302835228` green; PR #13 pending final tracking merge)
 - [ ] `TASK-260712-1sae4q` — media-delete-retention-cleanup
 - [ ] `TASK-260712-3mcof4` — media-download-target-acl
 - [ ] `TASK-260712-12ojcb` — telegram-submitmedia-compat

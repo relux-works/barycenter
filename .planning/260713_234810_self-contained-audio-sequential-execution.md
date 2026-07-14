@@ -12,8 +12,8 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-26ip33` — macos-transmission-client-hooks
-- Current branch: `task/task-260712-26ip33-macos-transmission-client-hooks`
+- Current engineering task: `TASK-260712-2bbz13` — windows-transmission-client-hooks
+- Current branch: `task/task-260712-2bbz13-windows-transmission-client-hooks`
 - Accepted overall: 25 / 205 tasks (approximately 12.2%); 180 remain
 - Engineering progress: 25 / 186 tasks (approximately 13.4%); 161 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -41,8 +41,10 @@
   `4d737bcdbb0c40c53b8d2d64651756b4b9b077b2`; all four hosted jobs passed in
   runs `29321759958`, `29322386396` and tracking run `29322606238`; PR #23
   landed exact head through merge `30f1c552c9824934922becab4637c34746d190dc`.
-  Strict execution has advanced to `TASK-260712-26ip33` from that synchronized
-  `main`.
+  `TASK-260712-26ip33` landed through PR #24 at merge
+  `0b54899073e4dc4948b248f7c77666e7151f5459` after exact code and tracking CI
+  runs `29324579129` and `29324846258`. Strict execution has advanced to
+  `TASK-260712-2bbz13` from that synchronized `main`.
 
 Checkpoint 2026-07-14: `TASK-260712-26ip33` now has a generation-safe macOS
 `media_clip_v1` client runtime behind a delivery-capability-gated mixer seam.

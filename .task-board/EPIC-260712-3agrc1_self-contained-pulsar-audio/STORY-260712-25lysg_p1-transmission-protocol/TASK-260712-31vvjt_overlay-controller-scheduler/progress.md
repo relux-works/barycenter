@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:39:19Z
 
 ## Last Update
-2026-07-12T17:03:16Z
+2026-07-14T11:04:36Z
 
 ## Blocked By
 - TASK-260712-1aprcb
@@ -32,6 +32,7 @@ backlog
 - [ ] Reject unconfirmed interrupt fallback at the scheduler boundary
 
 ## Notes
+Strict inline execution started from synchronized main merge 0c1e1946ff692aa553c19ca6bf7328150d1a24b8 after PR #25 and tracking CI run 29327302466. Scope is the coordinator-owned per-playback-domain FIFO, persisted three-second prepare barrier, exact RTT schedule, lifecycle receipts, disarm/restart reconciliation and legacy after_current bridge. Execution remains best-effort coding plus deterministic unit, integration, race and compatibility verification; no real-app, audible-output, multi-node skew or physical-hardware result will be claimed.
 
 ## Precondition Resources
 - [p1-transmission-protocol-components.puml](file://TASK-260712-31vvjt/p1-transmission-protocol-components.puml) — Coordinator scheduler component context

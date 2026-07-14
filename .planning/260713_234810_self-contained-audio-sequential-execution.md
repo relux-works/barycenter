@@ -12,8 +12,8 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2bbz13` — windows-transmission-client-hooks
-- Current branch: `task/task-260712-2bbz13-windows-transmission-client-hooks`
+- Current engineering task: `TASK-260712-31vvjt` — overlay-controller-scheduler
+- Current branch: `task/task-260712-31vvjt-overlay-controller-scheduler`
 - Accepted overall: 26 / 205 tasks (approximately 12.7%); 179 remain
 - Engineering progress: 26 / 186 tasks (approximately 14.0%); 160 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -45,9 +45,10 @@
   `0b54899073e4dc4948b248f7c77666e7151f5459` after exact code and tracking CI
   runs `29324579129` and `29324846258`. `TASK-260712-2bbz13` is accepted on
   exact engineering code head `219306ceda548b64a6bb72e279c9ac9da4e65313`;
-  all four hosted jobs passed in run `29326895259`. PR #25 remains the current
-  integration boundary; strict execution advances to `TASK-260712-31vvjt`
-  only after that PR lands and `main` is synchronized.
+  all four hosted jobs passed in run `29326895259`, and tracking head `c85e8ad`
+  passed run `29327302466`. PR #25 landed at merge
+  `0c1e1946ff692aa553c19ca6bf7328150d1a24b8`; strict execution has advanced to
+  `TASK-260712-31vvjt` from that synchronized `main`.
 
 Checkpoint 2026-07-14: `TASK-260712-2bbz13` now has a generation-safe Windows
 `media_clip_v1` client behind a delivery-capability-gated mixer seam. It
@@ -482,7 +483,8 @@ Story: `STORY-260712-25lysg` — P1 Transmission protocol and scheduler.
   prepare/schedule/cancel, typed receipts, durable DND/presence, strict
   capability gating and legacy-path redaction; local vet/test/race,
   cross-build and compatibility gates plus all four hosted jobs in run
-  `29326895259` green; PR #25 pending integration)
+  `29326895259` and tracking run `29327302466` green; PR #25, merge
+  `0c1e194`)
 - [ ] `TASK-260712-31vvjt` — overlay-controller-scheduler
 - [ ] `TASK-260712-2qc27p` — transmission-regression-coverage
 - [ ] `TASK-260712-2cdjq8` — transmission-rollout-handoff

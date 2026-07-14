@@ -123,6 +123,14 @@ func TestModerationOperatorDomainsCapabilitiesEvidenceAuditAndRevocation(t *test
 	); err != nil {
 		t.Fatal(err)
 	}
+	audit, err := fixture.store.ListModerationAuditEvents(
+		listOnly.Operator.ID, listOnly.Token, report.ID, 10,
+	)
+	if err != nil || len(audit) != 1 || audit[0].EventType != "report.created" ||
+		audit[0].ReportID != report.ID || audit[0].OperatorID != "" ||
+		audit[0].Action != "" {
+		t.Fatalf("content-free audit=%+v err=%v", audit, err)
+	}
 	if _, err := fixture.store.AuthorizeModerationEvidence(
 		listOnly.Operator.ID, listOnly.Token, report.ID, fixture.now+6,
 	); !errors.Is(err, ErrModerationForbidden) {
@@ -141,6 +149,18 @@ func TestModerationOperatorDomainsCapabilitiesEvidenceAuditAndRevocation(t *test
 	)
 	if err != nil || evidence.StorageKey != fixture.media.StorageKey {
 		t.Fatalf("evidence=%+v err=%v", evidence, err)
+	}
+	audit, err = fixture.store.ListModerationAuditEvents(
+		full.Operator.ID, full.Token, report.ID, 10,
+	)
+	if err != nil || len(audit) != 2 || audit[1].EventType != "evidence.read" ||
+		audit[1].OperatorID != full.Operator.ID {
+		t.Fatalf("evidence audit export=%+v err=%v", audit, err)
+	}
+	if _, err := fixture.store.ListModerationAuditEvents(
+		full.Operator.ID, full.Token, "rp_00000000000000000000000000", 10,
+	); !errors.Is(err, ErrModerationNotFound) {
+		t.Fatalf("missing report audit error=%v", err)
 	}
 	if count, err := fixture.store.ModerationAuditCount(report.ID, "evidence.read"); err != nil || count != 1 {
 		t.Fatalf("evidence audit count=%d err=%v", count, err)

@@ -173,6 +173,18 @@ func TestModerationHTTPAuthPrivacyEvidenceAndDecision(t *testing.T) {
 	if evidence.Code != http.StatusOK || evidence.Body.String() != "http-moderation-evidence" {
 		t.Fatalf("evidence status=%d body=%q", evidence.Code, evidence.Body.String())
 	}
+	audit := apiRequest(
+		fixture.harness.mux, http.MethodGet,
+		"/v1/moderation/reports/"+reportID+"/audit?limit=20", "",
+		fixture.operator.Token,
+	)
+	if audit.Code != http.StatusOK ||
+		!strings.Contains(audit.Body.String(), `"event_type":"report.created"`) ||
+		!strings.Contains(audit.Body.String(), `"event_type":"evidence.read"`) ||
+		strings.Contains(audit.Body.String(), "private reporter text") ||
+		strings.Contains(audit.Body.String(), fixture.media.StorageKey) {
+		t.Fatalf("audit status=%d body=%s", audit.Code, audit.Body.String())
+	}
 	decision := apiRequest(
 		fixture.harness.mux, http.MethodPost,
 		"/v1/moderation/reports/"+reportID+"/decision",
@@ -216,6 +228,14 @@ func TestModerationHTTPRevokedAndLeastPrivilegeOperatorsFailClosed(t *testing.T)
 	)
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("list-only evidence status=%d body=%s", response.Code, response.Body.String())
+	}
+	audit := apiRequest(
+		fixture.harness.mux, http.MethodGet,
+		"/v1/moderation/reports/"+reportID+"/audit", "", listOnly.Token,
+	)
+	if audit.Code != http.StatusOK ||
+		!strings.Contains(audit.Body.String(), `"event_type":"report.created"`) {
+		t.Fatalf("list-only audit status=%d body=%s", audit.Code, audit.Body.String())
 	}
 	if _, err := fixture.harness.store.RevokeModerationOperator(
 		fixture.operator.Operator.ID, time.Now().UnixMilli(),

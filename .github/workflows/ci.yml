@@ -26,6 +26,7 @@ jobs:
           cd coordinator
           go vet ./...
           go test ./...
+          go run ./cmd/moderation-ops-check
           go test -tags previoushead -count=1 ./internal/store -run '^(TestR8ExactPreviousHEAD(AuthorityRoundTrip|TwoGenerationProjectionComposition|ConfigBootstrapContract)|TestMediaIngestExactPreviousHeadRollback|TestMediaUploadExactPreviousHeadRollback|TestMediaProcessingExactPreviousHeadRollback|TestMediaLifecycleExactPreviousHeadRollback|TestMediaIntegrationExactPreviousHeadRollback|TestTransmissionStoreExactPreviousHeadRollback|TestModerationExactPreviousHeadRollback)$'
 
   node-core:

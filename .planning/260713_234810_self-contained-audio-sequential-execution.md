@@ -4,22 +4,22 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 29 accepted, 176 remain.
-- Routed inventory: 186 engineering tasks (29 accepted, 157 remain) and 19
+- Combined inventory: 205 original tasks; 30 accepted, 175 remain.
+- Routed inventory: 186 engineering tasks (30 accepted, 156 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-16zfvu` — confirm-legal-ops-inputs
-- Next engineering task after landing: `TASK-260712-2kec2s` — moderation-control-plane
+- Current engineering task after PR #29 lands: `TASK-260712-2kec2s` — moderation-control-plane
+- Most recently accepted: `TASK-260712-16zfvu` — confirm-legal-ops-inputs
 - Current branch: `task/task-260712-16zfvu-confirm-legal-ops-inputs`
-- Current external-input gate: seven legal/operations groups await explicit
-  accountable-owner approval; Store submit is fail-closed and PR #29 remains
-  draft. Engineering checkpoint `18eae3f` passed hosted CI `29335621951`.
-- Accepted overall: 29 / 205 tasks (approximately 14.1%); 176 remain
-- Engineering progress: 29 / 186 tasks (approximately 15.6%); 157 remain
+- Current external-input gate: all seven legal/operations groups are approved
+  by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
+  `29338589269`. PR #29 is ready to land.
+- Accepted overall: 30 / 205 tasks (approximately 14.6%); 175 remain
+- Engineering progress: 30 / 186 tasks (approximately 16.1%); 156 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -103,8 +103,9 @@ lawful Microsoft Store markets except sanctioned, embargoed or prohibited
 jurisdictions; Monday-Friday 10:00-19:00 GMT+4 moderation with two-business-day
 normal and 24-hour urgent targets; and no separate counsel requirement with
 Ivan Oparin as EN/RU reviewer. All seven groups and `--require-approved` now
-pass locally. The task and PR #29 remain in progress only until full hosted CI
-and merge; progress remains 29/205 until acceptance.
+pass locally. Exact head `3b12371` passed all four hosted jobs in run
+`29338589269`; the task is accepted and PR #29 is ready to merge. Progress is
+30/205.
 
 Checkpoint 2026-07-14: `TASK-260712-2cdjq8` closes the P1 transmission story
 with one stable rollout/handoff entry point. It records the frozen strict HTTP
@@ -615,7 +616,10 @@ Story: `STORY-260712-25lysg` — P1 Transmission protocol and scheduler.
 
 Story: `STORY-260712-1tgryz` — P1 Policy and moderation foundation.
 
-- [ ] `TASK-260712-16zfvu` — confirm-legal-ops-inputs
+- [x] `TASK-260712-16zfvu` — confirm-legal-ops-inputs (accepted on exact head
+  `3b12371`: all seven owner-approved legal/operations groups, strict
+  machine-readable validation and pre-submit fail-closed gate; local full/race/
+  platform gates and all four hosted jobs in run `29338589269` green; PR #29)
 - [ ] `TASK-260712-2kec2s` — moderation-control-plane
 - [ ] `TASK-260712-g9ycx5` — verify-current-store-policy
 - [ ] `TASK-260712-1epb3a` — privacy-ugc-policy-pack

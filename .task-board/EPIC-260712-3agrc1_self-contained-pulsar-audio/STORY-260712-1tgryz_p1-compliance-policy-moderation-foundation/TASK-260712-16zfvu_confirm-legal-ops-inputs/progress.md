@@ -1,5 +1,5 @@
 ## Status
-development
+done
 
 ## Assigned To
 codex-inline
@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:57:28Z
 
 ## Last Update
-2026-07-14T13:54:55Z
+2026-07-14T14:00:51Z
 
 ## Blocked By
 - (none)
@@ -32,9 +32,10 @@ Tracking checkpoint e9542b7e3cca10ca83b82af609de12fea322aad1 is green in all fou
 Ivan Oparin approved the observed Relux Works candidates and named himself common owner. The contract now approves legal/controller identity, contacts/canonical URLs, and Partner Center/submission ownership. United States is recorded as the primary and backup data region; age 13, Armenian law/courts, English control, GMT+4, Ivan Oparin moderation ownership/reviewers and normalized mailboxes are retained as candidate facts. Publication remains fail-closed on four exact decisions: actual hosting/backup providers and subprocessors; target/excluded markets; coverage hours plus normal/urgent response durations; counsel review yes/no. Local coordinator vet/full/race, Windows vet/tests, release Swift build, board validation and diff checks pass. Local swift test cannot load module Testing under standalone CommandLineTools; hosted macOS CI remains the authoritative Swift test gate.
 Partial-approval head 86c7c4a passed all four hosted CI jobs in run 29337160625: coordinator, node-core, pulsar-win and signed packaged probe. The approval gate correctly reports only four unresolved groups; task acceptance and overall progress remain unchanged.
 Ivan Oparin explicitly approved the proposed best-effort defaults at 2026-07-14T17:52:59+04:00. All seven groups and the publication gate are now approved. Both structural and --require-approved validator modes pass; all task checklist items are complete. Awaiting full local and hosted CI before acceptance and merge.
+Final approved code head 3b1237156f8ad847c362bda73efbdd7837ee0eb5 passed all four hosted jobs in run 29338589269. All seven approved groups, accountable ownership, evidence, strict validation and the pre-submit fail-closed gate satisfy the task acceptance criteria. Accepted for merge; no policy publication or Store submission is claimed.
 
 ## Precondition Resources
 - [p1-store-compliance-components.puml](file://TASK-260712-16zfvu/p1-store-compliance-components.puml) — Store compliance ownership and external-input boundaries
 
 ## Outcome Resources
-- [legal-ops-input-checkpoint.md](file://TASK-260712-16zfvu/legal-ops-input-checkpoint.md) — Complete approved legal and operations checkpoint
+- [legal-ops-input-checkpoint.md](file://TASK-260712-16zfvu/legal-ops-input-checkpoint.md) — Accepted approved legal and operations checkpoint with exact green CI evidence

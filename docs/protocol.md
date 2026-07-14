@@ -11,6 +11,10 @@ The stable deploy, mixed-version, rollback and downstream-consumer entry point
 is the [phase-one transmission rollout handoff](analysis/p1-transmission-rollout-handoff.md).
 It does not replace the frozen contract.
 
+The normative Phase 1 app/bot history, receipt, presence, DND/block and opaque
+Telegram callback surface is frozen in the
+[history/presence/Telegram contract](analysis/p1-history-presence-telegram-contract-v1.md).
+
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 
 ## Envelope

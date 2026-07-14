@@ -257,6 +257,10 @@ Pulsar остаётся рабочим через кнопку и предлаг
 
 ### 4.7 История и входящие
 
+Точные Phase 1 routes, authorization, pagination, DND/block ownership и
+Telegram callback/default-enqueue races заморожены в
+[`p1-history-presence-telegram-contract-v1`](analysis/p1-history-presence-telegram-contract-v1.md).
+
 Основной экран показывает последние transmissions:
 
 - отправитель и исходный Барицентр;

@@ -30,7 +30,16 @@ public final class AudioEngine {
 
     // Music branch fade gain (pause fade_ms / playnow 300 ms, spec 7.3).
     // Raised-cosine (S-curve) ramp: zero slope at both ends, so fades into
-    // silence land softly instead of perceptually "cutting off".
+    // silence land softly instead of perceptually "cutting off". Control
+    // enqueues fixed-size commands; only render mutates the ramp itself.
+    private struct MusicGainCommand {
+        var target: Float
+        var rampFrames: Int64
+    }
+    private let gainCommandCapacity = 64
+    private let gainCommands: UnsafeMutablePointer<MusicGainCommand>
+    private let gainCommandHead = RenderAtomicInt64()
+    private let gainCommandTail = RenderAtomicInt64()
     private var gainCurrent: Float = 1
     private var gainStart: Float = 1
     private var gainTarget: Float = 1
@@ -38,29 +47,47 @@ public final class AudioEngine {
     private var gainRampDone: Int = 0
 
     // Underruns (spec 6.3/6.5) — read by heartbeat.
-    public private(set) var underrunCallbacks: Int64 = 0
+    private let underrunCounter = RenderAtomicInt64()
+    public var underrunCallbacks: Int64 { underrunCounter.load() }
     /// Callbacks fully fed from the ring — glitch detector: fed and starved
     /// callbacks inside the same second = audible dropout, not idle silence.
-    public private(set) var fedCallbacks: Int64 = 0
+    private let fedCounter = RenderAtomicInt64()
+    public var fedCallbacks: Int64 { fedCounter.load() }
     /// Consecutive silence seconds estimate for audio_starvation (spec 6.6);
     /// only meaningful while `expectingMusic` is true (UNRESOLVED R4 gate).
-    public var expectingMusic = false
-    public private(set) var starvedCallbacksStreak: Int64 = 0
+    private let expectingMusicState = RenderAtomicInt64()
+    public var expectingMusic: Bool {
+        get { expectingMusicState.load() != 0 }
+        set {
+            expectingMusicState.store(newValue ? 1 : 0)
+            if !newValue { starvedCounter.store(0) }
+        }
+    }
+    private let starvedCounter = RenderAtomicInt64()
+    public var starvedCallbacksStreak: Int64 { starvedCounter.load() }
 
     // First-nonzero-sample detection for `started` (spec 6.3 item 4).
-    private var armFirstSample = false
+    private let armFirstSampleState = RenderAtomicInt64()
+    private let firstSampleHostTime = RenderAtomicInt64()
+    private let firstSampleQueue = DispatchQueue(label: "duet.first-sample-dispatch")
+    private var firstSampleTimer: DispatchSourceTimer?
     public var onFirstMusicSample: ((_ hostTimeNow: UInt64) -> Void)?
 
     public init(fifoPath: String, ringMs: Int, log: Logger) {
         self.fifoPath = fifoPath
         self.log = log
         ring = RingBuffer(capacityFloats: Int(sampleRate) * channels * ringMs / 1000)
+        gainCommands = .allocate(capacity: gainCommandCapacity)
+        gainCommands.initialize(
+            repeating: MusicGainCommand(target: 1, rampFrames: 0),
+            count: gainCommandCapacity)
         readerActive.initialize(to: false)
 
         let fmt = AVAudioFormat(standardFormatWithSampleRate: sampleRate,
                                 channels: AVAudioChannelCount(channels))!
         var scratch = [Float](repeating: 0, count: 8192 * channels)
 
+        // BEGIN RENDER CALLBACK (checked by RenderSafetySourceTests)
         srcNode = AVAudioSourceNode(format: fmt) { [weak self] _, _, frameCount, abl -> OSStatus in
             guard let self else { return noErr }
             let buffers = UnsafeMutableAudioBufferListPointer(abl)
@@ -71,22 +98,43 @@ public final class AudioEngine {
                 self.ring.read(into: $0.baseAddress!, count: need)
             }
             if got < need {
-                self.underrunCallbacks += 1
-                if self.expectingMusic { self.starvedCallbacksStreak += 1 }
+                self.underrunCounter.add(1)
+                if self.expectingMusicState.load() != 0 {
+                    self.starvedCounter.add(1)
+                } else {
+                    self.starvedCounter.store(0)
+                }
                 for i in got..<need { scratch[i] = 0 }
             } else {
-                self.fedCallbacks += 1
-                self.starvedCallbacksStreak = 0
+                self.fedCounter.add(1)
+                self.starvedCounter.store(0)
             }
 
-            if self.armFirstSample, got > 0 {
+            if self.armFirstSampleState.load() != 0, got > 0 {
                 var nonZero = false
                 for i in 0..<got where scratch[i] != 0 { nonZero = true; break }
                 if nonZero {
-                    self.armFirstSample = false
-                    self.onFirstMusicSample?(mach_absolute_time())
+                    var armed: Int64 = 1
+                    if self.armFirstSampleState.compareExchange(expected: &armed, desired: 0) {
+                        self.firstSampleHostTime.store(Int64(bitPattern: mach_absolute_time()))
+                    }
                 }
             }
+
+            // Consume every command published before this callback. Storage is
+            // fixed at init; there is no allocation, lock, I/O, or wait here.
+            var commandTail = self.gainCommandTail.load()
+            let commandHead = self.gainCommandHead.load()
+            while commandTail < commandHead {
+                let command = self.gainCommands[Int(commandTail % Int64(self.gainCommandCapacity))]
+                self.gainStart = self.gainCurrent
+                self.gainTarget = command.target
+                self.gainRampDone = 0
+                self.gainRampTotal = Int(command.rampFrames)
+                if command.rampFrames == 0 { self.gainCurrent = command.target }
+                commandTail += 1
+            }
+            self.gainCommandTail.store(commandTail)
 
             // Music fade: raised-cosine ramp gainStart -> gainTarget.
             let target = self.gainTarget
@@ -118,14 +166,36 @@ public final class AudioEngine {
             self.gainCurrent = g
             return noErr
         }
+        // END RENDER CALLBACK
 
         engine.attach(srcNode)
         engine.attach(insertPlayer)
         engine.connect(srcNode, to: engine.mainMixerNode, format: fmt)
         engine.connect(insertPlayer, to: engine.mainMixerNode, format: nil)
+        startFirstSampleDispatcher()
     }
 
-    deinit { readerActive.deallocate() }
+    deinit {
+        firstSampleTimer?.cancel()
+        gainCommands.deinitialize(count: gainCommandCapacity)
+        gainCommands.deallocate()
+        readerActive.deallocate()
+    }
+
+    private func startFirstSampleDispatcher() {
+        let timer = DispatchSource.makeTimerSource(queue: firstSampleQueue)
+        timer.schedule(deadline: .now(), repeating: .milliseconds(2))
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            let hostTime = self.firstSampleHostTime.load()
+            guard hostTime != 0 else { return }
+            var expected = hostTime
+            guard self.firstSampleHostTime.compareExchange(expected: &expected, desired: 0) else { return }
+            self.onFirstMusicSample?(UInt64(bitPattern: hostTime))
+        }
+        timer.resume()
+        firstSampleTimer = timer
+    }
 
     public func start() throws {
         try engine.start()
@@ -199,16 +269,18 @@ public final class AudioEngine {
     /// Fades the music branch to `target` over `fadeMs` (0 = instant) along
     /// a raised-cosine curve (soft landing into silence).
     public func setMusicGain(_ target: Float, fadeMs: Int64) {
-        if fadeMs <= 0 {
-            gainCurrent = target
-            gainTarget = target
-            gainRampTotal = 0
+        let frames = fadeMs <= 0
+            ? 0
+            : max(1, Int64(Float(sampleRate) * Float(fadeMs) / 1000))
+        let head = gainCommandHead.load()
+        let tail = gainCommandTail.load()
+        guard head - tail < Int64(gainCommandCapacity) else {
+            log.error("music gain command queue full", ["capacity": gainCommandCapacity])
             return
         }
-        gainStart = gainCurrent
-        gainTarget = target
-        gainRampDone = 0
-        gainRampTotal = max(1, Int(Float(sampleRate) * Float(fadeMs) / 1000))
+        gainCommands[Int(head % Int64(gainCommandCapacity))] =
+            MusicGainCommand(target: target, rampFrames: frames)
+        gainCommandHead.store(head + 1)
     }
 
     // MARK: Ring accessors (PlayerCore uses these for audible_position/ended)
@@ -221,7 +293,7 @@ public final class AudioEngine {
     public func clearRing() { ring.clear() }
 
     /// Arms first-nonzero-sample detection for the next start (spec 6.3).
-    public func armStartDetection() { armFirstSample = true }
+    public func armStartDetection() { armFirstSampleState.store(1) }
 
     // MARK: Voice inserts / clicks (AVAudioPlayerNode branch)
 

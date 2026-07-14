@@ -70,6 +70,7 @@ private final class StubMediaClipMixer: MediaClipMixer {
     private var _armCount = 0
     private var _cancelCount = 0
     private var _disposeCount = 0
+    private var _lastControl: MixerControlParameters?
 
     init(deliveryCapabilities: [String] = []) {
         self.deliveryCapabilities = deliveryCapabilities
@@ -91,6 +92,7 @@ private final class StubMediaClipMixer: MediaClipMixer {
     ) throws {
         lock.withLock {
             _armCount += 1
+            _lastControl = plan.control
             started = onStarted
             ended = onEnded
         }
@@ -129,6 +131,10 @@ private final class StubMediaClipMixer: MediaClipMixer {
 
     var disposeCount: Int {
         lock.withLock { _disposeCount }
+    }
+
+    var lastControl: MixerControlParameters? {
+        lock.withLock { _lastControl }
     }
 }
 
@@ -322,6 +328,7 @@ private func makeClient(
         client.play(overlayPlayPayload())
         client.synchronize()
         #expect(mixer.armCount == 1)
+        #expect(mixer.lastControl == MixerControlParameters(overlayPlayPayload()))
 
         mixer.fireStarted(11_010)
         mixer.fireStarted(11_011)
@@ -334,6 +341,41 @@ private func makeClient(
         #expect(recorder.events[1].timestamp == 11_010)
         #expect(recorder.events[2].timestamp == 15_210)
         #expect(fetcher.removed == [fetcher.resultURL])
+    }
+
+    @Test func playingGenerationCannotBeReplacedAndHigherCancelStopsFirst() async {
+        let fetcher = StubMediaClipFetcher()
+        let mixer = StubMediaClipMixer(deliveryCapabilities: [overlayMixCapability])
+        let recorder = MediaEventRecorder()
+        let client = makeClient(fetcher: fetcher, mixer: mixer, recorder: recorder)
+        defer { client.stop() }
+
+        client.prepare(preparePayload(generation: 1))
+        #expect(await eventually { recorder.events.count == 1 })
+        client.play(overlayPlayPayload(generation: 1))
+        client.synchronize()
+        mixer.fireStarted(11_000)
+        #expect(await eventually { recorder.events.count == 2 })
+
+        client.prepare(preparePayload(generation: 2))
+        client.synchronize()
+        #expect(fetcher.fetchCount == 1)
+        #expect(mixer.cancelCount == 0)
+        #expect(mixer.disposeCount == 0)
+
+        client.cancel(CancelMediaPayload(
+            transmissionId: "tr_test", generation: 2,
+            reason: "media_deleted", action: "fade_stop",
+            resumeMain: false, fadeMs: 120))
+        #expect(await eventually { recorder.events.count == 3 })
+        #expect(recorder.events.last == .init(
+            kind: .cancelled, generation: 2, code: "media_deleted", timestamp: nil))
+        #expect(mixer.cancelCount == 1)
+        #expect(mixer.disposeCount == 1)
+
+        mixer.fireEnded(15_000)
+        client.synchronize()
+        #expect(recorder.events.count == 3)
     }
 
     @Test func staleScheduleNeverArms() async {

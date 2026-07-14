@@ -19,6 +19,7 @@ package main
 import (
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -34,7 +35,11 @@ type voiceState struct {
 	samples []float32 // interleaved stereo 44.1k
 	cursor  int
 	startAt time.Time // zero = start on the next render pull
-	onDone  func()    // fired (in a fresh goroutine) after the last sample rendered
+	onDone  func()    // dispatched off-render after the last sample rendered
+}
+
+type clickSchedule struct {
+	starts []time.Time
 }
 
 // RenderStats is a snapshot of the dropout telemetry counters.
@@ -49,14 +54,16 @@ type Engine struct {
 	gain  *Gain
 	now   func() time.Time // injectable for click/voice scheduling tests
 
-	mu             sync.Mutex
-	voice          *voiceState
-	clicks         []time.Time // scheduled click start times
-	clickBurst     []float32   // precomputed mono burst
-	expectingMusic bool
-	fed            int64
-	starved        int64
-	starvedStreak  int64
+	voice          atomic.Pointer[voiceState]
+	clicks         atomic.Pointer[clickSchedule]
+	clickBurst     []float32 // precomputed mono burst
+	expectingMusic atomic.Bool
+	fed            atomic.Int64
+	starved        atomic.Int64
+	starvedStreak  atomic.Int64
+	doneCallbacks  chan func()
+	done           chan struct{}
+	closeOnce      sync.Once
 }
 
 func NewEngine(music *Ring, gain *Gain) *Engine {
@@ -64,18 +71,39 @@ func NewEngine(music *Ring, gain *Gain) *Engine {
 	for i := range burst {
 		burst[i] = clickAmplitude * float32(math.Sin(2*math.Pi*clickFreqHz*float64(i)/sampleRate))
 	}
-	return &Engine{music: music, gain: gain, now: time.Now, clickBurst: burst}
+	e := &Engine{
+		music: music, gain: gain, now: time.Now, clickBurst: burst,
+		doneCallbacks: make(chan func(), 8),
+		done:          make(chan struct{}),
+	}
+	go e.dispatchDoneCallbacks()
+	return e
+}
+
+func (e *Engine) dispatchDoneCallbacks() {
+	for {
+		select {
+		case callback := <-e.doneCallbacks:
+			callback()
+		case <-e.done:
+			return
+		}
+	}
+}
+
+// Close stops the pre-created completion dispatcher. The render callback
+// never creates goroutines or waits for completion delivery.
+func (e *Engine) Close() {
+	e.closeOnce.Do(func() { close(e.done) })
 }
 
 // SetExpectingMusic gates the starved-streak counter: silence while stopped
 // or paused is idle, not an underrun (UNRESOLVED R4).
 func (e *Engine) SetExpectingMusic(v bool) {
-	e.mu.Lock()
-	e.expectingMusic = v
+	e.expectingMusic.Store(v)
 	if !v {
-		e.starvedStreak = 0
+		e.starvedStreak.Store(0)
 	}
-	e.mu.Unlock()
 }
 
 // PlayVoice replaces music with the decoded voice samples starting at startAt
@@ -84,40 +112,55 @@ func (e *Engine) SetExpectingMusic(v bool) {
 // A newer voice replaces a pending one (its onDone is dropped, mirroring the
 // mac player node which just schedules over).
 func (e *Engine) PlayVoice(samples []float32, startAt time.Time, onDone func()) {
-	e.mu.Lock()
-	e.voice = &voiceState{samples: samples, startAt: startAt, onDone: onDone}
-	e.mu.Unlock()
+	e.voice.Store(&voiceState{samples: samples, startAt: startAt, onDone: onDone})
 }
 
 // StopVoice drops any active or pending voice insert without firing onDone.
 func (e *Engine) StopVoice() {
-	e.mu.Lock()
-	e.voice = nil
-	e.mu.Unlock()
+	e.voice.Store(nil)
 }
 
 // VoiceActive reports whether a voice insert is pending or sounding.
 func (e *Engine) VoiceActive() bool {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.voice != nil
+	return e.voice.Load() != nil
 }
 
 // PlayClicks schedules count clicks, the first at firstAt, then every
 // intervalMS (offset_test, spec 7.3).
 func (e *Engine) PlayClicks(count int, firstAt time.Time, intervalMS int64) {
-	e.mu.Lock()
-	for k := 0; k < count; k++ {
-		e.clicks = append(e.clicks, firstAt.Add(time.Duration(intervalMS*int64(k))*time.Millisecond))
+	if count <= 0 {
+		return
 	}
-	e.mu.Unlock()
+	previous := e.clicks.Load()
+	previousCount := 0
+	if previous != nil {
+		previousCount = len(previous.starts)
+	}
+	starts := make([]time.Time, previousCount+count)
+	if previous != nil {
+		copy(starts, previous.starts)
+	}
+	for k := 0; k < count; k++ {
+		starts[previousCount+k] = firstAt.Add(time.Duration(intervalMS*int64(k)) * time.Millisecond)
+	}
+	e.clicks.Store(&clickSchedule{starts: starts})
+}
+
+// ScheduledClickCount exposes the immutable control snapshot for tests and
+// diagnostics without reaching into render-owned state.
+func (e *Engine) ScheduledClickCount() int {
+	schedule := e.clicks.Load()
+	if schedule == nil {
+		return 0
+	}
+	return len(schedule.starts)
 }
 
 // Stats returns the telemetry counters snapshot.
 func (e *Engine) Stats() RenderStats {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return RenderStats{Fed: e.fed, Starved: e.starved, StarvedStreak: e.starvedStreak}
+	return RenderStats{
+		Fed: e.fed.Load(), Starved: e.starved.Load(), StarvedStreak: e.starvedStreak.Load(),
+	}
 }
 
 // Render fills dst (interleaved stereo f32) and returns how many floats were
@@ -126,13 +169,12 @@ func (e *Engine) Stats() RenderStats {
 //
 // Single consumer: only the render loop calls this (SPSC contract of Ring).
 func (e *Engine) Render(dst []float32) int {
-	e.mu.Lock()
 	now := e.now()
 
 	var doneCb func()
 	musicFloats := 0
 
-	if v := e.voice; v != nil && !now.Before(v.startAt) {
+	if v := e.voice.Load(); v != nil && !now.Before(v.startAt) {
 		// Voice REPLACES music: the ring is left untouched.
 		n := copy(dst, v.samples[v.cursor:])
 		v.cursor += n
@@ -140,8 +182,9 @@ func (e *Engine) Render(dst []float32) int {
 			dst[i] = 0
 		}
 		if v.cursor >= len(v.samples) {
-			doneCb = v.onDone
-			e.voice = nil
+			if e.voice.CompareAndSwap(v, nil) {
+				doneCb = v.onDone
+			}
 		}
 	} else {
 		got := e.music.Read(dst)
@@ -151,24 +194,26 @@ func (e *Engine) Render(dst []float32) int {
 		e.gain.ApplyMusicRamp(dst)
 		musicFloats = got
 		if got < len(dst) {
-			e.starved++
-			if e.expectingMusic {
-				e.starvedStreak++
+			e.starved.Add(1)
+			if e.expectingMusic.Load() {
+				e.starvedStreak.Add(1)
+			} else {
+				e.starvedStreak.Store(0)
 			}
 		} else {
-			e.fed++
-			e.starvedStreak = 0
+			e.fed.Add(1)
+			e.starvedStreak.Store(0)
 		}
 	}
 
 	// Click overlay (additive, like the mac insert player node).
-	if len(e.clicks) > 0 {
+	if schedule := e.clicks.Load(); schedule != nil {
 		frames := len(dst) / channels
-		remaining := e.clicks[:0]
-		for _, start := range e.clicks {
+		retained := false
+		for _, start := range schedule.starts {
 			elapsed := now.Sub(start)
 			if elapsed < 0 {
-				remaining = append(remaining, start) // still in the future
+				retained = true // still in the future
 				continue
 			}
 			off := int(elapsed.Seconds() * sampleRate)
@@ -182,12 +227,13 @@ func (e *Engine) Render(dst []float32) int {
 				}
 			}
 			if off+frames < len(e.clickBurst) {
-				remaining = append(remaining, start) // tail still to sound
+				retained = true // tail still to sound
 			}
 		}
-		e.clicks = remaining
+		if !retained {
+			e.clicks.CompareAndSwap(schedule, nil)
+		}
 	}
-	e.mu.Unlock()
 
 	// Master amplitude last: scales music, voice and clicks alike.
 	amp := e.gain.Amplitude()
@@ -196,7 +242,13 @@ func (e *Engine) Render(dst []float32) int {
 	}
 
 	if doneCb != nil {
-		go doneCb() // voice_ended must not run under the engine lock
+		select {
+		case e.doneCallbacks <- doneCb:
+		default:
+			// The queue is preallocated and intentionally non-blocking. There
+			// can only be one active voice, so a full queue means the callback
+			// consumer is stalled; preserve audio timing instead of waiting.
+		}
 	}
 	return musicFloats
 }

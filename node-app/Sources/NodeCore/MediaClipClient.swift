@@ -255,6 +255,62 @@ struct MediaClipPlayPlan {
     let payload: PlayMediaAtPayload
     let localStartMs: Int64
     let localStartDeadlineMs: Int64
+    let control: MixerControlParameters
+}
+
+/// Immutable, pointer-free carrier handed from the protocol/control queue to
+/// a platform mixer. Render code never interprets optional wire fields.
+struct MixerControlParameters: Equatable {
+    let transmissionID: String
+    let generation: Int64
+    let delivery: String
+    let duckDB: Double
+    let attackMs: Int64
+    let releaseMs: Int64
+    let fadeOutMs: Int64
+    let fadeInMs: Int64
+    let limiterCeilingDB: Double
+    let interrupt: Bool
+    let reportStarted: Bool
+    let reportEnded: Bool
+
+    init?(_ payload: PlayMediaAtPayload) {
+        let (lateWindow, overflow) = payload.startDeadlineCoordMs
+            .subtractingReportingOverflow(payload.tCoordMs)
+        guard !overflow, payload.generation > 0, !payload.transmissionId.isEmpty,
+              payload.tCoordMs > 0, lateWindow == 100 else { return nil }
+        transmissionID = payload.transmissionId
+        generation = payload.generation
+        delivery = payload.delivery
+        limiterCeilingDB = -1
+        reportStarted = true
+        reportEnded = true
+        switch payload.delivery {
+        case "overlay":
+            guard let duck = payload.duckDb, duck.isFinite, duck <= 0,
+                  let attack = payload.attackMs, attack >= 0,
+                  let release = payload.releaseMs, release >= 0,
+                  payload.fadeOutMs == nil, payload.fadeInMs == nil else { return nil }
+            duckDB = duck
+            attackMs = attack
+            releaseMs = release
+            fadeOutMs = 0
+            fadeInMs = 0
+            interrupt = false
+        case "interrupt":
+            guard payload.duckDb == nil, payload.attackMs == nil, payload.releaseMs == nil,
+                  let fadeOut = payload.fadeOutMs, fadeOut >= 0,
+                  let fadeIn = payload.fadeInMs, fadeIn >= 0 else { return nil }
+            duckDB = 0
+            attackMs = 0
+            releaseMs = 0
+            fadeOutMs = fadeOut
+            fadeInMs = fadeIn
+            interrupt = true
+        default:
+            return nil
+        }
+    }
 }
 
 protocol MediaClipMixer: AnyObject {
@@ -293,10 +349,20 @@ final class PreparedOnlyMacMediaClipMixer: MediaClipMixer {
             guard file.length > 0, file.processingFormat.sampleRate > 0 else {
                 throw MediaClipFailure.frozenCode("decode_failed")
             }
+            guard file.length <= AVAudioFramePosition(UInt32.max),
+                  let buffer = AVAudioPCMBuffer(
+                    pcmFormat: file.processingFormat,
+                    frameCapacity: AVAudioFrameCount(file.length)) else {
+                throw MediaClipFailure.frozenCode("decode_failed")
+            }
+            try file.read(into: buffer)
+            guard buffer.frameLength == AVAudioFrameCount(file.length) else {
+                throw MediaClipFailure.frozenCode("decode_failed")
+            }
             let duration = Int64(
-                (Double(file.length) / file.processingFormat.sampleRate * 1000).rounded(.up))
+                (Double(buffer.frameLength) / file.processingFormat.sampleRate * 1000).rounded(.up))
             return PreparedMediaClip(
-                localURL: localURL, decodedDurationMs: duration, decoderHandle: file)
+                localURL: localURL, decodedDurationMs: duration, decoderHandle: buffer)
         } catch let failure as MediaClipFailure {
             throw failure
         } catch {
@@ -344,6 +410,7 @@ final class MediaClipClient: @unchecked Sendable {
         var readySent = false
         var startedSent = false
         var terminalSent = false
+        var supersedingCancel: CancelMediaPayload?
 
         init(transmissionID: String, generation: Int64,
              preparePayload: PrepareMediaPayload?, phase: Phase) {
@@ -436,6 +503,12 @@ final class MediaClipClient: @unchecked Sendable {
                         current, stage: "prepare", code: "internal_error")
                     return
                 }
+                return
+            }
+            if current.phase == .armed || current.phase == .playing ||
+               current.phase == .cancelling {
+                // A queued generation cannot steal render ownership. The
+                // current clip must first reach a cancellation/terminal ack.
                 return
             }
             discard(current)
@@ -542,7 +615,7 @@ final class MediaClipClient: @unchecked Sendable {
               let prepared = entry.prepared,
               let prepare = entry.preparePayload,
               prepare.delivery == payload.delivery,
-              validPlay(payload) else { return }
+              let control = MixerControlParameters(payload) else { return }
 
         let requiredCapability = payload.delivery == "interrupt"
             ? interruptResumeCapability : overlayMixCapability
@@ -576,7 +649,8 @@ final class MediaClipClient: @unchecked Sendable {
         let plan = MediaClipPlayPlan(
             payload: payload,
             localStartMs: localStart,
-            localStartDeadlineMs: localDeadline)
+            localStartDeadlineMs: localDeadline,
+            control: control)
         do {
             try mixer.arm(
                 prepared,
@@ -636,15 +710,14 @@ final class MediaClipClient: @unchecked Sendable {
         if let current = entries[payload.transmissionId] {
             if payload.generation < current.generation { return }
             if payload.generation > current.generation {
+                if current.prepared != nil &&
+                   (current.phase == .armed || current.phase == .playing ||
+                    current.phase == .cancelling) {
+                    beginSupersedingCancel(current, payload: payload)
+                    return
+                }
                 discard(current)
-                let tombstone = Entry(
-                    transmissionID: payload.transmissionId,
-                    generation: payload.generation,
-                    preparePayload: nil,
-                    phase: .terminal)
-                tombstone.terminalSent = true
-                entries[payload.transmissionId] = tombstone
-                sendCancelled(payload, mainResumed: false)
+                installCancelTombstone(payload)
                 return
             }
             if current.phase == .terminal {
@@ -673,23 +746,61 @@ final class MediaClipClient: @unchecked Sendable {
             mixer.cancel(prepared, command: payload) { [weak self, weak current] result in
                 guard let self, let current else { return }
                 self.queue.async {
-                    guard self.isCurrent(current), current.phase == .cancelling else { return }
-                    switch result {
-                    case .success(let mainResumed):
-                        self.finish(current, message: .mediaCancelled(MediaCancelledPayload(
-                            transmissionId: payload.transmissionId,
-                            generation: payload.generation,
-                            reason: payload.reason,
-                            action: payload.action,
-                            mainResumed: mainResumed)))
-                    case .failure(let failure):
-                        self.fail(current, stage: "cancel", code: failure.code)
-                    }
+                    self.completeCancel(current, payload: payload, result: result)
                 }
             }
             return
         }
 
+        installCancelTombstone(payload)
+    }
+
+    private func beginSupersedingCancel(_ current: Entry, payload: CancelMediaPayload) {
+        current.supersedingCancel = payload
+        guard current.phase != .cancelling, let prepared = current.prepared else { return }
+        current.prepareTask?.cancel()
+        current.prepareTask = nil
+        current.startDeadlineTimer?.cancel()
+        current.startDeadlineTimer = nil
+        current.phase = .cancelling
+        mixer.cancel(prepared, command: payload) { [weak self, weak current] result in
+            guard let self, let current else { return }
+            self.queue.async {
+                self.completeCancel(current, payload: payload, result: result)
+            }
+        }
+    }
+
+    private func completeCancel(
+        _ current: Entry,
+        payload: CancelMediaPayload,
+        result: Result<Bool, MediaClipFailure>
+    ) {
+        guard isCurrent(current), current.phase == .cancelling else { return }
+        switch result {
+        case .failure(let failure):
+            fail(current, stage: "cancel", code: failure.code)
+        case .success(let mainResumed):
+            if let superseding = current.supersedingCancel {
+                if let prepared = current.prepared {
+                    mixer.dispose(prepared)
+                    fetcher.remove(prepared.localURL)
+                    current.prepared = nil
+                }
+                current.phase = .terminal
+                installCancelTombstone(superseding)
+            } else {
+                finish(current, message: .mediaCancelled(MediaCancelledPayload(
+                    transmissionId: payload.transmissionId,
+                    generation: payload.generation,
+                    reason: payload.reason,
+                    action: payload.action,
+                    mainResumed: mainResumed)))
+            }
+        }
+    }
+
+    private func installCancelTombstone(_ payload: CancelMediaPayload) {
         let tombstone = Entry(
             transmissionID: payload.transmissionId,
             generation: payload.generation,
@@ -839,22 +950,7 @@ final class MediaClipClient: @unchecked Sendable {
     }
 
     private func validPlay(_ payload: PlayMediaAtPayload) -> Bool {
-        let (lateWindow, overflow) = payload.startDeadlineCoordMs
-            .subtractingReportingOverflow(payload.tCoordMs)
-        guard !overflow, payload.tCoordMs > 0, lateWindow == 100 else { return false }
-        switch payload.delivery {
-        case "overlay":
-            return payload.duckDb?.isFinite == true && payload.duckDb! <= 0 &&
-                payload.attackMs.map { $0 >= 0 } == true &&
-                payload.releaseMs.map { $0 >= 0 } == true &&
-                payload.fadeOutMs == nil && payload.fadeInMs == nil
-        case "interrupt":
-            return payload.duckDb == nil && payload.attackMs == nil && payload.releaseMs == nil &&
-                payload.fadeOutMs.map { $0 >= 0 } == true &&
-                payload.fadeInMs.map { $0 >= 0 } == true
-        default:
-            return false
-        }
+        MixerControlParameters(payload) != nil
     }
 
     private func estimatedCoordinatorNowMs() -> Int64 {

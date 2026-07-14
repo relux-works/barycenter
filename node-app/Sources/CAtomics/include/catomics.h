@@ -14,6 +14,11 @@ static inline void ca_store_release(volatile void *p, int64_t v) {
     atomic_store_explicit((volatile _Atomic int64_t *)p, v, memory_order_release);
 }
 
+static inline int64_t ca_fetch_add_relaxed(volatile void *p, int64_t delta) {
+    return atomic_fetch_add_explicit(
+        (volatile _Atomic int64_t *)p, delta, memory_order_relaxed) + delta;
+}
+
 // CAS for the ring's clear watermark (M7): acq_rel on success, acquire on
 // failure. Returns true when *p was *expected and is now desired; otherwise
 // the current value is written back into *expected.

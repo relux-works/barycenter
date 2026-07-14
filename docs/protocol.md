@@ -26,7 +26,7 @@ This file records only the details the spec leaves to the implementation. It mus
 | `state.position_ms` | audible position (spec 6.3), not daemon position |
 | `welcome.session_snapshot` | `{ mode, state, current, volume }`; `current` is `null` or `{ element_id, kind, uri?, position_ms }`; `volume` is this node's 0..100 |
 | `ended.reason` enum | `eof \| skipped \| error` (spec 8.4) |
-| `error.code` enum | `load_failed \| track_unavailable \| media_download_failed \| audio_starvation \| librespot_restart \| device_lost` (spec 8.4) |
+| `error.code` enum | `load_failed \| track_unavailable \| media_download_failed \| audio_starvation \| librespot_restart \| device_lost \| invalid_dnd_revision`; the additive DND code is frozen by the phase-one transmission contract |
 | `set_mode.mode` / snapshot `mode` | `shared \| solo` |
 | Snapshot `state` | coordinator FSM state lowercase: `idle \| loading \| armed \| playing \| voice \| paused \| degraded` |
 | Optional fields | `play_voice.t_coord_ms` (absent = start immediately), `error.element_id` (absent = not element-scoped). Absent = key omitted, not `null` |

@@ -147,7 +147,8 @@ func (service *SubmitService) SubmitUpload(ctx context.Context, uploadSessionID 
 // and placing source bytes in server-owned private storage.
 func (service *SubmitService) SubmitMedia(ctx context.Context, submission Submission) (store.MediaItem, error) {
 	if ctx == nil || !mediaItemIDPattern.MatchString(submission.MediaID) ||
-		submission.SourcePath == "" || submission.ExpectedSize <= 0 {
+		submission.SourcePath == "" || submission.ExpectedSize <= 0 ||
+		(submission.UploadSessionID != "" && !uploadSessionIDPattern.MatchString(submission.UploadSessionID)) {
 		return store.MediaItem{}, processingError("media_request_invalid", nil)
 	}
 	lock := service.mediaLock(submission.MediaID)
@@ -160,6 +161,18 @@ func (service *SubmitService) SubmitMedia(ctx context.Context, submission Submis
 	}
 	if item == nil {
 		return store.MediaItem{}, processingError("media_unavailable", nil)
+	}
+	if submission.UploadSessionID != "" {
+		expectedPath := filepath.Join(service.uploadDir, submission.UploadSessionID+".part")
+		session, sessionErr := service.store.GetMediaUploadSession(submission.UploadSessionID)
+		if sessionErr != nil {
+			return store.MediaItem{}, errors.New("load submission upload session")
+		}
+		if session == nil || session.MediaID != item.ID || session.DeclaredSizeBytes != submission.ExpectedSize ||
+			filepath.Clean(submission.SourcePath) != filepath.Clean(expectedPath) ||
+			(session.Status != store.UploadStatusFinalizing && session.Status != store.UploadStatusCompleted) {
+			return store.MediaItem{}, processingError("media_upload_state_invalid", nil)
+		}
 	}
 	if item.Status == store.MediaStatusReady {
 		service.cleanupSource(submission)
@@ -266,6 +279,9 @@ func (service *SubmitService) SubmitMedia(ctx context.Context, submission Submis
 }
 
 func (service *SubmitService) acquireWorker(ctx context.Context) error {
+	if ctx.Err() != nil {
+		return errors.New("media worker capacity wait cancelled")
+	}
 	timer := time.NewTimer(service.processor.limits.WorkerQueueTimeout)
 	defer timer.Stop()
 	select {

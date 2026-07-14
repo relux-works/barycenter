@@ -316,6 +316,32 @@ func TestSubmitMediaGlobalWorkerCapacityIsBoundedAndRetryable(t *testing.T) {
 	}
 }
 
+func TestSubmitMediaRejectsUploadSessionOrPathConfusion(t *testing.T) {
+	harness := newSubmitHarness(t)
+	raw := testWAVBytes(10)
+	first := harness.createFinalizingUpload(
+		t, harness.credentials, "submit-binding-first-0001", raw,
+	)
+	second := harness.createFinalizingUpload(
+		t, harness.credentials, "submit-binding-second-0001", raw,
+	)
+	firstPath := filepath.Join(harness.service.uploadDir, first.Session.ID+".part")
+	_, err := harness.service.SubmitMedia(context.Background(), Submission{
+		MediaID: first.Media.ID, SourcePath: firstPath, ExpectedSize: int64(len(raw)),
+		UploadSessionID: second.Session.ID,
+	})
+	assertProcessingCode(t, err, "media_upload_state_invalid")
+	if len(harness.runner.commandSnapshot()) != 0 {
+		t.Fatal("confused upload binding invoked a worker")
+	}
+	for _, creation := range []store.MediaUploadCreation{first, second} {
+		item, lookupErr := harness.store.GetMediaItem(creation.Media.ID)
+		if lookupErr != nil || item == nil || item.Status != store.MediaStatusProcessing || item.Revision != 1 {
+			t.Fatalf("confused upload media=%+v err=%v", item, lookupErr)
+		}
+	}
+}
+
 func TestSubmitUploadConcurrentRetryRunsOnePublication(t *testing.T) {
 	harness := newSubmitHarness(t)
 	creation := harness.createFinalizingUpload(

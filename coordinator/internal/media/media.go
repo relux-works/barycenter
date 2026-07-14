@@ -333,7 +333,7 @@ func transcodeArguments(format Format, inputPath, outputPath string, preset Pres
 		"-max_alloc", "134217728", "-threads", "1",
 		"-filter_threads", "1", "-filter_complex_threads", "1",
 		"-f", demuxer(format), "-i", inputPath,
-		"-map", "0:a:0", "-map_metadata", "-1", "-vn", "-sn", "-dn",
+		"-map", "0:a:0", "-map_metadata", "-1", "-map_chapters", "-1", "-vn", "-sn", "-dn",
 		"-af", filterChain(preset), "-t", "180.001",
 		"-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le",
 		"-fflags", "+bitexact", "-flags:a", "+bitexact",

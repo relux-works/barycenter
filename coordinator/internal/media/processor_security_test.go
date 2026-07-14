@@ -213,7 +213,7 @@ func TestProcessorCanonicalizesWithFixedNetworkDisabledResourceCappedCommands(t 
 		t.Fatalf("transcode contract=%+v", transcode)
 	}
 	joined := strings.Join(transcode.Args, " ")
-	for _, required := range []string{"-xerror", "explode", "pcm_s16le", "44100", "-map_metadata -1", "-fflags +bitexact"} {
+	for _, required := range []string{"-xerror", "explode", "pcm_s16le", "44100", "-map_metadata -1", "-map_chapters -1", "-fflags +bitexact"} {
 		if !strings.Contains(joined, required) {
 			t.Fatalf("transcode missing %q: %s", required, joined)
 		}

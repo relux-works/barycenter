@@ -45,7 +45,9 @@ Linux-only for the kernel resource-limit guarantee.
 ## Publication, retry and dedupe
 
 1. Source bytes are copied into a mode-0600 private work directory with an
-   exact size check.
+   exact size check. App submissions must match the persisted media ID,
+   session ID, declared length and service-owned `.uploads/<session>.part`
+   path before any worker is admitted.
 2. Probe, transcode, output probe, loudness validation and SHA-256 complete
    before repository publication begins.
 3. The canonical staging file is mode 0600 and fsynced.

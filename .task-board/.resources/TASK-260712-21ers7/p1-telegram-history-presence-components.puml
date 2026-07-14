@@ -9,7 +9,7 @@ actor "Pulsar App" as App
 
 rectangle "STORY-260712-34kbkn\nTelegram parity + history/presence" {
   [Telegram Transport\nvoice/audio/callback updates] as TgTransport
-  [Inline Action Router\nlegacy default + action callbacks] as InlineRouter
+  [Durable Inline Action Router\nvoice default + opaque callbacks] as InlineRouter
   [Delivery Presentation Model\nhuman labels + receipt wording] as Presentation
   [Presence Surface\nsanitized presence + DND/block] as Presence
   [History/Receipt Query\nrecent transmissions + aggregates] as History
@@ -25,8 +25,11 @@ TgTransport --> Identity : authorize actor
 TgTransport --> Ingest : submit voice/audio
 TgTransport --> InlineRouter : callback events
 
-InlineRouter --> Tx : create transmission\nor legacy after_current
+InlineRouter --> Tx : common policy + scheduler\natomic default replacement
 InlineRouter --> Presentation
+
+database "SQLite\nroutes + HMAC callback digests\n24h query outcomes" as RoutingStore
+InlineRouter --> RoutingStore
 
 Tx --> History : transmission + target states
 Tx --> Presence : target capability\nDND/block result
@@ -44,7 +47,8 @@ note bottom
   This story owns presentation-oriented parity:
   human names, routing labels, presence sanitization,
   Telegram inline actions, and history/receipt read models.
-  It does not own SubmitMedia internals or transmission scheduling semantics.
+  It reuses SubmitMedia and transmission scheduling semantics;
+  it does not create a Telegram-only scheduler.
 end note
 
 @enduml

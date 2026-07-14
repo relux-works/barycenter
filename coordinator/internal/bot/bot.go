@@ -70,12 +70,22 @@ type CallbackEvent struct {
 }
 
 type VoiceEvent struct {
-	TGFileID  string
-	Duration  int // seconds, from Telegram metadata
-	SizeBytes int64
-	Personal  bool // caption "лично" (spec 9.1)
-	Broadcast bool // caption "всем" — forces broadcast over the orbit default
+	TGFileID         string
+	OriginalUpdateID int64
+	Duration         int // seconds, from Telegram metadata
+	SizeBytes        int64
+	Personal         bool // caption "лично" (spec 9.1)
+	Broadcast        bool // caption "всем" — forces broadcast over the orbit default
 }
+
+type InlineButton struct {
+	Text string `json:"text"`
+	Data string `json:"callback_data"`
+}
+
+type InlineKeyboard [][]InlineButton
+
+type InlineKeyboardBuilder func(messageID int64) (InlineKeyboard, error)
 
 // API abstracts the Telegram Bot HTTP API for tests.
 type API interface {
@@ -178,6 +188,7 @@ type outMsg struct {
 	callbackID    string
 	callbackText  string
 	clearKeyboard bool
+	inlineBuilder InlineKeyboardBuilder
 }
 
 func New(api API, log *slog.Logger) *Bot {
@@ -228,6 +239,17 @@ func (b *Bot) SendTo(chatID int64, text string) {
 	}
 }
 
+// SendInlinePrompt sends the human prompt first, then mints and attaches
+// message-bound opaque controls. The two-step flow is deliberately off the
+// coordinator loop and never delays the already-committed default delivery.
+func (b *Bot) SendInlinePrompt(chatID int64, text string, builder InlineKeyboardBuilder) {
+	select {
+	case b.outbox <- outMsg{chatID: chatID, text: text, inlineBuilder: builder}:
+	default:
+		b.log.Warn("outbox full, dropping inline prompt", "operation", "sendMessage")
+	}
+}
+
 // sender is the single goroutine that drains the outbox and performs the
 // blocking Telegram sends off the FSM loop's critical path.
 func (b *Bot) sender(stop <-chan struct{}) {
@@ -239,6 +261,30 @@ func (b *Bot) sender(stop <-chan struct{}) {
 			if m.delete {
 				if err := b.api.DeleteMessage(m.chatID, m.messageID); err != nil {
 					b.log.Debug("secret message deletion failed", "operation", "deleteMessage", "err", safeTelegramLogError("deleteMessage", err))
+				}
+				continue
+			}
+			if m.inlineBuilder != nil {
+				api, ok := b.api.(interface {
+					SendMessageResult(int64, string) (int64, error)
+					SetInlineKeyboard(int64, int64, InlineKeyboard) error
+				})
+				if !ok {
+					b.log.Warn("inline API unavailable", "operation", "sendMessage")
+					continue
+				}
+				messageID, err := api.SendMessageResult(m.chatID, m.text)
+				if err != nil {
+					b.log.Warn("inline prompt send failed", "operation", "sendMessage", "err", safeTelegramLogError("sendMessage", err))
+					continue
+				}
+				keyboard, err := m.inlineBuilder(messageID)
+				if err != nil {
+					b.log.Warn("inline keyboard build failed", "operation", "editMessageReplyMarkup")
+					continue
+				}
+				if err := api.SetInlineKeyboard(m.chatID, messageID, keyboard); err != nil {
+					b.log.Warn("inline keyboard send failed", "operation", "editMessageReplyMarkup", "err", safeTelegramLogError("editMessageReplyMarkup", err))
 				}
 				continue
 			}
@@ -339,11 +385,9 @@ func (b *Bot) handleUpdate(u Update) {
 			FromUserID: msg.From.ID,
 			FromName:   msg.From.FirstName,
 			Voice: &VoiceEvent{
-				TGFileID:  msg.Voice.FileID,
-				Duration:  msg.Voice.Duration,
-				SizeBytes: msg.Voice.FileSize,
-				Personal:  IsPersonalCaption(msg.Caption),
-				Broadcast: IsBroadcastCaption(msg.Caption),
+				TGFileID: msg.Voice.FileID, OriginalUpdateID: u.UpdateID,
+				Duration: msg.Voice.Duration, SizeBytes: msg.Voice.FileSize,
+				Personal: IsPersonalCaption(msg.Caption), Broadcast: IsBroadcastCaption(msg.Caption),
 			},
 			Reply: reply,
 		}
@@ -654,11 +698,32 @@ func (a *HTTPAPI) GetUpdates(offset int64, timeoutS int) ([]Update, error) {
 }
 
 func (a *HTTPAPI) SendMessage(chatID int64, text string) error {
-	return a.call("sendMessage", url.Values{
+	_, err := a.SendMessageResult(chatID, text)
+	return err
+}
+
+func (a *HTTPAPI) SendMessageResult(chatID int64, text string) (int64, error) {
+	var message Message
+	err := a.call("sendMessage", url.Values{
 		"chat_id":                  {strconv.FormatInt(chatID, 10)},
 		"text":                     {text},
 		"parse_mode":               {"HTML"},
 		"disable_web_page_preview": {"true"},
+	}, &message)
+	return message.MessageID, err
+}
+
+func (a *HTTPAPI) SetInlineKeyboard(chatID, messageID int64, keyboard InlineKeyboard) error {
+	markup, err := json.Marshal(struct {
+		InlineKeyboard InlineKeyboard `json:"inline_keyboard"`
+	}{InlineKeyboard: keyboard})
+	if err != nil {
+		return err
+	}
+	return a.call("editMessageReplyMarkup", url.Values{
+		"chat_id":      {strconv.FormatInt(chatID, 10)},
+		"message_id":   {strconv.FormatInt(messageID, 10)},
+		"reply_markup": {string(markup)},
 	}, nil)
 }
 

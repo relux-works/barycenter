@@ -83,6 +83,7 @@ type loop struct {
 
 	telegramMedia        telegramMediaAdapter
 	telegramMediaInitErr error
+	telegramInlinePrompt func(int64, string, bot.InlineKeyboardBuilder)
 
 	// resolveTrack runs the provider cascade for one track (providers.go).
 	// nil while the provider layer is off; tests stub it directly.
@@ -151,17 +152,19 @@ type mediaDone struct {
 	// orderAir is the session that owned the air when Telegram accepted the
 	// message. Two linked barycenters have different source orbit ids but one
 	// shared orderAir, so ffmpeg completion cannot reorder their voices.
-	orderAir       int64
-	mediaID        string
-	from           int64 // tg user id of the sender
-	fromName       string
-	acceptedAt     int64
-	sequence       int64
-	personal       bool
-	attachmentKind string
-	result         media.Result
-	err            error
-	reply          func(string)
+	orderAir         int64
+	mediaID          string
+	from             int64 // tg user id of the sender
+	fromName         string
+	acceptedAt       int64
+	sequence         int64
+	personal         bool
+	attachmentKind   string
+	chatID           int64
+	originalUpdateID int64
+	result           media.Result
+	err              error
+	reply            func(string)
 }
 
 type mediaCancellationCall struct {
@@ -194,6 +197,9 @@ func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store
 		voiceNext:     map[int64]int64{},
 		voicePending:  map[int64]map[int64]mediaDone{},
 		stopped:       make(chan struct{}),
+	}
+	if b != nil {
+		l.telegramInlinePrompt = b.SendInlinePrompt
 	}
 	if sp != nil {
 		l.fetchTrackMetadata = func(ref string) (trackMetadata, error) {
@@ -1039,15 +1045,7 @@ func (l *loop) handleBot(ev bot.Event) {
 	home := l.orbit(member.OrbitID)
 	o := l.stateFor(member.OrbitID)
 	if ev.Callback != nil {
-		// The durable inline action router is introduced by TASK-260712-21ers7.
-		// Until then every authenticated callback gets a prompt, honest terminal
-		// response and stale controls are removed instead of being ignored.
-		if ev.Callback.Answer != nil {
-			ev.Callback.Answer(bot.CallbackUnsupported)
-		}
-		if ev.Callback.ClearKeyboard != nil {
-			ev.Callback.ClearKeyboard()
-		}
+		l.handleTelegramInlineCallback(ev)
 		return
 	}
 
@@ -1762,13 +1760,25 @@ func (l *loop) handleTelegramMedia(
 	}
 	from := ev.FromUserID
 	fromName := ev.FromName
+	originalUpdateID := int64(0)
+	if ev.Voice != nil {
+		originalUpdateID = ev.Voice.OriginalUpdateID
+	} else if ev.Attachment != nil {
+		originalUpdateID = ev.Attachment.OriginalUpdateID
+	}
+	if originalUpdateID <= 0 {
+		// Direct/internal callers predating transport update ids still receive a
+		// stable positive binding; production Bot events always use update_id.
+		originalUpdateID = ev.MessageID
+	}
 	go func() {
 		res, err := l.telegramMedia.Submit(context.Background(), accepted)
 		l.mediaCh <- mediaDone{
 			orbit: orbitID, orderAir: orderAir, mediaID: accepted.MediaID, from: from, fromName: fromName,
 			acceptedAt: accepted.AcceptedAt, sequence: sequence, personal: personal,
 			attachmentKind: attachmentKind,
-			result:         res, err: err, reply: reply,
+			chatID:         ev.ChatID, originalUpdateID: originalUpdateID,
+			result: res, err: err, reply: reply,
 		}
 	}()
 }
@@ -1833,71 +1843,48 @@ func (l *loop) processMediaDone(d mediaDone) {
 	if l.orbitGone(d.orbit) { // L3: /dissolve raced the ffmpeg goroutine
 		return
 	}
-	o := l.stateFor(d.orbit)
-	// Personal target: every home in the air except the sender's own.
-	// In a two-home orbit that is exactly the partner (design §5).
-	target := "both"
-	if d.personal {
-		mine := protocol.NodeID("")
-		if sl, _ := l.st.SlotOf(d.orbit, d.from); sl != "" {
-			mine = l.peerFor(o, hub.NodeKey{Orbit: d.orbit, Slot: protocol.NodeID(sl)})
-		}
-		var others []protocol.NodeID
-		for _, p := range o.sess.Peers {
-			if mine != "" && p == mine {
-				continue
-			}
-			others = append(others, p)
-		}
-		if len(others) == 1 {
-			target = string(others[0])
-		} else if len(others) == 0 {
-			d.reply("в орбите пока только твой дом — отправлю всем, когда появятся другие")
+	audience, selectors, includeOrigin, ok := l.telegramDefaultAudience(d)
+	if d.attachmentKind == "voice" && !ok {
+		d.reply("в орбите пока только твой дом — личное голосовое некому отправить")
+		return
+	}
+	originalUpdateID := d.originalUpdateID
+	if originalUpdateID <= 0 {
+		originalUpdateID = d.acceptedAt
+	}
+	registered, err := l.st.RegisterTelegramInlineRoute(store.RegisterTelegramInlineRouteParams{
+		TelegramUserID: d.from, MediaID: d.mediaID,
+		OriginalUpdateID: originalUpdateID, AttachmentKind: d.attachmentKind,
+		AcceptedAt: d.acceptedAt, AudienceKind: audience, Selectors: selectors,
+		IncludeOrigin: includeOrigin, Availability: l.telegramTransmissionAvailability(),
+	})
+	if err != nil {
+		if errors.Is(err, store.ErrTransmissionInvalid) || errors.Is(err, store.ErrMediaNotFound) ||
+			errors.Is(err, store.ErrTransmissionMediaNotReady) ||
+			errors.Is(err, store.ErrTransmissionAudienceEmpty) {
+			l.processLegacyTelegramMediaDone(d)
 			return
 		}
-		// >1 recipients for a personal voice: M1 keeps it simple — broadcast
-		// to others is not expressible per-element yet, ship to all.
+		l.log.Error("register Telegram inline route", "media", d.mediaID, "err", err)
+		d.reply("аудиоклип готов, но маршрут доставки создать не удалось")
+		return
 	}
-	el := session.Element{
-		ID:          ulid.NewElementID(time.Now()),
-		Kind:        session.KindVoice,
-		MediaID:     d.mediaID,
-		DurationMS:  d.result.DurationMS,
-		RequestedBy: protocol.NodeID(d.fromName),
-		Target:      target,
-		CreatedAt:   d.acceptedAt,
+	if registered.Creation != nil {
+		// The default is durable before the keyboard enters Telegram's outbox.
+		l.handleTransmissionSignal(transmissionSignal{
+			transmissionID: registered.Creation.Transmission.ID,
+		})
 	}
-	l.st.InsertElement(el)
-
-	if o.sess.Mode == session.ModeShared {
-		l.apply(o, o.sess.EnqueueVoice(el))
-		mediaLabel := "голосовое"
-		if d.attachmentKind == "audio" || d.attachmentKind == "document" {
-			mediaLabel = "аудиоклип"
-		}
-		if target != "both" {
-			d.reply(fmt.Sprintf("личное %s от %s готово: после текущего трека, только адресату", mediaLabel, esc(d.fromName)))
+	if d.attachmentKind == "voice" {
+		if d.personal {
+			d.reply(fmt.Sprintf("личное голосовое от %s готово: после текущего трека, только адресату", esc(d.fromName)))
 		} else {
-			d.reply(fmt.Sprintf("%s от %s готово: после текущего трека, для всех", mediaLabel, esc(d.fromName)))
+			d.reply(fmt.Sprintf("голосовое от %s готово: после текущего трека, для всех", esc(d.fromName)))
 		}
-		return
+	} else {
+		d.reply("аудиоклип готов — автозапуск для файлов выключен, выбери способ доставки")
 	}
-	payload := &protocol.SoloVoicePayload{ElementID: el.ID, FileURL: l.mediaURL(d.mediaID)}
-	targets := append([]protocol.NodeID{}, o.sess.Peers...)
-	if target != "both" {
-		targets = []protocol.NodeID{protocol.NodeID(target)}
-	}
-	sent := 0
-	for _, t := range targets {
-		if l.hub.Send(l.nodeKey(o, t), protocol.TypeSoloVoice, payload) {
-			sent++
-		}
-	}
-	if sent == 0 {
-		d.reply("нода-адресат офлайн, вставка не доставлена")
-		return
-	}
-	d.reply("вставка уйдёт на ближайшей границе трека")
+	l.sendTelegramRoutingPrompt(d.chatID, d.from, registered.Route, "Выбери способ и аудиторию:")
 }
 
 func (l *loop) mediaURL(mediaID string) string {

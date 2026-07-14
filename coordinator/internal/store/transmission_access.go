@@ -162,7 +162,8 @@ func (s *Store) CancelAuthorizedTransmission(
 		return CancelTransmissionResult{}, err
 	}
 	defer tx.Rollback()
-	ctx, err := authorizeTransmissionControlTx(tx, expectedActorID, bearer)
+	ctx, err := authorizeTransmissionControlTx(tx, expectedActorID,
+		CreateResolvedTransmissionParams{Bearer: bearer})
 	if err != nil {
 		return CancelTransmissionResult{}, err
 	}

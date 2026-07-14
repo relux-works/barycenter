@@ -151,29 +151,53 @@ func TestCallbackUpdateAnswersPromptlyAndClearsTerminalKeyboard(t *testing.T) {
 	close(stop)
 }
 
-func TestHTTPAPICallbackMethodsUseOpaqueQueryAndEmptyKeyboard(t *testing.T) {
+func TestHTTPAPIInlinePromptUsesMessageBoundOpaqueKeyboard(t *testing.T) {
 	type captured struct {
 		method string
 		form   url.Values
 	}
-	calls := make(chan captured, 2)
+	calls := make(chan captured, 4)
 	api := &HTTPAPI{Token: "test-token", Client: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		if err := req.ParseForm(); err != nil {
 			t.Fatal(err)
 		}
 		method := strings.TrimPrefix(req.URL.Path, "/bottest-token/")
 		calls <- captured{method: method, form: req.PostForm}
+		body := `{"ok":true,"result":true}`
+		if method == "sendMessage" {
+			body = `{"ok":true,"result":{"message_id":77}}`
+		}
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader(`{"ok":true,"result":true}`)),
+			Body:       io.NopCloser(strings.NewReader(body)),
 			Header:     make(http.Header), Request: req,
 		}, nil
 	})}}
+	messageID, err := api.SendMessageResult(-100500, "Выбери маршрут")
+	if err != nil || messageID != 77 {
+		t.Fatalf("message id=%d err=%v", messageID, err)
+	}
+	keyboard := InlineKeyboard{{{Text: "После текущего · Мой Барицентр",
+		Data: "tg1_0123456789abcdefghijklmnopqrstuv"}}}
+	if err := api.SetInlineKeyboard(-100500, messageID, keyboard); err != nil {
+		t.Fatal(err)
+	}
 	if err := api.AnswerCallbackQuery("opaque-query", "Кнопка устарела"); err != nil {
 		t.Fatal(err)
 	}
 	if err := api.ClearInlineKeyboard(-100500, 44); err != nil {
 		t.Fatal(err)
+	}
+	send := <-calls
+	if send.method != "sendMessage" || send.form.Get("chat_id") != "-100500" ||
+		send.form.Get("text") != "Выбери маршрут" {
+		t.Fatalf("send call=%+v", send)
+	}
+	set := <-calls
+	if set.method != "editMessageReplyMarkup" || set.form.Get("message_id") != "77" ||
+		!strings.Contains(set.form.Get("reply_markup"), `"callback_data":"tg1_`) ||
+		strings.Contains(set.form.Get("reply_markup"), "actor_id") {
+		t.Fatalf("set keyboard call=%+v", set)
 	}
 	answer := <-calls
 	if answer.method != "answerCallbackQuery" || answer.form.Get("callback_query_id") != "opaque-query" ||

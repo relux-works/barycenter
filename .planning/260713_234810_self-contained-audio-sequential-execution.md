@@ -140,6 +140,23 @@ passed all four hosted jobs in run `29346224420`; PR #32 landed at merge
 `f1048c280aa7bdf6bfd92c7b2a971fc9dc027983`, and strict execution advanced to
 `TASK-260712-1x0lot` from synchronized `main`.
 
+Checkpoint 2026-07-14 (in progress): `TASK-260712-1x0lot` stages a
+deterministic policy/support publication pipeline on Barycenter head
+`43c0bd992e25c1e85aba6b7a086a94dad378eb35` in draft PR #33. It extends the
+exact-hash pack with five EN/RU support sections; generates 10 stable and 10
+immutable versioned HTML routes with locale switches, stable anchors, source
+and rendered hashes; wires macOS, Windows, Telegram and Store source metadata;
+and adds fail-closed Store/uptime live checks plus cache/rollback documentation.
+Generated `pulsar-site` head
+`1316a268ac025570a62f9d86a83e56146b5e3779` is staged in draft PR #1 and pins
+the exact Barycenter source commit. Local coordinator full/vet/race, Windows
+vet/race/amd64+arm64 cross-build, Swift release build, deterministic 33-file
+regeneration, 20-route local serving, JSON/YAML/diff and board validation pass.
+Cloudflare preview success is not a production publication. The source pack
+and site merge gate remain `hold` until Ivan Oparin approves the exact ten
+source hashes; task progress therefore remains 33/205 overall and 33/186
+engineering.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the

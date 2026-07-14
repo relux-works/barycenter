@@ -154,6 +154,7 @@ func (p *Player) Close() {
 	if mediaClips != nil {
 		mediaClips.Stop()
 	}
+	p.engine.Close()
 	p.closeOnce.Do(func() { close(p.done) })
 }
 

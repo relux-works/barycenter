@@ -11,16 +11,14 @@ import (
 // sample values assert cleanly (the default is 0.64 = volume 80).
 func newTestEngine(ring *Ring) (*Engine, *Gain) {
 	gain := NewGain()
-	gain.mu.Lock()
-	gain.amp = 1
-	gain.ampTarget = 1
-	gain.mu.Unlock()
+	gain.setAmplitudeForTest(1)
 	return NewEngine(ring, gain), gain
 }
 
 func TestRenderPullsMusicAndCounts(t *testing.T) {
 	ring := NewRing(4096)
 	e, _ := newTestEngine(ring)
+	t.Cleanup(e.Close)
 
 	src := make([]float32, 512)
 	for i := range src {
@@ -69,6 +67,7 @@ func TestRenderPullsMusicAndCounts(t *testing.T) {
 func TestVoiceReplacesMusicThenEnds(t *testing.T) {
 	ring := NewRing(4096)
 	e, _ := newTestEngine(ring)
+	t.Cleanup(e.Close)
 
 	music := make([]float32, 1024)
 	for i := range music {
@@ -128,6 +127,7 @@ func TestVoiceReplacesMusicThenEnds(t *testing.T) {
 func TestVoiceWaitsForScheduledStart(t *testing.T) {
 	ring := NewRing(1024)
 	e, _ := newTestEngine(ring)
+	t.Cleanup(e.Close)
 	now := time.Unix(1000, 0)
 	e.now = func() time.Time { return now }
 
@@ -150,6 +150,7 @@ func TestVoiceWaitsForScheduledStart(t *testing.T) {
 func TestClicksOverlayAtScheduledTimes(t *testing.T) {
 	ring := NewRing(1024)
 	e, _ := newTestEngine(ring)
+	t.Cleanup(e.Close)
 	base := time.Unix(2000, 0)
 	now := base
 	e.now = func() time.Time { return now }
@@ -193,6 +194,7 @@ func TestMasterAmplitudeScalesEverything(t *testing.T) {
 	ring := NewRing(1024)
 	gain := NewGain() // default amplitude 0.64 (volume 80)
 	e := NewEngine(ring, gain)
+	t.Cleanup(e.Close)
 
 	ring.Write([]float32{1, 1, 1, 1})
 	dst := make([]float32, 4)

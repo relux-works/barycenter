@@ -170,18 +170,20 @@ func TestPausedEventFadesOutPlayingMusic(t *testing.T) {
 
 	p.HandleLibrespotEvent(LibrespotEvent{Type: "paused"})
 	g := p.engine.gain
-	g.mu.Lock()
-	target, total := g.target, g.rampTotal
-	g.mu.Unlock()
+	target, total, ok := g.PendingMusicGain()
+	if !ok {
+		t.Fatal("paused event did not publish a music-gain command")
+	}
 	if target != 0 || total != sampleRate*250/1000 {
 		t.Fatalf("paused event must fade to 0 over 250 ms, got target=%v total=%d", target, total)
 	}
 
 	// playing again: 120 ms fade back in (the mac resume fade).
 	p.HandleLibrespotEvent(LibrespotEvent{Type: "playing"})
-	g.mu.Lock()
-	target, total = g.target, g.rampTotal
-	g.mu.Unlock()
+	target, total, ok = g.PendingMusicGain()
+	if !ok {
+		t.Fatal("playing event did not publish a music-gain command")
+	}
 	if target != 1 || total != sampleRate*120/1000 {
 		t.Fatalf("playing event must fade to 1 over 120 ms, got target=%v total=%d", target, total)
 	}
@@ -399,9 +401,7 @@ func TestOffsetTestSchedulesClicks(t *testing.T) {
 
 	p.Handle(protocol.Envelope{Type: protocol.TypeOffsetTest},
 		&protocol.OffsetTestPayload{TCoordMS: nowMS() + 500, Clicks: 3, IntervalMS: 100})
-	p.engine.mu.Lock()
-	n := len(p.engine.clicks)
-	p.engine.mu.Unlock()
+	n := p.engine.ScheduledClickCount()
 	if n != 3 {
 		t.Fatalf("scheduled clicks %d, want 3", n)
 	}
@@ -413,9 +413,7 @@ func TestOffsetTestWithoutClockSkips(t *testing.T) {
 
 	p.Handle(protocol.Envelope{Type: protocol.TypeOffsetTest},
 		&protocol.OffsetTestPayload{TCoordMS: nowMS(), Clicks: 2, IntervalMS: 50})
-	p.engine.mu.Lock()
-	n := len(p.engine.clicks)
-	p.engine.mu.Unlock()
+	n := p.engine.ScheduledClickCount()
 	if n != 0 {
 		t.Fatalf("clicks scheduled without clock sync: %d", n)
 	}

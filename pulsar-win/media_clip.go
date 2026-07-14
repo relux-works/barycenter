@@ -280,6 +280,49 @@ type MediaClipPlayPlan struct {
 	Payload              protocol.PlayMediaAtPayload
 	LocalStartMS         int64
 	LocalStartDeadlineMS int64
+	Control              MixerControlParameters
+}
+
+// MixerControlParameters is the immutable handoff from protocol/control code
+// to a platform mixer. Optional wire fields are normalized before arm so a
+// render path never parses pointers, policy, or protocol payloads.
+type MixerControlParameters struct {
+	TransmissionID   string
+	Generation       int64
+	Delivery         string
+	DuckDB           float64
+	AttackMS         int64
+	ReleaseMS        int64
+	FadeOutMS        int64
+	FadeInMS         int64
+	LimiterCeilingDB float64
+	Interrupt        bool
+	ReportStarted    bool
+	ReportEnded      bool
+}
+
+func mixerControlParameters(payload protocol.PlayMediaAtPayload) (MixerControlParameters, bool) {
+	if !validPlayMedia(payload) {
+		return MixerControlParameters{}, false
+	}
+	parameters := MixerControlParameters{
+		TransmissionID:   payload.TransmissionID,
+		Generation:       payload.Generation,
+		Delivery:         payload.Delivery,
+		LimiterCeilingDB: -1,
+		ReportStarted:    true,
+		ReportEnded:      true,
+	}
+	if payload.Delivery == "overlay" {
+		parameters.DuckDB = *payload.DuckDB
+		parameters.AttackMS = *payload.AttackMS
+		parameters.ReleaseMS = *payload.ReleaseMS
+	} else {
+		parameters.Interrupt = true
+		parameters.FadeOutMS = *payload.FadeOutMS
+		parameters.FadeInMS = *payload.FadeInMS
+	}
+	return parameters, true
 }
 
 type MediaClipMixer interface {
@@ -348,17 +391,18 @@ const (
 )
 
 type mediaClipEntry struct {
-	transmissionID  string
-	generation      int64
-	prepare         *protocol.PrepareMediaPayload
-	play            *protocol.PlayMediaAtPayload
-	phase           mediaClipPhase
-	cancelPrepare   context.CancelFunc
-	prepared        *PreparedMediaClip
-	deadlineTimer   *time.Timer
-	localDeadlineMS int64
-	startedSent     bool
-	terminalSent    bool
+	transmissionID    string
+	generation        int64
+	prepare           *protocol.PrepareMediaPayload
+	play              *protocol.PlayMediaAtPayload
+	phase             mediaClipPhase
+	cancelPrepare     context.CancelFunc
+	prepared          *PreparedMediaClip
+	deadlineTimer     *time.Timer
+	localDeadlineMS   int64
+	startedSent       bool
+	terminalSent      bool
+	supersedingCancel *protocol.CancelMediaPayload
 }
 
 type mediaClipWork func() bool
@@ -531,6 +575,13 @@ func (c *MediaClipClient) beginPrepare(payload protocol.PrepareMediaPayload) {
 			c.failAfterStopping(current, "prepare", "internal_error")
 			return
 		}
+		if current.phase == mediaClipArmed || current.phase == mediaClipPlaying ||
+			current.phase == mediaClipCancelling {
+			// A queued generation cannot steal or dispose render ownership from
+			// a clip that was already armed. Cancellation/terminal ack is the
+			// only transition that releases it.
+			return
+		}
 		c.discard(current)
 	}
 
@@ -629,8 +680,9 @@ func (c *MediaClipClient) beginPlay(payload protocol.PlayMediaAtPayload) {
 		}
 		return
 	}
+	control, validControl := mixerControlParameters(payload)
 	if entry.phase != mediaClipReady || entry.prepared == nil || entry.prepare == nil ||
-		entry.prepare.Delivery != payload.Delivery || !validPlayMedia(payload) {
+		entry.prepare.Delivery != payload.Delivery || !validControl {
 		return
 	}
 
@@ -666,6 +718,7 @@ func (c *MediaClipClient) beginPlay(payload protocol.PlayMediaAtPayload) {
 	c.armDeadline(entry, localDeadline)
 	plan := MediaClipPlayPlan{
 		Payload: copyPayload, LocalStartMS: localStart, LocalStartDeadlineMS: localDeadline,
+		Control: control,
 	}
 	err := c.mixer.Arm(entry.prepared, plan,
 		func(localMS int64) { c.post(func() bool { c.handleStarted(entry, localMS); return false }) },
@@ -720,6 +773,11 @@ func (c *MediaClipClient) beginCancel(payload protocol.CancelMediaPayload) {
 		return
 	}
 	if payload.Generation > current.generation {
+		if current.prepared != nil && (current.phase == mediaClipArmed ||
+			current.phase == mediaClipPlaying || current.phase == mediaClipCancelling) {
+			c.beginSupersedingCancel(current, payload)
+			return
+		}
 		c.discard(current)
 		c.installCancelTombstone(payload)
 		return
@@ -755,19 +813,58 @@ func (c *MediaClipClient) beginCancel(payload protocol.CancelMediaPayload) {
 	current.phase = mediaClipCancelling
 	c.mixer.Cancel(current.prepared, payload, func(mainResumed bool, err error) {
 		c.post(func() bool {
-			if !c.isCurrent(current) || current.phase != mediaClipCancelling {
-				return false
-			}
-			if err != nil {
-				c.fail(current, "cancel", mediaClipFailureCode(err, "internal_error"))
-				return false
-			}
-			c.finish(current, protocol.TypeMediaCancelled, &protocol.MediaCancelledPayload{
-				TransmissionID: payload.TransmissionID, Generation: payload.Generation,
-				Reason: payload.Reason, Action: payload.Action, MainResumed: mainResumed,
-			})
+			c.completeCancel(current, payload, mainResumed, err)
 			return false
 		})
+	})
+}
+
+func (c *MediaClipClient) beginSupersedingCancel(current *mediaClipEntry, payload protocol.CancelMediaPayload) {
+	copyPayload := payload
+	current.supersedingCancel = &copyPayload
+	if current.phase == mediaClipCancelling {
+		return
+	}
+	if current.cancelPrepare != nil {
+		current.cancelPrepare()
+		current.cancelPrepare = nil
+	}
+	if current.deadlineTimer != nil {
+		current.deadlineTimer.Stop()
+		current.deadlineTimer = nil
+	}
+	current.phase = mediaClipCancelling
+	c.mixer.Cancel(current.prepared, payload, func(mainResumed bool, err error) {
+		c.post(func() bool {
+			c.completeCancel(current, payload, mainResumed, err)
+			return false
+		})
+	})
+}
+
+func (c *MediaClipClient) completeCancel(current *mediaClipEntry, payload protocol.CancelMediaPayload, mainResumed bool, err error) {
+	if !c.isCurrent(current) || current.phase != mediaClipCancelling {
+		return
+	}
+	if err != nil {
+		c.fail(current, "cancel", mediaClipFailureCode(err, "internal_error"))
+		return
+	}
+	if current.supersedingCancel != nil {
+		payload = *current.supersedingCancel
+		prepared := current.prepared
+		current.prepared = nil
+		current.phase = mediaClipTerminal
+		if prepared != nil {
+			c.mixer.Dispose(prepared)
+			c.fetcher.Remove(prepared.LocalPath)
+		}
+		c.installCancelTombstone(payload)
+		return
+	}
+	c.finish(current, protocol.TypeMediaCancelled, &protocol.MediaCancelledPayload{
+		TransmissionID: payload.TransmissionID, Generation: payload.Generation,
+		Reason: payload.Reason, Action: payload.Action, MainResumed: mainResumed,
 	})
 }
 

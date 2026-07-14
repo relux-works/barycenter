@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 35 accepted, 170 remain.
-- Routed inventory: 186 engineering tasks (35 accepted, 151 remain) and 19
+- Combined inventory: 205 original tasks; 36 accepted, 169 remain.
+- Routed inventory: 186 engineering tasks (36 accepted, 150 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1hqiek` — render-safe-clip-state-foundation
-  (next in strict order after the accepted moderation operations task)
-- Most recently accepted: `TASK-260712-3t9nr8` — moderation-runbook-mailbox
-- Current branch: pending synchronization from PR #34
+- Current engineering task: `TASK-260712-1viwvi` — windows-overlay-duck-limiter
+  (queued immediately after PR #35 lands)
+- Most recently accepted: `TASK-260712-1hqiek` — render-safe-clip-state-foundation
+- Current branch: `task/task-260712-1hqiek-render-safe-clip-state-foundation`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 35 / 205 tasks (approximately 17.1%); 170 remain
-- Engineering progress: 35 / 186 tasks (approximately 18.8%); 151 remain
+- Accepted overall: 36 / 205 tasks (approximately 17.6%); 169 remain
+- Engineering progress: 36 / 186 tasks (approximately 19.4%); 150 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -200,7 +200,30 @@ passed all four hosted jobs in run `29350324690`. The real-delivery checklist
 item remains honestly unchecked and transferred to `TASK-260714-200ib8`; Store
 submission is fail-closed until it passes. Under the owner-approved external-
 question boundary, engineering progress is 35/205 overall and 35/186
-engineering, and strict execution advances to `TASK-260712-1hqiek`.
+engineering. Tracking head `3c87a26` passed all four hosted jobs in run
+`29350566965`; PR #34 landed at merge
+`74b4e04e9386c9834e435cf4aaf46c129626a278`, and strict execution advanced to
+`TASK-260712-1hqiek` from synchronized `main`.
+
+Checkpoint 2026-07-14 (accepted): `TASK-260712-1hqiek` freezes one immutable
+`MixerControlParameters` handoff and the same generation-safe
+prepared/armed/playing/cancelling/terminal lifecycle on macOS and Windows.
+Newer prepare cannot steal active render ownership; a newer sender-delete
+waits for mixer cancellation acknowledgement before publishing its terminal
+tombstone, and late callbacks cannot revive an old generation. macOS decodes
+into a preallocated PCM buffer, publishes gain work through a fixed SPSC queue,
+uses atomic telemetry and dispatches first-sample notification off-render.
+Windows publishes immutable voice/click state atomically, keeps gain and
+amplitude reads lock-free and routes legacy voice completion through a
+pre-created bounded dispatcher. Static source/AST tests reject allocation,
+goroutine creation, waits and blocking lock calls in the checked callbacks;
+the separate legacy `play_voice` path remains documented and operational.
+Local coordinator vet/tests, Windows full/race/vet and amd64/arm64 cross-builds,
+Swift release build and board validation passed. Exact engineering code head
+`8521b84` passed coordinator, authoritative hosted Swift tests, Windows and
+signed packaged-probe jobs in run `29351870335`. No real-device or audible
+quality result is claimed. Progress is 36/205 overall and 36/186 engineering;
+strict execution queues `TASK-260712-1viwvi` after PR #35 lands.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -782,7 +805,9 @@ Story: `STORY-260712-1tgryz` — P1 Policy and moderation foundation.
 
 Story: `STORY-260712-fes2jj` — P1 Cross-platform overlay and interrupt mixer.
 
-- [ ] `TASK-260712-1hqiek` — render-safe-clip-state-foundation
+- [x] `TASK-260712-1hqiek` — render-safe-clip-state-foundation (accepted on
+  exact code head `8521b84`; all four hosted jobs in run `29351870335` green;
+  no real-device evidence claimed; PR #35)
 - [ ] `TASK-260712-1viwvi` — windows-overlay-duck-limiter
 - [ ] `TASK-260712-2zbmq4` — macos-overlay-duck-limiter
 - [ ] `TASK-260712-1g6lk8` — windows-interrupt-resume

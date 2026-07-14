@@ -404,10 +404,64 @@ func TestMediaClipTranslatesCoordinatorScheduleAndReceiptTimestamps(t *testing.T
 	if plan.LocalStartMS != 11_250 || plan.LocalStartDeadlineMS != 11_350 {
 		t.Fatalf("local plan %+v", plan)
 	}
+	if plan.Control.TransmissionID != "tr_test" || plan.Control.Generation != 1 ||
+		plan.Control.Delivery != "overlay" || plan.Control.DuckDB != -12 ||
+		plan.Control.AttackMS != 250 || plan.Control.ReleaseMS != 600 ||
+		plan.Control.LimiterCeilingDB != -1 || plan.Control.Interrupt ||
+		!plan.Control.ReportStarted || !plan.Control.ReportEnded {
+		t.Fatalf("normalized mixer control=%+v", plan.Control)
+	}
 	mixer.fireStarted(11_260)
 	events := waitForMediaEvents(t, recorder, 2)
 	if events[1].timestamp != 11_010 {
 		t.Fatalf("coordinator receipt timestamp %d, want 11010", events[1].timestamp)
+	}
+}
+
+func TestMediaClipPlayingGenerationCannotBeReplacedAndHigherCancelStopsFirst(t *testing.T) {
+	fetcher := &stubMediaClipFetcher{}
+	mixer := &stubMediaClipMixer{capabilities: []string{protocol.CapabilityOverlayMix}}
+	recorder := &mediaEventRecorder{}
+	client := newTestMediaClipClient(fetcher, mixer, recorder, nil, fixedClock{ok: true})
+	defer client.Stop()
+
+	prepare := testPrepareMedia(1)
+	client.Prepare(&prepare)
+	waitForMediaEvents(t, recorder, 1)
+	play := testOverlayPlay(1)
+	client.Play(&play)
+	client.Synchronize()
+	mixer.fireStarted(11_000)
+	waitForMediaEvents(t, recorder, 2)
+
+	queued := testPrepareMedia(2)
+	client.Prepare(&queued)
+	client.Synchronize()
+	if fetches, _ := fetcher.snapshot(); fetches != 1 {
+		t.Fatalf("queued generation replaced playing clip: fetches=%d", fetches)
+	}
+	if _, cancel, dispose := mixer.counts(); cancel != 0 || dispose != 0 {
+		t.Fatalf("queued generation changed render ownership cancel=%d dispose=%d", cancel, dispose)
+	}
+
+	cancel := protocol.CancelMediaPayload{
+		TransmissionID: "tr_test", Generation: 2, Reason: "media_deleted",
+		Action: "fade_stop", FadeMS: 120,
+	}
+	client.Cancel(&cancel)
+	events := waitForMediaEvents(t, recorder, 3)
+	if events[2].typ != protocol.TypeMediaCancelled || events[2].generation != 2 ||
+		events[2].code != "media_deleted" {
+		t.Fatalf("superseding cancel receipt=%+v", events[2])
+	}
+	_, cancelCount, disposeCount := mixer.counts()
+	if cancelCount != 1 || disposeCount != 1 {
+		t.Fatalf("superseding cancel=%d dispose=%d", cancelCount, disposeCount)
+	}
+	mixer.fireEnded(15_000)
+	client.Synchronize()
+	if len(recorder.snapshot()) != 3 {
+		t.Fatalf("late render callback escaped terminal: %+v", recorder.snapshot())
 	}
 }
 

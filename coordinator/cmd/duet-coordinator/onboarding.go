@@ -221,7 +221,7 @@ type onboardingAPI struct {
 	testBeforeStore func(string)
 }
 
-func newOnboardingAPI(st *store.Store, cfg *config.Config, log *slog.Logger, botUsername string) *onboardingAPI {
+func newOnboardingAPIBase(st *store.Store, cfg *config.Config, log *slog.Logger, botUsername string) *onboardingAPI {
 	api := &onboardingAPI{
 		store: st, config: cfg, log: log, botUsername: strings.TrimPrefix(botUsername, "@"),
 		createIP:         newAttemptLimiter(5, time.Hour, 10_000),
@@ -235,13 +235,32 @@ func newOnboardingAPI(st *store.Store, cfg *config.Config, log *slog.Logger, bot
 		mediaUploadNow:   time.Now,
 	}
 	api.mediaUploadInitErr = api.initializeMediaUploadStorage()
+	api.mediaLifecycle, api.mediaLifecycleInitErr = media.NewLifecycleService(st, cfg.MediaDir)
+	api.mediaDownload, api.mediaDownloadInitErr = media.NewDownloadService(st, cfg.MediaDir)
+	return api
+}
+
+func newOnboardingAPI(st *store.Store, cfg *config.Config, log *slog.Logger, botUsername string) *onboardingAPI {
+	api := newOnboardingAPIBase(st, cfg, log, botUsername)
 	preset := media.Preset(cfg.Media.Preset)
 	if preset == "" {
 		preset = media.PresetDefault
 	}
 	api.mediaSubmitter, api.mediaSubmitterInitErr = media.NewSubmitService(st, cfg.MediaDir, preset)
-	api.mediaLifecycle, api.mediaLifecycleInitErr = media.NewLifecycleService(st, cfg.MediaDir)
-	api.mediaDownload, api.mediaDownloadInitErr = media.NewDownloadService(st, cfg.MediaDir)
+	return api
+}
+
+func newOnboardingAPIWithMediaSubmitter(
+	st *store.Store,
+	cfg *config.Config,
+	log *slog.Logger,
+	botUsername string,
+	submitter mediaUploadSubmitter,
+	submitterInitErr error,
+) *onboardingAPI {
+	api := newOnboardingAPIBase(st, cfg, log, botUsername)
+	api.mediaSubmitter = submitter
+	api.mediaSubmitterInitErr = submitterInitErr
 	return api
 }
 
@@ -250,6 +269,25 @@ func registerOnboardingRoutes(mux *http.ServeMux, st *store.Store, cfg *config.C
 		return nil
 	}
 	api := newOnboardingAPI(st, cfg, log, botUsername)
+	api.register(mux)
+	return api
+}
+
+func registerOnboardingRoutesWithMediaSubmitter(
+	mux *http.ServeMux,
+	st *store.Store,
+	cfg *config.Config,
+	log *slog.Logger,
+	botUsername string,
+	submitter mediaUploadSubmitter,
+	submitterInitErr error,
+) *onboardingAPI {
+	if !cfg.SelfServiceOnboarding {
+		return nil
+	}
+	api := newOnboardingAPIWithMediaSubmitter(
+		st, cfg, log, botUsername, submitter, submitterInitErr,
+	)
 	api.register(mux)
 	return api
 }

@@ -1,12 +1,11 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -27,6 +26,11 @@ import (
 type nodeSender interface {
 	Send(key hub.NodeKey, msgType string, payload any) bool
 	Online(orbitID int64) map[protocol.NodeID]bool
+}
+
+type telegramMediaAdapter interface {
+	Accept(media.TelegramVoice) (media.TelegramAcceptance, error)
+	Submit(context.Context, media.TelegramAcceptance) (media.Result, error)
 }
 
 // orbitState is everything the loop tracks per orbit (v2.1 multi-tenant):
@@ -70,6 +74,9 @@ type loop struct {
 	st  *store.Store
 	bot *bot.Bot        // nil when telegram is disabled (dev mode)
 	sp  *spotify.Client // nil when spotify app creds are not configured (U10)
+
+	telegramMedia        telegramMediaAdapter
+	telegramMediaInitErr error
 
 	// resolveTrack runs the provider cascade for one track (providers.go).
 	// nil while the provider layer is off; tests stub it directly.
@@ -1501,17 +1508,22 @@ func (l *loop) handleVoice(o *orbitState, ev bot.Event) {
 		ev.Reply("файл больше 20 МБ, не возьму")
 		return
 	}
-	mediaID := ulid.NewMediaID(time.Now())
-	rec := store.MediaRecord{
-		ID:        mediaID,
-		TGFileID:  v.TGFileID,
-		CreatedAt: time.Now().UnixMilli(),
-		ExpiresAt: time.Now().AddDate(0, 0, l.cfg.Media.RetentionDays).UnixMilli(),
-		Status:    "processing",
-		OrbitID:   o.id, // owning tenant: /media is scoped to it (security #4.1)
+	if l.telegramMedia == nil || l.telegramMediaInitErr != nil {
+		l.log.Error("Telegram media adapter unavailable", "err", l.telegramMediaInitErr)
+		ev.Reply("внутренняя ошибка, голосовое не принято")
+		return
 	}
-	if err := l.st.InsertMedia(rec); err != nil {
-		l.log.Error("media insert failed", "err", err)
+	acceptedAt := time.Now()
+	accepted, err := l.telegramMedia.Accept(media.TelegramVoice{
+		OwnerOrbitID:   o.id,
+		TelegramUserID: ev.FromUserID,
+		TelegramFileID: v.TGFileID,
+		Title:          ev.FromName,
+		AcceptedAt:     acceptedAt.UnixMilli(),
+		ExpiresAt:      acceptedAt.AddDate(0, 0, l.cfg.Media.RetentionDays).UnixMilli(),
+	})
+	if err != nil {
+		l.log.Error("Telegram media acceptance failed", "err", err)
 		ev.Reply("внутренняя ошибка, голосовое не принято")
 		return
 	}
@@ -1533,19 +1545,10 @@ func (l *loop) handleVoice(o *orbitState, ev bot.Event) {
 	from := ev.FromUserID
 	fromName := ev.FromName
 	go func() {
-		oga := filepath.Join(l.cfg.MediaDir, mediaID+".oga")
-		wav := filepath.Join(l.cfg.MediaDir, mediaID+".wav")
-		var res media.Result
-		err := l.bot.DownloadVoice(v.TGFileID, oga)
-		if err == nil {
-			res, err = media.Process(oga, wav, media.Preset(l.cfg.Media.Preset))
-		}
-		if err == nil {
-			os.Remove(oga)
-		}
+		res, err := l.telegramMedia.Submit(context.Background(), accepted)
 		l.mediaCh <- mediaDone{
-			orbit: orbitID, orderAir: orderAir, mediaID: mediaID, from: from, fromName: fromName,
-			acceptedAt: rec.CreatedAt, sequence: sequence, personal: personal,
+			orbit: orbitID, orderAir: orderAir, mediaID: accepted.MediaID, from: from, fromName: fromName,
+			acceptedAt: accepted.AcceptedAt, sequence: sequence, personal: personal,
 			result: res, err: err, reply: reply,
 		}
 	}()
@@ -1582,7 +1585,17 @@ func (l *loop) handleMediaDone(d mediaDone) {
 func (l *loop) processMediaDone(d mediaDone) {
 	if d.err != nil {
 		l.log.Error("voice processing failed", "media", d.mediaID, "err", d.err)
-		l.st.UpdateMedia(store.MediaRecord{ID: d.mediaID, Status: "failed"})
+		if err := l.st.UpdateMedia(store.MediaRecord{ID: d.mediaID, Status: "failed"}); err != nil {
+			l.log.Error("legacy Telegram media failure mapping failed", "media", d.mediaID, "err", err)
+		}
+		d.reply("не смог обработать голосовое, оставил исходник для разбора")
+		return
+	}
+	if err := l.st.UpdateMedia(store.MediaRecord{
+		ID: d.mediaID, DurationMS: d.result.DurationMS,
+		PathWAV: d.result.WAVPath, LoudnormJSON: d.result.LoudnormJSON, Status: "ready",
+	}); err != nil {
+		l.log.Error("legacy Telegram media ready mapping failed", "media", d.mediaID, "err", err)
 		d.reply("не смог обработать голосовое, оставил исходник для разбора")
 		return
 	}
@@ -1590,10 +1603,6 @@ func (l *loop) processMediaDone(d mediaDone) {
 		return
 	}
 	o := l.stateFor(d.orbit)
-	l.st.UpdateMedia(store.MediaRecord{
-		ID: d.mediaID, DurationMS: d.result.DurationMS,
-		PathWAV: d.result.WAVPath, LoudnormJSON: d.result.LoudnormJSON, Status: "ready",
-	})
 	// Personal target: every home in the air except the sender's own.
 	// In a two-home orbit that is exactly the partner (design §5).
 	target := "both"

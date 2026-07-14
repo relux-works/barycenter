@@ -51,6 +51,118 @@ func mediaUploadParams(credentials OnboardingCredentials, now int64, idempotency
 	}
 }
 
+func newFeatureOffTelegramMediaStore(t *testing.T) (*Store, *Orbit) {
+	t.Helper()
+	st, err := Open(filepath.Join(t.TempDir(), "telegram-media.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	orbit, err := st.BootstrapLegacyOrbit(
+		map[string]string{"a": strings.Repeat("a", 64)},
+		map[int64]string{7001: "a"},
+	)
+	if err != nil || orbit == nil {
+		t.Fatalf("bootstrap legacy orbit=%+v err=%v", orbit, err)
+	}
+	if err := st.SetMemberName(orbit.ID, 7001, "Legacy sender"); err != nil {
+		t.Fatal(err)
+	}
+	return st, orbit
+}
+
+func TestCreateTelegramMediaAtomicallyProjectsFeatureOffMemberAndLegacyWAV(t *testing.T) {
+	st, orbit := newFeatureOffTelegramMediaStore(t)
+	var actorsBefore int
+	if err := st.db.QueryRow(`SELECT COUNT(*) FROM actors WHERE kind = 'telegram_user'`).Scan(&actorsBefore); err != nil {
+		t.Fatal(err)
+	}
+	if actorsBefore != 0 {
+		t.Fatalf("feature-off bootstrap unexpectedly projected %d Telegram actor(s)", actorsBefore)
+	}
+
+	now := time.Now().UnixMilli()
+	created, err := st.CreateTelegramMedia(CreateTelegramMediaParams{
+		OwnerOrbitID:   orbit.ID,
+		TelegramUserID: 7001,
+		TelegramFileID: "tg-file-opaque",
+		Title:          "Legacy sender",
+		CreatedAt:      now,
+		ExpiresAt:      now + int64((30*24*time.Hour)/time.Millisecond),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Media.ID != created.Legacy.ID || created.Media.ActorID <= 0 ||
+		created.Media.OwnerOrbitID != orbit.ID || created.Media.Kind != MediaKindVoiceClip ||
+		created.Media.Source != MediaSourceTelegram || created.Media.Status != MediaStatusProcessing ||
+		created.Legacy.TGFileID != "tg-file-opaque" || created.Legacy.Status != "processing" ||
+		created.Legacy.OrbitID != orbit.ID || created.Legacy.CreatedAt != now {
+		t.Fatalf("Telegram media creation=%+v", created)
+	}
+	var kind, externalRef, displayName, role string
+	var leftAt sql.NullInt64
+	err = st.db.QueryRow(`SELECT a.kind, a.external_ref, a.display_name, m.role, m.left_at
+FROM actors a JOIN memberships m ON m.actor_id = a.id
+WHERE a.id = ? AND m.orbit_id = ?`, created.Media.ActorID, orbit.ID).Scan(
+		&kind, &externalRef, &displayName, &role, &leftAt,
+	)
+	if err != nil || kind != "telegram_user" || externalRef != "7001" ||
+		displayName != "Legacy sender" || role == "" || leftAt.Valid {
+		t.Fatalf("projected actor kind=%q ref=%q name=%q role=%q left=%v err=%v",
+			kind, externalRef, displayName, role, leftAt, err)
+	}
+}
+
+func TestCreateTelegramMediaRollsBackBothRegistriesAndActorProjection(t *testing.T) {
+	st, orbit := newFeatureOffTelegramMediaStore(t)
+	now := time.Now().UnixMilli()
+	st.testCheckpoint = func(name string) error {
+		if name == "telegram_media_create_before_commit" {
+			return errors.New("forced Telegram acceptance rollback")
+		}
+		return nil
+	}
+	_, err := st.CreateTelegramMedia(CreateTelegramMediaParams{
+		OwnerOrbitID: orbit.ID, TelegramUserID: 7001,
+		TelegramFileID: "tg-rollback", Title: "Rollback sender",
+		CreatedAt: now, ExpiresAt: now + int64((30*24*time.Hour)/time.Millisecond),
+	})
+	if err == nil {
+		t.Fatal("Telegram media acceptance unexpectedly committed")
+	}
+	st.testCheckpoint = nil
+	for _, table := range []string{"media_items", "media", "actors", "memberships"} {
+		var count int
+		if err := st.db.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 0 {
+			t.Fatalf("rollback left %d row(s) in %s", count, table)
+		}
+	}
+}
+
+func TestCreateTelegramMediaRejectsMissingMemberAndDisabledOrbit(t *testing.T) {
+	st, orbit := newFeatureOffTelegramMediaStore(t)
+	now := time.Now().UnixMilli()
+	params := CreateTelegramMediaParams{
+		OwnerOrbitID: orbit.ID, TelegramUserID: 7999,
+		TelegramFileID: "tg-denied", CreatedAt: now,
+		ExpiresAt: now + int64((30*24*time.Hour)/time.Millisecond),
+	}
+	if _, err := st.CreateTelegramMedia(params); !errors.Is(err, ErrMediaOwnerInvalid) {
+		t.Fatalf("missing member error=%v", err)
+	}
+	if _, err := st.db.Exec(`UPDATE orbits SET status = 'disabled' WHERE id = ?`, orbit.ID); err != nil {
+		t.Fatal(err)
+	}
+	params.TelegramUserID = 7001
+	if _, err := st.CreateTelegramMedia(params); !errors.Is(err, ErrMediaOwnerInvalid) {
+		t.Fatalf("disabled orbit error=%v", err)
+	}
+}
+
 func canonicalPublication() MediaPublication {
 	return MediaPublication{
 		MIME:         "audio/wav",

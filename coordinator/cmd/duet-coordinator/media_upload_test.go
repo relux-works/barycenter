@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"relux.works/duet/coordinator/internal/config"
 	"relux.works/duet/coordinator/internal/media"
 	"relux.works/duet/coordinator/internal/store"
 )
@@ -26,6 +27,36 @@ type mediaUploadSubmitterFunc func(context.Context, string) (store.MediaItem, er
 
 func (submit mediaUploadSubmitterFunc) SubmitUpload(ctx context.Context, sessionID string) (store.MediaItem, error) {
 	return submit(ctx, sessionID)
+}
+
+func TestOnboardingAPIUsesInjectedSharedMediaSubmitter(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "shared-submitter.db")
+	st, err := store.OpenWithOptions(path, store.Options{SelfServiceOnboarding: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	called := false
+	injected := mediaUploadSubmitterFunc(func(context.Context, string) (store.MediaItem, error) {
+		called = true
+		return store.MediaItem{ID: "m_injected"}, nil
+	})
+	initErr := errors.New("shared SubmitMedia initialization marker")
+	api := newOnboardingAPIWithMediaSubmitter(
+		st,
+		&config.Config{SelfServiceOnboarding: true, MediaDir: t.TempDir()},
+		slog.Default(),
+		"@barycenter_bot",
+		injected,
+		initErr,
+	)
+	if !errors.Is(api.mediaSubmitterInitErr, initErr) {
+		t.Fatalf("injected initialization error=%v", api.mediaSubmitterInitErr)
+	}
+	item, err := api.mediaSubmitter.SubmitUpload(context.Background(), "up_shared")
+	if err != nil || !called || item.ID != "m_injected" {
+		t.Fatalf("injected submitter item=%+v called=%v err=%v", item, called, err)
+	}
 }
 
 func completeStubbedMediaUpload(harness onboardingHarness, sessionID string) (store.MediaItem, error) {

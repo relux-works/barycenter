@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"relux.works/duet/coordinator/internal/bot"
 	"relux.works/duet/coordinator/internal/config"
 	"relux.works/duet/coordinator/internal/hub"
+	"relux.works/duet/coordinator/internal/media"
 	"relux.works/duet/coordinator/internal/spotify"
 	"relux.works/duet/coordinator/internal/store"
 )
@@ -173,6 +175,27 @@ func main() {
 		log.Info("legacy orbit bootstrapped from config", "orbit", o.ID)
 	}
 
+	// SubmitMedia owns one set of worker slots and restart cleanup for this
+	// media_dir. Telegram and the self-service HTTP surface must share this
+	// instance; constructing one per transport could erase another transport's
+	// in-flight private work directory during startup.
+	var mediaSubmitter *media.SubmitService
+	var mediaSubmitterInitErr error
+	if cfg.TelegramEnabled() || cfg.SelfServiceOnboarding {
+		preset := media.Preset(cfg.Media.Preset)
+		if preset == "" {
+			preset = media.PresetDefault
+		}
+		mediaSubmitter, mediaSubmitterInitErr = media.NewSubmitService(st, cfg.MediaDir, preset)
+		if mediaSubmitterInitErr != nil {
+			log.Error("common SubmitMedia service unavailable", "err", mediaSubmitterInitErr)
+		}
+	}
+	mediaLifecycle, mediaLifecycleInitErr := media.NewLifecycleService(st, cfg.MediaDir)
+	if mediaLifecycleInitErr != nil {
+		log.Error("common media lifecycle unavailable", "err", mediaLifecycleInitErr)
+	}
+
 	lookup := func(token string) (int64, string, bool) {
 		orbitID, slot, ok, err := st.LookupPlaybackToken(token)
 		if err != nil {
@@ -199,6 +222,18 @@ func main() {
 	}
 
 	l := newLoop(log, cfg, h, st, tgBot, sp)
+	if tgBot != nil {
+		if mediaSubmitterInitErr != nil {
+			l.telegramMediaInitErr = mediaSubmitterInitErr
+		} else {
+			l.telegramMedia, l.telegramMediaInitErr = media.NewTelegramAdapter(
+				st, cfg.MediaDir, tgBot, mediaSubmitter,
+			)
+			if l.telegramMediaInitErr != nil {
+				log.Error("Telegram media adapter unavailable", "err", l.telegramMediaInitErr)
+			}
+		}
+	}
 	if cfg.Providers {
 		// Provider layer (spec-providers, DUET_PROVIDERS=1): resolve cascade
 		// clients; secrets stay in the environment, only presence is logged.
@@ -210,7 +245,7 @@ func main() {
 	l.warmup()
 	go l.run(stop, h.Events)
 
-	go retentionSweep(log, st, stop)
+	go retentionSweep(log, st, cfg.MediaDir, stop)
 
 	mux := http.NewServeMux()
 	var onboarding *onboardingAPI
@@ -224,7 +259,19 @@ func main() {
 			"orbits":          len(orbits),
 			"nodes_connected": h.Stats(),
 		}
+		if mediaSubmitterInitErr != nil || l.telegramMediaInitErr != nil {
+			body["status"] = "degraded"
+			body["media_processing"] = map[string]string{"status": "unavailable"}
+		}
+		if mediaLifecycleInitErr != nil {
+			body["status"] = "degraded"
+			body["media_lifecycle"] = map[string]string{"status": "unavailable"}
+		}
 		if onboarding != nil {
+			if onboarding.mediaSubmitter == nil || onboarding.mediaSubmitterInitErr != nil {
+				body["status"] = "degraded"
+				body["media_processing"] = map[string]string{"status": "unavailable"}
+			}
 			if onboarding.mediaLifecycle == nil || onboarding.mediaLifecycleInitErr != nil {
 				body["status"] = "degraded"
 				body["media_lifecycle"] = map[string]string{"status": "unavailable"}
@@ -247,9 +294,15 @@ func main() {
 	if tgBot != nil {
 		botUsername = tgBot.Username
 	}
-	onboarding = registerOnboardingRoutes(mux, st, cfg, log, botUsername)
+	onboarding = registerOnboardingRoutesWithMediaSubmitter(
+		mux, st, cfg, log, botUsername, mediaSubmitter, mediaSubmitterInitErr,
+	)
 	if onboarding != nil {
+		onboarding.mediaLifecycle = mediaLifecycle
+		onboarding.mediaLifecycleInitErr = mediaLifecycleInitErr
 		go onboarding.runMediaUploadMaintenance(stop)
+	} else if mediaLifecycle != nil && mediaLifecycleInitErr == nil {
+		go runStandaloneMediaLifecycle(log, mediaLifecycle, stop)
 	}
 
 	log.Info("listening", "addr", cfg.Listen)
@@ -375,22 +428,13 @@ func mediaHandler(st *store.Store) http.HandlerFunc {
 	}
 }
 
-// retentionSweep deletes voice WAVs past expires_at daily (spec 5.3).
-func retentionSweep(log *slog.Logger, st *store.Store, stop <-chan struct{}) {
+// retentionSweep deletes legacy compatibility bytes past expires_at daily
+// (spec 5.3). Generic canonical lifecycle runs alongside it below.
+func retentionSweep(log *slog.Logger, st *store.Store, mediaDir string, stop <-chan struct{}) {
 	sweep := func() {
-		expired, err := st.ExpiredMedia(time.Now().UnixMilli())
-		if err != nil {
-			log.Error("retention sweep failed", "err", err)
-			return
-		}
-		for _, m := range expired {
-			if m.PathWAV != "" {
-				os.Remove(m.PathWAV)
-			}
-			st.MarkMediaDeleted(m.ID)
-		}
-		if len(expired) > 0 {
-			log.Info("retention sweep", "deleted", len(expired))
+		if err := sweepExpiredLegacyMedia(log, st, mediaDir, time.Now().UnixMilli()); err != nil {
+			// Repository/filesystem details are intentionally not reflected.
+			log.Error("retention sweep failed")
 		}
 	}
 	sweep()
@@ -402,6 +446,66 @@ func retentionSweep(log *slog.Logger, st *store.Store, stop <-chan struct{}) {
 			return
 		case <-t.C:
 			sweep()
+		}
+	}
+}
+
+func sweepExpiredLegacyMedia(log *slog.Logger, st *store.Store, mediaDir string, now int64) error {
+	expired, err := st.ExpiredMedia(now)
+	if err != nil {
+		return err
+	}
+	deleted := 0
+	for _, item := range expired {
+		cleanupFailed := false
+		if item.PathWAV != "" {
+			if err := os.Remove(item.PathWAV); err != nil && !os.IsNotExist(err) {
+				log.Error("legacy media WAV retention cleanup failed")
+				cleanupFailed = true
+			}
+		}
+		// Failed Telegram sources intentionally survive processing for the
+		// existing operator-debug contract, then leave with the same retryable
+		// retention sweep as their legacy/common media rows.
+		if mediaItemIDPattern.MatchString(item.ID) && mediaDir != "" {
+			source := filepath.Join(mediaDir, ".telegram", item.ID+".source")
+			if err := os.Remove(source); err != nil && !os.IsNotExist(err) {
+				log.Error("Telegram source retention cleanup failed")
+				cleanupFailed = true
+			}
+		}
+		if cleanupFailed {
+			continue
+		}
+		if err := st.MarkMediaDeleted(item.ID); err != nil {
+			log.Error("legacy media retention state update failed")
+			continue
+		}
+		deleted++
+	}
+	if deleted > 0 {
+		log.Info("retention sweep", "deleted", deleted)
+	}
+	return nil
+}
+
+func runStandaloneMediaLifecycle(log *slog.Logger, lifecycle *media.LifecycleService, stop <-chan struct{}) {
+	ticker := time.NewTicker(15 * time.Minute)
+	defer ticker.Stop()
+	run := func() {
+		if err := lifecycle.Sweep(context.Background()); err != nil {
+			log.Error("scheduled media lifecycle sweep failed")
+		}
+	}
+	run()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-lifecycle.Wake():
+			run()
+		case <-ticker.C:
+			run()
 		}
 	}
 }

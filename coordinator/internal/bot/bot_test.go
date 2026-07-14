@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -590,6 +591,34 @@ func TestHTTPAPIFilesystemErrorGraphDoesNotExposeDestinationPath(t *testing.T) {
 		t.Fatalf("error=%v", err)
 	}
 	assertTelegramErrorGraphRedacted(t, err, destination, destinationSecret)
+}
+
+func TestHTTPAPIDownloadBoundedStopsAtLimitPlusOneAndSecuresPartial(t *testing.T) {
+	const (
+		secretURL = "https://example.invalid/SENTINEL_BOUNDED_DOWNLOAD"
+		limit     = int64(16)
+	)
+	api := &HTTPAPI{
+		Token: "bounded-token",
+		Client: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(strings.Repeat("x", 1024))),
+				Header:     make(http.Header),
+				Request:    req,
+			}, nil
+		})},
+	}
+	destination := t.TempDir() + "/bounded.voice"
+	written, err := api.DownloadBounded(secretURL, destination, limit)
+	if err == nil || written != limit+1 {
+		t.Fatalf("bounded download written=%d err=%v", written, err)
+	}
+	assertTelegramErrorGraphRedacted(t, err, secretURL, destination)
+	info, statErr := os.Stat(destination)
+	if statErr != nil || info.Size() != limit+1 || info.Mode().Perm() != 0o600 {
+		t.Fatalf("bounded partial info=%+v err=%v", info, statErr)
+	}
 }
 
 func TestHTTPAPIRejectedResponseDoesNotEchoTelegramDescription(t *testing.T) {

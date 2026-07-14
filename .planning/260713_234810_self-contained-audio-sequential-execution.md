@@ -153,8 +153,10 @@ remain covered. Failed private Telegram sources stay available for the legacy
 operator-debug contract and are removed by a retryable retention sweep. Local
 full `go test`, `go vet`, full race, focused race, 20x focused stress, exact
 previous-head media-processing rollback and Linux amd64 CGO-free build are
-green. Hosted CI and merge acceptance are still pending; no manual real-app or
-hardware result is claimed.
+green. Hosted CI run `29307473249` passed coordinator, macOS Swift, portable
+Windows and packaged-MSIX jobs on PR #16. Root delta-review found no contract,
+privacy, retention or compatibility regression. Final tracking CI and merge
+acceptance are still pending; no manual real-app or hardware result is claimed.
 
 ## Operating contract
 

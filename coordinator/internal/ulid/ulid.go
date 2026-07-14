@@ -74,5 +74,14 @@ func NewUploadSessionID(t time.Time) string { return "up_" + New(t) }
 // NewStorageOperationID returns "sop_<ULID>".
 func NewStorageOperationID(t time.Time) string { return "sop_" + New(t) }
 
+// NewModerationReportID returns "rp_<ULID>".
+func NewModerationReportID(t time.Time) string { return "rp_" + New(t) }
+
+// NewModerationOperatorID returns "op_<ULID>".
+func NewModerationOperatorID(t time.Time) string { return "op_" + New(t) }
+
+// NewModerationDecisionID returns "md_<ULID>".
+func NewModerationDecisionID(t time.Time) string { return "md_" + New(t) }
+
 // NewCTID returns "ct_<ULID>" — a canonical track id (spec-providers §2).
 func NewCTID(t time.Time) string { return "ct_" + New(t) }

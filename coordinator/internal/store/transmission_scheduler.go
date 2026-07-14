@@ -1535,6 +1535,42 @@ WHERE media_id = ? AND completed_at = 0 ORDER BY accepted_at, id`, mediaID)
 	)
 }
 
+func (s *Store) CancelTransmissionsForSourceActor(
+	actorID int64,
+	reason TransmissionReason,
+	now int64,
+) ([]CancelTransmissionResult, error) {
+	if actorID <= 0 {
+		return nil, ErrTransmissionInvalid
+	}
+	ids, err := schedulerTransmissionIDs(s, `SELECT id FROM transmissions
+WHERE source_actor_id = ? AND completed_at = 0 ORDER BY accepted_at, id`, actorID)
+	if err != nil {
+		return nil, err
+	}
+	return cancelSchedulerWork(
+		s, ids, reason, now, true, func(TransmissionTarget) bool { return true },
+	)
+}
+
+func (s *Store) CancelTransmissionsForSourceOrbit(
+	orbitID int64,
+	reason TransmissionReason,
+	now int64,
+) ([]CancelTransmissionResult, error) {
+	if orbitID <= 0 {
+		return nil, ErrTransmissionInvalid
+	}
+	ids, err := schedulerTransmissionIDs(s, `SELECT id FROM transmissions
+WHERE source_orbit_id = ? AND completed_at = 0 ORDER BY accepted_at, id`, orbitID)
+	if err != nil {
+		return nil, err
+	}
+	return cancelSchedulerWork(
+		s, ids, reason, now, true, func(TransmissionTarget) bool { return true },
+	)
+}
+
 func (s *Store) CancelTransmissionPlaybackDomain(
 	domainKind PlaybackDomainKind,
 	domainID int64,
@@ -1587,6 +1623,39 @@ WHERE tt.orbit_id = ? AND tt.actor_id = ? AND tt.slot = ?
 		s, ids, reason, now, false,
 		func(target TransmissionTarget) bool {
 			return target.OrbitID == orbitID && target.ActorID == actorID && target.Slot == slot
+		},
+	)
+}
+
+// CancelTransmissionsFromSourceActorToNode is the scheduler enforcement seam
+// for a recipient's canonical actor block. It disarms only the blocked
+// sender's accepted work for the exact recipient generation; unrelated media
+// queued for the same node is preserved.
+func (s *Store) CancelTransmissionsFromSourceActorToNode(
+	sourceActorID, recipientOrbitID, recipientActorID int64,
+	recipientSlot string,
+	reason TransmissionReason,
+	now int64,
+) ([]CancelTransmissionResult, error) {
+	if sourceActorID <= 0 || recipientOrbitID <= 0 || recipientActorID <= 0 ||
+		!transmissionSlotPattern.MatchString(recipientSlot) {
+		return nil, ErrTransmissionInvalid
+	}
+	ids, err := schedulerTransmissionIDs(s, `SELECT t.id
+FROM transmissions t
+JOIN transmission_targets tt ON tt.transmission_id = t.id
+WHERE t.source_actor_id = ? AND tt.orbit_id = ? AND tt.actor_id = ?
+  AND tt.slot = ? AND t.completed_at = 0
+ORDER BY t.accepted_at, t.id`, sourceActorID, recipientOrbitID,
+		recipientActorID, recipientSlot)
+	if err != nil {
+		return nil, err
+	}
+	return cancelSchedulerWork(
+		s, ids, reason, now, false,
+		func(target TransmissionTarget) bool {
+			return target.OrbitID == recipientOrbitID &&
+				target.ActorID == recipientActorID && target.Slot == recipientSlot
 		},
 	)
 }

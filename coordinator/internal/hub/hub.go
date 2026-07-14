@@ -22,6 +22,7 @@ const (
 	registerDeadline = 5 * time.Second
 	writeDeadline    = 10 * time.Second
 	closeInvalidAuth = 4401 // spec 8.2
+	closeRevokedAuth = 4403
 )
 
 type Event any
@@ -237,6 +238,33 @@ func (h *Hub) Send(key NodeKey, msgType string, payload any) bool {
 	case <-c.stop:
 		return false
 	}
+}
+
+// Disconnect closes the exact live node generation after a canonical
+// credential revocation. It atomically removes the generation from snapshots,
+// emits the offline edge, and is idempotent for repeated enforcement.
+func (h *Hub) Disconnect(key NodeKey) bool {
+	h.mu.Lock()
+	c := h.conns[key]
+	if c != nil {
+		delete(h.conns, key)
+		h.online[key] = false
+		delete(h.capabilities, key)
+		delete(h.rttMS, key)
+		delete(h.rttSampledAt, key)
+	}
+	h.mu.Unlock()
+	if c == nil {
+		return false
+	}
+	h.emit(EvOffline{Key: key}, c.stop)
+	_ = c.ws.WriteControl(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(closeRevokedAuth, "credential revoked"),
+		time.Now().Add(time.Second),
+	)
+	c.close()
+	return true
 }
 
 var upgrader = websocket.Upgrader{

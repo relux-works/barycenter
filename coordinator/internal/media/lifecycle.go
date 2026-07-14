@@ -167,6 +167,35 @@ func (service *LifecycleService) DeleteAuthorized(
 	return deleted, nil
 }
 
+// DeleteForModeration uses the same terminal transition, durable outbox and
+// delivery sink as self-service deletion. The synchronous outbox drain makes
+// the operator decision observable immediately while preserving crash replay.
+func (service *LifecycleService) DeleteForModeration(
+	ctx context.Context,
+	mediaID string,
+) (store.MediaItem, error) {
+	if ctx == nil {
+		return store.MediaItem{}, errors.New("nil moderation media context")
+	}
+	now := service.now().UnixMilli()
+	deleted, err := service.store.DeleteMediaForModeration(mediaID, now)
+	if err != nil {
+		return store.MediaItem{}, err
+	}
+	service.metrics.deleteRequests.Add(1)
+	service.signal()
+	service.sinkMu.RLock()
+	hasSink := service.sink != nil
+	service.sinkMu.RUnlock()
+	if !hasSink {
+		return store.MediaItem{}, errors.New("media delivery cancellation sink unavailable")
+	}
+	if err := service.deliverCancellations(ctx, now); err != nil {
+		return store.MediaItem{}, err
+	}
+	return deleted, nil
+}
+
 func (service *LifecycleService) Metrics() MediaLifecycleMetrics {
 	return MediaLifecycleMetrics{
 		Healthy:               service.metrics.healthy.Load(),
@@ -220,6 +249,9 @@ func (service *LifecycleService) Sweep(ctx context.Context) error {
 	} else if pruned > 0 {
 		service.metrics.auditEventsPruned.Add(uint64(pruned))
 	}
+	if _, _, err := service.store.PruneModerationRetention(now); err != nil {
+		sweepErr = errors.Join(sweepErr, errors.New("prune moderation retention"))
+	}
 	backlog, err := service.store.MediaLifecycleBacklog(now)
 	if err != nil {
 		sweepErr = errors.Join(sweepErr, errors.New("measure media lifecycle backlog"))
@@ -262,8 +294,8 @@ func (service *LifecycleService) expireMedia(ctx context.Context, now int64) err
 }
 
 func (service *LifecycleService) cleanupStorage(ctx context.Context, now int64) error {
-	operations, err := service.store.PendingMediaStorageOperations(
-		store.StorageOperationCleanup, mediaLifecycleBatchLimit,
+	operations, err := service.store.PendingMediaStorageOperationsAt(
+		store.StorageOperationCleanup, now, mediaLifecycleBatchLimit,
 	)
 	if err != nil {
 		return err
@@ -299,7 +331,7 @@ func (service *LifecycleService) cleanupStorageOperation(
 	lock.Lock()
 	defer lock.Unlock()
 
-	current, err := service.store.MediaStorageCleanupCandidate(operation.ID, operation.Revision)
+	current, err := service.store.MediaStorageCleanupCandidateAt(operation.ID, operation.Revision, now)
 	if err != nil {
 		return 0, err
 	}

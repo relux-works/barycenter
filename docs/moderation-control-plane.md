@@ -48,6 +48,8 @@ consume the limit.
 
 - `GET /v1/moderation/reports?status=open&limit=50` requires `list`.
 - `GET /v1/moderation/reports/{report_id}/evidence` requires `evidence`.
+- `GET /v1/moderation/reports/{report_id}/audit?limit=500` requires `list` and
+  exports only the append-only, content-free history for that report.
 - `POST /v1/moderation/reports/{report_id}/decision` requires `decide` and a
   body containing one of `no_action`, `delete_media`, `disable_actor`, or
   `disable_orbit`.
@@ -78,3 +80,8 @@ block actions, and requested/applied decisions. Audit rows contain no audio,
 plaintext credentials, free-form report text, storage keys, or local paths.
 Normal request logs likewise omit those values.
 
+The accountable mailbox intake, Microsoft verification procedure, exact curl
+commands, evidence handling and mistaken-action recovery boundary are in
+[`moderation-operations-runbook.md`](moderation-operations-runbook.md). Its
+machine-readable state deliberately reports external mail routing as pending
+until live MX and synthetic delivery evidence exist.

@@ -163,6 +163,19 @@ type ModerationDecisionRequest struct {
 	Applied  bool
 }
 
+// ModerationAuditEvent is the content-free operator export shape. It never
+// contains report details, media storage identity, evidence bytes, bearer
+// material, or local paths.
+type ModerationAuditEvent struct {
+	ID         int64  `json:"id"`
+	ReportID   string `json:"report_id"`
+	OperatorID string `json:"operator_id,omitempty"`
+	ActorID    int64  `json:"actor_id,omitempty"`
+	EventType  string `json:"event_type"`
+	Action     string `json:"action,omitempty"`
+	CreatedAt  int64  `json:"created_at"`
+}
+
 type ModerationReportBlock struct {
 	Report ModerationReport
 	Block  TransmissionBlockCreation
@@ -627,6 +640,77 @@ func (s *Store) ListModerationReports(
 		return nil, err
 	}
 	return reports, nil
+}
+
+// ListModerationAuditEvents exports the append-only, content-free history for
+// one report. Queue/list authority is intentionally sufficient: the response
+// contains no reporter details or evidence and does not grant evidence access
+// or decision authority.
+func (s *Store) ListModerationAuditEvents(
+	operatorID, token, reportID string,
+	limit int,
+) ([]ModerationAuditEvent, error) {
+	if !moderationOperatorIDPattern.MatchString(operatorID) ||
+		!moderationReportIDPattern.MatchString(reportID) ||
+		limit <= 0 || limit > 500 {
+		return nil, ErrModerationInvalid
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	operator, err := resolveModerationOperator(tx, token)
+	if err != nil {
+		return nil, err
+	}
+	if operator.ID != operatorID || !operator.Capabilities.List {
+		return nil, ErrModerationForbidden
+	}
+	var exists int
+	if err := tx.QueryRow(`SELECT 1 FROM moderation_reports WHERE id = ?`, reportID).Scan(&exists); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrModerationNotFound
+		}
+		return nil, err
+	}
+	rows, err := tx.Query(`SELECT id, report_id, operator_id, actor_id,
+event_type, action, created_at
+FROM moderation_audit_events
+WHERE report_id = ? ORDER BY id LIMIT ?`, reportID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	events := make([]ModerationAuditEvent, 0)
+	for rows.Next() {
+		var event ModerationAuditEvent
+		var operator sql.NullString
+		var actor sql.NullInt64
+		if err := rows.Scan(
+			&event.ID, &event.ReportID, &operator, &actor,
+			&event.EventType, &event.Action, &event.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if operator.Valid {
+			event.OperatorID = operator.String
+		}
+		if actor.Valid {
+			event.ActorID = actor.Int64
+		}
+		events = append(events, event)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return events, nil
 }
 
 func (s *Store) AuthorizeModerationEvidence(

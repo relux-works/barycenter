@@ -34,6 +34,10 @@ jobs:
         run: |
           cd coordinator
           go run ./cmd/legal-ops-check --require-approved ../docs/compliance/legal-ops-inputs.json
+      - name: Require deliverable moderation and support mailboxes
+        run: |
+          cd coordinator
+          go run ./cmd/moderation-ops-check --require-mail-ready
       - name: Require exact policy-pack content approval
         run: |
           cd coordinator

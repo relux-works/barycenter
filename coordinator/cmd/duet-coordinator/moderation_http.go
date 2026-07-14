@@ -196,6 +196,37 @@ func (api *onboardingAPI) moderationQueueItem(w http.ResponseWriter, r *http.Req
 	operator := r.Context().Value(moderationOperatorRequestKey{}).(moderationOperatorRequest)
 	path := strings.TrimPrefix(r.URL.Path, "/v1/moderation/reports/")
 	switch {
+	case strings.HasSuffix(path, "/audit") && r.Method == http.MethodGet:
+		if r.ContentLength != 0 || len(r.TransferEncoding) != 0 {
+			apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+			return
+		}
+		query := r.URL.Query()
+		for key, values := range query {
+			if key != "limit" || len(values) != 1 {
+				apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+				return
+			}
+		}
+		limit := 500
+		if raw := query.Get("limit"); raw != "" {
+			parsed, err := strconv.Atoi(raw)
+			if err != nil {
+				apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+				return
+			}
+			limit = parsed
+		}
+		reportID := strings.TrimSuffix(path, "/audit")
+		events, err := api.store.ListModerationAuditEvents(
+			operator.Context.ID, operator.Bearer, reportID, limit,
+		)
+		if api.moderationError(w, err) {
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"report_id": reportID, "items": events,
+		})
 	case strings.HasSuffix(path, "/evidence") && r.Method == http.MethodGet:
 		if r.URL.RawQuery != "" || r.ContentLength != 0 || len(r.TransferEncoding) != 0 {
 			apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "task_id": "TASK-260712-3t9nr8",
+  "approval": {
+    "state": "approved",
+    "approved_by": "Ivan Oparin",
+    "approved_at": "2026-07-14T17:52:59+04:00"
+  },
+  "mail": {
+    "domain": "barycenter.live",
+    "support": "support@barycenter.live",
+    "moderation": "moderator@barycenter.live",
+    "urgent": "moderation-urgent@barycenter.live",
+    "delivery_state": "external_action_required",
+    "dns_checked_at": "2026-07-14T20:28:36+04:00",
+    "observed_mx": [],
+    "external_task_id": "TASK-260714-200ib8",
+    "proposed_default": "Cloudflare Email Routing forwards all three aliases to one private Ivan Oparin-controlled verified destination until a distinct backup operator exists"
+  },
+  "rotation": {
+    "primary": "Ivan Oparin",
+    "backup": "Ivan Oparin",
+    "escalation": "Ivan Oparin",
+    "coverage": "Monday-Friday 10:00-19:00 GMT+4",
+    "normal_target": "2 business days",
+    "urgent_target": "24 hours",
+    "credential_review": "quarterly and immediately on role or device change"
+  },
+  "control_plane": {
+    "queue_route": "/v1/moderation/reports",
+    "evidence_route": "/v1/moderation/reports/{report_id}/evidence",
+    "decision_route": "/v1/moderation/reports/{report_id}/decision",
+    "audit_route": "/v1/moderation/reports/{report_id}/audit",
+    "actions": [
+      "no_action",
+      "delete_media",
+      "disable_actor",
+      "disable_orbit"
+    ]
+  },
+  "safety": {
+    "evidence_retention_days": 30,
+    "email_audio": false,
+    "log_sensitive_audio": false,
+    "reporter_third_party_data": false,
+    "physical_delete_recoverable": false
+  },
+  "runbook_path": "docs/moderation-operations-runbook.md"
+}

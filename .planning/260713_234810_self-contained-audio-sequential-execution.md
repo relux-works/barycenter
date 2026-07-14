@@ -15,12 +15,16 @@
 - Current engineering task: `TASK-260712-3t9nr8` — moderation-runbook-mailbox
   (next in strict order after the accepted publication task)
 - Most recently accepted: `TASK-260712-1x0lot` — publish-policy-support-pages
-- Current branch: pending synchronization from the accepted PR #33
+- Current branch: `task/task-260712-3t9nr8-moderation-runbook-mailbox`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
   `29339017452`. PR #29 landed at merge
   `e588fc9b727d6264c289f69cc97ea77e4987f939`.
+- Current external-action ledger: `EPIC-260714-zmnd4n`. DNS inspection found
+  no MX for `barycenter.live`; provider-side routing and synthetic delivery for
+  the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
+  reversible best-effort engineering. Store submission remains fail-closed.
 - Accepted overall: 34 / 205 tasks (approximately 16.6%); 171 remain
 - Engineering progress: 34 / 186 tasks (approximately 18.3%); 152 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -174,6 +178,24 @@ manifest names the exact upstream head and source-pack SHA-256
 redirects and cache contracts. No packaged-app click is claimed. Progress is
 34/205 overall and 34/186 engineering; strict execution advances to
 `TASK-260712-3t9nr8`.
+
+Checkpoint 2026-07-14 (in progress): `TASK-260712-3t9nr8` now has an
+accountable moderation operations contract and runbook for Ivan Oparin's
+approved primary/backup/escalation roles, GMT+4 coverage, ordinary and urgent
+targets, reporter-safe intake, verified Microsoft requests, evidence privacy,
+retention, backups, operator credential issue/revoke and honest correction
+boundaries. A report-scoped operator API exports append-only content-free audit
+events under `list` authority without exposing report text, evidence, storage
+identity, tokens or paths. CI validates the contract; Store submit additionally
+requires live mailbox readiness. DNS inspection found no MX records for
+`barycenter.live`, so delivery is not invented: strict readiness fails closed
+and provider routing is recorded as external owner task `TASK-260714-200ib8`
+under `EPIC-260714-zmnd4n`. Coordinator full vet/tests, targeted moderation
+race, exact moderation predecessor rollback, Windows vet/tests/cross-build,
+Swift release build, JSON and board validation pass. A broader coordinator
+race run passed `internal/store` but hit an unrelated Telegram SQLite-busy
+flaky test; the changed HTTP moderation path passed independently under race.
+Hosted CI and final external-boundary tracking remain before acceptance.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

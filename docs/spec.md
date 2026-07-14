@@ -780,7 +780,7 @@ timings:
   near_end_ms: 400
 media:
   max_voice_s: 180
-  retention_days: 30
+  retention_days: 7             # phase-one clip default; history remains 30 days
   preset: default                # default | radio
 ```
 

@@ -195,6 +195,20 @@ same four jobs; PR #18 landed at
 `cfe12ed211e9f763d683a3fa3ace9cf8f4f1efc3`, and strict execution advanced to
 `TASK-260712-jolzhh`. No manual real-app or hardware result is claimed.
 
+Checkpoint 2026-07-14 for `TASK-260712-jolzhh`: the implementation draft now
+provides one authoritative upload retry/state/retention/compatibility handoff,
+explicit cross-story ownership, and truthful rollout, readiness, rollback and
+roll-forward instructions. The audit found that generic app clips used the
+approved seven-day retention while the Telegram config default and deployment
+templates still used 30 days; those defaults now converge on seven days while
+an explicit compatibility override remains honored and tested. Local focused
+tests, full coordinator vet/test/race, the exact pinned predecessor suite,
+portable Windows vet/test/cross-build, Swift build, YAML parsing, documentation
+link checks and task-board validation are green. Local Swift tests still stop
+at the known workstation `no such module 'Testing'` toolchain gap, so hosted
+macOS CI remains authoritative. The task is awaiting hosted review and no
+manual real-app or hardware result is claimed.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the

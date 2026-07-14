@@ -11,9 +11,7 @@ private final class StubMediaClipFetcher: MediaClipFetching {
     private var _removed: [URL] = []
 
     func fetch(_ request: MediaClipFetchRequest) async throws -> URL {
-        lock.lock()
-        _fetchCount += 1
-        lock.unlock()
+        lock.withLock { _fetchCount += 1 }
         if delayNanoseconds > 0 {
             try await Task.sleep(nanoseconds: delayNanoseconds)
         }
@@ -22,19 +20,15 @@ private final class StubMediaClipFetcher: MediaClipFetching {
     }
 
     func remove(_ localURL: URL) {
-        lock.lock()
-        _removed.append(localURL)
-        lock.unlock()
+        lock.withLock { _removed.append(localURL) }
     }
 
     var fetchCount: Int {
-        lock.lock(); defer { lock.unlock() }
-        return _fetchCount
+        lock.withLock { _fetchCount }
     }
 
     var removed: [URL] {
-        lock.lock(); defer { lock.unlock() }
-        return _removed
+        lock.withLock { _removed }
     }
 }
 
@@ -45,11 +39,10 @@ private final class StubMediaClipHTTPTransport: MediaClipHTTPTransport {
     private var _requests: [URLRequest] = []
 
     func download(_ request: URLRequest) async throws -> (URL, URLResponse) {
-        lock.lock()
-        _requests.append(request)
-        let body = data
-        let status = statusCode
-        lock.unlock()
+        let (body, status) = lock.withLock {
+            _requests.append(request)
+            return (data, statusCode)
+        }
         let temporary = FileManager.default.temporaryDirectory
             .appendingPathComponent("media-http-\(UUID().uuidString)")
         try body.write(to: temporary)
@@ -62,8 +55,7 @@ private final class StubMediaClipHTTPTransport: MediaClipHTTPTransport {
     }
 
     var requests: [URLRequest] {
-        lock.lock(); defer { lock.unlock() }
-        return _requests
+        lock.withLock { _requests }
     }
 }
 
@@ -97,11 +89,11 @@ private final class StubMediaClipMixer: MediaClipMixer {
         onStarted: @escaping (Int64) -> Void,
         onEnded: @escaping (Int64) -> Void
     ) throws {
-        lock.lock()
-        _armCount += 1
-        started = onStarted
-        ended = onEnded
-        lock.unlock()
+        lock.withLock {
+            _armCount += 1
+            started = onStarted
+            ended = onEnded
+        }
     }
 
     func cancel(
@@ -109,41 +101,34 @@ private final class StubMediaClipMixer: MediaClipMixer {
         command: CancelMediaPayload,
         completion: @escaping (Result<Bool, MediaClipFailure>) -> Void
     ) {
-        lock.lock()
-        _cancelCount += 1
-        lock.unlock()
+        lock.withLock { _cancelCount += 1 }
         completion(cancelResult)
     }
 
     func dispose(_ clip: PreparedMediaClip) {
-        lock.lock()
-        _disposeCount += 1
-        lock.unlock()
+        lock.withLock { _disposeCount += 1 }
     }
 
     func fireStarted(_ localMs: Int64) {
-        lock.lock(); let callback = started; lock.unlock()
+        let callback = lock.withLock { started }
         callback?(localMs)
     }
 
     func fireEnded(_ localMs: Int64) {
-        lock.lock(); let callback = ended; lock.unlock()
+        let callback = lock.withLock { ended }
         callback?(localMs)
     }
 
     var armCount: Int {
-        lock.lock(); defer { lock.unlock() }
-        return _armCount
+        lock.withLock { _armCount }
     }
 
     var cancelCount: Int {
-        lock.lock(); defer { lock.unlock() }
-        return _cancelCount
+        lock.withLock { _cancelCount }
     }
 
     var disposeCount: Int {
-        lock.lock(); defer { lock.unlock() }
-        return _disposeCount
+        lock.withLock { _disposeCount }
     }
 }
 
@@ -180,14 +165,11 @@ private final class MediaEventRecorder {
             event = nil
         }
         guard let event else { return }
-        lock.lock()
-        values.append(event)
-        lock.unlock()
+        lock.withLock { values.append(event) }
     }
 
     var events: [RecordedMediaEvent] {
-        lock.lock(); defer { lock.unlock() }
-        return values
+        lock.withLock { values }
     }
 }
 

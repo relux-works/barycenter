@@ -97,18 +97,29 @@ try {
         New-Item -ItemType Directory -Force -Path $ReceiptDirectory | Out-Null
     }
     [ordered]@{
-        schemaVersion = 1
+        schemaVersion = 2
         verificationBoundary = "hosted-or-local-Windows-install-only; not Win10/Win11 hardware evidence"
+        installedAtUTC = [DateTime]::UtcNow.ToString("o")
         packageSha256 = $PackageHash
         packageIdentity = $Contract.PackageIdentity
         publisher = $Contract.Publisher
         version = [string]$Installed.Version
         processorArchitecture = [string]$Installed.Architecture
+        packageFullName = [string]$Installed.PackageFullName
         packageFamilyName = [string]$Installed.PackageFamilyName
         applicationUserModelId = $Aumid
         trustLevel = $Contract.TrustLevel
         runtimeBehavior = $Contract.RuntimeBehavior
         capabilities = @($Contract.Capabilities)
+        signatureStatusAfterTrust = [string]$Signature.Status
+        signerSubject = [string]$Signer.Subject
+        signerIssuer = [string]$Signer.Issuer
+        signerThumbprint = ([string]$Signer.Thumbprint).ToLowerInvariant()
+        signerNotBeforeUTC = $Signer.NotBefore.ToUniversalTime().ToString("o")
+        signerNotAfterUTC = $Signer.NotAfter.ToUniversalTime().ToString("o")
+        signerTrustAdded = $AddedTrust
+        privateSigningMaterialIncluded = $false
+        runtimeRootRelativeToLocalAppData = $RuntimeRelativeRoot
         scenarioLogRelativeToLocalAppData = "$RuntimeRelativeRoot\scenarios.jsonl"
         evidenceRelativeToLocalAppData = "$RuntimeRelativeRoot\evidence"
     } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 $ReceiptPath

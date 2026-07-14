@@ -12,7 +12,13 @@
 - Current task: `TASK-260712-1vtwkl` — blocked on real Windows 10/11 hardware access
 - Current branch: `task/task-260712-1vtwkl-win10-win11-evidence`
 - Accepted: 11 / 205 tasks (approximately 5.4%); 194 remain
-- State: H00-H17 and the accepted package provenance are frozen in draft PR #10; no admissible physical Windows host or console operator is currently accessible, so no hardware row is claimed passed and later work has not started
+- State: H00-H17 and the accepted package provenance are frozen in draft PR #10; a fail-closed evidence/cleanup kit is under Windows CI validation, but no admissible physical Windows host or console operator is currently accessible, so no hardware row is claimed passed and later work has not started
+
+Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
+privacy and package-provenance checks, immutable evidence references, cleanup
+verification, and negative contract tests. Local Go vet/test, Windows amd64
+cross-build, YAML and task-board validation are green. Hosted Windows CI is
+only a tooling regression gate and cannot satisfy either physical OS row.
 
 Current blocker details and the exact unblock contract are recorded in the
 task-board outcome resource

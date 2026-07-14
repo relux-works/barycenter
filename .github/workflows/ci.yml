@@ -78,6 +78,12 @@ jobs:
           } finally {
             Remove-Item -Force "Cert:\CurrentUser\My\$thumbprint" -ErrorAction SilentlyContinue
           }
+      - name: Assert hardware evidence and cleanup contracts
+        shell: pwsh
+        run: |
+          $package = Get-ChildItem dist/windows-probe/PulsarProbe-*-x64-signed.msix | Select-Object -First 1
+          if (-not $package) { throw "signed probe MSIX missing" }
+          ./pulsar-win/probe-msix/hardware-evidence.Tests.ps1 -Package $package.FullName
       - name: Verify signed install contract without claiming hardware evidence
         shell: pwsh
         run: |
@@ -98,6 +104,30 @@ jobs:
             $receipt = Get-Content $result.ReceiptPath -Raw | ConvertFrom-Json
             if ($receipt.packageSha256 -cne $metadata.sha256) {
               throw "installed package digest differs from the signed build metadata"
+            }
+            if ($receipt.schemaVersion -ne 2 -or
+                $receipt.signerThumbprint -notmatch '^[0-9a-f]{40}$' -or
+                -not $receipt.signerTrustAdded -or
+                $receipt.privateSigningMaterialIncluded) {
+              throw "install receipt lacks the hardware cleanup provenance contract"
+            }
+            $pickerFixture = Join-Path $env:RUNNER_TEMP "pulsar-picker-cleanup.bin"
+            [IO.File]::WriteAllBytes($pickerFixture, [byte[]](1, 2, 3, 4))
+            $cleanupPath = "$($package.FullName).cleanup.json"
+            $cleanup = ./pulsar-win/probe-msix/uninstall-probe.ps1 `
+              -ReceiptPath $result.ReceiptPath `
+              -PickerFixture $pickerFixture `
+              -CleanupReceiptPath $cleanupPath `
+              -EvidenceCopied
+            if (-not $cleanup.processAbsent -or
+                -not $cleanup.packageAbsent -or
+                -not $cleanup.signerTrustAbsent -or
+                -not $cleanup.runtimeRootAbsent -or
+                -not $cleanup.hotkeyAvailable -or
+                -not $cleanup.pickerFixtureExclusiveAccess -or
+                -not $cleanup.pickerFixtureDeleted -or
+                $cleanup.remainingPartialCount -ne 0) {
+              throw "hardware cleanup receipt did not prove every hosted cleanup postcondition"
             }
           } finally {
             if ($null -ne $result) {

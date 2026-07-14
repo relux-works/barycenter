@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:27:53Z
 
 ## Last Update
-2026-07-13T23:36:29Z
+2026-07-14T00:09:55Z
 
 ## Blocked By
 - TASK-260712-2y74io
@@ -31,6 +31,7 @@ codex-inline
 Strict sequential inline execution started 2026-07-14 from clean synchronized main 38ebd385e105eb2f6c7012c608cd1debfa3aad5e on branch task/task-260712-1vtwkl-win10-win11-evidence. No task-board spawn workflow. Preconditions TASK-260712-2y74io and TASK-260712-13rbnw are accepted and landed. Hardware claims remain gated on real supported Windows 10 and Windows 11 hosts with physical audio devices.
 2026-07-14 readiness audit froze H00-H17 and revalidated accepted package SHA-256 a0c3022b69c68f140969a7d7bef4cd0904f1b2872960e7a4511bea9462749be7 from CI 29292631211. No admissible physical Windows hosts are accessible: executor is macOS without Boot Camp, accessible Tailscale has no Windows peers, no Windows SSH target or physical-console operator was supplied, and hosted CI/VMs are not evidence. Current lifecycle review also means ordinary Windows 10 22H2 is EOS; strict supported row is Windows 10 Enterprise LTSC 2021 through 2027-01-12 unless product owners explicitly approve another lifecycle posture. Exact host/device/operator requirements and matrix are attached in TASK-260712-1vtwkl_hardware-readiness-audit.md. No scenario is claimed passed.
 Tracking commit f82772a is pushed and draft PR #10 is open. The PR is intentionally non-mergeable by process until real H00-H17 evidence is attached and accepted.
+2026-07-14 evidence-kit checkpoint: implemented strict H00-H17 ordering, physical-host and serviced-build preflight, signed-package provenance, sanitized immutable snapshot and attachment manifests, terminal unreviewed verdicts, tamper-detecting seal, real hotkey-conflict helper, and receipt-bound exact uninstall cleanup including picker deletion. Local Go vet/tests, Windows amd64 cross-build, YAML and board validation are green. Hosted Windows CI is pending and remains tooling-only; all four task checklist items stay unchecked and no physical scenario is claimed passed.
 
 ## Precondition Resources
 - [p1-windows-store-spike-lifecycle.puml](file://TASK-260712-1vtwkl/p1-windows-store-spike-lifecycle.puml) — Lifecycle flow for the Win10 and Win11 evidence run

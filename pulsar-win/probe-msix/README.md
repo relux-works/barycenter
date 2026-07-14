@@ -37,7 +37,11 @@ Every successful `pulsar-win-packaged-probe` CI job creates the
   private key;
 - `.msix.sha256` and `.msix.json` — digest and frozen build contract;
 - `.msix.install.json` — hosted-Windows install receipt with the resolved
-  package digest, family, AUMID, and relative evidence locations.
+  package digest, family, AUMID, public signer provenance, trust ownership and
+  relative evidence locations;
+- `.msix.cleanup.json` — hosted-Windows proof that the exact package,
+  run-added trust, runtime root, process, picker handle and hotkey ownership
+  were released. Its boundary is cleanup-contract-only, not hardware evidence.
 
 For example, with GitHub CLI and a completed CI run ID:
 
@@ -102,7 +106,10 @@ The script validates identity, Publisher, x64 architecture, package family,
 AppContainer/runtime attributes, and the exact four-capability set. It then
 launches `shell:AppsFolder\<package-family>!PulsarProbe`, verifies that the
 probe process appeared, and prints the resolved paths. The same values are in
-the adjacent `.msix.install.json` receipt.
+the adjacent schema-v2 `.msix.install.json` receipt, including the exact
+package full name, public signer identity/validity/thumbprint, whether this run
+added signer trust, and the relative runtime evidence root. It contains no
+private signing material or absolute user path.
 
 The visible window provides separate `Record default` and `Record selected`
 actions, `Stop`, brokered picker, and hide controls. The tray duplicates those
@@ -121,12 +128,133 @@ Runtime output is package-private and resolves exactly as follows:
     *.partial.reason
 ```
 
-Copy the complete `PulsarProbe` directory after the probe has exited cleanly.
-Do not attach certificate exports, local usernames/paths, microphone content
-outside the task-approved evidence handling, or a private key to task results.
+Do not copy or splice the runtime directory by hand for the hardware matrix.
+Use the evidence kit below after the probe has exited. Never attach certificate
+exports, local usernames/paths, microphone content outside the task-approved
+short fixtures, or a private key to task results.
 
-After evidence capture, remove the package and any trust entry that this run
-added:
+## Physical Windows 10/11 evidence kit
+
+`hardware-evidence.ps1` creates one fail-closed bundle per physical host. It
+does not have a hosted-runner/VM override and never promotes a scenario from a
+test command. It records each H00-H17 operator verdict as `unreviewed`; task
+acceptance still requires inspection of the referenced bytes.
+
+Before installing the MSIX, list the exact endpoint friendly names and create a
+new bundle. The strict Windows 10 row is Enterprise LTSC 2021 build 19044;
+`ApprovedException` requires an explicit product-decision reference.
+
+```powershell
+Get-PnpDevice -Class AudioEndpoint -PresentOnly |
+  Select-Object Status, FriendlyName, InstanceId
+
+$package = Resolve-Path `
+  .\dist\windows-probe\PulsarProbe-0.1.0.0-x64-signed.msix
+$bundle = Join-Path $PWD "win10-ltsc-physical-a"
+$staging = Join-Path $env:TEMP "pulsar-evidence-$([guid]::NewGuid())"
+New-Item -ItemType Directory -Path $staging | Out-Null
+$pickerFixture = Join-Path $staging "picker-fixture.bin"
+[IO.File]::WriteAllText(
+  $pickerFixture,
+  "pulsar-picker-fixture-v1",
+  [Text.UTF8Encoding]::new($false)
+)
+
+.\pulsar-win\probe-msix\hardware-evidence.ps1 `
+  -Mode Initialize `
+  -OutputDirectory $bundle `
+  -RunID win10-ltsc-physical-a `
+  -OSFamily windows10 `
+  -Package $package `
+  -PhysicalMachineAttested `
+  -ConsoleOperatorAttested `
+  -OutputEndpointName "<exact physical output friendly name>" `
+  -DefaultInputName "<exact default physical input friendly name>" `
+  -SelectedInputName "<exact second removable input friendly name>"
+
+$installReceipt = Join-Path $staging "install.json"
+$install = .\pulsar-win\probe-msix\install-probe.ps1 `
+  -Package $package `
+  -TrustLocalTestSigner `
+  -ReceiptPath $installReceipt `
+  -Launch
+```
+
+Use the frozen H00-H17 order in
+`TASK-260712-1vtwkl_hardware-readiness-audit.md`. Exit the probe before every
+stable runtime snapshot. Attach screenshots, independently decoded WAV
+metadata, sanitized WACK output, prompt timing, and other evidence separately;
+then record an honest terminal operator verdict. A `FAIL` or `BLOCKED` verdict
+requires a concrete next action. Evidence and verdicts cannot be overwritten.
+
+```powershell
+.\pulsar-win\probe-msix\hardware-evidence.ps1 `
+  -Mode Snapshot -OutputDirectory $bundle -Scenario H03
+
+$decoderReport = Join-Path $staging "H03-independent-decoder.json"
+.\pulsar-win\probe-msix\hardware-evidence.ps1 `
+  -Mode Attach -OutputDirectory $bundle -Scenario H03 `
+  -Attachment $decoderReport
+
+.\pulsar-win\probe-msix\hardware-evidence.ps1 `
+  -Mode Verdict -OutputDirectory $bundle -Scenario H03 -Verdict PASS `
+  -Observation "default physical input, valid ten-second WAV, independent decoder pass"
+```
+
+For H05, run the holder in a separate PowerShell process before launching the
+probe. Its ready file contains no host data. The signed probe must report the
+real conflict/GetLastError; after stopping the holder and relaunching, the
+probe must acquire and exercise the chord.
+
+```powershell
+$hotkeyReady = Join-Path $staging "hotkey-holder-ready.json"
+$holder = Start-Process pwsh -PassThru -ArgumentList @(
+  "-NoProfile", "-File",
+  (Resolve-Path .\pulsar-win\probe-msix\hotkey-conflict.ps1),
+  "-Mode", "Hold", "-HoldSeconds", "120", "-ReadyPath", $hotkeyReady
+)
+while (-not (Test-Path $hotkeyReady) -and -not $holder.HasExited) {
+  Start-Sleep -Milliseconds 100
+}
+# Launch the signed probe, capture the blocked registration, and exit it.
+Stop-Process -Id $holder.Id -Force
+.\pulsar-win\probe-msix\hotkey-conflict.ps1 -Mode Probe
+```
+
+After H00-H16 evidence is copied, clean the exact package, runtime root and only
+the signer trust added by this run. The cleanup script refuses to run without
+`-EvidenceCopied`, validates the receipt before removal, proves exclusive
+picker-fixture access by an open+rename+delete round trip, and reacquires
+`Ctrl+Shift+R`. Attach that receipt as H17, record the H17 verdict, and seal only
+after every row has an evidence reference and terminal verdict.
+
+```powershell
+$cleanupReceipt = Join-Path $staging "cleanup.json"
+.\pulsar-win\probe-msix\uninstall-probe.ps1 `
+  -ReceiptPath $installReceipt `
+  -PickerFixture $pickerFixture `
+  -CleanupReceiptPath $cleanupReceipt `
+  -EvidenceCopied
+
+.\pulsar-win\probe-msix\hardware-evidence.ps1 `
+  -Mode Attach -OutputDirectory $bundle -Scenario H17 `
+  -Attachment $cleanupReceipt
+.\pulsar-win\probe-msix\hardware-evidence.ps1 `
+  -Mode Verdict -OutputDirectory $bundle -Scenario H17 -Verdict PASS `
+  -Observation "process/package/run-added trust/runtime root absent; hotkey and picker released"
+.\pulsar-win\probe-msix\hardware-evidence.ps1 `
+  -Mode Seal -OutputDirectory $bundle
+```
+
+The kit enforces H00-H17 order and rechecks each referenced file and nested
+runtime-snapshot hash before sealing. The seal is a hash index plus an honest
+aggregate of unreviewed operator verdicts. `all-operator-pass-unreviewed` is
+deliberately not a task pass. Run the Windows 10 row first and Windows 11 second
+with the exact same package SHA-256; never merge two bundle histories or reuse
+an output directory.
+
+The following manual commands are emergency cleanup only. They do not produce
+an admissible H17 receipt:
 
 ```powershell
 Get-Process pulsar-win-probe-amd64 -ErrorAction SilentlyContinue |

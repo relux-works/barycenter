@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "task_id": "TASK-260712-16zfvu",
+  "observed_at": "2026-07-14",
+  "publication_gate": {
+    "state": "blocked",
+    "approved_by": null,
+    "approved_at": null
+  },
+  "inputs": [
+    {
+      "id": "legal_identity_and_controller",
+      "status": "observed_unapproved",
+      "value": null,
+      "candidate": {
+        "legal_name": "Relux Works LLC",
+        "registration_number": "999.110.1559507",
+        "tax_id": "03036828",
+        "registered_address": "Orbeli Brothers St. 19, Tsaghkadzor, Kotayq, Armenia 2310",
+        "data_controller": "Relux Works LLC",
+        "registration_jurisdiction": "Republic of Armenia"
+      },
+      "owner": null,
+      "approved_by": null,
+      "approved_at": null,
+      "evidence": [
+        "https://relux.works/en/privacy-policy/",
+        "https://relux.works/en/terms-of-use/",
+        "docs/decisions.md"
+      ]
+    },
+    {
+      "id": "contacts_and_public_urls",
+      "status": "observed_unapproved",
+      "value": null,
+      "candidate": {
+        "privacy_email": "privacy@relux.works",
+        "legal_email": "legal@relux.works",
+        "support_email": null,
+        "moderation_email": null,
+        "privacy_url_en": "https://relux.works/en/privacy-policy/",
+        "privacy_url_ru": "https://relux.works/ru/privacy-policy/",
+        "terms_url_en": "https://relux.works/en/terms-of-use/",
+        "terms_url_ru": "https://relux.works/ru/terms-of-use/",
+        "product_privacy_url": null,
+        "product_terms_url": null,
+        "content_guidelines_url": null,
+        "support_url": null
+      },
+      "owner": null,
+      "approved_by": null,
+      "approved_at": null,
+      "evidence": [
+        "https://relux.works/en/privacy-policy/",
+        "https://relux.works/en/terms-of-use/",
+        "docs/analysis/p1-legal-ops-input-checkpoint.md"
+      ]
+    },
+    {
+      "id": "hosting_and_data_locations",
+      "status": "observed_unapproved",
+      "value": null,
+      "candidate": {
+        "service_owner": null,
+        "primary_host_owner": null,
+        "primary_data_country_or_region": null,
+        "object_backup_provider": null,
+        "backup_data_country_or_region": null,
+        "operational_owner": null,
+        "subprocessor_disclosure": null
+      },
+      "owner": null,
+      "approved_by": null,
+      "approved_at": null,
+      "evidence": [
+        "docs/v2-direction.md",
+        "docs/backup-restore.md",
+        "deploy/coolify.env.example"
+      ]
+    },
+    {
+      "id": "markets_age_and_disputes",
+      "status": "observed_unapproved",
+      "value": null,
+      "candidate": {
+        "target_markets": null,
+        "excluded_markets": null,
+        "minimum_age": 13,
+        "age_positioning": "not directed at children under 13",
+        "governing_law": "Republic of Armenia",
+        "dispute_forum": "competent courts of the Republic of Armenia",
+        "controlling_policy_language": "English"
+      },
+      "owner": null,
+      "approved_by": null,
+      "approved_at": null,
+      "evidence": [
+        "https://relux.works/en/privacy-policy/",
+        "https://relux.works/en/terms-of-use/",
+        "https://relux.works/ru/terms-of-use/"
+      ]
+    },
+    {
+      "id": "moderation_ownership_and_response",
+      "status": "observed_unapproved",
+      "value": null,
+      "candidate": {
+        "primary_operator": null,
+        "backup_operator": null,
+        "escalation_owner": null,
+        "privacy_mailbox_owner": null,
+        "support_mailbox_owner": null,
+        "moderation_mailbox_owner": null,
+        "normal_report_response_target": null,
+        "urgent_removal_response_target": null,
+        "coverage_hours_and_timezone": null
+      },
+      "owner": null,
+      "approved_by": null,
+      "approved_at": null,
+      "evidence": [
+        "docs/spec-self-contained-audio.md#153-user-generated-content",
+        "docs/spec-self-contained-audio.md#155-reporting-operations",
+        ".task-board/.resources/STORY-260712-1tgryz/p1-root-review-amendments.md"
+      ]
+    },
+    {
+      "id": "partner_center_and_submission",
+      "status": "observed_unapproved",
+      "value": null,
+      "candidate": {
+        "store_product_id": "9P26FDCWV1GC",
+        "package_identity": "ReluxWorksLLC.PulsarBarycenter",
+        "automation_application": "pulsar-store-ci",
+        "automation_role": "Manager (Windows)",
+        "partner_center_account_owner": null,
+        "listing_asset_owner": null,
+        "final_external_submit_authority": null,
+        "emergency_withdrawal_authority": null
+      },
+      "owner": null,
+      "approved_by": null,
+      "approved_at": null,
+      "evidence": [
+        "docs/decisions.md",
+        ".github/workflows/store-auth-check.yml",
+        ".github/workflows/store-submit.yml"
+      ]
+    },
+    {
+      "id": "policy_review_and_configuration",
+      "status": "observed_unapproved",
+      "value": null,
+      "candidate": {
+        "english_legal_reviewer": null,
+        "russian_legal_reviewer": null,
+        "counsel_review_required": null,
+        "controlling_language_decision": "English text controls; Russian must be semantically equivalent",
+        "checked_in_facts": [
+          "legal identity and registration facts",
+          "approved governing law and age positioning"
+        ],
+        "runtime_configurable_facts": [
+          "policy and support URLs",
+          "public contact mailboxes",
+          "operational response targets",
+          "hosting and subprocessor disclosures"
+        ]
+      },
+      "owner": null,
+      "approved_by": null,
+      "approved_at": null,
+      "evidence": [
+        "https://relux.works/en/privacy-policy/",
+        "https://relux.works/ru/privacy-policy/",
+        ".task-board/.resources/STORY-260712-1tgryz/p1-root-review-amendments.md"
+      ]
+    }
+  ]
+}

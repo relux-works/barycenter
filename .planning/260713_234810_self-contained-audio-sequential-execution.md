@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 46 accepted, 159 remain.
-- Routed inventory: 186 engineering tasks (46 accepted, 140 remain) and 19
+- Combined inventory: 205 original tasks; 47 accepted, 158 remain.
+- Routed inventory: 186 engineering tasks (47 accepted, 139 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,9 +13,9 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-21ers7` — telegram-inline-routing-compat
-  (in progress from synchronized `main`)
+  (accepted; tracking CI and merge pending)
 - Next engineering task: `TASK-260712-3e4p0c` — history-replay-policy-actions
-- Most recently accepted: `TASK-260712-2hcq1g` — transmission-history-receipt-query
+- Most recently accepted: `TASK-260712-21ers7` — telegram-inline-routing-compat
 - Current branch: `task/task-260712-21ers7-telegram-inline-routing-compat`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 46 / 205 tasks (approximately 22.4%); 159 remain
-- Engineering progress: 46 / 186 tasks (approximately 24.7%); 140 remain
+- Accepted overall: 47 / 205 tasks (approximately 22.9%); 158 remain
+- Engineering progress: 47 / 186 tasks (approximately 25.3%); 139 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -474,8 +474,10 @@ x5, fault rollback, legacy FIFO, bot HTTP keyboard, Windows native/cross-build,
 Swift release build, PlantUML render and board/diff gates are green. The local
 Swift test runner still lacks the pre-existing `Testing` module; no real app,
 Telegram client, audible or hardware evidence is claimed. Exact commit, hosted
-CI and merge remain before acceptance; counts stay 46/205 overall and 46/186
-engineering meanwhile.
+Exact engineering head `8fc47cf75b0f1ba521e80bd9d8a42885edacb217`
+passed all four hosted jobs in run `29370460972`; the best-effort engineering
+scope is accepted. Progress is 47/205 overall and 47/186 engineering. PR #46
+tracking CI and merge remain.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1098,7 +1100,9 @@ Story: `STORY-260712-34kbkn` — P1 Telegram adapter, history and presence.
   exact engineering head `742c160`; all four hosted jobs in run `29368167361`
   green; tracking head `835efb7` passed run `29368383324`; no real-app/Telegram-
   client/audible/hardware result claimed; PR #45, merge `77cf82f`)
-- [ ] `TASK-260712-21ers7` — telegram-inline-routing-compat
+- [x] `TASK-260712-21ers7` — telegram-inline-routing-compat (accepted on exact
+  engineering head `8fc47cf`; all four hosted jobs in run `29370460972` green;
+  no real-app/Telegram-client/audible/hardware result claimed; PR #46)
 - [ ] `TASK-260712-3e4p0c` — history-replay-policy-actions
 - [ ] `TASK-260712-3d0zgu` — telegram-parity-regression-tests
 - [ ] `TASK-260712-1f9jtm` — telegram-parity-docs-handoff

@@ -1,5 +1,5 @@
 ## Status
-development
+analysis
 
 ## Assigned To
 (none)
@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-14T21:10:56Z
+2026-07-14T21:44:35Z
 
 ## Blocked By
 - STORY-260712-sskhip

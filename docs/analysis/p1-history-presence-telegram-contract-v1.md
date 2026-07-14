@@ -65,12 +65,14 @@ query.
 
 Rows sort by `(occurred_at DESC, history_item_id DESC)`. Page one freezes an
 upper bound and authorization/filter fingerprint. `next_cursor` is a server-
-issued AEAD-protected opaque value bound to actor, credential scope, view,
-limit, upper bound and last key, expiring after 24 hours. It cannot contain
-readable actor, orbit, transmission or media IDs. Wrong-actor, changed-filter,
-malformed, expired and post-revocation cursors all return `400
-history_cursor_invalid`. Newer inserts do not shift subsequent pages and a
-retained row appears at most once.
+issued opaque capability bound to actor, credential scope, view, limit, upper
+bound and last key, expiring after 24 hours. The Phase 1 stateful profile uses
+256 random bits, stores only the token digest, and keeps the bound fields on
+the server; a stateless implementation may instead AEAD-protect those fields.
+The client value cannot contain readable actor, orbit, transmission or media
+IDs. Wrong-actor, changed-filter, malformed, expired and post-revocation
+cursors all return `400 history_cursor_invalid`. Newer inserts do not shift
+subsequent pages and a retained row appears at most once.
 
 ```json
 {

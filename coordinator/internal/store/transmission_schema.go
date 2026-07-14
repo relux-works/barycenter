@@ -267,6 +267,26 @@ CREATE TABLE IF NOT EXISTS transmission_policy_requests (
   PRIMARY KEY(actor_id, operation, idempotency_key_hash)
 );
 
+-- History cursors are random capabilities; only their digest and server-side
+-- pagination state are durable. They carry no readable tenant or media ids.
+CREATE TABLE IF NOT EXISTS transmission_history_cursors (
+  token_hash TEXT PRIMARY KEY
+    CHECK(length(token_hash) = 64 AND token_hash NOT GLOB '*[^0-9a-f]*'),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  authorization_hash TEXT NOT NULL
+    CHECK(length(authorization_hash) = 64 AND authorization_hash NOT GLOB '*[^0-9a-f]*'),
+  view TEXT NOT NULL CHECK(view IN ('all', 'sent', 'received')),
+  page_limit INTEGER NOT NULL CHECK(page_limit BETWEEN 1 AND 100),
+  upper_at INTEGER NOT NULL CHECK(upper_at > 0),
+  upper_id TEXT NOT NULL CHECK(length(upper_id) = 29 AND substr(upper_id, 1, 3) = 'hi_'),
+  last_at INTEGER NOT NULL CHECK(last_at > 0),
+  last_id TEXT NOT NULL CHECK(length(last_id) = 29 AND substr(last_id, 1, 3) = 'hi_'),
+  expires_at INTEGER NOT NULL CHECK(expires_at > 0),
+  created_at INTEGER NOT NULL CHECK(created_at > 0)
+);
+CREATE INDEX IF NOT EXISTS transmission_history_cursors_expiry
+  ON transmission_history_cursors(expires_at, actor_id);
+
 CREATE TABLE IF NOT EXISTS node_dnd_settings (
   orbit_id INTEGER NOT NULL CHECK(orbit_id > 0),
   actor_id INTEGER NOT NULL CHECK(actor_id > 0),

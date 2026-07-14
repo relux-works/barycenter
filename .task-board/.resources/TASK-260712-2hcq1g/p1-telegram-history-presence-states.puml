@@ -1,43 +1,70 @@
 @startuml
+!theme plain
 title P1 History and Receipt Lifecycle
 
 hide empty description
 
 state "Client-visible history item" as History {
-  [*] --> processing
-  processing --> ready : media normalized
-  processing --> error : probe/transcode failed
-  ready --> playing : started on target set
-  ready --> partial : mixed target outcome
-  ready --> error : no playable targets\nor cancelled failure
-  playing --> played : all started targets ended
-  playing --> partial : some targets failed or missed
-  partial --> [*]
-  played --> [*]
-  error --> [*]
+  state "processing" as HistoryProcessing
+  state "ready" as HistoryReady
+  state "playing" as HistoryPlaying
+  state "played" as HistoryPlayed
+  state "partial" as HistoryPartial
+  state "expired" as HistoryExpired
+  state "error" as HistoryError
+
+  [*] --> HistoryProcessing
+  HistoryProcessing --> HistoryReady : media normalized
+  HistoryProcessing --> HistoryError : probe/transcode failed
+  HistoryReady --> HistoryPlaying : started on target set
+  HistoryReady --> HistoryExpired : every target expired
+  HistoryReady --> HistoryPartial : mixed target outcome
+  HistoryReady --> HistoryError : no playable targets\nor cancelled failure
+  HistoryPlaying --> HistoryPlayed : all started targets ended
+  HistoryPlaying --> HistoryPartial : some targets failed or missed
+  HistoryPartial --> [*]
+  HistoryPlayed --> [*]
+  HistoryExpired --> [*]
+  HistoryError --> [*]
 }
 
 state "Per-target receipt detail" as Receipt {
-  [*] --> accepted
-  accepted --> preparing
-  preparing --> ready
-  ready --> scheduled
-  scheduled --> playing
-  playing --> played
+  state "accepted" as TargetAccepted
+  state "preparing" as TargetPreparing
+  state "ready" as TargetReady
+  state "scheduled" as TargetScheduled
+  state "playing" as TargetPlaying
+  state "played" as TargetPlayed
+  state "missed_offline" as TargetMissedOffline
+  state "missed_dnd" as TargetMissedDND
+  state "missed_not_ready" as TargetMissedNotReady
+  state "blocked" as TargetBlocked
+  state "failed" as TargetFailed
+  state "expired" as TargetExpired
+  state "cancelled" as TargetCancelled
 
-  accepted --> missed_offline
-  accepted --> missed_dnd
-  accepted --> missed_not_ready
-  accepted --> blocked
-  accepted --> failed
+  [*] --> TargetAccepted
+  TargetAccepted --> TargetPreparing
+  TargetPreparing --> TargetReady
+  TargetReady --> TargetScheduled
+  TargetScheduled --> TargetPlaying
+  TargetPlaying --> TargetPlayed
+
+  TargetAccepted --> TargetMissedOffline
+  TargetAccepted --> TargetMissedDND
+  TargetAccepted --> TargetMissedNotReady
+  TargetAccepted --> TargetBlocked
+  TargetAccepted --> TargetFailed
+  TargetAccepted --> TargetExpired
+  TargetPlaying --> TargetCancelled
 }
 
 History ..> Receipt : aggregates exact reasons
 
 note bottom
-  Presence surfaces may show online/offline, output state,
-  playback state, required capability support, DND, and block.
-  They must never expose microphone state or local process names.
+  The history state is a projection only. Receipt evidence remains
+  for 30 days even when content is deleted or expired. No state
+  transition here queues replay or creates an offline inbox.
 end note
 
 @enduml

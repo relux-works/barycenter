@@ -297,6 +297,22 @@ func (s *Store) MintTransmissionSubjectReferenceForIdentity(expectedActorID int6
 	} else if err != nil {
 		return TransmissionSubjectReference{}, err
 	}
+	var existing TransmissionSubjectReference
+	existing.SubjectKind = kind
+	existing.SubjectID = subjectID
+	err = s.db.QueryRow(`SELECT public_id, display_name, expires_at
+FROM transmission_subject_refs
+WHERE viewer_actor_id = ? AND subject_kind = ? AND subject_id = ?
+  AND display_name = ? AND expires_at > ?
+ORDER BY expires_at DESC, public_id DESC LIMIT 1`, expectedActorID, kind,
+		subjectID, displayName, now+int64((5*time.Minute)/time.Millisecond)).Scan(
+		&existing.PublicID, &existing.DisplayName, &existing.ExpiresAt)
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return TransmissionSubjectReference{}, err
+	}
 	prefix := "ar_"
 	if kind == BlockedSubjectOrbit {
 		prefix = "or_"

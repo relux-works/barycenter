@@ -20,6 +20,9 @@ The implemented Telegram transport boundary and automated evidence are described
 in [P1 Telegram callback and audio transport](analysis/p1-telegram-callback-audio-transport.md).
 The implemented privacy projection and shared policy mutation boundary are
 described in [P1 presence, DND and block implementation](analysis/p1-presence-dnd-block-surface.md).
+The actor-scoped media/transmission projection, receipt authorization,
+pagination and current-action derivation are described in
+[P1 transmission history and receipt query](analysis/p1-transmission-history-receipt-query.md).
 
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 

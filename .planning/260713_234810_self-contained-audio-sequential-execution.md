@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 45 accepted, 160 remain.
-- Routed inventory: 186 engineering tasks (45 accepted, 141 remain) and 19
+- Combined inventory: 205 original tasks; 46 accepted, 159 remain.
+- Routed inventory: 186 engineering tasks (46 accepted, 140 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1c1ska` — presence-dnd-block-surface
+- Current engineering task: `TASK-260712-2hcq1g` — transmission-history-receipt-query
   (accepted; tracking CI and merge pending)
-- Next engineering task: `TASK-260712-2hcq1g` — transmission-history-receipt-query
-- Most recently accepted: `TASK-260712-1c1ska` — presence-dnd-block-surface
-- Current branch: `task/task-260712-1c1ska-presence-dnd-block-surface`
+- Next engineering task: `TASK-260712-21ers7` — telegram-inline-routing-compat
+- Most recently accepted: `TASK-260712-2hcq1g` — transmission-history-receipt-query
+- Current branch: `task/task-260712-2hcq1g-transmission-history-receipt-query`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 45 / 205 tasks (approximately 22.0%); 160 remain
-- Engineering progress: 45 / 186 tasks (approximately 24.2%); 141 remain
+- Accepted overall: 46 / 205 tasks (approximately 22.4%); 159 remain
+- Engineering progress: 46 / 186 tasks (approximately 24.7%); 140 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -430,7 +430,31 @@ validation and diff checks pass. No real-app, audible, physical-device or
 hardware result is claimed. Exact engineering head
 `a65fc659e3ae389484163723aa63a3806f4b986d` passed all four hosted jobs in run
 `29365735642`; the task is accepted. Progress is 45/205 overall and 45/186
-engineering; tracking CI and PR #44 merge remain.
+engineering. Tracking head `f4f718b3cd54143d9a5c9d6c5a1e39fe46d724d0`
+passed all four jobs in run `29365971499`; PR #44 landed at merge
+`19ea2c1fd58dd066cbe0a217dd28972a4ff77a6b`, and strict execution advanced to
+`TASK-260712-2hcq1g` from synchronized `main`.
+
+Checkpoint 2026-07-15 (accepted): `TASK-260712-2hcq1g` adds the common
+actor-scoped Phase 1 history read model and strict `GET /v1/history` plus
+`GET /v1/history/{history_item_id}` surfaces. Unlinked media maps only to
+processing/ready/error and disappears after its first transmission; retained
+transmissions expose requested/effective delivery, downgrade, compact and full
+receipt counts, permitted exact target rows, content availability and ordered
+current action hints without creating replay or an offline inbox. Source
+control, verified Telegram, exact current target binding, foreign/left/revoked
+and node-only credential boundaries are deterministic. Stateful 256-bit
+digest-only cursors bind actor, credential plus authorization scope, filters,
+upper/last keys and 24-hour expiry; blocked receipt scope is visible only to
+the owning recipient. Coordinator vet/full tests, ten-pass focused race,
+exact previous-HEAD rollback, moderation validation, Windows vet/tests/cross-
+build, Swift release build, board validation and diff checks pass. The local
+CommandLineTools image still cannot import the pre-existing Swift `Testing`
+module, so hosted macOS CI remains authoritative. No real-app, Telegram-client,
+audible or physical-hardware result is claimed. Exact engineering head
+`742c1600aee20159a96b4a15dc20957c31edf9ed` passed all four hosted jobs in run
+`29368167361`. Progress is 46/205 overall and 46/186 engineering; tracking CI
+and PR #45 merge remain.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1049,7 +1073,9 @@ Story: `STORY-260712-34kbkn` — P1 Telegram adapter, history and presence.
 - [x] `TASK-260712-1c1ska` — presence-dnd-block-surface (accepted on exact
   engineering head `a65fc65`; all four hosted jobs in run `29365735642` green;
   no real-app/audible/hardware result claimed; PR #44)
-- [ ] `TASK-260712-2hcq1g` — transmission-history-receipt-query
+- [x] `TASK-260712-2hcq1g` — transmission-history-receipt-query (accepted on
+  exact engineering head `742c160`; all four hosted jobs in run `29368167361`
+  green; no real-app/Telegram-client/audible/hardware result claimed; PR #45)
 - [ ] `TASK-260712-21ers7` — telegram-inline-routing-compat
 - [ ] `TASK-260712-3e4p0c` — history-replay-policy-actions
 - [ ] `TASK-260712-3d0zgu` — telegram-parity-regression-tests

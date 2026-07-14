@@ -1,5 +1,5 @@
 ## Status
-development
+reviewing
 
 ## Assigned To
 (none)
@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-14T06:05:54Z
+2026-07-14T06:25:19Z
 
 ## Blocked By
 - STORY-260712-2ve1c8

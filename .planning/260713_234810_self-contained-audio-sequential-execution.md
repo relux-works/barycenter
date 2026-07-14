@@ -185,10 +185,12 @@ adversarial failure coverage, and restarts SQLite plus the lifecycle service
 after an unlink-before-receipt crash. The story acceptance map is recorded in
 `docs/analysis/p1-media-ingest-acceptance-evidence.md` and mirrored to the task
 board. Local coordinator vet/test/race, focused race stress x20 and the exact
-pinned predecessor suite are green. This machine has no ffmpeg, so the live
-eight-variant codec matrix and compact 181-second AAC rejection remain pending
-authoritative hosted coordinator CI. No manual real-app or hardware result is
-claimed.
+pinned predecessor suite are green. Hosted CI run `29311147090` passed the
+real-ffmpeg eight-variant codec matrix, compact 181-second AAC rejection,
+macOS Swift tests, portable Windows and the signed-MSIX job on PR #18. Inline
+root delta-review found no production-code regression or uncovered
+deterministic story criterion. Final tracking CI and merge remain pending; no
+manual real-app or hardware result is claimed.
 
 ## Operating contract
 

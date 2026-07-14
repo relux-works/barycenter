@@ -578,6 +578,11 @@ func (s *Store) createTransmissionTx(
 	); err != nil {
 		return TransmissionCreation{}, err
 	}
+	if _, err := tx.Exec(`INSERT INTO transmission_scheduler_state(
+  transmission_id, updated_at
+) VALUES(?, ?)`, id, params.AcceptedAt); err != nil {
+		return TransmissionCreation{}, err
+	}
 	createdTargets := make([]TransmissionTarget, 0, len(params.Targets))
 	for _, candidate := range params.Targets {
 		pairedAt, err := resolveTransmissionTargetBindingTx(tx, candidate)
@@ -717,16 +722,16 @@ func validTransmissionTargetTransition(from, to TransmissionTargetStatus) bool {
 	switch from {
 	case TransmissionTargetAccepted:
 		return to == TransmissionTargetPreparing || to == TransmissionTargetScheduled ||
-			to == TransmissionTargetPlaying || terminalTransmissionTargetStatus(to)
+			to == TransmissionTargetPlaying || terminalWithoutPlayback(to)
 	case TransmissionTargetPreparing:
 		return to == TransmissionTargetReady || to == TransmissionTargetCancelling ||
-			terminalTransmissionTargetStatus(to)
+			terminalWithoutPlayback(to)
 	case TransmissionTargetReady:
 		return to == TransmissionTargetScheduled || to == TransmissionTargetCancelling ||
-			terminalTransmissionTargetStatus(to)
+			terminalWithoutPlayback(to)
 	case TransmissionTargetScheduled:
 		return to == TransmissionTargetPlaying || to == TransmissionTargetCancelling ||
-			terminalTransmissionTargetStatus(to)
+			terminalWithoutPlayback(to)
 	case TransmissionTargetPlaying:
 		return to == TransmissionTargetPlayed || to == TransmissionTargetCancelling ||
 			to == TransmissionTargetCancelled || to == TransmissionTargetFailed
@@ -735,6 +740,10 @@ func validTransmissionTargetTransition(from, to TransmissionTargetStatus) bool {
 	default:
 		return false
 	}
+}
+
+func terminalWithoutPlayback(status TransmissionTargetStatus) bool {
+	return terminalTransmissionTargetStatus(status) && status != TransmissionTargetPlayed
 }
 
 func (s *Store) TransitionTransmissionTarget(

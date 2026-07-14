@@ -172,3 +172,85 @@ func TestRegisterRetainsUnknownCapabilitiesInCanonicalOrder(t *testing.T) {
 		t.Fatalf("node snapshot=%+v capabilities=%v", snapshot, snapshot.Capabilities.Values())
 	}
 }
+
+func TestRTTSampleBelongsOnlyToCurrentAuthenticatedSocket(t *testing.T) {
+	h := New(slog.Default(), func(token string) (int64, string, bool) {
+		return 7, "a", token == "valid"
+	}, time.Second)
+	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
+	defer server.Close()
+
+	connect := func() *websocket.Conn {
+		t.Helper()
+		conn, _, err := websocket.DefaultDialer.Dial(websocketTestURL(server.URL), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := conn.WriteJSON(registerWire([]any{protocol.CapabilityMediaClip})); err != nil {
+			conn.Close()
+			t.Fatal(err)
+		}
+		return conn
+	}
+	waitEvent := func(match func(Event) bool) {
+		t.Helper()
+		deadline := time.After(2 * time.Second)
+		for {
+			select {
+			case event := <-h.Events:
+				if match(event) {
+					return
+				}
+			case <-deadline:
+				t.Fatal("timed out waiting for hub event")
+			}
+		}
+	}
+
+	first := connect()
+	defer first.Close()
+	waitEvent(func(event Event) bool {
+		_, ok := event.(EvRegistered)
+		return ok
+	})
+	state := map[string]any{
+		"v": 1, "id": "msg_state", "ts": time.Now().UnixMilli(),
+		"type": protocol.TypeState,
+		"payload": map[string]any{
+			"playback": "playing", "position_ms": 10, "volume": 80,
+			"degraded": false, "underruns": 0, "rtt_ms": 87,
+			"speakers": []any{},
+		},
+	}
+	if err := first.WriteJSON(state); err != nil {
+		t.Fatal(err)
+	}
+	var received EvMessage
+	waitEvent(func(event Event) bool {
+		message, ok := event.(EvMessage)
+		if ok && message.Env.Type == protocol.TypeState {
+			received = message
+			return true
+		}
+		return false
+	})
+	key := NodeKey{Orbit: 7, Slot: "a"}
+	before := h.NodeSnapshots()[key]
+	if before.RTTMS != 87 || before.RTTSampledAt <= 0 || !before.Connected ||
+		received.CredentialTokenHash == "" ||
+		received.CredentialTokenHash != before.CredentialTokenHash {
+		t.Fatalf("current RTT snapshot=%+v", before)
+	}
+
+	second := connect()
+	defer second.Close()
+	waitEvent(func(event Event) bool {
+		_, ok := event.(EvRegistered)
+		return ok
+	})
+	after := h.NodeSnapshots()[key]
+	if !after.Connected || after.RTTMS != 0 || after.RTTSampledAt != 0 ||
+		after.CredentialTokenHash == "" {
+		t.Fatalf("reconnect retained predecessor RTT=%+v", after)
+	}
+}

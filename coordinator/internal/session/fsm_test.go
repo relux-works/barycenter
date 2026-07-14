@@ -204,6 +204,45 @@ func TestVoicesAreFIFOByAcceptanceTimeNotProcessingCompletion(t *testing.T) {
 	}
 }
 
+func TestEnqueueVoiceIsIdempotentByElementID(t *testing.T) {
+	s := playingSession(t)
+	voice := voiceEl("same_transmission", "both", 1_000)
+	first := s.EnqueueVoice(voice)
+	if len(first) == 0 || len(s.Queue) != 1 {
+		t.Fatalf("first enqueue effects=%#v queue=%#v", first, s.Queue)
+	}
+	if replay := s.EnqueueVoice(voice); replay != nil || len(s.Queue) != 1 {
+		t.Fatalf("queued replay effects=%#v queue=%#v", replay, s.Queue)
+	}
+
+	idle := New()
+	goOnline(idle)
+	if effects := idle.EnqueueVoice(voice); len(effects) == 0 || idle.Current == nil {
+		t.Fatalf("active first enqueue effects=%#v current=%#v", effects, idle.Current)
+	}
+	if replay := idle.EnqueueVoice(voice); replay != nil || idle.Current.ID != voice.ID {
+		t.Fatalf("active replay effects=%#v current=%#v", replay, idle.Current)
+	}
+}
+
+func TestCancelElementRemovesOnlyExactTransmissionUsingSharedMedia(t *testing.T) {
+	s := playingSession(t)
+	first := voiceEl("cancel_exact_first", "both", 1_000)
+	second := first
+	second.ID = "cancel_exact_second"
+	s.EnqueueVoice(first)
+	s.EnqueueVoice(second)
+
+	effects := s.CancelElement(first.ID)
+	if len(of[EffPersist](t, effects)) != 1 || len(s.Queue) != 1 ||
+		s.Queue[0].ID != second.ID || s.Queue[0].MediaID != first.MediaID {
+		t.Fatalf("exact cancellation effects=%#v queue=%#v", effects, s.Queue)
+	}
+	if replay := s.CancelElement(first.ID); replay != nil || len(s.Queue) != 1 {
+		t.Fatalf("exact cancellation replay=%#v queue=%#v", replay, s.Queue)
+	}
+}
+
 func TestCancelMediaDisarmsEveryQueuedCopyAndIsIdempotent(t *testing.T) {
 	s := playingSession(t)
 	first := voiceEl("cancel_first", "both", 1_000)

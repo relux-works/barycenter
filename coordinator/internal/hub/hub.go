@@ -39,6 +39,11 @@ type NodeSnapshot struct {
 	Connected    bool
 	LastSeenAt   int64
 	Capabilities protocol.CapabilitySet
+	// RTT is tied to the authenticated socket generation. Reconnect clears the
+	// sample so a scheduler cannot arm media from a predecessor connection's
+	// clock evidence.
+	RTTMS        int64
+	RTTSampledAt int64
 	// CredentialTokenHash is a transient high-entropy witness for matching the
 	// current authenticated socket to the authoritative slot generation. It
 	// must never be logged, serialized to clients or persisted in receipts.
@@ -55,9 +60,10 @@ type (
 	EvOnline  struct{ Key NodeKey }
 	EvOffline struct{ Key NodeKey }
 	EvMessage struct {
-		Key     NodeKey
-		Env     protocol.Envelope
-		Payload any
+		Key                 NodeKey
+		CredentialTokenHash string
+		Env                 protocol.Envelope
+		Payload             any
 	}
 )
 
@@ -91,6 +97,8 @@ type Hub struct {
 	lastSeen     map[NodeKey]time.Time
 	online       map[NodeKey]bool
 	capabilities map[NodeKey]protocol.CapabilitySet
+	rttMS        map[NodeKey]int64
+	rttSampledAt map[NodeKey]time.Time
 }
 
 func New(log *slog.Logger, lookup TokenLookup, offlineAfter time.Duration) *Hub {
@@ -105,6 +113,8 @@ func New(log *slog.Logger, lookup TokenLookup, offlineAfter time.Duration) *Hub 
 		lastSeen:     map[NodeKey]time.Time{},
 		online:       map[NodeKey]bool{},
 		capabilities: map[NodeKey]protocol.CapabilitySet{},
+		rttMS:        map[NodeKey]int64{},
+		rttSampledAt: map[NodeKey]time.Time{},
 	}
 }
 
@@ -190,11 +200,17 @@ func (h *Hub) NodeSnapshots() map[NodeKey]NodeSnapshot {
 		if connection != nil {
 			credentialTokenHash = connection.credentialTokenHash
 		}
+		rttSampledAt := int64(0)
+		if sampledAt := h.rttSampledAt[key]; !sampledAt.IsZero() {
+			rttSampledAt = sampledAt.UnixMilli()
+		}
 		out[key] = NodeSnapshot{
 			Connected:           connected,
 			LastSeenAt:          seen.UnixMilli(),
 			Capabilities:        h.capabilities[key],
 			CredentialTokenHash: credentialTokenHash,
+			RTTMS:               h.rttMS[key],
+			RTTSampledAt:        rttSampledAt,
 		}
 	}
 	return out
@@ -260,6 +276,8 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	h.conns[key] = c
 	h.lastSeen[key] = time.Now()
 	h.capabilities[key] = capabilities
+	delete(h.rttMS, key)
+	delete(h.rttSampledAt, key)
 	wasOnline := h.online[key]
 	h.online[key] = true
 	h.mu.Unlock()
@@ -373,7 +391,19 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 		}
 
 		h.mu.Lock()
-		h.lastSeen[key] = time.Now()
+		if h.conns[key] != c {
+			// A last-write-wins reconnect may race a frame already read from the
+			// predecessor socket. That frame must not repopulate liveness or RTT
+			// evidence after the new authenticated generation cleared it.
+			h.mu.Unlock()
+			return
+		}
+		receivedAt := time.Now()
+		h.lastSeen[key] = receivedAt
+		if state, ok := payload.(*protocol.StatePayload); ok {
+			h.rttMS[key] = state.RTTMS
+			h.rttSampledAt[key] = receivedAt
+		}
 		cameBack := !h.online[key]
 		h.online[key] = true
 		h.mu.Unlock()
@@ -400,7 +430,10 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 
 		h.log.Debug("received", "orbit", key.Orbit, "slot", key.Slot, "type", env.Type, "id", env.ID)
 		select {
-		case h.Events <- EvMessage{Key: key, Env: env, Payload: payload}:
+		case h.Events <- EvMessage{
+			Key: key, CredentialTokenHash: c.credentialTokenHash,
+			Env: env, Payload: payload,
+		}:
 		case <-c.stop:
 			return
 		}

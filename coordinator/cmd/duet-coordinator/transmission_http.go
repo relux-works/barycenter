@@ -543,6 +543,7 @@ func (api *onboardingAPI) createTransmission(w http.ResponseWriter, r *http.Requ
 	if result.Reused {
 		status = http.StatusOK
 	}
+	api.transmissionAccepted(result.Creation.Transmission.ID)
 	w.Header().Set("Location", "/v1/transmissions/"+result.Creation.Transmission.ID)
 	reused := result.Reused
 	writeJSON(w, status, transmissionResponseForCreation(result.Creation, &reused))
@@ -785,6 +786,7 @@ func (api *onboardingAPI) cancelTransmission(
 	if api.transmissionStoreError(w, "cancel transmission", err) {
 		return
 	}
+	api.transmissionCancelled(result)
 	writeJSON(w, http.StatusOK, cancelTransmissionResponse{
 		TransmissionID: result.Transmission.ID,
 		Status:         string(result.Transmission.Status), Changed: result.Changed,

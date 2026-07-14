@@ -132,6 +132,32 @@ CREATE INDEX IF NOT EXISTS transmission_targets_actor_acl
 CREATE INDEX IF NOT EXISTS transmission_targets_work
   ON transmission_targets(status, updated_at, transmission_id);
 
+-- Scheduler timestamps live outside the immutable acceptance snapshot.  This
+-- keeps the domain FIFO and barrier restart-safe while allowing a previous
+-- coordinator binary to ignore the additive runtime state during rollback.
+CREATE TABLE IF NOT EXISTS transmission_scheduler_state (
+  transmission_id TEXT PRIMARY KEY
+    REFERENCES transmissions(id) ON DELETE CASCADE,
+  barrier_opened_at INTEGER NOT NULL DEFAULT 0 CHECK(barrier_opened_at >= 0),
+  prepare_deadline_at INTEGER NOT NULL DEFAULT 0 CHECK(prepare_deadline_at >= 0),
+  decision_at INTEGER NOT NULL DEFAULT 0 CHECK(decision_at >= 0),
+  t_coord_ms INTEGER NOT NULL DEFAULT 0 CHECK(t_coord_ms >= 0),
+  start_deadline_coord_ms INTEGER NOT NULL DEFAULT 0
+    CHECK(start_deadline_coord_ms >= 0),
+  legacy_element_id TEXT NOT NULL DEFAULT '' CHECK(length(legacy_element_id) <= 64),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+  updated_at INTEGER NOT NULL CHECK(updated_at > 0),
+  CHECK((barrier_opened_at = 0 AND prepare_deadline_at = 0)
+    OR (barrier_opened_at > 0 AND prepare_deadline_at >= barrier_opened_at)),
+  CHECK((t_coord_ms = 0 AND start_deadline_coord_ms = 0)
+    OR (decision_at > 0 AND t_coord_ms >= decision_at
+      AND start_deadline_coord_ms = t_coord_ms + 100))
+);
+CREATE INDEX IF NOT EXISTS transmission_scheduler_due
+  ON transmission_scheduler_state(
+    prepare_deadline_at, start_deadline_coord_ms, updated_at, transmission_id
+  );
+
 -- Only lifecycle/receipt columns may change after acceptance. SQLite triggers
 -- protect the invariant even when later workers use direct SQL accidentally.
 CREATE TRIGGER IF NOT EXISTS transmissions_acceptance_immutable
@@ -230,6 +256,14 @@ func (s *Store) initTransmissionSchema() error {
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(transmissionSchema); err != nil {
+		return err
+	}
+	// Rows accepted by the immediately preceding schema did not yet have the
+	// additive scheduler companion. Their immutable acceptance time is the only
+	// safe backfill timestamp; no barrier or schedule is invented here.
+	if _, err := tx.Exec(`INSERT OR IGNORE INTO transmission_scheduler_state(
+  transmission_id, updated_at
+) SELECT id, accepted_at FROM transmissions`); err != nil {
 		return err
 	}
 	if err := foreignKeyCheck(tx); err != nil {

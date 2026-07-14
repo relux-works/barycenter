@@ -220,6 +220,8 @@ type onboardingAPI struct {
 	transmissionToken      func() (string, error)
 	transmissionActor      *attemptLimiter
 	transmissionOrbit      *attemptLimiter
+	transmissionAccepted   func(string)
+	transmissionCancelled  func(store.CancelTransmissionResult)
 	// testAfterAuth is nil in production. Tests use it to pause between
 	// middleware authentication and the immediate writer transaction.
 	testAfterAuth   func(store.ActorContext)
@@ -242,9 +244,11 @@ func newOnboardingAPIBase(st *store.Store, cfg *config.Config, log *slog.Logger,
 		transmissionPresence: func() map[transmissionPresenceKey]transmissionPresenceState {
 			return map[transmissionPresenceKey]transmissionPresenceState{}
 		},
-		transmissionToken: newTransmissionConfirmationToken,
-		transmissionActor: newAttemptLimiter(120, time.Minute, 10_000),
-		transmissionOrbit: newAttemptLimiter(600, time.Minute, 10_000),
+		transmissionToken:     newTransmissionConfirmationToken,
+		transmissionActor:     newAttemptLimiter(120, time.Minute, 10_000),
+		transmissionOrbit:     newAttemptLimiter(600, time.Minute, 10_000),
+		transmissionAccepted:  func(string) {},
+		transmissionCancelled: func(store.CancelTransmissionResult) {},
 	}
 	api.mediaUploadInitErr = api.initializeMediaUploadStorage()
 	api.mediaLifecycle, api.mediaLifecycleInitErr = media.NewLifecycleService(st, cfg.MediaDir)

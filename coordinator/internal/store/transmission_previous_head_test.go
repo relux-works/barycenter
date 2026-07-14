@@ -21,7 +21,7 @@ import (
 	"relux.works/duet/coordinator/internal/session"
 )
 
-const transmissionStorePreviousRevision = "2aa97c2d08cb93b110200ae159fd43265410ff5a"
+const transmissionStorePreviousRevision = "0c1e1946ff692aa553c19ca6bf7328150d1a24b8"
 
 type exactTransmissionPreviousResult struct {
 	LegacyStatus      string `json:"legacy_status"`

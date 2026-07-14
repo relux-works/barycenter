@@ -61,7 +61,10 @@ type Element struct {
 	DurationMS  int64
 	RequestedBy protocol.NodeID
 	Target      string // "both" | "a" | "b"
-	CreatedAt   int64
+	// Targets is the additive exact-node form used by the generic transmission
+	// legacy bridge. Empty preserves the historic Target semantics.
+	Targets   []protocol.NodeID `json:"targets,omitempty"`
+	CreatedAt int64
 }
 
 // defaultPeers keeps two-home behavior for sessions created before the
@@ -322,6 +325,19 @@ func (s *Session) peersExcept(n protocol.NodeID) []protocol.NodeID {
 }
 
 func (s *Session) targetNodes(el *Element) []protocol.NodeID {
+	if len(el.Targets) > 0 {
+		requested := make(map[protocol.NodeID]struct{}, len(el.Targets))
+		for _, target := range el.Targets {
+			requested[target] = struct{}{}
+		}
+		result := make([]protocol.NodeID, 0, len(requested))
+		for _, peer := range s.Peers {
+			if _, ok := requested[peer]; ok {
+				result = append(result, peer)
+			}
+		}
+		return result
+	}
 	if el.Target != "" && el.Target != "both" {
 		return []protocol.NodeID{protocol.NodeID(el.Target)}
 	}
@@ -357,6 +373,14 @@ func (s *Session) EnqueueTrack(el Element) []Effect {
 // EnqueueVoice inserts right after the current element: before all queued
 // tracks but after voices queued earlier (arrival order preserved).
 func (s *Session) EnqueueVoice(el Element) []Effect {
+	if s.Current != nil && s.Current.ID == el.ID {
+		return nil
+	}
+	for _, queued := range s.Queue {
+		if queued.ID == el.ID {
+			return nil
+		}
+	}
 	idx := 0
 	for idx < len(s.Queue) && s.Queue[idx].Kind == KindVoice &&
 		(s.Queue[idx].CreatedAt < el.CreatedAt ||
@@ -396,11 +420,25 @@ func (s *Session) CancelMedia(mediaID string) []Effect {
 	if mediaID == "" {
 		return nil
 	}
+	return s.cancelElements(func(element Element) bool { return element.MediaID == mediaID })
+}
+
+// CancelElement disarms exactly one generic-transmission legacy bridge. It
+// prevents cancellation of one transmission from removing another queued use
+// of the same immutable media item.
+func (s *Session) CancelElement(elementID string) []Effect {
+	if elementID == "" {
+		return nil
+	}
+	return s.cancelElements(func(element Element) bool { return element.ID == elementID })
+}
+
+func (s *Session) cancelElements(matches func(Element) bool) []Effect {
 	queue := s.Queue
 	filtered := queue[:0]
 	removed := false
 	for _, element := range s.Queue {
-		if element.MediaID == mediaID {
+		if matches(element) {
 			removed = true
 			continue
 		}
@@ -410,7 +448,7 @@ func (s *Session) CancelMedia(mediaID string) []Effect {
 		queue[i] = Element{}
 	}
 	s.Queue = filtered
-	if s.Current != nil && s.Current.MediaID == mediaID {
+	if s.Current != nil && matches(*s.Current) {
 		done := EffElementDone{Element: *s.Current, Status: "cancelled"}
 		var stop []Effect
 		if s.Current.Kind == KindVoice {

@@ -1,4 +1,12 @@
-# Microsoft Store listing draft (Pulsar)
+# Historical Microsoft Store listing draft (Pulsar)
+
+> **Do not submit this draft.** It describes the earlier Spotify-first product
+> and is retained only as history. The self-contained product policy sources
+> are in [`docs/legal`](legal/) and the current listing/evidence owners are
+> recorded in
+> [`store-policy-baseline-2026-07-14.md`](analysis/store-policy-baseline-2026-07-14.md).
+> `TASK-260712-2s4e9p` must replace this listing and its screenshots before a
+> Store submission.
 
 For Partner Center submission (goal v2.1 F6). The Store overwrites the MSIX
 Identity/Publisher with the reserved app identity on submission.
@@ -32,10 +40,13 @@ queues and voice notes between songs. Bring a Premium Spotify account per home.
 
 ## Privacy
 
-Pulsar collects no personal data. It stores only a pairing token (kept on
-the device) to talk to the coordinator. Spotify account credentials never
-leave your computer. Audio never travels between homes — only playback
-commands and short voice-note files do.
+The old “collects no personal data” statement is withdrawn. The self-contained
+product processes accountless identifiers, targeted audio and metadata,
+delivery state and optional Telegram/Spotify integration data. Phase 1 audio is
+readable by the coordinator and is not E2EE. The source Privacy Policy is
+[`docs/legal/en/privacy.md`](legal/en/privacy.md); its future canonical URL is
+https://barycenter.live/legal/privacy. Neither this historical paragraph nor
+the future URL is evidence that the public policy page is already live.
 
 ## Support
 

@@ -4,25 +4,25 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 32 accepted, 173 remain.
-- Routed inventory: 186 engineering tasks (32 accepted, 154 remain) and 19
+- Combined inventory: 205 original tasks; 33 accepted, 172 remain.
+- Routed inventory: 186 engineering tasks (33 accepted, 153 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1epb3a` — privacy-ugc-policy-pack
-  (queued until PR #31 lands)
-- Most recently accepted: `TASK-260712-g9ycx5` — verify-current-store-policy
-- Current branch: `task/task-260712-g9ycx5-verify-current-store-policy`
+- Current engineering task: `TASK-260712-1x0lot` — publish-policy-support-pages
+  (queued until PR #32 lands; exact-content approval remains a publication gate)
+- Most recently accepted: `TASK-260712-1epb3a` — privacy-ugc-policy-pack
+- Current branch: `task/task-260712-1epb3a-privacy-ugc-policy-pack`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
   `29339017452`. PR #29 landed at merge
   `e588fc9b727d6264c289f69cc97ea77e4987f939`.
-- Accepted overall: 32 / 205 tasks (approximately 15.6%); 173 remain
-- Engineering progress: 32 / 186 tasks (approximately 17.2%); 154 remain
+- Accepted overall: 33 / 205 tasks (approximately 16.1%); 172 remain
+- Engineering progress: 33 / 186 tasks (approximately 17.7%); 153 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -113,8 +113,30 @@ validator plus Store workflow gate now requires a tag-bound policy verification
 no older than 24 hours and task IDs for every delta; the initial checked-in
 record is deliberately `hold`. Local full/vet/race/platform gates passed, and
 hosted run `29343948310` passed all four jobs. Progress is 32/205 overall and
-32/186 engineering; PR #31 awaits its tracking commit and merge before strict
-execution starts `TASK-260712-1epb3a`.
+32/186 engineering; tracking head `869b551436e8439a0023f0467246c64a4d7a6be7`
+passed all four jobs in run `29344280643`. PR #31 landed at merge
+`d40b754493b78bb58c24b4fc759312c4a0463533`, and strict execution advanced to
+`TASK-260712-1epb3a` from synchronized `main`.
+
+Checkpoint 2026-07-14: `TASK-260712-1epb3a` authors versioned Privacy, Terms,
+Content Guidelines and upload/recording-rights sources in semantically aligned
+English and Russian on exact engineering code head
+`27c19cdad6711f6790594a63fa4ec0a51687f062`. Forty-four stable section IDs map
+the complete specification 15.1/15.2 disclosure set to approved legal inputs,
+shipped controls, explicit product limitations and current primary Microsoft,
+Telegram, Spotify, FTC, EU and California sources. The pack says plainly that
+Phase 1 is accountless, target-limited and not E2EE; documents seven-day clip
+and backup bounds, report evidence, asynchronous deletion, recipient-copy
+limits and optional integrations; and withdraws the obsolete Store claim that
+Pulsar collects no personal data. A strict Go validator checks exact document
+hashes, EN/RU section parity, source authority, public facts, traceability and
+surface owners. Store submit now fails closed until Ivan Oparin approves these
+exact authored bytes: approved defaults are incorporated, but the exact-content
+decision remains honestly `hold`. Local full/vet/race/platform gates passed;
+hosted run `29345880750` passed all four jobs. No public-URL, real-app or
+physical-hardware result is claimed. Progress is 33/205 overall and 33/186
+engineering; PR #32 awaits its tracking commit and merge before strict
+execution starts `TASK-260712-1x0lot`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -676,7 +698,11 @@ Story: `STORY-260712-1tgryz` — P1 Policy and moderation foundation.
   code head `f0bcace`: official v7.19 requirements/asset matrix, guarded
   finding provenance and fail-closed tag/freshness/delta submit gate; local
   platform gates and all four hosted jobs in run `29343948310` green; PR #31)
-- [ ] `TASK-260712-1epb3a` — privacy-ugc-policy-pack
+- [x] `TASK-260712-1epb3a` — privacy-ugc-policy-pack (accepted on exact code
+  head `27c19cd`: versioned EN/RU policy sources, 44-section factual
+  traceability, exact-hash parity validator and fail-closed Store publication
+  gate; local full/race/platform gates and all four hosted jobs in run
+  `29345880750` green; PR #32)
 - [ ] `TASK-260712-1x0lot` — publish-policy-support-pages
 - [ ] `TASK-260712-3t9nr8` — moderation-runbook-mailbox
 

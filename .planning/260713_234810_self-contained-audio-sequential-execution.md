@@ -4,25 +4,25 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 31 accepted, 174 remain.
-- Routed inventory: 186 engineering tasks (31 accepted, 155 remain) and 19
+- Combined inventory: 205 original tasks; 32 accepted, 173 remain.
+- Routed inventory: 186 engineering tasks (32 accepted, 154 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-g9ycx5` — verify-current-store-policy
-  (queued until PR #30 lands)
-- Most recently accepted: `TASK-260712-2kec2s` — moderation-control-plane
-- Current branch: `task/task-260712-2kec2s-moderation-control-plane`
+- Current engineering task: `TASK-260712-1epb3a` — privacy-ugc-policy-pack
+  (queued until PR #31 lands)
+- Most recently accepted: `TASK-260712-g9ycx5` — verify-current-store-policy
+- Current branch: `task/task-260712-g9ycx5-verify-current-store-policy`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
   `29339017452`. PR #29 landed at merge
   `e588fc9b727d6264c289f69cc97ea77e4987f939`.
-- Accepted overall: 31 / 205 tasks (approximately 15.1%); 174 remain
-- Engineering progress: 31 / 186 tasks (approximately 16.7%); 155 remain
+- Accepted overall: 32 / 205 tasks (approximately 15.6%); 173 remain
+- Engineering progress: 32 / 186 tasks (approximately 17.2%); 154 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -90,10 +90,31 @@ full tests, focused race, full pinned rollback matrix, Windows vet/test/cross-
 build and Swift release build passed. Local Swift tests were unavailable under
 the standalone CommandLineTools installation; hosted `node-core` ran them
 successfully. All four hosted jobs, including the signed packaged probe,
-passed in run `29342009648`. No physical-app or real-hardware result is
-claimed. Progress is 31/205 overall and 31/186 engineering; PR #30 is awaiting
-the tracking commit and merge before strict execution starts
-`TASK-260712-g9ycx5`.
+passed in run `29342009648`; tracking head `a268ebb` passed all four jobs in
+run `29342525843`. No physical-app or real-hardware result is claimed. Progress
+is 31/205 overall and 31/186 engineering. PR #30 landed at merge
+`c6f1afdb1040bc654b18e324f71b71fd524ca1e7`, and strict execution advanced to
+`TASK-260712-g9ycx5` from synchronized `main`.
+
+Checkpoint 2026-07-14: `TASK-260712-g9ycx5` freezes the current official
+Microsoft Store and IARC baseline on exact engineering code head
+`f0bcacef669dc0c8cfeec694d1e5d0323abbef83`. Microsoft Store Policies remain
+version 7.19, published 2025-09-10 and effective 2025-10-14. Human-readable and
+strict machine-readable matrices distinguish mandatory rules from guidance,
+map 10.1, 10.3, 10.5, 10.6, 10.7, 11.11, 11.12 and current listing, asset,
+WACK and IARC requirements to concrete implementation/evidence tasks, and
+explain both the credential-free reviewer path and the still-mandatory 10.3.2
+coordinator availability. The six-shot EN/RU corrective set is specified, but
+real-app capture stays honestly deferred to manual `TASK-260712-e5mfqj`.
+Repository-only July finding summaries are not promoted into official claims:
+the raw report is absent, its recorded dates conflict, and `10.1.1.3` is
+treated as a finding label anchored to public 10.1/10.1.1. A strict Go
+validator plus Store workflow gate now requires a tag-bound policy verification
+no older than 24 hours and task IDs for every delta; the initial checked-in
+record is deliberately `hold`. Local full/vet/race/platform gates passed, and
+hosted run `29343948310` passed all four jobs. Progress is 32/205 overall and
+32/186 engineering; PR #31 awaits its tracking commit and merge before strict
+execution starts `TASK-260712-1epb3a`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -651,7 +672,10 @@ Story: `STORY-260712-1tgryz` — P1 Policy and moderation foundation.
   control plane with canonical enforcement, deterministic retention,
   migration and rollback coverage; local platform gates and all four hosted
   jobs in run `29342009648` green; PR #30)
-- [ ] `TASK-260712-g9ycx5` — verify-current-store-policy
+- [x] `TASK-260712-g9ycx5` — verify-current-store-policy (accepted on exact
+  code head `f0bcace`: official v7.19 requirements/asset matrix, guarded
+  finding provenance and fail-closed tag/freshness/delta submit gate; local
+  platform gates and all four hosted jobs in run `29343948310` green; PR #31)
 - [ ] `TASK-260712-1epb3a` — privacy-ugc-policy-pack
 - [ ] `TASK-260712-1x0lot` — publish-policy-support-pages
 - [ ] `TASK-260712-3t9nr8` — moderation-runbook-mailbox

@@ -34,6 +34,13 @@ jobs:
         run: |
           cd coordinator
           go run ./cmd/legal-ops-check --require-approved ../docs/compliance/legal-ops-inputs.json
+      - name: Require a fresh Store policy delta decision
+        run: |
+          cd coordinator
+          go run ./cmd/store-policy-check \
+            --require-proceed \
+            --max-age 24h \
+            --tag "${{ inputs.tag }}"
       - name: Install msstore CLI + a Linux secret service
         run: |
           sudo apt-get update

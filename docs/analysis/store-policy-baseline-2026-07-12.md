@@ -1,5 +1,9 @@
 # Microsoft Store policy baseline — 2026-07-12
 
+> Historical planning snapshot. The current verified matrix is
+> `docs/analysis/store-policy-baseline-2026-07-14.md`; preserve this file as the
+> pre-task baseline for delta review.
+
 Planning snapshot for `STORY-260712-1i0doc`. This is not a substitute for the
 mandatory re-check immediately before submission.
 

@@ -36,8 +36,9 @@ policy surfaces beyond the backend hooks they need.
   `TASK-260712-2af2dp`, and the identity auth foundation
 - `TASK-260712-1sae4q` blocked by `TASK-260712-z6h6wh`,
   `TASK-260712-2af2dp`, `TASK-260712-1bnos4`
-- `TASK-260712-gj0cko` blocked by `TASK-260712-3mcof4`,
-  `TASK-260712-1sae4q`, transmission target persistence and scheduler cancel
+- `TASK-260712-gj0cko` blocked by `TASK-260712-3mcof4` and
+  `TASK-260712-1sae4q`; it integrates their forward-only target/cancellation
+  seams with the current runtime without taking ownership of future target rows
 - `TASK-260712-12ojcb` blocked by `TASK-260712-2af2dp`
 - `TASK-260712-3huupe` blocked by `TASK-260712-2af2dp`, `TASK-260712-1bnos4`, `TASK-260712-gj0cko`, `TASK-260712-12ojcb`
 - `TASK-260712-jolzhh` blocked by `TASK-260712-3huupe`
@@ -48,7 +49,8 @@ Execution intent:
 - Then build the common processing path and app upload session surface in
   parallel.
 - Build the target-ACL service and delete/retention worker independently, then
-  integrate them only after immutable transmission targets and cancel hooks exist.
+  integrate their fail-closed interfaces and current-runtime cancellation;
+  transmission persistence later supplies immutable target rows through them.
 - Migrate Telegram after the shared processing path is real.
 - Finish with regression coverage, then docs and handoff.
 

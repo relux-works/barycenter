@@ -171,6 +171,35 @@ func (adapter *controlledTelegramAdapter) Submit(
 		}
 		return media.Result{}, &media.ProcessingError{Code: completion.code}
 	}
+	item, err := adapter.store.GetMediaItem(accepted.MediaID)
+	if err != nil {
+		return media.Result{}, err
+	}
+	if item == nil {
+		return media.Result{}, store.ErrMediaNotFound
+	}
+	if item.Status == store.MediaStatusProcessing {
+		now := time.Now().UnixMilli()
+		operation, err := adapter.store.StageMediaPublication(item.ID, item.Revision, now)
+		if err != nil {
+			return media.Result{}, err
+		}
+		info, err := os.Stat(completion.result.WAVPath)
+		if err != nil {
+			return media.Result{}, err
+		}
+		if _, err := adapter.store.CompleteMediaPublication(
+			operation.ID, operation.Revision,
+			store.MediaPublication{
+				MIME: "audio/wav", Codec: "pcm_s16le",
+				DurationMS: completion.result.DurationMS, SizeBytes: info.Size(),
+				SHA256: strings.Repeat("c", 64), LoudnessJSON: completion.result.LoudnormJSON,
+			},
+			now+1,
+		); err != nil {
+			return media.Result{}, err
+		}
+	}
 	return completion.result, nil
 }
 
@@ -571,6 +600,59 @@ func TestTelegramVoiceCommonFailureKeepsBotReplyAndBothStatusesTerminal(t *testi
 		legacy.Status != "failed" || l.orbit(1).sess.Current != nil {
 		t.Fatalf("failure common=%+v legacy=%+v current=%+v err=%v legacyErr=%v",
 			item, legacy, l.orbit(1).sess.Current, err, legacyErr)
+	}
+}
+
+func TestLoopMediaCancellationSinkDisarmsQueueAndStopsActiveVoice(t *testing.T) {
+	l, fake := newTestLoop(t)
+	state := l.orbit(1)
+	state.sess.Mode = session.ModeShared
+	active := session.Element{
+		ID: "active-legacy-voice", Kind: session.KindVoice,
+		MediaID: "m_cancelled_voice", Target: "both", DurationMS: 1_000,
+	}
+	queuedCopy := active
+	queuedCopy.ID = "queued-copy"
+	state.sess.Current = &active
+	state.sess.State = session.StateVoice
+	state.sess.Queue = []session.Element{
+		queuedCopy,
+		{ID: "next-track", Kind: session.KindTrack, URI: "spotify:track:next", Target: "both"},
+	}
+	fake.drain()
+	stop := make(chan struct{})
+	go l.run(stop, make(chan hub.Event))
+	t.Cleanup(func() {
+		close(stop)
+		<-l.stopped
+	})
+	request := store.MediaDeliveryCancellation{
+		MediaID: active.MediaID, MediaRevision: 4,
+		Reason:                store.MediaCancellationDeleted,
+		PolicyVersion:         store.MediaLifecyclePolicyV1,
+		NotStartedAction:      store.MediaNotStartedActionCancel,
+		ActiveAction:          store.MediaActiveActionFadeStop,
+		InterruptedMainAction: store.MediaInterruptedMainActionResumeOnce,
+	}
+	if err := l.CancelMedia(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if state.sess.Current == nil || state.sess.Current.ID != "next-track" ||
+		len(state.sess.Queue) != 0 || state.sess.State != session.StateLoading {
+		t.Fatalf("cancelled runtime state=%s current=%+v queue=%+v",
+			state.sess.State, state.sess.Current, state.sess.Queue)
+	}
+	stops := fake.ofType(protocol.TypeStop)
+	loads := fake.ofType(protocol.TypeLoad)
+	if len(stops) != 2 || len(loads) != 2 {
+		t.Fatalf("cancellation effects stops=%+v loads=%+v", stops, loads)
+	}
+	fake.drain()
+	if err := l.CancelMedia(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if replay := fake.drain(); len(replay) != 0 || state.sess.Current.ID != "next-track" {
+		t.Fatalf("replayed cancellation messages=%+v current=%+v", replay, state.sess.Current)
 	}
 }
 

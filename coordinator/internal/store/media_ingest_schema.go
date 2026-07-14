@@ -165,7 +165,9 @@ CREATE INDEX IF NOT EXISTS media_delivery_cancellations_pending
 CREATE TABLE IF NOT EXISTS media_legacy_wav_links (
   media_id TEXT PRIMARY KEY REFERENCES media_items(id),
   legacy_media_id TEXT NOT NULL UNIQUE,
-  linked_at INTEGER NOT NULL CHECK(linked_at > 0)
+  linked_at INTEGER NOT NULL CHECK(linked_at > 0),
+  cleanup_completed_at INTEGER NOT NULL DEFAULT 0
+    CHECK(cleanup_completed_at >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS media_ingest_audit_events (
@@ -210,6 +212,22 @@ ADD COLUMN temp_cleaned_at INTEGER NOT NULL DEFAULT 0 CHECK(temp_cleaned_at >= 0
 			return err
 		}
 	}
+	// TASK-260712-gj0cko makes the legacy mapping itself the durable receipt
+	// for compatibility-byte cleanup. Databases created by the preceding
+	// Telegram rollout already have the link table, so add the receipt column
+	// transactionally before lifecycle reconciliation can observe the rows.
+	hasLegacyCleanupCompletedAt, err := txColumnExists(
+		tx, "media_legacy_wav_links", "cleanup_completed_at",
+	)
+	if err != nil {
+		return err
+	}
+	if !hasLegacyCleanupCompletedAt {
+		if _, err := tx.Exec(`ALTER TABLE media_legacy_wav_links
+ADD COLUMN cleanup_completed_at INTEGER NOT NULL DEFAULT 0 CHECK(cleanup_completed_at >= 0)`); err != nil {
+			return err
+		}
+	}
 	if err := foreignKeyCheck(tx); err != nil {
 		return err
 	}
@@ -217,6 +235,9 @@ ADD COLUMN temp_cleaned_at INTEGER NOT NULL DEFAULT 0 CHECK(temp_cleaned_at >= 0
 		return err
 	}
 	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if err := s.reconcileTelegramLegacyLinks(); err != nil {
 		return err
 	}
 	if err := s.reconcileOrphanedMediaItems(); err != nil {

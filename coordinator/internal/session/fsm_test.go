@@ -204,6 +204,52 @@ func TestVoicesAreFIFOByAcceptanceTimeNotProcessingCompletion(t *testing.T) {
 	}
 }
 
+func TestCancelMediaDisarmsEveryQueuedCopyAndIsIdempotent(t *testing.T) {
+	s := playingSession(t)
+	first := voiceEl("cancel_first", "both", 1_000)
+	second := first
+	second.ID = "cancel_second"
+	s.EnqueueVoice(first)
+	s.EnqueueTrack(trackEl("keep", "spotify:track:keep"))
+	s.EnqueueVoice(second)
+
+	effects := s.CancelMedia(first.MediaID)
+	if len(of[EffPersist](t, effects)) != 1 || len(s.Queue) != 1 || s.Queue[0].ID != "keep" {
+		t.Fatalf("queued cancellation effects=%#v queue=%#v", effects, s.Queue)
+	}
+	if replayed := s.CancelMedia(first.MediaID); replayed != nil {
+		t.Fatalf("replayed cancellation effects=%#v", replayed)
+	}
+}
+
+func TestCancelActiveMediaStopsVoiceAndAdvancesOnce(t *testing.T) {
+	s := playingSession(t)
+	voice := voiceEl("active_cancel", "both", 1_000)
+	s.EnqueueVoice(voice)
+	s.EnqueueTrack(trackEl("after_cancel", "spotify:track:after"))
+	s.OnEnded(protocol.NodeA, "el1", "eof")
+	s.OnEnded(protocol.NodeB, "el1", "eof")
+	if s.Current == nil || s.Current.MediaID != voice.MediaID || s.State != StateVoice {
+		t.Fatalf("active voice state=%s current=%#v", s.State, s.Current)
+	}
+
+	effects := s.CancelMedia(voice.MediaID)
+	if done := one[EffElementDone](t, effects); done.Status != "cancelled" || done.Element.MediaID != voice.MediaID {
+		t.Fatalf("cancelled element=%#v", done)
+	}
+	stops := of[EffStop](t, effects)
+	if len(stops) != 2 || len(of[EffPause](t, effects)) != 0 {
+		t.Fatalf("active voice cancellation stops=%#v effects=%#v", stops, effects)
+	}
+	if s.Current == nil || s.Current.ID != "after_cancel" || s.State != StateLoading {
+		t.Fatalf("post-cancel state=%s current=%#v", s.State, s.Current)
+	}
+	current := s.Current.ID
+	if replayed := s.CancelMedia(voice.MediaID); replayed != nil || s.Current.ID != current {
+		t.Fatalf("replayed active cancellation effects=%#v current=%#v", replayed, s.Current)
+	}
+}
+
 func TestPauseResume(t *testing.T) {
 	s := playingSession(t)
 	s.OnHeartbeat(protocol.NodeA, 63_012, 40)

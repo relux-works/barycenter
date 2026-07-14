@@ -365,6 +365,41 @@ func TestPauseStopVolumeAndState(t *testing.T) {
 	}
 }
 
+func TestStopActiveVoiceCancelsSynchronouslyWithoutErasingNextLoad(t *testing.T) {
+	daemon := newFakeDaemon()
+	p, _, ring := newTestPlayer(t, daemon, fixedClock{ok: true})
+
+	p.mu.Lock()
+	p.elementID = "voice_1"
+	p.playback = PlaybackVoice
+	p.mu.Unlock()
+	p.engine.PlayVoice([]float32{1, 1}, time.Now().Add(time.Minute), nil)
+	ring.Write(make([]float32, 1024))
+
+	p.Handle(protocol.Envelope{Type: protocol.TypeStop}, &protocol.StopPayload{})
+
+	if p.engine.VoiceActive() {
+		t.Fatal("stop must drop an active or pending voice insert immediately")
+	}
+	if ring.Fill() != 0 {
+		t.Fatalf("stop must clear the pre-cancellation music tail immediately, fill=%d", ring.Fill())
+	}
+	if st := p.StatePayload(0); st.Playback != "stopped" || st.URI != nil {
+		t.Fatalf("state after voice cancellation %+v", st)
+	}
+	neverCall(t, daemon, "stop", 30*time.Millisecond)
+
+	// A normal music stop has a delayed 300 ms tail clear. Voice cancellation
+	// must not leave that timer behind, because the scheduler is allowed to
+	// load the next element immediately after the cancellation receipt.
+	const nextLoadFloats = 512
+	ring.Write(make([]float32, nextLoadFloats))
+	time.Sleep(350 * time.Millisecond)
+	if got := ring.Fill(); got != nextLoadFloats {
+		t.Fatalf("voice stop erased the immediately following load: fill=%d, want %d", got, nextLoadFloats)
+	}
+}
+
 func TestAudiblePositionSubtractsRingFill(t *testing.T) {
 	daemon := newFakeDaemon()
 	p, _, ring := newTestPlayer(t, daemon, fixedClock{ok: true})

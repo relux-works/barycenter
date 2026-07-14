@@ -104,6 +104,12 @@ func TestRegisterHandshakeAndCommandDispatch(t *testing.T) {
 		reg.AppVersion != "0.0.0-test" || reg.LibrespotVersion != "9.9.9" {
 		t.Fatalf("register payload %+v", reg)
 	}
+	if len(reg.Capabilities) != 1 || reg.Capabilities[0] != protocol.CapabilitySeamlessAdoption {
+		t.Fatalf("pre-hook build must not advertise unimplemented clip capabilities: %v", reg.Capabilities)
+	}
+	if _, err := protocol.ParseCapabilitySet(reg.Capabilities); err != nil {
+		t.Fatalf("client emitted non-canonical capabilities: %v", err)
+	}
 
 	// A command envelope must reach the handler as its typed payload.
 	sendEnvelope(t, ws, protocol.TypeLoad, &protocol.LoadPayload{

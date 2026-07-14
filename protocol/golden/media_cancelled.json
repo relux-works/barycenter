@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C0000000000000000005",
+  "ts": 1784026816100,
+  "type": "media_cancelled",
+  "payload": {
+    "transmission_id": "tr_01J00000000000000000000000",
+    "generation": 1,
+    "reason": "media_deleted",
+    "action": "fade_stop",
+    "main_resumed": true
+  }
+}

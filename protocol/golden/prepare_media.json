@@ -1,0 +1,19 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C000000000000000000G",
+  "ts": 1784026814000,
+  "type": "prepare_media",
+  "payload": {
+    "transmission_id": "tr_01J00000000000000000000000",
+    "generation": 1,
+    "media_id": "m_01J00000000000000000000000",
+    "kind": "voice_clip",
+    "delivery": "overlay",
+    "file_url": "https://coord.example/v1/media/m_01J00000000000000000000000",
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "size_bytes": 740924,
+    "duration_ms": 4200,
+    "media_expires_at_coord_ms": 1784027100000,
+    "prepare_deadline_coord_ms": 1784026814123
+  }
+}

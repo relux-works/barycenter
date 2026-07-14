@@ -7,10 +7,38 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
 )
+
+var goldenIdentifierPatterns = map[string]*regexp.Regexp{
+	"msg_": regexp.MustCompile(`^msg_[0-7][0-9A-HJKMNP-TV-Z]{25}$`),
+	"el_":  regexp.MustCompile(`^el_[0-7][0-9A-HJKMNP-TV-Z]{25}$`),
+	"m_":   regexp.MustCompile(`^m_[0-7][0-9A-HJKMNP-TV-Z]{25}$`),
+	"tr_":  regexp.MustCompile(`^tr_[0-7][0-9A-HJKMNP-TV-Z]{25}$`),
+}
+
+func validateGoldenIdentifiers(t *testing.T, value any) {
+	t.Helper()
+	switch value := value.(type) {
+	case map[string]any:
+		for _, child := range value {
+			validateGoldenIdentifiers(t, child)
+		}
+	case []any:
+		for _, child := range value {
+			validateGoldenIdentifiers(t, child)
+		}
+	case string:
+		for prefix, pattern := range goldenIdentifierPatterns {
+			if strings.HasPrefix(value, prefix) && !pattern.MatchString(value) {
+				t.Errorf("malformed %s golden identifier %q", prefix, value)
+			}
+		}
+	}
+}
 
 // repoRoot walks up from this file to the repository root.
 func repoRoot(t *testing.T) string {
@@ -84,6 +112,7 @@ func TestGoldenRoundTrip(t *testing.T) {
 			if err := json.Unmarshal(raw, &wantAny); err != nil {
 				t.Fatal(err)
 			}
+			validateGoldenIdentifiers(t, wantAny)
 			if err := json.Unmarshal(outRaw, &gotAny); err != nil {
 				t.Fatal(err)
 			}
@@ -174,6 +203,94 @@ func TestV11AdditiveFieldsOmittedWhenEmpty(t *testing.T) {
 			if strings.Contains(string(env.Payload), f) {
 				t.Fatalf("%s: %s must be omitted when empty, got %s", tc.name, f, env.Payload)
 			}
+		}
+	}
+}
+
+func TestTransmissionOptionalFieldsAndInterruptVariant(t *testing.T) {
+	fadeOut, fadeIn := int64(250), int64(120)
+	env, err := NewEnvelope("msg_x", 1, TypePlayMediaAt, &PlayMediaAtPayload{
+		TransmissionID: "tr_x", Generation: 1, TCoordMS: 2,
+		StartDeadlineCoordMS: 102, Delivery: "interrupt",
+		FadeOutMS: &fadeOut, FadeInMS: &fadeIn,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"duck_db", "attack_ms", "release_ms"} {
+		if strings.Contains(string(env.Payload), forbidden) {
+			t.Fatalf("interrupt %s must be omitted, got %s", forbidden, env.Payload)
+		}
+	}
+	if _, err := DecodePayloadStrict(env); err != nil {
+		t.Fatalf("interrupt variant no longer round-trips: %v", err)
+	}
+
+	dnd, err := NewEnvelope("msg_x", 1, TypeSetDND, &SetDNDPayload{Revision: 1, Mode: "allow_all"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(dnd.Payload), "muted_until_coord_ms") {
+		t.Fatalf("set_dnd muted_until_coord_ms must be omitted outside muted_until, got %s", dnd.Payload)
+	}
+
+	presence, err := NewEnvelope("msg_x", 1, TypePresenceUpdate, &PresenceUpdatePayload{
+		Revision: 1, GeneratedAtCoordMS: 1,
+		Nodes: []PresenceNode{{OrbitID: 1, Slot: "a", DNDMode: "messages_only", Capabilities: []string{}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(presence.Payload), "dnd_until_coord_ms") {
+		t.Fatalf("presence dnd_until_coord_ms must be omitted outside muted_until, got %s", presence.Payload)
+	}
+}
+
+func TestCapabilitySetContract(t *testing.T) {
+	valid := []string{
+		CapabilityInterruptResume,
+		CapabilityMediaClip,
+		CapabilityOverlayMix,
+		CapabilitySeamlessAdoption,
+		"unknown_future_v2",
+	}
+	set, err := ParseCapabilitySet(valid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !set.Supports(CapabilityMediaClip) || !set.Supports("unknown_future_v2") || set.Supports("absent") {
+		t.Fatalf("capability lookup mismatch: %v", set.Values())
+	}
+	for _, values := range [][]string{
+		{"media_clip_v1", "media_clip_v1"},
+		{"overlay_mix_v1", "media_clip_v1"},
+		{""},
+		{"media clip"},
+		{"média_clip_v1"},
+	} {
+		if _, err := ParseCapabilitySet(values); err == nil {
+			t.Fatalf("accepted invalid capabilities %q", values)
+		}
+	}
+}
+
+func TestLegacyVoiceMessagesRemainCompatible(t *testing.T) {
+	for _, tc := range []struct {
+		msgType string
+		payload any
+	}{
+		{TypePlayVoice, &PlayVoicePayload{ElementID: "el_x", FileURL: "https://coord/media/x"}},
+		{TypeSoloVoice, &SoloVoicePayload{ElementID: "el_x", FileURL: "https://coord/media/x"}},
+	} {
+		env, err := NewEnvelope("msg_x", 1, tc.msgType, tc.payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !KnownType(tc.msgType) {
+			t.Fatalf("legacy type %q is no longer known", tc.msgType)
+		}
+		if _, err := DecodePayloadStrict(env); err != nil {
+			t.Fatalf("legacy type %q no longer decodes: %v", tc.msgType, err)
 		}
 	}
 }

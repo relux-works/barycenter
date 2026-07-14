@@ -35,7 +35,7 @@ type (
 		Key              NodeKey
 		AppVersion       string
 		LibrespotVersion string
-		Capabilities     []string
+		Capabilities     protocol.CapabilitySet
 	}
 	EvOnline  struct{ Key NodeKey }
 	EvOffline struct{ Key NodeKey }
@@ -200,7 +200,7 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	// before token validation. Node messages are tiny; 64 KiB is generous.
 	ws.SetReadLimit(64 << 10)
 
-	key, reg, ok := h.awaitRegister(ws)
+	key, reg, capabilities, ok := h.awaitRegister(ws)
 	if !ok {
 		return // awaitRegister closed the socket
 	}
@@ -220,7 +220,7 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	h.Events <- EvRegistered{
 		Key: key, AppVersion: reg.AppVersion, LibrespotVersion: reg.LibrespotVersion,
-		Capabilities: reg.Capabilities,
+		Capabilities: capabilities,
 	}
 	if !wasOnline {
 		h.Events <- EvOnline{Key: key}
@@ -230,36 +230,41 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	h.reader(key, c)
 }
 
-func (h *Hub) awaitRegister(ws *websocket.Conn) (NodeKey, *protocol.RegisterPayload, bool) {
+func (h *Hub) awaitRegister(ws *websocket.Conn) (NodeKey, *protocol.RegisterPayload, protocol.CapabilitySet, bool) {
 	ws.SetReadDeadline(time.Now().Add(registerDeadline))
 	_, raw, err := ws.ReadMessage()
 	if err != nil {
 		ws.Close()
-		return NodeKey{}, nil, false
+		return NodeKey{}, nil, protocol.CapabilitySet{}, false
 	}
 	var env protocol.Envelope
 	if err := json.Unmarshal(raw, &env); err != nil || env.Type != protocol.TypeRegister {
 		h.closeWithCode(ws, closeInvalidAuth, "first message must be register")
-		return NodeKey{}, nil, false
+		return NodeKey{}, nil, protocol.CapabilitySet{}, false
 	}
 	payload, err := protocol.DecodePayload(env)
 	if err != nil {
 		h.closeWithCode(ws, closeInvalidAuth, "malformed register")
-		return NodeKey{}, nil, false
+		return NodeKey{}, nil, protocol.CapabilitySet{}, false
 	}
 	reg := payload.(*protocol.RegisterPayload)
+	capabilities, err := protocol.ParseCapabilitySet(reg.Capabilities)
+	if err != nil {
+		h.closeWithCode(ws, closeInvalidAuth, "malformed register")
+		return NodeKey{}, nil, protocol.CapabilitySet{}, false
+	}
 	orbitID, slot, ok := h.lookup(reg.Token)
 	if !ok {
 		h.log.Warn("register rejected", "claimed_slot", reg.NodeID)
 		h.closeWithCode(ws, closeInvalidAuth, "invalid token")
-		return NodeKey{}, nil, false
+		return NodeKey{}, nil, protocol.CapabilitySet{}, false
 	}
 	if reg.NodeID != slot {
 		// The token decides; a stale config claiming another slot is noted.
 		h.log.Warn("register slot mismatch, token wins", "claimed", reg.NodeID, "actual", slot)
 	}
 	ws.SetReadDeadline(time.Time{})
-	return NodeKey{Orbit: orbitID, Slot: protocol.NodeID(slot)}, reg, true
+	return NodeKey{Orbit: orbitID, Slot: protocol.NodeID(slot)}, reg, capabilities, true
 }
 
 func (h *Hub) closeWithCode(ws *websocket.Conn, code int, text string) {

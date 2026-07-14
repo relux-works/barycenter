@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C000000000000000000D",
+  "ts": 1784026814500,
+  "type": "play_media_at",
+  "payload": {
+    "transmission_id": "tr_01J00000000000000000000000",
+    "generation": 1,
+    "t_coord_ms": 1784026815000,
+    "start_deadline_coord_ms": 1784026815100,
+    "delivery": "overlay",
+    "duck_db": -12,
+    "attack_ms": 250,
+    "release_ms": 600
+  }
+}

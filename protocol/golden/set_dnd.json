@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C000000000000000000P",
+  "ts": 1784026814000,
+  "type": "set_dnd",
+  "payload": {
+    "revision": 8,
+    "mode": "muted_until",
+    "muted_until_coord_ms": 1784030400000
+  }
+}

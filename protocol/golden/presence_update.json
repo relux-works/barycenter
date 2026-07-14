@@ -1,0 +1,29 @@
+{
+  "v": 1,
+  "id": "msg_01JZB0C000000000000000000H",
+  "ts": 1784026814000,
+  "type": "presence_update",
+  "payload": {
+    "revision": 91,
+    "generated_at_coord_ms": 1784026814000,
+    "nodes": [
+      {
+        "orbit_id": 42,
+        "slot": "b",
+        "online": true,
+        "last_seen_at_coord_ms": 1784026813800,
+        "output_state": "ready",
+        "playback_state": "main",
+        "dnd_mode": "muted_until",
+        "dnd_revision": 8,
+        "dnd_until_coord_ms": 1784030400000,
+        "capabilities": [
+          "interrupt_resume_v1",
+          "media_clip_v1",
+          "overlay_mix_v1"
+        ],
+        "interrupt_resume_ready": true
+      }
+    ]
+  }
+}

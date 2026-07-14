@@ -19,8 +19,10 @@ import (
 )
 
 type mockAPI struct {
-	sent    []string
-	deleted chan [2]int64
+	sent     []string
+	deleted  chan [2]int64
+	answered chan [2]string
+	cleared  chan [2]int64
 }
 
 func (m *mockAPI) GetUpdates(offset int64, timeoutS int) ([]Update, error) { return nil, nil }
@@ -34,14 +36,177 @@ func (m *mockAPI) DeleteMessage(chatID, messageID int64) error {
 	}
 	return nil
 }
+func (m *mockAPI) AnswerCallbackQuery(queryID, text string) error {
+	if m.answered != nil {
+		m.answered <- [2]string{queryID, text}
+	}
+	return nil
+}
+func (m *mockAPI) ClearInlineKeyboard(chatID, messageID int64) error {
+	if m.cleared != nil {
+		m.cleared <- [2]int64{chatID, messageID}
+	}
+	return nil
+}
 func (m *mockAPI) FileURL(fileID string) (string, error)   { return "http://x/" + fileID, nil }
 func (m *mockAPI) Download(fileURL, destPath string) error { return nil }
 func (m *mockAPI) GetMe() (string, error)                  { return "barycenter_bot", nil }
 
 func newTestBot() (*Bot, *mockAPI) {
-	api := &mockAPI{deleted: make(chan [2]int64, 1)}
+	api := &mockAPI{
+		deleted: make(chan [2]int64, 1), answered: make(chan [2]string, 1),
+		cleared: make(chan [2]int64, 1),
+	}
 	b := New(api, slog.Default())
 	return b, api
+}
+
+func TestAudioAndDocumentProduceTypedHintOnlyEvents(t *testing.T) {
+	b, _ := newTestBot()
+	b.handleUpdate(Update{UpdateID: 10, Message: &Message{
+		MessageID: 8, From: &User{ID: 111, FirstName: "Ivan"},
+		Chat: Chat{ID: -100500, Type: "private"}, Caption: "всем",
+		Audio: &Audio{FileID: "audio-file", FileUniqueID: "unique-audio",
+			FileName: "declared.mp3", MIMEType: "audio/mpeg", Duration: 999,
+			FileSize: 99 << 20},
+	}})
+	audio := <-b.Events
+	if audio.Attachment == nil || audio.Attachment.Kind != AttachmentAudio ||
+		audio.Attachment.TGFileID != "audio-file" || !audio.Attachment.Broadcast ||
+		audio.Attachment.Duration != 999 || audio.Attachment.SizeBytes != 99<<20 {
+		t.Fatalf("audio event=%+v attachment=%+v", audio, audio.Attachment)
+	}
+
+	b.handleUpdate(Update{UpdateID: 11, Message: &Message{
+		MessageID: 9, From: &User{ID: 111, FirstName: "Ivan"},
+		Chat: Chat{ID: -100500, Type: "private"}, MediaGroupID: "group-hint",
+		Document: &Document{FileID: "document-file", FileUniqueID: "unique-document",
+			FileName: "looks-like-audio.ogg", MIMEType: "application/octet-stream", FileSize: 123},
+	}})
+	document := <-b.Events
+	if document.Attachment == nil || document.Attachment.Kind != AttachmentDocument ||
+		document.Attachment.MediaGroupID != "group-hint" ||
+		document.Attachment.MIMEType != "application/octet-stream" {
+		t.Fatalf("document event=%+v attachment=%+v", document, document.Attachment)
+	}
+	// Transport preserved contradictory metadata instead of treating it as
+	// proof. The common bounded ingest decides whether this is actually audio.
+}
+
+func TestNonAudioTelegramAttachmentGetsHonestUnsupportedReply(t *testing.T) {
+	b, _ := newTestBot()
+	b.handleUpdate(Update{UpdateID: 12, Message: &Message{
+		MessageID: 10, From: &User{ID: 111, FirstName: "Ivan"},
+		Chat:  Chat{ID: -100500, Type: "private"},
+		Video: &UnsupportedAttachment{FileID: "private-video-file-id"},
+	}})
+	select {
+	case event := <-b.Events:
+		t.Fatalf("unsupported attachment produced an ingest event: %+v", event)
+	default:
+	}
+	if len(b.outbox) != 1 {
+		t.Fatalf("queued replies=%d", len(b.outbox))
+	}
+	reply := <-b.outbox
+	if reply.text != AttachmentFailureText(AttachmentNotAudio) ||
+		strings.Contains(reply.text, "private-video-file-id") {
+		t.Fatalf("reply=%q", reply.text)
+	}
+}
+
+func TestCallbackUpdateAnswersPromptlyAndClearsTerminalKeyboard(t *testing.T) {
+	b, api := newTestBot()
+	b.handleUpdate(Update{UpdateID: 12, CallbackQuery: &CallbackQuery{
+		ID: "opaque-query-id", From: &User{ID: 111, FirstName: "Ivan"},
+		Data:    "tg1_0123456789abcdefghijklmnopqrstuv",
+		Message: &Message{MessageID: 44, Chat: Chat{ID: -100500, Type: "private"}},
+	}})
+	event := <-b.Events
+	if event.Callback == nil || event.Callback.QueryID != "opaque-query-id" ||
+		event.Callback.OriginalUpdateID != 12 || event.FromUserID != 111 ||
+		event.ChatID != -100500 || event.MessageID != 44 {
+		t.Fatalf("callback event=%+v callback=%+v", event, event.Callback)
+	}
+	stop := make(chan struct{})
+	go b.callbackSender(stop)
+	event.Callback.Answer(CallbackUnsupported)
+	event.Callback.ClearKeyboard()
+	select {
+	case got := <-api.answered:
+		if got != [2]string{"opaque-query-id", CallbackAnswerText(CallbackUnsupported)} {
+			t.Fatalf("answer=%q", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("callback query was not answered")
+	}
+	select {
+	case got := <-api.cleared:
+		if got != [2]int64{-100500, 44} {
+			t.Fatalf("keyboard cleanup=%v", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("terminal inline keyboard was not cleared")
+	}
+	close(stop)
+}
+
+func TestHTTPAPICallbackMethodsUseOpaqueQueryAndEmptyKeyboard(t *testing.T) {
+	type captured struct {
+		method string
+		form   url.Values
+	}
+	calls := make(chan captured, 2)
+	api := &HTTPAPI{Token: "test-token", Client: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if err := req.ParseForm(); err != nil {
+			t.Fatal(err)
+		}
+		method := strings.TrimPrefix(req.URL.Path, "/bottest-token/")
+		calls <- captured{method: method, form: req.PostForm}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"ok":true,"result":true}`)),
+			Header:     make(http.Header), Request: req,
+		}, nil
+	})}}
+	if err := api.AnswerCallbackQuery("opaque-query", "Кнопка устарела"); err != nil {
+		t.Fatal(err)
+	}
+	if err := api.ClearInlineKeyboard(-100500, 44); err != nil {
+		t.Fatal(err)
+	}
+	answer := <-calls
+	if answer.method != "answerCallbackQuery" || answer.form.Get("callback_query_id") != "opaque-query" ||
+		answer.form.Get("text") != "Кнопка устарела" {
+		t.Fatalf("answer call=%+v", answer)
+	}
+	clear := <-calls
+	if clear.method != "editMessageReplyMarkup" || clear.form.Get("chat_id") != "-100500" ||
+		clear.form.Get("message_id") != "44" || clear.form.Get("reply_markup") != `{"inline_keyboard":[]}` {
+		t.Fatalf("clear call=%+v", clear)
+	}
+}
+
+func TestAttachmentFailureVocabularyUsesCommonIngestProof(t *testing.T) {
+	tests := []struct {
+		kind   AttachmentKind
+		ingest string
+		want   AttachmentFailureCode
+	}{
+		{AttachmentAudio, "media_input_oversized", AttachmentTooLarge},
+		{AttachmentDocument, "media_signature_unsupported", AttachmentNotAudio},
+		{AttachmentAudio, "media_signature_unsupported", AttachmentDecodeFailed},
+		{AttachmentAudio, "media_duration_exceeded", AttachmentTrackPhase2},
+		{AttachmentDocument, "media_input_unavailable", AttachmentDownloadFailed},
+	}
+	for _, test := range tests {
+		if got := AttachmentFailureFromIngest(test.kind, test.ingest); got != test.want {
+			t.Errorf("kind=%s ingest=%s got=%s want=%s", test.kind, test.ingest, got, test.want)
+		}
+		if text := AttachmentFailureText(test.want); text == "" || strings.Contains(text, "file-id") {
+			t.Errorf("unsafe/empty text for %s: %q", test.want, text)
+		}
+	}
 }
 
 func msgFrom(userID int64, text string) Update {
@@ -439,6 +604,7 @@ func TestHTTPAPITransportErrorsRedactTokenURLsAndRequestMaterial(t *testing.T) {
 		linkCode    = "SENTINEL_LINK_CODE_R1"
 		messageText = "consume " + linkCode
 		fileID      = "SENTINEL_FILE_ID_R1"
+		callbackID  = "SENTINEL_CALLBACK_QUERY_R1"
 	)
 	api := &HTTPAPI{Token: token, Client: leakingTelegramClient()}
 	fileURL := "https://api.telegram.org/file/bot" + token + "/voice/" + linkCode
@@ -455,6 +621,10 @@ func TestHTTPAPITransportErrorsRedactTokenURLsAndRequestMaterial(t *testing.T) {
 		}},
 		{name: "sendMessage", call: func() error { return api.SendMessage(42, messageText) }},
 		{name: "deleteMessage", call: func() error { return api.DeleteMessage(42, 99) }},
+		{name: "answerCallbackQuery", call: func() error {
+			return api.AnswerCallbackQuery(callbackID, CallbackAnswerText(CallbackExpired))
+		}},
+		{name: "editMessageReplyMarkup", call: func() error { return api.ClearInlineKeyboard(42, 99) }},
 		{name: "getFile", call: func() error {
 			_, err := api.FileURL(fileID)
 			return err
@@ -468,12 +638,14 @@ func TestHTTPAPITransportErrorsRedactTokenURLsAndRequestMaterial(t *testing.T) {
 		linkCode,
 		messageText,
 		fileID,
+		callbackID,
 		"api.telegram.org/bot" + token,
 		"file/bot" + token,
 		fileURL,
 		url.QueryEscape(messageText),
 		"chat_id=42",
 		"file_id=" + fileID,
+		"callback_query_id=" + callbackID,
 	}
 	for _, operation := range operations {
 		t.Run(operation.name, func(t *testing.T) {

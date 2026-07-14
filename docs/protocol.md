@@ -16,6 +16,8 @@ Telegram callback surface is frozen in the
 [history/presence/Telegram contract](analysis/p1-history-presence-telegram-contract-v1.md).
 Its transport-neutral RU/EN labels and privacy-safe metadata fallbacks are
 defined by the [shared delivery presentation model](analysis/p1-shared-delivery-presentation-model.md).
+The implemented Telegram transport boundary and automated evidence are described
+in [P1 Telegram callback and audio transport](analysis/p1-telegram-callback-audio-transport.md).
 
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 

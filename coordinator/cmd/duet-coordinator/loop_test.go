@@ -181,7 +181,7 @@ func (adapter *controlledTelegramAdapter) Accept(voice media.TelegramVoice) (med
 	accepted := media.TelegramAcceptance{
 		MediaID: created.Media.ID, OwnerOrbitID: created.Media.OwnerOrbitID,
 		ActorID: created.Media.ActorID, TelegramFileID: voice.TelegramFileID,
-		AcceptedAt: created.Media.CreatedAt,
+		AttachmentKind: voice.AttachmentKind, AcceptedAt: created.Media.CreatedAt,
 	}
 	adapter.mu.Lock()
 	adapter.pending[accepted.MediaID] = make(chan controlledTelegramCompletion, 1)
@@ -644,6 +644,85 @@ func TestTelegramVoiceCommonFailureKeepsBotReplyAndBothStatusesTerminal(t *testi
 		legacy.Status != "failed" || l.orbit(1).sess.Current != nil {
 		t.Fatalf("failure common=%+v legacy=%+v current=%+v err=%v legacyErr=%v",
 			item, legacy, l.orbit(1).sess.Current, err, legacyErr)
+	}
+}
+
+func TestTelegramAudioAndDocumentHintsReachCommonIngestWithoutTrust(t *testing.T) {
+	tests := []struct {
+		name      string
+		kind      bot.AttachmentKind
+		failure   string
+		wantReply string
+	}{
+		{name: "audio duration hint does not pre-reject", kind: bot.AttachmentAudio,
+			failure: "media_duration_exceeded", wantReply: bot.AttachmentFailureText(bot.AttachmentTrackPhase2)},
+		{name: "document MIME hint does not classify", kind: bot.AttachmentDocument,
+			failure: "media_signature_unsupported", wantReply: bot.AttachmentFailureText(bot.AttachmentNotAudio)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			l, _ := newTestLoop(t)
+			adapter := newControlledTelegramAdapter(l.st)
+			l.telegramMedia = adapter
+			replies := &replies{}
+			l.handleBot(bot.Event{
+				FromUserID: 111, FromName: "Alice", Reply: replies.fn,
+				Attachment: &bot.AttachmentEvent{
+					Kind: test.kind, TGFileID: "opaque-telegram-file",
+					FileName: "untrusted.exe", MIMEType: "application/octet-stream",
+					Duration: 999, SizeBytes: 99 << 20, Broadcast: true,
+				},
+			})
+			accepted := takeTelegramAcceptance(t, adapter)
+			if accepted.AttachmentKind != string(test.kind) {
+				t.Fatalf("accepted kind=%q", accepted.AttachmentKind)
+			}
+			if len(replies.texts) != 1 || !strings.Contains(replies.texts[0], "неподтверждённый файл") {
+				t.Fatalf("acceptance replies=%v", replies.texts)
+			}
+			adapter.complete(accepted.MediaID, controlledTelegramCompletion{code: test.failure})
+			l.handleMediaDone(takeMediaDone(t, l))
+			if got := replies.last(t); got != test.wantReply {
+				t.Fatalf("failure reply=%q want=%q", got, test.wantReply)
+			}
+		})
+	}
+}
+
+func TestTelegramMediaGroupIsHonestlyRejectedBeforeIngest(t *testing.T) {
+	l, _ := newTestLoop(t)
+	adapter := newControlledTelegramAdapter(l.st)
+	l.telegramMedia = adapter
+	replies := &replies{}
+	l.handleBot(bot.Event{
+		FromUserID: 111, FromName: "Alice", Reply: replies.fn,
+		Attachment: &bot.AttachmentEvent{
+			Kind: bot.AttachmentAudio, TGFileID: "opaque-telegram-file", MediaGroupID: "group-hint",
+		},
+	})
+	if got := replies.last(t); got != bot.AttachmentFailureText(bot.AttachmentGroupUnsupported) {
+		t.Fatalf("reply=%q", got)
+	}
+	select {
+	case accepted := <-adapter.accepted:
+		t.Fatalf("media group reached ingest: %+v", accepted)
+	default:
+	}
+}
+
+func TestCallbackWithoutInlineRouterGetsPromptTerminalOutcome(t *testing.T) {
+	l, _ := newTestLoop(t)
+	var answer bot.CallbackAnswerCode
+	cleared := false
+	l.handleBot(bot.Event{
+		FromUserID: 111, FromName: "Alice",
+		Callback: &bot.CallbackEvent{
+			Answer:        func(code bot.CallbackAnswerCode) { answer = code },
+			ClearKeyboard: func() { cleared = true },
+		},
+	})
+	if answer != bot.CallbackUnsupported || !cleared {
+		t.Fatalf("answer=%s cleared=%v", answer, cleared)
 	}
 }
 

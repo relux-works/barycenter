@@ -30,6 +30,9 @@ type TelegramVoice struct {
 	OwnerOrbitID   int64
 	TelegramUserID int64
 	TelegramFileID string
+	// AttachmentKind is "voice", "audio", or "document". It records only
+	// the Telegram update shape; common ingest proves the actual media type.
+	AttachmentKind string
 	Title          string
 	AcceptedAt     int64
 	ExpiresAt      int64
@@ -40,6 +43,7 @@ type TelegramAcceptance struct {
 	OwnerOrbitID   int64
 	ActorID        int64
 	TelegramFileID string
+	AttachmentKind string
 	AcceptedAt     int64
 }
 
@@ -99,6 +103,7 @@ func (adapter *TelegramAdapter) Accept(voice TelegramVoice) (TelegramAcceptance,
 		OwnerOrbitID:   created.Media.OwnerOrbitID,
 		ActorID:        created.Media.ActorID,
 		TelegramFileID: voice.TelegramFileID,
+		AttachmentKind: voice.AttachmentKind,
 		AcceptedAt:     created.Media.CreatedAt,
 	}, nil
 }

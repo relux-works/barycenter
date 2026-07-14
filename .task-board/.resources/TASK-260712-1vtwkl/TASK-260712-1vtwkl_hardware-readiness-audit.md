@@ -60,6 +60,23 @@ bytes for both OS rows. If the accepted artifact has expired, record the newly
 selected source/run/artifact/hash before H00 and never combine histories from
 different package hashes.
 
+Root delta-review then found and closed two harness-only fail-closed gaps in
+commit `829bebb74e5ab241b5a55527d9b240842e5672cf`: cleanup inputs/output are now
+preflighted outside the runtime root before mutation, and seal renders the
+required `matrix.md` from validated immutable state. Seal also revalidates row
+state/timestamps plus cleanup package identity and family. CI run `29295847330`
+passed all four jobs, including the negative proof that an in-runtime cleanup
+receipt is rejected while the installed package remains present.
+
+Its inspected artifact ID is `8296732862`, archive digest
+`sha256:64e3e967e3cac6f32331e389c8826c6f882e74cf4368f2aa13af4635f3276f3d`,
+expiring 2026-07-28. It again contained exactly five expected files. The
+generated MSIX SHA-256 was
+`54bdefda6c48520a07d3fabafe25cd5fb51666b9e4e76b4a5e6be7a53c9eb7c8`;
+schema-v2 install and cleanup receipts matched that value and every hosted
+cleanup postcondition. This remains regression evidence only, not a physical
+H00-H17 result or a replacement for the frozen package bytes.
+
 ## Access audit
 
 The active executor has no admissible physical Windows path:

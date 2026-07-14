@@ -22,6 +22,13 @@ cross-build, YAML and task-board validation are green. Hosted Windows CI run
 recorded in the task resource. That remains a tooling regression gate and
 cannot satisfy either physical OS row.
 
+Root delta-review closed unsafe cleanup-output placement and the missing
+rendered matrix. Commit `829bebb` passed all jobs in CI run `29295847330`; its
+negative test proves rejection occurs before package mutation. The latest
+artifact/receipt hashes are recorded on the board. A repeated access audit
+still found no Windows boot volume, Windows Tailscale peer, SSH alias or
+authorized self-hosted runner inventory.
+
 Current blocker details and the exact unblock contract are recorded in the
 task-board outcome resource
 `TASK-260712-1vtwkl_hardware-readiness-audit.md`. The strict Windows 10 row is

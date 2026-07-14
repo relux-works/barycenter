@@ -16,31 +16,45 @@ It does **not** own the UI capture client, self-service control credential
 issuance, transmission scheduler semantics, Telegram inline routing UI, or Store
 policy surfaces beyond the backend hooks they need.
 
-## Created tasks
+## Engineering sequence
 
-1. `TASK-260712-z6h6wh` - Add generic media ingest persistence and migration scaffold
-2. `TASK-260712-2af2dp` - Implement SubmitMedia validation and canonical WAV pipeline
-3. `TASK-260712-1bnos4` - Add authenticated resumable media upload sessions
-4. `TASK-260712-gj0cko` - Enforce media ACL, delete and retention lifecycle
-5. `TASK-260712-12ojcb` - Move Telegram voice intake onto SubmitMedia without changing legacy behavior
-6. `TASK-260712-3huupe` - Add phase-one ingest acceptance and regression coverage
-7. `TASK-260712-jolzhh` - Document ingest contract, rollout and cross-story handoff
+1. [x] `TASK-260712-z6h6wh` - Add generic media ingest persistence and migration scaffold
+2. [x] `TASK-260712-1bnos4` - Add authenticated resumable media upload sessions
+3. [x] `TASK-260712-2af2dp` - Implement SubmitMedia validation and canonical WAV pipeline
+4. [x] `TASK-260712-1sae4q` - Implement media delete, retention and physical cleanup
+5. [x] `TASK-260712-3mcof4` - Enforce media download target ACL
+6. [x] `TASK-260712-12ojcb` - Move Telegram voice intake onto SubmitMedia without changing legacy behavior
+7. [x] `TASK-260712-gj0cko` - Integrate media ACL, delete and retention lifecycle
+8. [x] `TASK-260712-3huupe` - Add phase-one ingest acceptance and regression coverage
+9. [ ] `TASK-260712-jolzhh` - Document ingest contract, rollout and cross-story handoff
 
 ## Within-story dependency graph
 
 - `TASK-260712-2af2dp` blocked by `TASK-260712-z6h6wh`
 - `TASK-260712-1bnos4` blocked by `TASK-260712-z6h6wh`
-- `TASK-260712-gj0cko` blocked by `TASK-260712-z6h6wh`, `TASK-260712-2af2dp`, `TASK-260712-1bnos4`
+- `TASK-260712-3mcof4` blocked by `TASK-260712-z6h6wh`,
+  `TASK-260712-2af2dp`, and the identity auth foundation
+- `TASK-260712-1sae4q` blocked by `TASK-260712-z6h6wh`,
+  `TASK-260712-2af2dp`, `TASK-260712-1bnos4`
+- `TASK-260712-gj0cko` blocked by `TASK-260712-3mcof4` and
+  `TASK-260712-1sae4q`; it integrates their forward-only target/cancellation
+  seams with the current runtime without taking ownership of future target rows
 - `TASK-260712-12ojcb` blocked by `TASK-260712-2af2dp`
 - `TASK-260712-3huupe` blocked by `TASK-260712-2af2dp`, `TASK-260712-1bnos4`, `TASK-260712-gj0cko`, `TASK-260712-12ojcb`
 - `TASK-260712-jolzhh` blocked by `TASK-260712-3huupe`
 
-Execution intent:
+The original dependency intent allowed some parallel implementation. The epic
+was ultimately executed in the strict sequence above; every checked task is
+accepted and landed on `main` before the next task started.
+
+Dependency intent:
 
 - Start with schema and repository groundwork.
 - Then build the common processing path and app upload session surface in
   parallel.
-- Add ACL/delete/retention once both storage and ingest states exist.
+- Build the target-ACL service and delete/retention worker independently, then
+  integrate their fail-closed interfaces and current-runtime cancellation;
+  transmission persistence later supplies immutable target rows through them.
 - Migrate Telegram after the shared processing path is real.
 - Finish with regression coverage, then docs and handoff.
 
@@ -69,10 +83,15 @@ Execution intent:
   offset tracking. Sparse chunk reassembly is unnecessary for the spec.
 - No media becomes `ready` until probe, limits, canonicalization and storage
   metadata are all persisted successfully.
+- `ffprobe` and `ffmpeg` process untrusted bytes with network protocols disabled,
+  fixed arguments, and CPU, memory, time, and output-size caps. Canonical bytes
+  are published atomically; stale workers cannot overwrite terminal state.
 - Deduplication is scoped to one orbit only. Cross-orbit shared hashes must not
   reveal existence.
 - Delete must revoke new fetches immediately even if physical byte cleanup is
   deferred.
+- Sender delete follows one frozen policy for queued, prepared, scheduled, and
+  already-playing media; clients and moderation may not invent different rules.
 - Telegram continues to enqueue default voice by coordinator acceptance time,
   not by processing completion time.
 
@@ -89,9 +108,10 @@ Execution intent:
 - Existing Telegram voice order and output compatibility are preserved in
   `TASK-260712-12ojcb` and regression-tested in `TASK-260712-3huupe`.
 
-## Workflow note
+## Handoff
 
-The board instance rejected child-task status promotion while tasks are
-unassigned. The tasks remain unassigned with full scope, AC, checklists,
-dependencies and linked diagrams; they are ready for assignment and developer
-pickup.
+The durable developer/operator entry point is
+`docs/analysis/p1-media-ingest-rollout-handoff.md`. Deterministic acceptance is
+mapped in `docs/analysis/p1-media-ingest-acceptance-evidence.md`. Real-app,
+physical-device and human-listening evidence is deliberately not claimed here;
+it is tracked in the separate manual epic `EPIC-260714-th54l3`.

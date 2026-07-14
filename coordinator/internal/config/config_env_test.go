@@ -165,8 +165,21 @@ func TestContainerConfigWithoutEnv(t *testing.T) {
 	yml := "listen: \"0.0.0.0:8080\"\ndb_path: /tmp/d.db\nmedia_dir: /tmp/m\nnodes:\n  a: { token: \"\" }\n  b: { token: \"\" }\n"
 	p := filepath.Join(t.TempDir(), "c.yml")
 	os.WriteFile(p, []byte(yml), 0o600)
-	if _, err := Load(p); err != nil {
+	cfg, err := Load(p)
+	if err != nil {
 		t.Fatalf("empty tokens must be legal in v2.1: %v", err)
+	}
+	if cfg.Media.RetentionDays != 7 {
+		t.Fatalf("phase-one clip retention = %d days, want 7", cfg.Media.RetentionDays)
+	}
+	explicitRetention := yml + "media:\n  retention_days: 30\n"
+	os.WriteFile(p, []byte(explicitRetention), 0o600)
+	cfg, err = Load(p)
+	if err != nil {
+		t.Fatalf("explicit compatibility retention failed: %v", err)
+	}
+	if cfg.Media.RetentionDays != 30 {
+		t.Fatalf("explicit compatibility retention = %d days, want 30", cfg.Media.RetentionDays)
 	}
 	bad := strings.Replace(yml, "a: { token: \"\" }", "a: { token: \"short\" }", 1)
 	os.WriteFile(p, []byte(bad), 0o600)

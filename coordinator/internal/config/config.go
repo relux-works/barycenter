@@ -214,7 +214,7 @@ func defaults() *Config {
 			NearEndMS:       400,
 			HeartbeatEveryS: 5,
 		},
-		Media: Media{MaxVoiceS: 180, RetentionDays: 30, Preset: "default"},
+		Media: Media{MaxVoiceS: 180, RetentionDays: 7, Preset: "default"},
 	}
 }
 

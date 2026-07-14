@@ -16,17 +16,17 @@ It does **not** own the UI capture client, self-service control credential
 issuance, transmission scheduler semantics, Telegram inline routing UI, or Store
 policy surfaces beyond the backend hooks they need.
 
-## Created tasks
+## Engineering sequence
 
-1. `TASK-260712-z6h6wh` - Add generic media ingest persistence and migration scaffold
-2. `TASK-260712-2af2dp` - Implement SubmitMedia validation and canonical WAV pipeline
-3. `TASK-260712-1bnos4` - Add authenticated resumable media upload sessions
-4. `TASK-260712-3mcof4` - Enforce media download target ACL
-5. `TASK-260712-1sae4q` - Implement media delete, retention and physical cleanup
-6. `TASK-260712-gj0cko` - Integrate media ACL, delete and retention lifecycle
-7. `TASK-260712-12ojcb` - Move Telegram voice intake onto SubmitMedia without changing legacy behavior
-8. `TASK-260712-3huupe` - Add phase-one ingest acceptance and regression coverage
-9. `TASK-260712-jolzhh` - Document ingest contract, rollout and cross-story handoff
+1. [x] `TASK-260712-z6h6wh` - Add generic media ingest persistence and migration scaffold
+2. [x] `TASK-260712-1bnos4` - Add authenticated resumable media upload sessions
+3. [x] `TASK-260712-2af2dp` - Implement SubmitMedia validation and canonical WAV pipeline
+4. [x] `TASK-260712-1sae4q` - Implement media delete, retention and physical cleanup
+5. [x] `TASK-260712-3mcof4` - Enforce media download target ACL
+6. [x] `TASK-260712-12ojcb` - Move Telegram voice intake onto SubmitMedia without changing legacy behavior
+7. [x] `TASK-260712-gj0cko` - Integrate media ACL, delete and retention lifecycle
+8. [x] `TASK-260712-3huupe` - Add phase-one ingest acceptance and regression coverage
+9. [ ] `TASK-260712-jolzhh` - Document ingest contract, rollout and cross-story handoff
 
 ## Within-story dependency graph
 
@@ -43,7 +43,11 @@ policy surfaces beyond the backend hooks they need.
 - `TASK-260712-3huupe` blocked by `TASK-260712-2af2dp`, `TASK-260712-1bnos4`, `TASK-260712-gj0cko`, `TASK-260712-12ojcb`
 - `TASK-260712-jolzhh` blocked by `TASK-260712-3huupe`
 
-Execution intent:
+The original dependency intent allowed some parallel implementation. The epic
+was ultimately executed in the strict sequence above; every checked task is
+accepted and landed on `main` before the next task started.
+
+Dependency intent:
 
 - Start with schema and repository groundwork.
 - Then build the common processing path and app upload session surface in
@@ -104,9 +108,10 @@ Execution intent:
 - Existing Telegram voice order and output compatibility are preserved in
   `TASK-260712-12ojcb` and regression-tested in `TASK-260712-3huupe`.
 
-## Workflow note
+## Handoff
 
-The board instance rejected child-task status promotion while tasks are
-unassigned. The tasks remain unassigned with full scope, AC, checklists,
-dependencies and linked diagrams; they are ready for assignment and developer
-pickup.
+The durable developer/operator entry point is
+`docs/analysis/p1-media-ingest-rollout-handoff.md`. Deterministic acceptance is
+mapped in `docs/analysis/p1-media-ingest-acceptance-evidence.md`. Real-app,
+physical-device and human-listening evidence is deliberately not claimed here;
+it is tracked in the separate manual epic `EPIC-260714-th54l3`.

@@ -70,7 +70,7 @@ func testConfig(t *testing.T) *config.Config {
 		},
 		Telegram: config.Telegram{Users: map[int64]string{111: "a", 222: "b"}},
 		Timings:  config.Timings{ReadyTimeoutS: 8, StartMarginMS: 500, OfflineAfterS: 12, NearEndMS: 400},
-		Media:    config.Media{MaxVoiceS: 180, RetentionDays: 30, Preset: "default"},
+		Media:    config.Media{MaxVoiceS: 180, RetentionDays: 7, Preset: "default"},
 	}
 }
 
@@ -512,6 +512,9 @@ func TestTelegramVoiceSubmitMediaAdapterPreservesFIFORepliesAndLegacyPlayback(t 
 			legacy.Status != "processing" {
 			t.Fatalf("accepted common=%+v legacy=%+v err=%v legacyErr=%v",
 				item, legacy, err, legacyErr)
+		}
+		if got := time.Duration(item.ExpiresAt-item.CreatedAt) * time.Millisecond; got != 7*24*time.Hour {
+			t.Fatalf("Telegram clip retention=%s, want 168h", got)
 		}
 	}
 

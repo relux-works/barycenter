@@ -93,9 +93,10 @@ paths, credentials, request titles or worker diagnostics.
   source cleanup and tenant isolation.
 - HTTP tests prove final-chunk processing, stable redaction and recovery of an
   already-finalizing upload after an interrupted processor.
-- Hosted Linux CI installs ffmpeg and runs a synthetic live matrix for WAV,
-  MP3, M4A/AAC, ADTS AAC, OGG/Opus and FLAC, plus the legacy live Opus path and
-  kernel-limit tests.
+- Hosted Linux CI installs ffmpeg and runs a synthetic live matrix for WAV/PCM,
+  MP3, M4A/AAC, M4A/ALAC, ADTS AAC, OGG/Opus, OGG/Vorbis and FLAC. It also
+  proves that a compact 181-second AAC input is rejected, and runs the legacy
+  live Opus path plus the kernel-limit tests.
 - The tagged rollback gate executes the exact immediate predecessor
   `050c9792e328730e33bb65cf03fcda8e3d690061` against a database containing a
   ready canonical row, then rolls forward and verifies ready metadata, dedupe

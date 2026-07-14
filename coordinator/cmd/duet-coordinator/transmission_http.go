@@ -51,6 +51,7 @@ type transmissionPresenceKey struct {
 type transmissionPresenceState struct {
 	Connected            bool
 	LastSeenAt           int64
+	CredentialTokenHash  string
 	MediaClipCapable     bool
 	OverlayCapable       bool
 	InterruptCapable     bool
@@ -71,7 +72,8 @@ func transmissionPresenceSnapshotterForHub(h *hub.Hub) transmissionPresenceSnaps
 			result[transmissionPresenceKey{OrbitID: key.Orbit, Slot: string(key.Slot)}] =
 				transmissionPresenceState{
 					Connected: snapshot.Connected, LastSeenAt: snapshot.LastSeenAt,
-					MediaClipCapable: mediaClip, OverlayCapable: overlay,
+					CredentialTokenHash: snapshot.CredentialTokenHash,
+					MediaClipCapable:    mediaClip, OverlayCapable: overlay,
 					InterruptCapable: interrupt,
 					// Until the later presence/client-hook tasks expose a finer
 					// runtime signal, an authenticated exact-resume capability is
@@ -438,6 +440,7 @@ func (api *onboardingAPI) transmissionAvailability() []store.TransmissionTargetA
 		result = append(result, store.TransmissionTargetAvailability{
 			OrbitID: key.OrbitID, Slot: key.Slot,
 			Connected: state.Connected, LastSeenAt: state.LastSeenAt,
+			CredentialTokenHash:  state.CredentialTokenHash,
 			MediaClipCapable:     state.MediaClipCapable,
 			OverlayCapable:       state.OverlayCapable,
 			InterruptCapable:     state.InterruptCapable,

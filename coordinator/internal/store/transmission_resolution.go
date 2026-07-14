@@ -54,6 +54,7 @@ type TransmissionTargetAvailability struct {
 	Slot                 string
 	Connected            bool
 	LastSeenAt           int64
+	CredentialTokenHash  string
 	MediaClipCapable     bool
 	OverlayCapable       bool
 	InterruptCapable     bool
@@ -113,9 +114,11 @@ func (e *TransmissionOverlayDurationError) Unwrap() error {
 }
 
 type resolvedTransmissionTarget struct {
-	OrbitID int64
-	ActorID int64
-	Slot    string
+	OrbitID          int64
+	ActorID          int64
+	Slot             string
+	NodeTokenHash    string
+	ControlTokenHash string
 }
 
 type storedTransmissionConfirmation struct {
@@ -177,7 +180,9 @@ func validResolvedTransmissionParams(params CreateResolvedTransmissionParams) bo
 	for _, availability := range params.Availability {
 		if availability.OrbitID <= 0 ||
 			!transmissionSlotPattern.MatchString(availability.Slot) ||
-			availability.LastSeenAt < 0 {
+			availability.LastSeenAt < 0 ||
+			(availability.CredentialTokenHash != "" &&
+				!transmissionDigestPattern.MatchString(availability.CredentialTokenHash)) {
 			return false
 		}
 		key := transmissionTargetKey(availability.OrbitID, availability.Slot)
@@ -360,7 +365,8 @@ func liveTransmissionTargetsTx(
 	orbitID int64,
 	slot string,
 ) ([]resolvedTransmissionTarget, error) {
-	query := `SELECT ic.slot_orbit_id, ic.actor_id, ic.slot_name
+	query := `SELECT ic.slot_orbit_id, ic.actor_id, ic.slot_name,
+       ic.binding_token_hash, COALESCE(ic.control_token_hash, '')
 FROM installation_credentials ic
 JOIN actors a ON a.id = ic.actor_id AND a.revoked_at IS NULL
 JOIN memberships m ON m.actor_id = ic.actor_id
@@ -384,7 +390,10 @@ WHERE ic.slot_orbit_id = ?`
 	var targets []resolvedTransmissionTarget
 	for rows.Next() {
 		var target resolvedTransmissionTarget
-		if err := rows.Scan(&target.OrbitID, &target.ActorID, &target.Slot); err != nil {
+		if err := rows.Scan(
+			&target.OrbitID, &target.ActorID, &target.Slot,
+			&target.NodeTokenHash, &target.ControlTokenHash,
+		); err != nil {
 			return nil, err
 		}
 		targets = append(targets, target)
@@ -618,15 +627,21 @@ func evaluateTransmissionTargetsTx(
 	missingOverlay, missingInterrupt := false, false
 	for _, identity := range resolved {
 		current := availability[transmissionTargetKey(identity.OrbitID, identity.Slot)]
-		online := current.Connected && current.LastSeenAt > 0 &&
+		bindingMatches := current.CredentialTokenHash != "" &&
+			(current.CredentialTokenHash == identity.NodeTokenHash ||
+				current.CredentialTokenHash == identity.ControlTokenHash)
+		online := bindingMatches && current.Connected && current.LastSeenAt > 0 &&
 			params.AcceptedAt-current.LastSeenAt <= transmissionPresenceFreshFor.Milliseconds() &&
 			current.LastSeenAt-params.AcceptedAt <= transmissionPresenceFreshFor.Milliseconds()
 		target := CreateTransmissionTarget{
 			OrbitID: identity.OrbitID, ActorID: identity.ActorID, Slot: identity.Slot,
-			OnlineAtAcceptance: online, MediaClipCapable: current.MediaClipCapable,
-			OverlayCapable:       current.OverlayCapable,
-			InterruptCapable:     current.InterruptCapable,
-			InterruptResumeReady: current.InterruptResumeReady,
+			OnlineAtAcceptance: online,
+		}
+		if online {
+			target.MediaClipCapable = current.MediaClipCapable
+			target.OverlayCapable = current.OverlayCapable
+			target.InterruptCapable = current.InterruptCapable
+			target.InterruptResumeReady = current.InterruptResumeReady
 		}
 		block, err := transmissionBlockDecisionTx(
 			tx, identity.OrbitID, identity.ActorID, ctx.OrbitID, ctx.ActorID,

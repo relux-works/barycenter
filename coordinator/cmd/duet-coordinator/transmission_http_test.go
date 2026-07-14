@@ -43,7 +43,8 @@ func transmissionPresenceFor(
 ) transmissionPresenceState {
 	return transmissionPresenceState{
 		Connected: true, LastSeenAt: now,
-		MediaClipCapable: true, OverlayCapable: true,
+		CredentialTokenHash: transmissionDigest(credentials.NodeToken),
+		MediaClipCapable:    true, OverlayCapable: true,
 		InterruptCapable: true, MainActive: true,
 		InterruptResumeReady: true,
 	}

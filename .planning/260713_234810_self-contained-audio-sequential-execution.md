@@ -49,11 +49,12 @@ immutable target rows. Whole-delivery overlay downgrade, explicit single-use
 interrupt fallback, non-disclosing visibility and generation-bound sender
 cancel handoff are covered. Root review added exact omitted-versus-empty slot
 handling, empty-selector and corrupt-link fail-closed behavior, actual-socket
-presence and credential-aware cancellation output. Coordinator vet/full test/
-race, 20x idempotency and confirmation stress, Windows vet/test/race/cross-
-build, Swift build, diff/resource comparison and task-board validation are
-green. The attached outcome explicitly leaves FIFO/barrier/disarm delivery to
-`TASK-260712-31vvjt` and claims no real-app or physical-hardware result.
+presence, an exact current-credential witness and credential-aware cancellation
+output. Coordinator vet/full test/race, 20x idempotency and confirmation stress,
+Windows vet/test/race/cross-build, Swift build, diff/resource comparison and
+task-board validation are green. The attached outcome explicitly leaves FIFO/
+barrier/disarm delivery to `TASK-260712-31vvjt` and claims no real-app or
+physical-hardware result.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup

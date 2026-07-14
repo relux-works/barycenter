@@ -34,7 +34,8 @@ func fullTransmissionAvailability(
 	return TransmissionTargetAvailability{
 		OrbitID: credentials.OrbitID, Slot: credentials.Slot,
 		Connected: true, LastSeenAt: now,
-		MediaClipCapable: true, OverlayCapable: true,
+		CredentialTokenHash: hashToken(credentials.NodeToken),
+		MediaClipCapable:    true, OverlayCapable: true,
 		InterruptCapable: true, MainActive: true,
 		InterruptResumeReady: true,
 	}
@@ -196,6 +197,47 @@ WHERE actor_id = ? AND idempotency_key_hash = ? AND request_hash = ?`,
 		source.ActorID, params.IdempotencyKeyHash, params.RequestHash,
 	).Scan(&requestRows); err != nil || requestRows != 1 {
 		t.Fatalf("request rows=%d err=%v", requestRows, err)
+	}
+}
+
+func TestResolvedTransmissionRejectsCapabilitiesFromStaleBinding(t *testing.T) {
+	st, source := newMediaIngestTestStore(t)
+	now := time.Now().UnixMilli()
+	media := readyLifecycleMedia(
+		t, st, source, now, now+int64((7*24*time.Hour)/time.Millisecond),
+	)
+	params := resolvedTransmissionParams(source, media, now+3)
+	params.AudienceKind = TransmissionAudienceOwnBarycenter
+	stale := fullTransmissionAvailability(source, params.AcceptedAt)
+	stale.CredentialTokenHash = strings.Repeat("0", 64)
+	params.Availability = []TransmissionTargetAvailability{stale}
+	created, err := st.CreateResolvedTransmission(params)
+	if err != nil || len(created.Creation.Targets) != 1 {
+		t.Fatalf("stale-binding create=%+v err=%v", created, err)
+	}
+	target := created.Creation.Targets[0]
+	if target.Status != TransmissionTargetMissedOffline ||
+		target.OnlineAtAcceptance || target.MediaClipCapable ||
+		target.OverlayCapable || target.InterruptCapable ||
+		target.InterruptResumeReady {
+		t.Fatalf("stale-binding target=%+v", target)
+	}
+
+	fresh := params
+	fresh.IdempotencyKeyHash = strings.Repeat("8", 64)
+	fresh.RequestHash = strings.Repeat("9", 64)
+	fresh.AcceptedAt++
+	freshAvailability := fullTransmissionAvailability(source, fresh.AcceptedAt)
+	// The playback hub accepts either exact current node or control
+	// credentials, so both hashes must witness the same binding generation.
+	freshAvailability.CredentialTokenHash = hashToken(source.ControlToken)
+	fresh.Availability = []TransmissionTargetAvailability{freshAvailability}
+	accepted, err := st.CreateResolvedTransmission(fresh)
+	if err != nil || len(accepted.Creation.Targets) != 1 ||
+		accepted.Creation.Targets[0].Status != TransmissionTargetAccepted ||
+		!accepted.Creation.Targets[0].OnlineAtAcceptance ||
+		!accepted.Creation.Targets[0].MediaClipCapable {
+		t.Fatalf("fresh-binding create=%+v err=%v", accepted, err)
 	}
 }
 

@@ -4,6 +4,8 @@
 package hub
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -37,6 +39,10 @@ type NodeSnapshot struct {
 	Connected    bool
 	LastSeenAt   int64
 	Capabilities protocol.CapabilitySet
+	// CredentialTokenHash is a transient high-entropy witness for matching the
+	// current authenticated socket to the authoritative slot generation. It
+	// must never be logged, serialized to clients or persisted in receipts.
+	CredentialTokenHash string
 }
 
 type (
@@ -59,10 +65,11 @@ type (
 type TokenLookup func(token string) (orbitID int64, slot string, ok bool)
 
 type conn struct {
-	ws   *websocket.Conn
-	send chan protocol.Envelope
-	stop chan struct{}
-	once sync.Once
+	ws                  *websocket.Conn
+	send                chan protocol.Envelope
+	stop                chan struct{}
+	once                sync.Once
+	credentialTokenHash string
 }
 
 func (c *conn) close() {
@@ -178,11 +185,16 @@ func (h *Hub) NodeSnapshots() map[NodeKey]NodeSnapshot {
 	defer h.mu.Unlock()
 	out := make(map[NodeKey]NodeSnapshot, len(h.lastSeen))
 	for key, seen := range h.lastSeen {
-		_, connected := h.conns[key]
+		connection, connected := h.conns[key]
+		credentialTokenHash := ""
+		if connection != nil {
+			credentialTokenHash = connection.credentialTokenHash
+		}
 		out[key] = NodeSnapshot{
-			Connected:    connected,
-			LastSeenAt:   seen.UnixMilli(),
-			Capabilities: h.capabilities[key],
+			Connected:           connected,
+			LastSeenAt:          seen.UnixMilli(),
+			Capabilities:        h.capabilities[key],
+			CredentialTokenHash: credentialTokenHash,
 		}
 	}
 	return out
@@ -234,7 +246,11 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return // awaitRegister closed the socket
 	}
 
-	c := &conn{ws: ws, send: make(chan protocol.Envelope, 32), stop: make(chan struct{})}
+	tokenDigest := sha256.Sum256([]byte(reg.Token))
+	c := &conn{
+		ws: ws, send: make(chan protocol.Envelope, 32), stop: make(chan struct{}),
+		credentialTokenHash: hex.EncodeToString(tokenDigest[:]),
+	}
 
 	h.mu.Lock()
 	if old := h.conns[key]; old != nil {

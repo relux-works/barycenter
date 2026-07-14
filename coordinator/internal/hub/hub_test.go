@@ -166,6 +166,7 @@ func TestRegisterRetainsUnknownCapabilitiesInCanonicalOrder(t *testing.T) {
 	key := NodeKey{Orbit: 42, Slot: "b"}
 	snapshot := h.NodeSnapshots()[key]
 	if !snapshot.Connected || snapshot.LastSeenAt <= 0 ||
+		snapshot.CredentialTokenHash == "" ||
 		!snapshot.Capabilities.Supports(protocol.CapabilityMediaClip) ||
 		!snapshot.Capabilities.Supports("unknown_future_v2") {
 		t.Fatalf("node snapshot=%+v capabilities=%v", snapshot, snapshot.Capabilities.Values())

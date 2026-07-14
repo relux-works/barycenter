@@ -55,6 +55,10 @@ Each accepted row freezes the actor, orbit, slot, binding generation, online
 decision, capability decision, block/DND result and delivery inputs. Block is
 evaluated before DND, then online state and capability. Presence must belong to
 the current authenticated socket and be within the frozen 12-second window.
+The hub supplies a transient SHA-256 credential witness; the store compares it
+to the current slot generation's node or control credential while resolving the
+target. A connected stale socket therefore contributes neither online state nor
+capabilities after a rebind. The witness is never logged, returned or persisted.
 `messages_only` permits user clips but suppresses built-in cues; only an exact
 local `this_pulsar` intent bypasses DND.
 
@@ -111,8 +115,8 @@ acknowledgement is claimed here.
 - Race-enabled store, hub and HTTP suites pass.
 - Focused tests cover mixed capability fleets, origin defaults, explicit
   selector deduplication and fail-closed errors, block/DND precedence, safe
-  visibility, cancellation authority/races, concurrent idempotency and every
-  confirmation binding/replay branch.
+  visibility, stale-versus-current credential binding, cancellation authority/
+  races, concurrent idempotency and every confirmation binding/replay branch.
 - Windows `go vet ./...`, `go test ./...`, race-enabled wire/root tests and
   `GOOS=windows GOARCH=amd64 go build ./...` pass.
 - `swift build`, `git diff --check` and `task-board validate` pass. Swift emits

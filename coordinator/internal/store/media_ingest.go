@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"time"
 
 	"relux.works/duet/coordinator/internal/ulid"
@@ -124,6 +125,25 @@ type CreateMediaItemParams struct {
 	Title        string
 	CreatedAt    int64
 	ExpiresAt    int64
+}
+
+// CreateTelegramMediaParams is the compatibility acceptance boundary for a
+// legacy Telegram voice. The repository resolves the authoritative legacy
+// member into the additive actor model and creates both media registries in a
+// single writer transaction. That keeps the feature-off/old-binary path
+// usable while SubmitMedia owns all subsequent processing.
+type CreateTelegramMediaParams struct {
+	OwnerOrbitID   int64
+	TelegramUserID int64
+	TelegramFileID string
+	Title          string
+	CreatedAt      int64
+	ExpiresAt      int64
+}
+
+type TelegramMediaCreation struct {
+	Media  MediaItem
+	Legacy MediaRecord
 }
 
 type UploadSessionStatus string
@@ -423,6 +443,144 @@ func (s *Store) CreateMediaItem(params CreateMediaItemParams) (MediaItem, error)
 		return MediaItem{}, err
 	}
 	return item, nil
+}
+
+func validateCreateTelegramMedia(params CreateTelegramMediaParams) error {
+	if params.OwnerOrbitID <= 0 || params.TelegramUserID <= 0 ||
+		params.TelegramFileID == "" || len(params.TelegramFileID) > 512 {
+		return fmt.Errorf("%w: invalid Telegram media identity", ErrMediaInvalid)
+	}
+	return validateCreateMediaItem(CreateMediaItemParams{
+		OwnerOrbitID: params.OwnerOrbitID,
+		ActorID:      1, // resolved transactionally before the insert
+		Kind:         MediaKindVoiceClip,
+		Source:       MediaSourceTelegram,
+		Title:        params.Title,
+		CreatedAt:    params.CreatedAt,
+		ExpiresAt:    params.ExpiresAt,
+	})
+}
+
+// resolveLegacyTelegramMediaActorTx projects exactly one still-authoritative
+// legacy member into the additive actor model. This deliberately does not use
+// ResolveTelegramActorContext: the Telegram bot remains supported while the
+// self-service serving feature is off. A stale additive membership is repaired
+// from the same legacy authority that ReconcileIdentity uses during rollout.
+func resolveLegacyTelegramMediaActorTx(
+	tx *sql.Tx,
+	orbitID, telegramUserID, now int64,
+) (int64, error) {
+	var role string
+	var joinedAt int64
+	var displayName string
+	err := tx.QueryRow(`SELECT m.role, m.joined_at, m.display_name
+FROM members m
+JOIN orbits o ON o.id = m.orbit_id AND o.status = 'active'
+WHERE m.orbit_id = ? AND m.tg_user_id = ?`, orbitID, telegramUserID).Scan(
+		&role, &joinedAt, &displayName,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrMediaOwnerInvalid
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	externalRef := strconv.FormatInt(telegramUserID, 10)
+	actorID, revoked, err := findActorTx(tx, "telegram_user", externalRef)
+	if err != nil {
+		return 0, err
+	}
+	if revoked {
+		return 0, ErrMediaOwnerInvalid
+	}
+	if actorID == 0 {
+		result, err := tx.Exec(`INSERT INTO actors(kind, display_name, external_ref, created_at)
+VALUES('telegram_user', ?, ?, ?)`, displayName, externalRef, joinedAt)
+		if err != nil {
+			return 0, err
+		}
+		actorID, err = result.LastInsertId()
+		if err != nil {
+			return 0, err
+		}
+	} else if _, err := tx.Exec(`UPDATE actors SET display_name = ? WHERE id = ?`, displayName, actorID); err != nil {
+		return 0, err
+	}
+
+	// Legacy members are the compatibility authority. If an old coordinator
+	// moved this Telegram user while the additive feature was off, close the
+	// stale projection before restoring the exact current membership.
+	if _, err := tx.Exec(`UPDATE memberships
+SET left_at = COALESCE(left_at, ?)
+WHERE actor_id = ? AND orbit_id <> ? AND left_at IS NULL`, now, actorID, orbitID); err != nil {
+		return 0, err
+	}
+	if err := ensureMembershipTx(tx, orbitID, actorID, role, joinedAt); err != nil {
+		return 0, err
+	}
+	return actorID, nil
+}
+
+// CreateTelegramMedia accepts a Telegram voice into both the common ingest
+// registry and the legacy WAV registry atomically. The returned media ID is
+// shared by both rows, so an old node can keep using /media/{id}.wav after the
+// common SubmitMedia pipeline publishes the compatibility WAV.
+func (s *Store) CreateTelegramMedia(params CreateTelegramMediaParams) (TelegramMediaCreation, error) {
+	if err := validateCreateTelegramMedia(params); err != nil {
+		return TelegramMediaCreation{}, err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return TelegramMediaCreation{}, err
+	}
+	defer tx.Rollback()
+
+	actorID, err := resolveLegacyTelegramMediaActorTx(
+		tx, params.OwnerOrbitID, params.TelegramUserID, params.CreatedAt,
+	)
+	if err != nil {
+		return TelegramMediaCreation{}, err
+	}
+	mediaParams := CreateMediaItemParams{
+		OwnerOrbitID: params.OwnerOrbitID,
+		ActorID:      actorID,
+		Kind:         MediaKindVoiceClip,
+		Source:       MediaSourceTelegram,
+		Title:        params.Title,
+		CreatedAt:    params.CreatedAt,
+		ExpiresAt:    params.ExpiresAt,
+	}
+	if err := validateMediaOwnerTx(tx, mediaParams.OwnerOrbitID, mediaParams.ActorID); err != nil {
+		return TelegramMediaCreation{}, err
+	}
+	mediaID := ulid.NewMediaID(time.UnixMilli(params.CreatedAt))
+	item, err := insertMediaItemTx(tx, mediaParams, mediaID)
+	if err != nil {
+		return TelegramMediaCreation{}, err
+	}
+	legacy := MediaRecord{
+		ID:        mediaID,
+		TGFileID:  params.TelegramFileID,
+		CreatedAt: params.CreatedAt,
+		ExpiresAt: params.ExpiresAt,
+		Status:    "processing",
+		OrbitID:   params.OwnerOrbitID,
+	}
+	if _, err := tx.Exec(`INSERT INTO media(
+  id, tg_file_id, duration_ms, path_wav, loudnorm_json,
+  created_at, expires_at, status, orbit_id
+) VALUES(?, ?, 0, '', '', ?, ?, 'processing', ?)`,
+		legacy.ID, legacy.TGFileID, legacy.CreatedAt, legacy.ExpiresAt, legacy.OrbitID); err != nil {
+		return TelegramMediaCreation{}, err
+	}
+	if err := s.checkpoint("telegram_media_create_before_commit"); err != nil {
+		return TelegramMediaCreation{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return TelegramMediaCreation{}, err
+	}
+	return TelegramMediaCreation{Media: item, Legacy: legacy}, nil
 }
 
 func mediaUploadRequestFingerprint(params CreateMediaUploadParams) (string, error) {

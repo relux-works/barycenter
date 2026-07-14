@@ -263,6 +263,42 @@ func (b *Bot) DownloadVoice(fileID, destPath string) error {
 	return b.api.Download(u, destPath)
 }
 
+// DownloadVoiceBounded is the production Telegram-ingest path. HTTPAPI stops
+// reading after maxBytes+1, so untrusted Telegram metadata cannot turn the
+// common SubmitMedia validation boundary into an unbounded disk write. The
+// fallback keeps injected/test API implementations source-compatible and is
+// still rejected by the adapter after the actual file size is inspected.
+func (b *Bot) DownloadVoiceBounded(fileID, destPath string, maxBytes int64) (int64, error) {
+	if maxBytes <= 0 {
+		return 0, newTelegramOperationError("download", "invalid size limit", errTelegramOperationFailure)
+	}
+	u, err := b.api.FileURL(fileID)
+	if err != nil {
+		return 0, err
+	}
+	if bounded, ok := b.api.(interface {
+		DownloadBounded(string, string, int64) (int64, error)
+	}); ok {
+		return bounded.DownloadBounded(u, destPath, maxBytes)
+	}
+	downloadErr := b.api.Download(u, destPath)
+	var size int64
+	info, inspectErr := os.Lstat(destPath)
+	if inspectErr == nil && info.Mode().IsRegular() {
+		size = info.Size()
+	}
+	if downloadErr != nil {
+		return size, downloadErr
+	}
+	if inspectErr != nil || !info.Mode().IsRegular() {
+		return size, newTelegramOperationError("download", "destination inspect failed", inspectErr)
+	}
+	if size > maxBytes {
+		return size, newTelegramOperationError("download", "response exceeds size limit", errTelegramOperationFailure)
+	}
+	return size, nil
+}
+
 // --- Real Telegram HTTP API ---
 
 type HTTPAPI struct {
@@ -468,28 +504,55 @@ func (a *HTTPAPI) FileURL(fileID string) (string, error) {
 }
 
 func (a *HTTPAPI) Download(fileURL, destPath string) error {
+	_, err := a.download(fileURL, destPath, 0)
+	return err
+}
+
+func (a *HTTPAPI) DownloadBounded(fileURL, destPath string, maxBytes int64) (int64, error) {
+	if maxBytes <= 0 {
+		return 0, newTelegramOperationError("download", "invalid size limit", errTelegramOperationFailure)
+	}
+	return a.download(fileURL, destPath, maxBytes)
+}
+
+func (a *HTTPAPI) download(fileURL, destPath string, maxBytes int64) (int64, error) {
 	client, err := a.noRedirectClient()
 	if err != nil {
-		return newTelegramOperationError("download", "transport unavailable", err)
+		return 0, newTelegramOperationError("download", "transport unavailable", err)
 	}
 	resp, err := client.Get(fileURL)
 	if err != nil {
-		return newTelegramOperationError("download", "transport request failed", err)
+		return 0, newTelegramOperationError("download", "transport request failed", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= http.StatusMultipleChoices && resp.StatusCode < http.StatusBadRequest {
-		return fmt.Errorf("telegram download: redirect rejected (http %d)", resp.StatusCode)
+		return 0, fmt.Errorf("telegram download: redirect rejected (http %d)", resp.StatusCode)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download: http %d", resp.StatusCode)
+		return 0, fmt.Errorf("download: http %d", resp.StatusCode)
 	}
-	f, err := os.Create(destPath)
+	f, err := os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
-		return newTelegramOperationError("download", "destination create failed", err)
+		return 0, newTelegramOperationError("download", "destination create failed", err)
 	}
-	defer f.Close()
-	if _, err := io.Copy(f, resp.Body); err != nil {
-		return newTelegramOperationError("download", "response copy failed", err)
+	if err := f.Chmod(0o600); err != nil {
+		_ = f.Close()
+		return 0, newTelegramOperationError("download", "destination secure failed", err)
 	}
-	return nil
+	reader := io.Reader(resp.Body)
+	if maxBytes > 0 {
+		reader = io.LimitReader(resp.Body, maxBytes+1)
+	}
+	written, copyErr := io.Copy(f, reader)
+	syncErr := f.Sync()
+	closeErr := f.Close()
+	if copyErr != nil || syncErr != nil || closeErr != nil {
+		return written, newTelegramOperationError(
+			"download", "response copy failed", errors.Join(copyErr, syncErr, closeErr),
+		)
+	}
+	if maxBytes > 0 && written > maxBytes {
+		return written, newTelegramOperationError("download", "response exceeds size limit", errTelegramOperationFailure)
+	}
+	return written, nil
 }

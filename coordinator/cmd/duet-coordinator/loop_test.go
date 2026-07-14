@@ -3,9 +3,14 @@
 package main
 
 import (
+	"context"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -102,6 +107,103 @@ func (r *replies) last(t *testing.T) string {
 		t.Fatal("no reply arrived")
 	}
 	return r.texts[len(r.texts)-1]
+}
+
+type controlledTelegramCompletion struct {
+	result media.Result
+	code   string
+}
+
+type controlledTelegramAdapter struct {
+	store    *store.Store
+	accepted chan media.TelegramAcceptance
+	mu       sync.Mutex
+	pending  map[string]chan controlledTelegramCompletion
+}
+
+func newControlledTelegramAdapter(st *store.Store) *controlledTelegramAdapter {
+	return &controlledTelegramAdapter{
+		store: st, accepted: make(chan media.TelegramAcceptance, 8),
+		pending: map[string]chan controlledTelegramCompletion{},
+	}
+}
+
+func (adapter *controlledTelegramAdapter) Accept(voice media.TelegramVoice) (media.TelegramAcceptance, error) {
+	created, err := adapter.store.CreateTelegramMedia(store.CreateTelegramMediaParams{
+		OwnerOrbitID: voice.OwnerOrbitID, TelegramUserID: voice.TelegramUserID,
+		TelegramFileID: voice.TelegramFileID, Title: voice.Title,
+		CreatedAt: voice.AcceptedAt, ExpiresAt: voice.ExpiresAt,
+	})
+	if err != nil {
+		return media.TelegramAcceptance{}, err
+	}
+	accepted := media.TelegramAcceptance{
+		MediaID: created.Media.ID, OwnerOrbitID: created.Media.OwnerOrbitID,
+		ActorID: created.Media.ActorID, TelegramFileID: voice.TelegramFileID,
+		AcceptedAt: created.Media.CreatedAt,
+	}
+	adapter.mu.Lock()
+	adapter.pending[accepted.MediaID] = make(chan controlledTelegramCompletion, 1)
+	adapter.mu.Unlock()
+	adapter.accepted <- accepted
+	return accepted, nil
+}
+
+func (adapter *controlledTelegramAdapter) Submit(
+	_ context.Context,
+	accepted media.TelegramAcceptance,
+) (media.Result, error) {
+	adapter.mu.Lock()
+	pending := adapter.pending[accepted.MediaID]
+	adapter.mu.Unlock()
+	completion := <-pending
+	if completion.code != "" {
+		item, err := adapter.store.GetMediaItem(accepted.MediaID)
+		if err != nil {
+			return media.Result{}, err
+		}
+		if item != nil && item.Status == store.MediaStatusProcessing {
+			if _, err := adapter.store.MarkMediaItemFailed(
+				item.ID, item.Revision, completion.code, time.Now().UnixMilli(),
+			); err != nil {
+				return media.Result{}, err
+			}
+		}
+		return media.Result{}, &media.ProcessingError{Code: completion.code}
+	}
+	return completion.result, nil
+}
+
+func (adapter *controlledTelegramAdapter) complete(
+	mediaID string,
+	completion controlledTelegramCompletion,
+) {
+	adapter.mu.Lock()
+	pending := adapter.pending[mediaID]
+	adapter.mu.Unlock()
+	pending <- completion
+}
+
+func takeTelegramAcceptance(t *testing.T, adapter *controlledTelegramAdapter) media.TelegramAcceptance {
+	t.Helper()
+	select {
+	case accepted := <-adapter.accepted:
+		return accepted
+	case <-time.After(2 * time.Second):
+		t.Fatal("Telegram acceptance did not reach the adapter")
+		return media.TelegramAcceptance{}
+	}
+}
+
+func takeMediaDone(t *testing.T, l *loop) mediaDone {
+	t.Helper()
+	select {
+	case done := <-l.mediaCh:
+		return done
+	case <-time.After(2 * time.Second):
+		t.Fatal("Telegram SubmitMedia completion did not reach the loop")
+		return mediaDone{}
+	}
 }
 
 // homes: "a" is user 111 (Ivan), "b" is user 222 (Katya) — see testConfig.
@@ -345,6 +447,130 @@ func TestPersonalVoiceRouting(t *testing.T) {
 	}
 	if !strings.Contains(r.last(t), "личное голосовое") {
 		t.Fatalf("reply: %q", r.last(t))
+	}
+}
+
+func TestTelegramVoiceSubmitMediaAdapterPreservesFIFORepliesAndLegacyPlayback(t *testing.T) {
+	l, fake := newTestLoop(t)
+	adapter := newControlledTelegramAdapter(l.st)
+	l.telegramMedia = adapter
+	firstReplies := &replies{}
+	secondReplies := &replies{}
+	voiceEvent := func(fileID, fromName string, reply func(string)) bot.Event {
+		return bot.Event{
+			FromUserID: 111, FromName: fromName, Reply: reply,
+			Voice: &bot.VoiceEvent{
+				TGFileID: fileID, Duration: 1, SizeBytes: 1024,
+				Broadcast: true,
+			},
+		}
+	}
+
+	l.handleBot(voiceEvent("tg-first", "Alice", firstReplies.fn))
+	first := takeTelegramAcceptance(t, adapter)
+	l.handleBot(voiceEvent("tg-second", "Bob", secondReplies.fn))
+	second := takeTelegramAcceptance(t, adapter)
+	const acceptedReply = "голосовое принято — поставлю по времени отправки, даже если другое обработается быстрее"
+	if len(firstReplies.texts) != 1 || firstReplies.texts[0] != acceptedReply ||
+		len(secondReplies.texts) != 1 || secondReplies.texts[0] != acceptedReply {
+		t.Fatalf("acceptance replies first=%v second=%v", firstReplies.texts, secondReplies.texts)
+	}
+	for _, accepted := range []media.TelegramAcceptance{first, second} {
+		item, err := l.st.GetMediaItem(accepted.MediaID)
+		legacy, legacyErr := l.st.GetMedia(accepted.MediaID)
+		if err != nil || legacyErr != nil || item == nil || legacy == nil ||
+			item.Source != store.MediaSourceTelegram || item.ID != legacy.ID ||
+			legacy.Status != "processing" {
+			t.Fatalf("accepted common=%+v legacy=%+v err=%v legacyErr=%v",
+				item, legacy, err, legacyErr)
+		}
+	}
+
+	firstPath := filepath.Join(l.cfg.MediaDir, "first-compat.wav")
+	secondPath := filepath.Join(l.cfg.MediaDir, "second-compat.wav")
+	if err := os.WriteFile(firstPath, []byte("legacy-first-wav"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(secondPath, []byte("legacy-second-wav"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	adapter.complete(second.MediaID, controlledTelegramCompletion{result: media.Result{
+		WAVPath: secondPath, DurationMS: 2_000, LoudnormJSON: `{"second":true}`,
+	}})
+	l.handleMediaDone(takeMediaDone(t, l))
+	if current := l.orbit(1).sess.Current; current != nil {
+		t.Fatalf("later SubmitMedia completion escaped FIFO: %+v", current)
+	}
+	if legacy, err := l.st.GetMedia(second.MediaID); err != nil || legacy == nil || legacy.Status != "processing" {
+		t.Fatalf("later legacy media became visible before FIFO turn: %+v err=%v", legacy, err)
+	}
+
+	adapter.complete(first.MediaID, controlledTelegramCompletion{result: media.Result{
+		WAVPath: firstPath, DurationMS: 1_000, LoudnormJSON: `{"first":true}`,
+	}})
+	l.handleMediaDone(takeMediaDone(t, l))
+	orbit := l.orbit(1)
+	if orbit.sess.Current == nil || orbit.sess.Current.MediaID != first.MediaID ||
+		orbit.sess.QueueLen() != 1 || orbit.sess.Queue[0].MediaID != second.MediaID {
+		t.Fatalf("Telegram FIFO current=%+v queue=%+v", orbit.sess.Current, orbit.sess.Queue)
+	}
+	if firstReplies.last(t) != "голосовое от Alice готово: после текущего трека, для всех" ||
+		secondReplies.last(t) != "голосовое от Bob готово: после текущего трека, для всех" {
+		t.Fatalf("ready replies first=%v second=%v", firstReplies.texts, secondReplies.texts)
+	}
+	for mediaID, wantPath := range map[string]string{first.MediaID: firstPath, second.MediaID: secondPath} {
+		legacy, err := l.st.GetMedia(mediaID)
+		if err != nil || legacy == nil || legacy.Status != "ready" || legacy.PathWAV != wantPath {
+			t.Fatalf("ready legacy media=%+v err=%v", legacy, err)
+		}
+	}
+	plays := fake.ofType(protocol.TypePlayVoice)
+	if len(plays) != 2 {
+		t.Fatalf("legacy play_voice messages=%+v", plays)
+	}
+	for _, play := range plays {
+		payload := play.payload.(*protocol.PlayVoicePayload)
+		if !strings.Contains(payload.FileURL, "/media/"+first.MediaID+".wav") {
+			t.Fatalf("legacy play_voice URL=%q", payload.FileURL)
+		}
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/media/"+first.MediaID+".wav", nil)
+	request.Header.Set("Authorization", "Bearer "+l.cfg.Nodes["a"].Token)
+	response := httptest.NewRecorder()
+	mediaHandler(l.st).ServeHTTP(response, request)
+	if response.Code != http.StatusOK || response.Body.String() != "legacy-first-wav" {
+		t.Fatalf("legacy node download status=%d body=%q", response.Code, response.Body.String())
+	}
+}
+
+func TestTelegramVoiceCommonFailureKeepsBotReplyAndBothStatusesTerminal(t *testing.T) {
+	l, _ := newTestLoop(t)
+	adapter := newControlledTelegramAdapter(l.st)
+	l.telegramMedia = adapter
+	replies := &replies{}
+	l.handleBot(bot.Event{
+		FromUserID: 111, FromName: "Alice", Reply: replies.fn,
+		Voice: &bot.VoiceEvent{TGFileID: "tg-bad", Duration: 1, SizeBytes: 512},
+	})
+	accepted := takeTelegramAcceptance(t, adapter)
+	adapter.complete(accepted.MediaID, controlledTelegramCompletion{code: "media_signature_unsupported"})
+	l.handleMediaDone(takeMediaDone(t, l))
+
+	want := []string{
+		"голосовое принято — поставлю по времени отправки, даже если другое обработается быстрее",
+		"не смог обработать голосовое, оставил исходник для разбора",
+	}
+	if len(replies.texts) != len(want) || replies.texts[0] != want[0] || replies.texts[1] != want[1] {
+		t.Fatalf("failure replies=%v", replies.texts)
+	}
+	item, err := l.st.GetMediaItem(accepted.MediaID)
+	legacy, legacyErr := l.st.GetMedia(accepted.MediaID)
+	if err != nil || legacyErr != nil || item == nil || legacy == nil ||
+		item.Status != store.MediaStatusFailed || item.FailureCode != "media_signature_unsupported" ||
+		legacy.Status != "failed" || l.orbit(1).sess.Current != nil {
+		t.Fatalf("failure common=%+v legacy=%+v current=%+v err=%v legacyErr=%v",
+			item, legacy, l.orbit(1).sess.Current, err, legacyErr)
 	}
 }
 

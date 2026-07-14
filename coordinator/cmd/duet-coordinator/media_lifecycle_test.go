@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +13,88 @@ import (
 
 	"relux.works/duet/coordinator/internal/store"
 )
+
+func TestLegacyRetentionRemovesTelegramFailureSourceAtMediaExpiry(t *testing.T) {
+	mediaDir := t.TempDir()
+	st, err := store.Open(filepath.Join(t.TempDir(), "legacy-retention.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	now := time.Now().UnixMilli()
+	const mediaID = "m_00000000000000000000000000"
+	wavPath := filepath.Join(mediaDir, "compatibility.wav")
+	sourceDir := filepath.Join(mediaDir, ".telegram")
+	sourcePath := filepath.Join(sourceDir, mediaID+".source")
+	if err := os.MkdirAll(sourceDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(wavPath, []byte("compatibility"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sourcePath, []byte("retained failure source"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.InsertMedia(store.MediaRecord{
+		ID: mediaID, PathWAV: wavPath, Status: "failed",
+		CreatedAt: now - 2, ExpiresAt: now - 1, OrbitID: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := sweepExpiredLegacyMedia(slog.Default(), st, mediaDir, now); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{wavPath, sourcePath} {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expired private file %q still exists: %v", filepath.Base(path), err)
+		}
+	}
+	legacy, err := st.GetMedia(mediaID)
+	if err != nil || legacy == nil || legacy.Status != "deleted" {
+		t.Fatalf("expired legacy media=%+v err=%v", legacy, err)
+	}
+}
+
+func TestLegacyRetentionRetriesBeforeCommittingDeletedState(t *testing.T) {
+	mediaDir := t.TempDir()
+	st, err := store.Open(filepath.Join(t.TempDir(), "legacy-retention-retry.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	now := time.Now().UnixMilli()
+	const mediaID = "m_11111111111111111111111111"
+	sourcePath := filepath.Join(mediaDir, ".telegram", mediaID+".source")
+	if err := os.MkdirAll(sourcePath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sourcePath, "cannot-remove-directory"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.InsertMedia(store.MediaRecord{
+		ID: mediaID, Status: "failed", CreatedAt: now - 2,
+		ExpiresAt: now - 1, OrbitID: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := sweepExpiredLegacyMedia(slog.Default(), st, mediaDir, now); err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := st.GetMedia(mediaID)
+	if err != nil || legacy == nil || legacy.Status != "failed" {
+		t.Fatalf("cleanup failure committed terminal state: media=%+v err=%v", legacy, err)
+	}
+	if err := os.RemoveAll(sourcePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := sweepExpiredLegacyMedia(slog.Default(), st, mediaDir, now); err != nil {
+		t.Fatal(err)
+	}
+	legacy, err = st.GetMedia(mediaID)
+	if err != nil || legacy == nil || legacy.Status != "deleted" {
+		t.Fatalf("cleanup retry media=%+v err=%v", legacy, err)
+	}
+}
 
 func readyHTTPMedia(
 	t *testing.T,

@@ -12,8 +12,8 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3mcof4` — media-download-target-acl
-- Current branch: `task/task-260712-3mcof4-media-download-target-acl`
+- Current engineering task: `TASK-260712-12ojcb` — telegram-submitmedia-compat
+- Current branch: `task/task-260712-12ojcb-telegram-submitmedia-compat`
 - Accepted overall: 16 / 205 tasks (approximately 7.8%); 189 remain
 - Engineering progress: 16 / 186 tasks (approximately 8.6%); 170 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -27,9 +27,8 @@
   `TASK-260712-1bnos4` landed through PR #12 at merge commit `050c979`;
   `TASK-260712-2af2dp` landed through PR #13 at merge commit `451e50b`;
   `TASK-260712-1sae4q` landed through PR #14 at merge commit `fe8e73c`; strict
-  execution is now on `TASK-260712-3mcof4`. Its code commit `49d21cd` and
-  hosted CI run `29305916096` are accepted on PR #15; final tracking CI and
-  landing remain before the sequence advances.
+  `TASK-260712-3mcof4` landed through PR #15 at merge commit `0f3148a`; strict
+  execution is now on `TASK-260712-12ojcb`.
 
 Checkpoint 2026-07-14: the current task now has a strict H00-H17 collector,
 privacy and package-provenance checks, immutable evidence references, cleanup
@@ -134,8 +133,30 @@ workstation `no such module 'Testing'` toolchain gap; hosted macOS CI remains
 the authoritative gate. Hosted CI run `29305916096` passed coordinator,
 macOS Swift, portable Windows and signed-MSIX jobs. Inline root delta-review
 closed the authorization-to-open TOCTOU, and 20x race/HTTP stress passed on the
-reviewed bytes. PR #15 remains draft until this tracking update passes CI. No
-manual real-app or hardware result is claimed.
+reviewed bytes. The final tracking commit passed all four jobs again in CI run
+`29306064452`; PR #15 landed at
+`0f3148a379258b9af1934d3d6e582e7998c40f59`, and strict execution advanced to
+`TASK-260712-12ojcb`. No manual real-app or hardware result is claimed.
+
+Checkpoint 2026-07-14: implementation of `TASK-260712-12ojcb` is under hosted
+review on code commit `908f89a2ebe96e5ac5e32c2979e743bb167a8b9e` from branch
+`task/task-260712-12ojcb-telegram-submitmedia-compat`.
+Telegram acceptance now atomically creates the transport-neutral
+`media_items(source=telegram)` row and the legacy `media` row with one media
+ID, including feature-off projection of the authoritative legacy member. Raw
+bot download is physically capped at 20 MiB plus one detection byte and enters
+the same singleton `SubmitMedia` service as app uploads; the
+ready canonical WAV is mapped back to acceptance-ordered legacy `KindVoice`,
+`play_voice` and authenticated `/media/{id}.wav`. Common ingest failure codes,
+personal/broadcast defaults and the exact accepted/ready/failure bot replies
+remain covered. Failed private Telegram sources stay available for the legacy
+operator-debug contract and are removed by a retryable retention sweep. Local
+full `go test`, `go vet`, full race, focused race, 20x focused stress, exact
+previous-head media-processing rollback and Linux amd64 CGO-free build are
+green. Hosted CI run `29307473249` passed coordinator, macOS Swift, portable
+Windows and packaged-MSIX jobs on PR #16. Root delta-review found no contract,
+privacy, retention or compatibility regression. Final tracking CI and merge
+acceptance are still pending; no manual real-app or hardware result is claimed.
 
 ## Operating contract
 
@@ -219,11 +240,12 @@ Story: `STORY-260712-ld674h` — P1 Generic media ingest and storage.
   landed: atomic non-disclosing delete, durable expiry/cleanup and frozen
   cancellation seam, exact predecessor rollback, full local race plus hosted
   CI runs `29304495443` / `29304654747` green; PR #14, merge `fe8e73c`)
-- [x] `TASK-260712-3mcof4` — media-download-target-acl (accepted: owner and
+- [x] `TASK-260712-3mcof4` — media-download-target-acl (accepted and landed:
+  owner and
   immutable-target generic GET ACL, live authorization held through descriptor
   acquisition, uniform non-disclosure and isolated legacy bridge; full local
-  race plus hosted CI run `29305916096` green on commit `49d21cd`; PR #15
-  awaiting final tracking CI and merge)
+  race plus hosted CI runs `29305916096` / `29306064452` green; PR #15, merge
+  `0f3148a`)
 - [ ] `TASK-260712-12ojcb` — telegram-submitmedia-compat
 - [ ] `TASK-260712-gj0cko` — media-acl-delete-retention
 - [ ] `TASK-260712-3huupe` — media-ingest-acceptance-tests

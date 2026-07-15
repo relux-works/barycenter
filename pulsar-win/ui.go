@@ -5,6 +5,9 @@ package main
 
 // TrayState is what the tray menu renders and acts on, read live on each open.
 type TrayState struct {
+	// Shell is the shared main-window/tray projection. Nil retains the legacy
+	// onboarding-only tray for narrow tests and recovery paths.
+	Shell *WindowsShell
 	// Connected reports the coordinator link (heartbeat-backed).
 	Connected func() bool
 	// Identity is the "host · дом slot" line (empty while unpaired).

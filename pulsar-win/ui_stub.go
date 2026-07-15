@@ -20,3 +20,13 @@ func showOnboardingWindow(dir, coordinatorBase string) (Credentials, error) {
 func awaitShutdown(state *TrayState, sig <-chan struct{}) {
 	<-sig
 }
+
+func openURL(url string) {}
+
+func requestTrayLoopExit() {}
+
+func preferredWindowsShellLocale() ShellLocale { return ShellEnglish }
+
+func runUnpairedShell(dir, coordinatorBase string) (paired, supported bool) {
+	return false, false
+}

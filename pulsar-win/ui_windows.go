@@ -101,7 +101,6 @@ const (
 
 	tpmLeftAlign = 0x0000
 	tpmRightBtn  = 0x0002
-	tpmReturnCmd = 0x0100
 	nimAdd       = 0x00000000
 	nimModify    = 0x00000001
 	nimDelete    = 0x00000002
@@ -132,6 +131,12 @@ const (
 	menuGuidelines = 2007
 	menuUpload     = 2008
 	menuSupport    = 2009
+	menuOpen       = 2010
+	menuRecord     = 2011
+	menuDND        = 2012
+	menuCreate     = 2013
+	menuJoin       = 2014
+	menuTry        = 2015
 
 	// MessageBoxW flags: MB_OK + an information icon. The OS renders the modal,
 	// so Cyrillic and DPI are handled for us (unlike the hand-built window).
@@ -257,6 +262,13 @@ var curOnboarding *onboardingCtx
 var onboardingClassReady bool
 
 func showOnboardingWindow(dir, coordinatorBase string) (Credentials, error) {
+	if curOnboarding != nil {
+		if curOnboarding.hwnd != 0 {
+			pShowWindow.Call(uintptr(curOnboarding.hwnd), swShow)
+			pSetForegroundWin.Call(uintptr(curOnboarding.hwnd))
+		}
+		return Credentials{}, errOnboardingAlreadyOpen
+	}
 	ctx := &onboardingCtx{dir: dir, coordinator: coordinatorBase}
 	curOnboarding = ctx
 	defer func() { curOnboarding = nil }()
@@ -308,7 +320,8 @@ func showOnboardingWindow(dir, coordinatorBase string) (Credentials, error) {
 	return Credentials{}, errWindowClosed
 }
 
-var errWindowClosed = syscall.Errno(1223) // ERROR_CANCELLED — user closed it
+var errWindowClosed = syscall.Errno(1223)         // ERROR_CANCELLED — user closed it
+var errOnboardingAlreadyOpen = syscall.Errno(170) // ERROR_BUSY
 
 func onboardingProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintptr {
 	ctx := curOnboarding
@@ -470,6 +483,9 @@ func pumpMessages() {
 		if int32(r) <= 0 { // 0 = WM_QUIT, -1 = error
 			return
 		}
+		if translateMainMessage(&m) {
+			continue
+		}
 		pTranslateMessage.Call(uintptr(unsafe.Pointer(&m)))
 		pDispatchMessageW.Call(uintptr(unsafe.Pointer(&m)))
 	}
@@ -489,6 +505,9 @@ func awaitShutdown(state *TrayState, sig <-chan struct{}) {
 
 func runTrayLoop(state *TrayState) {
 	curTray = state
+	if state != nil && state.Shell != nil {
+		createMainWindow(state.Shell)
+	}
 	hInst, _, _ := pGetModuleHandleW.Call(0)
 	className := u16("PulsarTray")
 	wc := wndClassExW{
@@ -505,9 +524,16 @@ func runTrayLoop(state *TrayState) {
 	trayHwnd = windows.Handle(hwnd)
 
 	addTrayIcon(trayHwnd)
+	showMainWindow(false)
 	pumpMessages()
 	removeTrayIcon(trayHwnd)
+	destroyMainWindow()
+	curTray = nil
 }
+
+// requestTrayLoopExit is called only from a callback already executing on the
+// Win32 owner thread (for example after successful unpaired onboarding).
+func requestTrayLoopExit() { pPostQuitMessage.Call(0) }
 
 func trayIconData(hwnd windows.Handle) notifyIconData {
 	nid := notifyIconData{
@@ -536,15 +562,54 @@ func removeTrayIcon(hwnd windows.Handle) {
 func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintptr {
 	switch message {
 	case trayCallback:
-		// lParam low word is the mouse message. Right- or left-click both open
-		// the menu — a tray with no default action should always be clickable.
+		// Left click is the native default action: restore the main window.
+		// Right click opens quick actions without stealing focus beforehand.
 		lw := lParam & 0xFFFF
-		if lw == wmRButton || lw == wmLButton {
+		if lw == wmLButton {
+			showMainWindow(true)
+		} else if lw == wmRButton {
 			showTrayMenu(hwnd)
 		}
 		return 0
 	case wmCommand:
 		switch wParam & 0xFFFF {
+		case menuOpen:
+			showMainWindow(true)
+		case menuCreate, menuJoin, menuTry:
+			if curTray != nil && curTray.Shell != nil {
+				section := ShellCreate
+				if wParam&0xFFFF == menuJoin {
+					section = ShellJoin
+				}
+				if wParam&0xFFFF == menuTry {
+					section = ShellTryLocally
+				}
+				curTray.Shell.Select(section)
+				if mainCtx != nil {
+					mainCtx.render()
+				}
+				showMainWindow(true)
+			}
+		case menuRecord:
+			if curTray != nil && curTray.Shell != nil {
+				snapshot := curTray.Shell.Snapshot()
+				actions := curTray.Shell.Actions()
+				if shellRecordingEnabled(snapshot) && actions.ToggleRecording != nil {
+					actions.ToggleRecording()
+				}
+			}
+		case menuDND:
+			if curTray != nil && curTray.Shell != nil {
+				snapshot := curTray.Shell.Snapshot()
+				actions := curTray.Shell.Actions()
+				if shellDNDEnabled(snapshot) && actions.SetDND != nil {
+					next := ShellDNDMessagesOnly
+					if snapshot.DND == ShellDNDMessagesOnly {
+						next = ShellDNDAllowAll
+					}
+					actions.SetDND(next)
+				}
+			}
 		case menuRePairCmd:
 			if curTray != nil && curTray.OnRePair != nil {
 				curTray.OnRePair()
@@ -587,32 +652,83 @@ func showTrayMenu(hwnd windows.Handle) {
 	add := func(flags uint32, id uintptr, text string) {
 		pAppendMenuW.Call(menu, uintptr(flags), id, uintptr(unsafe.Pointer(u16(text))))
 	}
-	// Status lines are disabled (informational).
-	if curTray != nil {
-		add(mfString|mfGrayed, 0, trayStatusLine(curTray.Connected()))
+	// Main shell and state are first: keyboard/Narrator users get textual
+	// [OK]/[~]/[!]/[REC] indicators rather than color-only tray state.
+	if curTray != nil && curTray.Shell != nil {
+		copy := NewShellCopy(curTray.Shell.Locale())
+		snapshot := curTray.Shell.Snapshot()
+		add(mfString, menuOpen, copy.Text(txtOpen))
+		add(mfString, menuCreate, copy.Text(txtCreate))
+		add(mfString, menuJoin, copy.Text(txtJoin))
+		add(mfString, menuTry, copy.Text(txtTry))
+		add(mfSeparator, 0, "")
+		add(mfString|mfGrayed, 0, copy.Connection(snapshot))
 		if curTray.Identity != "" {
 			add(mfString|mfGrayed, 0, curTray.Identity)
 		}
+		recordFlags := uint32(mfString)
+		if !shellRecordingEnabled(snapshot) {
+			recordFlags |= mfGrayed
+		}
+		recordText := copy.Text(txtStartRecording)
+		if snapshot.Recording == ShellRecordingActive {
+			recordText = copy.Text(txtStopRecording)
+		}
+		add(recordFlags, menuRecord, recordText)
+		dndFlags := uint32(mfString)
+		if !shellDNDEnabled(snapshot) {
+			dndFlags |= mfGrayed
+		}
+		add(dndFlags, menuDND, copy.Text(txtDND)+": "+copy.DND(snapshot.DND))
 		add(mfSeparator, 0, "")
-		add(mfString, menuRePairCmd, uiMenuRepair)
+	}
+	// Legacy link/identity lines remain for a shell-less recovery tray.
+	if curTray != nil {
+		if curTray.Shell == nil {
+			connected := false
+			if curTray.Connected != nil {
+				connected = curTray.Connected()
+			}
+			add(mfString|mfGrayed, 0, trayStatusLine(connected))
+			if curTray.Identity != "" {
+				add(mfString|mfGrayed, 0, curTray.Identity)
+			}
+		}
+		add(mfSeparator, 0, "")
+		label := uiMenuRepair
+		if curTray.Shell != nil {
+			copy := NewShellCopy(curTray.Shell.Locale())
+			label = copy.Text(txtRepair)
+			if curTray.Shell.Snapshot().Connection == ShellUnpaired {
+				label = copy.Text(txtPair)
+			}
+		}
+		add(mfString, menuRePairCmd, label)
 	}
 	// #4/#6: the Spotify one-time step and the firewall/"can't see Pulsar" help
 	// stay reachable for the whole run, not just at pairing.
 	add(mfSeparator, 0, "")
-	add(mfString, menuSoundCmd, uiMenuHowToSound)
-	add(mfString, menuNoPulsar, uiMenuNoPulsar)
+	trayCopy := NewShellCopy(ShellRussian)
+	if curTray != nil && curTray.Shell != nil {
+		trayCopy = NewShellCopy(curTray.Shell.Locale())
+	}
+	add(mfString, menuSoundCmd, trayCopy.Text(txtHowToSound))
+	add(mfString, menuNoPulsar, trayCopy.Text(txtNoPulsar))
 	add(mfSeparator, 0, "")
-	add(mfString, menuPrivacy, uiMenuPrivacy)
-	add(mfString, menuTerms, uiMenuTerms)
-	add(mfString, menuGuidelines, uiMenuGuidelines)
-	add(mfString, menuUpload, uiMenuUpload)
-	add(mfString, menuSupport, uiMenuSupport)
+	add(mfString, menuPrivacy, trayCopy.Text(txtPrivacy))
+	add(mfString, menuTerms, trayCopy.Text(txtTerms))
+	add(mfString, menuGuidelines, trayCopy.Text(txtGuidelines))
+	add(mfString, menuUpload, trayCopy.Text(txtUploadRights))
+	add(mfString, menuSupport, trayCopy.Text(txtSupport))
 	add(mfSeparator, 0, "")
-	add(mfString, menuQuitCmd, uiMenuQuit)
+	add(mfString, menuQuitCmd, trayCopy.Text(txtQuit))
 
 	var pt pointStruct
 	pGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
 	pSetForegroundWin.Call(uintptr(hwnd)) // so the menu dismisses on outside click
+	// Do not use TPM_RETURNCMD unless we dispatch the returned id ourselves.
+	// The legacy menu combined that flag with an ignored return value, so every
+	// visible tray action was inert. Without it, Win32 posts WM_COMMAND to hwnd.
 	pTrackPopupMenu.Call(menu, uintptr(tpmLeftAlign|tpmRightBtn), uintptr(pt.x), uintptr(pt.y), 0, uintptr(hwnd), 0)
 	pDestroyMenu.Call(menu)
 }

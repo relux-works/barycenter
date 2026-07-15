@@ -133,6 +133,29 @@ CREATE TABLE IF NOT EXISTS air_mutation_results (
   PRIMARY KEY(actor_id, idempotency_key_hash)
 );
 
+-- /approach is a compatibility facade over the Air lifecycle. The facade
+-- keeps only durable references; the user-facing code is derived from the
+-- invite id and the Air HMAC key, so it is recoverable after restart without
+-- ever being stored in plaintext.
+CREATE TABLE IF NOT EXISTS air_approach_aliases (
+  air_id TEXT PRIMARY KEY REFERENCES airs(public_id),
+  invite_id TEXT NOT NULL UNIQUE REFERENCES air_invites(public_id),
+  issuer_actor_id INTEGER NOT NULL CHECK(issuer_actor_id > 0),
+  issuer_orbit_id INTEGER NOT NULL CHECK(issuer_orbit_id > 0),
+  claimant_orbit_id INTEGER CHECK(claimant_orbit_id > 0),
+  membership_id TEXT UNIQUE REFERENCES air_members(public_id),
+  status TEXT NOT NULL CHECK(status IN ('open', 'pending_confirmation', 'joined', 'closed')),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  CHECK((status = 'open' AND claimant_orbit_id IS NULL AND membership_id IS NULL)
+     OR (status IN ('pending_confirmation', 'joined') AND claimant_orbit_id IS NOT NULL AND membership_id IS NOT NULL)
+     OR status = 'closed')
+);
+CREATE INDEX IF NOT EXISTS air_approach_aliases_issuer_status
+  ON air_approach_aliases(issuer_orbit_id, status, updated_at);
+CREATE INDEX IF NOT EXISTS air_approach_aliases_claimant_status
+  ON air_approach_aliases(claimant_orbit_id, status, updated_at);
+
 CREATE TABLE IF NOT EXISTS air_legacy_link_mappings (
   link_id INTEGER PRIMARY KEY CHECK(link_id > 0),
   air_id TEXT NOT NULL UNIQUE REFERENCES airs(public_id),

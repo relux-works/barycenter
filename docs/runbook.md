@@ -156,6 +156,10 @@ For the authenticated Air lifecycle routes, idempotent mutation records,
 invite-secret boundary and synchronous runtime acceptance barrier, use
 `docs/analysis/p2-air-control-plane-api.md`.
 
+For the Telegram `/approach`, `/accept`, `/decline` and `/apart` cutover
+boundary, restart behavior and stale-link rollback guard, use
+`docs/analysis/p2-approach-air-alias-compat.md`.
+
 ## 6a. Build machine: signing identity (once, before the first release)
 
 `scripts/setup-signing.sh` creates the self-signed identity `duet-nodeapp` in a

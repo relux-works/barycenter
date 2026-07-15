@@ -1004,6 +1004,41 @@ func (l *loop) startGroup(linkID, orbitA, orbitB int64) {
 	}
 }
 
+// startAirApproach preserves the pairwise broadcast handoff while the
+// durable authority is an Air. The store mutation has already committed;
+// this method only parks the two personal controllers and reconciles the
+// serialized runtime keyed by the stable Air ID.
+func (l *loop) startAirApproach(result store.AirApproachAliasResult) error {
+	donor, cur, pos, queue, playlist := l.captureDonor(result.OwnerOrbitID, result.CallerOrbitID)
+	l.parkOrbitSession(l.orbit(result.OwnerOrbitID))
+	l.parkOrbitSession(l.orbit(result.CallerOrbitID))
+	if donor != 0 {
+		l.emptyParkedSnapshot(donor)
+	}
+	if err := l.reconcileAirControlRuntime(); err != nil {
+		return err
+	}
+	runtime := l.airs[result.AirID]
+	if runtime == nil {
+		return errors.New("confirmed Air runtime is unavailable")
+	}
+	startedText := func(otherTitle string) string {
+		text := fmt.Sprintf("сближение с «%s» началось — эфир общий", esc(otherTitle))
+		if donor == 0 {
+			text += ". Выбери Пульсар в Spotify и включи трек"
+		}
+		return text
+	}
+	l.notifyOrbit(result.OwnerOrbitID, startedText(result.CallerTitle))
+	l.notifyOrbit(result.CallerOrbitID, startedText(result.OwnerTitle))
+	l.log.Info("Air approach started", "air", result.AirID,
+		"owner_orbit", result.OwnerOrbitID, "joining_orbit", result.CallerOrbitID, "donor", donor)
+	if donor != 0 && (cur != nil || len(queue) > 0 || playlist != nil) {
+		l.apply(runtime, runtime.sess.Transplant(cur, pos, queue, playlist))
+	}
+	return nil
+}
+
 // captureDonor picks the side whose stream continues and snapshots its
 // content at the live position. Issuer (orbitA) wins if playing/queued;
 // else the acceptor (orbitB); else donor=0 (blank group).
@@ -1334,6 +1369,8 @@ func (l *loop) handleBot(ev bot.Event) {
 	}
 
 	cmd := ev.Command
+	authority, authorityErr := l.st.AirAuthority()
+	airAliases := authorityErr == nil && authority.Mode == "airs_authoritative"
 	var policyOperation store.AirPolicyOperation
 	switch cmd.Kind {
 	case bot.KindLink:
@@ -1759,6 +1796,41 @@ func (l *loop) handleBot(ev bot.Event) {
 			ev.Reply("сближение предлагает primary барицентра")
 			return
 		}
+		if airAliases {
+			if cmd.Target == "" {
+				result, err := l.st.CreateAirApproachAlias(ev.FromUserID, time.Now().UnixMilli())
+				switch {
+				case errors.Is(err, store.ErrAirApproachBusy):
+					ev.Reply("вы уже в сближении — сначала /apart")
+				case errors.Is(err, store.ErrAirForbidden):
+					ev.Reply("сближение предлагает primary барицентра")
+				case err != nil:
+					l.log.Error("create Air approach alias failed", "orbit", home.id, "err", err)
+					ev.Reply("не смог создать код сближения")
+				default:
+					ev.Reply(fmt.Sprintf("код сближения — одноразовый, живёт 15 минут:\n\n<code>%s</code>\n\nПередай его primary другого барицентра: он отправит /approach %s, затем сам подтвердит /accept — и эфир станет общим на оба дома.", result.Code, result.Code))
+				}
+				return
+			}
+			result, err := l.st.ConsumeAirApproachAlias(ev.FromUserID, cmd.Target, time.Now().UnixMilli())
+			switch {
+			case errors.Is(err, store.ErrAirInvalid):
+				ev.Reply("это код твоего же барицентра — сближаться с собой не нужно")
+			case errors.Is(err, store.ErrAirInviteUnavailable):
+				ev.Reply("код не подошёл — истёк или уже использован, попроси новый /approach")
+			case errors.Is(err, store.ErrAirAlreadyMember), errors.Is(err, store.ErrAirApproachBusy):
+				ev.Reply("одна из сторон уже в сближении — сначала /apart")
+			case err != nil:
+				l.log.Error("consume Air approach alias failed", "orbit", home.id, "err", err)
+				ev.Reply("не получилось принять код")
+			default:
+				if !result.Replayed {
+					l.notifyOrbit(result.OwnerOrbitID, fmt.Sprintf("барицентр «%s» хочет сближения: общий эфир на все дома.\nИх primary подтвердит /accept или откажется /decline", esc(home.title)))
+				}
+				ev.Reply(fmt.Sprintf("предложение барицентра «%s» принято — подтверди /accept или откажись /decline", esc(result.OwnerTitle)))
+			}
+			return
+		}
 		if cmd.Target == "" {
 			code, err := l.st.ProposeLink(home.id, ev.FromUserID)
 			if errors.Is(err, store.ErrLinkBusy) {
@@ -1795,6 +1867,28 @@ func (l *loop) handleBot(ev bot.Event) {
 			ev.Reply("подтвердить сближение может только primary")
 			return
 		}
+		if airAliases {
+			result, err := l.st.ConfirmAirApproachAlias(ev.FromUserID, time.Now().UnixMilli())
+			switch {
+			case errors.Is(err, store.ErrAirApproachSwitchConfirmation):
+				ev.Reply("сначала заверши текущее сближение через /apart — переключение без подтверждения запрещено")
+			case errors.Is(err, store.ErrAirApproachAmbiguous):
+				ev.Reply("есть несколько одинаково новых предложений — выбери нужное в приложении")
+			case errors.Is(err, store.ErrAirApproachNothingPending):
+				ev.Reply("подтверждать нечего — сближение не предлагали")
+			case err != nil:
+				l.log.Error("confirm Air approach alias failed", "orbit", home.id, "err", err)
+				ev.Reply("не получилось активировать сближение")
+			case result.Replayed:
+				ev.Reply("сближение уже активно")
+			default:
+				if err := l.startAirApproach(result); err != nil {
+					l.log.Error("reconcile confirmed Air approach", "air", result.AirID, "err", err)
+					ev.Reply("сближение принято; общий эфир восстановится автоматически")
+				}
+			}
+			return
+		}
 		linkID, other, ok, err := l.st.AwaitingLink(home.id)
 		if err != nil || !ok {
 			ev.Reply("подтверждать нечего — сближение не предлагали")
@@ -1809,6 +1903,27 @@ func (l *loop) handleBot(ev bot.Event) {
 	case bot.KindDecline:
 		if member.Role != "primary" {
 			ev.Reply("отклонить сближение может только primary")
+			return
+		}
+		if airAliases {
+			result, err := l.st.DeclineAirApproachAlias(ev.FromUserID, time.Now().UnixMilli())
+			switch {
+			case errors.Is(err, store.ErrAirApproachAmbiguous):
+				ev.Reply("есть несколько одинаково новых предложений — выбери нужное в приложении")
+			case errors.Is(err, store.ErrAirApproachNothingPending):
+				ev.Reply("отклонять нечего")
+			case err != nil:
+				l.log.Error("decline Air approach alias failed", "orbit", home.id, "err", err)
+				ev.Reply("не получилось отклонить сближение")
+			case result.Outcome == "declined":
+				l.notifyOrbit(result.OwnerOrbitID, fmt.Sprintf("барицентр «%s» отклонил сближение", esc(home.title)))
+				ev.Reply("отклонил — остаёмся каждый у себя")
+			case result.Outcome == "cancelled":
+				l.notifyOrbit(result.CallerOrbitID, fmt.Sprintf("барицентр «%s» отозвал предложение сближения", esc(home.title)))
+				ev.Reply("отозвал предложение — остаёмся каждый у себя")
+			default:
+				ev.Reply("отозвал предложение — остаёмся каждый у себя")
+			}
 			return
 		}
 		// Either side may kill an awaiting claim (M4): the claimant used to be
@@ -1831,6 +1946,27 @@ func (l *loop) handleBot(ev bot.Event) {
 	case bot.KindApart:
 		if member.Role != "primary" {
 			ev.Reply("разорвать сближение может только primary")
+			return
+		}
+		if airAliases {
+			result, err := l.st.LeaveCurrentAirAlias(ev.FromUserID, time.Now().UnixMilli())
+			if errors.Is(err, store.ErrAirApproachNothingPending) {
+				ev.Reply("активного сближения нет")
+				return
+			}
+			if err != nil {
+				l.log.Error("leave Air approach alias failed", "orbit", home.id, "err", err)
+				ev.Reply("не получилось завершить сближение")
+				return
+			}
+			if err := l.reconcileAirControlRuntime(); err != nil {
+				l.log.Error("reconcile Air apart", "air", result.AirID, "err", err)
+			}
+			l.notifyOrbit(result.CallerOrbitID, "сближение завершено — каждый у себя")
+			if result.OtherOrbitID != 0 {
+				l.notifyOrbit(result.OtherOrbitID, "сближение завершено — каждый у себя")
+			}
+			l.log.Info("Air approach caller left", "air", result.AirID, "orbit", result.CallerOrbitID)
 			return
 		}
 		linkID, other, ok, err := l.st.ActiveLink(home.id)
@@ -2440,6 +2576,16 @@ func (l *loop) orbitText(o *orbitState) string {
 				if other != o.id {
 					fmt.Fprintf(&b, "сближение с «%s» — эфир общий (/apart завершит)\n", esc(l.orbit(other).title))
 				}
+			}
+		}
+	} else if runtime, err := l.st.ActiveAirRuntimeForOrbit(o.id); err == nil && runtime != nil {
+		for _, other := range runtime.OrbitIDs {
+			if other == o.id {
+				continue
+			}
+			if otherOrbit := l.orbit(other); otherOrbit != nil {
+				fmt.Fprintf(&b, "сближение с «%s» — эфир общий (/apart завершит только для вас)\n",
+					esc(otherOrbit.title))
 			}
 		}
 	}

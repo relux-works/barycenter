@@ -8,6 +8,7 @@ import (
 	"relux.works/duet/coordinator/internal/hub"
 	"relux.works/duet/coordinator/internal/protocol"
 	"relux.works/duet/coordinator/internal/session"
+	"relux.works/duet/coordinator/internal/store"
 )
 
 // handleExternalPlayback adopts Spotify selections into the shared air. In a
@@ -34,6 +35,19 @@ func (l *loop) handleExternalPlayback(
 	busy := o.sess.Current != nil || o.sess.QueueLen() > 0 ||
 		(o.sess.Playlist != nil && o.sess.Playlist.Cursor < len(o.sess.Playlist.Tracks))
 	if policy == "user" || !busy {
+		if _, err := l.st.AuthorizeInstallationAirAction(
+			key.Orbit, string(key.Slot), store.AirPolicyReplace,
+		); err != nil {
+			l.log.Info("external playback denied by Air policy", "orbit", key.Orbit,
+				"slot", key.Slot, "err", err)
+			l.notify(o, fmt.Sprintf("дом %s выбрал трек, но политика Air запрещает замену эфира", l.peerName(o, id)))
+			if o.sess.State == session.StatePlaying {
+				l.apply(o, o.sess.CmdSync())
+			} else {
+				l.hub.Send(key, protocol.TypeStop, &protocol.StopPayload{})
+			}
+			return
+		}
 		l.adoptPulsarTrack(o, id, uri, positionMS, title)
 		return
 	}

@@ -321,6 +321,7 @@ func writeTransmissionAPIError(
 		errorInvalidRequest:          "The request is malformed or contains invalid parameters.",
 		errorUnauthorized:            "Authentication is required.",
 		errorInsufficientCapability:  "This token does not have the required capability.",
+		errorAirPolicyDenied:         "The current Air policy does not allow this operation.",
 		errorMediaNotFound:           "The media item was not found.",
 		errorMediaNotReady:           "The media item is not ready.",
 		errorAudienceNotFound:        "The selected audience was not found.",
@@ -395,6 +396,8 @@ func (api *onboardingAPI) transmissionStoreError(w http.ResponseWriter, operatio
 		writeTransmissionAPIError(w, http.StatusUnauthorized, errorUnauthorized, nil)
 	case errors.Is(err, store.ErrInsufficientCapability), errors.Is(err, store.ErrOrbitDisabled):
 		writeTransmissionAPIError(w, http.StatusForbidden, errorInsufficientCapability, nil)
+	case errors.Is(err, store.ErrAirPolicyDenied):
+		writeTransmissionAPIError(w, http.StatusForbidden, errorAirPolicyDenied, nil)
 	case errors.Is(err, store.ErrTransmissionMediaNotFound),
 		errors.Is(err, store.ErrTransmissionMediaInvalid):
 		writeTransmissionAPIError(w, http.StatusNotFound, errorMediaNotFound, nil)

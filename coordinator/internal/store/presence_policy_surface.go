@@ -57,7 +57,11 @@ func (s *Store) AuthorizedPresenceDomainForIdentity(
 	if err != nil {
 		return PresencePolicyDomain{}, err
 	}
-	kind, id, allowed, err := transmissionDomainTx(tx, ctx.OrbitID)
+	policyContext, err := activeAirPolicyContextTx(tx, ctx.OrbitID)
+	if err != nil {
+		return PresencePolicyDomain{}, err
+	}
+	kind, id, allowed, err := transmissionDomainTx(tx, ctx.OrbitID, policyContext)
 	if err != nil {
 		return PresencePolicyDomain{}, err
 	}

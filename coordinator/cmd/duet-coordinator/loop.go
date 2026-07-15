@@ -1334,6 +1334,27 @@ func (l *loop) handleBot(ev bot.Event) {
 	}
 
 	cmd := ev.Command
+	var policyOperation store.AirPolicyOperation
+	switch cmd.Kind {
+	case bot.KindLink:
+		policyOperation = store.AirPolicyQueue
+	case bot.KindPlayNow, bot.KindPlaylist:
+		policyOperation = store.AirPolicyReplace
+	}
+	if policyOperation != "" && l.cfg.SelfServiceOnboarding {
+		_, err := l.st.AuthorizeAirActionForIdentity(store.Identity{
+			Kind: store.IdentityTelegram, TelegramUserID: ev.FromUserID,
+		}, policyOperation)
+		if errors.Is(err, store.ErrAirPolicyDenied) {
+			ev.Reply("политика текущего Air запрещает эту команду")
+			return
+		}
+		if err != nil {
+			l.log.Error("authorize Telegram Air action", "operation", policyOperation, "err", err)
+			ev.Reply("не удалось проверить политику текущего Air")
+			return
+		}
+	}
 
 	// Role gate: satellites contribute (tracks, voices, info) but do not
 	// steer the air (design §2).
@@ -2169,6 +2190,10 @@ func (l *loop) processMediaDone(d mediaDone) {
 		IncludeOrigin: includeOrigin, Availability: l.telegramTransmissionAvailability(),
 	})
 	if err != nil {
+		if errors.Is(err, store.ErrAirPolicyDenied) {
+			d.reply("политика текущего Air запрещает этот способ доставки")
+			return
+		}
 		if errors.Is(err, store.ErrTransmissionInvalid) || errors.Is(err, store.ErrMediaNotFound) ||
 			errors.Is(err, store.ErrTransmissionMediaNotReady) ||
 			errors.Is(err, store.ErrTransmissionAudienceEmpty) {

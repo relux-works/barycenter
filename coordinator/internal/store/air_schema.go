@@ -91,6 +91,14 @@ CREATE TABLE IF NOT EXISTS air_policies (
   updated_at INTEGER NOT NULL
 );
 
+-- Generic transmission scheduling still uses a compact integer domain key.
+-- This map gives every Air one stable key without exposing that implementation
+-- detail in the Air API or overloading a legacy link id.
+CREATE TABLE IF NOT EXISTS air_playback_domains (
+  id INTEGER PRIMARY KEY,
+  air_id TEXT NOT NULL UNIQUE REFERENCES airs(public_id)
+);
+
 CREATE TABLE IF NOT EXISTS air_audit_events (
   id INTEGER PRIMARY KEY,
   air_id TEXT NOT NULL,
@@ -204,6 +212,12 @@ ON CONFLICT(singleton) DO NOTHING`, now); err != nil {
 	}
 	if authorityBefore.Mode == "airs_authoritative" && backfilled > 0 {
 		return fmt.Errorf("%w: authoritative link mapping was missing", ErrAirRollbackUnsafe)
+	}
+	// A migrated pair keeps its legacy numeric scheduler domain so work
+	// accepted immediately before and after cutover remains in one FIFO.
+	if _, err := tx.Exec(`INSERT OR IGNORE INTO air_playback_domains(id, air_id)
+SELECT link_id, air_id FROM air_legacy_link_mappings ORDER BY link_id`); err != nil {
+		return err
 	}
 	if backfilled > 0 {
 		if _, err := tx.Exec(`UPDATE air_authority

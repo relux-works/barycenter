@@ -6,6 +6,7 @@ import (
 	"relux.works/duet/coordinator/internal/hub"
 	"relux.works/duet/coordinator/internal/protocol"
 	"relux.works/duet/coordinator/internal/session"
+	"relux.works/duet/coordinator/internal/store"
 )
 
 func enableSeamlessForTest(o *orbitState) {
@@ -42,6 +43,33 @@ func TestIdleTogetherAdoptsPulsarPlayback(t *testing.T) {
 	}
 	if o.sess.Mode != session.ModeShared {
 		t.Fatalf("Pulsar selection must stay together, mode=%s", o.sess.Mode)
+	}
+}
+
+func TestAirReplacePolicyRejectsAppExternalPlayback(t *testing.T) {
+	l, fake := newTestLoop(t)
+	airID, _, _ := createActiveTestAir(t, l)
+	policy, err := l.st.AirPolicy(airID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy.Replace = "disabled"
+	if err := l.st.ReplaceAirPolicy(*policy, policy.Revision, 200); err != nil {
+		t.Fatal(err)
+	}
+	o := l.stateFor(1)
+	enableSeamlessForTest(o)
+	fake.drain()
+	l.handleExternalPlayback(o, hub.NodeKey{Orbit: 1, Slot: protocol.NodeA},
+		"spotify:track:denied", 1_000, "Denied")
+	if o.sess.Current != nil || len(fake.ofType(protocol.TypeLoad)) != 0 {
+		t.Fatalf("disabled replace policy accepted app playback: current=%+v sent=%+v", o.sess.Current, fake.sent)
+	}
+	if stops := fake.ofType(protocol.TypeStop); len(stops) != 1 || stops[0].key.Orbit != 1 {
+		t.Fatalf("denied app playback was not stopped: %+v", fake.sent)
+	}
+	if _, err := l.st.AuthorizeInstallationAirAction(1, "a", store.AirPolicyReplace); err == nil {
+		t.Fatal("disabled replace policy authorized the installation")
 	}
 }
 

@@ -693,6 +693,14 @@ func (s *Store) ReplaceAirPolicy(policy AirPolicy, expectedRevision, now int64) 
 	if _, err := requireAirsAuthoritativeTx(tx); err != nil {
 		return err
 	}
+	var oldPolicy AirPolicyView
+	if err := tx.QueryRow(`SELECT revision, invite_policy, overlay_policy,
+  queue_policy, replace_policy FROM air_policies WHERE air_id = ?`, policy.AirID).Scan(
+		&oldPolicy.Revision, &oldPolicy.Invite, &oldPolicy.Overlay,
+		&oldPolicy.Queue, &oldPolicy.Replace,
+	); err != nil {
+		return err
+	}
 	res, err := tx.Exec(`UPDATE air_policies SET revision = revision + 1,
   invite_policy = ?, overlay_policy = ?, queue_policy = ?, replace_policy = ?, updated_at = ?
 WHERE air_id = ? AND revision = ?`, policy.Invite, policy.Overlay, policy.Queue,
@@ -707,8 +715,10 @@ WHERE air_id = ? AND revision = ?`, policy.Invite, policy.Overlay, policy.Queue,
 		return err
 	}
 	if err := appendAirAuditTx(tx, policy.AirID, "", "", 0, 0,
-		"air.policy.replace", fmt.Sprintf("%d", expectedRevision),
-		fmt.Sprintf("%d", expectedRevision+1), "ok", now); err != nil {
+		"air.policy.replace", airPolicyAuditValue(oldPolicy),
+		airPolicyAuditValue(AirPolicyView{Revision: expectedRevision + 1,
+			Invite: policy.Invite, Overlay: policy.Overlay, Queue: policy.Queue,
+			Replace: policy.Replace}), "ok", now); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -831,6 +841,10 @@ func (s *Store) CutoverLinksToAirs(expectedGeneration, now int64) (AirAuthority,
 		return AirAuthority{}, err
 	}
 	_ = backfilled
+	if _, err := tx.Exec(`INSERT OR IGNORE INTO air_playback_domains(id, air_id)
+SELECT link_id, air_id FROM air_legacy_link_mappings ORDER BY link_id`); err != nil {
+		return AirAuthority{}, err
+	}
 	rows, err := tx.Query(`SELECT m.air_id, m.orbit_a, m.orbit_b
 FROM air_legacy_link_mappings m JOIN links l ON l.id = m.link_id
 WHERE l.state = 'active' ORDER BY m.link_id`)

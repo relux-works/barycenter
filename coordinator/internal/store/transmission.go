@@ -137,6 +137,10 @@ type Transmission struct {
 	SourceSlot         string
 	PlaybackDomainKind PlaybackDomainKind
 	PlaybackDomainID   int64
+	AirID              string
+	AirPolicyRevision  int64
+	AirPolicyOperation AirPolicyOperation
+	AirPolicyResult    string
 	AudienceKind       TransmissionAudienceKind
 	OriginKind         TransmissionOriginKind
 	IncludeOrigin      bool
@@ -196,6 +200,10 @@ type CreateTransmissionParams struct {
 	SourceSlot         string
 	PlaybackDomainKind PlaybackDomainKind
 	PlaybackDomainID   int64
+	AirID              string
+	AirPolicyRevision  int64
+	AirPolicyOperation AirPolicyOperation
+	AirPolicyResult    string
 	AudienceKind       TransmissionAudienceKind
 	OriginKind         TransmissionOriginKind
 	IncludeOrigin      bool
@@ -245,7 +253,8 @@ const transmissionColumns = `id, media_id, source_orbit_id, source_actor_id,
 source_slot, playback_domain_kind, playback_domain_id, audience_kind,
 origin_kind, include_origin, requested_delivery, effective_delivery,
 downgrade_reason, status, reason_code, cancellation_cause, accepted_at,
-expires_at, revision, updated_at, completed_at`
+expires_at, revision, updated_at, completed_at, air_id, air_policy_revision,
+air_policy_operation, air_policy_result`
 
 const transmissionTargetColumns = `transmission_id, orbit_id, actor_id, slot,
 binding_paired_at, online_at_acceptance, media_clip_capable, overlay_capable,
@@ -266,7 +275,9 @@ func scanTransmission(row sqlScanner) (Transmission, error) {
 		&transmission.ReasonCode, &transmission.CancellationCause,
 		&transmission.AcceptedAt, &transmission.ExpiresAt,
 		&transmission.Revision, &transmission.UpdatedAt,
-		&transmission.CompletedAt,
+		&transmission.CompletedAt, &transmission.AirID,
+		&transmission.AirPolicyRevision, &transmission.AirPolicyOperation,
+		&transmission.AirPolicyResult,
 	)
 	transmission.IncludeOrigin = includeOrigin != 0
 	return transmission, err
@@ -368,6 +379,14 @@ func validateCreateTransmission(params CreateTransmissionParams) error {
 		len(params.Targets) == 0 || len(params.Targets) > 64 ||
 		len(params.DowngradeReason) > 64 {
 		return fmt.Errorf("%w: invalid identity, time, or target count", ErrTransmissionInvalid)
+	}
+	if params.AirID == "" {
+		if params.AirPolicyRevision != 0 {
+			return fmt.Errorf("%w: personal work has an Air policy revision", ErrTransmissionInvalid)
+		}
+	} else if !airPolicyAirIDPattern.MatchString(params.AirID) || params.AirPolicyRevision <= 0 ||
+		!validAirPolicyOperation(params.AirPolicyOperation) || params.AirPolicyResult != "allowed" {
+		return fmt.Errorf("%w: invalid Air policy snapshot", ErrTransmissionInvalid)
 	}
 	if params.SourceSlot != "" && !transmissionSlotPattern.MatchString(params.SourceSlot) {
 		return fmt.Errorf("%w: invalid source slot", ErrTransmissionInvalid)
@@ -568,13 +587,15 @@ func (s *Store) createTransmissionTx(
   id, media_id, source_orbit_id, source_actor_id, source_slot,
   playback_domain_kind, playback_domain_id, audience_kind, origin_kind,
   include_origin, requested_delivery, effective_delivery, downgrade_reason,
-  status, accepted_at, expires_at, revision, updated_at
-) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'accepted', ?, ?, 1, ?)`,
+  status, accepted_at, expires_at, revision, updated_at,
+  air_id, air_policy_revision, air_policy_operation, air_policy_result
+) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'accepted', ?, ?, 1, ?, ?, ?, ?, ?)`,
 		id, params.MediaID, params.SourceOrbitID, params.SourceActorID,
 		params.SourceSlot, params.PlaybackDomainKind, params.PlaybackDomainID,
 		params.AudienceKind, params.OriginKind, params.IncludeOrigin,
 		params.RequestedDelivery, params.EffectiveDelivery, params.DowngradeReason,
-		params.AcceptedAt, expiresAt, params.AcceptedAt,
+		params.AcceptedAt, expiresAt, params.AcceptedAt, params.AirID,
+		params.AirPolicyRevision, params.AirPolicyOperation, params.AirPolicyResult,
 	); err != nil {
 		return TransmissionCreation{}, err
 	}

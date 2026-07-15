@@ -17,6 +17,12 @@ CREATE TABLE IF NOT EXISTS transmissions (
   playback_domain_kind TEXT NOT NULL
     CHECK(playback_domain_kind IN ('orbit', 'approach')),
   playback_domain_id INTEGER NOT NULL CHECK(playback_domain_id > 0),
+  air_id TEXT NOT NULL DEFAULT '',
+  air_policy_revision INTEGER NOT NULL DEFAULT 0 CHECK(air_policy_revision >= 0),
+  air_policy_operation TEXT NOT NULL DEFAULT ''
+    CHECK(air_policy_operation IN ('', 'overlay', 'queue', 'replace')),
+  air_policy_result TEXT NOT NULL DEFAULT ''
+    CHECK(air_policy_result IN ('', 'allowed')),
   audience_kind TEXT NOT NULL
     CHECK(audience_kind IN ('this_pulsar', 'own_barycenter', 'current_air', 'explicit')),
   origin_kind TEXT NOT NULL
@@ -169,6 +175,10 @@ WHEN NEW.id <> OLD.id
   OR NEW.source_slot <> OLD.source_slot
   OR NEW.playback_domain_kind <> OLD.playback_domain_kind
   OR NEW.playback_domain_id <> OLD.playback_domain_id
+  OR NEW.air_id <> OLD.air_id
+  OR NEW.air_policy_revision <> OLD.air_policy_revision
+  OR NEW.air_policy_operation <> OLD.air_policy_operation
+  OR NEW.air_policy_result <> OLD.air_policy_result
   OR NEW.audience_kind <> OLD.audience_kind
   OR NEW.origin_kind <> OLD.origin_kind
   OR NEW.include_origin <> OLD.include_origin
@@ -470,6 +480,35 @@ func (s *Store) initTransmissionSchema() error {
 	if _, err := tx.Exec(transmissionSchema); err != nil {
 		return err
 	}
+	// These acceptance fields were introduced after the transmission table.
+	// Defaults keep the immediately preceding coordinator rollback-compatible.
+	for _, column := range []struct {
+		name string
+		ddl  string
+	}{
+		{"air_id", `ALTER TABLE transmissions ADD COLUMN air_id TEXT NOT NULL DEFAULT ''`},
+		{"air_policy_revision", `ALTER TABLE transmissions ADD COLUMN air_policy_revision INTEGER NOT NULL DEFAULT 0 CHECK(air_policy_revision >= 0)`},
+		{"air_policy_operation", `ALTER TABLE transmissions ADD COLUMN air_policy_operation TEXT NOT NULL DEFAULT '' CHECK(air_policy_operation IN ('', 'overlay', 'queue', 'replace'))`},
+		{"air_policy_result", `ALTER TABLE transmissions ADD COLUMN air_policy_result TEXT NOT NULL DEFAULT '' CHECK(air_policy_result IN ('', 'allowed'))`},
+	} {
+		exists, err := txColumnExists(tx, "transmissions", column.name)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			if _, err := tx.Exec(column.ddl); err != nil {
+				return err
+			}
+		}
+	}
+	// Existing databases already have the trigger created by the prior schema;
+	// replace it so the additive policy snapshot is immutable there too.
+	if _, err := tx.Exec(`DROP TRIGGER IF EXISTS transmissions_acceptance_immutable`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(transmissionAcceptanceImmutableTrigger); err != nil {
+		return err
+	}
 	// Rows accepted by the immediately preceding schema did not yet have the
 	// additive scheduler companion. Their immutable acceptance time is the only
 	// safe backfill timestamp; no barrier or schedule is invented here.
@@ -486,3 +525,30 @@ func (s *Store) initTransmissionSchema() error {
 	}
 	return tx.Commit()
 }
+
+const transmissionAcceptanceImmutableTrigger = `
+CREATE TRIGGER transmissions_acceptance_immutable
+BEFORE UPDATE ON transmissions
+WHEN NEW.id <> OLD.id
+  OR NEW.media_id <> OLD.media_id
+  OR NEW.source_orbit_id <> OLD.source_orbit_id
+  OR NEW.source_actor_id <> OLD.source_actor_id
+  OR NEW.source_slot <> OLD.source_slot
+  OR NEW.playback_domain_kind <> OLD.playback_domain_kind
+  OR NEW.playback_domain_id <> OLD.playback_domain_id
+  OR NEW.air_id <> OLD.air_id
+  OR NEW.air_policy_revision <> OLD.air_policy_revision
+  OR NEW.air_policy_operation <> OLD.air_policy_operation
+  OR NEW.air_policy_result <> OLD.air_policy_result
+  OR NEW.audience_kind <> OLD.audience_kind
+  OR NEW.origin_kind <> OLD.origin_kind
+  OR NEW.include_origin <> OLD.include_origin
+  OR NEW.requested_delivery <> OLD.requested_delivery
+  OR NEW.effective_delivery <> OLD.effective_delivery
+  OR NEW.downgrade_reason <> OLD.downgrade_reason
+  OR NEW.accepted_at <> OLD.accepted_at
+  OR NEW.expires_at <> OLD.expires_at
+BEGIN
+  SELECT RAISE(ABORT, 'transmission acceptance snapshot is immutable');
+END;
+`

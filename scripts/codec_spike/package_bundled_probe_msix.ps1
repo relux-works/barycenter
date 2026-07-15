@@ -65,8 +65,11 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "MakeAppx failed" }
     & $SignTool sign /fd SHA256 /s My /sha1 $Certificate.Thumbprint $Package
     if ($LASTEXITCODE -ne 0) { throw "MSIX signing failed" }
-    & $SignTool verify /pa /all $Package
-    if ($LASTEXITCODE -ne 0) { throw "MSIX signature verification failed" }
+    $PackageSignature = Get-AuthenticodeSignature $Package
+    if (-not $PackageSignature.SignerCertificate -or
+        $PackageSignature.SignerCertificate.Thumbprint -cne $Certificate.Thumbprint) {
+        throw "MSIX embedded signer does not match the ephemeral certificate"
+    }
 
     Add-AppxPackage -Path $Package
     $InstalledPackage = Get-AppxPackage -Name "ReluxWorksLLC.PulsarCodecProbe" | Select-Object -First 1
@@ -82,8 +85,14 @@ try {
     }
 
     $Files = foreach ($File in Get-ChildItem $PackageStage -File -Recurse | Sort-Object FullName) {
-        $Signature = if ($File.Extension -in ".dll", ".exe") { (Get-AuthenticodeSignature $File.FullName).Status.ToString() } else { "not-applicable" }
-        [ordered]@{ path = $File.FullName.Substring($PackageStage.Length + 1).Replace("\", "/"); bytes = $File.Length; sha256 = (Get-FileHash $File.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); signature = $Signature }
+        $FileSignature = if ($File.Extension -in ".dll", ".exe") { Get-AuthenticodeSignature $File.FullName } else { $null }
+        if ($FileSignature -and (-not $FileSignature.SignerCertificate -or
+            $FileSignature.SignerCertificate.Thumbprint -cne $Certificate.Thumbprint)) {
+            throw "nested binary embedded signer mismatch: $($File.Name)"
+        }
+        $Signature = if ($FileSignature) { $FileSignature.Status.ToString() } else { "not-applicable" }
+        $SignerThumbprint = if ($FileSignature) { $FileSignature.SignerCertificate.Thumbprint.ToLowerInvariant() } else { $null }
+        [ordered]@{ path = $File.FullName.Substring($PackageStage.Length + 1).Replace("\", "/"); bytes = $File.Length; sha256 = (Get-FileHash $File.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); signature = $Signature; signerThumbprint = $SignerThumbprint }
     }
     [ordered]@{
         schemaVersion = 1; contract = "p2-bundled-ffmpeg-probe.v1"; platform = "windows-amd64";

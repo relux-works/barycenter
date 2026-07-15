@@ -30,6 +30,7 @@ public final class PlayerCore: MacInterruptControlling {
     }
 
     private var mediaClips: MediaClipClient?
+    private var localClipOutput: MacProductionLocalClipOutput?
     private var presenceStore: NodePresenceStore?
 
     /// MenuStatus is a thread-safe snapshot for the menu bar (R2).
@@ -136,6 +137,7 @@ public final class PlayerCore: MacInterruptControlling {
             coordinatorURL: coordinatorURL)
         let mixer = MacOverlayMediaClipMixer(audio: engine, log: log)
         mixer.bindInterruptController(self)
+        localClipOutput = MacProductionLocalClipOutput(mixer: mixer)
         mediaClips = MediaClipClient(
             fetcher: fetcher,
             mixer: mixer,
@@ -154,7 +156,12 @@ public final class PlayerCore: MacInterruptControlling {
 
     public func stopTransmissionHooks() {
         mediaClips?.stop()
+        localClipOutput?.cancel()
     }
+
+    /// Offline self-test output. It shares the exact production mixer and
+    /// selected AudioEngine route but has no coordinator/fetch/send surface.
+    public var localSelfTestClipOutput: MacLocalClipPlaying? { localClipOutput }
 
     /// Reconnect owns a fresh command generation. Reset prepared/armed media
     /// before any reissued commands and invalidate an old interrupt token.

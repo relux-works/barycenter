@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 public struct PulsarMainView: View {
     @Bindable private var model: PulsarShellModel
@@ -87,7 +88,7 @@ private struct PulsarDetail: View {
                 action: actions.joinOrbit
             )
         case .tryLocally:
-            PulsarSelfTestView(model: model, action: actions.tryLocally)
+            PulsarSelfTestView(model: model, actions: actions)
         case .history:
             PulsarHistoryView(model: model)
         case .settings:
@@ -409,26 +410,143 @@ private struct PulsarFlowView: View {
 
 private struct PulsarSelfTestView: View {
     let model: PulsarShellModel
-    let action: () -> Void
+    let actions: PulsarShellActions
+    @State private var showingImporter = false
+    @State private var pendingFileURL: URL?
 
     var body: some View {
         let copy = PulsarShellCopy(locale: model.locale)
-        ContentUnavailableView {
-            Label(copy.text(.tryTitle), systemImage: "waveform.circle")
-        } description: {
-            VStack(spacing: 8) {
-                Text(copy.text(.tryBody))
-                if !model.snapshot.selfTestAvailable {
-                    Text(copy.text(.selfTestUnavailable))
+        Group {
+            if !model.snapshot.selfTestAvailable {
+                ContentUnavailableView {
+                    Label(copy.text(.tryTitle), systemImage: "waveform.circle")
+                } description: {
+                    VStack(spacing: 8) {
+                        Text(copy.text(.tryBody))
+                        Text(copy.text(.selfTestUnavailable))
+                    }
+                }
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        Label(copy.text(.tryTitle), systemImage: "waveform.circle")
+                            .font(.title2.bold())
+                        Text(copy.text(.tryBody))
+                            .foregroundStyle(.secondary)
+                        Label(
+                            copy.selfTestLabel(model.snapshot.selfTestState),
+                            systemImage: selfTestSymbol(model.snapshot.selfTestState))
+                            .accessibilityElement(children: .combine)
+                        if model.snapshot.selfTestState == .recording {
+                            ProgressView(value: Double(model.snapshot.selfTestMeter))
+                                .accessibilityLabel(copy.text(.selfTestRecording))
+                        }
+                        HStack {
+                            Button(copy.text(.playBuiltinCue), action: actions.playBuiltinCue)
+                            Button(copy.text(.recordFiveSeconds), action: actions.recordFiveSeconds)
+                                .buttonStyle(.borderedProminent)
+                                .keyboardShortcut("t", modifiers: [.command, .shift])
+                        }
+                        .disabled(isSelfTestBusy(model.snapshot.selfTestState))
+
+                        Divider()
+
+                        Button(copy.text(.chooseAudioFile)) { showingImporter = true }
+                        Label(copy.text(.dropAudioFile), systemImage: "square.and.arrow.down")
+                            .frame(maxWidth: .infinity, minHeight: 74)
+                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+                            .dropDestination(for: URL.self) { urls, _ in
+                                guard let url = urls.first else { return false }
+                                select(url)
+                                return true
+                            }
+
+                        if let review = model.snapshot.localFileReview {
+                            reviewView(review, copy: copy)
+                        }
+                        if model.snapshot.localDraftAvailable {
+                            Button(copy.text(.deleteDraft), role: .destructive) {
+                                actions.deleteLocalDraft()
+                            }
+                        }
+                    }
+                    .frame(maxWidth: 620, alignment: .leading)
+                    .padding(24)
                 }
             }
-        } actions: {
-            Button(copy.text(.tryAction), action: action)
-                .buttonStyle(.borderedProminent)
-                .disabled(!model.snapshot.selfTestAvailable)
-                .keyboardShortcut("t", modifiers: [.command, .shift])
         }
         .navigationTitle(copy.text(.tryLocally))
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: [.audio],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            select(url)
+        }
+        .onDisappear(perform: actions.closeSelfTest)
+    }
+
+    @ViewBuilder
+    private func reviewView(_ review: PulsarLocalFileReview, copy: PulsarShellCopy) -> some View {
+        GroupBox(copy.text(.fileReview)) {
+            VStack(alignment: .leading, spacing: 8) {
+                LabeledContent(copy.text(.filename), value: review.filename)
+                LabeledContent(copy.text(.format), value: review.format ?? "—")
+                LabeledContent(copy.text(.duration), value: duration(review.durationMs))
+                LabeledContent(copy.text(.size), value: ByteCountFormatter.string(
+                    fromByteCount: review.sizeBytes, countStyle: .file))
+                LabeledContent(copy.text(.audience), value: review.audience.joined(separator: ", "))
+                LabeledContent(
+                    copy.text(.deliveryModes),
+                    value: review.deliveryModes.isEmpty ? "—" : review.deliveryModes.joined(separator: ", "))
+                Text("\(copy.text(.rightsReminder)): \(review.rightsReminder)")
+                    .font(.callout)
+                if review.serverValidationRequired {
+                    Text(copy.text(.serverWillRecheck))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if let rejection = review.rejection {
+                    Label(rejection, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(copy.text(.p2FileGuidance))
+                        .font(.callout)
+                } else if let pendingFileURL {
+                    Button(copy.text(.acceptDraft)) {
+                        actions.acceptLocalFile(pendingFileURL)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func select(_ url: URL) {
+        pendingFileURL = url
+        actions.reviewLocalFile(url)
+    }
+
+    private func duration(_ milliseconds: Int64?) -> String {
+        guard let milliseconds else { return "—" }
+        return String(format: "%.1f s", Double(milliseconds) / 1_000)
+    }
+
+    private func isSelfTestBusy(_ state: PulsarSelfTestState) -> Bool {
+        ![.idle, .reviewingDraft, .failed].contains(state)
+    }
+
+    private func selfTestSymbol(_ state: PulsarSelfTestState) -> String {
+        switch state {
+        case .idle: "checkmark.circle"
+        case .playingBuiltinCue, .playingStopCue, .playingRecording: "speaker.wave.2"
+        case .requestingPermission: "mic.badge.plus"
+        case .recording: "record.circle.fill"
+        case .reviewingDraft: "doc.badge.checkmark"
+        case .failed: "exclamationmark.triangle.fill"
+        }
     }
 }
 

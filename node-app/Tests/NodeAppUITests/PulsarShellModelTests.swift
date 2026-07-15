@@ -84,6 +84,33 @@ struct PulsarShellModelTests {
         #expect(model.snapshot.history == [history])
     }
 
+    @MainActor
+    @Test("Self-test projection clamps meter and preserves the complete file review")
+    func selfTestProjection() {
+        let model = PulsarShellModel(snapshot: .init(selfTestAvailable: true))
+        let review = PulsarLocalFileReview(
+            filename: "voice.wav",
+            format: "wav",
+            durationMs: 5_000,
+            sizeBytes: 12_345,
+            audience: ["this_pulsar"],
+            deliveryModes: ["overlay", "interrupt"],
+            rightsReminder: "Only audio you may share.",
+            serverValidationRequired: true,
+            rejection: nil)
+
+        model.updateSelfTest(state: .recording, meter: 1.5, draftAvailable: false)
+        model.setLocalFileReview(review)
+        #expect(model.snapshot.selfTestState == .recording)
+        #expect(model.snapshot.selfTestMeter == 1)
+        #expect(model.snapshot.localFileReview == review)
+        #expect(model.snapshot.localFileReview?.isEligible == true)
+        #expect(!model.snapshot.localDraftAvailable)
+        for locale in PulsarShellLocale.allCases {
+            #expect(!PulsarShellCopy(locale: locale).selfTestLabel(.recording).isEmpty)
+        }
+    }
+
     @Test("DND labels map the frozen wire values in both languages")
     func dndWireValuesStayStable() {
         #expect(PulsarDNDMode.allowAll.rawValue == "allow_all")
@@ -107,7 +134,13 @@ struct PulsarShellModelTests {
             tryLocally: { calls.append("self-test") },
             setDND: { calls.append($0.rawValue) },
             setVolume: { calls.append("volume:\($0)") },
-            toggleRecording: { calls.append("record") }
+            toggleRecording: { calls.append("record") },
+            playBuiltinCue: { calls.append("cue") },
+            recordFiveSeconds: { calls.append("five") },
+            reviewLocalFile: { calls.append("review:\($0.lastPathComponent)") },
+            acceptLocalFile: { calls.append("accept:\($0.lastPathComponent)") },
+            deleteLocalDraft: { calls.append("delete") },
+            closeSelfTest: { calls.append("close") }
         )
 
         actions.createOrbit()
@@ -116,7 +149,17 @@ struct PulsarShellModelTests {
         actions.setDND(.messagesOnly)
         actions.setVolume(45)
         actions.toggleRecording()
+        let file = URL(fileURLWithPath: "/tmp/voice.wav")
+        actions.playBuiltinCue()
+        actions.recordFiveSeconds()
+        actions.reviewLocalFile(file)
+        actions.acceptLocalFile(file)
+        actions.deleteLocalDraft()
+        actions.closeSelfTest()
 
-        #expect(calls == ["create", "join", "self-test", "messages_only", "volume:45", "record"])
+        #expect(calls == [
+            "create", "join", "self-test", "messages_only", "volume:45", "record",
+            "cue", "five", "review:voice.wav", "accept:voice.wav", "delete", "close",
+        ])
     }
 }

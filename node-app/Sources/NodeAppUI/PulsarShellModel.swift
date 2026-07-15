@@ -43,6 +43,53 @@ public enum PulsarRecordingState: Equatable, Sendable {
     case failed(String)
 }
 
+public enum PulsarSelfTestState: String, Equatable, Sendable {
+    case idle
+    case playingBuiltinCue
+    case requestingPermission
+    case recording
+    case playingStopCue
+    case playingRecording
+    case reviewingDraft
+    case failed
+}
+
+public struct PulsarLocalFileReview: Equatable, Sendable {
+    public let filename: String
+    public let format: String?
+    public let durationMs: Int64?
+    public let sizeBytes: Int64
+    public let audience: [String]
+    public let deliveryModes: [String]
+    public let rightsReminder: String
+    public let serverValidationRequired: Bool
+    public let rejection: String?
+
+    public init(
+        filename: String,
+        format: String?,
+        durationMs: Int64?,
+        sizeBytes: Int64,
+        audience: [String],
+        deliveryModes: [String],
+        rightsReminder: String,
+        serverValidationRequired: Bool,
+        rejection: String?
+    ) {
+        self.filename = filename
+        self.format = format
+        self.durationMs = durationMs
+        self.sizeBytes = sizeBytes
+        self.audience = audience
+        self.deliveryModes = deliveryModes
+        self.rightsReminder = rightsReminder
+        self.serverValidationRequired = serverValidationRequired
+        self.rejection = rejection
+    }
+
+    public var isEligible: Bool { rejection == nil }
+}
+
 public enum PulsarDNDMode: String, CaseIterable, Identifiable, Sendable {
     case allowAll = "allow_all"
     case messagesOnly = "messages_only"
@@ -77,6 +124,10 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
     public var recording: PulsarRecordingState
     public var recordingAvailable: Bool
     public var selfTestAvailable: Bool
+    public var selfTestState: PulsarSelfTestState
+    public var selfTestMeter: Float
+    public var localFileReview: PulsarLocalFileReview?
+    public var localDraftAvailable: Bool
     public var volume: Int
 
     public init(
@@ -91,6 +142,10 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         recording: PulsarRecordingState = .unavailable,
         recordingAvailable: Bool = false,
         selfTestAvailable: Bool = false,
+        selfTestState: PulsarSelfTestState = .idle,
+        selfTestMeter: Float = 0,
+        localFileReview: PulsarLocalFileReview? = nil,
+        localDraftAvailable: Bool = false,
         volume: Int = 80
     ) {
         self.connection = connection
@@ -104,6 +159,10 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         self.recording = recording
         self.recordingAvailable = recordingAvailable
         self.selfTestAvailable = selfTestAvailable
+        self.selfTestState = selfTestState
+        self.selfTestMeter = min(max(selfTestMeter, 0), 1)
+        self.localFileReview = localFileReview
+        self.localDraftAvailable = localDraftAvailable
         self.volume = min(max(volume, 0), 100)
     }
 }
@@ -161,6 +220,20 @@ public final class PulsarShellModel {
         snapshot.selfTestAvailable = available
     }
 
+    public func updateSelfTest(
+        state: PulsarSelfTestState,
+        meter: Float? = nil,
+        draftAvailable: Bool? = nil
+    ) {
+        snapshot.selfTestState = state
+        if let meter { snapshot.selfTestMeter = min(max(meter, 0), 1) }
+        if let draftAvailable { snapshot.localDraftAvailable = draftAvailable }
+    }
+
+    public func setLocalFileReview(_ review: PulsarLocalFileReview?) {
+        snapshot.localFileReview = review
+    }
+
     public func setDNDMode(_ mode: PulsarDNDMode) {
         snapshot.dndMode = mode
     }
@@ -178,6 +251,12 @@ public final class PulsarShellActions {
     private let onSetDND: (PulsarDNDMode) -> Void
     private let onSetVolume: (Int) -> Void
     private let onToggleRecording: () -> Void
+    private let onPlayBuiltinCue: () -> Void
+    private let onRecordFiveSeconds: () -> Void
+    private let onReviewLocalFile: (URL) -> Void
+    private let onAcceptLocalFile: (URL) -> Void
+    private let onDeleteLocalDraft: () -> Void
+    private let onCloseSelfTest: () -> Void
 
     public init(
         createOrbit: @escaping @MainActor () -> Void = {},
@@ -185,7 +264,13 @@ public final class PulsarShellActions {
         tryLocally: @escaping @MainActor () -> Void = {},
         setDND: @escaping @MainActor (PulsarDNDMode) -> Void = { _ in },
         setVolume: @escaping @MainActor (Int) -> Void = { _ in },
-        toggleRecording: @escaping @MainActor () -> Void = {}
+        toggleRecording: @escaping @MainActor () -> Void = {},
+        playBuiltinCue: @escaping @MainActor () -> Void = {},
+        recordFiveSeconds: @escaping @MainActor () -> Void = {},
+        reviewLocalFile: @escaping @MainActor (URL) -> Void = { _ in },
+        acceptLocalFile: @escaping @MainActor (URL) -> Void = { _ in },
+        deleteLocalDraft: @escaping @MainActor () -> Void = {},
+        closeSelfTest: @escaping @MainActor () -> Void = {}
     ) {
         self.onCreateOrbit = createOrbit
         self.onJoinOrbit = joinOrbit
@@ -193,6 +278,12 @@ public final class PulsarShellActions {
         self.onSetDND = setDND
         self.onSetVolume = setVolume
         self.onToggleRecording = toggleRecording
+        self.onPlayBuiltinCue = playBuiltinCue
+        self.onRecordFiveSeconds = recordFiveSeconds
+        self.onReviewLocalFile = reviewLocalFile
+        self.onAcceptLocalFile = acceptLocalFile
+        self.onDeleteLocalDraft = deleteLocalDraft
+        self.onCloseSelfTest = closeSelfTest
     }
 
     public func createOrbit() { onCreateOrbit() }
@@ -201,6 +292,12 @@ public final class PulsarShellActions {
     public func setDND(_ mode: PulsarDNDMode) { onSetDND(mode) }
     public func setVolume(_ volume: Int) { onSetVolume(volume) }
     public func toggleRecording() { onToggleRecording() }
+    public func playBuiltinCue() { onPlayBuiltinCue() }
+    public func recordFiveSeconds() { onRecordFiveSeconds() }
+    public func reviewLocalFile(_ url: URL) { onReviewLocalFile(url) }
+    public func acceptLocalFile(_ url: URL) { onAcceptLocalFile(url) }
+    public func deleteLocalDraft() { onDeleteLocalDraft() }
+    public func closeSelfTest() { onCloseSelfTest() }
 }
 
 public enum PulsarShellText: String, CaseIterable, Sendable {
@@ -208,6 +305,11 @@ public enum PulsarShellText: String, CaseIterable, Sendable {
     case openMainWindow, primaryActions, status, presence, routing, nowPlaying
     case localControls, noHistory, noRoute, silence, volume, dnd, recording
     case startRecording, stopRecording, recordingUnavailable, selfTestUnavailable
+    case playBuiltinCue, recordFiveSeconds, chooseAudioFile, dropAudioFile
+    case fileReview, filename, format, duration, size, audience, deliveryModes
+    case rightsReminder, serverWillRecheck, acceptDraft, deleteDraft, p2FileGuidance
+    case selfTestIdle, selfTestCue, selfTestPermission, selfTestRecording
+    case selfTestStopCue, selfTestPlayback, selfTestReview, selfTestFailed
     case createTitle, createBody, createAction, joinTitle, joinBody, joinAction
     case tryTitle, tryBody, tryAction, historyTitle, settingsTitle, language
     case connectionUnpaired, connectionReconnecting, connectionOnline, connectionDegraded
@@ -285,6 +387,19 @@ public struct PulsarShellCopy: Sendable {
         }
     }
 
+    public func selfTestLabel(_ state: PulsarSelfTestState) -> String {
+        switch state {
+        case .idle: text(.selfTestIdle)
+        case .playingBuiltinCue: text(.selfTestCue)
+        case .requestingPermission: text(.selfTestPermission)
+        case .recording: text(.selfTestRecording)
+        case .playingStopCue: text(.selfTestStopCue)
+        case .playingRecording: text(.selfTestPlayback)
+        case .reviewingDraft: text(.selfTestReview)
+        case .failed: text(.selfTestFailed)
+        }
+    }
+
     private static let en: [PulsarShellText: String] = [
         .appName: "Pulsar", .home: "Home", .create: "Create", .join: "Join",
         .tryLocally: "Try locally", .history: "History", .settings: "Settings",
@@ -296,6 +411,18 @@ public struct PulsarShellCopy: Sendable {
         .recording: "Recording", .startRecording: "Start recording",
         .stopRecording: "Stop recording", .recordingUnavailable: "Recording is not configured yet",
         .selfTestUnavailable: "Local self-test is not configured yet",
+        .playBuiltinCue: "Play reviewed cue", .recordFiveSeconds: "Record 5 seconds",
+        .chooseAudioFile: "Choose short audio file", .dropAudioFile: "or drop an audio file here",
+        .fileReview: "Local file review", .filename: "Filename", .format: "Format",
+        .duration: "Duration", .size: "Size", .audience: "Audience",
+        .deliveryModes: "Eligible delivery modes", .rightsReminder: "Rights",
+        .serverWillRecheck: "The server will re-check format, duration, size and policy before delivery.",
+        .acceptDraft: "Use as local draft", .deleteDraft: "Delete local draft",
+        .p2FileGuidance: "This file is outside P1 limits. Streaming support is planned for P2; it has not been accepted.",
+        .selfTestIdle: "Ready — no audio leaves this Mac", .selfTestCue: "Playing reviewed cue",
+        .selfTestPermission: "Waiting for microphone permission", .selfTestRecording: "Recording locally",
+        .selfTestStopCue: "Finishing recording", .selfTestPlayback: "Playing local recording",
+        .selfTestReview: "Local draft is ready", .selfTestFailed: "Local self-test failed",
         .createTitle: "Create an air", .createBody: "Open the Barycenter bot and send /create to start a shared audio space.",
         .createAction: "Open Barycenter bot", .joinTitle: "Join an air",
         .joinBody: "Open an invitation or ask the Barycenter bot for a pairing code.",
@@ -326,6 +453,18 @@ public struct PulsarShellCopy: Sendable {
         .recording: "Запись", .startRecording: "Начать запись",
         .stopRecording: "Остановить запись", .recordingUnavailable: "Запись пока не настроена",
         .selfTestUnavailable: "Локальная самопроверка пока не настроена",
+        .playBuiltinCue: "Воспроизвести проверенный сигнал", .recordFiveSeconds: "Записать 5 секунд",
+        .chooseAudioFile: "Выбрать короткий аудиофайл", .dropAudioFile: "или перетащи аудиофайл сюда",
+        .fileReview: "Проверка локального файла", .filename: "Имя файла", .format: "Формат",
+        .duration: "Длительность", .size: "Размер", .audience: "Аудитория",
+        .deliveryModes: "Доступные режимы доставки", .rightsReminder: "Права",
+        .serverWillRecheck: "Перед доставкой сервер повторно проверит формат, длительность, размер и правила.",
+        .acceptDraft: "Создать локальный черновик", .deleteDraft: "Удалить локальный черновик",
+        .p2FileGuidance: "Файл выходит за пределы P1. Потоковая поддержка запланирована на P2; файл не принят.",
+        .selfTestIdle: "Готово — звук не покидает этот мак", .selfTestCue: "Воспроизвожу проверенный сигнал",
+        .selfTestPermission: "Жду разрешения на микрофон", .selfTestRecording: "Записываю локально",
+        .selfTestStopCue: "Завершаю запись", .selfTestPlayback: "Воспроизвожу локальную запись",
+        .selfTestReview: "Локальный черновик готов", .selfTestFailed: "Ошибка локальной самопроверки",
         .createTitle: "Создать эфир", .createBody: "Открой бота Барицентра и отправь /create, чтобы создать общее аудиопространство.",
         .createAction: "Открыть бота Барицентра", .joinTitle: "Присоединиться к эфиру",
         .joinBody: "Открой приглашение или запроси код подключения в боте Барицентра.",

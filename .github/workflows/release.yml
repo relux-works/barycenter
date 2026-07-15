@@ -164,7 +164,7 @@ jobs:
       - name: Build shell + fork daemon (reproducible, CGO off)
         shell: bash
         run: |
-          mkdir -p stage/Assets
+          mkdir -p stage/Assets/Audio
           go install github.com/tc-hib/go-winres@v0.3.3
           cd pulsar-win
           "$(go env GOPATH)/bin/go-winres" make --in winres/winres.json --arch amd64 --product-version "${GITHUB_REF_NAME}"
@@ -181,6 +181,7 @@ jobs:
         shell: bash
         run: |
           cp pulsar-win/msix/Assets/*.png stage/Assets/
+          cp assets/audio/pulsar-recording-cue.wav stage/Assets/Audio/pulsar-recording-cue.wav
           # MSIX Version must be a numeric quad Major.Minor.Build.Revision, and
           # the Store REQUIRES Revision == 0. Put the beta number in Build and
           # pin Revision to 0: v0.3.0-beta.15 -> 0.3.15.0 (monotonic per beta).

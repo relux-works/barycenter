@@ -41,11 +41,13 @@
   },
   "platformConfigure": {
     "windows-amd64": {
-      "required": ["--disable-pthreads", "--enable-w32threads"]
+      "required": ["--disable-pthreads", "--enable-w32threads"],
+      "packageLocalRuntime": ["libwinpthread-1.dll"],
+      "runtimeVersionReceipt": "toolchain-components.txt"
     }
   },
   "package": {
-    "allowedLibraries": ["avcodec", "avformat", "avutil", "swresample", "pulsar_codec_bridge"],
+    "allowedLibraries": ["avcodec", "avformat", "avutil", "swresample", "pulsar_codec_bridge", "winpthread"],
     "forbiddenNames": ["ffmpeg", "ffprobe", "ffplay"],
     "runtimeExecutableDownload": false,
     "sandboxWeakening": false,

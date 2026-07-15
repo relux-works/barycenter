@@ -24,6 +24,13 @@ code download. The exact source signature, license, patent, source-offer,
 notices, vulnerability and update obligations are frozen by the preceding
 [license and distribution audit](p2-codec-license-distribution-audit.md).
 
+The hosted MinGW prototype also exposes one toolchain transitive:
+`libwinpthread-1.dll`. It is package-local and signed, never downloaded at
+runtime. The build captures its exact MSYS2 package version, PE hash and imports;
+the audited notice template points to the corresponding permissive mingw-w64
+runtime terms. This extra supply-chain/update obligation is not silently folded
+into FFmpeg and keeps the release decision fail-closed.
+
 ## Implemented boundary
 
 The decoder opens only a coordinator-prepared local file from the existing

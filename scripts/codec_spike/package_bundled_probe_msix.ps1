@@ -22,8 +22,8 @@ New-Item -ItemType Directory -Force -Path $PackageStage, (Join-Path $PackageStag
 Copy-Item (Join-Path $Stage "*.dll") $PackageStage
 Copy-Item (Join-Path $Stage "pulsar-codec-probe.exe") $PackageStage
 $Dlls = @(Get-ChildItem $PackageStage -File -Filter "*.dll")
-if ($Dlls.Count -ne 5) { throw "package must contain exactly four FFmpeg DLLs and one bridge DLL" }
-$RequiredDllPatterns = @("avformat-*.dll", "avcodec-*.dll", "avutil-*.dll", "swresample-*.dll", "pulsar_codec_bridge.dll")
+if ($Dlls.Count -ne 6) { throw "package must contain four FFmpeg DLLs, the bridge and exact winpthreads runtime" }
+$RequiredDllPatterns = @("avformat-*.dll", "avcodec-*.dll", "avutil-*.dll", "swresample-*.dll", "pulsar_codec_bridge.dll", "libwinpthread-1.dll")
 foreach ($Pattern in $RequiredDllPatterns) {
     if (@(Get-ChildItem $PackageStage -File -Filter $Pattern).Count -ne 1) { throw "missing or duplicate allowlisted DLL: $Pattern" }
 }

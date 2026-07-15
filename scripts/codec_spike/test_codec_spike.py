@@ -143,6 +143,7 @@ class CodecSpikeContractTests(unittest.TestCase):
         mingw_script = (HERE / "build_bundled_ffmpeg_mingw.sh").read_text(encoding="utf-8")
         self.assertIn("-static-libgcc", mingw_script)
         self.assertIn("--disable-pthreads --enable-w32threads", mingw_script)
+        self.assertIn("mingw-w64-ucrt-x86_64-winpthreads", mingw_script)
 
     def test_exact_license_audit_is_complete_and_fail_closed(self):
         audit = license_audit.load()

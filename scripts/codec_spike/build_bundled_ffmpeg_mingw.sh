@@ -54,6 +54,10 @@ for library in avutil swresample avcodec avformat; do
   [[ -n "$dll" ]] || { echo "missing shared library $library" >&2; exit 1; }
   cp "$dll" "$OUTPUT/stage/"
 done
+WINPTHREAD=/ucrt64/bin/libwinpthread-1.dll
+[[ -f "$WINPTHREAD" ]] || { echo "missing UCRT64 winpthreads runtime" >&2; exit 1; }
+cp "$WINPTHREAD" "$OUTPUT/stage/"
+pacman -Q mingw-w64-ucrt-x86_64-winpthreads > "$OUTPUT/toolchain-components.txt"
 
 gcc -shared -O2 -fvisibility=hidden -static-libgcc -DPULSAR_CODEC_BUILD \
   -I"$OUTPUT/prefix/include" -I"$ROOT/scripts/codec_spike/native" \

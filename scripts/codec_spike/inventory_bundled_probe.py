@@ -55,6 +55,10 @@ def validate_contract(contract: dict) -> None:
         "windows-amd64", {}).get("required", []))
     if windows_flags != {"--disable-pthreads", "--enable-w32threads"}:
         raise ValueError("Windows native thread contract changed")
+    windows_runtime = contract["platformConfigure"]["windows-amd64"]
+    if windows_runtime.get("packageLocalRuntime") != ["libwinpthread-1.dll"] or \
+            windows_runtime.get("runtimeVersionReceipt") != "toolchain-components.txt":
+        raise ValueError("Windows toolchain runtime contract changed")
     matrix = {item.get("id"): item for item in contract.get("platformMatrix", [])}
     if set(matrix) != {"macos-arm64", "windows-amd64", "windows-arm64"}:
         raise ValueError("required package architecture matrix changed")

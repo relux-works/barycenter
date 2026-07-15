@@ -113,4 +113,5 @@ jobs:
           path: |
             ${{ runner.temp }}/bundled-probe/decode-evidence.json
             ${{ runner.temp }}/bundled-probe/config.mak
+            ${{ runner.temp }}/bundled-probe/toolchain-components.txt
             ${{ runner.temp }}/bundled-probe/package/*

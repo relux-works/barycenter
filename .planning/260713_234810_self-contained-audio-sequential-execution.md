@@ -958,8 +958,11 @@ evidence checks. Engineering commit `8ce1b8cf4ced1840a555c8356b45754e405d21df`
 passed the clean exact-head 12-stage repository acceptance suite with
 start/end dirty false, plus coordinator vet/full tests and focused race. Live
 Bot API, real-account and real-device observations remain unclaimed in
-`EPIC-260714-th54l3`. Progress remains 66/205 overall and 66/186 engineering
-until hosted CI and review accept the task.
+`EPIC-260714-th54l3`. Hosted run `29397089442` passed coordinator rollback,
+authoritative Xcode Swift, Windows portable/race/cross-build and the signed
+packaged probe on tracking head `88de480`. The engineering scope is accepted;
+progress is now 67/205 overall and 67/186 engineering. PR #66 final tracking
+and merge remain before the declarations task starts.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1674,7 +1677,11 @@ acceptance.
   start/end dirty false; all four hosted jobs green in run `29395040109`;
   physical keyboard/VoiceOver evidence remains manual in
   `TASK-260712-e5mfqj`; PR #65)
-- [ ] `TASK-260712-dlltnr` — telegram-moderation-parity
+- [x] `TASK-260712-dlltnr` — telegram-moderation-parity (accepted on exact
+  engineering head `8ce1b8c`; clean 12-stage repository acceptance passed with
+  start/end dirty false; all four hosted jobs green in run `29397089442` on
+  tracking head `88de480`; live Telegram/real-device evidence remains manual
+  in `EPIC-260714-th54l3`; PR #66)
 - [ ] `TASK-260712-e1ie4x` — platform-declarations-localized-copy
 - [ ] `TASK-260712-176b74` — p1-independent-protocol-review
 - [ ] `TASK-260712-1uz0za` — p1-independent-realtime-audio-review

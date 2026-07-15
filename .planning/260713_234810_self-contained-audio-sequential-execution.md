@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 73 accepted, 132 remain.
-- Routed inventory: 186 engineering tasks (73 accepted, 113 remain) and 19
+- Combined inventory: 205 original tasks; 74 accepted, 131 remain.
+- Routed inventory: 186 engineering tasks (74 accepted, 112 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2vhf80` — air-control-plane-api
-  (starting after the Air runtime/session-resolution tracking merge)
+- Current engineering task: `TASK-260712-25862f` — air-policy-enforcement
+  (starting after the Air control-plane tracking merge)
 - Next engineering task: `TASK-260712-25862f` — air-policy-enforcement
-- Most recently accepted: `TASK-260712-kr64r2` — air-runtime-session-resolution
-- Current branch: `tracking/task-260712-kr64r2-air-runtime-session-resolution`
+- Most recently accepted: `TASK-260712-2vhf80` — air-control-plane-api
+- Current branch: `tracking/task-260712-2vhf80-air-control-plane-api`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 73 / 205 tasks (approximately 35.6%); 132 remain
-- Engineering progress: 73 / 186 tasks (approximately 39.2%); 113 remain
+- Accepted overall: 74 / 205 tasks (approximately 36.1%); 131 remain
+- Engineering progress: 74 / 186 tasks (approximately 39.8%); 112 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1190,6 +1190,24 @@ Windows callback-dispatch scheduling flake. PR #86 landed at merge
 `3dcf309f623c55a8d3bfa6f4582b2c194cc96d7c`. Progress is 73/205 overall and
 73/186 engineering; strict execution advances to `TASK-260712-2vhf80`.
 
+Checkpoint 2026-07-15 (accepted): `TASK-260712-2vhf80` exposes all 15 frozen
+Air lifecycle routes through transactional control-token `ActorContext` on
+exact engineering head `efa02ac`. Create/list/read, secure invite issue and
+consume, joining-primary confirm/decline, activate/deactivate/switch, leave,
+role and ownership governance, policy replacement and dissolve use strict
+JSON, opaque IDs, stable errors and actor-scoped exact idempotency. Invite
+codes are 256-bit, fixed-TTL and single-use; only a keyed HMAC reaches SQLite,
+while exact retries deterministically reproduce the one-time response.
+Concurrent consume, eight-barycenter capacity, foreign-room collapse, wrong
+confirmer, governance, restart persistence, audit and secret-redaction paths
+are covered. Runtime-changing HTTP success now waits for the serialized Air
+resolver to apply the committed authority generation and park stale sessions.
+Full Go tests, vet and targeted race passed; clean pinned coordinator
+acceptance passed 5/5. Hosted run `29418360729` passed all four jobs, and PR
+#88 landed at merge `69f32e2a062709bfff2058cc9e39f4d6932ee391`.
+Progress is 74/205 overall and 74/186 engineering; strict execution advances
+to `TASK-260712-25862f`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -1938,7 +1956,9 @@ critical path.
   head `d344f32e20bf1934022acdefc241fbc34a8c0ff9`; clean acceptance 12/12,
   hosted run `29415681872` 4/4 after one unrelated Windows callback retry,
   PR #86 merge `3dcf309`)
-- [ ] `TASK-260712-2vhf80` — air-control-plane-api
+- [x] `TASK-260712-2vhf80` — air-control-plane-api (accepted on exact head
+  `efa02ac`; clean pinned coordinator acceptance 5/5, hosted run
+  `29418360729` 4/4, PR #88 merge `69f32e2`)
 - [ ] `TASK-260712-25862f` — air-policy-enforcement
 - [ ] `TASK-260712-2bjdlb` — approach-air-alias-compat
 - [ ] `TASK-260712-2i3u7v` — macos-air-room-data-integration

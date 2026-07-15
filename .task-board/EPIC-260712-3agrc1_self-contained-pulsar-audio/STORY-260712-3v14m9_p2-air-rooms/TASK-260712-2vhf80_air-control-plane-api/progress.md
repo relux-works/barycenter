@@ -1,14 +1,14 @@
 ## Status
-backlog
+done
 
 ## Assigned To
-(none)
+codex-inline-developer
 
 ## Created
 2026-07-12T16:14:55Z
 
 ## Last Update
-2026-07-12T16:30:31Z
+2026-07-15T13:18:11Z
 
 ## Blocked By
 - TASK-260712-17yizc
@@ -27,17 +27,19 @@ backlog
 - TASK-260712-2h6snp
 
 ## Checklist
-- [ ] Implement create, invite, join, confirm, leave, and dissolve services and handlers
-- [ ] Expose current Air, pending membership, and lifecycle read models for Pulsar consumers
-- [ ] Enforce one active Air and capacity rules with stable user errors
-- [ ] Drive activation, parking, and dissolve through the Air runtime resolver
-- [ ] Use hashed single-use invites, opaque references, role checks, rate limits and audit
-- [ ] Test concurrent consume, active switch and lifecycle idempotency transactionally
+- [x] Implement create, invite, join, confirm, leave, and dissolve services and handlers
+- [x] Expose current Air, pending membership, and lifecycle read models for Pulsar consumers
+- [x] Enforce one active Air and capacity rules with stable user errors
+- [x] Drive activation, parking, and dissolve through the Air runtime resolver
+- [x] Use hashed single-use invites, opaque references, role checks, rate limits and audit
+- [x] Test concurrent consume, active switch and lifecycle idempotency transactionally
 
 ## Notes
+Strict inline execution started from synchronized main b54e4aa after accepted Air runtime resolution. Freezing the existing ActorContext, Air repositories and HTTP surface before implementing the transactional lifecycle control plane.
+Accepted on main 69f32e2. Engineering commit efa02ac merged via PR #88 after hosted run 29418360729 passed coordinator, node-core, pulsar-win, and packaged-probe. Clean pinned coordinator acceptance passed 5/5; full Go suite, targeted race, vet, restart, concurrent consume, governance, capacity, stable-error, secret-redaction, and synchronous runtime-barrier coverage passed.
 
 ## Precondition Resources
 - [p2-air-rooms-lifecycle-sequence.puml](file://TASK-260712-2vhf80/p2-air-rooms-lifecycle-sequence.puml) — Lifecycle service flow for Air API and control-plane handlers
 
 ## Outcome Resources
-(none)
+- [p2-air-control-plane-api.md](file://TASK-260712-2vhf80/p2-air-control-plane-api.md) — Accepted Air control-plane implementation, security boundary, runtime barrier, and downstream handoff

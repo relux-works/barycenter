@@ -30,6 +30,13 @@ are recorded in [P1 Telegram, history and presence parity regressions](analysis/
 The final deploy, mixed-version, drain/rollback and downstream-consumer entry
 point is the [P1 Telegram, history and presence rollout handoff](analysis/p1-telegram-history-presence-rollout-handoff.md).
 
+The normative Phase 2 create, saved-membership, active-pointer, invite,
+joining-primary confirmation, policy, alias and single-authority rollback
+surface is frozen in the
+[Air lifecycle and policy contract](analysis/p2-air-lifecycle-policy-contract-v1.md).
+Its executable enum, route, default and invariant summary is
+[`protocol/air-lifecycle-policy-v1.json`](../protocol/air-lifecycle-policy-v1.json).
+
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 
 ## Envelope

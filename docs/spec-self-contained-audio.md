@@ -776,6 +776,12 @@ Target rows являются также ACL snapshot для media download. Од
 
 ## 13. Air: несколько Барицентров
 
+Точный нормативный контракт Phase 2 для lifecycle, saved membership,
+one-active pointer, invite/confirmation, policy, Telegram aliases и
+single-authority cutover/rollback зафиксирован в
+[`p2-air-lifecycle-policy-contract-v1`](analysis/p2-air-lifecycle-policy-contract-v1.md).
+Обзор ниже не переопределяет этот контракт.
+
 ### 13.1 Модель
 
 В фазе 2 `Air` заменяет pairwise link как runtime-сущность общего эфира:

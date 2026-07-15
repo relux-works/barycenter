@@ -1,1 +1,3 @@
-"NSMicrophoneUsageDescription" = "Pulsar записывает звук только после явного запуска записи.";
+"NSMicrophoneUsageDescription" = "Пульсар записывает звук только после явного запуска записи.";
+"NSLocalNetworkUsageDescription" = "Пульсар использует локальную сеть, только когда включена необязательная интеграция Spotify.";
+"NSAppleEventsUsageDescription" = "Пульсар управляет Airfoil, только когда включена необязательная интеграция с колонками Airfoil.";

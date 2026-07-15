@@ -33,24 +33,20 @@ const (
 // Onboarding window strings. CRLF, not LF: Win32 STATIC controls only break
 // lines on \r\n.
 //
-// The couple's first session is the INVITE path (product decision 2026-07-08):
-// Katya opens her partner's invite link, the bot adds her to HIS shared air as
-// a companion, she runs /pair for a code, enters it here — two homes, one
-// stream, no /approach. /create stays the secondary (solo/host) path. Both
-// shells (this window + OnboardingWindow.swift) now tell that one story.
+// This legacy code-entry window is an optional Telegram companion path. The
+// primary shell owns Create and Join and does not require Telegram.
 const (
 	uiWindowTitle   = "Pulsar"
 	uiTitleText     = "Пульсар"
-	uiIntroSubtitle = "Общий музыкальный эфир для твоих колонок"
-	uiIntroText     = "Чтобы слушать вместе с партнёром:\r\n\r\n" +
-		"1.  Партнёр открывает @barycenter_bot и командой /share присылает тебе ссылку-приглашение.\r\n" +
-		"2.  Открой ссылку и напиши боту /pair — он пришлёт код для этого компьютера.\r\n" +
-		"3.  Введи код ниже — и музыка заиграет у вас обоих.\r\n\r\n" +
-		"Свой эфир с нуля? Напиши боту /create, потом /pair — и введи код."
+	uiIntroSubtitle = "Необязательное подключение Telegram"
+	uiIntroText     = "Создать эфир или присоединиться к нему можно в главном окне Пульсара.\r\n\r\n" +
+		"Если ты решил использовать Telegram как дополнительный пульт, открой @barycenter_bot, " +
+		"получи командой /pair код для этого компьютера и введи его ниже.\r\n\r\n" +
+		"Локальная проверка, маршрутизация и история доступны без Telegram."
 	// F5/F6 DoD: the network hint is part of the window text itself. Leads with
 	// the failure the user actually hits ("Pulsar не виден в Spotify") so it
 	// reads as a checklist, not a footnote.
-	uiNetworkHintText = "Не видишь «Pulsar» в Spotify? Телефон и компьютер — в одной Wi-Fi; разреши Pulsar в брандмауэре Windows; выключи VPN. Подробнее — barycenter.live/guide"
+	uiNetworkHintText = "Необязательная интеграция Spotify использует локальную сеть. Для неё телефон и компьютер должны быть в одной Wi-Fi. Подробнее — barycenter.live/guide"
 	uiBotLinkText     = "Открыть @barycenter_bot"
 	uiGuideLinkText   = "Гид по подключению: barycenter.live/guide"
 	uiCodeLabelText   = "КОД ИЗ БОТА"
@@ -60,15 +56,12 @@ const (
 	uiSaveErrorPrefix = "не смог сохранить учётные данные: "
 )
 
-// Post-pair "one more step" copy (#4): pairing only links this computer to the
-// air — until the user picks "Pulsar" in Spotify once and presses play, every
-// track fails as track_unavailable and reads as "broken". Shown as a modal
-// right after a successful pair and always reachable from the tray ("Как
-// включить звук"). MessageBoxW breaks lines on \n (not \r\n).
+// Optional Spotify help stays available from the tray. It is never presented
+// as a prerequisite and is not shown automatically after pairing.
 const (
-	uiSpotifyStepTitle = "Готово! Остался один шаг"
-	uiSpotifyStepBody  = "Компьютер подключён к эфиру. Чтобы пошёл звук:\n\n" +
-		"1.  Открой Spotify (нужен Spotify Premium).\n" +
+	uiSpotifyStepTitle = "Необязательная интеграция Spotify"
+	uiSpotifyStepBody  = "Звук Пульсара и локальная проверка работают без Spotify. Если хочешь использовать Spotify как источник музыки:\n\n" +
+		"1.  Открой Spotify (для Spotify Connect нужен Spotify Premium).\n" +
 		"2.  В списке устройств выбери «Pulsar».\n" +
 		"3.  Включи любой трек — это нужно один раз, чтобы Spotify запомнил колонку.\n\n" +
 		"Не видишь «Pulsar» в списке? Телефон и компьютер должны быть в одной Wi-Fi, " +
@@ -78,8 +71,8 @@ const (
 // Extra tray menu strings (#4/#6): the Spotify step and the firewall/zeroconf
 // help stay one click away for the whole run, not only at pairing time.
 const (
-	uiMenuHowToSound = "Как включить звук…"
-	uiMenuNoPulsar   = "Не вижу Pulsar в Spotify?"
+	uiMenuHowToSound = "Необязательная интеграция Spotify…"
+	uiMenuNoPulsar   = "Диагностика интеграции Spotify"
 	uiMenuPrivacy    = "Конфиденциальность"
 	uiMenuTerms      = "Условия использования"
 	uiMenuGuidelines = "Правила содержимого"

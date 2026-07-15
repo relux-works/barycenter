@@ -99,6 +99,38 @@ jobs:
           } finally {
             Remove-Item -Force "Cert:\CurrentUser\My\$thumbprint" -ErrorAction SilentlyContinue
           }
+      - name: Compile and pack production localized MSIX schema
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "pulsar-production-msix"
+          Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $stage, (Join-Path $stage "Assets\Audio") | Out-Null
+          Copy-Item pulsar-win/msix/Assets/*.png (Join-Path $stage "Assets")
+          Copy-Item assets/audio/pulsar-recording-cue.wav (Join-Path $stage "Assets\Audio\pulsar-recording-cue.wav")
+          Copy-Item -Recurse pulsar-win/msix/Strings (Join-Path $stage "Strings")
+          Copy-Item pulsar-win/.build/probe/native/Release/pulsar-capture.dll (Join-Path $stage "pulsar-capture.dll")
+          (Get-Content pulsar-win/msix/AppxManifest.xml.in -Raw).Replace("@VERSION@", "0.1.0.0") |
+            Set-Content -Encoding utf8 (Join-Path $stage "AppxManifest.xml")
+          Push-Location pulsar-win
+          try {
+            $env:CGO_ENABLED = "0"
+            $env:GOOS = "windows"
+            $env:GOARCH = "amd64"
+            go build -trimpath -ldflags "-s -w -buildid= -H windowsgui" -o (Join-Path $stage "pulsar-win-amd64.exe") .
+            if ($LASTEXITCODE -ne 0) { throw "production Windows build failed with exit code $LASTEXITCODE" }
+          } finally {
+            Pop-Location
+          }
+          $sdk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Directory | Where-Object { Test-Path "$($_.FullName)\x64\makeappx.exe" } | Sort-Object Name -Descending | Select-Object -First 1
+          $makepri = "$($sdk.FullName)\x64\makepri.exe"
+          $makeappx = "$($sdk.FullName)\x64\makeappx.exe"
+          & $makepri createconfig /cf (Join-Path $stage "priconfig.xml") /dq en-US /o
+          if ($LASTEXITCODE -ne 0) { throw "makepri createconfig failed with exit code $LASTEXITCODE" }
+          & $makepri new /pr $stage /cf (Join-Path $stage "priconfig.xml") /of (Join-Path $stage "resources.pri") /o
+          if ($LASTEXITCODE -ne 0) { throw "makepri new failed with exit code $LASTEXITCODE" }
+          Remove-Item (Join-Path $stage "priconfig.xml")
+          & $makeappx pack /d $stage /p (Join-Path $env:RUNNER_TEMP "Pulsar-production-schema.msix") /o
+          if ($LASTEXITCODE -ne 0) { throw "makeappx schema validation failed with exit code $LASTEXITCODE" }
       - name: Assert hardware evidence and cleanup contracts
         shell: pwsh
         run: |

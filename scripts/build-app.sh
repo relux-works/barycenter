@@ -115,14 +115,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <!-- Regular app (Dock icon and all): Airfoil lists only regular running
        apps as sources (spike S4); the node Macs are headless anyway. -->
   <key>NSAppleEventsUsageDescription</key>
-  <string>NodeApp controls Airfoil to deliver audio to the home speakers.</string>
+  <string>Pulsar controls Airfoil only when you enable the optional Airfoil speaker integration.</string>
   <!-- Local Network (macOS 15+): the daemon advertises "Pulsar" over Bonjour so
        the phone's Spotify can find it as a speaker. Without NSBonjourServices the
        browse is blocked even after the user grants access; the usage string is
        the reason shown in the system prompt. Onboarding primes this deliberately
        (LocalNetworkProbe) so the prompt never appears out of context. -->
   <key>NSLocalNetworkUsageDescription</key>
-  <string>Чтобы Spotify на телефоне видел этот компьютер как колонку «Pulsar».</string>
+  <string>Pulsar uses your local network only when you enable the optional Spotify integration.</string>
   <key>NSBonjourServices</key>
   <array><string>_spotify-connect._tcp</string></array>
 </dict></plist>
@@ -142,7 +142,7 @@ done
 # Guard every privacy-sensitive packaged declaration used by this app. Missing
 # Bonjour declarations make Pulsar undiscoverable; a missing microphone string
 # makes TCC terminate capture before our typed permission path can run.
-for k in NSLocalNetworkUsageDescription NSBonjourServices NSMicrophoneUsageDescription; do
+for k in NSLocalNetworkUsageDescription NSBonjourServices NSMicrophoneUsageDescription NSAppleEventsUsageDescription; do
   if ! /usr/libexec/PlistBuddy -c "Print :$k" "$PLIST_FILE" >/dev/null 2>&1; then
     echo "FATAL: Info.plist is missing required privacy declaration '$k'" >&2
     exit 1

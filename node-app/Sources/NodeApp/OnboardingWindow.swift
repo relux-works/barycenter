@@ -1,8 +1,6 @@
-// R2 (goal v2 D7): first-launch pairing window — the only thing a new user
-// ever sees. Two steps: (1) prime the macOS Local Network permission with a
-// plain-language button so the system prompt never appears out of nowhere
-// (product 2026-07-08), then (2) code from the bot -> POST /pair -> keychain ->
-// core starts.
+// Legacy optional Telegram pairing. The primary shell owns Create and Join.
+// Local Network access is explained and requested only from an explicit button
+// for users who choose the optional Spotify integration.
 
 import AppKit
 import SwiftUI
@@ -51,7 +49,7 @@ private struct NetworkPrimingView: View {
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(.tint)
             Text("Доступ к локальной сети").font(.title2).bold()
-            Text("Чтобы Spotify на твоём телефоне увидел этот компьютер как колонку «Pulsar», Пульсару нужен доступ к устройствам в локальной сети. Без него телефон просто не найдёт колонку — и звук не пойдёт.")
+            Text("Пульсар использует локальную сеть только для необязательной интеграции Spotify. Локальная проверка и основной звук Пульсара работают без неё.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -120,16 +118,10 @@ private struct PairingView: View {
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(.tint)
             Text("Пульсар").font(.title2).bold()
-            // The couple's first session is the INVITE path (product decision
-            // 2026-07-08): lead with it, keep /create as the secondary line.
-            // Mirrors the Windows window (ui_common.go:uiIntroText) word for word.
             VStack(alignment: .leading, spacing: 6) {
-                Text("Пульсар — общий музыкальный эфир для ваших домов. Чтобы слушать вместе:")
-                Text("1. Партнёр в @barycenter_bot командой /share пришлёт тебе ссылку-приглашение.")
-                Text("2. Открой ссылку и напиши боту /pair — он пришлёт код для этого мака.")
-                Text("3. Введи код сюда — и музыка заиграет у вас обоих.")
-                Text("Свой эфир с нуля? Напиши боту /create, потом /pair — и введи код.")
-                    .padding(.top, 2)
+                Text("Создать эфир или присоединиться к нему можно в главном окне Пульсара.")
+                Text("Telegram — необязательный дополнительный пульт. Если ты решил его использовать, получи командой /pair код для этого мака и введи его ниже.")
+                Text("Локальная проверка, маршрутизация и история доступны без Telegram.")
             }
             .font(.callout)
             .foregroundStyle(.secondary)
@@ -170,9 +162,8 @@ private struct PairingView: View {
             .buttonStyle(.borderedProminent)
             .disabled(code.count != 8 || busy)
 
-            // F5: the exact thing that hid Timur's speaker. Warn before it bites.
             VStack(spacing: 3) {
-                Text("Не видно Пульсар в Spotify? Телефон и компьютер — в одной Wi-Fi; проверь файрвол macOS (Настройки → Сеть → Файрвол) и выключи VPN.")
+                Text("Необязательная интеграция Spotify требует общей Wi-Fi сети; при необходимости проверь файрвол macOS и VPN.")
                 Link("Полная инструкция → barycenter.live/guide", destination: URL(string: "https://barycenter.live/guide/")!)
             }
             .font(.caption)

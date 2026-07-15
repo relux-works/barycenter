@@ -189,16 +189,15 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
             menu.addItem(rp)
         }
 
-        // #4/#6: the one-time Spotify step and the firewall/"can't see Pulsar"
-        // help stay one click away for the whole run — the post-pair alert is
-        // easy to dismiss and forget, so the menu keeps both reachable.
+        // Optional Spotify help stays reachable without presenting the
+        // integration as a prerequisite for Pulsar audio.
         let howto = NSMenuItem(
-            title: localized(en: "How to enable sound…", ru: "Как включить звук…"),
+            title: localized(en: "Optional Spotify integration…", ru: "Необязательная интеграция Spotify…"),
             action: #selector(showSpotifyHelp), keyEquivalent: "")
         howto.target = self
         menu.addItem(howto)
         let noPulsar = NSMenuItem(
-            title: localized(en: "Pulsar is missing in Spotify?", ru: "Не вижу Pulsar в Spotify?"),
+            title: localized(en: "Troubleshoot Spotify integration", ru: "Диагностика интеграции Spotify"),
             action: #selector(openGuide), keyEquivalent: "")
         noPulsar.target = self
         menu.addItem(noPulsar)
@@ -367,23 +366,18 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
     }
 }
 
-// SpotifyHelp is the "one more step" copy (#4/#6): pairing links the mac to the
-// air, but nothing plays until Spotify picks "Pulsar" once (Premium required).
-// Presented as an alert right after pairing (main.swift) and any time from the
-// menu bar. Mirrors the Windows post-pair modal (ui_common.go:uiSpotifyStep*).
+// SpotifyHelp describes an optional music source and remains user-invoked.
 enum SpotifyHelp {
     static let guideURL = URL(string: "https://barycenter.live/guide/")!
 
-    // presentHowToSound shows the Spotify-device + Premium walkthrough with a
-    // shortcut into the guide (firewall / same-Wi-Fi / VPN). Main-thread only.
     static func presentHowToSound() {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "Готово! Остался один шаг"
+        alert.messageText = "Необязательная интеграция Spotify"
         alert.informativeText = """
-        Пульсар подключён к эфиру. Чтобы пошёл звук:
+        Звук Пульсара и локальная проверка работают без Spotify. Если хочешь использовать Spotify как источник музыки:
 
-        1. Открой Spotify (нужен Spotify Premium).
+        1. Открой Spotify (для Spotify Connect нужен Spotify Premium).
         2. В списке устройств выбери «Pulsar».
         3. Включи любой трек — это нужно один раз, чтобы Spotify запомнил колонку.
 

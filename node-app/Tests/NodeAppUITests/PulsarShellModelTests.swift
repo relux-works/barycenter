@@ -19,6 +19,51 @@ struct PulsarShellModelTests {
                 PulsarShellCopy(locale: .ru).text(.connectionOnline))
     }
 
+    @Test("Canonical platform vocabulary is consumed by both shell locales")
+    func canonicalPlatformVocabulary() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let data = try Data(contentsOf:
+            root.appendingPathComponent("assets/localization/platform-copy.json"))
+        let contract = try #require(
+            JSONSerialization.jsonObject(with: data) as? [String: [String: String]])
+        let bindings: [(PulsarShellLocale, String, [String: PulsarShellText])] = [
+            (.en, "en", [
+                "create": .create, "join": .join, "try_locally": .tryLocally,
+                "routing": .routing, "history": .history, "report": .report,
+                "integrations": .integrations, "spotify_optional": .spotifyOptional,
+                "telegram_optional": .telegramOptional,
+            ]),
+            (.ru, "ru", [
+                "create": .create, "join": .join, "try_locally": .tryLocally,
+                "routing": .routing, "history": .history, "report": .report,
+                "integrations": .integrations, "spotify_optional": .spotifyOptional,
+                "telegram_optional": .telegramOptional,
+            ]),
+        ]
+        for (locale, language, keys) in bindings {
+            let copy = PulsarShellCopy(locale: locale)
+            for (contractKey, shellKey) in keys {
+                #expect(copy.text(shellKey) == contract[language]?[contractKey])
+            }
+        }
+
+        let main = try String(contentsOf:
+            root.appendingPathComponent("node-app/Sources/NodeApp/main.swift"), encoding: .utf8)
+        #expect(!main.contains("SpotifyHelp.presentHowToSound()"))
+        for language in ["en", "ru"] {
+            let plist = try String(contentsOf:
+                root.appendingPathComponent("assets/macos/\(language).lproj/InfoPlist.strings"),
+                encoding: .utf8)
+            for key in ["microphone_usage", "local_network_usage", "apple_events_usage"] {
+                #expect(plist.contains(try #require(contract[language]?[key])))
+            }
+        }
+    }
+
     @Test("Every connection and recording state has non-color semantics")
     func stateSemanticsAreTextAndSymbolBased() {
         let copy = PulsarShellCopy(locale: .en)

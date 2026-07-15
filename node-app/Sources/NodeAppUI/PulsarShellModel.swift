@@ -597,6 +597,7 @@ public enum PulsarShellText: String, CaseIterable, Sendable {
     case selfTestStopCue, selfTestPlayback, selfTestReview, selfTestFailed
     case createTitle, createBody, createAction, joinTitle, joinBody, joinAction
     case tryTitle, tryBody, tryAction, historyTitle, settingsTitle, language
+    case integrations, spotifyOptional, telegramOptional
     case connectionUnpaired, connectionReconnecting, connectionOnline, connectionDegraded
     case dndAllowAll, dndMessagesOnly, dndMutedUntil
     case recordingIdle, recordingActive, recordingProcessing, recordingFailed
@@ -828,6 +829,9 @@ public struct PulsarShellCopy: Sendable {
         .tryBody: "Record five seconds and play them only on this Mac before sending anything.",
         .tryAction: "Run local self-test", .historyTitle: "Recent activity",
         .settingsTitle: "Pulsar settings", .language: "Language",
+        .integrations: "Optional integrations",
+        .spotifyOptional: "Spotify is an optional music source; Pulsar audio and local review work without it.",
+        .telegramOptional: "Telegram is an optional companion control; Create, Join, routing, history, and reports remain available in Pulsar.",
         .connectionUnpaired: "Not paired", .connectionReconnecting: "Reconnecting",
         .connectionOnline: "Connected", .connectionDegraded: "Needs attention",
         .dndAllowAll: "Allow all audio", .dndMessagesOnly: "Messages only",
@@ -896,6 +900,9 @@ public struct PulsarShellCopy: Sendable {
         .tryBody: "Запиши пять секунд и воспроизведи их только на этом маке до любой отправки.",
         .tryAction: "Запустить самопроверку", .historyTitle: "Недавние события",
         .settingsTitle: "Настройки Пульсара", .language: "Язык",
+        .integrations: "Необязательные интеграции",
+        .spotifyOptional: "Spotify — необязательный источник музыки; звук Пульсара и локальная проверка работают без него.",
+        .telegramOptional: "Telegram — необязательный пульт; создание, присоединение, маршрутизация, история и жалобы доступны в Пульсаре.",
         .connectionUnpaired: "Не подключён", .connectionReconnecting: "Переподключение",
         .connectionOnline: "Подключён", .connectionDegraded: "Нужно внимание",
         .dndAllowAll: "Разрешить весь звук", .dndMessagesOnly: "Только сообщения",

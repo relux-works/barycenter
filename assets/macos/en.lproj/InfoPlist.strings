@@ -1,1 +1,3 @@
 "NSMicrophoneUsageDescription" = "Pulsar records audio only after you explicitly start recording.";
+"NSLocalNetworkUsageDescription" = "Pulsar uses your local network only when you enable the optional Spotify integration.";
+"NSAppleEventsUsageDescription" = "Pulsar controls Airfoil only when you enable the optional Airfoil speaker integration.";

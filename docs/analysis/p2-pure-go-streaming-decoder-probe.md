@@ -53,6 +53,25 @@ Cross-build receipts bind the CGo-free binaries and hashes; hosted Windows,
 macOS and Linux/race receipts supersede these local values for final task
 tracking.
 
+## Hosted platform evidence
+
+Dedicated run `29450704499` passed all three jobs on exact code head
+`dc1ac49`: native macOS ARM64, native Windows amd64 and Linux amd64 with the Go
+race detector. Every platform reproduced the same fixture decisions and byte
+counts. Scheduled skew was at most 5 ms; heap-system end state was 7,962,624
+bytes on macOS and 8,093,696 bytes on Windows. These are Go heap measurements,
+not process RSS.
+
+The native CGo-free macOS ARM64 research binary was 3,568,866 bytes with
+SHA-256 `b6e81e4fabb847837da8a36c49a8b66648fd7e02aaf1beeac7cf586296a9f74c`.
+The native Windows amd64 binary was 3,746,304 bytes with SHA-256
+`5625b40ddbc92e4c8b461b1416e552da64d13651aa5fb938a3b80e09efa1ab79`.
+All jobs also emitted darwin/arm64, windows/amd64 and windows/arm64 cross-builds.
+The Windows-hosted hashes differ from the Linux/macOS-hosted cross-build hashes,
+so the receipts pin each artifact rather than claiming cross-host bit-for-bit
+reproducibility. That supply-chain difference is retained for the comparative
+matrix and cannot promote this already rejected candidate.
+
 `go test -race` exercises eight concurrent Opus decoders. Hostile tests feed
 truncated and bit-flipped MP3 plus truncated and CRC-corrupt Ogg data and fail
 if either dependency panics. Pause, resume, drain and pre-read cancellation are

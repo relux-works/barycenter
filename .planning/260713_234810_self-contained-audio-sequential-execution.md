@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 84 accepted, 121 remain.
-- Routed inventory: 186 engineering tasks (84 accepted, 102 remain) and 19
+- Combined inventory: 205 original tasks; 85 accepted, 120 remain.
+- Routed inventory: 186 engineering tasks (85 accepted, 101 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
-- Next engineering task: `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
-- Most recently accepted: `TASK-260712-1canzv` — probe-bundled-signed-decoder-path
-- Current branch: `tracking/task-260712-1canzv-acceptance`
+- Current engineering task: `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
+- Next engineering task: `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
+- Most recently accepted: `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
+- Current branch: `tracking/task-260712-298tyq-acceptance`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 84 / 205 tasks (approximately 41.0%); 121 remain
-- Engineering progress: 84 / 186 tasks (approximately 45.2%); 102 remain
+- Accepted overall: 85 / 205 tasks (approximately 41.5%); 120 remain
+- Engineering progress: 85 / 186 tasks (approximately 45.7%); 101 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1390,6 +1390,29 @@ review and accepted hostile-input isolation; no Store, production-signing or
 physical-hardware result is claimed. Progress is 84/205 overall and 84/186
 engineering; strict execution advances to `TASK-260712-298tyq`.
 
+Checkpoint 2026-07-15 (accepted): `TASK-260712-298tyq` proves and rejects the
+native Windows Media Foundation candidate on engineering head `4083e5b`,
+merged by PR #110 as `6cb817d`. The signed x64 and ARM64 MSIX prototypes retain
+the Phase 1 AppContainer posture, declare no capabilities or `runFullTrust`,
+activate through `IApplicationActivationManager` with `AO_NONE` and debug
+disabled, and self-report an AppContainer token. A bounded range-backed
+`IStream` feeds `MFCreateMFByteStreamOnStreamEx` and Media Foundation on one
+owned MTA decode thread; scheduled start, pause without reads, generation-safe
+seek/resume, drain and cooperative cancellation are automated without network
+ownership, WASAPI callbacks or render-thread work. Dedicated hosted run
+`29447847569` passed both architectures: all four MP3/AAC fixtures decoded,
+while both real Ogg/Opus fixtures produced the exact
+`MF_E_UNSUPPORTED_BYTESTREAM_TYPE` value `0xC00D36C4`. The 60,008 ms soak ran
+2,214 iterations with 21,970,944-byte start RSS, 24,764,416-byte end RSS,
+24,805,376-byte peak RSS and a 262,144-byte maximum underlying read. Local
+repository acceptance passed 12/12 and final standard CI run `29448173596`
+passed all four jobs. The implementation accepts a requested 7,200-second
+soak, but no physical two-hour run or Win10/Win11 hardware matrix is claimed;
+those remain in manual epic `EPIC-260714-th54l3`. Shipping is rejected unless
+ingest canonicalizes supported input to AAC/M4A and later manual evidence is
+accepted. Progress is 85/205 overall and 85/186 engineering; strict execution
+advances to `TASK-260712-350u8d`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2176,7 +2199,7 @@ Story: `STORY-260712-3l1r1u` — P2 Codec and streaming player spike.
   acceptance 12/12, hosted run `29437923424` attempt 2 passed 4/4, PR #106
   merge `594495b`)
 - [x] `TASK-260712-1canzv` — probe-bundled-signed-decoder-path
-- [ ] `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
+- [x] `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
 - [ ] `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
 - [ ] `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path
 - [ ] `TASK-260712-ibuaxj` — run-comparative-streaming-evidence-matrix

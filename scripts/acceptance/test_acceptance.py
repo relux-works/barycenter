@@ -81,6 +81,11 @@ class AcceptanceHarnessTests(unittest.TestCase):
         )
         self.assertEqual(manual["status"], "manual-required")
 
+    def test_contract_subprocess_cannot_dirty_checkout_with_bytecode(self):
+        command = harness.suite_commands("swift", None, {})[0]
+        self.assertEqual(command.name, "acceptance-contract-tests")
+        self.assertEqual(command.env, {"PYTHONDONTWRITEBYTECODE": "1"})
+
     def test_wack_runner_fails_closed_on_noninteractive_execution(self):
         source = (harness.ROOT / "scripts/acceptance/run_wack.ps1").read_text(encoding="utf-8")
         for contract in (

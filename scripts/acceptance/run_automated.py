@@ -164,6 +164,7 @@ def suite_commands(suite: str, go_env: dict[str, str] | None, apple_env: dict[st
             "acceptance-contract-tests",
             ROOT,
             ("python3", "-m", "unittest", "scripts/acceptance/test_acceptance.py"),
+            {"PYTHONDONTWRITEBYTECODE": "1"},
         )
     ]
     coordinator = [

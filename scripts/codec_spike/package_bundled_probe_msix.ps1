@@ -90,9 +90,12 @@ try {
     if (-not $InstalledPackage) { throw "test-signed codec MSIX did not install" }
     $InstalledDriver = Join-Path $InstalledPackage.InstallLocation "pulsar-codec-probe.exe"
     $OfflineFixture = Join-Path $InstalledPackage.InstallLocation "Fixtures\mp3_cbr_12s.mp3"
-    $DecodeJSON = & $InstalledDriver $OfflineFixture 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "installed offline decode failed with exit ${LASTEXITCODE}: $DecodeJSON" }
-    $Decode = $DecodeJSON | ConvertFrom-Json
+    $DecodeStderr = Join-Path $BuildRoot "installed-decode.stderr.txt"
+    $DecodeJSON = & $InstalledDriver $OfflineFixture 2> $DecodeStderr
+    if ($LASTEXITCODE -ne 0) {
+        throw "installed offline decode failed with exit ${LASTEXITCODE}: $(Get-Content $DecodeStderr -Raw)"
+    }
+    $Decode = ($DecodeJSON | Select-Object -Last 1) | ConvertFrom-Json
     if ($Decode.codec -cne "mp3" -or -not $Decode.drained -or $Decode.frames -le 0 -or
         $Decode.peakRSSBytes -le 0 -or $Decode.peakRSSBytes -gt 268435456) {
         throw "installed offline decode returned invalid evidence"
@@ -116,6 +119,7 @@ try {
         engineeringSignature = "ephemeral-ci-test-certificate"; releaseSignature = "not-proven";
         runtimeExecutableDownload = $false; decoderProcessOwnsNetwork = $false; files = @($Files);
         offlineInstalledDecode = $true; installedDecode = $Decode;
+        installedDecodeStderrSha256 = (Get-FileHash $DecodeStderr -Algorithm SHA256).Hash.ToLowerInvariant();
         shippingDecision = "rejected-until-all-required-platform-and-release-evidence-exists";
         claimClass = "repository-engineering-prototype"
     } | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 (Join-Path $OutputDirectory "receipt-windows-amd64.json")

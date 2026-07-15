@@ -60,7 +60,8 @@ const (
 	idShellJoin          = 3003
 	idShellTry           = 3004
 	idShellHistory       = 3005
-	idShellSettings      = 3006
+	idShellAirs          = 3006
+	idShellSettings      = 3007
 	idShellAction        = 3010
 	idShellRecord        = 3011
 	idShellDND           = 3012
@@ -88,10 +89,30 @@ const (
 	idShellReportReason  = 3040
 	idShellReportDetails = 3041
 	idShellHistoryReport = 3042
+	idShellAirTitle      = 3050
+	idShellAirCode       = 3051
+	idShellAirNext       = 3052
+	idShellAirCreate     = 3053
+	idShellAirConsume    = 3054
+	idShellAirJoinSaved  = 3055
+	idShellAirJoinActive = 3056
+	idShellAirDecline    = 3057
+	idShellAirRole       = 3058
+	idShellAirInvite     = 3059
+	idShellAirCopy       = 3060
+	idShellAirHide       = 3061
+	idShellAirWithdraw   = 3062
+	idShellAirActivate   = 3063
+	idShellAirLeave      = 3064
+	idShellAirDissolve   = 3065
+	idShellAirPolicy     = 3066
+	idShellAirConfirm    = 3067
+	idShellAirCancel     = 3068
 
 	bsPushButton = 0x00000000
 	bsMultiline  = 0x00002000
 	ssLeft       = 0x00000000
+	esPassword   = 0x00000020
 
 	fVirtKey       = 0x01
 	fShift         = 0x04
@@ -112,49 +133,79 @@ type accel struct {
 	cmd   uint16
 }
 
+func shellSectionControlID(section ShellSection) int {
+	return map[ShellSection]int{
+		ShellHome: idShellHome, ShellCreate: idShellCreate, ShellJoin: idShellJoin,
+		ShellTryLocally: idShellTry, ShellHistory: idShellHistory, ShellAirs: idShellAirs,
+		ShellSettings: idShellSettings,
+	}[section]
+}
+
 type mainFonts struct {
 	dpi                int
 	title, body, small windows.Handle
 }
 
 type mainWindowCtx struct {
-	hwnd          windows.Handle
-	shell         *WindowsShell
-	nav           map[ShellSection]windows.Handle
-	title         windows.Handle
-	banner        windows.Handle
-	body          windows.Handle
-	home          [3]windows.Handle
-	cards         [3]windows.Handle
-	footer        windows.Handle
-	detail        windows.Handle
-	identityInput windows.Handle
-	recovery      windows.Handle
-	cue           windows.Handle
-	file          windows.Handle
-	outgoingFile  windows.Handle
-	delete        windows.Handle
-	input         windows.Handle
-	output        windows.Handle
-	draftNext     windows.Handle
-	route         windows.Handle
-	delivery      windows.Handle
-	send          windows.Handle
-	phaseDelete   windows.Handle
-	historyNext   windows.Handle
-	historyDelete windows.Handle
-	historyReplay windows.Handle
-	historyBlock  windows.Handle
-	reportReason  windows.Handle
-	reportLabel   windows.Handle
-	reportDetails windows.Handle
-	historyReport windows.Handle
-	record        windows.Handle
-	dnd           windows.Handle
-	english       windows.Handle
-	russian       windows.Handle
-	all           []windows.Handle
-	fonts         mainFonts
+	hwnd           windows.Handle
+	shell          *WindowsShell
+	nav            map[ShellSection]windows.Handle
+	title          windows.Handle
+	banner         windows.Handle
+	body           windows.Handle
+	home           [3]windows.Handle
+	cards          [3]windows.Handle
+	footer         windows.Handle
+	detail         windows.Handle
+	identityInput  windows.Handle
+	recovery       windows.Handle
+	cue            windows.Handle
+	file           windows.Handle
+	outgoingFile   windows.Handle
+	delete         windows.Handle
+	input          windows.Handle
+	output         windows.Handle
+	draftNext      windows.Handle
+	route          windows.Handle
+	delivery       windows.Handle
+	send           windows.Handle
+	phaseDelete    windows.Handle
+	historyNext    windows.Handle
+	historyDelete  windows.Handle
+	historyReplay  windows.Handle
+	historyBlock   windows.Handle
+	reportReason   windows.Handle
+	reportLabel    windows.Handle
+	reportDetails  windows.Handle
+	historyReport  windows.Handle
+	airTitleLabel  windows.Handle
+	airTitle       windows.Handle
+	airCodeLabel   windows.Handle
+	airCode        windows.Handle
+	airNext        windows.Handle
+	airCreate      windows.Handle
+	airConsume     windows.Handle
+	airJoinSaved   windows.Handle
+	airJoinActive  windows.Handle
+	airDecline     windows.Handle
+	airRole        windows.Handle
+	airInvite      windows.Handle
+	airCopy        windows.Handle
+	airHide        windows.Handle
+	airWithdraw    windows.Handle
+	airActivate    windows.Handle
+	airLeave       windows.Handle
+	airDissolve    windows.Handle
+	airPolicy      windows.Handle
+	airConfirm     windows.Handle
+	airCancel      windows.Handle
+	record         windows.Handle
+	dnd            windows.Handle
+	english        windows.Handle
+	russian        windows.Handle
+	all            []windows.Handle
+	fonts          mainFonts
+	laidOutSection ShellSection
 }
 
 var (
@@ -204,7 +255,7 @@ func createMainWindow(shell *WindowsShell) windows.Handle {
 	hwnd, _, _ := pCreateWindowExW.Call(
 		wsExControlParent, uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(u16("Pulsar"))),
 		wsOverlapped|wsCaption|wsSysMenu|wsMinimizeBox|wsMaximizeBox|wsThickFrame|wsClipChildren,
-		cwUseDefault, cwUseDefault, uintptr(dip(780, int(dpi))), uintptr(dip(500, int(dpi))),
+		cwUseDefault, cwUseDefault, uintptr(dip(960, int(dpi))), uintptr(dip(800, int(dpi))),
 		0, 0, hInst, 0)
 	if hwnd == 0 {
 		return 0
@@ -233,8 +284,8 @@ func (ctx *mainWindowCtx) createControls() {
 		return handle
 	}
 	ctx.nav = map[ShellSection]windows.Handle{}
-	for index, section := range shellSections {
-		ctx.nav[section] = mk(0, "BUTTON", "", buttonStyle|wsGroup|bsMultiline, idShellHome+index)
+	for _, section := range shellSections {
+		ctx.nav[section] = mk(0, "BUTTON", "", buttonStyle|wsGroup|bsMultiline, shellSectionControlID(section))
 	}
 	ctx.title = mk(0, "STATIC", "", wsChild|wsVisible|ssLeft, 0)
 	ctx.banner = mk(wsExClientEdge, "STATIC", "", wsChild|wsVisible|ssLeft, 0)
@@ -269,6 +320,29 @@ func (ctx *mainWindowCtx) createControls() {
 	ctx.reportDetails = mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop|0x0080, idShellReportDetails)
 	pSendMessageW.Call(uintptr(ctx.reportDetails), emSetLimitText, 2000, 0)
 	ctx.historyReport = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellHistoryReport)
+	ctx.airTitleLabel = mk(0, "STATIC", "", wsChild|wsVisible|ssLeft, 0)
+	ctx.airTitle = mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop, idShellAirTitle)
+	pSendMessageW.Call(uintptr(ctx.airTitle), emSetLimitText, 80, 0)
+	ctx.airCodeLabel = mk(0, "STATIC", "", wsChild|wsVisible|ssLeft, 0)
+	ctx.airCode = mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop|esPassword, idShellAirCode)
+	pSendMessageW.Call(uintptr(ctx.airCode), emSetLimitText, 512, 0)
+	ctx.airNext = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirNext)
+	ctx.airCreate = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirCreate)
+	ctx.airConsume = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirConsume)
+	ctx.airJoinSaved = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirJoinSaved)
+	ctx.airJoinActive = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirJoinActive)
+	ctx.airDecline = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirDecline)
+	ctx.airRole = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirRole)
+	ctx.airInvite = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirInvite)
+	ctx.airCopy = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirCopy)
+	ctx.airHide = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirHide)
+	ctx.airWithdraw = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirWithdraw)
+	ctx.airActivate = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirActivate)
+	ctx.airLeave = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirLeave)
+	ctx.airDissolve = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirDissolve)
+	ctx.airPolicy = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirPolicy)
+	ctx.airConfirm = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirConfirm)
+	ctx.airCancel = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirCancel)
 	ctx.record = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellRecord)
 	ctx.dnd = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDND)
 	ctx.english = mk(0, "BUTTON", "English", buttonStyle|bsPushButton, idShellEnglish)
@@ -281,6 +355,7 @@ func (ctx *mainWindowCtx) installAccelerators() {
 		{fVirtKey | fControl, 0, '0', idShellOpen},
 		{fVirtKey | fControl, 0, '1', idShellCreate},
 		{fVirtKey | fControl, 0, '2', idShellJoin},
+		{fVirtKey | fControl, 0, '3', idShellAirs},
 		{fVirtKey | fControl | fShift, 0, 'T', idShellTry},
 		{fVirtKey | fControl | fShift, 0, 'R', idShellRecord},
 		{fVirtKey | fControl | fShift, 0, 'D', idShellDND},
@@ -342,6 +417,9 @@ func (ctx *mainWindowCtx) layout() {
 	var client winRect
 	pGetClientRect.Call(uintptr(ctx.hwnd), uintptr(unsafe.Pointer(&client)))
 	layout := layoutWindowsShell(int(client.right-client.left), int(client.bottom-client.top), ctx.dpi())
+	if ctx.shell != nil && ctx.shell.Section() == ShellAirs {
+		layout.Body.Height = dip(210, layout.DPI)
+	}
 	gap, pad := dip(8, layout.DPI), dip(10, layout.DPI)
 	navHeight := dip(42, layout.DPI)
 	for index, section := range shellSections {
@@ -383,6 +461,27 @@ func (ctx *mainWindowCtx) layout() {
 	move(ctx.reportLabel, ShellRect{X: layout.Content.X + dip(132, layout.DPI), Y: reportY + dip(3, layout.DPI), Width: dip(108, layout.DPI), Height: dip(36, layout.DPI)})
 	move(ctx.reportDetails, ShellRect{X: layout.Content.X + dip(248, layout.DPI), Y: reportY + dip(3, layout.DPI), Width: dip(108, layout.DPI), Height: dip(34, layout.DPI)})
 	move(ctx.historyReport, ShellRect{X: layout.Content.X + dip(364, layout.DPI), Y: reportY, Width: dip(104, layout.DPI), Height: dip(40, layout.DPI)})
+	airLayout := layoutWindowsAirControls(layout.Content, layout.Body.Bottom(), layout.DPI)
+	move(ctx.airTitleLabel, airLayout.TitleLabel)
+	move(ctx.airTitle, airLayout.TitleInput)
+	move(ctx.airCreate, airLayout.Create)
+	move(ctx.airCodeLabel, airLayout.CodeLabel)
+	move(ctx.airCode, airLayout.CodeInput)
+	move(ctx.airConsume, airLayout.Consume)
+	row := []windows.Handle{ctx.airNext, ctx.airActivate, ctx.airLeave, ctx.airDissolve}
+	for index, control := range row {
+		move(control, airLayout.Manage[index])
+	}
+	row = []windows.Handle{ctx.airRole, ctx.airInvite, ctx.airCopy, ctx.airHide, ctx.airWithdraw}
+	for index, control := range row {
+		move(control, airLayout.Invite[index])
+	}
+	row = []windows.Handle{ctx.airJoinSaved, ctx.airJoinActive, ctx.airDecline, ctx.airPolicy}
+	for index, control := range row {
+		move(control, airLayout.Pending[index])
+	}
+	move(ctx.airConfirm, airLayout.Confirm)
+	move(ctx.airCancel, airLayout.Cancel)
 }
 
 func (ctx *mainWindowCtx) render() {
@@ -391,6 +490,10 @@ func (ctx *mainWindowCtx) render() {
 	}
 	snapshot := ctx.shell.Snapshot()
 	section := ctx.shell.Section()
+	if ctx.laidOutSection != section {
+		ctx.laidOutSection = section
+		ctx.layout()
+	}
 	copy := NewShellCopy(ctx.shell.Locale())
 	for candidate, control := range ctx.nav {
 		label := copy.Section(candidate)
@@ -529,6 +632,65 @@ func (ctx *mainWindowCtx) render() {
 	pEnableWindow.Call(uintptr(ctx.reportDetails), boolWord(hasHistory && selectedHistory.CanReport))
 	pEnableWindow.Call(uintptr(ctx.historyReport), boolWord(hasHistory && selectedHistory.CanReport))
 
+	airPage := section == ShellAirs
+	for _, control := range []windows.Handle{ctx.airTitleLabel, ctx.airTitle, ctx.airCodeLabel, ctx.airCode, ctx.airNext, ctx.airCreate, ctx.airConsume,
+		ctx.airJoinSaved, ctx.airJoinActive, ctx.airDecline, ctx.airRole, ctx.airInvite, ctx.airCopy, ctx.airHide,
+		ctx.airWithdraw, ctx.airActivate, ctx.airLeave, ctx.airDissolve, ctx.airPolicy, ctx.airConfirm, ctx.airCancel} {
+		showControl(control, airPage)
+	}
+	hasAir := len(snapshot.Airs) > 0
+	selectedAir := ShellAirItem{}
+	if hasAir {
+		selectedAir = snapshot.Airs[snapshot.SelectedAir]
+	}
+	hasPending := snapshot.PendingAirJoin != nil
+	confirming := snapshot.AirConfirmAction != ""
+	available := airPage && snapshot.AirAvailable && !snapshot.AirBusy
+	setText(ctx.airTitleLabel, map[bool]string{true: "Air title", false: "Название эфира"}[copy.locale == ShellEnglish])
+	setText(ctx.airCodeLabel, map[bool]string{true: "Invite code", false: "Код приглашения"}[copy.locale == ShellEnglish])
+	setText(ctx.airNext, map[bool]string{true: "Next saved Air", false: "След. сохранённый"}[copy.locale == ShellEnglish])
+	setText(ctx.airCreate, map[bool]string{true: "Create and save", false: "Создать и сохранить"}[copy.locale == ShellEnglish])
+	setText(ctx.airConsume, map[bool]string{true: "Review invite", false: "Проверить приглашение"}[copy.locale == ShellEnglish])
+	setText(ctx.airJoinSaved, map[bool]string{true: "Join, keep saved", false: "Вступить, сохранить"}[copy.locale == ShellEnglish])
+	setText(ctx.airJoinActive, map[bool]string{true: "Join and activate", false: "Вступить и включить"}[copy.locale == ShellEnglish])
+	setText(ctx.airDecline, map[bool]string{true: "Decline join", false: "Отклонить вступление"}[copy.locale == ShellEnglish])
+	setText(ctx.airRole, map[bool]string{true: "Invite role: ", false: "Роль приглашения: "}[copy.locale == ShellEnglish]+copy.AirRole(snapshot.AirInviteRole))
+	setText(ctx.airInvite, map[bool]string{true: "Create invite", false: "Создать приглашение"}[copy.locale == ShellEnglish])
+	setText(ctx.airCopy, map[bool]string{true: "Copy once", false: "Скопировать"}[copy.locale == ShellEnglish])
+	setText(ctx.airHide, map[bool]string{true: "Hide secret", false: "Скрыть секрет"}[copy.locale == ShellEnglish])
+	setText(ctx.airWithdraw, map[bool]string{true: "Withdraw", false: "Отозвать"}[copy.locale == ShellEnglish])
+	activateLabel := map[bool]string{true: "Make active", false: "Сделать активным"}[copy.locale == ShellEnglish]
+	if selectedAir.Current {
+		activateLabel = map[bool]string{true: "Deactivate", false: "Отключить"}[copy.locale == ShellEnglish]
+	}
+	setText(ctx.airActivate, activateLabel)
+	setText(ctx.airLeave, map[bool]string{true: "Leave Air", false: "Выйти из эфира"}[copy.locale == ShellEnglish])
+	setText(ctx.airDissolve, map[bool]string{true: "Dissolve Air", false: "Распустить эфир"}[copy.locale == ShellEnglish])
+	setText(ctx.airPolicy, map[bool]string{true: "Next policy preset", false: "След. политика"}[copy.locale == ShellEnglish])
+	setText(ctx.airConfirm, map[bool]string{true: "Confirm disruptive action", false: "Подтвердить действие"}[copy.locale == ShellEnglish])
+	setText(ctx.airCancel, map[bool]string{true: "Cancel confirmation", false: "Отменить подтверждение"}[copy.locale == ShellEnglish])
+	pEnableWindow.Call(uintptr(ctx.airTitle), boolWord(available))
+	pEnableWindow.Call(uintptr(ctx.airCode), boolWord(available))
+	pEnableWindow.Call(uintptr(ctx.airCreate), boolWord(available))
+	pEnableWindow.Call(uintptr(ctx.airConsume), boolWord(available))
+	pEnableWindow.Call(uintptr(ctx.airNext), boolWord(available && len(snapshot.Airs) > 1))
+	pEnableWindow.Call(uintptr(ctx.airJoinSaved), boolWord(available && hasPending && !confirming))
+	pEnableWindow.Call(uintptr(ctx.airJoinActive), boolWord(available && hasPending && !confirming))
+	pEnableWindow.Call(uintptr(ctx.airDecline), boolWord(available && hasPending && !confirming))
+	pEnableWindow.Call(uintptr(ctx.airRole), boolWord(available && hasAir && airInviteAllowed(selectedAir)))
+	pEnableWindow.Call(uintptr(ctx.airInvite), boolWord(available && hasAir && airInviteAllowed(selectedAir)))
+	pEnableWindow.Call(uintptr(ctx.airCopy), boolWord(available && snapshot.AirInviteAvailable))
+	pEnableWindow.Call(uintptr(ctx.airHide), boolWord(available && snapshot.AirInviteAvailable))
+	pEnableWindow.Call(uintptr(ctx.airWithdraw), boolWord(available && snapshot.AirInviteAvailable))
+	pEnableWindow.Call(uintptr(ctx.airActivate), boolWord(available && hasAir && selectedAir.MembershipStatus == AirJoined && !confirming))
+	pEnableWindow.Call(uintptr(ctx.airLeave), boolWord(available && hasAir && selectedAir.Role != AirRoleOwner && selectedAir.MembershipStatus == AirJoined && !confirming))
+	pEnableWindow.Call(uintptr(ctx.airDissolve), boolWord(available && hasAir && selectedAir.Role == AirRoleOwner && !confirming))
+	pEnableWindow.Call(uintptr(ctx.airPolicy), boolWord(available && hasAir && selectedAir.Role == AirRoleOwner && !confirming))
+	showControl(ctx.airConfirm, airPage && confirming)
+	showControl(ctx.airCancel, airPage && confirming)
+	pEnableWindow.Call(uintptr(ctx.airConfirm), boolWord(available && confirming))
+	pEnableWindow.Call(uintptr(ctx.airCancel), boolWord(available && confirming))
+
 	if home {
 		setText(ctx.body, copy.Text(txtPrimary)+"\r\n"+copy.Body(section, snapshot))
 		setText(ctx.home[0], copy.Text(txtCreate)+"  Ctrl+1")
@@ -609,7 +771,7 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		id := int(wParam & 0xffff)
 		sectionByID := map[int]ShellSection{
 			idShellHome: ShellHome, idShellCreate: ShellCreate, idShellJoin: ShellJoin,
-			idShellTry: ShellTryLocally, idShellHistory: ShellHistory, idShellSettings: ShellSettings,
+			idShellTry: ShellTryLocally, idShellHistory: ShellHistory, idShellAirs: ShellAirs, idShellSettings: ShellSettings,
 		}
 		if section, ok := sectionByID[id]; ok {
 			ctx.shell.Select(section)
@@ -641,6 +803,9 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 				actions.ToggleRecording()
 			}
 		case idShellCancel:
+			if snapshot.AirConfirmAction != "" && actions.CancelAirDisruptive != nil {
+				actions.CancelAirDisruptive()
+			}
 			if (snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing || shellLocalCaptureBusy(snapshot)) && actions.CancelRecording != nil {
 				actions.CancelRecording()
 			}
@@ -719,6 +884,76 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 			if actions.ReportSelectedHistoryItem != nil {
 				actions.ReportSelectedHistoryItem(windowText(ctx.reportDetails))
 			}
+		case idShellAirNext:
+			if actions.SelectNextAir != nil {
+				actions.SelectNextAir()
+			}
+		case idShellAirCreate:
+			if actions.CreateAir != nil {
+				actions.CreateAir(windowText(ctx.airTitle))
+				setText(ctx.airTitle, "")
+			}
+		case idShellAirConsume:
+			if actions.ConsumeAirInvite != nil {
+				actions.ConsumeAirInvite(windowText(ctx.airCode))
+				setText(ctx.airCode, "")
+			}
+		case idShellAirJoinSaved:
+			if actions.ConfirmAirJoin != nil {
+				actions.ConfirmAirJoin(false)
+			}
+		case idShellAirJoinActive:
+			if actions.ConfirmAirJoin != nil {
+				actions.ConfirmAirJoin(true)
+			}
+		case idShellAirDecline:
+			if actions.DeclineAirJoin != nil {
+				actions.DeclineAirJoin()
+			}
+		case idShellAirRole:
+			if actions.SelectNextAirInviteRole != nil {
+				actions.SelectNextAirInviteRole()
+			}
+		case idShellAirInvite:
+			if actions.IssueAirInvite != nil {
+				actions.IssueAirInvite()
+			}
+		case idShellAirCopy:
+			if actions.CopyAirInvite != nil {
+				actions.CopyAirInvite()
+			}
+		case idShellAirHide:
+			if actions.HideAirInvite != nil {
+				actions.HideAirInvite()
+			}
+		case idShellAirWithdraw:
+			if actions.WithdrawAirInvite != nil {
+				actions.WithdrawAirInvite()
+			}
+		case idShellAirActivate:
+			if actions.RequestAirActivation != nil {
+				actions.RequestAirActivation()
+			}
+		case idShellAirLeave:
+			if actions.RequestAirLeave != nil {
+				actions.RequestAirLeave()
+			}
+		case idShellAirDissolve:
+			if actions.RequestAirDissolve != nil {
+				actions.RequestAirDissolve()
+			}
+		case idShellAirPolicy:
+			if actions.CycleAirPolicy != nil {
+				actions.CycleAirPolicy()
+			}
+		case idShellAirConfirm:
+			if actions.ConfirmAirDisruptive != nil {
+				actions.ConfirmAirDisruptive()
+			}
+		case idShellAirCancel:
+			if actions.CancelAirDisruptive != nil {
+				actions.CancelAirDisruptive()
+			}
 		case idShellDND:
 			if shellDNDEnabled(snapshot) && actions.SetDND != nil {
 				next := ShellDNDMessagesOnly
@@ -780,7 +1015,7 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 			if ctx != nil {
 				dpi = ctx.dpi()
 			}
-			info.minTrackSize = pointStruct{int32(dip(700, dpi)), int32(dip(500, dpi))}
+			info.minTrackSize = pointStruct{int32(dip(900, dpi)), int32(dip(760, dpi))}
 			pRtlMoveMemory.Call(
 				lParam, uintptr(unsafe.Pointer(&info)), unsafe.Sizeof(info))
 		}

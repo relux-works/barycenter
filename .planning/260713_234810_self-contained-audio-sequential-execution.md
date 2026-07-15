@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1uz0za` — p1-independent-realtime-audio-review
-  (development; deterministic technical self-audit active)
-- Next engineering task: `TASK-260712-1xkn75` — p1-independent-migration-review
+- Current engineering task: `TASK-260712-1xkn75` — p1-independent-migration-review
+  (starting from synchronized `main` after realtime-audio engineering handoff)
+- Next engineering task: `TASK-260712-wy05n6` — p1-independent-security-review
 - Most recently accepted: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Current branch: `task/task-260712-1uz0za-p1-independent-realtime-audio-review`
+- Current branch: `tracking/task-260712-1uz0za-realtime-audio-review`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -1025,6 +1025,22 @@ failure parity. Real A3/A4 listening, physical timing, packaged applications
 and hardware remain exclusively in manual `TASK-260712-2hodti`; a separate
 non-implementing audio-reviewer signature will be accumulated in the external
 owner ledger instead of being self-claimed.
+
+The realtime-audio audit closed three HIGH findings. Windows now reports
+asynchronous mixer/resume failure as typed failure rather than false completion,
+honors `resume_main=false`, and consumes one cached interrupt-finalizer outcome
+across cancel/natural-end races. macOS now uses atomic FIFO-reader ownership,
+serializes multiple gain-command producers outside the render callback, bounds
+idle FIFO shutdown and builds heartbeat state as one queue-owned snapshot.
+Exact engineering head `805337d0d572f6e45b90fc76120af29f21be89e3`
+passed the clean 12-stage repository acceptance suite with start/end dirty
+false; the complete Swift suite passed 218 tests and Windows passed its full
+race suite. Hosted run `29401627207` passed all four jobs, and PR #70 landed at
+merge `5aedd6817bece741b76408135271a5fb8da40a83`. Independent reviewer plus
+manual A3/A4 completion is routed to owner task `TASK-260715-s838ym` and
+hardware task `TASK-260712-2hodti`. The original review remains `to-review` and
+does not increase accepted-task counts; its engineering scope is exhausted, so
+strict execution advances to `TASK-260712-1xkn75`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

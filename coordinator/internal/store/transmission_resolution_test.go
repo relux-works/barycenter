@@ -684,10 +684,6 @@ func TestCancelAuthorizedTransmissionReturnsGenerationBoundDisarm(t *testing.T) 
 func TestResolvedTransmissionExplicitSelectorsDeduplicateThenFilterOrigin(t *testing.T) {
 	st, source := newMediaIngestTestStore(t)
 	companion := addTransmissionInstallation(t, st, source, "companion")
-	foreign, err := st.CreateSelfServiceOrbit("Outside explicit domain")
-	if err != nil {
-		t.Fatal(err)
-	}
 	now := time.Now().UnixMilli()
 	media := readyLifecycleMedia(
 		t, st, source, now, now+int64((7*24*time.Hour)/time.Millisecond),
@@ -696,9 +692,29 @@ func TestResolvedTransmissionExplicitSelectorsDeduplicateThenFilterOrigin(t *tes
 	params.AudienceKind = TransmissionAudienceExplicit
 	params.OriginKind = TransmissionOriginMicrophone
 	params.IncludeOrigin = false
+	barycenterReference, err := st.IssueTransmissionTargetReference(
+		IssueTransmissionTargetReferenceParams{
+			ExpectedActorID: source.ActorID, Bearer: source.ControlToken,
+			Kind: TransmissionSelectorBarycenter, OrbitID: source.OrbitID,
+			IssuedAt: params.AcceptedAt - 1,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	companionReference, err := st.IssueTransmissionTargetReference(
+		IssueTransmissionTargetReferenceParams{
+			ExpectedActorID: source.ActorID, Bearer: source.ControlToken,
+			Kind: TransmissionSelectorPulsar, OrbitID: source.OrbitID,
+			Slot: companion.Slot, IssuedAt: params.AcceptedAt - 1,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	params.Selectors = []TransmissionAudienceSelector{
-		{Kind: TransmissionSelectorBarycenter, OrbitID: source.OrbitID},
-		{Kind: TransmissionSelectorPulsar, OrbitID: source.OrbitID, Slot: companion.Slot},
+		{Reference: barycenterReference},
+		{Reference: companionReference},
 	}
 	params.Availability = []TransmissionTargetAvailability{
 		fullTransmissionAvailability(source, params.AcceptedAt),
@@ -712,9 +728,9 @@ func TestResolvedTransmissionExplicitSelectorsDeduplicateThenFilterOrigin(t *tes
 	outside := params
 	outside.IdempotencyKeyHash = strings.Repeat("b", 64)
 	outside.RequestHash = strings.Repeat("c", 64)
-	outside.Selectors = []TransmissionAudienceSelector{
-		{Kind: TransmissionSelectorBarycenter, OrbitID: foreign.OrbitID},
-	}
+	outside.Selectors = []TransmissionAudienceSelector{{
+		Reference: "trf_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+	}}
 	if _, err := st.CreateResolvedTransmission(outside); !errors.Is(err, ErrTransmissionAudienceNotFound) {
 		t.Fatalf("outside selector error=%v", err)
 	}
@@ -724,6 +740,16 @@ func TestResolvedTransmissionExplicitSelectorsDeduplicateThenFilterOrigin(t *tes
 		t.Fatal(err)
 	}
 	activateTransmissionApproach(t, st, source, emptyPeer)
+	emptyReference, err := st.IssueTransmissionTargetReference(
+		IssueTransmissionTargetReferenceParams{
+			ExpectedActorID: source.ActorID, Bearer: source.ControlToken,
+			Kind: TransmissionSelectorBarycenter, OrbitID: emptyPeer.OrbitID,
+			IssuedAt: params.AcceptedAt - 1,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := st.db.Exec(`UPDATE slots SET revoked_at = ? WHERE orbit_id = ?`,
 		params.AcceptedAt, emptyPeer.OrbitID); err != nil {
 		t.Fatal(err)
@@ -731,10 +757,7 @@ func TestResolvedTransmissionExplicitSelectorsDeduplicateThenFilterOrigin(t *tes
 	emptySelector := params
 	emptySelector.IdempotencyKeyHash = strings.Repeat("d", 64)
 	emptySelector.RequestHash = strings.Repeat("e", 64)
-	emptySelector.Selectors = []TransmissionAudienceSelector{
-		{Kind: TransmissionSelectorBarycenter, OrbitID: source.OrbitID},
-		{Kind: TransmissionSelectorBarycenter, OrbitID: emptyPeer.OrbitID},
-	}
+	emptySelector.Selectors = []TransmissionAudienceSelector{{Reference: emptyReference}}
 	if _, err := st.CreateResolvedTransmission(emptySelector); !errors.Is(err, ErrTransmissionAudienceNotFound) {
 		t.Fatalf("empty explicit selector error=%v", err)
 	}

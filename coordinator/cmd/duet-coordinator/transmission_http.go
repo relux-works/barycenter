@@ -27,6 +27,7 @@ var (
 	transmissionMediaID           = regexp.MustCompile(`^m_[0-9A-HJKMNP-TV-Z]{26}$`)
 	transmissionIdempotencyKey    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$`)
 	transmissionConfirmationToken = regexp.MustCompile(`^fc_[0-9a-f]{64}$`)
+	transmissionTargetReference   = regexp.MustCompile(`^trf_[A-Za-z0-9_-]{43}$`)
 )
 
 const (
@@ -40,6 +41,7 @@ const (
 	errorTransmissionState       = "transmission_state_conflict"
 	errorDeliveryKindMismatch    = "delivery_kind_mismatch"
 	errorDeliveryNotSupported    = "delivery_not_supported"
+	errorUnsupportedTargets      = "unsupported_targets"
 	errorOverlayDuration         = "overlay_duration_exceeded"
 )
 
@@ -59,6 +61,7 @@ type transmissionPresenceState struct {
 	PlaybackState        string
 	OutputDegraded       bool
 	InterruptResumeReady bool
+	Capabilities         []string
 }
 
 type transmissionPresenceSnapshotter func() map[transmissionPresenceKey]transmissionPresenceState
@@ -83,6 +86,7 @@ func transmissionPresenceSnapshotterForHub(h *hub.Hub) transmissionPresenceSnaps
 					MainActive: true, PlaybackState: snapshot.PlaybackState,
 					OutputDegraded:       snapshot.OutputDegraded,
 					InterruptResumeReady: interrupt,
+					Capabilities:         snapshot.Capabilities.Values(),
 				}
 		}
 		return result
@@ -103,9 +107,7 @@ func transmissionDigest(value string) string {
 }
 
 type transmissionAudienceTargetRequest struct {
-	Kind    string  `json:"kind"`
-	OrbitID int64   `json:"orbit_id"`
-	Slot    *string `json:"slot,omitempty"`
+	Reference string `json:"reference"`
 }
 
 type transmissionAudienceRequest struct {
@@ -257,30 +259,12 @@ func validateTransmissionCreateRequest(
 			return false, nil
 		}
 		for _, target := range request.Audience.Targets {
-			selector := store.TransmissionAudienceSelector{
-				Kind:    store.TransmissionAudienceSelectorKind(target.Kind),
-				OrbitID: target.OrbitID,
-			}
-			if target.Slot != nil {
-				selector.Slot = *target.Slot
-			}
-			if selector.OrbitID <= 0 {
+			if !transmissionTargetReference.MatchString(target.Reference) {
 				return false, nil
 			}
-			switch selector.Kind {
-			case store.TransmissionSelectorBarycenter:
-				if target.Slot != nil {
-					return false, nil
-				}
-			case store.TransmissionSelectorPulsar:
-				if target.Slot == nil || len(selector.Slot) != 1 ||
-					selector.Slot[0] < 'a' || selector.Slot[0] > 'z' {
-					return false, nil
-				}
-			default:
-				return false, nil
-			}
-			selectors = append(selectors, selector)
+			selectors = append(selectors, store.TransmissionAudienceSelector{
+				Reference: target.Reference,
+			})
 		}
 	default:
 		return false, nil
@@ -333,6 +317,7 @@ func writeTransmissionAPIError(
 		errorTransmissionState:       "The transmission cannot be changed in its current state.",
 		errorDeliveryKindMismatch:    "The media kind and delivery mode cannot be combined.",
 		errorDeliveryNotSupported:    "The requested delivery mode is not supported in this phase.",
+		errorUnsupportedTargets:      "One or more selected targets do not support the requested delivery.",
 		errorOverlayDuration:         "Overlay is limited to 60 seconds.",
 		errorInternal:                "An internal error occurred.",
 	}
@@ -357,6 +342,15 @@ type transmissionChallengeDetails struct {
 
 type transmissionAlternativesDetails struct {
 	Alternatives []transmissionAlternativeResponse `json:"alternatives"`
+}
+
+type transmissionUnsupportedTargetResponse struct {
+	Reference           string   `json:"reference"`
+	MissingCapabilities []string `json:"missing_capabilities"`
+}
+
+type transmissionUnsupportedTargetsDetails struct {
+	Targets []transmissionUnsupportedTargetResponse `json:"targets"`
 }
 
 func transmissionAlternatives(
@@ -391,6 +385,7 @@ func (api *onboardingAPI) transmissionStoreError(w http.ResponseWriter, operatio
 		return false
 	}
 	var duration *store.TransmissionOverlayDurationError
+	var unsupported *store.TransmissionUnsupportedTargetsError
 	switch {
 	case errors.Is(err, store.ErrUnauthorized):
 		writeTransmissionAPIError(w, http.StatusUnauthorized, errorUnauthorized, nil)
@@ -413,6 +408,16 @@ func (api *onboardingAPI) transmissionStoreError(w http.ResponseWriter, operatio
 		writeTransmissionAPIError(w, http.StatusConflict, errorConfirmationInvalid, nil)
 	case errors.Is(err, store.ErrTransmissionDeliveryKindMismatch):
 		writeTransmissionAPIError(w, http.StatusUnprocessableEntity, errorDeliveryKindMismatch, nil)
+	case errors.As(err, &unsupported):
+		details := transmissionUnsupportedTargetsDetails{
+			Targets: make([]transmissionUnsupportedTargetResponse, 0, len(unsupported.Targets)),
+		}
+		for _, target := range unsupported.Targets {
+			details.Targets = append(details.Targets, transmissionUnsupportedTargetResponse{
+				Reference: target.Reference, MissingCapabilities: target.MissingCapabilities,
+			})
+		}
+		writeTransmissionAPIError(w, http.StatusUnprocessableEntity, errorUnsupportedTargets, details)
 	case errors.As(err, &duration):
 		writeTransmissionAPIError(w, http.StatusUnprocessableEntity, errorOverlayDuration,
 			transmissionAlternativesDetails{Alternatives: transmissionAlternatives(duration.Alternatives)})
@@ -457,9 +462,46 @@ func (api *onboardingAPI) transmissionAvailability() []store.TransmissionTargetA
 			InterruptCapable:     state.InterruptCapable,
 			MainActive:           state.MainActive,
 			InterruptResumeReady: state.InterruptResumeReady,
+			Capabilities:         append([]string(nil), state.Capabilities...),
 		})
 	}
 	return result
+}
+
+type transmissionTargetReferenceJSON struct {
+	Reference string `json:"reference"`
+	Kind      string `json:"kind"`
+	Label     string `json:"label"`
+}
+
+type transmissionTargetReferencesJSON struct {
+	Contract string                            `json:"contract"`
+	Targets  []transmissionTargetReferenceJSON `json:"targets"`
+}
+
+func (api *onboardingAPI) transmissionTargetReferences(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet || r.URL.Path != "/v1/transmission-targets" ||
+		r.URL.RawQuery != "" || r.ContentLength > 0 {
+		writeTransmissionAPIError(w, http.StatusBadRequest, errorInvalidRequest, nil)
+		return
+	}
+	actor := r.Context().Value(actorRequestKey{}).(actorRequest)
+	options, err := api.store.ListTransmissionTargetReferences(
+		actor.Context.ActorID, actor.Bearer, api.transmissionNow().UTC().UnixMilli(),
+	)
+	if api.transmissionStoreError(w, "list transmission target references", err) {
+		return
+	}
+	response := transmissionTargetReferencesJSON{
+		Contract: "p2-targets-inbox-parity.v1",
+		Targets:  make([]transmissionTargetReferenceJSON, 0, len(options)),
+	}
+	for _, option := range options {
+		response.Targets = append(response.Targets, transmissionTargetReferenceJSON{
+			Reference: option.Reference, Kind: string(option.Kind), Label: option.Label,
+		})
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (api *onboardingAPI) reserveTransmission(w http.ResponseWriter, actor store.ActorContext) bool {

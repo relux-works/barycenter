@@ -533,6 +533,22 @@ func TestPersonalVoiceRouting(t *testing.T) {
 	}
 }
 
+func TestLegacyPersonalVoiceNeverFallsBackToBroadcastForMultipleRecipients(t *testing.T) {
+	l, fake := newTestLoop(t)
+	l.orbit(1).sess.SetPeers([]string{"a", "b", "c"})
+	replies := &replies{}
+	l.processLegacyTelegramMediaDone(mediaDone{
+		orbit: 1, mediaID: "m_legacy_multi", from: 111, fromName: "user-a",
+		personal: true, result: media.Result{DurationMS: 1000}, reply: replies.fn,
+	})
+	if sent := fake.drain(); len(sent) != 0 {
+		t.Fatalf("legacy N-recipient personal delivery broadcast: %+v", sent)
+	}
+	if !strings.Contains(replies.last(t), "общего сервиса маршрутизации") {
+		t.Fatalf("reply=%q", replies.last(t))
+	}
+}
+
 func TestTelegramVoiceSubmitMediaAdapterPreservesFIFORepliesAndLegacyPlayback(t *testing.T) {
 	l, fake := newTestLoop(t)
 	adapter := newControlledTelegramAdapter(l.st)

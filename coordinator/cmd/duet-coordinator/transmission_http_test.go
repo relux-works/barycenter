@@ -403,8 +403,8 @@ func TestTransmissionHTTPStrictJSONAndStableErrors(t *testing.T) {
 	)
 	assertTransmissionError(t, foreignRequest, http.StatusNotFound, errorMediaNotFound)
 	explicitOutsideBody := fmt.Sprintf(
-		`{"media_id":%q,"audience":{"kind":"explicit","targets":[{"kind":"barycenter","orbit_id":%d}]},"delivery":"overlay","origin_kind":"file"}`,
-		media.ID, foreign.OrbitID,
+		`{"media_id":%q,"audience":{"kind":"explicit","targets":[{"reference":"trf_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}]},"delivery":"overlay","origin_kind":"file"}`,
+		media.ID,
 	)
 	explicitOutside := transmissionAPIRequest(
 		harness.mux, http.MethodPost, "/v1/transmissions", explicitOutsideBody,
@@ -446,6 +446,99 @@ func TestTransmissionHTTPStrictJSONAndStableErrors(t *testing.T) {
 	)
 	if playHere.Code != http.StatusCreated || decodeObject(t, playHere)["include_origin"] != true {
 		t.Fatalf("play-here status=%d body=%s", playHere.Code, playHere.Body.String())
+	}
+}
+
+func TestTransmissionHTTPUsesOpaqueTargetsAndFailsClosedOnMixedVersions(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	owner, err := harness.store.CreateSelfServiceOrbit("Opaque target owner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	companion := installTransmissionCompanion(t, harness, owner)
+	now := time.Now().UnixMilli()
+	current := now + 3
+	harness.api.transmissionNow = func() time.Time { return time.UnixMilli(current) }
+	harness.api.transmissionPresence = func() map[transmissionPresenceKey]transmissionPresenceState {
+		return map[transmissionPresenceKey]transmissionPresenceState{
+			{OrbitID: owner.OrbitID, Slot: owner.Slot}:         transmissionPresenceFor(owner, current),
+			{OrbitID: companion.OrbitID, Slot: companion.Slot}: transmissionPresenceFor(companion, current),
+		}
+	}
+	listed := transmissionAPIRequest(
+		harness.mux, http.MethodGet, "/v1/transmission-targets", "",
+		owner.ControlToken, "",
+	)
+	if listed.Code != http.StatusOK || strings.Contains(listed.Body.String(), "orbit_id") ||
+		strings.Contains(listed.Body.String(), `"slot"`) {
+		t.Fatalf("target list status=%d body=%s", listed.Code, listed.Body.String())
+	}
+	listBody := decodeObject(t, listed)
+	if listBody["contract"] != "p2-targets-inbox-parity.v1" {
+		t.Fatalf("target contract=%v", listBody)
+	}
+	var companionReference string
+	for _, raw := range listBody["targets"].([]any) {
+		option := raw.(map[string]any)
+		if option["kind"] == "pulsar" && strings.HasSuffix(option["label"].(string), "Pulsar B") {
+			companionReference = option["reference"].(string)
+		}
+	}
+	if !transmissionTargetReference.MatchString(companionReference) {
+		t.Fatalf("companion reference=%q body=%v", companionReference, listBody)
+	}
+
+	media := readyTransmissionHTTPMedia(t, harness, owner, now, 1200)
+	current = now + 3
+	body := fmt.Sprintf(
+		`{"media_id":%q,"audience":{"kind":"explicit","targets":[{"reference":%q}]},"delivery":"overlay","origin_kind":"file"}`,
+		media.ID, companionReference,
+	)
+	created := transmissionAPIRequest(
+		harness.mux, http.MethodPost, "/v1/transmissions", body,
+		owner.ControlToken, "opaque-explicit-create-0001",
+	)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("explicit create status=%d body=%s", created.Code, created.Body.String())
+	}
+	if audience := decodeObject(t, created)["audience"].(map[string]any); audience["target_count"] != float64(1) {
+		t.Fatalf("audience=%v", audience)
+	}
+
+	unsupportedMedia := readyTransmissionHTTPMedia(t, harness, owner, now+10, 1200)
+	current = now + 13
+	harness.api.transmissionPresence = func() map[transmissionPresenceKey]transmissionPresenceState {
+		ownerPresence := transmissionPresenceFor(owner, current)
+		companionPresence := transmissionPresenceFor(companion, current)
+		companionPresence.MediaClipCapable = false
+		companionPresence.OverlayCapable = false
+		return map[transmissionPresenceKey]transmissionPresenceState{
+			{OrbitID: owner.OrbitID, Slot: owner.Slot}:         ownerPresence,
+			{OrbitID: companion.OrbitID, Slot: companion.Slot}: companionPresence,
+		}
+	}
+	unsupportedBody := fmt.Sprintf(
+		`{"media_id":%q,"audience":{"kind":"explicit","targets":[{"reference":%q}]},"delivery":"overlay","origin_kind":"file"}`,
+		unsupportedMedia.ID, companionReference,
+	)
+	unsupported := transmissionAPIRequest(
+		harness.mux, http.MethodPost, "/v1/transmissions", unsupportedBody,
+		owner.ControlToken, "opaque-explicit-create-0002",
+	)
+	errorObject := assertTransmissionError(
+		t, unsupported, http.StatusUnprocessableEntity, errorUnsupportedTargets,
+	)
+	targets := errorObject["details"].(map[string]any)["targets"].([]any)
+	if len(targets) != 1 {
+		t.Fatalf("unsupported targets=%v", targets)
+	}
+	target := targets[0].(map[string]any)
+	if target["reference"] != companionReference {
+		t.Fatalf("unsupported target=%v", target)
+	}
+	missing := target["missing_capabilities"].([]any)
+	if len(missing) != 2 || missing[0] != "media_clip_v1" || missing[1] != "overlay_mix_v1" {
+		t.Fatalf("missing capabilities=%v", missing)
 	}
 }
 

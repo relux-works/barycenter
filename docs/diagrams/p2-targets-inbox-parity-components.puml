@@ -13,18 +13,21 @@ actor "Support/Admin" as admin
 package "Coordinator" {
   component "Common Media Ingest\nSubmitMedia / Upload / Normalize" as ingest
   component "Transmission Application Service\nCreate / Replay / Delete / Cancel" as txsvc
-  component "Audience Resolver\nAir / Own / Explicit -> Snapshot" as resolver
+  component "Opaque Target Reference Service\nList / issue / bind / expire" as targetrefs
+  component "Audience Resolver\nAir / Own / Explicit -> exact snapshot" as resolver
+  component "Mixed-version Capability Policy\nClip + future track requirements" as capabilities
   component "Inbox and Receipt Query Service\nHistory / Pagination / Aggregates" as inboxsvc
   component "Rights and Policy Service\nContent policy / report / disable" as rights
   component "Media ACL Authorizer\nGET /media + revoke fetch" as acl
   component "Delivery Runtime\nClip scheduler + track queue policy" as runtime
 }
 
-database "Store\nmedia_items\ntransmissions\ntransmission_targets\ninbox rows\nreports\nairs / air_members" as db
+database "Store\nmedia_items\ntransmissions\ntransmission_targets\ntarget reference digests\nreports\nairs / air_members" as db
 component "Air Membership and Presence\n(active Air, capabilities, DND)" as air
 component "Windows/macOS Pulsars" as nodes
 
 ui --> ingest : upload / record / select media
+ui --> targetrefs : list authorized opaque trf_ capabilities
 ui --> txsvc : create transmission\nreplay / delete / cancel
 ui --> inboxsvc : history / inbox / receipts
 ui --> rights : accept policy / report / mute
@@ -34,8 +37,13 @@ tg --> txsvc : identical delivery actions\nqueue / replace / targets
 tg --> inboxsvc : status / receipts
 tg --> rights : policy / report errors
 
-txsvc --> resolver : resolve exact targets
+tg --> targetrefs : issue references through\nverified Telegram ActorContext
+targetrefs --> db : store only digest +\ncredential/domain/binding scope
+targetrefs --> air : authorize current domain\nand binding generation
+txsvc --> resolver : resolve + deduplicate\nthen apply include-origin
 resolver --> air : current Air members\ncapabilities / DND
+resolver --> targetrefs : resolve opaque selector\n404 for forged/stale/cross-scope
+txsvc --> capabilities : fail whole create with\n422 unsupported_targets
 txsvc --> runtime : schedule clip or main-program action
 txsvc --> db : persist transmission\nsnapshot / expiry
 inboxsvc --> db : read inbox / receipts\nwith pagination
@@ -47,17 +55,18 @@ rights --> db : reports / delete / disable
 rights --> acl : revoke future fetch
 admin --> rights : review report / disable actor
 
-note right of acl
-Current implementation still authorizes media by
-owner-or-active-approach and does not use immutable
-target snapshots.
+note right of inboxsvc
+Inbox persistence and query APIs are intentionally
+owned by the next tasks. This task reuses Phase 1
+transmission targets and does not create a second
+history, ACL, or moderation model.
 end note
 
 note bottom of txsvc
-Current Telegram flow still owns targeting and the
-"personal with >1 recipient becomes broadcast" fallback.
-Phase 2 replaces that with transport-neutral
-N-recipient delivery.
+Application and production Telegram paths now enter
+one common service. N-recipient personal delivery is
+never rewritten as broadcast. Rollback-era direct rows
+refuse an unrepresentable multi-target personal action.
 end note
 
 @enduml

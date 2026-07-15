@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 91 accepted, 114 remain.
-- Routed inventory: 186 engineering tasks (91 accepted, 95 remain) and 19
+- Combined inventory: 205 original tasks; 92 accepted, 113 remain.
+- Routed inventory: 186 engineering tasks (92 accepted, 94 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2bk0vy` — target-inbox-store-acl
-- Next engineering task: `TASK-260712-2bk0vy` — target-inbox-store-acl
-- Most recently accepted: `TASK-260712-1c34fe` — common-explicit-target-service
-- Current branch: `tracking/task-260712-1c34fe-acceptance`
+- Current engineering task: `TASK-260712-2ctf3x` — versioned-content-policy-consent
+- Next engineering task: `TASK-260712-2ctf3x` — versioned-content-policy-consent
+- Most recently accepted: `TASK-260712-2bk0vy` — target-inbox-store-acl
+- Current branch: `tracking/task-260712-2bk0vy-acceptance`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 91 / 205 tasks (approximately 44.4%); 114 remain
-- Engineering progress: 91 / 186 tasks (approximately 48.9%); 95 remain
+- Accepted overall: 92 / 205 tasks (approximately 44.9%); 113 remain
+- Engineering progress: 92 / 186 tasks (approximately 49.5%); 94 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1544,6 +1544,22 @@ hosted CI run `29455392790` passed all four jobs. Physical hardware evidence is
 not claimed. Progress is 91/205 overall and 91/186 engineering; strict
 execution advances to `TASK-260712-2bk0vy`.
 
+Checkpoint 2026-07-16: `TASK-260712-2bk0vy` extends the immutable Phase 1
+target tuple with canonical capability digest and resolution time, then creates
+exactly one inbox projection in the same transaction as each of the contract's
+nine eligible terminal receipts. Keyset reads revalidate the exact current
+installation generation without joining membership or Air state; replacement
+bindings and later members inherit neither old inbox rows nor media bytes.
+Expiry, dismissal/consumption fields, replay root/depth and canonical
+media/moderation revocation are additive, while rollback-safe defaults and
+startup backfill reconcile rows written by the previous coordinator. Local
+store/HTTP, targeted race, contract/acceptance, vet and exact previous-head
+rollback suites passed. PR #124 landed engineering commit `a2814c8` at merge
+`80e892b91afdfa8203eab7c19b14b294a3b7db2d`; hosted run `29456807669`
+passed coordinator, Swift, Windows and packaged-probe jobs. No real-hardware
+claim is made. Progress is 92/205 overall and 92/186 engineering; strict
+execution advances to `TASK-260712-2ctf3x`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2342,7 +2358,7 @@ Story: `STORY-260712-ob1tx2` — P2 Explicit targets, inbox and transport parity
 
 - [x] `TASK-260712-2rlkp7` — target-inbox-contract-clarification
 - [x] `TASK-260712-1c34fe` — common-explicit-target-service
-- [ ] `TASK-260712-2bk0vy` — target-inbox-store-acl
+- [x] `TASK-260712-2bk0vy` — target-inbox-store-acl
 - [ ] `TASK-260712-2ctf3x` — versioned-content-policy-consent
 - [ ] `TASK-260712-2j5fkr` — inbox-history-api-pagination
 - [ ] `TASK-260712-2zoy4u` — rights-report-disable-enforcement

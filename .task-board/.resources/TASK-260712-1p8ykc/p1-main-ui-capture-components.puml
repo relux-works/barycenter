@@ -1,70 +1,34 @@
 @startuml
-title P1 Main UI, Local Self-Test and Capture - task seams
-
-left to right direction
-skinparam packageStyle rectangle
-skinparam shadowing false
+title P1 Windows local capture workflow
+skinparam componentStyle rectangle
 
 actor User
+component "Main window / tray /\nRegisterHotKey" as UI
+component "WindowsCaptureWorkflowController\n(single state owner)" as Workflow
+component "WindowsRecordingController" as Recording
+component "WindowsLocalSelfTestService" as SelfTest
+component "WindowsMicrophoneCaptureService" as Capture
+component "pulsar-capture.dll\nAppCapability + WASAPI" as Helper
+component "FileOpenPicker / Explorer drop" as Files
+component "CaptureMediaStore" as Store
+component "WindowsAudioOutputController" as Output
+component "WindowsOverlayMediaClipMixer" as Mixer
 
-package "Story TASKs" {
-  rectangle "TASK-260712-2lrpc0\nBuiltin cue + temp media contract" as Cue
-  rectangle "TASK-260712-9i5se7\nWindows shell" as WinShell
-  rectangle "TASK-260712-1p8ykc\nWindows capture/self-test" as WinCap
-  rectangle "TASK-260712-2fe5bz\nWindows integration" as WinData
-  rectangle "TASK-260712-1c04pk\nmacOS shell" as MacShell
-  rectangle "TASK-260712-1s6h6t\nmacOS capture/self-test" as MacCap
-  rectangle "TASK-260712-3dqc3l\nmacOS integration" as MacData
-  rectangle "TASK-260712-e5mfqj\nVerification evidence" as Verify
-}
+User --> UI
+UI --> Workflow
+Workflow --> Recording
+Workflow --> SelfTest
+Recording --> Capture
+SelfTest --> Capture
+Capture --> Helper
+Capture --> Store
+Files --> Workflow : brokered stream
+SelfTest --> Store
+SelfTest --> Mixer : cue + completed draft
+Output --> Mixer : selected endpoint render
 
-package "External story dependencies" {
-  rectangle "STORY-260712-30ju1k\nWindows packaged-app spike" as WinSpike
-  rectangle "STORY-260712-2ve1c8\nIdentity + onboarding APIs" as Identity
-  rectangle "STORY-260712-ld674h\nMedia ingest + upload sessions" as Ingest
-  rectangle "STORY-260712-25lysg\nTransmission protocol + receipts" as Tx
-  rectangle "STORY-260712-34kbkn\nHistory/presence parity" as Presence
-  rectangle "STORY-260712-1i0doc\nCompliance + certification evidence" as Compliance
-}
-
-User --> WinShell
-User --> MacShell
-
-Cue --> WinCap
-Cue --> MacCap
-
-WinShell --> WinCap
-MacShell --> MacCap
-
-WinShell --> WinData
-WinCap --> WinData
-MacShell --> MacData
-MacCap --> MacData
-
-WinSpike --> WinCap : prove capture/hotkey/picker\nunder AppContainer
-Identity --> WinData
-Identity --> MacData
-Ingest --> WinData
-Ingest --> MacData
-Tx --> WinData
-Tx --> MacData
-Presence --> WinData
-Presence --> MacData
-
-WinData --> Verify
-MacData --> Verify
-WinSpike --> Verify
-Compliance --> Verify
-
-note bottom of Verify
-A1 evidence plus negative cases:
-- mic denied
-- no capture device
-- hotkey conflict
-- coordinator outage draft retention
-- keyboard and screen-reader paths
-- Windows 125/150/200 DPI
-- macOS parity checks
+note right of Workflow
+  Normal record and self-test are mutually exclusive.
+  Paired/accountless launch use the same composition.
 end note
-
 @enduml

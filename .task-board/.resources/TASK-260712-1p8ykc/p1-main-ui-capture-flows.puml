@@ -1,93 +1,35 @@
 @startuml
-title P1 Main UI, Local Self-Test and Capture - key flows
-
-skinparam shadowing false
-
+title P1 Windows five-second local self-test
 actor User
-participant "Main window / tray" as Shell
-participant "Capture service" as Capture
-database "Temp media store" as Temp
-participant "Output path" as Output
+participant "Window / tray" as UI
+participant "Workflow" as W
+participant "Self-test" as S
+participant "Capture service" as C
+participant "Signed helper" as H
+participant "Private store" as Store
+participant "Production mixer" as M
 
-== Try locally - no upload ==
+User -> UI : Run local self-test
+UI -> W : TryLocally()
+W -> S : RecordFiveSeconds(selectedInput)
+S -> C : Start(explicit, self_test, meter)
+C -> M : play start cue
+C -> H : permission + open input
+H --> UI : meter projection
+... exactly 5 seconds ...
+S -> C : Stop(user_stop)
+C -> H : stop / release stream
+C -> M : play stop cue
+C -> Store : finalize disposable self-test
+C --> S : completed draft
+S -> M : play completed draft locally
+M --> S : ended
+S --> UI : reviewing_draft
 
-User -> Shell: Open Try locally
-User -> Shell: Pick input/output and choose builtin cue\nor Record 5 seconds
-
-alt Builtin cue
-  Shell -> Output: Play builtin cue on selected output
-else Microphone self-test
-  Shell -> Capture: Start explicit local recording
-  Capture -> Shell: Request microphone permission
-  alt Permission granted
-    Capture -> Capture: Capture mono PCM and update level meter
-    Capture -> Temp: Write app-private temp file
-    Capture -> Output: Play back through the same clip output path
-  else Permission denied
-    Capture -> Shell: Show honest denial guidance
-    note right
-    File playback and builtin cue remain available.
-    No hidden background capture is allowed.
-    end note
-  end
+alt Escape / lock / suspend / quit / revoke
+  UI -> W : typed cancel/lifecycle reason
+  W -> S : Close()
+  S -> C : cancel active capture
+  S -> Store : delete owned self-test
 end
-
-User -> Shell: Delete or close self-test
-Shell -> Temp: Delete temporary media
-
-note over Shell,Temp
-No upload session, control token, coordinator call,
-or transmission request occurs anywhere in Try locally.
-end note
-
-newpage
-
-title P1 Main UI, Local Self-Test and Capture - record and send
-
-actor User
-participant "Main window / tray" as Shell2
-participant "Capture service" as Capture2
-database "Temp media store" as Temp2
-participant "Upload API" as Upload
-participant "Transmission API" as Tx
-participant "History/presence model" as Model
-
-== Record and send ==
-
-User -> Shell2: Press Record or toggle hotkey
-Shell2 -> Capture2: Begin capture
-Capture2 -> Shell2: Visible + audible recording indication
-Capture2 -> Capture2: Update level meter\nand enforce 180 second limit
-
-alt User presses Esc
-  Shell2 -> Capture2: Cancel recording
-  Capture2 -> Temp2: Delete temp draft
-  Shell2 -> User: Show cancelled state
-else User stops normally
-  Shell2 -> Capture2: Finalize draft
-  Capture2 -> Temp2: Persist temp draft
-  Shell2 -> Upload: Create upload session
-  Upload --> Shell2: Scoped upload token
-  Shell2 -> Upload: Upload draft bytes
-  alt Upload or coordinator failure
-    Upload --> Shell2: Failed or unavailable
-    Shell2 -> User: Show honest unsent state
-    note right
-    Draft is retained for retry or delete.
-    UI must not claim "sent".
-    end note
-  else Media ready
-    Upload --> Shell2: media_id
-    Shell2 -> Tx: Create transmission\naudience + delivery + play here
-    Tx --> Model: Receipts, history, presence updates
-    Model --> Shell2: Render accepted -> played\nor missed/failure reasons
-    Shell2 -> Temp2: Delete draft after confirmed upload
-  end
-end
-
-note bottom
-Capture tasks own permission, meter, cue, temp-file and hotkey behavior.
-Integration tasks start at upload-session creation and receipt rendering.
-end note
-
 @enduml

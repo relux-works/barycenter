@@ -1,0 +1,105 @@
+name: Bundled codec package probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - task/task-260712-1canzv-*
+    paths:
+      - .github/workflows/codec-bundle-probe.yml
+      - acceptance/codec-spike/**
+      - scripts/codec_spike/**
+
+permissions:
+  contents: read
+
+env:
+  FFMPEG_URL: https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz
+  FFMPEG_SHA256: 464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c
+
+jobs:
+  macos-package-and-decode:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macos-arm64
+            arch: arm64
+          - runner: macos-15-intel
+            platform: macos-x86_64
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and verify pinned pristine source
+        run: |
+          curl --fail --location --retry 3 "$FFMPEG_URL" --output "$RUNNER_TEMP/ffmpeg-8.1.2.tar.xz"
+          echo "$FFMPEG_SHA256  $RUNNER_TEMP/ffmpeg-8.1.2.tar.xz" | shasum -a 256 -c -
+      - name: Build allowlisted shared libraries and signed app
+        run: |
+          bash scripts/codec_spike/build_bundled_ffmpeg.sh \
+            --source "$RUNNER_TEMP/ffmpeg-8.1.2.tar.xz" \
+            --output "$RUNNER_TEMP/bundled-probe" \
+            --platform darwin --arch "${{ matrix.arch }}"
+      - name: Exercise cache, lifecycle, seek, cancellation and hostile input
+        run: |
+          python3 scripts/codec_spike/run_bundled_probe.py \
+            --driver "$RUNNER_TEMP/bundled-probe/stage/PulsarCodecProbe.app/Contents/MacOS/pulsar-codec-probe" \
+            --output "$RUNNER_TEMP/bundled-probe/decode-evidence.json"
+      - name: Archive engineering evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundled-codec-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/bundled-probe/receipt.json
+            ${{ runner.temp }}/bundled-probe/decode-evidence.json
+            ${{ runner.temp }}/bundled-probe/config.mak
+            ${{ runner.temp }}/bundled-probe/stage/PulsarCodecProbe.app
+
+  windows-package-and-decode:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and verify pinned pristine source
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri $env:FFMPEG_URL -OutFile "$env:RUNNER_TEMP\ffmpeg-8.1.2.tar.xz"
+          $actual = (Get-FileHash "$env:RUNNER_TEMP\ffmpeg-8.1.2.tar.xz" -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -cne $env:FFMPEG_SHA256) { throw "FFmpeg source digest mismatch" }
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            base-devel
+            mingw-w64-ucrt-x86_64-toolchain
+            nasm
+      - name: Build allowlisted shared libraries
+        shell: msys2 {0}
+        run: |
+          bash scripts/codec_spike/build_bundled_ffmpeg_mingw.sh \
+            --source "$(cygpath -u "$RUNNER_TEMP")/ffmpeg-8.1.2.tar.xz" \
+            --output "$(cygpath -u "$RUNNER_TEMP")/bundled-probe"
+      - name: Exercise cache, lifecycle, seek, cancellation and hostile input
+        shell: pwsh
+        run: |
+          python scripts/codec_spike/run_bundled_probe.py `
+            --driver "$env:RUNNER_TEMP\bundled-probe\stage\pulsar-codec-probe.exe" `
+            --output "$env:RUNNER_TEMP\bundled-probe\decode-evidence.json"
+      - name: Authenticode-sign nested binaries and build test-signed MSIX
+        shell: pwsh
+        run: |
+          scripts/codec_spike/package_bundled_probe_msix.ps1 `
+            -BuildRoot "$env:RUNNER_TEMP\bundled-probe" `
+            -OutputDirectory "$env:RUNNER_TEMP\bundled-probe\package"
+      - name: Archive engineering evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundled-codec-windows-amd64
+          path: |
+            ${{ runner.temp }}/bundled-probe/decode-evidence.json
+            ${{ runner.temp }}/bundled-probe/config.mak
+            ${{ runner.temp }}/bundled-probe/package/*

@@ -1,6 +1,6 @@
 # P1 clip transmission wire contract
 
-Task: `TASK-260712-1g70av` — clip-transmission-wire-contract  
+Task: `TASK-260712-1g70av` — clip-transmission-wire-contract
 Frozen input: `docs/analysis/p1-transmission-contract-v1.md`
 
 ## Accepted implementation boundary

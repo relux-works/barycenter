@@ -1,8 +1,8 @@
 # Phase 1 security and privacy technical audit
 
-Date: 2026-07-15  
-Task: `TASK-260712-wy05n6`  
-Engineering reviewer: `codex-inline-review`  
+Date: 2026-07-15
+Task: `TASK-260712-wy05n6`
+Engineering reviewer: `codex-inline-review`
 Independent approver: Ivan Oparin (separate owner gate)
 
 ## Result

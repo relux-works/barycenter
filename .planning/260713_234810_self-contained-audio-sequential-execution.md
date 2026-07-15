@@ -16,7 +16,7 @@
   (starting after the Store engineering handoff)
 - Next engineering task: `TASK-260712-1xik11` — p1-engineering-readiness-handoff
 - Most recently accepted: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Current branch: `tracking/task-260712-2s4e9p-store-listing`
+- Current branch: `task/task-260712-38lssj-p1-root-integration-review`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run

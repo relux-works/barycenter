@@ -119,6 +119,7 @@ type loop struct {
 	resolveCh            chan resolveDone
 	trackMetaCh          chan trackMetadataDone
 	transmissionCh       chan transmissionSignal
+	airControlCh         chan airControlCall
 	transmissionTimer    *time.Timer
 	transmissionTimerC   <-chan time.Time
 	transmissionTimerDue int64
@@ -223,6 +224,7 @@ func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store
 		resolveCh:      make(chan resolveDone, 8),
 		trackMetaCh:    make(chan trackMetadataDone, 8),
 		transmissionCh: make(chan transmissionSignal, 256),
+		airControlCh:   make(chan airControlCall, 8),
 		transmissionNow: func() int64 {
 			return time.Now().UnixMilli()
 		},
@@ -738,6 +740,8 @@ func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 			l.handleTrackMetadataDone(d)
 		case signal := <-l.transmissionCh:
 			l.handleTransmissionSignal(signal)
+		case call := <-l.airControlCh:
+			call.done <- l.reconcileAirControlRuntime()
 		case <-l.transmissionTimerC:
 			due := l.transmissionTimerDue
 			l.transmissionTimerC = nil

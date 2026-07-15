@@ -152,6 +152,10 @@ caller-only leave behavior, use
 `docs/analysis/p2-air-runtime-session-resolution.md`. A coordinator in
 `rollback_hold` must warm zero shared Air and legacy-link runtimes.
 
+For the authenticated Air lifecycle routes, idempotent mutation records,
+invite-secret boundary and synchronous runtime acceptance barrier, use
+`docs/analysis/p2-air-control-plane-api.md`.
+
 ## 6a. Build machine: signing identity (once, before the first release)
 
 `scripts/setup-signing.sh` creates the self-signed identity `duet-nodeapp` in a

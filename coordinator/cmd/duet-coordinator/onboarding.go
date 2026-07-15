@@ -23,31 +23,47 @@ import (
 )
 
 const (
-	errorInvalidRequest         = "invalid_request"
-	errorUnauthorized           = "unauthorized"
-	errorInsufficientCapability = "insufficient_capability"
-	errorCredentialInvalid      = "credential_invalid"
-	errorTooManyAttempts        = "too_many_attempts"
-	errorUploadCredential       = "upload_credential_invalid"
-	errorUploadTooLarge         = "upload_too_large"
-	errorUploadOffsetConflict   = "upload_offset_conflict"
-	errorUploadLengthMismatch   = "upload_length_mismatch"
-	errorUploadStateConflict    = "upload_state_conflict"
-	errorUploadQuota            = "upload_quota_exceeded"
-	errorMediaProcessing        = "media_processing_failed"
-	errorMediaNotFound          = "media_not_found"
-	errorModerationNotFound     = "moderation_not_found"
-	errorModerationForbidden    = "moderation_forbidden"
-	errorModerationConflict     = "moderation_conflict"
-	errorEvidenceExpired        = "moderation_evidence_expired"
-	errorDNDRevisionConflict    = "dnd_revision_conflict"
-	errorPolicyIdempotency      = "policy_idempotency_conflict"
-	errorBlockSubjectNotFound   = "block_subject_not_found"
-	errorBlockNotFound          = "block_not_found"
-	errorHistoryNotFound        = "history_not_found"
-	errorHistoryCursorInvalid   = "history_cursor_invalid"
-	errorServiceUnavailable     = "service_unavailable"
-	errorInternal               = "internal_error"
+	errorInvalidRequest          = "invalid_request"
+	errorUnauthorized            = "unauthorized"
+	errorUnauthenticated         = "unauthenticated"
+	errorInsufficientCapability  = "insufficient_capability"
+	errorCredentialInvalid       = "credential_invalid"
+	errorTooManyAttempts         = "too_many_attempts"
+	errorUploadCredential        = "upload_credential_invalid"
+	errorUploadTooLarge          = "upload_too_large"
+	errorUploadOffsetConflict    = "upload_offset_conflict"
+	errorUploadLengthMismatch    = "upload_length_mismatch"
+	errorUploadStateConflict     = "upload_state_conflict"
+	errorUploadQuota             = "upload_quota_exceeded"
+	errorMediaProcessing         = "media_processing_failed"
+	errorMediaNotFound           = "media_not_found"
+	errorModerationNotFound      = "moderation_not_found"
+	errorModerationForbidden     = "moderation_forbidden"
+	errorModerationConflict      = "moderation_conflict"
+	errorEvidenceExpired         = "moderation_evidence_expired"
+	errorDNDRevisionConflict     = "dnd_revision_conflict"
+	errorPolicyIdempotency       = "policy_idempotency_conflict"
+	errorBlockSubjectNotFound    = "block_subject_not_found"
+	errorBlockNotFound           = "block_not_found"
+	errorHistoryNotFound         = "history_not_found"
+	errorHistoryCursorInvalid    = "history_cursor_invalid"
+	errorAirNotFound             = "air_not_found"
+	errorAirMembershipNotFound   = "membership_not_found"
+	errorAirInviteUnavailable    = "invite_unavailable"
+	errorAirIdempotency          = "idempotency_conflict"
+	errorAirRevision             = "revision_conflict"
+	errorAirActiveChanged        = "active_air_changed"
+	errorAirDissolved            = "air_dissolved"
+	errorAirAlreadyMember        = "already_member"
+	errorAirConfirmationRequired = "membership_confirmation_required"
+	errorAirCapacity             = "air_barycenter_capacity_reached"
+	errorAirOnlineCapacity       = "air_online_pulsar_capacity_reached"
+	errorAirParked               = "air_parked"
+	errorAirPolicyDenied         = "policy_denied"
+	errorAirOwnerTransfer        = "owner_transfer_required"
+	errorForbidden               = "forbidden"
+	errorServiceUnavailable      = "service_unavailable"
+	errorInternal                = "internal_error"
 )
 
 var (
@@ -85,31 +101,47 @@ func (value *optionalJSONString) UnmarshalJSON(raw []byte) error {
 
 func apiError(w http.ResponseWriter, status int, code string, retry time.Duration) {
 	messages := map[string]string{
-		errorInvalidRequest:         "The request is malformed or contains invalid parameters.",
-		errorUnauthorized:           "Authentication is required.",
-		errorInsufficientCapability: "This token does not have the required capability.",
-		errorCredentialInvalid:      "The provided credential is not valid.",
-		errorTooManyAttempts:        "Too many attempts. Please wait before retrying.",
-		errorUploadCredential:       "The upload credential is not valid.",
-		errorUploadTooLarge:         "The upload exceeds the allowed size.",
-		errorUploadOffsetConflict:   "The upload offset does not match the stored offset.",
-		errorUploadLengthMismatch:   "The upload body length does not match the request.",
-		errorUploadStateConflict:    "The upload cannot be changed in its current state.",
-		errorUploadQuota:            "The media upload quota has been reached.",
-		errorMediaProcessing:        "The media could not be validated or prepared.",
-		errorMediaNotFound:          "The media item was not found.",
-		errorModerationNotFound:     "The moderation item was not found.",
-		errorModerationForbidden:    "This operator credential lacks the required capability.",
-		errorModerationConflict:     "A different moderation decision already exists.",
-		errorEvidenceExpired:        "The moderation evidence window has expired.",
-		errorDNDRevisionConflict:    "The DND layer changed; retry with its current revision.",
-		errorPolicyIdempotency:      "The idempotency key was already used for different input.",
-		errorBlockSubjectNotFound:   "The blocking subject is unavailable.",
-		errorBlockNotFound:          "The block was not found.",
-		errorHistoryNotFound:        "The history item was not found.",
-		errorHistoryCursorInvalid:   "The history cursor is invalid or expired.",
-		errorServiceUnavailable:     "The service is temporarily unavailable.",
-		errorInternal:               "An internal error occurred.",
+		errorInvalidRequest:          "The request is malformed or contains invalid parameters.",
+		errorUnauthorized:            "Authentication is required.",
+		errorUnauthenticated:         "Authentication is required.",
+		errorInsufficientCapability:  "This token does not have the required capability.",
+		errorCredentialInvalid:       "The provided credential is not valid.",
+		errorTooManyAttempts:         "Too many attempts. Please wait before retrying.",
+		errorUploadCredential:        "The upload credential is not valid.",
+		errorUploadTooLarge:          "The upload exceeds the allowed size.",
+		errorUploadOffsetConflict:    "The upload offset does not match the stored offset.",
+		errorUploadLengthMismatch:    "The upload body length does not match the request.",
+		errorUploadStateConflict:     "The upload cannot be changed in its current state.",
+		errorUploadQuota:             "The media upload quota has been reached.",
+		errorMediaProcessing:         "The media could not be validated or prepared.",
+		errorMediaNotFound:           "The media item was not found.",
+		errorModerationNotFound:      "The moderation item was not found.",
+		errorModerationForbidden:     "This operator credential lacks the required capability.",
+		errorModerationConflict:      "A different moderation decision already exists.",
+		errorEvidenceExpired:         "The moderation evidence window has expired.",
+		errorDNDRevisionConflict:     "The DND layer changed; retry with its current revision.",
+		errorPolicyIdempotency:       "The idempotency key was already used for different input.",
+		errorBlockSubjectNotFound:    "The blocking subject is unavailable.",
+		errorBlockNotFound:           "The block was not found.",
+		errorHistoryNotFound:         "The history item was not found.",
+		errorHistoryCursorInvalid:    "The history cursor is invalid or expired.",
+		errorAirNotFound:             "The Air was not found.",
+		errorAirMembershipNotFound:   "The Air membership was not found.",
+		errorAirInviteUnavailable:    "The Air invite is unavailable.",
+		errorAirIdempotency:          "The idempotency key was already used for different input.",
+		errorAirRevision:             "The Air resource changed; retry with its current revision.",
+		errorAirActiveChanged:        "The active Air changed; refresh before retrying.",
+		errorAirDissolved:            "The Air has been dissolved.",
+		errorAirAlreadyMember:        "This barycenter already has a live membership in the Air.",
+		errorAirConfirmationRequired: "The joining barycenter primary must confirm this membership.",
+		errorAirCapacity:             "The Air has reached its barycenter capacity.",
+		errorAirOnlineCapacity:       "The Air has reached its online Pulsar capacity.",
+		errorAirParked:               "The Air is parked and cannot accept playback work.",
+		errorAirPolicyDenied:         "The Air policy denies this operation.",
+		errorAirOwnerTransfer:        "Transfer Air ownership before leaving.",
+		errorForbidden:               "This actor is not permitted to perform the operation.",
+		errorServiceUnavailable:      "The service is temporarily unavailable.",
+		errorInternal:                "An internal error occurred.",
 	}
 	var body apiErrorBody
 	body.Error.Code = code
@@ -253,6 +285,10 @@ type onboardingAPI struct {
 	transmissionOrbit      *attemptLimiter
 	transmissionAccepted   func(string)
 	transmissionCancelled  func(store.CancelTransmissionResult)
+	airInviteConsumeActor  *attemptLimiter
+	airInviteConsumeIP     *attemptLimiter
+	airNow                 func() time.Time
+	airRuntimeChanged      func() error
 	// testAfterAuth is nil in production. Tests use it to pause between
 	// middleware authentication and the immediate writer transaction.
 	testAfterAuth   func(store.ActorContext)
@@ -280,6 +316,10 @@ func newOnboardingAPIBase(st *store.Store, cfg *config.Config, log *slog.Logger,
 		transmissionOrbit:     newAttemptLimiter(600, time.Minute, 10_000),
 		transmissionAccepted:  func(string) {},
 		transmissionCancelled: func(store.CancelTransmissionResult) {},
+		airInviteConsumeActor: newAttemptLimiter(5, time.Minute, 10_000),
+		airInviteConsumeIP:    newAttemptLimiter(5, time.Minute, 10_000),
+		airNow:                time.Now,
+		airRuntimeChanged:     func() error { return nil },
 	}
 	api.mediaUploadInitErr = api.initializeMediaUploadStorage()
 	api.mediaLifecycle, api.mediaLifecycleInitErr = media.NewLifecycleService(st, cfg.MediaDir)
@@ -366,6 +406,9 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/reports/", api.secure(api.withControl(api.moderationReportItem)))
 	mux.HandleFunc("/v1/moderation/reports", api.secure(api.withModerationOperator(api.moderationQueue)))
 	mux.HandleFunc("/v1/moderation/reports/", api.secure(api.withModerationOperator(api.moderationQueueItem)))
+	mux.HandleFunc("/v1/airs", api.secure(api.withAirControl(api.airsCollection)))
+	mux.HandleFunc("/v1/airs/", api.secure(api.withAirControl(api.airItem)))
+	mux.HandleFunc("/v1/air-invites/consume", api.secure(api.withAirControl(api.consumeAirInvite)))
 }
 
 func (api *onboardingAPI) secure(next http.HandlerFunc) http.HandlerFunc {

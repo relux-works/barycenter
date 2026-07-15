@@ -16,7 +16,7 @@
   (starting after the Air contract tracking merge)
 - Next engineering task: `TASK-260712-kr64r2` — air-runtime-session-resolution
 - Most recently accepted: `TASK-260712-17yizc` — air-lifecycle-policy-contract
-- Current branch: `tracking/task-260712-17yizc-air-contract`
+- Current branch: `task/task-260712-3n36ny-air-schema-link-migration`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run

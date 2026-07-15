@@ -25,6 +25,23 @@ func New(t time.Time) string {
 	return encode(b)
 }
 
+// FromEntropy returns a ULID with caller-supplied 80-bit entropy. It exists
+// for deterministic migration identifiers: the same immutable legacy row must
+// map to the same public ID even after a rolled-back migration attempt.
+// Runtime-created IDs must continue to use New and crypto/rand.
+func FromEntropy(t time.Time, entropy [10]byte) string {
+	var b [16]byte
+	ms := uint64(t.UnixMilli())
+	b[0] = byte(ms >> 40)
+	b[1] = byte(ms >> 32)
+	b[2] = byte(ms >> 24)
+	b[3] = byte(ms >> 16)
+	b[4] = byte(ms >> 8)
+	b[5] = byte(ms)
+	copy(b[6:], entropy[:])
+	return encode(b)
+}
+
 func encode(b [16]byte) string {
 	dst := make([]byte, 26)
 	dst[0] = crockford[(b[0]&224)>>5]

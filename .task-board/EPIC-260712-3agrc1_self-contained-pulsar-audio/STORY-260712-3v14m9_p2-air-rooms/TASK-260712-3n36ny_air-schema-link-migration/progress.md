@@ -1,14 +1,14 @@
 ## Status
-backlog
+reviewing
 
 ## Assigned To
-(none)
+codex-inline-developer
 
 ## Created
 2026-07-12T16:14:55Z
 
 ## Last Update
-2026-07-12T16:25:58Z
+2026-07-15T11:48:43Z
 
 ## Blocked By
 - TASK-260712-17yizc
@@ -22,18 +22,20 @@ backlog
 - TASK-260712-3nq0tq
 
 ## Checklist
-- [ ] Add additive schema and repository methods for Airs, members, invites, policies, and active Air lookup
-- [ ] Backfill active links into stable two member Air rows without duplicate membership state
-- [ ] Preserve rollback compatibility and feature flag safety for older coordinators
-- [ ] Rehearse upgrade and rollback on production shaped fixtures
-- [ ] Backfill deterministic link-to-Air mappings exactly once with failure injection
-- [ ] Prove previous-binary legacy service preserves Phase 2 rows without dual delivery
+- [x] Add additive schema and repository methods for Airs, members, invites, policies, and active Air lookup
+- [x] Backfill active links into stable two member Air rows without duplicate membership state
+- [x] Preserve rollback compatibility and feature flag safety for older coordinators
+- [x] Rehearse upgrade and rollback on production shaped fixtures
+- [x] Backfill deterministic link-to-Air mappings exactly once with failure injection
+- [x] Prove previous-binary legacy service preserves Phase 2 rows without dual delivery
 
 ## Notes
+Strict inline execution started from synchronized main d496409 after accepted Air contract. Implementing additive schema, deterministic link backfill, persisted authority generations and fail-closed rollback without dual runtime.
+Implemented additive Air persistence, deterministic exactly-once link migration, generation-fenced cutover/rollback, immutable legacy snapshots, concurrent one-active repositories, failure injection, and exact predecessor-binary legacy service. Focused/full/race suites green; preparing clean acceptance and PR.
 
 ## Precondition Resources
 - [p2-air-rooms-components.puml](file://TASK-260712-3n36ny/p2-air-rooms-components.puml) — Persistence and migration boundaries for Air schema work
 - [p2-air-rooms-lifecycle-sequence.puml](file://TASK-260712-3n36ny/p2-air-rooms-lifecycle-sequence.puml) — Join, leave, and park flow that the migration must preserve
 
 ## Outcome Resources
-(none)
+- [p2-air-schema-link-migration.md](file://TASK-260712-3n36ny/p2-air-schema-link-migration.md) — Schema, deterministic backfill, single-authority cutover and rollback handoff

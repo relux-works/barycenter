@@ -281,6 +281,19 @@ func (s *Store) ensureOrbitStatusConstraint() error {
 	if !hasStatus {
 		_, err := s.db.Exec(`ALTER TABLE orbits ADD COLUMN status TEXT NOT NULL DEFAULT 'active'
   CHECK(status IN ('active', 'disabled'))`)
+		if err == nil {
+			return nil
+		}
+		// Another coordinator opening the same legacy database may have won
+		// the ALTER after our table_info read. Re-read the schema before
+		// treating SQLite's duplicate-column error as a failed migration.
+		installed, inspectErr := columnExists(s.db, "orbits", "status")
+		if inspectErr != nil {
+			return errors.Join(err, inspectErr)
+		}
+		if installed {
+			return nil
+		}
 		return err
 	}
 

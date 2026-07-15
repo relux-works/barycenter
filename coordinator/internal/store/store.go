@@ -139,6 +139,10 @@ func openWithOptionsAndCheckpoint(path string, opts Options, checkpoint func(str
 		db.Close()
 		return nil, fmt.Errorf("store: init identity schema: %w", err)
 	}
+	if err := s.initAirSchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init Air schema: %w", err)
+	}
 	if err := s.initMediaIngestSchema(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: init media ingest schema: %w", err)

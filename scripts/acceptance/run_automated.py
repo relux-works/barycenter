@@ -30,7 +30,8 @@ PREVIOUS_HEAD_PATTERN = (
     "ConfigBootstrapContract)|TestMediaIngestExactPreviousHeadRollback|"
     "TestMediaUploadExactPreviousHeadRollback|TestMediaProcessingExactPreviousHeadRollback|"
     "TestMediaLifecycleExactPreviousHeadRollback|TestMediaIntegrationExactPreviousHeadRollback|"
-    "TestTransmissionStoreExactPreviousHeadRollback|TestModerationExactPreviousHeadRollback)$"
+    "TestTransmissionStoreExactPreviousHeadRollback|TestModerationExactPreviousHeadRollback|"
+    "TestAirExactPreviousCoordinatorLegacyServicePreservesPhase2Rows)$"
 )
 
 SECRET_PATTERNS = (

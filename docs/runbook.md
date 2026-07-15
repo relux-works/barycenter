@@ -141,6 +141,12 @@ use `docs/analysis/p1-transmission-rollout-handoff.md`. There is no current
 transmission-wide runtime feature flag; withdraw every create surface before
 draining, and never down-migrate the additive transmission tables.
 
+For Phase 2 Air schema inspection, deterministic active-link backfill,
+authority-generation cutover and the only safe previous-coordinator rollback
+sequence, use `docs/analysis/p2-air-schema-link-migration.md`. Never start an
+Air-unaware coordinator while the persisted authority is
+`airs_authoritative` or `rollback_hold`.
+
 ## 6a. Build machine: signing identity (once, before the first release)
 
 `scripts/setup-signing.sh` creates the self-signed identity `duet-nodeapp` in a

@@ -16,7 +16,7 @@
   (starting after the Air schema/link migration tracking merge)
 - Next engineering task: `TASK-260712-2vhf80` — air-control-plane-api
 - Most recently accepted: `TASK-260712-3n36ny` — air-schema-link-migration
-- Current branch: `tracking/task-260712-3n36ny-air-schema-link-migration`
+- Current branch: `task/task-260712-kr64r2-air-runtime-session-resolution`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run

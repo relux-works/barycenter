@@ -163,6 +163,7 @@ func sortedSlots(slotProviders map[string]string) []string {
 // the result here for the gate + enqueue.
 type resolveDone struct {
 	orbit      int64
+	fence      runtimeFence
 	el         session.Element
 	originProv string
 	originRef  string
@@ -222,10 +223,11 @@ func (l *loop) resolveAndEnqueue(sourceOrbit int64, o *orbitState, el session.El
 		return
 	}
 	// Cache miss: run the cascade off the loop and deliver back over resolveCh.
+	fence := fenceFor(o)
 	go func() {
 		res := l.resolveTrack(originProv, originRef, sourceURL, missing)
 		l.resolveCh <- resolveDone{
-			orbit: sourceOrbit, el: el, originProv: originProv,
+			orbit: sourceOrbit, fence: fence, el: el, originProv: originProv,
 			originRef: originRef, ctid: ctid, res: res, reply: reply,
 		}
 	}()
@@ -238,7 +240,11 @@ func (l *loop) onResolveDone(d resolveDone) {
 	if l.orbitGone(d.orbit) { // L3: /dissolve raced the resolve goroutine
 		return
 	}
-	o := l.stateFor(d.orbit)
+	o, current := l.stateForFence(d.orbit, d.fence)
+	if !current {
+		rejectStaleRuntime(d.reply)
+		return
+	}
 	if o.sess.Mode != session.ModeShared {
 		d.reply("сейчас режим solo: /inject подкинет трек партнёру, /together вернёт общий эфир")
 		return

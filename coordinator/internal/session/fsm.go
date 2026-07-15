@@ -244,6 +244,27 @@ func (s *Session) EnsurePeer(n protocol.NodeID) {
 	s.Peers = append(s.Peers, n)
 }
 
+// PrepareLivingAirJoiners keeps newly activated Air peers off the current
+// element's historic barrier. Restored snapshots use nil participants to mean
+// every peer that existed at persistence time; after membership expansion,
+// treating the new peers as historic would suppress main-track catch-up and
+// could make an old voice/overlay wait for nodes that never received it.
+func (s *Session) PrepareLivingAirJoiners(joiners []protocol.NodeID) {
+	if s.GateMode != GateEachSide || s.Current == nil || s.participants != nil || len(joiners) == 0 {
+		return
+	}
+	joining := map[protocol.NodeID]bool{}
+	for _, peer := range joiners {
+		joining[peer] = true
+	}
+	s.participants = map[protocol.NodeID]bool{}
+	for _, peer := range s.Peers {
+		if !joining[peer] {
+			s.participants[peer] = true
+		}
+	}
+}
+
 // SeedOnline replaces liveness knowledge wholesale, without effects. Link
 // boundaries (design §12) move nodes between sessions: the session that
 // starts consuming a node's events must not trust a stale map, and the hub

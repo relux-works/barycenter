@@ -42,8 +42,13 @@ type telegramMediaAdapter interface {
 // -linkID and peer ids in composite "orbit:slot" form.
 type orbitState struct {
 	id    int64
-	title string
-	sess  *session.Session
+	airID string
+	// authorityGeneration fences delayed effects from a prior Air ownership
+	// generation. Personal and legacy-link states keep zero here.
+	authorityGeneration int64
+	airRevision         int64
+	title               string
+	sess                *session.Session
 
 	// orbits: for group states, the linked orbit ids; nil for plain orbits.
 	orbits []int64
@@ -70,7 +75,7 @@ type orbitState struct {
 }
 
 // group reports whether this state is a link (approach) session.
-func (o *orbitState) group() bool { return o.id < 0 }
+func (o *orbitState) group() bool { return o.airID != "" || o.id < 0 }
 
 // loop serializes every session-affecting event across all orbits
 // (spec 7.2: the FSM is single-threaded; one goroutine, many orbits).
@@ -101,6 +106,11 @@ type loop struct {
 	// (absent when solo), groups holds the shared per-link sessions.
 	linkOf map[int64]int64
 	groups map[int64]*orbitState
+	// Phase 2 runtime ownership is keyed only by stable public Air ID. airOf is
+	// a resolver cache, never authority; every stateFor call revalidates it
+	// against the persisted current pointer.
+	airOf map[int64]string
+	airs  map[string]*orbitState
 
 	timeouts             chan orbitTimeout
 	mediaCh              chan mediaDone
@@ -115,19 +125,33 @@ type loop struct {
 	transmissionNow      func() int64
 	// Voice processing is concurrent, but airtime order is the serial Telegram
 	// acceptance order per air. Completed jobs wait here for older jobs.
-	voiceAccepted map[int64]int64
-	voiceNext     map[int64]int64
-	voicePending  map[int64]map[int64]mediaDone
-	stopped       chan struct{}
+	voiceAccepted    map[int64]int64
+	voiceNext        map[int64]int64
+	voicePending     map[int64]map[int64]mediaDone
+	airVoiceAccepted map[string]int64
+	airVoiceNext     map[string]int64
+	airVoicePending  map[string]map[int64]mediaDone
+	stopped          chan struct{}
 }
 
 type orbitTimeout struct {
-	orbit     int64
-	elementID string
+	orbit      int64
+	airID      string
+	generation int64
+	revision   int64
+	elementID  string
+}
+
+type runtimeFence struct {
+	airID      string
+	generation int64
+	revision   int64
+	legacyID   int64
 }
 
 type playlistDone struct {
 	orbit  int64
+	fence  runtimeFence
 	uri    string
 	title  string
 	tracks []string
@@ -143,6 +167,7 @@ type trackMetadata struct {
 
 type trackMetadataDone struct {
 	orbit   int64
+	fence   runtimeFence
 	el      session.Element
 	playNow bool
 	meta    trackMetadata
@@ -155,19 +180,22 @@ type mediaDone struct {
 	// orderAir is the session that owned the air when Telegram accepted the
 	// message. Two linked barycenters have different source orbit ids but one
 	// shared orderAir, so ffmpeg completion cannot reorder their voices.
-	orderAir         int64
-	mediaID          string
-	from             int64 // tg user id of the sender
-	fromName         string
-	acceptedAt       int64
-	sequence         int64
-	personal         bool
-	attachmentKind   string
-	chatID           int64
-	originalUpdateID int64
-	result           media.Result
-	err              error
-	reply            func(string)
+	orderAir           int64
+	orderAirID         string
+	orderAirGeneration int64
+	orderAirRevision   int64
+	mediaID            string
+	from               int64 // tg user id of the sender
+	fromName           string
+	acceptedAt         int64
+	sequence           int64
+	personal           bool
+	attachmentKind     string
+	chatID             int64
+	originalUpdateID   int64
+	result             media.Result
+	err                error
+	reply              func(string)
 }
 
 type mediaCancellationCall struct {
@@ -186,6 +214,8 @@ func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store
 		states:         map[int64]*orbitState{},
 		linkOf:         map[int64]int64{},
 		groups:         map[int64]*orbitState{},
+		airOf:          map[int64]string{},
+		airs:           map[string]*orbitState{},
 		timeouts:       make(chan orbitTimeout, 8),
 		mediaCh:        make(chan mediaDone, 8),
 		mediaCancel:    make(chan mediaCancellationCall, 8),
@@ -196,10 +226,13 @@ func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store
 		transmissionNow: func() int64 {
 			return time.Now().UnixMilli()
 		},
-		voiceAccepted: map[int64]int64{},
-		voiceNext:     map[int64]int64{},
-		voicePending:  map[int64]map[int64]mediaDone{},
-		stopped:       make(chan struct{}),
+		voiceAccepted:    map[int64]int64{},
+		voiceNext:        map[int64]int64{},
+		voicePending:     map[int64]map[int64]mediaDone{},
+		airVoiceAccepted: map[string]int64{},
+		airVoiceNext:     map[string]int64{},
+		airVoicePending:  map[string]map[int64]mediaDone{},
+		stopped:          make(chan struct{}),
 	}
 	if b != nil {
 		l.telegramInlinePrompt = b.SendInlinePrompt
@@ -275,7 +308,13 @@ func (l *loop) orbit(id int64) *orbitState {
 // restoreSnapshot loads the persisted FSM state into o. o.id doubles as the
 // storage key: positive for orbits, -linkID for group sessions.
 func (l *loop) restoreSnapshot(o *orbitState) {
-	snap, err := l.st.LoadSession(o.id)
+	var snap *store.SessionSnapshot
+	var err error
+	if o.airID != "" {
+		snap, err = l.st.LoadAirSession(o.airID)
+	} else {
+		snap, err = l.st.LoadSession(o.id)
+	}
 	if err != nil || snap == nil {
 		return
 	}
@@ -340,6 +379,26 @@ func (l *loop) nodeKey(o *orbitState, to protocol.NodeID) hub.NodeKey {
 // stateFor returns the session that owns an orbit's air: the group state
 // while an approach is active, the personal orbit state otherwise.
 func (l *loop) stateFor(orbitID int64) *orbitState {
+	if runtime, err := l.st.ActiveAirRuntimeForOrbit(orbitID); err == nil && runtime != nil {
+		if prior := l.airOf[orbitID]; prior != "" && prior != runtime.AirID {
+			l.detachOrbitFromAir(orbitID, prior)
+		}
+		l.airOf[orbitID] = runtime.AirID
+		return l.airState(*runtime)
+	} else if err != nil {
+		l.log.Error("Air runtime resolution failed", "orbit", orbitID, "err", err)
+	}
+	if prior := l.airOf[orbitID]; prior != "" {
+		l.detachOrbitFromAir(orbitID, prior)
+	}
+	authority, authorityErr := l.st.AirAuthority()
+	if authorityErr != nil {
+		l.log.Error("shared runtime authority unavailable", "orbit", orbitID, "err", authorityErr)
+		return l.orbit(orbitID)
+	}
+	if authority.Mode == "airs_authoritative" || authority.Mode == "rollback_hold" {
+		return l.orbit(orbitID)
+	}
 	if linkID := l.linkOf[orbitID]; linkID != 0 {
 		if g := l.group(linkID); g != nil {
 			return g
@@ -347,6 +406,154 @@ func (l *loop) stateFor(orbitID int64) *orbitState {
 		delete(l.linkOf, orbitID) // stale link: fall back to the personal orbit
 	}
 	return l.orbit(orbitID)
+}
+
+func fenceFor(o *orbitState) runtimeFence {
+	return runtimeFence{
+		airID: o.airID, generation: o.authorityGeneration,
+		revision: o.airRevision, legacyID: o.id,
+	}
+}
+
+func (l *loop) stateForFence(orbitID int64, fence runtimeFence) (*orbitState, bool) {
+	o := l.stateFor(orbitID)
+	if fence.airID != "" {
+		return o, o.airID == fence.airID && o.authorityGeneration == fence.generation &&
+			o.airRevision == fence.revision
+	}
+	return o, o.airID == "" && o.id == fence.legacyID
+}
+
+func rejectStaleRuntime(reply func(string)) {
+	if reply != nil {
+		reply("эфир изменился, пока шла обработка — старый результат отменён")
+	}
+}
+
+func (l *loop) detachOrbitFromAir(orbitID int64, airID string) {
+	if runtime, err := l.st.ActiveAirRuntimeByID(airID); err == nil && runtime != nil {
+		if existing := l.airs[airID]; existing != nil {
+			l.syncAirState(existing, *runtime)
+		}
+	} else {
+		l.parkAirState(airID)
+	}
+	if l.airOf[orbitID] == airID {
+		delete(l.airOf, orbitID)
+	}
+}
+
+func (l *loop) airState(runtime store.AirRuntime) *orbitState {
+	if existing := l.airs[runtime.AirID]; existing != nil {
+		l.syncAirState(existing, runtime)
+		return existing
+	}
+	title := runtime.AirID
+	if record, err := l.st.AirByID(runtime.AirID); err == nil {
+		title = record.Title
+	}
+	o := &orbitState{
+		airID: runtime.AirID, authorityGeneration: runtime.Generation,
+		airRevision: runtime.Revision,
+		orbits:      append([]int64(nil), runtime.OrbitIDs...), title: title,
+		sess: session.New(), takeoverPolicy: "user", voiceDefault: "personal",
+		volumes: map[protocol.NodeID]int{}, offsets: map[protocol.NodeID]int64{},
+		lastSeen: map[protocol.NodeID]*protocol.StatePayload{}, versions: map[protocol.NodeID]string{},
+		capabilities: map[protocol.NodeID]protocol.CapabilitySet{}, seamless: map[protocol.NodeID]bool{},
+	}
+	o.sess.StartMarginMS = int64(l.cfg.Timings.StartMarginMS)
+	l.syncAirState(o, runtime)
+	l.restoreSnapshot(o)
+	l.airs[runtime.AirID] = o
+	return o
+}
+
+func (l *loop) syncAirState(o *orbitState, runtime store.AirRuntime) {
+	previousRevision := o.airRevision
+	oldPeers := map[protocol.NodeID]bool{}
+	for _, peer := range o.sess.Peers {
+		oldPeers[peer] = true
+	}
+	current := map[int64]bool{}
+	for _, orbitID := range runtime.OrbitIDs {
+		current[orbitID] = true
+	}
+	for _, oldOrbitID := range o.orbits {
+		if current[oldOrbitID] {
+			continue
+		}
+		delete(l.airOf, oldOrbitID)
+		for _, peer := range append([]protocol.NodeID(nil), o.sess.Peers...) {
+			peerOrbit, _, ok := splitComposite(peer)
+			if ok && peerOrbit == oldOrbitID {
+				l.hub.Send(l.nodeKey(o, peer), protocol.TypeStop, &protocol.StopPayload{})
+				l.apply(o, o.sess.RemovePeer(time.Now().UnixMilli(), peer))
+			}
+		}
+	}
+	o.authorityGeneration = runtime.Generation
+	o.airRevision = runtime.Revision
+	o.orbits = append(o.orbits[:0], runtime.OrbitIDs...)
+	peers := make([]string, 0)
+	online := map[protocol.NodeID]bool{}
+	for _, orbitID := range runtime.OrbitIDs {
+		l.airOf[orbitID] = runtime.AirID
+		slots, _ := l.st.ActiveSlots(orbitID)
+		for _, slot := range slots {
+			peer := compositeID(orbitID, protocol.NodeID(slot))
+			peers = append(peers, string(peer))
+			if _, ok := o.volumes[peer]; !ok {
+				o.volumes[peer] = 80
+			}
+		}
+		for slot, isOnline := range l.hub.Online(orbitID) {
+			online[compositeID(orbitID, slot)] = isOnline
+		}
+	}
+	o.sess.SetPeers(peers)
+	o.sess.GateMode = session.GateEachSide
+	o.sess.SideOf = func(peer protocol.NodeID) string {
+		orbitID, _, ok := splitComposite(peer)
+		if !ok {
+			return string(peer)
+		}
+		return strconv.FormatInt(orbitID, 10)
+	}
+	var joining []protocol.NodeID
+	for _, peerText := range peers {
+		peer := protocol.NodeID(peerText)
+		if !oldPeers[peer] {
+			joining = append(joining, peer)
+		}
+	}
+	o.sess.PrepareLivingAirJoiners(joining)
+	for _, peerText := range peers {
+		peer := protocol.NodeID(peerText)
+		if !oldPeers[peer] && online[peer] {
+			// The FSM deliberately catches up only a current main track;
+			// voice/overlay work is never replayed for a joining member.
+			if effects := o.sess.JoinInProgressAt(time.Now().UnixMilli(), peer); effects != nil {
+				l.apply(o, effects)
+			}
+		}
+	}
+	o.sess.SeedOnline(online)
+	if previousRevision != 0 && previousRevision != runtime.Revision && o.timerElement != "" {
+		l.armReadyTimer(o, o.timerElement)
+	}
+}
+
+func (l *loop) parkAirState(airID string) {
+	o := l.airs[airID]
+	if o == nil {
+		return
+	}
+	l.cancelReadyTimer(o)
+	for _, peer := range o.sess.Peers {
+		l.hub.Send(l.nodeKey(o, peer), protocol.TypeStop, &protocol.StopPayload{})
+	}
+	l.persist(o)
+	delete(l.airs, airID)
 }
 
 // stateByID resolves a state id after a timer/channel roundtrip: negative
@@ -431,13 +638,37 @@ func (l *loop) group(linkID int64) *orbitState {
 
 // warmup restores every known orbit and active approach at startup.
 func (l *loop) warmup() {
-	links, err := l.st.ActiveLinks()
-	if err != nil {
-		l.log.Error("link warmup failed", "err", err)
+	links := []store.Link{}
+	runtimes := []store.AirRuntime{}
+	authority, authorityErr := l.st.AirAuthority()
+	airAuthoritative := authorityErr == nil && authority.Mode == "airs_authoritative"
+	legacyAuthoritative := authorityErr == nil &&
+		(authority.Mode == "links_authoritative" || authority.Mode == "airs_shadow")
+	if airAuthoritative {
+		var runtimeErr error
+		runtimes, runtimeErr = l.st.ActiveAirRuntimes()
+		if runtimeErr != nil {
+			l.log.Error("Air runtime warmup failed", "err", runtimeErr)
+		}
+	} else if legacyAuthoritative {
+		var err error
+		links, err = l.st.ActiveLinks()
+		if err != nil {
+			l.log.Error("link warmup failed", "err", err)
+		}
+		for _, lk := range links {
+			l.linkOf[lk.OrbitA] = lk.ID
+			l.linkOf[lk.OrbitB] = lk.ID
+		}
+	} else {
+		l.log.Error("shared runtime warmup disabled by authority state", "mode", authority.Mode, "err", authorityErr)
 	}
-	for _, lk := range links {
-		l.linkOf[lk.OrbitA] = lk.ID
-		l.linkOf[lk.OrbitB] = lk.ID
+	if airAuthoritative {
+		for _, runtime := range runtimes {
+			for _, orbitID := range runtime.OrbitIDs {
+				l.airOf[orbitID] = runtime.AirID
+			}
+		}
 	}
 	ids, err := l.st.OrbitIDs()
 	if err != nil {
@@ -451,13 +682,16 @@ func (l *loop) warmup() {
 	for _, lk := range links {
 		l.group(lk.ID)
 	}
+	for _, runtime := range runtimes {
+		l.airState(runtime)
+	}
 	restartResults, err := l.st.ReconcileTransmissionSchedulerRestart(time.Now().UnixMilli())
 	if err != nil {
 		l.log.Error("transmission restart reconciliation failed", "err", err)
 	} else {
 		l.deliverTransmissionCancellations(restartResults)
 	}
-	l.log.Info("orbits warmed up", "count", len(ids), "links", len(links))
+	l.log.Info("orbits warmed up", "count", len(ids), "links", len(links), "active_airs", len(runtimes))
 	l.signalTransmission(transmissionSignal{})
 }
 
@@ -475,7 +709,19 @@ func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 			l.handleNode(ev)
 		case to := <-l.timeouts:
 			// A group timer may outlive its link; drop it then.
-			if o := l.stateByID(to.orbit); o != nil {
+			var o *orbitState
+			if to.airID != "" {
+				o = l.airs[to.airID]
+				if o != nil && o.authorityGeneration != to.generation {
+					o = nil
+				}
+				if o != nil && o.airRevision != to.revision {
+					o = nil
+				}
+			} else {
+				o = l.stateByID(to.orbit)
+			}
+			if o != nil {
 				l.apply(o, o.sess.OnReadyTimeoutAt(time.Now().UnixMilli(), to.elementID))
 			}
 		case ev := <-botEvents:
@@ -552,6 +798,12 @@ func (l *loop) applyMediaCancellation(request store.MediaDeliveryCancellation) e
 			persistErr = errors.Join(persistErr, err)
 		}
 	}
+	for _, state := range l.airs {
+		l.apply(state, state.sess.CancelMedia(request.MediaID))
+		if err := l.saveSession(state); err != nil {
+			persistErr = errors.Join(persistErr, err)
+		}
+	}
 	if persistErr != nil {
 		return fmt.Errorf("persist media cancellation: %w", persistErr)
 	}
@@ -578,10 +830,11 @@ func (l *loop) enrichSpotifyTrack(
 		l.finishTrackAction(o, el, playNow, reply)
 		return
 	}
+	fence := fenceFor(o)
 	go func() {
 		meta, err := l.fetchTrackMetadata(el.URI)
 		l.trackMetaCh <- trackMetadataDone{
-			orbit: sourceOrbit, el: el, playNow: playNow,
+			orbit: sourceOrbit, fence: fence, el: el, playNow: playNow,
 			meta: meta, err: err, reply: reply,
 		}
 	}()
@@ -591,7 +844,11 @@ func (l *loop) handleTrackMetadataDone(d trackMetadataDone) {
 	if l.orbitGone(d.orbit) {
 		return
 	}
-	o := l.stateFor(d.orbit)
+	o, current := l.stateForFence(d.orbit, d.fence)
+	if !current {
+		rejectStaleRuntime(d.reply)
+		return
+	}
 	if o.sess.Mode != session.ModeShared {
 		d.reply("сейчас режим solo: /inject подкинет трек партнёру, /together вернёт общий эфир")
 		return
@@ -625,7 +882,11 @@ func (l *loop) handlePlaylistDone(d playlistDone) {
 	if l.orbitGone(d.orbit) { // L3: /dissolve raced the expansion goroutine
 		return
 	}
-	o := l.stateFor(d.orbit)
+	o, current := l.stateForFence(d.orbit, d.fence)
+	if !current {
+		rejectStaleRuntime(d.reply)
+		return
+	}
 	l.apply(o, o.sess.SetPlaylist(d.uri, esc(d.title), d.tracks))
 }
 
@@ -868,14 +1129,18 @@ func (l *loop) persist(o *orbitState) {
 }
 
 func (l *loop) saveSession(o *orbitState) error {
-	return l.st.SaveSession(o.id, store.SessionSnapshot{
+	snapshot := store.SessionSnapshot{
 		Mode:            o.sess.Mode,
 		State:           o.sess.State,
 		Current:         o.sess.Current,
 		SavedPositionMS: o.sess.SavedPositionMS,
 		Queue:           o.sess.Queue,
 		Playlist:        o.sess.Playlist,
-	})
+	}
+	if o.airID != "" {
+		return l.st.SaveAirSession(o.airID, snapshot)
+	}
+	return l.st.SaveSession(o.id, snapshot)
 }
 
 // --- Node events ---
@@ -1221,7 +1486,8 @@ func (l *loop) handleBot(ev bot.Event) {
 		kind := cmd.Target
 		id := uri[strings.LastIndex(uri, ":")+1:]
 		reply := ev.Reply
-		orbitID := member.OrbitID // re-resolved on completion: the link may change meanwhile
+		orbitID := member.OrbitID // re-resolved, then checked against the dispatch-time owner
+		fence := fenceFor(o)
 		go func() {
 			var exp *spotify.Expansion
 			var err error
@@ -1230,7 +1496,7 @@ func (l *loop) handleBot(ev bot.Event) {
 			} else {
 				exp, err = l.sp.ExpandPlaylist(id)
 			}
-			d := playlistDone{orbit: orbitID, uri: uri, err: err, reply: reply}
+			d := playlistDone{orbit: orbitID, fence: fence, uri: uri, err: err, reply: reply}
 			if exp != nil {
 				d.title = exp.Title
 				d.tracks = exp.Tracks
@@ -1758,11 +2024,24 @@ func (l *loop) handleTelegramMedia(
 		ev.Reply("аудиовложение принято как неподтверждённый файл — тип, размер и длительность проверит общий ingest")
 	}
 	orbitID := o.id
-	orderAir := l.stateFor(orbitID).id
-	l.voiceAccepted[orderAir]++
-	sequence := l.voiceAccepted[orderAir]
-	if l.voiceNext[orderAir] == 0 {
-		l.voiceNext[orderAir] = 1
+	owner := l.stateFor(orbitID)
+	orderAir := owner.id
+	orderAirID := owner.airID
+	orderGeneration := owner.authorityGeneration
+	orderRevision := owner.airRevision
+	sequence := int64(0)
+	if orderAirID != "" {
+		l.airVoiceAccepted[orderAirID]++
+		sequence = l.airVoiceAccepted[orderAirID]
+		if l.airVoiceNext[orderAirID] == 0 {
+			l.airVoiceNext[orderAirID] = 1
+		}
+	} else {
+		l.voiceAccepted[orderAir]++
+		sequence = l.voiceAccepted[orderAir]
+		if l.voiceNext[orderAir] == 0 {
+			l.voiceNext[orderAir] = 1
+		}
 	}
 	from := ev.FromUserID
 	fromName := ev.FromName
@@ -1780,7 +2059,10 @@ func (l *loop) handleTelegramMedia(
 	go func() {
 		res, err := l.telegramMedia.Submit(context.Background(), accepted)
 		l.mediaCh <- mediaDone{
-			orbit: orbitID, orderAir: orderAir, mediaID: accepted.MediaID, from: from, fromName: fromName,
+			orbit: orbitID, orderAir: orderAir, orderAirID: orderAirID,
+			orderAirGeneration: orderGeneration,
+			orderAirRevision:   orderRevision,
+			mediaID:            accepted.MediaID, from: from, fromName: fromName,
 			acceptedAt: accepted.AcceptedAt, sequence: sequence, personal: personal,
 			attachmentKind: attachmentKind,
 			chatID:         ev.ChatID, originalUpdateID: originalUpdateID,
@@ -1794,6 +2076,24 @@ func (l *loop) handleMediaDone(d mediaDone) {
 	if d.sequence == 0 {
 		l.processMediaDone(d)
 		return
+	}
+	if d.orderAirID != "" {
+		pending := l.airVoicePending[d.orderAirID]
+		if pending == nil {
+			pending = map[int64]mediaDone{}
+			l.airVoicePending[d.orderAirID] = pending
+		}
+		pending[d.sequence] = d
+		for {
+			next := l.airVoiceNext[d.orderAirID]
+			ready, ok := pending[next]
+			if !ok {
+				return
+			}
+			delete(pending, next)
+			l.airVoiceNext[d.orderAirID] = next + 1
+			l.processMediaDone(ready)
+		}
 	}
 	orderAir := d.orderAir
 	if orderAir == 0 { // backward-compatible direct test/internal callers
@@ -1957,7 +2257,12 @@ func (l *loop) armReadyTimer(o *orbitState, elementID string) {
 	o.timerElement = elementID
 	d := time.Duration(l.cfg.Timings.ReadyTimeoutS) * time.Second
 	orbitID := o.id
-	o.readyTimer = time.AfterFunc(d, func() { l.timeouts <- orbitTimeout{orbit: orbitID, elementID: elementID} })
+	airID := o.airID
+	generation := o.authorityGeneration
+	revision := o.airRevision
+	o.readyTimer = time.AfterFunc(d, func() {
+		l.timeouts <- orbitTimeout{orbit: orbitID, airID: airID, generation: generation, revision: revision, elementID: elementID}
+	})
 }
 
 func (l *loop) cancelReadyTimer(o *orbitState) {

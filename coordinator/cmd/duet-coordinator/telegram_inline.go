@@ -18,6 +18,12 @@ import (
 // take the durable generic-transmission path above.
 func (l *loop) processLegacyTelegramMediaDone(d mediaDone) {
 	o := l.stateFor(d.orbit)
+	if d.orderAirID != "" && (o.airID != d.orderAirID ||
+		o.authorityGeneration != d.orderAirGeneration ||
+		o.airRevision != d.orderAirRevision) {
+		d.reply("аудиоклип готов, но исходный Air уже изменился — доставка отменена")
+		return
+	}
 	target := "both"
 	if d.personal {
 		mine := protocol.NodeID("")

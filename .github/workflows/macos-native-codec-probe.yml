@@ -1,0 +1,47 @@
+name: macOS native codec probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - task/task-260712-350u8d-*
+    paths:
+      - .github/workflows/macos-native-codec-probe.yml
+      - acceptance/codec-spike/**
+      - scripts/codec_spike/**
+
+permissions:
+  contents: read
+
+jobs:
+  signed-sandboxed-native-probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macos-arm64
+          - runner: macos-15-intel
+            platform: macos-x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate frozen candidate contract
+        run: python3 scripts/codec_spike/validate_macos_native_probe.py
+      - name: Build, sandbox-sign and run exact native fixture probe
+        run: |
+          bash scripts/codec_spike/build_macos_native_probe.sh \
+            "$RUNNER_TEMP/macos-native-codec-probe"
+      - name: Archive exact package and native evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-native-codec-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/macos-native-codec-probe/PulsarMacNativeCodecProbe.app
+            ${{ runner.temp }}/macos-native-codec-probe/evidence.json
+            ${{ runner.temp }}/macos-native-codec-probe/receipt.json
+            ${{ runner.temp }}/macos-native-codec-probe/entitlements.plist
+            ${{ runner.temp }}/macos-native-codec-probe/codesign-display.log
+          if-no-files-found: error
+          retention-days: 14

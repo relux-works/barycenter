@@ -13,10 +13,10 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-1cdoxh` — acceptance-env-gate-repair
-  (next; starts after PR #62 merge and synchronized `main`)
+  (development)
 - Next engineering task: `TASK-260712-pbfz37` — windows-report-block-delete
 - Most recently accepted: `TASK-260712-2fe5bz` — windows-ui-data-integration
-- Current branch: `task/task-260712-2fe5bz-windows-ui-data-integration`
+- Current branch: `task/task-260712-1cdoxh-acceptance-env-gate-repair`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -867,6 +867,11 @@ DPAPI prompt, physical audio, live outage or hardware observation is claimed;
 those remain in `EPIC-260714-th54l3`. Progress is 63/205 overall and 63/186
 engineering. PR #62 tracking and merge remain before strict execution starts
 `TASK-260712-1cdoxh`.
+
+Tracking head `05014e0` passed all four hosted jobs in run `29390804757`; PR
+#62 landed at merge `5be6f15`. Strict execution started
+`TASK-260712-1cdoxh` from that synchronized `main` on branch
+`task/task-260712-1cdoxh-acceptance-env-gate-repair`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

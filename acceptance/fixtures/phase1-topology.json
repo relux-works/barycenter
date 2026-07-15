@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "phase1-two-pulsar-v1",
+  "productionDataAllowed": false,
+  "coordinator": {
+    "database": "new-temporary-sqlite-database",
+    "clock": "utc",
+    "expectedFreshIDs": {"orbit": 1, "pulsarAActor": 1, "pulsarBActor": 2}
+  },
+  "orbit": {
+    "name": "Acceptance Orbit",
+    "members": [
+      {"slot": "owner", "displayName": "Acceptance Owner"},
+      {"slot": "member", "displayName": "Acceptance Member"}
+    ]
+  },
+  "installations": [
+    {"logicalName": "pulsar-a", "platform": "windows", "slot": "owner"},
+    {"logicalName": "pulsar-b", "platform": "windows", "slot": "member"}
+  ],
+  "media": {
+    "builtinCue": "builtin:self-test-cue-v1",
+    "optionalSpotify": false,
+    "spotifyFixturePolicy": "operator-owned-account-only-no-credentials-in-artifacts"
+  }
+}

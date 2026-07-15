@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   coordinator:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,42 +21,62 @@ jobs:
         with:
           go-version-file: coordinator/go.mod
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - name: Vet, tests, and pinned previous-coordinator compatibility
-        run: |
-          cd coordinator
-          go vet ./...
-          go test ./...
-          go run ./cmd/moderation-ops-check
-          go test -tags previoushead -count=1 ./internal/store -run '^(TestR8ExactPreviousHEAD(AuthorityRoundTrip|TwoGenerationProjectionComposition|ConfigBootstrapContract)|TestMediaIngestExactPreviousHeadRollback|TestMediaUploadExactPreviousHeadRollback|TestMediaProcessingExactPreviousHeadRollback|TestMediaLifecycleExactPreviousHeadRollback|TestMediaIntegrationExactPreviousHeadRollback|TestTransmissionStoreExactPreviousHeadRollback|TestModerationExactPreviousHeadRollback)$'
+      - name: Pinned coordinator and rollback acceptance suite
+        run: python3 scripts/acceptance/run_automated.py --suite coordinator --require-clean --run-id ci-coordinator
+      - name: Upload coordinator acceptance provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-acceptance-coordinator
+          path: .temp/acceptance/ci-coordinator
+          if-no-files-found: error
+          retention-days: 14
 
   node-core:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - run: cd node-app && swift test
+      - name: Pinned full-Xcode Swift acceptance suite
+        run: python3 scripts/acceptance/run_automated.py --suite swift --require-clean --run-id ci-swift
+      - name: Upload Swift acceptance provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-acceptance-swift
+          path: .temp/acceptance/ci-swift
+          if-no-files-found: error
+          retention-days: 14
 
   # EPIC B blind build: no Windows runner needed — the portable parts (golden
   # round-trip, clock sync, ring, ws client, supervisor, player) test on
   # linux via the !windows audio stub; the Windows-only legs (winio pipe +
   # WASAPI) are gated by the cross-compile.
   pulsar-win:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: pulsar-win/go.mod
-      - name: Unit tests (portable, audio stub)
-        run: cd pulsar-win && go vet ./... && go test ./...
+      - name: Pinned portable, race, and cross-build acceptance suite
+        run: python3 scripts/acceptance/run_automated.py --suite windows --require-clean --run-id ci-windows
       - name: Generate Windows resources (icon + DPI manifest)
         run: |
           go install github.com/tc-hib/go-winres@v0.3.3
           cd pulsar-win && "$(go env GOPATH)/bin/go-winres" make --in winres/winres.json --arch amd64 --product-version "${GITHUB_REF_NAME:-dev}"
       - name: Cross-compile for Windows (blind-build gate)
         run: cd pulsar-win && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./...
+      - name: Upload Windows acceptance provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-acceptance-windows
+          path: .temp/acceptance/ci-windows
+          if-no-files-found: error
+          retention-days: 14
 
   pulsar-win-packaged-probe:
-    runs-on: windows-latest
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

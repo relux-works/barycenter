@@ -11,7 +11,13 @@ test-coordinator:
 	cd coordinator && go test ./...
 
 test-node:
-	cd node-app && swift test
+	@test -d "$${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}" || \
+		( echo "full Xcode is required; standalone CommandLineTools Swift has no Testing module" >&2; exit 1 )
+	cd node-app && DEVELOPER_DIR="$${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}" xcrun swift test
+
+.PHONY: acceptance
+acceptance:
+	python3 scripts/acceptance/run_automated.py --suite all --require-clean
 
 build:
 	mkdir -p .temp/build

@@ -1,0 +1,37 @@
+Barycenter codec spike — audited third-party notices
+Audit date: 2026-07-15
+
+This file is an audit/release template. A release must include only components
+actually present in its signed SBOM and must bundle each full applicable license.
+
+FFmpeg 8.1.2 (candidate; not yet selected)
+Copyright FFmpeg contributors.
+Licensed under LGPL-2.1-or-later only when built by the locked minimal shared-
+library recipe. Source: https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz
+The release must publish the exact corresponding source, patches and build
+recipe beside the application download and include the full LGPL-2.1 text.
+
+github.com/hajimehoshi/go-mp3 v0.3.4 (candidate component)
+Copyright Hajime Hoshi.
+Licensed under Apache-2.0. A shipping release must include the full license and
+any upstream NOTICE material present in the locked source.
+
+github.com/Eyevinn/mp4ff v0.54.0 (candidate component)
+Copyright Eyevinn Technology AB.
+Licensed under MIT. A shipping release must include the full copyright and
+permission notice from the locked source.
+
+github.com/pion/opus v0.1.0 (candidate component)
+Copyright Pion contributors.
+Licensed under MIT. A shipping release must include the full copyright and
+permission notice from the locked source.
+
+Rejected — must not appear in a proprietary shipping SBOM
+github.com/llehouerou/go-aac v0.0.0-20260119142340-5f2857eb82ad is
+GPL-2.0-only and identifies itself as a port of FAAD2. Its presence in a
+shipping artifact is a release-blocking error under the current plan.
+
+Operating-system frameworks
+Windows Media Foundation and Apple AudioToolbox remain supplied and serviced by
+their operating-system vendors; Barycenter does not redistribute those codec
+binaries. This does not waive the separate AAC patent/counsel release gate.

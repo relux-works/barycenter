@@ -1,0 +1,285 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-codec-license-distribution-audit.v1",
+  "auditedAt": "2026-07-15",
+  "owner": "Ivan Oparin",
+  "approver": "Ivan Oparin",
+  "legalAdvice": false,
+  "decisionPolicy": {
+    "allowedClassifications": ["shippable", "shippable-with-obligations", "rejected"],
+    "runtimeExecutableDownloads": "forbidden",
+    "sandboxWeakening": "forbidden",
+    "unknownRuntimeDependencies": "forbidden",
+    "unpatchedKnownVulnerabilities": "forbidden",
+    "patentConclusion": "legal-review-required",
+    "releaseRule": "A conditionally selected component must be rebuilt from its exact locked source, rescanned, signed, packaged and accompanied by its exact notices and corresponding-source materials."
+  },
+  "authoritativeSources": [
+    {
+      "id": "ffmpeg-legal",
+      "url": "https://ffmpeg.org/legal.html",
+      "retrievedAt": "2026-07-15",
+      "purpose": "FFmpeg license and dynamic-link compliance checklist"
+    },
+    {
+      "id": "ffmpeg-security",
+      "url": "https://ffmpeg.org/security.html",
+      "retrievedAt": "2026-07-15",
+      "purpose": "FFmpeg release vulnerability fixes"
+    },
+    {
+      "id": "microsoft-codecs",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/supported-codecs",
+      "retrievedAt": "2026-07-15",
+      "purpose": "Windows inbox codec/container support"
+    },
+    {
+      "id": "microsoft-msix-container",
+      "url": "https://learn.microsoft.com/en-us/windows/msix/msix-containerization-overview",
+      "retrievedAt": "2026-07-15",
+      "purpose": "MSIX package immutability and AppContainer boundary"
+    },
+    {
+      "id": "apple-stream-audio",
+      "url": "https://developer.apple.com/documentation/audiotoolbox/audio-file-stream-services",
+      "retrievedAt": "2026-07-15",
+      "purpose": "macOS streamed MP3/AAC parsing support"
+    },
+    {
+      "id": "apple-code-signing",
+      "url": "https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac",
+      "retrievedAt": "2026-07-15",
+      "purpose": "nested library signing"
+    },
+    {
+      "id": "apple-notarization",
+      "url": "https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution",
+      "retrievedAt": "2026-07-15",
+      "purpose": "notarization gate"
+    },
+    {
+      "id": "apple-review",
+      "url": "https://developer.apple.com/app-store/review/guidelines/",
+      "retrievedAt": "2026-07-15",
+      "purpose": "self-contained app and downloaded-code restrictions"
+    },
+    {
+      "id": "aac-pool",
+      "url": "https://www.via-la.com/licensing-programs/aac/",
+      "retrievedAt": "2026-07-15",
+      "purpose": "current AAC patent-pool existence; scope and applicability require counsel"
+    },
+    {
+      "id": "mp3-program",
+      "url": "https://www.iis.fraunhofer.de/en/ff/amm/consumer-electronics/mp3.html",
+      "retrievedAt": "2026-07-15",
+      "purpose": "termination of the former Fraunhofer/Technicolor MP3 program"
+    },
+    {
+      "id": "opus-license",
+      "url": "https://opus-codec.org/license/",
+      "retrievedAt": "2026-07-15",
+      "purpose": "Opus software and disclosed patent terms; third-party IPR caveat remains"
+    },
+    {
+      "id": "go-vuln-db",
+      "url": "https://vuln.go.dev/index/modules.json",
+      "retrievedAt": "2026-07-15",
+      "purpose": "Go module vulnerability index"
+    }
+  ],
+  "components": [
+    {
+      "id": "windows-media-foundation-inbox",
+      "kind": "operating-system-framework",
+      "version": "Windows 10 and Windows 11 recorded build",
+      "source": "microsoft-codecs",
+      "license": "Microsoft OS component; not redistributed by Barycenter",
+      "runtimeDependencies": [],
+      "architectures": ["windows-amd64", "windows-arm64"],
+      "packageShape": "documented inbox Media Foundation APIs; no copied codec DLL",
+      "notice": "none for an OS component; preserve product legal review",
+      "vulnerabilityPolicy": "consume supported OS servicing and reject a device lacking the runtime-probed decoder",
+      "patentDisposition": "legal-review-required",
+      "storeDisposition": "runtime probe inside the declared package trust level; no capability or fallback download",
+      "status": "shippable-with-obligations"
+    },
+    {
+      "id": "apple-audiotoolbox-inbox",
+      "kind": "operating-system-framework",
+      "version": "macOS 14 or newer recorded build",
+      "source": "apple-stream-audio",
+      "license": "Apple OS framework; not redistributed by Barycenter",
+      "runtimeDependencies": [],
+      "architectures": ["macos-arm64"],
+      "packageShape": "documented AudioFileStream/AudioConverter APIs; no copied codec binary",
+      "notice": "none for an OS component; preserve product legal review",
+      "vulnerabilityPolicy": "consume supported macOS servicing and fail closed on runtime format rejection",
+      "patentDisposition": "legal-review-required",
+      "storeDisposition": "App Sandbox retained; no downloaded code",
+      "status": "shippable-with-obligations"
+    },
+    {
+      "id": "go-mp3-v0.3.4",
+      "kind": "go-module",
+      "version": "v0.3.4",
+      "purl": "pkg:golang/github.com/hajimehoshi/go-mp3@v0.3.4",
+      "sourceUrl": "https://github.com/hajimehoshi/go-mp3/tree/v0.3.4",
+      "sourceCommit": "26f0b17459ab4b2b3d9d2b484a27a4eab3cca17b",
+      "moduleSum": "h1:NUP7pBYH8OguP4diaTZ9wJbUbk3tC0KlfzsEpWmYj68=",
+      "goModSum": "h1:fRtZraRFcWb0pu7ok0LqyFhCUrPeMsGRSVop0eemFmo=",
+      "sourceZipSha256": "c14676f9e3fdafe7bbb107e1dd65953a558cbef2346e4955d993f7bf2998e311",
+      "license": "Apache-2.0",
+      "licenseSha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+      "runtimeDependencies": [],
+      "declaredNonRuntimeDependencies": ["github.com/hajimehoshi/oto/v2@v2.3.1 (example only)"],
+      "notice": "retain Apache-2.0 license and attribution in third-party notices",
+      "vulnerabilityScan": "no module entry in Go Vulnerability Database index at retrieval time; rescan every release",
+      "maintenance": "upstream archived; replacement or owned security maintenance required",
+      "status": "shippable-with-obligations"
+    },
+    {
+      "id": "go-aac-5f2857eb82ad",
+      "kind": "go-module",
+      "version": "v0.0.0-20260119142340-5f2857eb82ad",
+      "purl": "pkg:golang/github.com/llehouerou/go-aac@v0.0.0-20260119142340-5f2857eb82ad",
+      "sourceUrl": "https://proxy.golang.org/github.com/llehouerou/go-aac/@v/v0.0.0-20260119142340-5f2857eb82ad.zip",
+      "sourceCommit": "5f2857eb82ad85603d217fb231bb066e179ff124",
+      "moduleSum": "h1:cn+86OgMomMIRZJSmbHRVDEtH74pqjjrkG6kyYUbk2U=",
+      "goModSum": "h1:TJjmiel401pFBVR2T6jvAUf9bpELS5IOf40C4dZAW7o=",
+      "sourceZipSha256": "6c310acd13c0ed85638002fb752a2296e5e780cff6058159f98ef67bff500a96",
+      "license": "GPL-2.0-only",
+      "licenseSha256": "4d0dcf8cdc91412bff804eeaf2e62d5ab699b79589f4ede05b7efc16e47288a9",
+      "runtimeDependencies": [],
+      "provenance": "package documentation identifies this as a Go port of FAAD2",
+      "notice": "GPL-2.0 license and corresponding-source duties would apply to a distributed covered combination; counsel must decide any alternative architecture",
+      "vulnerabilityScan": "no module entry in Go Vulnerability Database index at retrieval time; this is not a safety claim",
+      "maintenance": "origin repository returned HTTP 404 through GitHub API at audit time; only the immutable Go proxy artifact was retrievable",
+      "rejectionReasons": [
+        "GPL-2.0-only source is incompatible with the currently approved proprietary static Go application distribution assumption",
+        "unavailable origin and immature decoder create an unacceptable supply-chain and security-maintenance gap"
+      ],
+      "status": "rejected"
+    },
+    {
+      "id": "mp4ff-v0.54.0",
+      "kind": "go-module",
+      "version": "v0.54.0",
+      "purl": "pkg:golang/github.com/Eyevinn/mp4ff@v0.54.0",
+      "sourceUrl": "https://github.com/Eyevinn/mp4ff/tree/v0.54.0",
+      "sourceCommit": "8c9f99a4143239827775e16a99cb89137882cec1",
+      "moduleSum": "h1:WSkbWQbvlB1jAuTfUlqjhqdp3nkH+oe7Ht6hzDCWx+g=",
+      "goModSum": "h1:AhC+bOI7GSZmzuN4zFY9U76qMedbHI+8BdQXWrC9+8U=",
+      "sourceZipSha256": "f216f885caa74ec8c7bd9297ad6e4fbc9f0a927b42abae2e9bda929cef5d88d3",
+      "license": "MIT",
+      "licenseSha256": "bea4e5a13d04f33d2743929c91f5552bbac369212c9f8731bc8d70e919a96ef1",
+      "runtimeDependencies": [],
+      "declaredNonRuntimeDependencies": ["github.com/go-test/deep@v1.1.0 (test only)"],
+      "notice": "retain MIT copyright and permission notice",
+      "vulnerabilityScan": "no module entry in Go Vulnerability Database index at retrieval time; rescan every release",
+      "status": "shippable-with-obligations"
+    },
+    {
+      "id": "pion-opus-v0.1.0",
+      "kind": "go-module",
+      "version": "v0.1.0",
+      "purl": "pkg:golang/github.com/pion/opus@v0.1.0",
+      "sourceUrl": "https://github.com/pion/opus/tree/v0.1.0",
+      "sourceCommit": "eb60bfd0e51a58e122fcfd0c0df027b014db7daa",
+      "moduleSum": "h1:GgK/a3DNDrffKjUFsK39rZKqfv7bQ2S2eqRKt0BnqAE=",
+      "goModSum": "h1:t5Xog2n682JnawoykACE6nKVmupFvmJvkpM7x6bTv6g=",
+      "sourceZipSha256": "958c90a5a7af40b12d6b7ebb20308514eda273d38b718604b83697feaac0c7f4",
+      "license": "MIT",
+      "licenseSha256": "9ea8a12deea1b232d639881e35b0540f8678315ebcc27053a9d8359bd78ad040",
+      "runtimeDependencies": [],
+      "declaredNonRuntimeDependencies": ["testify and its test-only indirect dependencies"],
+      "notice": "retain MIT copyright and permission notice",
+      "patentDisposition": "Opus project publishes royalty-free grants and third-party IPR caveats; legal-review-required",
+      "vulnerabilityScan": "no module entry in Go Vulnerability Database index at retrieval time; rescan every release",
+      "status": "shippable-with-obligations"
+    },
+    {
+      "id": "ffmpeg-8.1.2-minimal-shared",
+      "kind": "native-shared-library",
+      "version": "8.1.2",
+      "purl": "pkg:generic/ffmpeg@8.1.2",
+      "sourceUrl": "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz",
+      "sourceSha256": "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c",
+      "license": "LGPL-2.1-or-later when the locked build excludes GPL, version3, nonfree and incompatible external libraries",
+      "licenseSha256": "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af",
+      "copyingLgpl21Sha256": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30",
+      "runtimeDependencies": ["platform C runtime and OS libraries emitted by the reproducible build receipt"],
+      "architectures": ["windows-amd64", "windows-arm64", "macos-arm64"],
+      "packageShape": "libavformat, libavcodec, libavutil and libswresample shared libraries plus a narrow in-process bridge; no ffmpeg/ffprobe CLI",
+      "requiredConfigure": [
+        "--disable-everything", "--disable-autodetect", "--disable-programs", "--disable-doc",
+        "--disable-network", "--disable-static", "--enable-shared"
+      ],
+      "forbiddenConfigure": ["--enable-gpl", "--enable-version3", "--enable-nonfree"],
+      "allowedMediaSurface": {
+        "protocols": ["file"],
+        "demuxers": ["aac", "mov", "mp3", "ogg"],
+        "decoders": ["aac", "mp3", "opus"],
+        "libraries": ["avformat", "avcodec", "avutil", "swresample"]
+      },
+      "notice": "ship LGPL-2.1 text, attribution, exact corresponding source archive, patch set, configure/build recipe and relinking/reverse-engineering terms reviewed by counsel",
+      "vulnerabilityScan": "FFmpeg 8.1.2 is listed by the project as fixing CVE-2026-8461 and CVE-2026-30999; a fresh official advisory and binary SBOM scan is mandatory on every release",
+      "storeDisposition": "DLLs/dylibs are immutable package members, signed before outer package signing; macOS nested code is notarized; no runtime code download or sandbox exception",
+      "patentDisposition": "AAC distribution/encoding scope is legal-review-required; an open-source software license does not grant all third-party codec patent rights",
+      "status": "shippable-with-obligations"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "native-canonical-aac-v1",
+      "classification": "shippable-with-obligations",
+      "components": ["windows-media-foundation-inbox", "apple-audiotoolbox-inbox", "ffmpeg-8.1.2-minimal-shared"],
+      "binaryShape": "no client codec binary; OS framework calls on clients and exact minimal FFmpeg shared libraries only in the server conversion image",
+      "obligations": [
+        "runtime-probe MP3/AAC support and canonicalize every unsupported source before client delivery",
+        "retain supported Windows/macOS servicing floors and package sandbox",
+        "complete AAC patent-pool applicability review before commercial release",
+        "apply all FFmpeg source, notice, rebuild and vulnerability gates to the server image"
+      ],
+      "unresolvedLegal": ["AAC encode/decode and hosted conversion licensing in intended markets"]
+    },
+    {
+      "id": "pure-go-composite-v1",
+      "classification": "rejected",
+      "components": ["go-mp3-v0.3.4", "go-aac-5f2857eb82ad", "mp4ff-v0.54.0", "pion-opus-v0.1.0"],
+      "binaryShape": "statically linked Go decoder inside each client package",
+      "rejectionReasons": [
+        "the exact AAC component is GPL-2.0-only and cannot enter the approved proprietary static-combination plan",
+        "the AAC source origin is unavailable and has no acceptable owned patch/CVE channel",
+        "AAC and Opus patent dispositions still require qualified legal review"
+      ],
+      "unresolvedLegal": ["none can turn this exact composite into an approved candidate without a new architecture and explicit counsel decision"]
+    },
+    {
+      "id": "bundled-ffmpeg-8.1.2-v1",
+      "classification": "shippable-with-obligations",
+      "components": ["ffmpeg-8.1.2-minimal-shared"],
+      "binaryShape": "signed package-local shared libraries and narrow bridge on every architecture; no CLI and no runtime download",
+      "obligations": [
+        "reproducibly build the exact source with the locked minimal configuration and record every linked dependency",
+        "reject GPL, version3, nonfree, external codec and static-link drift",
+        "publish exact corresponding source, patches, build scripts, LGPL text and attribution with the same release",
+        "sign each nested binary before signing the outer MSIX/app and notarize the complete macOS artifact",
+        "scan the resulting SBOM and official FFmpeg security list at release time; block known-unpatched findings",
+        "complete AAC patent applicability review"
+      ],
+      "unresolvedLegal": ["LGPL distribution mechanics and AAC patent scope need final counsel approval"]
+    }
+  ],
+  "releaseGates": [
+    "validator-pass",
+    "exact-source-and-build-receipt",
+    "complete-runtime-sbom",
+    "zero-known-unpatched-vulnerabilities",
+    "notices-and-corresponding-source-published",
+    "signed-msix-all-architectures",
+    "signed-notarized-macos-arm64",
+    "sandbox-and-no-download-receipts",
+    "aac-counsel-approval"
+  ]
+}

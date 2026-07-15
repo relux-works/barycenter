@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-pure-go-streaming-decoder-probe.v1",
+  "candidateId": "pure-go-composite-v1",
+  "classification": "rejected",
+  "claimClass": "bounded-nondistributable-research",
+  "manualEpic": "EPIC-260714-th54l3",
+  "modules": [
+    {
+      "path": "github.com/hajimehoshi/go-mp3",
+      "version": "v0.3.4",
+      "sum": "h1:NUP7pBYH8OguP4diaTZ9wJbUbk3tC0KlfzsEpWmYj68=",
+      "license": "Apache-2.0",
+      "use": "research-build"
+    },
+    {
+      "path": "github.com/pion/opus",
+      "version": "v0.1.0",
+      "sum": "h1:GgK/a3DNDrffKjUFsK39rZKqfv7bQ2S2eqRKt0BnqAE=",
+      "license": "MIT",
+      "use": "research-build"
+    },
+    {
+      "path": "github.com/llehouerou/go-aac",
+      "version": "v0.0.0-20260119142340-5f2857eb82ad",
+      "sum": "h1:cn+86OgMomMIRZJSmbHRVDEtH74pqjjrkG6kyYUbk2U=",
+      "license": "GPL-2.0-only",
+      "use": "forbidden-not-in-go-mod"
+    }
+  ],
+  "fixtures": [
+    {"id": "mp3_cbr_12s", "file": "mp3_cbr_12s.mp3", "expected": "decode-and-reject-seek-full-scan"},
+    {"id": "mp3_vbr_12s", "file": "mp3_vbr_12s.mp3", "expected": "decode-and-reject-seek-full-scan"},
+    {"id": "aac_m4a_12s", "file": "aac_m4a_12s.m4a", "expected": "reject-forbidden-aac-module"},
+    {"id": "aac_adts_12s", "file": "aac_adts_12s.aac", "expected": "reject-forbidden-aac-module"},
+    {"id": "opus_ogg_cbr_12s", "file": "opus_ogg_cbr_12s.ogg", "expected": "decode-and-reject-no-seek"},
+    {"id": "opus_ogg_vbr_12s", "file": "opus_ogg_vbr_12s.ogg", "expected": "decode-and-reject-no-seek"}
+  ],
+  "bounds": {
+    "maximumUnderlyingReadBytes": 65536,
+    "pcmRingBytes": 1048576,
+    "decoderOwnsNetwork": false,
+    "renderThreadIO": false,
+    "cgoAllowed": false,
+    "fullFileAllocationAllowed": false
+  },
+  "requiredResearch": [
+    "incremental-first-pcm",
+    "scheduled-start",
+    "pause-without-read",
+    "resume-and-drain",
+    "cooperative-cancel",
+    "seek-or-exact-reject",
+    "hostile-input-no-panic",
+    "race-clean",
+    "windows-amd64-build",
+    "windows-arm64-build",
+    "macos-arm64-build"
+  ],
+  "shippingRejectionReasons": [
+    "GPL-2.0-only AAC decoder is forbidden by the approved proprietary static distribution posture",
+    "go-mp3 seek-capable construction scans the complete source before first PCM",
+    "pion/opus Ogg reader exposes no random seek contract",
+    "two-hour physical RSS and packaged AppContainer/macOS evidence are not proven"
+  ]
+}

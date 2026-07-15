@@ -31,16 +31,48 @@ type phaseOneFakeService struct {
 	deletedHistory      int
 	reportedHistory     int
 	blockedHistory      int
+	policyRequired      bool
+	policyDisplays      int
+	policyAccepts       int
 }
 
-func (s *phaseOneFakeService) Upload(_ context.Context, path, _ string, key string) (PhaseOneUploadConfirmation, error) {
+func (s *phaseOneFakeService) Upload(_ context.Context, path, _ string, key string, rightsAcknowledged bool) (PhaseOneUploadConfirmation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, err := os.Stat(path); err != nil {
 		return PhaseOneUploadConfirmation{}, err
 	}
+	if !rightsAcknowledged {
+		return PhaseOneUploadConfirmation{}, ErrPhaseOneInvalidDraft
+	}
 	s.uploadKeys = append(s.uploadKeys, key)
 	return PhaseOneUploadConfirmation{MediaID: "m_" + strings.Repeat("A", 26)}, nil
+}
+
+func (s *phaseOneFakeService) ContentPolicy(context.Context, ContentPolicyLocale) (ContentPolicyManifest, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.policyDisplays++
+	return ContentPolicyManifest{Version: "1.0", PolicyHash: strings.Repeat("a", 64), Locale: ContentPolicyEN}, nil
+}
+func (s *phaseOneFakeService) CurrentContentPolicyGrant(context.Context) (ContentPolicyGrant, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.policyRequired && s.policyAccepts == 0 {
+		return ContentPolicyGrant{}, &PhaseOneClientError{
+			Kind: PhaseOneRejected, Status: 428, Code: "content_policy_acceptance_required",
+		}
+	}
+	return ContentPolicyGrant{Current: true, TermsAccepted: true}, nil
+}
+func (s *phaseOneFakeService) AcceptContentPolicy(context.Context, ContentPolicyManifest) (ContentPolicyGrant, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.policyAccepts++
+	return ContentPolicyGrant{Current: true, TermsAccepted: true}, nil
+}
+func (s *phaseOneFakeService) RevokeContentPolicy(context.Context, ContentPolicyLocale) (ContentPolicyGrant, error) {
+	return ContentPolicyGrant{}, nil
 }
 
 func (s *phaseOneFakeService) Transmit(_ context.Context, _ string, _ PhaseOneRoute, delivery PhaseOneDelivery, originKind PhaseOneOriginKind, key string, fallback *PhaseOneFallbackConfirmation) (PhaseOneTransmissionReceipt, error) {
@@ -73,6 +105,34 @@ func (s *phaseOneFakeService) DeleteMedia(_ context.Context, id string) error {
 	defer s.mu.Unlock()
 	s.deletedMediaIDs = append(s.deletedMediaIDs, id)
 	return nil
+}
+
+func TestPhaseOneDraftOutboxRejectsMissingPerUploadRightsAcknowledgement(t *testing.T) {
+	root := t.TempDir()
+	store := NewCaptureMediaStore(filepath.Join(root, "capture-media"))
+	store.newID = func() (string, error) { return strings.Repeat("9", 32), nil }
+	draft, err := store.ImportUserDraft(bytes.NewReader(phaseOneCueBytes(t)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := &phaseOneFakeService{}
+	outbox, err := NewPhaseOneDraftOutbox(service, store, filepath.Join(root, "outbox.json"), []CaptureMediaHandle{draft})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := outbox.Send(context.Background(), draft.ID, PhaseOneOwnBarycenter,
+		PhaseOneOverlay, PhaseOneFile, false); !errors.Is(err, ErrPhaseOneInvalidDraft) {
+		t.Fatalf("missing rights error=%v", err)
+	}
+	service.mu.Lock()
+	uploads := len(service.uploadKeys)
+	service.mu.Unlock()
+	if uploads != 0 {
+		t.Fatalf("missing rights reached upload service %d time(s)", uploads)
+	}
+	if _, err := os.Stat(draft.Path); err != nil {
+		t.Fatalf("missing rights removed local draft: %v", err)
+	}
 }
 func (s *phaseOneFakeService) Presence(context.Context) ([]PhaseOnePresenceNode, error) {
 	s.mu.Lock()
@@ -132,7 +192,7 @@ func TestPhaseOneOutboxRestartRetryIsIdempotentAndFrozen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	failed, err := outbox.Send(context.Background(), draft.ID, PhaseOneOwnBarycenter, PhaseOneOverlay, PhaseOneMicrophone)
+	failed, err := outbox.Send(context.Background(), draft.ID, PhaseOneOwnBarycenter, PhaseOneOverlay, PhaseOneMicrophone, true)
 	if err == nil || failed.State != PhaseOneDraftRetryableFailure || failed.LocalBytesRetained || failed.FailureCode != "coordinator_unavailable" {
 		t.Fatalf("failed=%+v err=%v", failed, err)
 	}
@@ -148,11 +208,11 @@ func TestPhaseOneOutboxRestartRetryIsIdempotentAndFrozen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	accepted, err := restarted.Send(context.Background(), draft.ID, PhaseOneOwnBarycenter, PhaseOneOverlay, PhaseOneMicrophone)
+	accepted, err := restarted.Send(context.Background(), draft.ID, PhaseOneOwnBarycenter, PhaseOneOverlay, PhaseOneMicrophone, true)
 	if err != nil || accepted.State != PhaseOneDraftAccepted || accepted.EffectiveDelivery != PhaseOneAfterCurrent {
 		t.Fatalf("accepted=%+v err=%v", accepted, err)
 	}
-	if _, err := restarted.Send(context.Background(), draft.ID, PhaseOneCurrentAir, PhaseOneOverlay, PhaseOneMicrophone); !errors.Is(err, ErrPhaseOneInvalidDraft) {
+	if _, err := restarted.Send(context.Background(), draft.ID, PhaseOneCurrentAir, PhaseOneOverlay, PhaseOneMicrophone, true); !errors.Is(err, ErrPhaseOneInvalidDraft) {
 		t.Fatalf("changed frozen route err=%v", err)
 	}
 	service.mu.Lock()
@@ -179,14 +239,14 @@ func TestPhaseOneOutboxPersistsPickedFileOriginAcrossRestart(t *testing.T) {
 	if err := outbox.Attach(draft, "Picked file", PhaseOneFile); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := outbox.Send(context.Background(), draft.ID, PhaseOneOwnBarycenter, PhaseOneOverlay, PhaseOneFile); err == nil {
+	if _, err := outbox.Send(context.Background(), draft.ID, PhaseOneOwnBarycenter, PhaseOneOverlay, PhaseOneFile, true); err == nil {
 		t.Fatal("first transmission unexpectedly succeeded")
 	}
 	restarted, err := NewPhaseOneDraftOutbox(service, NewCaptureMediaStore(filepath.Join(root, "capture-media")), statePath, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	accepted, err := restarted.Send(context.Background(), draft.ID, PhaseOneOwnBarycenter, PhaseOneOverlay, PhaseOneFile)
+	accepted, err := restarted.Send(context.Background(), draft.ID, PhaseOneOwnBarycenter, PhaseOneOverlay, PhaseOneFile, true)
 	if err != nil || accepted.OriginKind != PhaseOneFile {
 		t.Fatalf("accepted=%+v err=%v", accepted, err)
 	}
@@ -250,7 +310,7 @@ func TestPhaseOneOutboxRestartFinishesConfirmedUploadCleanupWithoutReupload(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	accepted, err := outbox.Send(context.Background(), draft.ID, PhaseOneThisPulsar, PhaseOneOverlay, PhaseOneMicrophone)
+	accepted, err := outbox.Send(context.Background(), draft.ID, PhaseOneThisPulsar, PhaseOneOverlay, PhaseOneMicrophone, true)
 	if err != nil || accepted.State != PhaseOneDraftAccepted || accepted.LocalBytesRetained {
 		t.Fatalf("accepted=%+v err=%v", accepted, err)
 	}
@@ -274,7 +334,7 @@ func TestPhaseOneOutboxRequiresExplicitInMemoryFallbackConfirmation(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	challenged, err := outbox.Send(context.Background(), draft.ID, PhaseOneOwnBarycenter, PhaseOneInterrupt, PhaseOneMicrophone)
+	challenged, err := outbox.Send(context.Background(), draft.ID, PhaseOneOwnBarycenter, PhaseOneInterrupt, PhaseOneMicrophone, true)
 	if err == nil || challenged.FailureCode != "requires_confirmation" {
 		t.Fatalf("challenged=%+v err=%v", challenged, err)
 	}

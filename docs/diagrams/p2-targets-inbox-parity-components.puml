@@ -17,7 +17,7 @@ package "Coordinator" {
   component "Audience Resolver\nAir / Own / Explicit -> exact snapshot" as resolver
   component "Mixed-version Capability Policy\nClip + future track requirements" as capabilities
   component "Inbox and Receipt Query Service\nHistory / Pagination / Aggregates" as inboxsvc
-  component "Rights and Policy Service\nContent policy / report / disable" as rights
+  component "Rights and Policy Service\nVersion/hash display / accept / revoke\nper-upload rights reminder / report / disable" as rights
   component "Media ACL Authorizer\nGET /media + revoke fetch" as acl
   component "Delivery Runtime\nClip scheduler + track queue policy" as runtime
 }
@@ -53,7 +53,7 @@ runtime --> inboxdb : same transaction creates\none eligible target item
 runtime --> nodes : prepare / play / queue / replace
 acl --> db : authorize by target snapshot\nand disable / delete state
 nodes --> acl : authenticated media fetch
-rights --> db : reports / delete / disable
+rights --> db : versioned grants + audit\nreports / delete / disable
 rights --> inboxdb : project canonical\nrevocation state
 rights --> acl : revoke future fetch
 admin --> rights : review report / disable actor

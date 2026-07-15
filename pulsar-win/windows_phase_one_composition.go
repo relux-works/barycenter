@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -221,15 +222,40 @@ func (c *WindowsPhaseOneComposition) SendSelectedDraft() {
 	originKind := state.Drafts[state.SelectedDraft].OriginKind
 	go func() {
 		var err error
+		if err = c.ensureContentPolicy(); err != nil {
+			c.endMutation(phaseOneFailureCodeOrEmpty(err))
+			return
+		}
 		if state.Drafts[state.SelectedDraft].FallbackConfirmationAvailable {
 			_, err = c.outbox.ConfirmFallback(c.ctx, draftID, PhaseOneAfterCurrent, originKind)
 		} else {
-			_, err = c.outbox.Send(c.ctx, draftID, state.SelectedRoute, state.SelectedDelivery, originKind)
+			_, err = c.outbox.Send(c.ctx, draftID, state.SelectedRoute, state.SelectedDelivery, originKind, true)
 		}
 		c.refreshDrafts()
 		c.endMutation(phaseOneFailureCodeOrEmpty(err))
 		c.wakeRefresh()
 	}()
+}
+
+func (c *WindowsPhaseOneComposition) ensureContentPolicy() error {
+	if grant, err := c.service.CurrentContentPolicyGrant(c.ctx); err == nil {
+		if grant.Current && grant.TermsAccepted {
+			return nil
+		}
+		return &PhaseOneClientError{Kind: PhaseOneInvalidResponse}
+	} else {
+		var rejected *PhaseOneClientError
+		if !errors.As(err, &rejected) || rejected.Kind != PhaseOneRejected ||
+			rejected.Code != "content_policy_acceptance_required" {
+			return err
+		}
+	}
+	manifest, err := c.service.ContentPolicy(c.ctx, ContentPolicyEN)
+	if err != nil {
+		return err
+	}
+	_, err = c.service.AcceptContentPolicy(c.ctx, manifest)
+	return err
 }
 
 func (c *WindowsPhaseOneComposition) DeleteSelectedDraft() {

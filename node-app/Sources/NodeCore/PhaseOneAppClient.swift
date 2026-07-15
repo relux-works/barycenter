@@ -17,6 +17,36 @@ public enum PhaseOneOriginKind: String, Codable, Sendable {
   case file
 }
 
+public enum ContentPolicyLocale: String, Codable, CaseIterable, Sendable {
+  case en
+  case ru
+}
+
+public struct ContentPolicyManifest: Equatable, Sendable {
+  public let version: String
+  public let policyHash: String
+  public let locale: ContentPolicyLocale
+  public let localeHash: String
+  public let effectiveAt: Date
+  public let termsURL: URL
+  public let contentGuidelinesURL: URL
+  public let title: String
+  public let rightsText: String
+  public let consentText: String
+  public let controllingLanguage: String
+}
+
+public struct ContentPolicyGrant: Equatable, Sendable {
+  public let version: String
+  public let policyHash: String
+  public let locale: ContentPolicyLocale
+  public let acceptedAt: Date
+  public let revokedAt: Date?
+  public let revision: Int64
+  public let current: Bool
+  public let termsAccepted: Bool
+}
+
 public struct PhaseOneUploadConfirmation: Equatable, Sendable {
   public let mediaID: String
   public let reused: Bool
@@ -163,8 +193,14 @@ public protocol PhaseOneAppServicing: Sendable {
   func upload(
     fileURL: URL,
     title: String,
-    idempotencyKey: String
+    idempotencyKey: String,
+    rightsAcknowledged: Bool
   ) async throws -> PhaseOneUploadConfirmation
+
+  func contentPolicy(locale: ContentPolicyLocale) async throws -> ContentPolicyManifest
+  func currentContentPolicyGrant() async throws -> ContentPolicyGrant
+  func acceptContentPolicy(_ manifest: ContentPolicyManifest) async throws -> ContentPolicyGrant
+  func revokeContentPolicy(locale: ContentPolicyLocale) async throws -> ContentPolicyGrant
 
   func transmit(
     mediaID: String,
@@ -225,7 +261,8 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
   public func upload(
     fileURL: URL,
     title: String,
-    idempotencyKey: String
+    idempotencyKey: String,
+    rightsAcknowledged: Bool
   ) async throws -> PhaseOneUploadConfirmation {
     let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
     guard Self.validIdempotencyKey(idempotencyKey), !cleanTitle.isEmpty,
@@ -234,7 +271,8 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
       let values = try? fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]),
       values.isRegularFile == true,
       let size = values.fileSize,
-      size > 0
+      size > 0,
+      rightsAcknowledged
     else { throw PhaseOneClientError.invalidRequest }
 
     let create = try await request(
@@ -242,7 +280,9 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
       path: "/v1/media/uploads",
       bearer: controlToken,
       headers: ["Idempotency-Key": idempotencyKey],
-      jsonBody: UploadCreateBody(kind: "voice_clip", title: cleanTitle, sizeBytes: Int64(size)),
+      jsonBody: UploadCreateBody(
+        kind: "voice_clip", title: cleanTitle, sizeBytes: Int64(size),
+        rightsAcknowledged: rightsAcknowledged),
       success: [200, 201]
     )
     let session: UploadSessionResponse = try decode(create.data)
@@ -281,6 +321,61 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
       completion.status == "completed"
     else { throw PhaseOneClientError.invalidResponse }
     return PhaseOneUploadConfirmation(mediaID: completion.mediaID, reused: session.reused ?? false)
+  }
+
+  public func contentPolicy(locale: ContentPolicyLocale) async throws -> ContentPolicyManifest {
+    let response = try await request(
+      method: "GET",
+      path: "/v1/content-policy?locale=\(locale.rawValue)",
+      bearer: controlToken,
+      allowQuery: true,
+      success: [200])
+    let value: ContentPolicyResponse = try decode(response.data)
+    return try Self.validatedContentPolicy(value, expectedLocale: locale)
+  }
+
+  public func acceptContentPolicy(
+    _ manifest: ContentPolicyManifest
+  ) async throws -> ContentPolicyGrant {
+    guard Self.validPolicyVersion(manifest.version), Self.validPolicyHash(manifest.policyHash)
+    else { throw PhaseOneClientError.invalidRequest }
+    let response = try await request(
+      method: "PUT",
+      path: "/v1/content-policy/acceptance",
+      bearer: controlToken,
+      jsonBody: ContentPolicyAcceptanceBody(
+        version: manifest.version, policyHash: manifest.policyHash,
+        locale: manifest.locale.rawValue, termsAccepted: true),
+      success: [200])
+    return try Self.validatedContentPolicyGrant(
+      decode(response.data), expectedVersion: manifest.version,
+      expectedHash: manifest.policyHash, expectedLocale: manifest.locale)
+  }
+
+  public func currentContentPolicyGrant() async throws -> ContentPolicyGrant {
+    let response = try await request(
+      method: "GET", path: "/v1/content-policy/acceptance",
+      bearer: controlToken, success: [200])
+    let value: ContentPolicyGrantResponse = try decode(response.data)
+    guard let locale = ContentPolicyLocale(rawValue: value.locale) else {
+      throw PhaseOneClientError.invalidResponse
+    }
+    return try Self.validatedContentPolicyGrant(
+      value, expectedVersion: nil, expectedHash: nil, expectedLocale: locale)
+  }
+
+  public func revokeContentPolicy(
+    locale: ContentPolicyLocale
+  ) async throws -> ContentPolicyGrant {
+    let response = try await request(
+      method: "DELETE",
+      path: "/v1/content-policy/acceptance?locale=\(locale.rawValue)",
+      bearer: controlToken,
+      allowQuery: true,
+      success: [200])
+    return try Self.validatedContentPolicyGrant(
+      decode(response.data), expectedVersion: nil, expectedHash: nil,
+      expectedLocale: locale)
   }
 
   public func transmit(
@@ -616,6 +711,72 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
     } == true
   }
 
+  private static func validPolicyVersion(_ value: String) -> Bool {
+    (1...32).contains(value.utf8.count) && value == value.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  private static func validPolicyHash(_ value: String) -> Bool {
+    value.utf8.count == 64 && value.unicodeScalars.allSatisfy {
+      CharacterSet(charactersIn: "0123456789abcdef").contains($0)
+    }
+  }
+
+  private static func validatedContentPolicy(
+    _ value: ContentPolicyResponse,
+    expectedLocale: ContentPolicyLocale
+  ) throws -> ContentPolicyManifest {
+    guard value.contract == "p2-content-policy-consent.v1",
+      validPolicyVersion(value.version), validPolicyHash(value.policyHash),
+      validPolicyHash(value.localeHash), value.locale == expectedLocale.rawValue,
+      value.controllingLanguage == "en",
+      !value.title.isEmpty, !value.rightsText.isEmpty, !value.consentText.isEmpty,
+      let effectiveAt = ISO8601DateFormatter().date(from: value.effectiveAt),
+      let termsURL = URL(string: value.termsURL),
+      let guidelinesURL = URL(string: value.contentGuidelinesURL),
+      termsURL.absoluteString == "https://barycenter.live/legal/terms",
+      guidelinesURL.absoluteString == "https://barycenter.live/legal/content-guidelines"
+    else { throw PhaseOneClientError.invalidResponse }
+    return ContentPolicyManifest(
+      version: value.version, policyHash: value.policyHash, locale: expectedLocale,
+      localeHash: value.localeHash, effectiveAt: effectiveAt, termsURL: termsURL,
+      contentGuidelinesURL: guidelinesURL, title: value.title,
+      rightsText: value.rightsText, consentText: value.consentText,
+      controllingLanguage: value.controllingLanguage)
+  }
+
+  private static func validatedContentPolicyGrant(
+    _ value: ContentPolicyGrantResponse,
+    expectedVersion: String?,
+    expectedHash: String?,
+    expectedLocale: ContentPolicyLocale
+  ) throws -> ContentPolicyGrant {
+    guard value.contract == "p2-content-policy-consent.v1",
+      validPolicyVersion(value.version), validPolicyHash(value.policyHash),
+      expectedVersion == nil || value.version == expectedVersion,
+      expectedHash == nil || value.policyHash == expectedHash,
+      value.locale == expectedLocale.rawValue,
+      let acceptedAt = ISO8601DateFormatter().date(from: value.acceptedAt),
+      value.revision > 0,
+      let locale = ContentPolicyLocale(rawValue: value.locale)
+    else { throw PhaseOneClientError.invalidResponse }
+    let revokedAt: Date?
+    if let raw = value.revokedAt {
+      guard let parsed = ISO8601DateFormatter().date(from: raw) else {
+        throw PhaseOneClientError.invalidResponse
+      }
+      revokedAt = parsed
+    } else {
+      revokedAt = nil
+    }
+    guard value.current == (value.termsAccepted && revokedAt == nil) else {
+      throw PhaseOneClientError.invalidResponse
+    }
+    return ContentPolicyGrant(
+      version: value.version, policyHash: value.policyHash, locale: locale,
+      acceptedAt: acceptedAt, revokedAt: revokedAt, revision: value.revision,
+      current: value.current, termsAccepted: value.termsAccepted)
+  }
+
   private static func validUploadID(_ value: String) -> Bool {
     validPublicID(value, prefix: "up_")
   }
@@ -658,10 +819,72 @@ private struct UploadCreateBody: Encodable {
   let kind: String
   let title: String
   let sizeBytes: Int64
+  let rightsAcknowledged: Bool
 
   enum CodingKeys: String, CodingKey {
     case kind, title
     case sizeBytes = "size_bytes"
+    case rightsAcknowledged = "rights_acknowledged"
+  }
+}
+
+private struct ContentPolicyResponse: Decodable {
+  let contract: String
+  let version: String
+  let policyHash: String
+  let locale: String
+  let localeHash: String
+  let effectiveAt: String
+  let termsURL: String
+  let contentGuidelinesURL: String
+  let title: String
+  let rightsText: String
+  let consentText: String
+  let controllingLanguage: String
+
+  enum CodingKeys: String, CodingKey {
+    case contract, version, locale, title
+    case policyHash = "policy_hash"
+    case localeHash = "locale_hash"
+    case effectiveAt = "effective_at"
+    case termsURL = "terms_url"
+    case contentGuidelinesURL = "content_guidelines_url"
+    case rightsText = "rights_text"
+    case consentText = "consent_text"
+    case controllingLanguage = "controlling_language"
+  }
+}
+
+private struct ContentPolicyAcceptanceBody: Encodable {
+  let version: String
+  let policyHash: String
+  let locale: String
+  let termsAccepted: Bool
+
+  enum CodingKeys: String, CodingKey {
+    case version, locale
+    case policyHash = "policy_hash"
+    case termsAccepted = "terms_accepted"
+  }
+}
+
+private struct ContentPolicyGrantResponse: Decodable {
+  let contract: String
+  let version: String
+  let policyHash: String
+  let locale: String
+  let acceptedAt: String
+  let revokedAt: String?
+  let revision: Int64
+  let current: Bool
+  let termsAccepted: Bool
+
+  enum CodingKeys: String, CodingKey {
+    case contract, version, locale, revision, current
+    case policyHash = "policy_hash"
+    case acceptedAt = "accepted_at"
+    case revokedAt = "revoked_at"
+    case termsAccepted = "terms_accepted"
   }
 }
 

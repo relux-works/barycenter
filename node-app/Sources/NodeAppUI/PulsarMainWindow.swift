@@ -573,6 +573,7 @@ private struct PulsarOutgoingDraftRow: View {
     let actions: PulsarShellActions
     @State private var route: PulsarRouteTarget = .ownBarycenter
     @State private var delivery: PulsarDeliveryMode = .overlay
+    @State private var rightsAcknowledged = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -607,15 +608,18 @@ private struct PulsarOutgoingDraftRow: View {
                     .font(.caption)
                     .foregroundStyle(draft.failureCode == nil ? Color.secondary : Color.orange)
             }
+            Toggle(copy.text(.uploadRightsConfirm), isOn: $rightsAcknowledged)
+                .font(.callout)
             HStack {
                 Button(draft.state == .retryableFailure ? copy.text(.retry) : copy.text(.send)) {
                     actions.sendDraft(
                         draft.id,
                         route: draft.route ?? route,
-                        delivery: draft.requestedDelivery ?? delivery)
+                        delivery: draft.requestedDelivery ?? delivery,
+                        rightsAcknowledged: rightsAcknowledged)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled([.uploading, .transmitting, .accepted].contains(draft.state))
+                .disabled(!rightsAcknowledged || [.uploading, .transmitting, .accepted].contains(draft.state))
                 Button(copy.text(.deleteDraft), role: .destructive) {
                     actions.deleteOutgoingDraft(draft.id)
                 }

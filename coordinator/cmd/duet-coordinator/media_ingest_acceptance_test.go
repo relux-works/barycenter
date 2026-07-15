@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"relux.works/duet/coordinator/internal/media"
 	"relux.works/duet/coordinator/internal/store"
@@ -29,6 +30,7 @@ func TestMediaIngestAcceptanceHTTPUploadACLDeleteCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	acceptContentPolicyStore(t, harness, owner, time.Now().UnixMilli())
 	target, err := harness.store.CreateSelfServiceOrbit("Acceptance upload target")
 	if err != nil {
 		t.Fatal(err)

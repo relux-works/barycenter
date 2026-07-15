@@ -1398,7 +1398,8 @@ func (l *loop) handleBot(ev bot.Event) {
 	if member.Role == "satellite" {
 		switch cmd.Kind {
 		case bot.KindLink, bot.KindQueue, bot.KindNow, bot.KindStatus,
-			bot.KindHistory, bot.KindAir, bot.KindStart, bot.KindShare, bot.KindOrbit, bot.KindPairCode, bot.KindLeave:
+			bot.KindHistory, bot.KindAir, bot.KindContentPolicy, bot.KindAcceptContentPolicy,
+			bot.KindStart, bot.KindShare, bot.KindOrbit, bot.KindPairCode, bot.KindLeave:
 		default:
 			ev.Reply("это управление эфиром — оно у companion'ов. Твоё оружие: треки и голосовые")
 			return
@@ -1583,6 +1584,12 @@ func (l *loop) handleBot(ev bot.Event) {
 
 	case bot.KindAir:
 		l.handleTelegramAirCommand(ev, cmd.Target)
+
+	case bot.KindContentPolicy:
+		l.handleTelegramContentPolicy(ev, false)
+
+	case bot.KindAcceptContentPolicy:
+		l.handleTelegramContentPolicy(ev, true)
 
 	case bot.KindCancel:
 		if _, err := o.sess.Cancel(cmd.Number); err != nil {
@@ -2131,6 +2138,9 @@ func (l *loop) handleVoice(o *orbitState, ev bot.Event) {
 }
 
 func (l *loop) handleTelegramAttachment(o *orbitState, ev bot.Event) {
+	if l.cfg.SelfServiceOnboarding && !l.requireTelegramContentPolicy(ev) {
+		return
+	}
 	attachment := ev.Attachment
 	if attachment.MediaGroupID != "" {
 		ev.Reply(bot.AttachmentFailureText(bot.AttachmentGroupUnsupported))
@@ -2144,6 +2154,77 @@ func (l *loop) handleTelegramAttachment(o *orbitState, ev bot.Event) {
 		o, ev, string(attachment.Kind), attachment.TGFileID, title,
 		attachment.Personal, attachment.Broadcast,
 	)
+}
+
+func telegramContentPolicyLocale(target string) store.ContentPolicyLocale {
+	if target == "en" {
+		return store.ContentPolicyLocaleEN
+	}
+	return store.ContentPolicyLocaleRU
+}
+
+func telegramContentPolicyText(manifest store.ContentPolicyManifest) string {
+	return fmt.Sprintf("<b>%s</b>\n\n%s\n\n%s\n\nTerms: %s\nContent Guidelines: %s\n\nVersion: <code>%s</code>\nPolicy hash: <code>%s</code>",
+		esc(manifest.Title), esc(manifest.RightsText), esc(manifest.ConsentText),
+		manifest.TermsURL, manifest.ContentGuidelinesURL, manifest.Version, manifest.Hash)
+}
+
+func (l *loop) handleTelegramContentPolicy(ev bot.Event, accept bool) {
+	locale := telegramContentPolicyLocale(ev.Command.Target)
+	manifest, err := store.CurrentContentPolicy(locale)
+	if err != nil {
+		ev.Reply("locale: en или ru")
+		return
+	}
+	if !accept {
+		ev.Reply(telegramContentPolicyText(manifest) +
+			fmt.Sprintf("\n\nAccept / Принять: /accept_content_policy %s", locale))
+		return
+	}
+	ctx, err := l.st.ResolveTelegramActorContext(ev.FromUserID)
+	if err != nil {
+		l.log.Error("resolve Telegram content policy actor", "err", err)
+		ev.Reply("Не удалось проверить аккаунт / Could not verify the account.")
+		return
+	}
+	grant, err := l.st.AcceptContentPolicy(store.AcceptContentPolicyParams{
+		ExpectedActorID: ctx.ActorID,
+		Identity:        store.Identity{Kind: store.IdentityTelegram, TelegramUserID: ev.FromUserID},
+		Version:         manifest.Version, PolicyHash: manifest.Hash, Locale: locale,
+		AcceptedAt: time.Now().UnixMilli(),
+	})
+	if err != nil {
+		var limited *store.ContentPolicyRateLimitError
+		if errors.As(err, &limited) {
+			ev.Reply("Слишком много изменений; попробуйте позже / Too many changes; try later.")
+			return
+		}
+		l.log.Error("accept Telegram content policy", "err", err)
+		ev.Reply("Не удалось принять правила / Could not accept the policy.")
+		return
+	}
+	ev.Reply(telegramContentPolicyText(manifest) + fmt.Sprintf(
+		"\n\nПринято / Accepted at %s (revision %d). Это не подтверждает владение контентом / This does not prove content ownership.",
+		time.UnixMilli(grant.AcceptedAt).UTC().Format(time.RFC3339), grant.Revision))
+}
+
+func (l *loop) requireTelegramContentPolicy(ev bot.Event) bool {
+	ctx, err := l.st.ResolveTelegramActorContext(ev.FromUserID)
+	if err == nil {
+		_, err = l.st.RequireCurrentContentPolicy(ctx.ActorID, store.Identity{
+			Kind: store.IdentityTelegram, TelegramUserID: ev.FromUserID,
+		})
+	}
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, store.ErrContentPolicyAcceptanceRequired) {
+		ev.Reply("Перед отправкой audio/document откройте /content_policy и примите /accept_content_policy. Голосовые сообщения работают по прежнему правилу.\n\nBefore sending audio/document, open /content_policy en and accept with /accept_content_policy en. Voice messages keep the existing policy.")
+		return false
+	}
+	l.log.Error("authorize Telegram content policy", "err", err)
+	ev.Reply("Не удалось проверить правила загрузки / Could not verify upload policy.")
+	return false
 }
 
 func (l *loop) handleTelegramMedia(

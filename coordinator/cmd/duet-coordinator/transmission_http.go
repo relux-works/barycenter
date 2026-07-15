@@ -319,6 +319,7 @@ func writeTransmissionAPIError(
 		errorDeliveryNotSupported:    "The requested delivery mode is not supported in this phase.",
 		errorUnsupportedTargets:      "One or more selected targets do not support the requested delivery.",
 		errorOverlayDuration:         "Overlay is limited to 60 seconds.",
+		errorContentPolicyAcceptance: "Accept the current content policy before this action.",
 		errorInternal:                "An internal error occurred.",
 	}
 	var body transmissionAPIErrorBody
@@ -398,6 +399,9 @@ func (api *onboardingAPI) transmissionStoreError(w http.ResponseWriter, operatio
 		writeTransmissionAPIError(w, http.StatusNotFound, errorMediaNotFound, nil)
 	case errors.Is(err, store.ErrTransmissionMediaNotReady):
 		writeTransmissionAPIError(w, http.StatusConflict, errorMediaNotReady, nil)
+	case errors.Is(err, store.ErrContentPolicyAcceptanceRequired):
+		writeTransmissionAPIError(w, http.StatusPreconditionRequired,
+			errorContentPolicyAcceptance, nil)
 	case errors.Is(err, store.ErrTransmissionAudienceNotFound):
 		writeTransmissionAPIError(w, http.StatusNotFound, errorAudienceNotFound, nil)
 	case errors.Is(err, store.ErrTransmissionAudienceEmpty):

@@ -903,6 +903,9 @@ WHERE id = ? AND token_hash <> ?`, hashToken(token), params.Media.CreatedAt,
 		}
 		return existing, nil
 	}
+	if err := requireCurrentContentPolicyTx(tx, ctx); err != nil {
+		return MediaUploadCreation{}, err
+	}
 	if err := mediaUploadCapacityTx(tx, params, quota); err != nil {
 		return MediaUploadCreation{}, err
 	}

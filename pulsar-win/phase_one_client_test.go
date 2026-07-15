@@ -65,6 +65,10 @@ func TestPhaseOneClientCanonicalAuthenticatedContracts(t *testing.T) {
 			if request.Method != http.MethodPost || request.URL.Path != "/v1/media/uploads" || request.Header.Get("Idempotency-Key") != "windows-upload-00000000000000000000000000000001" {
 				t.Fatalf("upload create=%s %s headers=%v", request.Method, request.URL, request.Header)
 			}
+			body, _ := io.ReadAll(request.Body)
+			if !strings.Contains(string(body), `"rights_acknowledged":true`) {
+				t.Fatalf("upload rights body=%s", body)
+			}
 			return phaseOneJSONResponse(request, http.StatusCreated, fmt.Sprintf(`{"upload_id":%q,"media_id":%q,"upload_token":%q,"upload_offset":0,"upload_length":%d,"expires_at":"2026-07-15T00:00:00Z","status":"open"}`, uploadID, mediaID, strings.Repeat("ef", 32), info.Size())), nil
 		case 1:
 			if request.Method != http.MethodPut || request.URL.Path != "/v1/media/uploads/"+uploadID || request.Header.Get("Upload-Offset") != "0" {
@@ -111,7 +115,10 @@ func TestPhaseOneClientCanonicalAuthenticatedContracts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	upload, err := client.Upload(context.Background(), filePath, "Pulsar recording", "windows-upload-00000000000000000000000000000001")
+	if _, err := client.Upload(context.Background(), filePath, "Pulsar recording", "windows-upload-without-rights-0000000000000001", false); err == nil {
+		t.Fatal("upload without per-upload rights acknowledgement reached transport")
+	}
+	upload, err := client.Upload(context.Background(), filePath, "Pulsar recording", "windows-upload-00000000000000000000000000000001", true)
 	if err != nil || upload.MediaID != mediaID {
 		t.Fatalf("upload=%+v err=%v", upload, err)
 	}
@@ -138,6 +145,63 @@ func TestPhaseOneClientCanonicalAuthenticatedContracts(t *testing.T) {
 	}
 	if err := client.DeleteMedia(context.Background(), mediaID); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPhaseOneClientVersionedContentPolicyConsent(t *testing.T) {
+	const policyHash = "a4d59ec7e9bfd8aeb2ec5d84356517580bde8df4540e6a2162f9206cd7ecd30e"
+	const localeHash = "a25d1b46b530fb64f18224618701f67ed80ace9ce5c1b1cfb1a7c3d70a1988ca"
+	doer := &phaseOneScriptedDoer{}
+	doer.handle = func(request *http.Request, index int) (*http.Response, error) {
+		switch index {
+		case 0:
+			if request.Method != http.MethodGet || request.URL.Path != "/v1/content-policy" || request.URL.Query().Get("locale") != "en" {
+				t.Fatalf("display request=%s %s", request.Method, request.URL)
+			}
+			return phaseOneJSONResponse(request, http.StatusOK, fmt.Sprintf(`{"contract":"p2-content-policy-consent.v1","version":"1.0","policy_hash":%q,"locale":"en","locale_hash":%q,"effective_at":"2026-07-13T20:00:00Z","terms_url":"https://barycenter.live/legal/terms","content_guidelines_url":"https://barycenter.live/legal/content-guidelines","title":"Upload and sharing rights","rights_text":"Only content with rights. Acceptance does not prove ownership.","consent_text":"I accept the current Terms and Content Guidelines.","controlling_language":"en"}`, policyHash, localeHash)), nil
+		case 1:
+			body, _ := io.ReadAll(request.Body)
+			if request.Method != http.MethodPut || request.URL.Path != "/v1/content-policy/acceptance" ||
+				!strings.Contains(string(body), `"policy_hash":"`+policyHash+`"`) ||
+				!strings.Contains(string(body), `"terms_accepted":true`) {
+				t.Fatalf("accept request=%s %s body=%s", request.Method, request.URL, body)
+			}
+			return phaseOneJSONResponse(request, http.StatusOK, fmt.Sprintf(`{"contract":"p2-content-policy-consent.v1","version":"1.0","policy_hash":%q,"locale":"en","accepted_at":"2026-07-16T12:00:00Z","revision":1,"current":true,"terms_accepted":true}`, policyHash)), nil
+		case 2:
+			if request.Method != http.MethodGet || request.URL.Path != "/v1/content-policy/acceptance" {
+				t.Fatalf("current grant request=%s %s", request.Method, request.URL)
+			}
+			return phaseOneJSONResponse(request, http.StatusOK, fmt.Sprintf(`{"contract":"p2-content-policy-consent.v1","version":"1.0","policy_hash":%q,"locale":"en","accepted_at":"2026-07-16T12:00:00Z","revision":1,"current":true,"terms_accepted":true}`, policyHash)), nil
+		case 3:
+			if request.Method != http.MethodDelete || request.URL.Query().Get("locale") != "en" {
+				t.Fatalf("revoke request=%s %s", request.Method, request.URL)
+			}
+			return phaseOneJSONResponse(request, http.StatusOK, fmt.Sprintf(`{"contract":"p2-content-policy-consent.v1","version":"1.0","policy_hash":%q,"locale":"en","accepted_at":"2026-07-16T12:00:00Z","revoked_at":"2026-07-16T12:01:00Z","revision":2,"current":false,"terms_accepted":true}`, policyHash)), nil
+		default:
+			t.Fatalf("unexpected content policy request %d", index)
+			return nil, nil
+		}
+	}
+	client, err := NewPhaseOneAppClient(phaseOneTestBundle(), doer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := client.ContentPolicy(context.Background(), ContentPolicyEN)
+	if err != nil || manifest.PolicyHash != policyHash || manifest.TermsURL != "https://barycenter.live/legal/terms" ||
+		!strings.Contains(manifest.RightsText, "does not prove ownership") {
+		t.Fatalf("manifest=%+v err=%v", manifest, err)
+	}
+	grant, err := client.AcceptContentPolicy(context.Background(), manifest)
+	if err != nil || !grant.Current || !grant.TermsAccepted || grant.Revision != 1 {
+		t.Fatalf("grant=%+v err=%v", grant, err)
+	}
+	current, err := client.CurrentContentPolicyGrant(context.Background())
+	if err != nil || !current.Current || current.Revision != grant.Revision {
+		t.Fatalf("current=%+v err=%v", current, err)
+	}
+	revoked, err := client.RevokeContentPolicy(context.Background(), ContentPolicyEN)
+	if err != nil || revoked.Current || revoked.RevokedAt == nil || revoked.Revision != 2 {
+		t.Fatalf("revoked=%+v err=%v", revoked, err)
 	}
 }
 

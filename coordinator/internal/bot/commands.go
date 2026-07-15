@@ -15,27 +15,29 @@ import (
 type CommandKind string
 
 const (
-	KindLink         CommandKind = "link"     // bare track link -> enqueue
-	KindPlaylist     CommandKind = "playlist" // playlist/album link -> shared base layer (U10)
-	KindTakeover     CommandKind = "takeover" // /takeover user|coordinator (U9)
-	KindPlayNow      CommandKind = "playnow"
-	KindQueue        CommandKind = "queue"
-	KindCancel       CommandKind = "cancel"
-	KindSkip         CommandKind = "skip"
-	KindPause        CommandKind = "pause"
-	KindResume       CommandKind = "resume"
-	KindVol          CommandKind = "vol"
-	KindInject       CommandKind = "inject"
-	KindMode         CommandKind = "mode"
-	KindNow          CommandKind = "now"
-	KindStatus       CommandKind = "status"
-	KindHistory      CommandKind = "history"
-	KindAir          CommandKind = "air" // /air [create TITLE|join SECRET]
-	KindSync         CommandKind = "sync"
-	KindOffset       CommandKind = "offset"
-	KindOffsetTest   CommandKind = "offset_test"
-	KindTelegramLink CommandKind = "telegram_link" // one-time app-issued bot link code
-	KindIgnore       CommandKind = "ignore"        // plain chatter: stay silent (spec 9.2)
+	KindLink                CommandKind = "link"     // bare track link -> enqueue
+	KindPlaylist            CommandKind = "playlist" // playlist/album link -> shared base layer (U10)
+	KindTakeover            CommandKind = "takeover" // /takeover user|coordinator (U9)
+	KindPlayNow             CommandKind = "playnow"
+	KindQueue               CommandKind = "queue"
+	KindCancel              CommandKind = "cancel"
+	KindSkip                CommandKind = "skip"
+	KindPause               CommandKind = "pause"
+	KindResume              CommandKind = "resume"
+	KindVol                 CommandKind = "vol"
+	KindInject              CommandKind = "inject"
+	KindMode                CommandKind = "mode"
+	KindNow                 CommandKind = "now"
+	KindStatus              CommandKind = "status"
+	KindHistory             CommandKind = "history"
+	KindAir                 CommandKind = "air" // /air [create TITLE|join SECRET]
+	KindContentPolicy       CommandKind = "content_policy"
+	KindAcceptContentPolicy CommandKind = "accept_content_policy"
+	KindSync                CommandKind = "sync"
+	KindOffset              CommandKind = "offset"
+	KindOffsetTest          CommandKind = "offset_test"
+	KindTelegramLink        CommandKind = "telegram_link" // one-time app-issued bot link code
+	KindIgnore              CommandKind = "ignore"        // plain chatter: stay silent (spec 9.2)
 
 	// v2.1 multi-tenant onboarding & orbit administration
 	KindStart       CommandKind = "start"        // /start [invite payload]
@@ -173,6 +175,19 @@ func Parse(text string) (Command, error) {
 		return Command{Kind: KindHistory}, nil
 	case "/air":
 		return Command{Kind: KindAir, Target: strings.Join(args, " ")}, nil
+	case "/content_policy", "/accept_content_policy":
+		locale := "ru"
+		if len(args) > 1 || (len(args) == 1 && args[0] != "en" && args[0] != "ru") {
+			return Command{}, ErrReply{"locale: en или ru"}
+		}
+		if len(args) == 1 {
+			locale = args[0]
+		}
+		kind := KindContentPolicy
+		if cmd == "/accept_content_policy" {
+			kind = KindAcceptContentPolicy
+		}
+		return Command{Kind: kind, Target: locale}, nil
 
 	case "/cancel":
 		if len(args) != 1 {

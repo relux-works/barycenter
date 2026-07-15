@@ -148,7 +148,8 @@ public actor PhaseOneDraftOutbox {
     draftID: String,
     route: PhaseOneRoute,
     delivery: PhaseOneDelivery,
-    originKind: PhaseOneOriginKind = .microphone
+    originKind: PhaseOneOriginKind = .microphone,
+    rightsAcknowledged: Bool
   ) async throws -> PhaseOneDraftSnapshot {
     guard var record = records[draftID] else { throw PhaseOneDraftOutboxError.invalidDraft }
     guard !activeDraftIDs.contains(draftID) else { throw PhaseOneDraftOutboxError.busy }
@@ -168,6 +169,7 @@ public actor PhaseOneDraftOutbox {
     do {
       try persist()
       if record.mediaID == nil {
+        guard rightsAcknowledged else { throw PhaseOneDraftOutboxError.invalidDraft }
         guard let handle = handles[draftID] else {
           throw PhaseOneDraftOutboxError.invalidDraft
         }
@@ -177,7 +179,8 @@ public actor PhaseOneDraftOutbox {
         let uploaded = try await service.upload(
           fileURL: handle.fileURL,
           title: record.title,
-          idempotencyKey: record.uploadKey)
+          idempotencyKey: record.uploadKey,
+          rightsAcknowledged: rightsAcknowledged)
         record.mediaID = uploaded.mediaID
         record.state = .uploaded
         record.status = "upload_confirmed"

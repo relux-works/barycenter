@@ -101,7 +101,7 @@ func completeStubbedMediaUpload(harness onboardingHarness, sessionID string) (st
 }
 
 func createMediaUploadRequest(handler http.Handler, bearer, idempotencyKey string, size int64) *httptest.ResponseRecorder {
-	body := fmt.Sprintf(`{"kind":"voice_clip","title":"Morning note","size_bytes":%d}`, size)
+	body := fmt.Sprintf(`{"kind":"voice_clip","title":"Morning note","size_bytes":%d,"rights_acknowledged":true}`, size)
 	req := httptest.NewRequest(http.MethodPost, "/v1/media/uploads", strings.NewReader(body))
 	req.RemoteAddr = "127.0.0.1:34567"
 	req.Header.Set("Authorization", "Bearer "+bearer)

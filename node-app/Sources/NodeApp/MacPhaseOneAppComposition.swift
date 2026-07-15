@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import NodeAppUI
 import NodeCore
@@ -57,7 +58,8 @@ final class MacPhaseOneAppComposition {
     func send(
         draftID: String,
         route: PulsarRouteTarget,
-        delivery: PulsarDeliveryMode
+        delivery: PulsarDeliveryMode,
+        rightsAcknowledged: Bool
     ) {
         guard !stopped, !mutationInFlight,
               let coreRoute = PhaseOneRoute(rawValue: route.rawValue),
@@ -68,14 +70,58 @@ final class MacPhaseOneAppComposition {
             guard let self else { return }
             defer { mutationInFlight = false }
             do {
+                try await ensureContentPolicy()
                 _ = try await outbox.send(
                     draftID: draftID,
                     route: coreRoute,
-                    delivery: coreDelivery)
+                    delivery: coreDelivery,
+                    rightsAcknowledged: rightsAcknowledged)
                 await loadProjection()
             } catch {
                 await loadOutbox(failure: shellFailure(error))
             }
+        }
+    }
+
+    private func ensureContentPolicy() async throws {
+        do {
+            let current = try await client.currentContentPolicyGrant()
+            guard current.current, current.termsAccepted else {
+                throw PhaseOneClientError.invalidResponse
+            }
+            return
+        } catch let error as PhaseOneClientError {
+            guard case let .rejected(status, code, _) = error,
+                  status == 428, code == "content_policy_acceptance_required" else {
+                throw error
+            }
+        }
+        let locale: ContentPolicyLocale = model.locale == .ru ? .ru : .en
+        let policy = try await client.contentPolicy(locale: locale)
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = policy.title
+        alert.informativeText = """
+        \(policy.rightsText)
+
+        \(policy.consentText)
+
+        Terms: \(policy.termsURL.absoluteString)
+        Content Guidelines: \(policy.contentGuidelinesURL.absoluteString)
+        Version: \(policy.version)
+
+        This Terms acceptance is separate from the per-upload rights confirmation.
+        """
+        alert.addButton(withTitle: locale == .ru ? "Принять" : "Accept")
+        alert.addButton(withTitle: locale == .ru ? "Отмена" : "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            throw PhaseOneClientError.rejected(
+                status: 428, code: "content_policy_acceptance_required",
+                retryAfterSeconds: nil)
+        }
+        let accepted = try await client.acceptContentPolicy(policy)
+        guard accepted.current, accepted.termsAccepted else {
+            throw PhaseOneClientError.invalidResponse
         }
     }
 

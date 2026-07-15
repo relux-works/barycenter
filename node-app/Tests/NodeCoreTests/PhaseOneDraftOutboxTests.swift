@@ -23,7 +23,8 @@ struct PhaseOneDraftOutboxTests {
 
     await #expect(throws: PhaseOneDraftOutboxError.service("coordinator_unavailable")) {
       _ = try await first.send(
-        draftID: draft.id, route: .ownBarycenter, delivery: .overlay)
+        draftID: draft.id, route: .ownBarycenter, delivery: .overlay,
+        rightsAcknowledged: true)
     }
     #expect(!FileManager.default.fileExists(atPath: draft.fileURL.path))
     let failed = try #require(await first.snapshots().first)
@@ -40,7 +41,8 @@ struct PhaseOneDraftOutboxTests {
       stateURL: stateURL,
       recoveredDrafts: recovery.retainedDrafts)
     let accepted = try await restarted.send(
-      draftID: draft.id, route: .ownBarycenter, delivery: .overlay)
+      draftID: draft.id, route: .ownBarycenter, delivery: .overlay,
+      rightsAcknowledged: true)
     #expect(accepted.state == .accepted)
     #expect(accepted.requestedDelivery == .overlay)
     #expect(accepted.effectiveDelivery == .afterCurrent)
@@ -53,7 +55,8 @@ struct PhaseOneDraftOutboxTests {
     ])
     await #expect(throws: PhaseOneDraftOutboxError.invalidDraft) {
       _ = try await restarted.send(
-        draftID: draft.id, route: .currentAir, delivery: .overlay)
+        draftID: draft.id, route: .currentAir, delivery: .overlay,
+        rightsAcknowledged: true)
     }
   }
 
@@ -111,10 +114,13 @@ private actor ScriptedPhaseOneService: PhaseOneAppServicing {
     self.failedTransmissionCount = failedTransmissionCount
   }
 
-  func upload(fileURL: URL, title: String, idempotencyKey: String) async throws
+  func upload(
+    fileURL: URL, title: String, idempotencyKey: String, rightsAcknowledged: Bool
+  ) async throws
     -> PhaseOneUploadConfirmation
   {
     recorded.uploadKeys.append(idempotencyKey)
+    #expect(rightsAcknowledged)
     #expect(FileManager.default.fileExists(atPath: fileURL.path))
     return .init(mediaID: "m_" + String(repeating: "A", count: 26), reused: false)
   }
@@ -141,6 +147,18 @@ private actor ScriptedPhaseOneService: PhaseOneAppServicing {
   }
 
   func deleteMedia(_ mediaID: String) async throws { recorded.deletedMediaIDs.append(mediaID) }
+  func contentPolicy(locale: ContentPolicyLocale) async throws -> ContentPolicyManifest {
+    throw PhaseOneClientError.transport
+  }
+  func currentContentPolicyGrant() async throws -> ContentPolicyGrant {
+    throw PhaseOneClientError.transport
+  }
+  func acceptContentPolicy(_ manifest: ContentPolicyManifest) async throws -> ContentPolicyGrant {
+    throw PhaseOneClientError.transport
+  }
+  func revokeContentPolicy(locale: ContentPolicyLocale) async throws -> ContentPolicyGrant {
+    throw PhaseOneClientError.transport
+  }
   func presence() async throws -> [PhaseOnePresenceNode] { [] }
   func history(limit: Int, cursor: String?) async throws -> PhaseOneHistoryPage {
     .init(items: [], nextCursor: nil)

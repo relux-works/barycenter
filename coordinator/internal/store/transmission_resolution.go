@@ -1017,6 +1017,16 @@ func (s *Store) createResolvedTransmissionTx(
 	if err != nil {
 		return ResolvedTransmissionCreation{}, err
 	}
+	if mediaItem.Source != MediaSourceSystem {
+		legacyTelegramVoice := mediaItem.Source == MediaSourceTelegram &&
+			mediaItem.Kind == MediaKindVoiceClip &&
+			params.OriginKind == TransmissionOriginTelegram
+		if !legacyTelegramVoice {
+			if err := requireCurrentContentPolicyTx(tx, ctx); err != nil {
+				return ResolvedTransmissionCreation{}, err
+			}
+		}
+	}
 	resolved, domainKind, domainID, policyContext, err := resolveTransmissionAudienceTx(tx, ctx, params)
 	if err != nil {
 		return ResolvedTransmissionCreation{}, err

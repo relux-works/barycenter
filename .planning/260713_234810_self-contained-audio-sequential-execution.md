@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-34stvx` — macos-report-block-delete
-  (accepted; tracking and merge pending)
-- Next engineering task: `TASK-260712-dlltnr` — telegram-moderation-parity
+- Current engineering task: `TASK-260712-dlltnr` — telegram-moderation-parity
+  (development)
+- Next engineering task: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
 - Most recently accepted: `TASK-260712-34stvx` — macos-report-block-delete
-- Current branch: `task/task-260712-34stvx-macos-report-block-delete`
+- Current branch: `task/task-260712-dlltnr-telegram-moderation-parity`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -939,6 +939,27 @@ The clean exact-head acceptance manifest pins engineering commit
 authoritative Xcode Swift, Windows portable/cross-build and the signed packaged
 probe. Engineering progress is now 66/205 overall and 66/186 engineering; PR
 #65 tracking and merge remain before the Telegram task starts.
+
+Tracking head `34277a4` passed all four hosted jobs in run `29395210052`; PR
+#65 landed at merge `1c45953efe2e8b5b4f4112054857bab8552b6a32`. Strict
+execution started `TASK-260712-dlltnr` from that synchronized `main` on branch
+`task/task-260712-dlltnr-telegram-moderation-parity`.
+
+Engineering candidate for `TASK-260712-dlltnr` adds the private Telegram
+`/history` surface for canonical replay, owner delete, six-reason report and
+primary sender-block actions without a second moderation implementation.
+Opaque 15-minute callbacks bind actor, orbit, role, chat, message, history item,
+action and reason; query replay, expiry, forged/cross-user/group attempts and
+terminal keyboard removal are covered. Verified Telegram history now projects
+current Pulsar receipts in its own Barycenter, while reports retain distinct
+reporter and exact installation-evidence identities. The old moderation target
+constraint migrates transactionally with rollback, foreign-key and immutable
+evidence checks. Engineering commit `8ce1b8cf4ced1840a555c8356b45754e405d21df`
+passed the clean exact-head 12-stage repository acceptance suite with
+start/end dirty false, plus coordinator vet/full tests and focused race. Live
+Bot API, real-account and real-device observations remain unclaimed in
+`EPIC-260714-th54l3`. Progress remains 66/205 overall and 66/186 engineering
+until hosted CI and review accept the task.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

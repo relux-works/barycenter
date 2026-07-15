@@ -94,7 +94,7 @@ struct PulsarShellModelTests {
     func navigationSurvivesConnectionChanges() {
         let model = PulsarShellModel(locale: .en)
         #expect(model.snapshot.connection == .unpaired)
-        #expect(PulsarShellSection.allCases == [.home, .create, .join, .tryLocally, .history, .settings])
+        #expect(PulsarShellSection.allCases == [.home, .airs, .create, .join, .tryLocally, .history, .settings])
 
         model.selectedSection = .tryLocally
         model.updateConnection(.degraded("coordinator unavailable"), identity: "example · home")
@@ -218,7 +218,20 @@ struct PulsarShellModelTests {
             historyAction: { calls.append("history:\($0):\($1.action.rawValue)") },
             submitCreateOrbit: { calls.append("create-api:\($0)") },
             submitJoinOrbit: { calls.append("join-api:\($0)") },
-            exportRecovery: { calls.append("export-recovery") }
+            exportRecovery: { calls.append("export-recovery") },
+            refreshAirs: { calls.append("air-refresh") },
+            createAir: { calls.append("air-create:\($0)") },
+            consumeAirInvite: { calls.append("air-consume:\($0)") },
+            confirmAirJoin: { calls.append("air-confirm:\($0):\($1)") },
+            declineAirJoin: { calls.append("air-decline:\($0)") },
+            issueAirInvite: { calls.append("air-invite:\($0):\($1.rawValue)") },
+            withdrawAirInvite: { calls.append("air-withdraw") },
+            hideAirInvite: { calls.append("air-hide") },
+            activateAir: { calls.append("air-activate:\($0)") },
+            deactivateAir: { calls.append("air-deactivate:\($0)") },
+            leaveAir: { calls.append("air-leave:\($0)") },
+            dissolveAir: { calls.append("air-dissolve:\($0)") },
+            replaceAirPolicy: { calls.append("air-policy:\($0):\($1.revision)") }
         )
 
         actions.createOrbit()
@@ -247,6 +260,21 @@ struct PulsarShellModelTests {
         actions.submitCreateOrbit(title: "Family")
         actions.submitJoinOrbit(code: "ABCDEFGH")
         actions.exportRecovery()
+        actions.refreshAirs()
+        actions.createAir(title: "Friends")
+        actions.consumeAirInvite(code: "secret")
+        actions.confirmAirJoin("opaque-air", activate: true)
+        actions.declineAirJoin("opaque-air")
+        actions.issueAirInvite("opaque-air", role: .member)
+        actions.withdrawAirInvite()
+        actions.hideAirInvite()
+        actions.activateAir("opaque-air")
+        actions.deactivateAir("opaque-air")
+        actions.leaveAir("opaque-air")
+        actions.dissolveAir("opaque-air")
+        actions.replaceAirPolicy("opaque-air", policy: .init(
+            revision: 4, invite: .ownerPrimary, overlay: .disabled,
+            queue: .primaryCompanion, replace: .airAdminPrimary))
 
         #expect(calls == [
             "create", "join", "self-test", "messages_only", "volume:45", "record",
@@ -254,8 +282,58 @@ struct PulsarShellModelTests {
             "accept:voice.wav", "delete", "close",
             "send:draft-1:own_barycenter:overlay", "delete-outbox:draft-1",
             "refresh-data", "history:history-1:block_actor", "history:history-2:report", "create-api:Family",
-            "join-api:ABCDEFGH", "export-recovery",
+            "join-api:ABCDEFGH", "export-recovery", "air-refresh", "air-create:Friends",
+            "air-consume:secret", "air-confirm:opaque-air:true", "air-decline:opaque-air",
+            "air-invite:opaque-air:member", "air-withdraw", "air-hide",
+            "air-activate:opaque-air", "air-deactivate:opaque-air", "air-leave:opaque-air",
+            "air-dissolve:opaque-air", "air-policy:opaque-air:4",
         ])
+    }
+
+    @MainActor
+    @Test("Air projection keeps opaque handles out of labels and one current room explicit")
+    func airProjectionAndLifecycleSeams() throws {
+        let current = PulsarAirItem(
+            id: "air_OPAQUE", title: "Family Air", status: "active", revision: 3,
+            membershipID: "aim_OPAQUE", membershipStatus: .joined,
+            membershipRevision: 2, role: .owner, memberCount: 2,
+            activeMemberCount: 2, onlinePulsarCount: 3, barycenterCapacity: 8,
+            onlinePulsarCapacity: 20,
+            policy: .init(
+                revision: 1, invite: .airAdminPrimary, overlay: .primaryCompanion,
+                queue: .primaryCompanion, replace: .airAdminPrimary), isCurrent: true)
+        let saved = PulsarAirItem(
+            id: "air_OTHER", title: "Studio Air", status: "parked", revision: 1,
+            membershipID: "aim_OTHER", membershipStatus: .joined,
+            membershipRevision: 1, role: .member, memberCount: 3,
+            activeMemberCount: 0, onlinePulsarCount: 0, barycenterCapacity: 8,
+            onlinePulsarCapacity: 20, policy: current.policy, isCurrent: false)
+        let model = PulsarShellModel()
+        model.setAirState(.init(saved: [current, saved], failure: "active_air_changed"))
+        #expect(model.snapshot.airs.current?.title == "Family Air")
+        #expect(model.snapshot.airs.saved.count == 2)
+        #expect(model.snapshot.airs.saved[1].role == .member)
+        let secret = PulsarAirInviteSecret(
+            airID: current.id, inviteID: "ai_OPAQUE", revision: 1,
+            airTitle: current.title, code: "secret-canary", expiresAt: .now)
+        #expect(!String(describing: secret).contains("secret-canary"))
+        #expect(!String(reflecting: secret).contains("secret-canary"))
+
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let view = try String(
+            contentsOf: root.appendingPathComponent("Sources/NodeAppUI/PulsarAirView.swift"),
+            encoding: .utf8)
+        for seam in [
+            ".confirmationDialog(", ".privacySensitive()", ".accessibilityLabel(copy.oneTimeCode)",
+            "SecureField(copy.inviteCode", "pendingAction = .init(kind: .switchAir",
+            "pendingAction = .init(kind: .leave", "pendingAction = .init(kind: .dissolve",
+        ] {
+            #expect(view.contains(seam))
+        }
+        #expect(!view.contains("Text(air.id)"))
+        #expect(!view.contains("Text(air.membershipID)"))
+        #expect(!view.contains("accessibilityLabel(air.id)"))
     }
 
     @MainActor

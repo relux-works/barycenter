@@ -57,6 +57,7 @@ private struct PulsarSidebar: View {
     private func symbol(for section: PulsarShellSection) -> String {
         switch section {
         case .home: "house"
+        case .airs: "person.3.sequence"
         case .create: "plus.circle"
         case .join: "person.2"
         case .tryLocally: "waveform.circle"
@@ -74,6 +75,8 @@ private struct PulsarDetail: View {
         switch model.selectedSection {
         case .home:
             PulsarHomeView(model: model, actions: actions)
+        case .airs:
+            PulsarAirManagementView(model: model, actions: actions)
         case .create:
             PulsarIdentityFlowView(
                 mode: .create,

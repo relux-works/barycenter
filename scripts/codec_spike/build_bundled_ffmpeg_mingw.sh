@@ -44,7 +44,7 @@ tar -xf "$SOURCE_ARCHIVE" -C "$OUTPUT/source" --strip-components=1
     --enable-swresample \
     --extra-cflags='-O2 -fno-common' \
     --extra-ldflags='-Wl,--dynamicbase -Wl,--nxcompat'
-  make -j"${NUMBER_OF_PROCESSORS:-2}"
+  make -j"$(nproc 2>/dev/null || echo 2)"
   make install
 )
 

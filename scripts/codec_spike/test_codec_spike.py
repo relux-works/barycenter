@@ -135,6 +135,10 @@ class CodecSpikeContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "architecture matrix"):
             bundled_probe.validate_contract(tampered)
 
+        msix_script = (HERE / "package_bundled_probe_msix.ps1").read_text(encoding="utf-8")
+        self.assertIn('uap10:TrustLevel="appContainer"', msix_script)
+        self.assertNotIn("runFullTrust", msix_script)
+
     def test_exact_license_audit_is_complete_and_fail_closed(self):
         audit = license_audit.load()
         license_audit.validate(audit)

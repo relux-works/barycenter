@@ -41,7 +41,7 @@ $Manifest = @"
  <Properties><DisplayName>Pulsar Codec Probe</DisplayName><PublisherDisplayName>Relux Works, LLC</PublisherDisplayName><Logo>Assets\StoreLogo.png</Logo></Properties>
  <Dependencies><TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" /></Dependencies>
  <Resources><Resource Language="en-US" /></Resources>
- <Applications><Application Id="PulsarCodecProbe" Executable="pulsar-codec-probe.exe" uap10:TrustLevel="mediumIL" uap10:RuntimeBehavior="packagedClassicApp"><uap:VisualElements DisplayName="Pulsar Codec Probe" Description="Offline bundled decoder engineering probe" BackgroundColor="#12103a" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" /></Application></Applications>
+ <Applications><Application Id="PulsarCodecProbe" Executable="pulsar-codec-probe.exe" uap10:TrustLevel="appContainer" uap10:RuntimeBehavior="packagedClassicApp"><uap:VisualElements DisplayName="Pulsar Codec Probe" Description="Offline bundled decoder engineering probe" BackgroundColor="#12103a" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" /></Application></Applications>
 </Package>
 "@
 $Manifest | Set-Content -Encoding utf8 (Join-Path $PackageStage "AppxManifest.xml")

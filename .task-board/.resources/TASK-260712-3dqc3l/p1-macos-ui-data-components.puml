@@ -1,0 +1,44 @@
+@startuml
+title P1 macOS authenticated UI data integration
+
+actor User
+component "SwiftUI shell\ncanonical labels + honest state" as Shell
+component "MacIdentityAppComposition\nCreate / Join / recovery export" as Identity
+component "MacCaptureAppComposition\nlocal capture + self-test" as Capture
+component "MacPhaseOneAppComposition\npresentation mapping" as PhaseOne
+component "OnboardingService\nprotected credential workflow" as Onboarding
+component "PhaseOneDraftOutbox\ndurable idempotent operations" as Outbox
+component "PhaseOneAppClient\nauthenticated frozen HTTP" as Client
+database "CaptureMediaStore\nprivate WAV drafts" as MediaStore
+database "draft-outbox-v1.json\nkeys + server references" as OutboxStore
+database "Keychain\nnode + control capability" as Keychain
+cloud "Coordinator\nidentity / media / transmission\npresence / history" as Coordinator
+
+User --> Shell
+Shell --> Identity : title / invite / explicit export
+Identity --> Onboarding
+Onboarding --> Keychain
+Onboarding --> Coordinator : identity API
+
+Shell --> Capture : microphone + local self-test
+Capture --> MediaStore
+Capture --> PhaseOne : finalized user_recording only
+PhaseOne --> Outbox : attach / send / retry / delete
+Outbox --> MediaStore : delete only after upload confirmation
+Outbox --> OutboxStore : persist before network transitions
+Outbox --> Client
+Shell --> PhaseOne : refresh / history actions
+PhaseOne --> Client
+Client --> Keychain : canonical origin + control bearer
+Client --> Coordinator : authenticated Phase 1 HTTP
+
+note bottom of Capture
+Disposable self-test is local-only.
+It has no path to Client or Coordinator.
+end note
+
+note bottom of Client
+Opaque IDs remain action handles.
+The shell renders human targets and status.
+end note
+@enduml

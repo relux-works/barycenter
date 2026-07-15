@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 61 accepted, 144 remain.
-- Routed inventory: 186 engineering tasks (61 accepted, 125 remain) and 19
+- Combined inventory: 205 original tasks; 62 accepted, 143 remain.
+- Routed inventory: 186 engineering tasks (62 accepted, 124 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3dqc3l` — macos-ui-data-integration
-  (queued after PR #60 landing)
-- Next engineering task: `TASK-260712-2fe5bz` — windows-ui-data-integration
-- Most recently accepted: `TASK-260712-1p8ykc` — windows-local-capture-self-test
-- Current branch: `task/task-260712-1p8ykc-windows-local-capture-self-test`
+- Current engineering task: `TASK-260712-2fe5bz` — windows-ui-data-integration
+  (queued after PR #61 landing)
+- Next engineering task: `TASK-260712-1cdoxh` — acceptance-env-gate-repair
+- Most recently accepted: `TASK-260712-3dqc3l` — macos-ui-data-integration
+- Current branch: `task/task-260712-3dqc3l-macos-ui-data-integration`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 61 / 205 tasks (approximately 29.8%); 144 remain
-- Engineering progress: 61 / 186 tasks (approximately 32.8%); 125 remain
+- Accepted overall: 62 / 205 tasks (approximately 30.2%); 143 remain
+- Engineering progress: 62 / 186 tasks (approximately 33.3%); 124 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -824,6 +824,27 @@ is claimed; those remain in `EPIC-260714-th54l3`. Progress is 61/205 overall
 and 61/186 engineering. PR #60 tracking and merge remain before strict
 execution starts `TASK-260712-3dqc3l`.
 
+Tracking head `089122c` passed all four hosted jobs in run `29387329098`; PR
+#60 landed at merge `22bd461a822e47983f50a696c3165b1720e26f03`. Strict
+execution started `TASK-260712-3dqc3l` from that synchronized `main` on branch
+`task/task-260712-3dqc3l-macos-ui-data-integration`.
+
+Checkpoint 2026-07-15: `TASK-260712-3dqc3l` is accepted at exact engineering
+head `04f4c0f`. The macOS shell now binds self-service Create/Join to protected
+identity storage and explicit recovery export, and binds authenticated upload,
+transmission, presence, history, receipts and allowed policy actions to the
+accepted Phase 1 contracts. Finalized user drafts persist through coordinator
+failure and process restart with frozen intent, stable idempotency keys,
+confirmed-upload cleanup, transmission-only retry and explicit local/remote
+delete. Self-test remains local and disposable. Local verification passed 211
+Swift tests in 35 suites, focused PhaseOne and application-boundary tests, and
+release build. Exact-head hosted run `29388582864` passed coordinator,
+node-core, pulsar-win and pulsar-win-packaged-probe. No real-app, physical
+audio, hardware or live-outage observation is claimed; those remain in
+`EPIC-260714-th54l3`. Progress is 62/205 overall and 62/186 engineering. PR
+#61 tracking and merge remain before strict execution starts
+`TASK-260712-2fe5bz`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -1506,7 +1527,10 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
   including native helper tests and reproducible signed MSIX packaging; real
   permission UI, microphone/output, audible loopback, Explorer, shortcut and
   lifecycle observations remain manual; PR #60)
-- [ ] `TASK-260712-3dqc3l` — macos-ui-data-integration
+- [x] `TASK-260712-3dqc3l` — macos-ui-data-integration (accepted on exact
+  engineering head `04f4c0f`; 211 Swift tests in 35 suites and release build
+  passed locally; all four hosted jobs in run `29388582864` green; real app,
+  physical audio, hardware and live-outage observations remain manual; PR #61)
 - [ ] `TASK-260712-2fe5bz` — windows-ui-data-integration
 - ↪ manual `TASK-260712-e5mfqj` — cross-platform-ui-verification →
   `EPIC-260714-th54l3`

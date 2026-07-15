@@ -159,6 +159,7 @@ public final class MacCaptureWorkflowController {
 
     public func reviewFile(_ url: URL) { selfTest.reviewFile(url) }
     public func acceptFile(_ url: URL) { selfTest.acceptFile(url) }
+    public func deleteSelfTestDraft() { selfTest.deleteDraft() }
     public func deleteLocalDraft() {
         selfTest.deleteDraft()
         if let latestNormalDraft {

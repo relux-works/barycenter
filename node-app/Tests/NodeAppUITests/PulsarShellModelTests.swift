@@ -166,7 +166,14 @@ struct PulsarShellModelTests {
             reviewLocalFile: { calls.append("review:\($0.lastPathComponent)") },
             acceptLocalFile: { calls.append("accept:\($0.lastPathComponent)") },
             deleteLocalDraft: { calls.append("delete") },
-            closeSelfTest: { calls.append("close") }
+            closeSelfTest: { calls.append("close") },
+            sendDraft: { calls.append("send:\($0):\($1.rawValue):\($2.rawValue)") },
+            deleteOutgoingDraft: { calls.append("delete-outbox:\($0)") },
+            refreshPhaseOneData: { calls.append("refresh-data") },
+            historyAction: { calls.append("history:\($0):\($1.rawValue)") },
+            submitCreateOrbit: { calls.append("create-api:\($0)") },
+            submitJoinOrbit: { calls.append("join-api:\($0)") },
+            exportRecovery: { calls.append("export-recovery") }
         )
 
         actions.createOrbit()
@@ -185,12 +192,54 @@ struct PulsarShellModelTests {
         actions.acceptLocalFile(file)
         actions.deleteLocalDraft()
         actions.closeSelfTest()
+        actions.sendDraft("draft-1", route: .ownBarycenter, delivery: .overlay)
+        actions.deleteOutgoingDraft("draft-1")
+        actions.refreshPhaseOneData()
+        actions.performHistoryAction("history-1", action: .blockActor)
+        actions.submitCreateOrbit(title: "Family")
+        actions.submitJoinOrbit(code: "ABCDEFGH")
+        actions.exportRecovery()
 
         #expect(calls == [
             "create", "join", "self-test", "messages_only", "volume:45", "record",
             "cancel-record", "input:mic-1", "shortcut:control_shift_r", "cue", "five", "review:voice.wav",
             "accept:voice.wav", "delete", "close",
+            "send:draft-1:own_barycenter:overlay", "delete-outbox:draft-1",
+            "refresh-data", "history:history-1:block_actor", "create-api:Family",
+            "join-api:ABCDEFGH", "export-recovery",
         ])
+    }
+
+    @MainActor
+    @Test("Phase 1 projection keeps canonical labels separate from opaque identifiers")
+    func phaseOneProjection() {
+        let model = PulsarShellModel()
+        let draft = PulsarOutgoingDraft(
+            id: "opaque-draft-id",
+            title: "Pulsar recording",
+            state: .retryableFailure,
+            route: .ownBarycenter,
+            requestedDelivery: .overlay,
+            effectiveDelivery: .afterCurrent,
+            downgradeReason: "capability downgrade",
+            status: "accepted",
+            failureCode: "coordinator unavailable",
+            localBytesRetained: false)
+        model.setPhaseOneData(
+            presenceSummary: "1/2 online · 1 ready",
+            outgoingDrafts: [draft],
+            failure: "coordinator unavailable")
+        model.setIdentityOperation(.recoveryExportRequired(""))
+        #expect(model.snapshot.outgoingDrafts == [draft])
+        #expect(model.snapshot.phaseOneFailure == "coordinator unavailable")
+        #expect(model.snapshot.identityOperation == .recoveryExportRequired(""))
+        for locale in PulsarShellLocale.allCases {
+            let copy = PulsarShellCopy(locale: locale)
+            for route in PulsarRouteTarget.allCases { #expect(!copy.routeLabel(route).isEmpty) }
+            for delivery in PulsarDeliveryMode.allCases {
+                #expect(!copy.deliveryLabel(delivery).isEmpty)
+            }
+        }
     }
 
     @Test("Escape is foreground-scoped and hidden recording has an explicit menu cancel")

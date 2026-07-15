@@ -1,0 +1,64 @@
+name: Pure-Go codec probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - task/task-260712-3vkcki-*
+    paths:
+      - .github/workflows/pure-go-codec-probe.yml
+      - acceptance/codec-spike/**
+      - scripts/codec_spike/**
+
+permissions:
+  contents: read
+
+jobs:
+  bounded-rejected-composite:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macos-arm64
+            race: true
+          - runner: windows-2025
+            platform: windows-amd64
+            race: false
+          - runner: ubuntu-24.04
+            platform: linux-amd64-race
+            race: true
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: coordinator/go.mod
+          cache: false
+      - name: Validate frozen reject and runtime module graph
+        run: python3 scripts/codec_spike/validate_pure_go_probe.py
+      - name: Vet and exercise hostile, bounded and concurrent paths
+        working-directory: scripts/codec_spike/purego_probe
+        run: |
+          CGO_ENABLED=0 go vet ./...
+          CGO_ENABLED=0 go test -count=1 ./...
+      - name: Race-check research adapter
+        if: matrix.race
+        working-directory: scripts/codec_spike/purego_probe
+        run: go test -race -count=1 ./...
+      - name: Build CGo-free native and cross-platform binaries and emit evidence
+        run: bash scripts/codec_spike/run_pure_go_probe.sh "$RUNNER_TEMP/purego-probe"
+      - name: Archive exact rejected-option evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: pure-go-codec-${{ matrix.platform }}
+          path: |
+            ${{ runner.temp }}/purego-probe/evidence.json
+            ${{ runner.temp }}/purego-probe/receipt.json
+            ${{ runner.temp }}/purego-probe/cross/*
+          if-no-files-found: error
+          retention-days: 14

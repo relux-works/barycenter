@@ -34,6 +34,7 @@ license_audit = load("codec_spike_license_audit", "validate_license_audit.py")
 bundled_probe = load("codec_spike_bundled_probe", "inventory_bundled_probe.py")
 media_foundation = load("codec_spike_media_foundation", "validate_mf_probe.py")
 macos_native = load("codec_spike_macos_native", "validate_macos_native_probe.py")
+pure_go = load("codec_spike_pure_go", "validate_pure_go_probe.py")
 
 
 def passing_evidence(rubric: dict, real: bool = True) -> dict:
@@ -110,6 +111,14 @@ def passing_evidence(rubric: dict, real: bool = True) -> dict:
 
 
 class CodecSpikeContractTests(unittest.TestCase):
+    def test_pure_go_probe_preserves_rejected_aac_and_cgo_boundary(self):
+        probe = pure_go.load(pure_go.CONTRACT_PATH)
+        pure_go.validate_contract(probe)
+        modules = {item["path"]: item for item in probe["modules"]}
+        self.assertEqual(modules["github.com/llehouerou/go-aac"]["use"], "forbidden-not-in-go-mod")
+        self.assertFalse(probe["bounds"]["cgoAllowed"])
+        self.assertEqual(probe["classification"], "rejected")
+
     def test_macos_native_probe_is_sandboxed_range_backed_and_fails_closed(self):
         probe = macos_native.load_json(macos_native.CONTRACT_PATH)
         macos_native.validate_contract(probe)

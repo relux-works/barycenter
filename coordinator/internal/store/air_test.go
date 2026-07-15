@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"relux.works/duet/coordinator/internal/session"
 )
 
 func createLegacyOrbit(t *testing.T, s *Store, title string, userID int64) int64 {
@@ -321,6 +323,132 @@ func TestConcurrentAirLifecycleChangesHaveOneTransactionalWinner(t *testing.T) {
 		t.Fatalf("concurrent lifecycle pointers=%d err=%v", pointers, err)
 	}
 	assertDatabaseHealthy(t, first)
+}
+
+func TestAirRuntimeResolutionUsesOnlyCurrentMembersAndStableSnapshotKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "air-runtime-resolution.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := createLegacyOrbit(t, s, "Owner", 2701)
+	peer := createLegacyOrbit(t, s, "Peer", 2702)
+	savedOnly := createLegacyOrbit(t, s, "Saved only", 2703)
+	if _, err := s.CutoverLinksToAirs(1, 100); err != nil {
+		t.Fatal(err)
+	}
+	air, err := s.CreateAir(CreateAirParams{Title: "Living", OwnerOrbitID: owner, CreatedAt: 110})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ActivateAir(owner, air.ID, "none", 120); err != nil {
+		t.Fatal(err)
+	}
+	for index, orbitID := range []int64{peer, savedOnly} {
+		member, err := s.AddPendingAirMember(air.ID, orbitID, "member", int64(130+index))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.ConfirmAirMember(member.ID, 1, orbitID == peer, "none", int64(140+index)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runtime, err := s.ActiveAirRuntimeForOrbit(owner)
+	if err != nil || runtime == nil || runtime.AirID != air.ID ||
+		fmt.Sprint(runtime.OrbitIDs) != fmt.Sprint([]int64{owner, peer}) {
+		t.Fatalf("runtime=%+v err=%v", runtime, err)
+	}
+	if runtime, err := s.ActiveAirRuntimeForOrbit(savedOnly); err != nil || runtime != nil {
+		t.Fatalf("saved-only runtime=%+v err=%v", runtime, err)
+	}
+	runtimes, err := s.ActiveAirRuntimes()
+	if err != nil || len(runtimes) != 1 || runtimes[0].AirID != air.ID {
+		t.Fatalf("active runtimes=%+v err=%v", runtimes, err)
+	}
+	snapshot := SessionSnapshot{Mode: session.ModeShared, State: session.StatePlaying,
+		Current: &session.Element{ID: "air-track", Kind: session.KindTrack}}
+	if err := s.SaveAirSession(air.ID, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s = reopenAirStore(t, path)
+	restored, err := s.LoadAirSession(air.ID)
+	if err != nil || restored == nil || restored.State != session.StatePaused || restored.Current.ID != "air-track" {
+		t.Fatalf("restored Air snapshot=%+v err=%v", restored, err)
+	}
+	if err := s.DeactivateAir(peer, air.ID, 200); err != nil {
+		t.Fatal(err)
+	}
+	if runtimes, err := s.ActiveAirRuntimes(); err != nil || len(runtimes) != 0 {
+		t.Fatalf("parked runtimes=%+v err=%v", runtimes, err)
+	}
+}
+
+func TestAirRuntimeSwitchAdvancesBothOwnershipRevisions(t *testing.T) {
+	s := openTemp(t)
+	ownerA := createLegacyOrbit(t, s, "Owner A", 2751)
+	ownerB := createLegacyOrbit(t, s, "Owner B", 2752)
+	switching := createLegacyOrbit(t, s, "Switching", 2753)
+	if _, err := s.CutoverLinksToAirs(1, 100); err != nil {
+		t.Fatal(err)
+	}
+	airA, err := s.CreateAir(CreateAirParams{Title: "Air A", OwnerOrbitID: ownerA, CreatedAt: 110})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ActivateAir(ownerA, airA.ID, "none", 120); err != nil {
+		t.Fatal(err)
+	}
+	memberA, err := s.AddPendingAirMember(airA.ID, switching, "member", 130)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ConfirmAirMember(memberA.ID, 1, true, "none", 140); err != nil {
+		t.Fatal(err)
+	}
+	airB, err := s.CreateAir(CreateAirParams{Title: "Air B", OwnerOrbitID: ownerB, CreatedAt: 150})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ActivateAir(ownerB, airB.ID, "none", 160); err != nil {
+		t.Fatal(err)
+	}
+	memberB, err := s.AddPendingAirMember(airB.ID, switching, "member", 170)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeA, err := s.AirByID(airA.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeB, err := s.AirByID(airB.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ConfirmAirMember(memberB.ID, 1, true, airA.ID, 180); err != nil {
+		t.Fatal(err)
+	}
+	afterA, err := s.AirByID(airA.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterB, err := s.AirByID(airB.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterA.Revision <= beforeA.Revision || afterB.Revision <= beforeB.Revision {
+		t.Fatalf("ownership switch revisions A=%d->%d B=%d->%d", beforeA.Revision,
+			afterA.Revision, beforeB.Revision, afterB.Revision)
+	}
+	if runtime, err := s.ActiveAirRuntimeByID(airA.ID); err != nil || runtime != nil {
+		t.Fatalf("old Air runtime=%+v err=%v", runtime, err)
+	}
+	runtime, err := s.ActiveAirRuntimeByID(airB.ID)
+	if err != nil || runtime == nil || fmt.Sprint(runtime.OrbitIDs) != fmt.Sprint([]int64{ownerB, switching}) {
+		t.Fatalf("new Air runtime=%+v err=%v", runtime, err)
+	}
 }
 
 func TestAirBackfillFailureRollsBackDDLAndDeterministicallyReruns(t *testing.T) {

@@ -75,6 +75,153 @@ type AirAuthority struct {
 	UpdatedAt       int64
 }
 
+type AirRuntime struct {
+	AirID      string
+	Generation int64
+	Revision   int64
+	OrbitIDs   []int64
+}
+
+// ActiveAirRuntimeForOrbit resolves the only shared runtime that may own an
+// orbit. Saved membership is intentionally insufficient: every returned
+// member has a current pointer to this Air, which prevents transitive unions.
+func (s *Store) ActiveAirRuntimeForOrbit(orbitID int64) (*AirRuntime, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	authority, err := airAuthorityTx(tx)
+	if err != nil || authority.Mode != "airs_authoritative" {
+		return nil, err
+	}
+	var airID string
+	err = tx.QueryRow(`SELECT p.air_id
+FROM air_active_pointers p JOIN airs a ON a.public_id = p.air_id
+WHERE p.orbit_id = ? AND a.status = 'active'`, orbitID).Scan(&airID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	runtime, err := activeAirRuntimeByIDTx(tx, authority, airID)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return runtime, nil
+}
+
+func (s *Store) ActiveAirRuntimeByID(airID string) (*AirRuntime, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	authority, err := airAuthorityTx(tx)
+	if err != nil {
+		return nil, err
+	}
+	if authority.Mode != "airs_authoritative" {
+		return nil, nil
+	}
+	runtime, err := activeAirRuntimeByIDTx(tx, authority, airID)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return runtime, nil
+}
+
+func activeAirRuntimeByIDTx(tx *sql.Tx, authority AirAuthority, airID string) (*AirRuntime, error) {
+	var revision int64
+	if err := tx.QueryRow(`SELECT revision FROM airs WHERE public_id = ? AND status = 'active'`, airID).Scan(&revision); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	rows, err := tx.Query(`SELECT m.orbit_id
+FROM air_members m JOIN air_active_pointers p
+  ON p.air_id = m.air_id AND p.orbit_id = m.orbit_id
+JOIN airs a ON a.public_id = m.air_id
+WHERE m.air_id = ? AND m.status = 'joined' AND a.status = 'active'
+ORDER BY m.orbit_id`, airID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	runtime := &AirRuntime{AirID: airID, Generation: authority.Generation, Revision: revision}
+	for rows.Next() {
+		var orbitID int64
+		if err := rows.Scan(&orbitID); err != nil {
+			return nil, err
+		}
+		runtime.OrbitIDs = append(runtime.OrbitIDs, orbitID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(runtime.OrbitIDs) < 2 {
+		return nil, nil
+	}
+	return runtime, nil
+}
+
+func (s *Store) ActiveAirRuntimes() ([]AirRuntime, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	authority, err := airAuthorityTx(tx)
+	if err != nil || authority.Mode != "airs_authoritative" {
+		return nil, err
+	}
+	rows, err := tx.Query(`SELECT a.public_id, a.revision, m.orbit_id
+FROM airs a JOIN air_members m ON m.air_id = a.public_id
+JOIN air_active_pointers p ON p.air_id = m.air_id AND p.orbit_id = m.orbit_id
+WHERE a.status = 'active' AND m.status = 'joined'
+ORDER BY a.public_id, m.orbit_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AirRuntime
+	for rows.Next() {
+		var airID string
+		var revision, orbitID int64
+		if err := rows.Scan(&airID, &revision, &orbitID); err != nil {
+			return nil, err
+		}
+		if len(out) == 0 || out[len(out)-1].AirID != airID {
+			out = append(out, AirRuntime{AirID: airID, Generation: authority.Generation, Revision: revision})
+		}
+		out[len(out)-1].OrbitIDs = append(out[len(out)-1].OrbitIDs, orbitID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	filtered := out[:0]
+	for _, runtime := range out {
+		if len(runtime.OrbitIDs) >= 2 {
+			filtered = append(filtered, runtime)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return filtered, nil
+}
+
 type CreateAirParams struct {
 	Title        string
 	OwnerOrbitID int64
@@ -331,10 +478,16 @@ VALUES(?, ?, ?, ?)`, orbitID, airID, pointerRevision+1, now); err != nil {
 			if err := refreshAirStatusTx(tx, current); err != nil {
 				return err
 			}
+			if err := bumpAirRevisionTx(tx, current); err != nil {
+				return err
+			}
 		}
 		if err := refreshAirStatusTx(tx, airID); err != nil {
 			return err
 		}
+	}
+	if err := bumpAirRevisionTx(tx, airID); err != nil {
+		return err
 	}
 	if err := markAirDivergenceTx(tx, now); err != nil {
 		return err
@@ -386,6 +539,9 @@ FROM air_members WHERE public_id = ?`, memberID).Scan(&airID, &orbitID, &role, &
 		return ErrAirRevision
 	}
 	if err := refreshAirStatusTx(tx, airID); err != nil {
+		return err
+	}
+	if err := bumpAirRevisionTx(tx, airID); err != nil {
 		return err
 	}
 	if err := markAirDivergenceTx(tx, now); err != nil {
@@ -458,8 +614,16 @@ VALUES(?, ?, ?, ?)`, orbitID, airID, nextRevision, now); err != nil {
 		if err := refreshAirStatusTx(tx, current); err != nil {
 			return err
 		}
+		if current != airID {
+			if err := bumpAirRevisionTx(tx, current); err != nil {
+				return err
+			}
+		}
 	}
 	if err := refreshAirStatusTx(tx, airID); err != nil {
+		return err
+	}
+	if err := bumpAirRevisionTx(tx, airID); err != nil {
 		return err
 	}
 	if err := markAirDivergenceTx(tx, now); err != nil {
@@ -502,6 +666,9 @@ func (s *Store) DeactivateAir(orbitID int64, airID string, now int64) error {
 		return ErrAirActiveChanged
 	}
 	if err := refreshAirStatusTx(tx, airID); err != nil {
+		return err
+	}
+	if err := bumpAirRevisionTx(tx, airID); err != nil {
 		return err
 	}
 	if err := markAirDivergenceTx(tx, now); err != nil {
@@ -849,6 +1016,20 @@ func markAirDivergenceTx(tx *sql.Tx, now int64) error {
   updated_at = CASE WHEN mode = 'airs_authoritative' THEN ? ELSE updated_at END
 WHERE singleton = 1`, now)
 	return err
+}
+
+func bumpAirRevisionTx(tx *sql.Tx, airID string) error {
+	result, err := tx.Exec(`UPDATE airs SET revision = revision + 1 WHERE public_id = ?`, airID)
+	if err != nil {
+		return err
+	}
+	if changed, err := result.RowsAffected(); err != nil || changed != 1 {
+		if err != nil {
+			return err
+		}
+		return ErrAirNotFound
+	}
+	return nil
 }
 
 func requireAirsAuthoritativeTx(tx *sql.Tx) (AirAuthority, error) {

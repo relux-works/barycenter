@@ -8,6 +8,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -69,6 +70,9 @@ func (s *Store) linkEngaged(orbitID int64) (bool, error) {
 // ProposeLink issues a one-time approach code for fromOrbit (invites-style,
 // TTL 15 min). A fresh code supersedes the orbit's earlier unclaimed codes.
 func (s *Store) ProposeLink(fromOrbit, byUser int64) (string, error) {
+	if err := s.requireLegacyLinkAuthority(); err != nil {
+		return "", err
+	}
 	if busy, err := s.linkEngaged(fromOrbit); err != nil {
 		return "", err
 	} else if busy {
@@ -94,6 +98,9 @@ func (s *Store) ProposeLink(fromOrbit, byUser int64) (string, error) {
 // Returns (0, 0, nil) for an unknown/expired/claimed code, ErrLinkSelf for a
 // self-approach and ErrLinkBusy when either orbit already has a link (L1).
 func (s *Store) AcceptByCode(code string, toOrbit int64) (linkID, orbitA int64, err error) {
+	if err := s.requireLegacyLinkAuthority(); err != nil {
+		return 0, 0, err
+	}
 	var createdAt int64
 	err = s.db.QueryRow(`SELECT id, orbit_a, created_at FROM links WHERE state = 'proposed' AND code = ?`,
 		code).Scan(&linkID, &orbitA, &createdAt)
@@ -162,6 +169,9 @@ func (s *Store) AwaitingLinkAnySide(orbitID int64) (linkID, otherOrbit int64, in
 
 // ActivateLink flips an awaiting link to active (both sides consented).
 func (s *Store) ActivateLink(linkID int64) error {
+	if err := s.requireLegacyLinkAuthority(); err != nil {
+		return err
+	}
 	res, err := s.db.Exec(`UPDATE links SET state = 'active', pending_orbit = 0 WHERE id = ? AND state = 'awaiting'`, linkID)
 	if err != nil {
 		return err
@@ -225,6 +235,24 @@ func (s *Store) GetLink(linkID int64) (*Link, error) {
 // BreakLink dissolves an approach: the row is deleted, each barycenter keeps
 // everything of its own (design §12: breaking up is painless).
 func (s *Store) BreakLink(linkID int64) error {
+	if err := s.requireLegacyLinkAuthority(); err != nil {
+		return err
+	}
 	_, err := s.db.Exec(`DELETE FROM links WHERE id = ?`, linkID)
 	return err
+}
+
+func (s *Store) requireLegacyLinkAuthority() error {
+	var mode string
+	err := s.db.QueryRow(`SELECT mode FROM air_authority WHERE singleton = 1`).Scan(&mode)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if mode == "airs_authoritative" || mode == "rollback_hold" {
+		return fmt.Errorf("%w: legacy link writes disabled in %s", ErrAirRevision, mode)
+	}
+	return nil
 }

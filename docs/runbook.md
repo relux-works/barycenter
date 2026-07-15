@@ -147,6 +147,11 @@ sequence, use `docs/analysis/p2-air-schema-link-migration.md`. Never start an
 Air-unaware coordinator while the persisted authority is
 `airs_authoritative` or `rollback_hold`.
 
+For active-Air warmup, stable session ownership, join catch-up and
+caller-only leave behavior, use
+`docs/analysis/p2-air-runtime-session-resolution.md`. A coordinator in
+`rollback_hold` must warm zero shared Air and legacy-link runtimes.
+
 ## 6a. Build machine: signing identity (once, before the first release)
 
 `scripts/setup-signing.sh` creates the self-signed identity `duet-nodeapp` in a

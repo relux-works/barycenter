@@ -223,11 +223,22 @@ type SessionSnapshot struct {
 }
 
 func (s *Store) SaveSession(orbitID int64, snap SessionSnapshot) error {
+	return s.saveSessionKey(fmt.Sprintf("session_state_%d", orbitID), snap)
+}
+
+// SaveAirSession persists a shared runtime by stable Air ID. It deliberately
+// does not reuse the legacy negative-link key: link IDs are migration input,
+// never Phase 2 runtime ownership.
+func (s *Store) SaveAirSession(airID string, snap SessionSnapshot) error {
+	return s.saveSessionKey("session_state_"+airID, snap)
+}
+
+func (s *Store) saveSessionKey(key string, snap SessionSnapshot) error {
 	raw, err := json.Marshal(snap)
 	if err != nil {
 		return err
 	}
-	return s.SetSetting(fmt.Sprintf("session_state_%d", orbitID), string(raw))
+	return s.SetSetting(key, string(raw))
 }
 
 // ClearSession drops a persisted snapshot (a dissolved approach must not
@@ -236,10 +247,22 @@ func (s *Store) ClearSession(orbitID int64) error {
 	return s.SetSetting(fmt.Sprintf("session_state_%d", orbitID), "")
 }
 
+func (s *Store) ClearAirSession(airID string) error {
+	return s.SetSetting("session_state_"+airID, "")
+}
+
 // LoadSession restores the snapshot; a PLAYING/ARMED/LOADING session comes
 // back as PAUSED (spec 7.2 restart rule). Returns nil if nothing was saved.
 func (s *Store) LoadSession(orbitID int64) (*SessionSnapshot, error) {
-	val, err := s.GetSetting(fmt.Sprintf("session_state_%d", orbitID))
+	return s.loadSessionKey(fmt.Sprintf("session_state_%d", orbitID))
+}
+
+func (s *Store) LoadAirSession(airID string) (*SessionSnapshot, error) {
+	return s.loadSessionKey("session_state_" + airID)
+}
+
+func (s *Store) loadSessionKey(key string) (*SessionSnapshot, error) {
+	val, err := s.GetSetting(key)
 	if err != nil {
 		return nil, err
 	}

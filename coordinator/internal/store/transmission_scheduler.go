@@ -322,6 +322,24 @@ func evaluateRuntimeTargetTx(
 	now int64,
 	requireRTT bool,
 ) (runtimeTargetDecision, error) {
+	if transmission.AirID != "" {
+		var stillActive int
+		err := tx.QueryRow(`SELECT EXISTS(
+  SELECT 1 FROM air_members m
+  JOIN air_active_pointers p ON p.orbit_id = m.orbit_id AND p.air_id = m.air_id
+  JOIN airs a ON a.public_id = m.air_id AND a.status <> 'dissolved'
+  WHERE m.air_id = ? AND m.orbit_id = ? AND m.status = 'joined'
+)`, transmission.AirID, target.OrbitID).Scan(&stillActive)
+		if err != nil {
+			return runtimeTargetDecision{}, err
+		}
+		if stillActive == 0 {
+			return runtimeTargetDecision{
+				status: TransmissionTargetCancelled,
+				reason: TransmissionReasonApproachLeft,
+			}, nil
+		}
+	}
 	projected, exists := runtime[transmissionTargetKey(target.OrbitID, target.Slot)]
 	if !exists {
 		return runtimeTargetDecision{
@@ -860,7 +878,10 @@ func (s *Store) RecheckTransmissionRuntime(
 		if target.Status == TransmissionTargetPlaying {
 			switch decision.status {
 			case TransmissionTargetCancelled:
-				status, reason = TransmissionTargetCancelling, TransmissionReasonTargetRevoked
+				status = TransmissionTargetCancelling
+				if decision.reason != TransmissionReasonApproachLeft {
+					reason = TransmissionReasonTargetRevoked
+				}
 			case TransmissionTargetBlocked:
 				status, reason = TransmissionTargetCancelling, TransmissionReasonSenderBlocked
 			case TransmissionTargetMissedDND:

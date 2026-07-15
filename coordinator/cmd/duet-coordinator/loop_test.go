@@ -33,6 +33,7 @@ type sentMsg struct {
 type fakeSender struct {
 	sent      []sentMsg
 	snapshots map[hub.NodeKey]hub.NodeSnapshot
+	online    map[int64]map[protocol.NodeID]bool
 }
 
 func TestRegistrationReplacesExactCapabilitySnapshot(t *testing.T) {
@@ -73,6 +74,13 @@ func (f *fakeSender) Send(key hub.NodeKey, msgType string, payload any) bool {
 }
 
 func (f *fakeSender) Online(orbitID int64) map[protocol.NodeID]bool {
+	if f.online != nil {
+		result := make(map[protocol.NodeID]bool, len(f.online[orbitID]))
+		for slot, online := range f.online[orbitID] {
+			result[slot] = online
+		}
+		return result
+	}
 	return map[protocol.NodeID]bool{protocol.NodeA: true, protocol.NodeB: true}
 }
 

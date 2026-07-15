@@ -31,6 +31,7 @@ Story: `STORY-260712-1qfbiw`
     long-track path.
 - `TASK-260712-3nq0tq` Air lifecycle regression and rehearsal
   - Final B2-B4 automation, migration rehearsal, and synthetic load proof.
+  - Evidence handoff: `docs/analysis/p2-air-lifecycle-regression-rehearsal.md`.
 - `TASK-260712-1vklop` targets or inbox parity regressions
   - Final B5-B7 automation and mixed-version visibility proof.
 - `TASK-260712-20cuna` targets or inbox rollout handoff

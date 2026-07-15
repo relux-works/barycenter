@@ -12,12 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-wy05n6` — p1-independent-security-review
-  (engineering audit in progress; external independence remains an Ivan Oparin
-  approval gate)
-- Next engineering task: `TASK-260712-2s4e9p` — store-listing-iarc-assets
+- Current engineering task: `TASK-260712-2s4e9p` — store-listing-iarc-assets
+  (starting after the security engineering handoff)
+- Next engineering task: `TASK-260712-38lssj` — p1-root-integration-review
 - Most recently accepted: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Current branch: `task/task-260712-wy05n6-p1-independent-security-review`
+- Current branch: `tracking/task-260712-wy05n6-security-review`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -1061,6 +1060,20 @@ passed clean 12-stage acceptance with start/end dirty false; hosted run
 Independent signoff is routed to owner task `TASK-260715-unbb7c`; the original
 review remains `to-review` and does not increase accepted counts. Strict
 engineering advances to `TASK-260712-wy05n6`.
+
+The security audit closed three HIGH findings. Legacy pairing now accepts
+forwarded source identity only from the loopback TLS terminator and bounds both
+source-key and rejected-attempt state. The coordinator now bounds public HTTP
+transport and unauthenticated WebSocket registrations. Both Go modules and the
+acceptance authority now select patched Go 1.25.12; exact vulnerability scans
+report no reachable advisories. Exact engineering head
+`a87532c745195fe6772dd03882d2154364509b8b` passed clean 12-stage acceptance
+with start/end dirty false, both Go race suites and all 218 Swift tests. Hosted
+run `29404910264` passed all four jobs; PR #74 landed at merge
+`dab3999c34dc8844eae5202dc72c1baf71ce8507`. Independent signoff is routed to
+owner task `TASK-260715-10ksxz`; the original review remains `to-review` and
+does not increase accepted counts. Strict engineering advances to
+`TASK-260712-2s4e9p`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

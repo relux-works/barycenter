@@ -1,9 +1,9 @@
 {
   "artifacts": [
     {
-      "bytes": 104,
+      "bytes": 105,
       "path": "01-acceptance-contract-tests.log",
-      "sha256": "065c7d15facfd20f14fb9182747be315f3349fa1d5e1a0e966047509f4bfa9b1"
+      "sha256": "9ec9e3c52e7908b746c625587944c7e1eb71f90fc834fbb4527d510523684dd2"
     },
     {
       "bytes": 0,
@@ -23,7 +23,7 @@
     {
       "bytes": 57,
       "path": "05-previous-head-rollback.log",
-      "sha256": "62de7e782e473836ac1303cdb6679682fa9c571dc80eeb66bbd1f2722e19af65"
+      "sha256": "de196dda30c5061deae3f47139ceeb0a5f8211da5b50ff10096d5e1aca011224"
     },
     {
       "bytes": 0,
@@ -58,7 +58,7 @@
     {
       "bytes": 46577,
       "path": "12-swift-tests.log",
-      "sha256": "f10c3cf1ff85d144f8996df57f0ec5ecd8a9957e77376f11e4242bb92ab3a101"
+      "sha256": "85ee407eef52524cf332dcfdfd2b963e4fa26c163a2c237d9e1435f412b48374"
     }
   ],
   "commands": [
@@ -202,10 +202,13 @@
       "name": "swift-tests"
     }
   ],
-  "finishedAt": "2026-07-15T05:34:54Z",
+  "finishedAt": "2026-07-15T05:52:53Z",
   "git": {
     "dirty": false,
-    "head": "6fc647989b36779c765a31fd78eef5b44947c61a"
+    "endDirty": false,
+    "endDirtyPaths": [],
+    "head": "f8ae90328bc1448f018bb6c8727c2680bd49e063",
+    "startDirty": false
   },
   "host": {
     "machine": "x86_64",
@@ -215,7 +218,7 @@
   "manualEvidence": "not-run",
   "schemaVersion": 1,
   "scope": "repository-automated-only",
-  "startedAt": "2026-07-15T05:34:08Z",
+  "startedAt": "2026-07-15T05:52:08Z",
   "status": "pass",
   "suite": "all",
   "toolchains": {

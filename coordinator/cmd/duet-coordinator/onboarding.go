@@ -435,10 +435,10 @@ func onboardingClientIP(r *http.Request, trustedProxy bool) string {
 
 func forwardedClientIP(r *http.Request) (string, bool) {
 	values := r.Header.Values("X-Forwarded-For")
-	if len(values) == 0 {
+	if len(values) != 1 {
 		return "", false
 	}
-	parts := strings.Split(values[len(values)-1], ",")
+	parts := strings.Split(values[0], ",")
 	candidate := strings.TrimSpace(parts[len(parts)-1])
 	parsed := net.ParseIP(candidate)
 	if parsed == nil {

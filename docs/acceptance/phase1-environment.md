@@ -11,7 +11,7 @@ them. The evidence boundary is shown in
 
 The machine-readable authority is [`acceptance/toolchains.json`](../../acceptance/toolchains.json):
 
-- Go 1.25.0 (`GOTOOLCHAIN=go1.25.0`) for both Go modules;
+- Go 1.25.12 (`GOTOOLCHAIN=go1.25.12`) for both Go modules;
 - Xcode 26.2 build 17C52 with Swift 6.2.3; `xcrun swift`, never the standalone
   Command Line Tools Swift, runs the package tests;
 - GitHub hosted runner images `ubuntu-24.04`, `macos-15`, and `windows-2025`.
@@ -84,7 +84,7 @@ Prepare the current schema and exactly that logical topology with:
 
 ```sh
 cd coordinator
-GOTOOLCHAIN=go1.25.0 go run ./cmd/phase1-acceptance-fixture \
+GOTOOLCHAIN=go1.25.12 go run ./cmd/phase1-acceptance-fixture \
   -db ../.temp/acceptance/phase1-live/private/coordinator.db \
   -credentials ../.temp/acceptance/phase1-live/private/credentials.json \
   -confirm-nonproduction

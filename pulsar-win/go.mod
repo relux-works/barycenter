@@ -1,6 +1,6 @@
 module relux.works/duet/pulsar-win
 
-go 1.25.0
+go 1.25.12
 
 require (
 	github.com/Microsoft/go-winio v0.6.2

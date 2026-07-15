@@ -19,10 +19,11 @@ import (
 )
 
 const (
-	registerDeadline = 5 * time.Second
-	writeDeadline    = 10 * time.Second
-	closeInvalidAuth = 4401 // spec 8.2
-	closeRevokedAuth = 4403
+	registerDeadline        = 5 * time.Second
+	writeDeadline           = 10 * time.Second
+	maxPendingRegistrations = 256
+	closeInvalidAuth        = 4401 // spec 8.2
+	closeRevokedAuth        = 4403
 )
 
 type Event any
@@ -107,6 +108,10 @@ type Hub struct {
 	offlineAfter time.Duration
 
 	Events chan Event
+	// registerSlots bounds unauthenticated upgraded sockets waiting to present
+	// their first register frame. Authenticated sockets leave this pool before
+	// entering the connection registry.
+	registerSlots chan struct{}
 
 	mu             sync.Mutex
 	conns          map[NodeKey]*conn
@@ -127,6 +132,7 @@ func New(log *slog.Logger, lookup TokenLookup, offlineAfter time.Duration) *Hub 
 		// Liveness (EvOnline/EvOffline) must never be dropped (bugs #3): the
 		// buffer absorbs bursts and emit() blocks rather than drops when full.
 		Events:         make(chan Event, 256),
+		registerSlots:  make(chan struct{}, maxPendingRegistrations),
 		conns:          map[NodeKey]*conn{},
 		lastSeen:       map[NodeKey]time.Time{},
 		online:         map[NodeKey]bool{},
@@ -289,15 +295,32 @@ func (h *Hub) Disconnect(key NodeKey) bool {
 }
 
 var upgrader = websocket.Upgrader{
-	// The listener binds to the tailnet address only (spec 17); origin checks
-	// are meaningless for node clients.
+	// Pulsar is a native client; Apple and Windows WebSocket stacks may attach
+	// an Origin even though no cookie authority exists. The bearer is presented
+	// only in the bounded first protocol frame, never ambient HTTP state.
 	CheckOrigin: func(*http.Request) bool { return true },
 }
 
 // HandleWS is the /ws endpoint.
 func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet || r.URL.Path != "/ws" || r.URL.RawQuery != "" ||
+		r.ContentLength != 0 || len(r.TransferEncoding) != 0 ||
+		len(r.Header.Values("Authorization")) != 0 {
+		http.Error(w, "invalid websocket request", http.StatusBadRequest)
+		return
+	}
+	select {
+	case h.registerSlots <- struct{}{}:
+	case <-r.Context().Done():
+		return
+	default:
+		http.Error(w, "registration capacity unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	releaseRegistration := func() { <-h.registerSlots }
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		releaseRegistration()
 		h.log.Warn("ws upgrade failed", "err", err)
 		return
 	}
@@ -307,6 +330,7 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	ws.SetReadLimit(64 << 10)
 
 	key, reg, capabilities, ok := h.awaitRegister(ws)
+	releaseRegistration()
 	if !ok {
 		return // awaitRegister closed the socket
 	}

@@ -171,6 +171,12 @@ jobs:
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid= -H windowsgui -X main.version=${GITHUB_REF_NAME}" -o ../stage/pulsar-win-amd64.exe .
           cd ../fork
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid= -H windowsgui" -o ../stage/go-librespot.exe ./cmd/daemon
+      - name: Build selected AppCapability/WASAPI capture bridge
+        shell: pwsh
+        run: |
+          cmake -S pulsar-win/native/pulsar-capture -B native-capture-build -A x64 -DBUILD_TESTING=OFF
+          cmake --build native-capture-build --config Release
+          Copy-Item native-capture-build/Release/pulsar-capture.dll stage/pulsar-capture.dll
       - name: Stage package (manifest + assets)
         shell: bash
         run: |
@@ -196,7 +202,7 @@ jobs:
       #     password: ${{ secrets.ESIGNER_PASSWORD }}
       #     totp_secret: ${{ secrets.ESIGNER_TOTP }}
       #     credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
-      #     file_path: ${{ github.workspace }}/stage/pulsar-win-amd64.exe
+      #     file_path: ${{ github.workspace }}/stage/pulsar-win-amd64.exe,${{ github.workspace }}/stage/pulsar-capture.dll
       #     override: true
       - name: Pack MSIX (unsigned by CI — signed below when EV is configured)
         shell: pwsh

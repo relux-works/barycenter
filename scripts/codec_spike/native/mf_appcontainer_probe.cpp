@@ -424,13 +424,12 @@ DWORD soak_seconds_from_command_line() {
 }
 
 std::wstring evidence_path(const std::wstring& family) {
-    wchar_t local_app_data[32768]{};
-    DWORD size = GetEnvironmentVariableW(L"LOCALAPPDATA", local_app_data,
-                                         static_cast<DWORD>(std::size(local_app_data)));
-    if (size == 0 || size >= std::size(local_app_data)) return {};
-    std::wstring path(local_app_data);
-    path += L"\\Packages\\" + family + L"\\LocalState";
-    CreateDirectoryW(path.c_str(), nullptr);
+    wchar_t user_profile[32768]{};
+    DWORD size = GetEnvironmentVariableW(L"USERPROFILE", user_profile,
+                                         static_cast<DWORD>(std::size(user_profile)));
+    if (size == 0 || size >= std::size(user_profile)) return {};
+    std::wstring path(user_profile);
+    path += L"\\AppData\\Local\\Packages\\" + family + L"\\LocalState";
     return path + L"\\mf-probe-evidence.json";
 }
 

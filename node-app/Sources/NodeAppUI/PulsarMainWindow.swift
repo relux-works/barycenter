@@ -119,7 +119,10 @@ private struct PulsarToolbar: ToolbarContent {
                     systemImage: copy.recordingSymbol(model.snapshot.recording)
                 )
             }
-            .disabled(!model.snapshot.recordingAvailable && model.snapshot.recording != .recording)
+            .disabled(
+                model.snapshot.recording == .processing
+                    || isSelfTestBusy(model.snapshot.selfTestState)
+                    || (!model.snapshot.recordingAvailable && model.snapshot.recording != .recording))
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .accessibilityLabel(copy.recordingLabel(model.snapshot.recording))
 
@@ -130,6 +133,10 @@ private struct PulsarToolbar: ToolbarContent {
             }
             .keyboardShortcut(",", modifiers: .command)
         }
+    }
+
+    private func isSelfTestBusy(_ state: PulsarSelfTestState) -> Bool {
+        ![.idle, .reviewingDraft, .failed].contains(state)
     }
 }
 
@@ -331,6 +338,10 @@ private struct PulsarLocalControls: View {
                 systemImage: copy.recordingSymbol(model.snapshot.recording)
             )
             .accessibilityElement(children: .combine)
+            if model.snapshot.recording == .recording {
+                ProgressView(value: Double(model.snapshot.recordingMeter))
+                    .accessibilityLabel(copy.text(.recording))
+            }
             Label(
                 "\(model.snapshot.recordingShortcut.displayValue) — \(copy.recordingShortcutLabel(model.snapshot.recordingShortcutState))",
                 systemImage: shortcutSymbol(model.snapshot.recordingShortcutState)
@@ -467,7 +478,9 @@ private struct PulsarSelfTestView: View {
                                 .buttonStyle(.borderedProminent)
                                 .keyboardShortcut("t", modifiers: [.command, .shift])
                         }
-                        .disabled(isSelfTestBusy(model.snapshot.selfTestState))
+                        .disabled(isSelfTestBusy(model.snapshot.selfTestState)
+                            || model.snapshot.recording == .recording
+                            || model.snapshot.recording == .processing)
 
                         Divider()
 
@@ -582,6 +595,18 @@ private struct PulsarSettingsView: View {
                 Text("Русский").tag(PulsarShellLocale.ru)
             }
             .pickerStyle(.segmented)
+            Picker(copy.text(.inputDevice), selection: Binding(
+                get: { model.snapshot.selectedCaptureDeviceID },
+                set: { actions.setCaptureDevice($0) }
+            )) {
+                Text(copy.text(.defaultInput)).tag(String?.none)
+                ForEach(model.snapshot.captureDevices) { device in
+                    Text(device.name + (device.isDefault ? " · " + copy.text(.defaultInput) : ""))
+                        .tag(Optional(device.id))
+                }
+            }
+            .disabled(model.snapshot.recording == .recording
+                || model.snapshot.selfTestState == .recording)
             Picker(copy.text(.recordingShortcut), selection: Binding(
                 get: { model.snapshot.recordingShortcut },
                 set: { actions.setRecordingShortcut($0) }

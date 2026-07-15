@@ -105,12 +105,19 @@ struct PulsarShellModelTests {
             rejection: nil)
 
         model.updateSelfTest(state: .recording, meter: 1.5, draftAvailable: false)
+        model.setRecordingMeter(-0.5)
+        model.setCaptureDevices([
+            .init(id: "mic-1", name: "Studio Mic", isDefault: true),
+        ], selectedDeviceID: "mic-1")
         model.setLocalFileReview(review)
         #expect(model.snapshot.selfTestState == .recording)
         #expect(model.snapshot.selfTestMeter == 1)
         #expect(model.snapshot.localFileReview == review)
         #expect(model.snapshot.localFileReview?.isEligible == true)
         #expect(!model.snapshot.localDraftAvailable)
+        #expect(model.snapshot.recordingMeter == 0)
+        #expect(model.snapshot.captureDevices.first?.name == "Studio Mic")
+        #expect(model.snapshot.selectedCaptureDeviceID == "mic-1")
         for locale in PulsarShellLocale.allCases {
             #expect(!PulsarShellCopy(locale: locale).selfTestLabel(.recording).isEmpty)
         }
@@ -152,6 +159,7 @@ struct PulsarShellModelTests {
             setVolume: { calls.append("volume:\($0)") },
             toggleRecording: { calls.append("record") },
             cancelRecording: { calls.append("cancel-record") },
+            setCaptureDevice: { calls.append("input:\($0 ?? "default")") },
             setRecordingShortcut: { calls.append("shortcut:\($0.rawValue)") },
             playBuiltinCue: { calls.append("cue") },
             recordFiveSeconds: { calls.append("five") },
@@ -168,6 +176,7 @@ struct PulsarShellModelTests {
         actions.setVolume(45)
         actions.toggleRecording()
         actions.cancelRecording()
+        actions.setCaptureDevice("mic-1")
         actions.setRecordingShortcut(.controlShiftR)
         let file = URL(fileURLWithPath: "/tmp/voice.wav")
         actions.playBuiltinCue()
@@ -179,7 +188,7 @@ struct PulsarShellModelTests {
 
         #expect(calls == [
             "create", "join", "self-test", "messages_only", "volume:45", "record",
-            "cancel-record", "shortcut:control_shift_r", "cue", "five", "review:voice.wav",
+            "cancel-record", "input:mic-1", "shortcut:control_shift_r", "cue", "five", "review:voice.wav",
             "accept:voice.wav", "delete", "close",
         ])
     }

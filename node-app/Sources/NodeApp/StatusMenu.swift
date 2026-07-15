@@ -131,6 +131,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
         record.target = self
         record.isEnabled = shellModel?.snapshot.recordingAvailable == true
             || shellModel?.snapshot.recording == .recording
+        if shellModel?.snapshot.recording == .processing { record.isEnabled = false }
+        if let selfTest = shellModel?.snapshot.selfTestState,
+           ![.idle, .reviewingDraft, .failed].contains(selfTest) {
+            record.isEnabled = false
+        }
         menu.addItem(record)
         if shellModel?.snapshot.recording == .recording {
             let cancel = NSMenuItem(
@@ -260,8 +265,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
         case #selector(toggleRecording):
-            shellModel?.snapshot.recordingAvailable == true
-                || shellModel?.snapshot.recording == .recording
+            shellModel?.snapshot.recording != .processing
+                && [PulsarSelfTestState.idle, .reviewingDraft, .failed].contains(
+                    shellModel?.snapshot.selfTestState ?? .idle)
+                && (shellModel?.snapshot.recordingAvailable == true
+                    || shellModel?.snapshot.recording == .recording)
         case #selector(cancelRecording):
             shellModel?.snapshot.recording == .recording
         case #selector(toggleDND):

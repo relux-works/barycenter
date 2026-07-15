@@ -74,6 +74,12 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
         record.keyEquivalentModifierMask = [.command, .shift]
         record.target = self
         actionMenu.addItem(record)
+        let cancel = NSMenuItem(
+            title: copy.text(.cancelRecording),
+            action: #selector(cancelRecording),
+            keyEquivalent: "")
+        cancel.target = self
+        actionMenu.addItem(cancel)
         let dnd = NSMenuItem(
             title: copy.text(.dnd), action: #selector(toggleDND), keyEquivalent: "d")
         dnd.keyEquivalentModifierMask = [.command, .shift]
@@ -126,6 +132,14 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
         record.isEnabled = shellModel?.snapshot.recordingAvailable == true
             || shellModel?.snapshot.recording == .recording
         menu.addItem(record)
+        if shellModel?.snapshot.recording == .recording {
+            let cancel = NSMenuItem(
+                title: copy.text(.cancelRecording),
+                action: #selector(cancelRecording),
+                keyEquivalent: "")
+            cancel.target = self
+            menu.addItem(cancel)
+        }
 
         let dnd = NSMenuItem(
             title: copy.dndLabel(shellModel?.snapshot.dndMode ?? .allowAll),
@@ -248,6 +262,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
         case #selector(toggleRecording):
             shellModel?.snapshot.recordingAvailable == true
                 || shellModel?.snapshot.recording == .recording
+        case #selector(cancelRecording):
+            shellModel?.snapshot.recording == .recording
         case #selector(toggleDND):
             shellModel?.snapshot.connection.isPaired == true
         default:
@@ -305,6 +321,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
 
     @objc private func toggleRecording() {
         shellActions.toggleRecording()
+    }
+
+    @objc private func cancelRecording() {
+        shellActions.cancelRecording()
     }
 
     @objc private func toggleDND() {

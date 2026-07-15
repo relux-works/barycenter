@@ -22,6 +22,11 @@ public struct PulsarMainView: View {
         .toolbar {
             PulsarToolbar(model: model, actions: actions)
         }
+        .onExitCommand {
+            if model.snapshot.recording == .recording {
+                actions.cancelRecording()
+            }
+        }
         .frame(minWidth: 760, minHeight: 520)
     }
 }
@@ -92,7 +97,7 @@ private struct PulsarDetail: View {
         case .history:
             PulsarHistoryView(model: model)
         case .settings:
-            PulsarSettingsView(model: model)
+            PulsarSettingsView(model: model, actions: actions)
         }
     }
 }
@@ -326,6 +331,21 @@ private struct PulsarLocalControls: View {
                 systemImage: copy.recordingSymbol(model.snapshot.recording)
             )
             .accessibilityElement(children: .combine)
+            Label(
+                "\(model.snapshot.recordingShortcut.displayValue) — \(copy.recordingShortcutLabel(model.snapshot.recordingShortcutState))",
+                systemImage: shortcutSymbol(model.snapshot.recordingShortcutState)
+            )
+            .font(.callout)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func shortcutSymbol(_ state: PulsarRecordingShortcutState) -> String {
+        switch state {
+        case .registered: "keyboard"
+        case .conflict, .unavailable: "exclamationmark.triangle"
+        case .suspended: "pause.circle"
+        case .inactive: "keyboard"
         }
     }
 }
@@ -552,6 +572,7 @@ private struct PulsarSelfTestView: View {
 
 private struct PulsarSettingsView: View {
     @Bindable var model: PulsarShellModel
+    let actions: PulsarShellActions
 
     var body: some View {
         let copy = PulsarShellCopy(locale: model.locale)
@@ -561,6 +582,25 @@ private struct PulsarSettingsView: View {
                 Text("Русский").tag(PulsarShellLocale.ru)
             }
             .pickerStyle(.segmented)
+            Picker(copy.text(.recordingShortcut), selection: Binding(
+                get: { model.snapshot.recordingShortcut },
+                set: { actions.setRecordingShortcut($0) }
+            )) {
+                ForEach(PulsarRecordingShortcutChoice.allCases) { shortcut in
+                    Text(shortcut.displayValue).tag(shortcut)
+                }
+            }
+            LabeledContent(copy.text(.recordingShortcut)) {
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(copy.recordingShortcutLabel(model.snapshot.recordingShortcutState))
+                    if model.snapshot.recordingShortcutState == .conflict
+                        || model.snapshot.recordingShortcutState == .unavailable {
+                        Text(copy.text(.shortcutFallback))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .padding()

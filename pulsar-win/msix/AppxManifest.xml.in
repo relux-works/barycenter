@@ -5,7 +5,7 @@
      Identity Name/Publisher and PublisherDisplayName on submission with the
      values reserved in Partner Center, so the placeholders below are only for
      local/sideload packaging. Capabilities: outbound to the coordinator
-     (internetClient), LAN inbound for the daemon's Spotify Connect zeroconf
+     (internetClient), plus LAN discovery for the optional Spotify integration
      (internetClientServer + privateNetworkClientServer). -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -22,10 +22,10 @@
     ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>Pulsar Barycenter</DisplayName>
+    <DisplayName>ms-resource:AppDisplayName</DisplayName>
     <PublisherDisplayName>Relux Works, LLC</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
-    <Description>Общий музыкальный эфир для нескольких домов.</Description>
+    <Description>ms-resource:AppDescription</Description>
   </Properties>
 
   <Dependencies>
@@ -43,8 +43,8 @@
       uap10:TrustLevel="appContainer"
       uap10:RuntimeBehavior="packagedClassicApp">
       <uap:VisualElements
-        DisplayName="Pulsar"
-        Description="Общий музыкальный эфир для нескольких домов."
+        DisplayName="ms-resource:AppDisplayName"
+        Description="ms-resource:AppDescription"
         BackgroundColor="#12103a"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">

@@ -471,10 +471,8 @@ func onPairDone(ctx *onboardingCtx) {
 	}
 	ctx.result = creds
 	ctx.done = true
-	// #4: pairing linked the computer, but nothing plays until Spotify picks
-	// "Pulsar" once. Surface that here, while the user is still looking, before
-	// the window closes to the tray. Modal, so it blocks the quit until read.
-	messageBox(ctx.hwnd, uiSpotifyStepTitle, uiSpotifyStepBody)
+	// The optional Spotify help remains available from the tray; pairing itself
+	// completes without an integration prompt or a misleading extra-step gate.
 	// Destroy the window for real (H5): posting a bare quit left a zombie
 	// window on screen that the tray pump kept painting — its close button
 	// then killed the node (see wmDestroy). WM_DESTROY posts the quit that
@@ -727,7 +725,7 @@ func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintp
 				curTray.OnRePair()
 			}
 		case menuSoundCmd:
-			// Reprise of the post-pair Spotify step (#4), always available. The
+			// Optional Spotify integration help, always available. The
 			// tray window is message-only (invisible), so the modal owns itself
 			// (owner 0) rather than parenting to a non-displayable window.
 			messageBox(0, uiSpotifyStepTitle, uiSpotifyStepBody)

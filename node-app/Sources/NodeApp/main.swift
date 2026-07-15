@@ -358,15 +358,11 @@ func connectionIdentity(_ config: NodeConfig) -> String {
     return "\(host) · дом \(config.nodeId)"
 }
 
-// finishPairing starts the core after a successful pair and surfaces the
-// one-time Spotify step (#4): pairing only links this mac to the air — nothing
-// plays until Spotify picks "Pulsar" once (Premium required), so without this
-// the first track fails as track_unavailable and reads as "broken". The same
-// help stays in the menu bar afterwards ("Как включить звук").
+// finishPairing starts the core after optional companion pairing. Spotify help
+// remains explicitly user-invoked from the menu and is not a completion gate.
 @MainActor
 func finishPairing(_ paired: NodeConfig) {
     startCore(with: paired)
-    DispatchQueue.main.async { SpotifyHelp.presentHowToSound() }
 }
 
 // rePairFlow tears down the running core and reopens the onboarding window
@@ -433,7 +429,7 @@ func bootstrap() {
         if isatty(STDERR_FILENO) == 1 {
             failConfig("""
             Пульсар ещё не спарен с Барицентром.
-            В Telegram: @barycenter_bot → /pair (или /create), затем: NodeApp --pair КОД
+            Создай эфир или присоединись в приложении. Необязательный Telegram-путь: @barycenter_bot → /pair, затем NodeApp --pair КОД.
             """)
         }
         app.setActivationPolicy(.regular)

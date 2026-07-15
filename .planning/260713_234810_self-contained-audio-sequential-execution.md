@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 66 accepted, 139 remain.
-- Routed inventory: 186 engineering tasks (66 accepted, 120 remain) and 19
+- Combined inventory: 205 original tasks; 67 accepted, 138 remain.
+- Routed inventory: 186 engineering tasks (67 accepted, 119 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-dlltnr` — telegram-moderation-parity
+- Current engineering task: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
   (development)
-- Next engineering task: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Most recently accepted: `TASK-260712-34stvx` — macos-report-block-delete
-- Current branch: `task/task-260712-dlltnr-telegram-moderation-parity`
+- Next engineering task: `TASK-260712-176b74` — p1-independent-protocol-review
+- Most recently accepted: `TASK-260712-dlltnr` — telegram-moderation-parity
+- Current branch: `task/task-260712-e1ie4x-platform-declarations-localized-copy`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 66 / 205 tasks (approximately 32.2%); 139 remain
-- Engineering progress: 66 / 186 tasks (approximately 35.5%); 120 remain
+- Accepted overall: 67 / 205 tasks (approximately 32.7%); 138 remain
+- Engineering progress: 67 / 186 tasks (approximately 36.0%); 119 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -961,8 +961,11 @@ Bot API, real-account and real-device observations remain unclaimed in
 `EPIC-260714-th54l3`. Hosted run `29397089442` passed coordinator rollback,
 authoritative Xcode Swift, Windows portable/race/cross-build and the signed
 packaged probe on tracking head `88de480`. The engineering scope is accepted;
-progress is now 67/205 overall and 67/186 engineering. PR #66 final tracking
-and merge remain before the declarations task starts.
+progress is now 67/205 overall and 67/186 engineering. Final tracking head
+`404637f` passed all four hosted jobs in run `29397331332`; PR #66 landed at
+merge `4bc841834e8fd9072862ef5d4d2116a4483186ed`. Strict execution then started
+`TASK-260712-e1ie4x` from synchronized `main` on branch
+`task/task-260712-e1ie4x-platform-declarations-localized-copy`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

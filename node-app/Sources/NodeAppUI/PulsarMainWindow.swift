@@ -906,6 +906,10 @@ private struct PulsarSettingsView: View {
                     }
                 }
             }
+            Section(copy.text(.integrations)) {
+                Label(copy.text(.spotifyOptional), systemImage: "music.note")
+                Label(copy.text(.telegramOptional), systemImage: "paperplane")
+            }
         }
         .formStyle(.grouped)
         .padding()

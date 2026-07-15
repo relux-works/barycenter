@@ -489,7 +489,7 @@ func (ctx *mainWindowCtx) render() {
 		setText(ctx.historyBlock, "Заблокировать отправителя")
 		setText(ctx.reportReason, "Причина: "+copy.ModerationReason(snapshot.SelectedReportReason))
 		setText(ctx.reportLabel, "Детали (необязательно)")
-		setText(ctx.historyReport, "Отправить жалобу")
+		setText(ctx.historyReport, copy.Text(txtReport))
 	} else {
 		setText(ctx.outgoingFile, "Add audio file...")
 		if hasDraft && snapshot.PhaseOneDrafts[snapshot.SelectedPhaseOneDraft].FallbackConfirmationAvailable {
@@ -504,7 +504,7 @@ func (ctx *mainWindowCtx) render() {
 		setText(ctx.historyBlock, "Block sender")
 		setText(ctx.reportReason, "Reason: "+copy.ModerationReason(snapshot.SelectedReportReason))
 		setText(ctx.reportLabel, "Details (optional)")
-		setText(ctx.historyReport, "Submit report")
+		setText(ctx.historyReport, copy.Text(txtReport))
 	}
 	pEnableWindow.Call(uintptr(ctx.draftNext), boolWord(len(snapshot.PhaseOneDrafts) > 1))
 	pEnableWindow.Call(uintptr(ctx.send), boolWord(hasDraft))

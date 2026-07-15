@@ -335,6 +335,10 @@ const (
 	txtHistoryTitle         shellText = "history_title"
 	txtSettingsTitle        shellText = "settings_title"
 	txtLanguage             shellText = "language"
+	txtIntegrations         shellText = "integrations"
+	txtSpotifyOptional      shellText = "spotify_optional"
+	txtTelegramOptional     shellText = "telegram_optional"
+	txtReport               shellText = "report"
 	txtUnpaired             shellText = "unpaired"
 	txtReconnecting         shellText = "reconnecting"
 	txtOnline               shellText = "online"
@@ -374,7 +378,8 @@ var shellTextKeys = []shellText{
 	txtStartRecording, txtStopRecording, txtCancelRecording, txtRecordingUnavailable, txtSelfTestUnavailable,
 	txtCreateTitle, txtCreateBody, txtCreateAction, txtJoinTitle, txtJoinBody,
 	txtJoinAction, txtTryTitle, txtTryBody, txtTryAction, txtHistoryTitle,
-	txtSettingsTitle, txtLanguage, txtUnpaired, txtReconnecting, txtOnline, txtDegraded,
+	txtSettingsTitle, txtLanguage, txtIntegrations, txtSpotifyOptional, txtTelegramOptional, txtReport,
+	txtUnpaired, txtReconnecting, txtOnline, txtDegraded,
 	txtDNDAllow, txtDNDMessages, txtDNDMuted, txtRecordingIdle, txtRecordingActive,
 	txtRecordingProcessing, txtRecordingFailed, txtUnpairedHelp, txtDegradedHelp,
 	txtRecordingHelp, txtShortcutRegistered, txtShortcutConflict, txtShortcutUnavailable,
@@ -503,7 +508,9 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 		return body
 	case ShellSettings:
 		return c.Text(txtLanguage) + "\r\n\r\n" + c.Text(txtDND) + ": " + c.DND(snapshot.DND) +
-			"\r\n" + c.Text(txtVolume) + fmt.Sprintf(": %d%%", snapshot.Volume)
+			"\r\n" + c.Text(txtVolume) + fmt.Sprintf(": %d%%", snapshot.Volume) +
+			"\r\n\r\n" + c.Text(txtIntegrations) + "\r\n" +
+			"• " + c.Text(txtSpotifyOptional) + "\r\n• " + c.Text(txtTelegramOptional)
 	default:
 		if snapshot.Connection == ShellUnpaired {
 			return c.Text(txtUnpairedHelp)
@@ -850,7 +857,11 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtJoinBody: "Enter the device invitation. Pulsar activates this installation only after the identity is protected on this PC.", txtJoinAction: "Join securely",
 		txtTryTitle: "Try Pulsar locally", txtTryBody: "Record five seconds and play them only on this PC before sending anything.",
 		txtTryAction: "Run local self-test", txtHistoryTitle: "Recent activity", txtSettingsTitle: "Pulsar settings",
-		txtLanguage: "Language", txtUnpaired: "Not paired", txtReconnecting: "Reconnecting", txtOnline: "Connected",
+		txtLanguage: "Language", txtIntegrations: "Optional integrations",
+		txtSpotifyOptional:  "Spotify is an optional music source; Pulsar audio and local review work without it.",
+		txtTelegramOptional: "Telegram is an optional companion control; Create, Join, routing, history, and reports remain available in Pulsar.",
+		txtReport:           "Report",
+		txtUnpaired:         "Not paired", txtReconnecting: "Reconnecting", txtOnline: "Connected",
 		txtDegraded: "Needs attention", txtDNDAllow: "Allow all audio", txtDNDMessages: "Messages only", txtDNDMuted: "Muted",
 		txtRecordingIdle: "Not recording", txtRecordingActive: "Recording - press Stop to finish",
 		txtRecordingProcessing: "Preparing recording", txtRecordingFailed: "Recording failed",
@@ -860,8 +871,8 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtShortcut:      "Recording shortcut", txtShortcutRegistered: "active", txtShortcutConflict: "in use; buttons still work",
 		txtShortcutUnavailable: "unavailable; buttons still work", txtShortcutSuspended: "paused while Windows is locked or asleep",
 		txtShortcutInactive: "inactive",
-		txtPair:             "Connect...", txtRepair: "Connect again...", txtHowToSound: "How to enable sound...",
-		txtNoPulsar: "Cannot see Pulsar in Spotify?", txtPrivacy: "Privacy", txtTerms: "Terms of use",
+		txtPair:             "Connect...", txtRepair: "Connect again...", txtHowToSound: "Optional Spotify integration...",
+		txtNoPulsar: "Troubleshoot optional Spotify integration", txtPrivacy: "Privacy", txtTerms: "Terms of use",
 		txtGuidelines: "Content guidelines", txtUploadRights: "Recording and upload rights",
 		txtSupport: "Support and safety", txtQuit: "Quit Pulsar",
 	},
@@ -878,7 +889,11 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtJoinBody: "Введи приглашение устройства. Пульсар активирует эту установку только после защищённого сохранения идентификатора на этом ПК.", txtJoinAction: "Присоединиться защищённо",
 		txtTryTitle: "Проверить Пульсар локально", txtTryBody: "Запиши пять секунд и воспроизведи их только на этом ПК до любой отправки.",
 		txtTryAction: "Запустить самопроверку", txtHistoryTitle: "Недавние события", txtSettingsTitle: "Настройки Пульсара",
-		txtLanguage: "Язык", txtUnpaired: "Не подключён", txtReconnecting: "Переподключение", txtOnline: "Подключён",
+		txtLanguage: "Язык", txtIntegrations: "Необязательные интеграции",
+		txtSpotifyOptional:  "Spotify — необязательный источник музыки; звук Пульсара и локальная проверка работают без него.",
+		txtTelegramOptional: "Telegram — необязательный пульт; создание, присоединение, маршрутизация, история и жалобы доступны в Пульсаре.",
+		txtReport:           "Пожаловаться",
+		txtUnpaired:         "Не подключён", txtReconnecting: "Переподключение", txtOnline: "Подключён",
 		txtDegraded: "Нужно внимание", txtDNDAllow: "Разрешить весь звук", txtDNDMessages: "Только сообщения", txtDNDMuted: "Звук выключен",
 		txtRecordingIdle: "Запись не идёт", txtRecordingActive: "Идёт запись - нажми «Остановить», чтобы закончить",
 		txtRecordingProcessing: "Подготавливаю запись", txtRecordingFailed: "Ошибка записи",
@@ -888,8 +903,8 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtShortcut:      "Комбинация записи", txtShortcutRegistered: "активна", txtShortcutConflict: "занята; кнопки продолжают работать",
 		txtShortcutUnavailable: "недоступна; кнопки продолжают работать", txtShortcutSuspended: "приостановлена, пока Windows заблокирована или спит",
 		txtShortcutInactive: "не активна",
-		txtPair:             "Подключить...", txtRepair: "Подключить заново...", txtHowToSound: "Как включить звук...",
-		txtNoPulsar: "Не вижу Pulsar в Spotify?", txtPrivacy: "Конфиденциальность", txtTerms: "Условия использования",
+		txtPair:             "Подключить...", txtRepair: "Подключить заново...", txtHowToSound: "Необязательная интеграция Spotify...",
+		txtNoPulsar: "Диагностика необязательной интеграции Spotify", txtPrivacy: "Конфиденциальность", txtTerms: "Условия использования",
 		txtGuidelines: "Правила содержимого", txtUploadRights: "Права на запись и загрузку",
 		txtSupport: "Поддержка и безопасность", txtQuit: "Выйти из Пульсара",
 	},

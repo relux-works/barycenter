@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 62 accepted, 143 remain.
-- Routed inventory: 186 engineering tasks (62 accepted, 124 remain) and 19
+- Combined inventory: 205 original tasks; 63 accepted, 142 remain.
+- Routed inventory: 186 engineering tasks (63 accepted, 123 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2fe5bz` — windows-ui-data-integration
-  (queued after PR #61 landing)
-- Next engineering task: `TASK-260712-1cdoxh` — acceptance-env-gate-repair
-- Most recently accepted: `TASK-260712-3dqc3l` — macos-ui-data-integration
-- Current branch: `task/task-260712-3dqc3l-macos-ui-data-integration`
+- Current engineering task: `TASK-260712-1cdoxh` — acceptance-env-gate-repair
+  (next; starts after PR #62 merge and synchronized `main`)
+- Next engineering task: `TASK-260712-pbfz37` — windows-report-block-delete
+- Most recently accepted: `TASK-260712-2fe5bz` — windows-ui-data-integration
+- Current branch: `task/task-260712-2fe5bz-windows-ui-data-integration`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 62 / 205 tasks (approximately 30.2%); 143 remain
-- Engineering progress: 62 / 186 tasks (approximately 33.3%); 124 remain
+- Accepted overall: 63 / 205 tasks (approximately 30.7%); 142 remain
+- Engineering progress: 63 / 186 tasks (approximately 33.9%); 123 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -845,6 +845,29 @@ audio, hardware or live-outage observation is claimed; those remain in
 #61 tracking and merge remain before strict execution starts
 `TASK-260712-2fe5bz`.
 
+Tracking head `90ef80d` passed all four hosted jobs in run `29388719929`; PR
+#61 landed at merge `04a23c8`. Strict execution started
+`TASK-260712-2fe5bz` from that synchronized `main` on branch
+`task/task-260712-2fe5bz-windows-ui-data-integration`.
+
+Checkpoint 2026-07-15: `TASK-260712-2fe5bz` is accepted at exact engineering
+head `af961a5`. The Windows shell now binds self-service Create/Join to DPAPI
+identity storage and explicit recovery export, plus authenticated upload,
+transmission, routing, presence, history receipts and allowed policy actions.
+Microphone and explicitly picked-file drafts share a durable owner-only outbox
+while retaining their frozen source provenance, route, requested delivery and
+stable idempotency keys across outage and restart. Upload confirmation is
+persisted before exact local cleanup; retry cannot duplicate upload or
+transmission; delete and explicit memory-only interrupt fallback confirmation
+remain honest. Self-test is still local/disposable. Local Go test/race/vet,
+Windows amd64 cross-vet/build, coordinator test/vet, and 211 Swift tests in 35
+suites passed. Exact-head hosted run `29390609436` passed coordinator,
+node-core, pulsar-win and signed pulsar-win-packaged-probe. No real Windows UI,
+DPAPI prompt, physical audio, live outage or hardware observation is claimed;
+those remain in `EPIC-260714-th54l3`. Progress is 63/205 overall and 63/186
+engineering. PR #62 tracking and merge remain before strict execution starts
+`TASK-260712-1cdoxh`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -1531,7 +1554,11 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
   engineering head `04f4c0f`; 211 Swift tests in 35 suites and release build
   passed locally; all four hosted jobs in run `29388582864` green; real app,
   physical audio, hardware and live-outage observations remain manual; PR #61)
-- [ ] `TASK-260712-2fe5bz` — windows-ui-data-integration
+- [x] `TASK-260712-2fe5bz` — windows-ui-data-integration (accepted on exact
+  engineering head `af961a5`; local Go test/race/vet, Windows amd64 cross-vet
+  and cross-build, coordinator test/vet and 211 Swift tests passed; all four
+  hosted jobs in run `29390609436` green; real Windows UI, DPAPI prompt,
+  physical audio, live outage and hardware observations remain manual; PR #62)
 - ↪ manual `TASK-260712-e5mfqj` — cross-platform-ui-verification →
   `EPIC-260714-th54l3`
 

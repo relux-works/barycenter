@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-codec-player-adr-handoff.v1",
+  "decidedAt": "2026-07-15",
+  "decision": {
+    "production": "no-go",
+    "selectedCombination": null,
+    "selectedCodec": null,
+    "selectedContainer": null,
+    "phase2ProductionBlocked": true,
+    "reason": "no-complete-combination-passes-every-hard-gate",
+    "sourceMatrixSelectionAllowed": false
+  },
+  "downstreamMode": {
+    "engineeringMayProceed": true,
+    "mode": "candidate-neutral-contract-and-test-doubles-only",
+    "productionMediaGenerationAllowed": false,
+    "productionPlaybackAllowed": false,
+    "storeSubmissionAllowed": false,
+    "decoderFallbackAllowed": false,
+    "runtimeExecutableDownloadAllowed": false,
+    "sandboxWeakeningAllowed": false,
+    "unknownCodecAcceptanceAllowed": false
+  },
+  "frozenInputs": [
+    {
+      "id": "comparative-matrix",
+      "path": "acceptance/codec-spike/comparative-matrix-v1.json",
+      "sha256": "cd548f5fa1f22c4636f1b9ce187b752f911baee1f4090d5a7cb437fecfc58c97"
+    },
+    {
+      "id": "stream-contract",
+      "path": "acceptance/codec-spike/stream-contract-v1.json",
+      "sha256": "98cf82be24407a8605054fc1d8ad61cc533edc3e6fd490f21fea5ebc9d53e687"
+    },
+    {
+      "id": "rubric",
+      "path": "acceptance/codec-spike/rubric-v1.json",
+      "sha256": "8701ddc6307e289817b020f07aa56b74203e472894b65ec84e4f61d5c9f6a4d2"
+    },
+    {
+      "id": "license-audit",
+      "path": "acceptance/codec-spike/license-audit-v1.json",
+      "sha256": "d86767ed6fb885d983b99ff1f287bff24fb77e3fe5497a9f43f8f6ca318b7684"
+    }
+  ],
+  "variantSelection": {
+    "table": "stream_variants",
+    "productionSelection": "disabled-until-reviewed-contract-version-replaces-no-go",
+    "originalUploadIsDecoderInput": false,
+    "serverChoosesReadyVariant": true,
+    "clientCodecNegotiation": false,
+    "immutableAfterPublish": true,
+    "storageKeyFormat": "stream/v1/{sha256}",
+    "allowedCandidateCodecsForSchemaAndTestsOnly": [
+      "mp3",
+      "aac-lc",
+      "opus"
+    ],
+    "allowedCandidateContainersForSchemaAndTestsOnly": [
+      "mp3",
+      "m4a-faststart",
+      "adts",
+      "ogg"
+    ],
+    "readyRequired": true,
+    "revokedIsTerminal": true
+  },
+  "wire": {
+    "path": "/v1/media/{media_id}/variants/{variant_id}",
+    "methods": [
+      "GET",
+      "HEAD"
+    ],
+    "authorization": "bearer-header-plus-immutable-target-snapshot-on-every-request",
+    "credentialsInUrl": false,
+    "singleRangeOnly": true,
+    "successStatuses": [
+      200,
+      206,
+      304,
+      416
+    ],
+    "missingUnauthorizedRevokedStatus": 404,
+    "etag": "strong-sha256",
+    "ifRangeMismatch": "return-full-200-client-must-re-resolve-manifest",
+    "cacheControl": "private, no-store"
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "chunkSizeBytes": 1048576,
+    "wholeObjectRequired": true,
+    "decodeBeforeIntegrity": false,
+    "mixedEtagAction": "invalidate-variant-and-re-resolve",
+    "chunkMismatchAction": "delete-chunk-retry-once-then-reject-candidate"
+  },
+  "seek": {
+    "timeUnit": "milliseconds",
+    "offsetUnit": "bytes",
+    "selection": "greatest-point-not-after-requested-time",
+    "maximumPointSpacingMS": 10000,
+    "offsetMustStartVerifiedChunk": true,
+    "newGenerationRequired": true,
+    "lateGenerationOutputDiscarded": true
+  },
+  "cache": {
+    "scope": "per-installation-app-private",
+    "globalCeilingBytes": 536870912,
+    "perVariantCeilingBytes": 67108864,
+    "pinnedCeilingBytes": 134217728,
+    "maximumChunkBytes": 1048576,
+    "maximumNetworkReadBytes": 1048576,
+    "eviction": "unpinned-lru",
+    "cacheKey": "hmac-sha256(installation-secret,namespace|variant|etag|chunk-index)",
+    "deleteOrDisableAction": "deny-new-opens-tombstone-pinned-remove-unpinned-no-refill"
+  },
+  "decoderAdapter": {
+    "productionImplementations": [],
+    "experimentalImplementationRegistration": "compile-time-test-target-only",
+    "ownsNetwork": false,
+    "ownsAuthorization": false,
+    "ownsDiskCache": false,
+    "renderCallbackCallsDecoder": false,
+    "renderCallbackMayAllocateWaitOrLock": false,
+    "operations": [
+      "prepare(manifest, verifiedChunkReader, generation)",
+      "ready(minimumBufferedFrames)",
+      "arm(coordinatorMonotonicMS)",
+      "pause(generation)",
+      "seek(timeMS, newGeneration)",
+      "resume(coordinatorMonotonicMS, generation)",
+      "drain(generation)",
+      "cancel(generation)"
+    ],
+    "terminalStates": [
+      "ended",
+      "cancelled",
+      "failed"
+    ]
+  },
+  "pcm": {
+    "sampleRateHz": 48000,
+    "channels": 2,
+    "sampleFormat": "float32-interleaved",
+    "ringCeilingBytes": 1048576,
+    "decoderWorkerOwnsWrites": true,
+    "renderCallbackOwnsReads": true
+  },
+  "scheduler": {
+    "clock": "coordinator-monotonic-milliseconds",
+    "readyRequires": [
+      "manifest-authorized",
+      "initial-chunks-integrity-verified",
+      "decoder-open",
+      "minimum-buffered-frames"
+    ],
+    "staleScheduleFailsClosed": true,
+    "scheduledSkewP95LimitMS": 100,
+    "trackStartP95LimitMS": 5000,
+    "seekToAudioP95LimitMS": 3000
+  },
+  "fixtures": [
+    {
+      "id": "mp3_cbr_12s",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/mp3_cbr_12s.mp3",
+      "sha256": "bcc68fd551cf39bbfc4df81601b2968e8704d61161ff0912f46f0f03d0d0b6f0"
+    },
+    {
+      "id": "mp3_vbr_12s",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/mp3_vbr_12s.mp3",
+      "sha256": "9b6cb30493e80eb80c28284a30ea401e6c1393287cf916c6acd8e125420b5934"
+    },
+    {
+      "id": "aac_m4a_12s",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/aac_m4a_12s.m4a",
+      "sha256": "4a9d09ab5e799b3c17eaca416fb473e6e290766f1ea413dc4f9ae5066b6d4851"
+    },
+    {
+      "id": "aac_adts_12s",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/aac_adts_12s.aac",
+      "sha256": "5f4b33b02475a99bdf99c7ca9833a5147de938deb32a18962e55f362319c3ff1"
+    },
+    {
+      "id": "opus_ogg_cbr_12s",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/opus_ogg_cbr_12s.ogg",
+      "sha256": "c975e2a86593577daffa3a85d5540ec12968662b2cf6d2b23a56cad05f3c7bc0"
+    },
+    {
+      "id": "opus_ogg_vbr_12s",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/opus_ogg_vbr_12s.ogg",
+      "sha256": "e4a3cf994c3adbfe13ae46393c122040c67369f7784fdc1827a34acb43c08741"
+    }
+  ],
+  "evidenceRequirements": {
+    "requiredPairings": [
+      "windows_windows",
+      "windows_macos",
+      "macos_macos"
+    ],
+    "rangeProfiles": [
+      "normal",
+      "no_range",
+      "slow_256kbit",
+      "reset_mid_body",
+      "truncate_body",
+      "corrupt_chunk",
+      "etag_flip",
+      "revoked"
+    ],
+    "timedWarmupsPerGroup": 3,
+    "timedSamplesPerGroup": 30,
+    "twoHourRSSRequired": true,
+    "scoreAveragingAllowed": false,
+    "manualEpic": "EPIC-260714-th54l3"
+  },
+  "releaseObligations": [
+    "validator-pass",
+    "exact-source-and-build-receipt",
+    "complete-runtime-sbom",
+    "zero-known-unpatched-vulnerabilities",
+    "notices-and-corresponding-source-published",
+    "signed-msix-all-architectures",
+    "signed-notarized-macos-arm64",
+    "sandbox-and-no-download-receipts",
+    "aac-counsel-approval"
+  ],
+  "rejectedCombinations": [
+    {
+      "id": "bundled-ffmpeg-both-platforms",
+      "reason": "missing-end-to-end-range-long-duration-and-release-proof"
+    },
+    {
+      "id": "native-mf-plus-avfoundation",
+      "reason": "windows-opus-rejection-and-macos-full-source-start"
+    },
+    {
+      "id": "pure-go-both-platforms",
+      "reason": "aac-license-and-decode-gap-plus-seek-failures"
+    }
+  ],
+  "reopenConditions": [
+    "one-exact-combination-decodes-every-required-format",
+    "one-exact-combination-passes-every-hard-gate-and-pairing",
+    "release-license-and-store-obligations-pass",
+    "new-matrix-preserves-raw-failures-and-forbids-score-averaging",
+    "reviewed-v2-or-later-adr-replaces-this-no-go"
+  ],
+  "consumers": {
+    "STORY-260712-2ori1t": "Implement candidate-neutral schema, transport, cache, scheduler and test doubles; production decoder registration remains empty.",
+    "STORY-260712-1qfbiw": "Treat every production codec/player acceptance row as blocked until a reviewed replacement ADR selects a passing combination."
+  }
+}

@@ -9,9 +9,9 @@ package "Shared spike inputs" {
 }
 
 package "Coordinator-side prototype" {
-  component "media_items + stream_variants\nadditive schema draft" as Variants
-  component "Range/chunk harness\nHTTP auth + integrity" as RangeHarness
-  component "Bounded disk cache contract\ncache ceilings + eviction" as CacheContract
+  component "stream_variants SQLite catalog\ncontent-addressed manifests\nchunk hashes + VBR seek map" as Variants
+  component "Authenticated range harness\nimmutable target snapshot\n206 / 304 / 416 + ETag" as RangeHarness
+  component "Installation-private chunk cache\n512 MiB / 64 MiB variant\nHMAC keys + atomic LRU" as CacheContract
 }
 
 package "Node candidate probes" {
@@ -23,11 +23,14 @@ package "Node candidate probes" {
 component "Current node scheduling seam\nready -> resume_at -> mixer" as Scheduler
 component "Metrics collector\nRSS, skew, seek-to-audio,\nrange faults, cache reuse" as Metrics
 component "Legal and distribution matrix" as Legal
-component "Final ADR + handoff contract" as ADR
+component "Accepted no-go ADR\nproduction registry empty" as ADR
+component "Candidate-neutral handoff\nrange + cache + scheduler + test doubles" as Handoff
+component "Production streamed playback\nBLOCKED pending replacement ADR" as Production
 
 Fixtures --> RangeHarness
 Rubric --> Metrics
 Variants --> RangeHarness
+RangeHarness --> CacheContract : verified <= 1 MiB chunks
 CacheContract --> PureGo
 CacheContract --> MF
 CacheContract --> Bundled
@@ -44,5 +47,8 @@ Legal --> ADR
 Metrics --> ADR
 Variants --> ADR
 Scheduler --> ADR
+ADR --> Handoff : freeze reusable seams
+ADR -[#red]-> Production : no-go
+Handoff --> Production : only after every gate passes
 
 @enduml

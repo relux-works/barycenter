@@ -1,0 +1,116 @@
+{
+  "artifacts": [
+    {
+      "bytes": 126,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "00f1b8fddc7af3f2530f52424acc5425cdfc818ee02d74789179fab4c5f94b06"
+    },
+    {
+      "bytes": 487,
+      "path": "02-coordinator-vet.log",
+      "sha256": "8e8352357320dfcb536c2c3ad43c77b9d40e2e9685d22d7e24354c0b883b05e9"
+    },
+    {
+      "bytes": 1841,
+      "path": "03-coordinator-tests.log",
+      "sha256": "541a6304cc0b89d040b0bcbb26c9fdb6bfd3b2796870d93826d7e55fb2ca2174"
+    },
+    {
+      "bytes": 68,
+      "path": "04-moderation-contract.log",
+      "sha256": "461fdcf0892fae2772307ccb9b42b9e908a64612d72feda14a0b64b25b257c1f"
+    },
+    {
+      "bytes": 57,
+      "path": "05-previous-head-rollback.log",
+      "sha256": "64d8ba3ae228e983256d4558eb08622d382b654413c3ff33c386fc0e569f039d"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/codec_spike/test_codec_spike.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "02-coordinator-vet.log",
+      "name": "coordinator-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "03-coordinator-tests.log",
+      "name": "coordinator-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "run",
+        "./cmd/moderation-ops-check"
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "04-moderation-contract.log",
+      "name": "moderation-contract"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-tags",
+        "previoushead",
+        "-count=1",
+        "./internal/store",
+        "-run",
+        "^(TestR8ExactPreviousHEAD(AuthorityRoundTrip|TwoGenerationProjectionComposition|ConfigBootstrapContract)|TestMediaIngestExactPreviousHeadRollback|TestMediaUploadExactPreviousHeadRollback|TestMediaProcessingExactPreviousHeadRollback|TestMediaLifecycleExactPreviousHeadRollback|TestMediaIntegrationExactPreviousHeadRollback|TestTransmissionStoreExactPreviousHeadRollback|TestModerationExactPreviousHeadRollback|TestAirExactPreviousCoordinatorLegacyServicePreservesPhase2Rows)$"
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "05-previous-head-rollback.log",
+      "name": "previous-head-rollback"
+    }
+  ],
+  "finishedAt": "2026-07-15T21:41:51Z",
+  "git": {
+    "dirty": false,
+    "endDirty": false,
+    "endDirtyPaths": [],
+    "head": "401456fddd2923e068d7eb13e097d2ee6495622a",
+    "startDirty": false
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "6.17.0-1020-azure",
+    "system": "Linux"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-15T21:39:48Z",
+  "status": "pass",
+  "suite": "coordinator",
+  "toolchains": {
+    "apple": null,
+    "go": "go version go1.25.12 linux/amd64"
+  }
+}

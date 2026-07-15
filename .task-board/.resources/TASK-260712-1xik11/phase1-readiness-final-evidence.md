@@ -1,0 +1,3 @@
+# P1 readiness final engineering evidence
+
+Final task head ce33d1724d46a6b691f9a088cc9da9dc9d28b6c6 passed clean local acceptance 12/12 with start/end dirty false. Hosted PR run 29409373973 passed coordinator, node-core, pulsar-win and packaged-probe; PR #80 merged as 9bf3d100cf69388ba76cc40bddd3906e91e72f26. Initial run 29409214595 exposed shallow-checkout provenance failure in node-core and pulsar-win; fix ce33d17 sets fetch-depth 0 for all four jobs and acceptance tests require it. Checklist items 2-6 use the 2026-07-14 scope override: they are satisfied by exact routing/indexing and fail-closed owner gates, not by claiming manual execution or Partner Center mutation. Manual P1 remains 0/3 tasks and all A1-A8 manual fields remain manual-required.

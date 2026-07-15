@@ -155,7 +155,35 @@ public enum PulsarDeliveryMode: String, CaseIterable, Identifiable, Sendable {
 public enum PulsarHistoryAction: String, Equatable, Sendable {
     case delete
     case replay
+    case report
     case blockActor = "block_actor"
+}
+
+public enum PulsarModerationReason: String, CaseIterable, Identifiable, Sendable {
+    case spam
+    case harassment
+    case illegal
+    case sexualContent = "sexual_content"
+    case violence
+    case other
+
+    public var id: Self { self }
+}
+
+public struct PulsarHistoryActionRequest: Equatable, Sendable {
+    public let action: PulsarHistoryAction
+    public let reason: PulsarModerationReason?
+    public let details: String
+
+    public init(
+        action: PulsarHistoryAction,
+        reason: PulsarModerationReason? = nil,
+        details: String = ""
+    ) {
+        self.action = action
+        self.reason = reason
+        self.details = details
+    }
 }
 
 public enum PulsarOutgoingDraftState: String, Equatable, Sendable {
@@ -257,6 +285,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
     public var playbackState: String
     public var history: [PulsarHistoryItem]
     public var outgoingDrafts: [PulsarOutgoingDraft]
+    public var phaseOneActionOutcome: String?
     public var phaseOneFailure: String?
     public var identityOperation: PulsarIdentityOperationState
     public var dndMode: PulsarDNDMode
@@ -283,6 +312,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         playbackState: String = "stopped",
         history: [PulsarHistoryItem] = [],
         outgoingDrafts: [PulsarOutgoingDraft] = [],
+        phaseOneActionOutcome: String? = nil,
         phaseOneFailure: String? = nil,
         identityOperation: PulsarIdentityOperationState = .idle,
         dndMode: PulsarDNDMode = .allowAll,
@@ -308,6 +338,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         self.playbackState = playbackState
         self.history = history
         self.outgoingDrafts = outgoingDrafts
+        self.phaseOneActionOutcome = phaseOneActionOutcome
         self.phaseOneFailure = phaseOneFailure
         self.identityOperation = identityOperation
         self.dndMode = dndMode
@@ -380,6 +411,11 @@ public final class PulsarShellModel {
         snapshot.presenceSummary = presenceSummary
         if let history { snapshot.history = history }
         if let outgoingDrafts { snapshot.outgoingDrafts = outgoingDrafts }
+        snapshot.phaseOneFailure = failure
+    }
+
+    public func setPhaseOneActionState(outcome: String?, failure: String?) {
+        snapshot.phaseOneActionOutcome = outcome
         snapshot.phaseOneFailure = failure
     }
 
@@ -459,7 +495,7 @@ public final class PulsarShellActions {
     private let onSendDraft: (String, PulsarRouteTarget, PulsarDeliveryMode) -> Void
     private let onDeleteOutgoingDraft: (String) -> Void
     private let onRefreshPhaseOneData: () -> Void
-    private let onHistoryAction: (String, PulsarHistoryAction) -> Void
+    private let onHistoryAction: (String, PulsarHistoryActionRequest) -> Void
     private let onSubmitCreateOrbit: (String) -> Void
     private let onSubmitJoinOrbit: (String) -> Void
     private let onExportRecovery: () -> Void
@@ -483,7 +519,7 @@ public final class PulsarShellActions {
         sendDraft: @escaping @MainActor (String, PulsarRouteTarget, PulsarDeliveryMode) -> Void = { _, _, _ in },
         deleteOutgoingDraft: @escaping @MainActor (String) -> Void = { _ in },
         refreshPhaseOneData: @escaping @MainActor () -> Void = {},
-        historyAction: @escaping @MainActor (String, PulsarHistoryAction) -> Void = { _, _ in },
+        historyAction: @escaping @MainActor (String, PulsarHistoryActionRequest) -> Void = { _, _ in },
         submitCreateOrbit: @escaping @MainActor (String) -> Void = { _ in },
         submitJoinOrbit: @escaping @MainActor (String) -> Void = { _ in },
         exportRecovery: @escaping @MainActor () -> Void = {}
@@ -537,7 +573,10 @@ public final class PulsarShellActions {
     public func deleteOutgoingDraft(_ id: String) { onDeleteOutgoingDraft(id) }
     public func refreshPhaseOneData() { onRefreshPhaseOneData() }
     public func performHistoryAction(_ id: String, action: PulsarHistoryAction) {
-        onHistoryAction(id, action)
+        onHistoryAction(id, .init(action: action))
+    }
+    public func performHistoryAction(_ id: String, request: PulsarHistoryActionRequest) {
+        onHistoryAction(id, request)
     }
     public func submitCreateOrbit(title: String) { onSubmitCreateOrbit(title) }
     public func submitJoinOrbit(code: String) { onSubmitJoinOrbit(code) }
@@ -565,6 +604,7 @@ public enum PulsarShellText: String, CaseIterable, Sendable {
     case outgoingDrafts, routeTarget, deliveryMode, send, retry, refresh
     case thisPulsar, ownBarycenter, currentAir, overlay, interrupt, afterCurrent
     case requestedDelivery, effectiveDelivery, coordinatorFailure, blockSender, replay, deleteHistory
+    case report, reportReason, reportDetails, submitReport, cancel, confirmDelete, confirmBlock
     case orbitTitle, inviteCode, createWithAPI, joinWithAPI, identityBusy
     case identitySucceeded, identityFailed, recoveryRequired, exportRecovery
 }
@@ -694,6 +734,62 @@ public struct PulsarShellCopy: Sendable {
         }
     }
 
+    public func moderationReasonLabel(_ reason: PulsarModerationReason) -> String {
+        switch (locale, reason) {
+        case (.en, .spam): "Spam"
+        case (.en, .harassment): "Harassment"
+        case (.en, .illegal): "Illegal content"
+        case (.en, .sexualContent): "Sexual content"
+        case (.en, .violence): "Violence"
+        case (.en, .other): "Other"
+        case (.ru, .spam): "Спам"
+        case (.ru, .harassment): "Преследование"
+        case (.ru, .illegal): "Незаконный контент"
+        case (.ru, .sexualContent): "Сексуальный контент"
+        case (.ru, .violence): "Насилие"
+        case (.ru, .other): "Другое"
+        }
+    }
+
+    public func historyActionMessage(_ code: String) -> String {
+        let en = [
+            "media_deleted": "Media deleted. It can no longer be replayed.",
+            "report_received": "Report received for moderation.",
+            "report_already_received": "This item was already reported; the existing report remains active.",
+            "sender_blocked": "Sender blocked. New deliveries from this sender are stopped.",
+            "sender_already_blocked": "Sender was already blocked.",
+            "replay_accepted": "Replay accepted.",
+            "replay_already_accepted": "Replay was already accepted.",
+            "action_not_allowed": "This action is not available for the selected item.",
+            "history_action_unavailable": "The item changed and this action is no longer available.",
+            "coordinator_unavailable": "Cannot reach the coordinator. Check the connection and try again.",
+            "unauthorized": "Your current account is not allowed to perform this action.",
+            "forbidden": "Your current account is not allowed to perform this action.",
+            "insufficient_capability": "Your current account is not allowed to perform this action.",
+            "invalid_request": "Check the report details and try again.",
+        ]
+        let ru = [
+            "media_deleted": "Медиа удалено. Его больше нельзя повторно воспроизвести.",
+            "report_received": "Жалоба принята на модерацию.",
+            "report_already_received": "На этот материал уже подана жалоба; существующая жалоба остаётся активной.",
+            "sender_blocked": "Отправитель заблокирован. Новые доставки от него остановлены.",
+            "sender_already_blocked": "Отправитель уже был заблокирован.",
+            "replay_accepted": "Повтор принят.",
+            "replay_already_accepted": "Повтор уже был принят.",
+            "action_not_allowed": "Это действие недоступно для выбранного материала.",
+            "history_action_unavailable": "Материал изменился, и действие больше недоступно.",
+            "coordinator_unavailable": "Нет связи с координатором. Проверьте подключение и повторите попытку.",
+            "unauthorized": "Текущей учётной записи это действие недоступно.",
+            "forbidden": "Текущей учётной записи это действие недоступно.",
+            "insufficient_capability": "Текущей учётной записи это действие недоступно.",
+            "invalid_request": "Проверьте сведения жалобы и повторите попытку.",
+        ]
+        switch locale {
+        case .en: return en[code] ?? "The action failed. Try again."
+        case .ru: return ru[code] ?? "Не удалось выполнить действие. Повторите попытку."
+        }
+    }
+
     private static let en: [PulsarShellText: String] = [
         .appName: "Pulsar", .home: "Home", .create: "Create", .join: "Join",
         .tryLocally: "Try locally", .history: "History", .settings: "Settings",
@@ -749,7 +845,11 @@ public struct PulsarShellCopy: Sendable {
         .interrupt: "Pause and play", .afterCurrent: "Play after current audio",
         .requestedDelivery: "Requested", .effectiveDelivery: "Effective",
         .coordinatorFailure: "Coordinator data is temporarily unavailable",
-        .blockSender: "Block sender", .replay: "Replay", .deleteHistory: "Delete",
+        .blockSender: "Block sender", .replay: "Replay", .deleteHistory: "Delete permanently",
+        .report: "Report", .reportReason: "Report reason", .reportDetails: "Details (optional)",
+        .submitReport: "Submit report", .cancel: "Cancel",
+        .confirmDelete: "Delete this media permanently? It can no longer be replayed.",
+        .confirmBlock: "Block this sender? New deliveries from this sender will stop.",
         .orbitTitle: "Air name", .inviteCode: "Invitation code",
         .createWithAPI: "Create securely", .joinWithAPI: "Join securely",
         .identityBusy: "Contacting Barycenter…", .identitySucceeded: "Credentials saved",
@@ -813,7 +913,11 @@ public struct PulsarShellCopy: Sendable {
         .interrupt: "Приостановить и воспроизвести", .afterCurrent: "После текущего звука",
         .requestedDelivery: "Запрошено", .effectiveDelivery: "Фактически",
         .coordinatorFailure: "Данные координатора временно недоступны",
-        .blockSender: "Заблокировать отправителя", .replay: "Повторить", .deleteHistory: "Удалить",
+        .blockSender: "Заблокировать отправителя", .replay: "Повторить", .deleteHistory: "Удалить навсегда",
+        .report: "Пожаловаться", .reportReason: "Причина жалобы", .reportDetails: "Детали (необязательно)",
+        .submitReport: "Отправить жалобу", .cancel: "Отмена",
+        .confirmDelete: "Удалить это медиа навсегда? Его больше нельзя будет повторить.",
+        .confirmBlock: "Заблокировать отправителя? Новые доставки от него остановятся.",
         .orbitTitle: "Название эфира", .inviteCode: "Код приглашения",
         .createWithAPI: "Создать безопасно", .joinWithAPI: "Присоединиться безопасно",
         .identityBusy: "Связываюсь с Барицентром…", .identitySucceeded: "Данные доступа сохранены",

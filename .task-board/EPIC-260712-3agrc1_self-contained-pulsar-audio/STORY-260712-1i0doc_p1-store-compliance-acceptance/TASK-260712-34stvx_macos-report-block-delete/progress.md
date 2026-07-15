@@ -1,14 +1,14 @@
 ## Status
-backlog
+reviewing
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T15:45:04Z
 
 ## Last Update
-2026-07-12T16:00:42Z
+2026-07-15T06:42:26Z
 
 ## Blocked By
 - TASK-260712-1epb3a
@@ -22,17 +22,20 @@ backlog
 - TASK-260712-1xik11
 
 ## Checklist
-- [ ] Identify every macOS screen, menu or history row that must expose report, block or delete in phase one.
-- [ ] Add RU and EN labels, confirmations and error states that reuse the approved policy and moderation terminology.
-- [ ] Verify sender and owner permissions, hidden actions for unsupported states, and exact mapping of backend status into macOS history or receipt views.
-- [ ] Add targeted UI or integration coverage for the macOS moderation interactions introduced here.
-- [ ] Expose Report for every accessible foreign item and Delete only for owned media
-- [ ] Verify keyboard and VoiceOver access, repeated actions and active-media policy
+- [x] Identify every macOS screen, menu or history row that must expose report, block or delete in phase one.
+- [x] Add RU and EN labels, confirmations and error states that reuse the approved policy and moderation terminology.
+- [x] Verify sender and owner permissions, hidden actions for unsupported states, and exact mapping of backend status into macOS history or receipt views.
+- [x] Add targeted UI or integration coverage for the macOS moderation interactions introduced here.
+- [x] Expose Report for every accessible foreign item and Delete only for owned media
+- [x] Verify keyboard and VoiceOver access, repeated actions and active-media policy
 
 ## Notes
+2026-07-15 strict inline kickoff from synchronized main ab09923 after PR #64. Reuse the canonical history action/backend contract and the newly frozen cross-platform moderation reason/outcome vocabulary; do not create macOS business logic forks. Automated SwiftUI/keyboard/VoiceOver semantics, EN/RU copy, authorization, repeat and offline behavior are engineering scope. Physical packaged-app keyboard and VoiceOver observation remains manual in TASK-260712-e5mfqj under EPIC-260714-th54l3.
+2026-07-15 engineering candidate: canonical macOS History report/block/owner-delete/replay controls, six reasons, bounded details, confirmations, authorization recheck and privacy-safe EN/RU outcome mapping are implemented. Full Xcode suite passes 215 tests in 35 suites; release build, automated Swift acceptance, board validation and diff checks pass. Physical keyboard and VoiceOver observation remains manual in TASK-260712-e5mfqj under EPIC-260714-th54l3.
 
 ## Precondition Resources
 (none)
 
 ## Outcome Resources
-(none)
+- [p1-macos-ugc-controls.md](file://TASK-260712-34stvx/p1-macos-ugc-controls.md) — Phase 1 macOS UGC surface, canonical contract, accessibility semantics, and manual boundary
+- [candidate-swift-acceptance-manifest.json](file://TASK-260712-34stvx/candidate-swift-acceptance-manifest.json) — Candidate repository-automated Swift acceptance manifest; dirty candidate run before exact-head clean gate

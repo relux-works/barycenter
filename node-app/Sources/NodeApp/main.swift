@@ -494,8 +494,8 @@ func configureShell() {
         },
         deleteOutgoingDraft: { id in macPhaseOneComposition?.delete(draftID: id) },
         refreshPhaseOneData: { macPhaseOneComposition?.refresh(force: true) },
-        historyAction: { id, action in
-            macPhaseOneComposition?.performHistoryAction(id, action: action)
+        historyAction: { id, request in
+            macPhaseOneComposition?.performHistoryAction(id, request: request)
         },
         submitCreateOrbit: { macIdentityComposition?.create(title: $0) },
         submitJoinOrbit: { macIdentityComposition?.join(code: $0) },

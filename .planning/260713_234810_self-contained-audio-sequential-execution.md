@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-pbfz37` — windows-report-block-delete
-  (accepted on tracking head `d5a40c0`; PR #64 merge pending)
-- Next engineering task: `TASK-260712-34stvx` — macos-report-block-delete
+- Current engineering task: `TASK-260712-34stvx` — macos-report-block-delete
+  (reviewing)
+- Next engineering task: `TASK-260712-dlltnr` — telegram-moderation-parity
 - Most recently accepted: `TASK-260712-pbfz37` — windows-report-block-delete
-- Current branch: `task/task-260712-pbfz37-windows-report-block-delete`
+- Current branch: `task/task-260712-34stvx-macos-report-block-delete`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -917,7 +917,22 @@ not claimed and remains `TASK-260712-e5mfqj` in `EPIC-260714-th54l3`. Clean
 exact-head run `engineering-d5a40c0` passed 7/7 with start/end dirty false and
 hosted run `29393834216` passed coordinator, node-core, pulsar-win and the
 signed packaged probe. The engineering task is accepted at 65/205 overall and
-65/186 engineering; the final tracking commit and PR #64 merge remain.
+65/186 engineering. Tracking head `1aeae22` passed all four hosted jobs in run
+`29394010912`; PR #64 landed at merge
+`ab0992321fee609f984969724415eeaa0629139f`. Strict execution then started
+`TASK-260712-34stvx` from synchronized `main` on branch
+`task/task-260712-34stvx-macos-report-block-delete`.
+
+Engineering candidate for `TASK-260712-34stvx` adds the canonical macOS
+History report, block, owner-delete and replay surface. SwiftUI renders only
+coordinator-authorized actions, rechecks current authorization in composition,
+uses the six frozen report reasons with optional 2,000-byte details, confirms
+destructive/blocking actions, and maps exact success/reuse, denial and offline
+codes to privacy-safe EN/RU copy. NodeCore validates canonical request and
+response bodies fail-closed. Full local Xcode tests pass 215 tests in 35 suites,
+the release build passes, board/diff checks pass, and repository automated Swift
+acceptance is green. Physical keyboard and VoiceOver observation is not claimed
+and remains manual in `TASK-260712-e5mfqj` under `EPIC-260714-th54l3`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

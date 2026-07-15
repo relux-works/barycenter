@@ -1,5 +1,5 @@
 // Production audio graph (spec 6.3):
-//   FIFO -> reader thread (blocking, backpressure, no drops) -> SPSC ring
+//   FIFO -> interruptible reader thread (backpressure, no drops) -> SPSC ring
 //   -> AVAudioSourceNode "music" (with fade/duck gain) \
 //   AVAudioPlayerNode "overlay" + legacy inserts       -> program mixer
 //   -> post-mix limiter -> final mainMixer volume -> output
@@ -32,7 +32,7 @@ public final class AudioEngine {
 
     // Reader thread state.
     private var readerThread: Thread?
-    private let readerActive = UnsafeMutablePointer<Bool>.allocate(capacity: 1)
+    private let readerActive = RenderAtomicInt64()
     // Producer parks here instead of reading the pipe when the ring is full
     // (backpressure; spec 6.3: dropping is forbidden).
     private let backpressureSleepUS: UInt32 = 3000
@@ -49,6 +49,10 @@ public final class AudioEngine {
     private let gainCommands: UnsafeMutablePointer<MusicGainCommand>
     private let gainCommandHead = RenderAtomicInt64()
     private let gainCommandTail = RenderAtomicInt64()
+    // Multiple control queues can publish music fades (player commands,
+    // overlay/interrupt and route recovery). Serialize only those producers;
+    // the render consumer remains lock-free.
+    private let gainCommandProducerLock = NSLock()
     private var gainCurrent: Float = 1
     private var gainStart: Float = 1
     private var gainTarget: Float = 1
@@ -90,7 +94,6 @@ public final class AudioEngine {
         gainCommands.initialize(
             repeating: MusicGainCommand(target: 1, rampFrames: 0),
             count: gainCommandCapacity)
-        readerActive.initialize(to: false)
 
         let fmt = AVAudioFormat(standardFormatWithSampleRate: sampleRate,
                                 channels: AVAudioChannelCount(channels))!
@@ -201,7 +204,6 @@ public final class AudioEngine {
         firstSampleTimer?.cancel()
         gainCommands.deinitialize(count: gainCommandCapacity)
         gainCommands.deallocate()
-        readerActive.deallocate()
     }
 
     private func startFirstSampleDispatcher() {
@@ -245,7 +247,7 @@ public final class AudioEngine {
     }
 
     public func stopEngine() {
-        readerActive.pointee = false
+        readerActive.store(0)
         engine.stop()
     }
 
@@ -296,15 +298,18 @@ public final class AudioEngine {
         let frames = fadeMs <= 0
             ? 0
             : max(1, Int64(Float(sampleRate) * Float(fadeMs) / 1000))
-        let head = gainCommandHead.load()
-        let tail = gainCommandTail.load()
-        guard head - tail < Int64(gainCommandCapacity) else {
-            log.error("music gain command queue full", ["capacity": gainCommandCapacity])
-            return
+        let published = gainCommandProducerLock.withLock { () -> Bool in
+            let head = gainCommandHead.load()
+            let tail = gainCommandTail.load()
+            guard head - tail < Int64(gainCommandCapacity) else { return false }
+            gainCommands[Int(head % Int64(gainCommandCapacity))] =
+                MusicGainCommand(target: target, rampFrames: frames)
+            gainCommandHead.store(head + 1)
+            return true
         }
-        gainCommands[Int(head % Int64(gainCommandCapacity))] =
-            MusicGainCommand(target: target, rampFrames: frames)
-        gainCommandHead.store(head + 1)
+        if !published {
+            log.error("music gain command queue full", ["capacity": gainCommandCapacity])
+        }
     }
 
     // MARK: Ring accessors (PlayerCore uses these for audible_position/ended)
@@ -400,10 +405,10 @@ public final class AudioEngine {
         if !insertPlayer.isPlaying { insertPlayer.play() }
     }
 
-    // MARK: FIFO reader (spec 6.3: blocking open is the idle state; EOF -> reopen)
+    // MARK: FIFO reader (spec 6.3: interruptible idle; EOF -> reopen)
 
     private func startReader() {
-        readerActive.pointee = true
+        readerActive.store(1)
         let thread = Thread { [weak self] in
             self?.readerLoop()
         }
@@ -416,23 +421,30 @@ public final class AudioEngine {
     private func readerLoop() {
         let chunkBytes = 16384
         var byteBuf = [UInt8](repeating: 0, count: chunkBytes)
-        while readerActive.pointee {
-            let fd = open(fifoPath, O_RDONLY) // blocks until a writer appears
+        while readerActive.load() != 0 {
+            // A blocking FIFO open cannot observe stopEngine() when no writer
+            // ever connects. Non-blocking open/read keeps shutdown bounded;
+            // the ring-full loop below still provides lossless backpressure.
+            let fd = open(fifoPath, O_RDONLY | O_NONBLOCK)
             if fd < 0 {
                 log.warn("fifo open failed", ["errno": errno])
                 Thread.sleep(forTimeInterval: 0.5)
                 continue
             }
-            while readerActive.pointee {
+            while readerActive.load() != 0 {
                 let n = byteBuf.withUnsafeMutableBytes { raw in
                     read(fd, raw.baseAddress, chunkBytes)
                 }
-                if n <= 0 { break } // EOF: writer closed -> reopen
+                if n < 0, errno == EAGAIN || errno == EWOULDBLOCK {
+                    usleep(backpressureSleepUS)
+                    continue
+                }
+                if n <= 0 { break } // EOF/error: writer closed -> reopen
                 let floats = n / MemoryLayout<Float>.size
                 var offset = 0
                 byteBuf.withUnsafeBytes { raw in
                     let base = raw.baseAddress!.assumingMemoryBound(to: Float.self)
-                    while offset < floats && self.readerActive.pointee {
+                    while offset < floats && self.readerActive.load() != 0 {
                         let written = self.ring.write(base + offset, count: floats - offset)
                         if written == 0 {
                             // Ring full: stall here. The kernel pipe buffer fills
@@ -444,6 +456,9 @@ public final class AudioEngine {
                 }
             }
             close(fd)
+            if readerActive.load() != 0 {
+                Thread.sleep(forTimeInterval: 0.05)
+            }
         }
     }
 }

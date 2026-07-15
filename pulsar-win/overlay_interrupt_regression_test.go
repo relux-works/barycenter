@@ -110,7 +110,9 @@ func TestWindowsSenderDeleteDuringOverlayRestoresMainProgram(t *testing.T) {
 		prepared.samples[index] = 0.2
 	}
 	clip := &PreparedMediaClip{Decoder: prepared}
-	if err := mixer.Arm(clip, overlayPlan(now, sampleRate), func(int64) {}, func(int64) {}); err != nil {
+	if err := mixer.Arm(
+		clip, overlayPlan(now, sampleRate), func(int64) {}, func(int64) {}, func(error) {},
+	); err != nil {
 		t.Fatal(err)
 	}
 	dst := make([]float32, 441*channels)

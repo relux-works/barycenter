@@ -44,3 +44,42 @@ func overlayGraphGainOrder() throws {
     #expect(source.contains("kDynamicsProcessorParam_HeadRoom, value: 0.1"))
     #expect(source.contains("engine.mainMixerNode.outputVolume ="))
 }
+
+@Test("macOS reader ownership is atomic and gain publication serializes all producers")
+func renderControlPublicationSafety() throws {
+    let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    let sourceURL = testsDirectory
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("Sources/NodeCore/AudioEngine.swift")
+    let source = try String(contentsOf: sourceURL, encoding: .utf8)
+    #expect(source.contains("private let readerActive = RenderAtomicInt64()"))
+    #expect(!source.contains("UnsafeMutablePointer<Bool>"))
+    #expect(source.contains("private let gainCommandProducerLock = NSLock()"))
+    #expect(source.contains("gainCommandProducerLock.withLock"))
+    #expect(source.contains("open(fifoPath, O_RDONLY | O_NONBLOCK)"),
+            "reader shutdown must not depend on a FIFO writer connecting")
+
+    let begin = try #require(source.range(of: "// BEGIN RENDER CALLBACK")?.upperBound)
+    let end = try #require(
+        source.range(of: "// END RENDER CALLBACK", range: begin..<source.endIndex)?.lowerBound)
+    let callback = String(source[begin..<end])
+    #expect(!callback.contains("gainCommandProducerLock"),
+            "producer serialization must never enter the render callback")
+}
+
+@Test("macOS heartbeat reads player state as one queue-owned snapshot")
+func playerStateSnapshotSafety() throws {
+    let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    let sourceURL = testsDirectory
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("Sources/NodeCore/PlayerCore.swift")
+    let source = try String(contentsOf: sourceURL, encoding: .utf8)
+    let begin = try #require(source.range(of: "public func statePayload")?.lowerBound)
+    let end = try #require(source.range(of: "\n    }\n}", range: begin..<source.endIndex)?.upperBound)
+    let statePayload = String(source[begin..<end])
+    #expect(statePayload.contains("queue.sync"))
+    #expect(source.contains("private var playback = Playback.stopped"))
+    #expect(source.contains("private var outputLatencyOffsetMs: Int"))
+}

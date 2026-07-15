@@ -20,8 +20,8 @@ route, Store-package, or physical-device acceptance.
 | --- | --- | --- | --- |
 | Freeze/replace at T | `TestWindowsInterruptRenderFreezesMainAtTAndReplacesIt` | `interruptFadesAtTMinus250ResumesExactAnchorOnceAndReusesGraph` | deterministic start report within 500 ms and no overlay fallback |
 | Audible anchor | `TestWindowsInterruptResumesOnceFromAudibleAnchorWithFadeIn` | `audibleInterruptAnchorSubtractsQueuedRingTail`, `interruptFadesAtTMinus250ResumesExactAnchorOnceAndReusesGraph` | captured provider position minus queued ring duration; clamp at zero |
-| Resume and cancellation | `TestWindowsInterruptResumesOnceFromAudibleAnchorWithFadeIn`, `TestWindowsInterruptCancelFadesThenResumesAndAcknowledgesOnce` | `activeInterruptCancelFadesAndAcknowledgesOneResume`, `cancelDuringResumeProducesOneCancelledTerminalState` | one seek/resume at the exact anchor, 120 ms fade-in, one terminal outcome |
-| Stale work and failure | `TestWindowsInterruptStopInvalidatesOldResumeToken` | `reconnectResetCancelsInterruptAndRejectsLateCallbacks`, `interruptResumeFailureIsDistinctAndLeavesGraphReusable` | old generation/timer cannot resume; failed provider resume is not reported as success |
+| Resume and cancellation | `TestWindowsInterruptResumesOnceFromAudibleAnchorWithFadeIn`, `TestWindowsInterruptCancelFadesThenResumesAndAcknowledgesOnce`, `TestWindowsInterruptCancellationHonorsResumeMainFalse`, `TestWindowsInterruptCancelDuringNaturalResumeAcknowledgesCachedResultOnce` | `activeInterruptCancelFadesAndAcknowledgesOneResume`, `cancelDuringResumeProducesOneCancelledTerminalState` | one seek/resume or explicit abandon at the exact anchor, 120 ms fade-in, one cached terminal outcome |
+| Stale work and failure | `TestWindowsInterruptStopInvalidatesOldResumeToken`, `TestWindowsInterruptNaturalResumeFailureIsFailedNotEnded`, `TestMediaClipAsyncMixerFailureIsTypedAndNeverReportedAsEnded` | `reconnectResetCancelsInterruptAndRejectsLateCallbacks`, `interruptResumeFailureIsDistinctAndLeavesGraphReusable` | old generation/timer cannot resume; async graph/provider failure is typed and never reported as end success |
 
 ## Realtime and memory guards
 
@@ -33,6 +33,11 @@ route, Store-package, or physical-device acceptance.
 - macOS `renderCallbackSourceSafety` rejects dispatch, locks, waits, allocation,
   file/network I/O, and sleeps inside the marked render callback, and proves the
   source ring is consumed independently of overlay state.
+- macOS `renderControlPublicationSafety` requires atomic reader ownership,
+  serializes multiple gain-command producers outside the callback, and keeps
+  FIFO idle interruptible so shutdown cannot depend on a writer connecting.
+- macOS `playerStateSnapshotSafety` requires heartbeat playback, anchor and
+  speaker fields to be read as one PlayerCore queue-owned snapshot.
 - `TestWindowsMaximumP1ClipHasOneBoundedDecodedBuffer` and
   `maximumP1ClipUsesOneBoundedPreparedPCMBuffer` enforce one prepared PCM buffer
   for the 180-second P1 maximum: 7,938,000 stereo frames, 63,504,000 bytes,

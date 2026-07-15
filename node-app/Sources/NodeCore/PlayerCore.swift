@@ -53,12 +53,14 @@ public final class PlayerCore: MacInterruptControlling {
         }
     }
 
-    public private(set) var mode = "shared"
-    public private(set) var playback = Playback.stopped
-    public private(set) var currentElementID: String?
-    public private(set) var currentURI: String?
-    public private(set) var volume = 80
-    public var outputLatencyOffsetMs: Int
+    // These values belong exclusively to `queue`. External consumers use the
+    // synchronized menuStatus/statePayload snapshots below.
+    private var mode = "shared"
+    private var playback = Playback.stopped
+    private var currentElementID: String?
+    private var currentURI: String?
+    private var volume = 80
+    private var outputLatencyOffsetMs: Int
 
     // Position tracking: anchor from librespot events/status + wall-clock extrapolation.
     private var anchorPositionMs: Int64 = 0
@@ -178,7 +180,7 @@ public final class PlayerCore: MacInterruptControlling {
 
     // MARK: Position (spec 6.3: audible_position = librespot_position - ring_fill)
 
-    public var audiblePositionMs: Int64 {
+    private var audiblePositionMs: Int64 {
         var pos = anchorPositionMs
         if extrapolate {
             pos += Int64(Date().timeIntervalSince(anchorAt) * 1000)
@@ -984,15 +986,17 @@ public final class PlayerCore: MacInterruptControlling {
     }
 
     public func statePayload(fallbackSpeakers: [SpeakerState], rttMs: Int64) -> StatePayload {
-        StatePayload(
-            playback: playback.rawValue,
-            uri: currentURI,
-            positionMs: audiblePositionMs,
-            volume: volume,
-            degraded: airfoilDegraded,
-            underruns: engine.underrunCallbacks,
-            rttMs: rttMs,
-            speakers: speakerStates.isEmpty ? fallbackSpeakers : speakerStates
-        )
+        queue.sync {
+            StatePayload(
+                playback: playback.rawValue,
+                uri: currentURI,
+                positionMs: audiblePositionMs,
+                volume: volume,
+                degraded: airfoilDegraded,
+                underruns: engine.underrunCallbacks,
+                rttMs: rttMs,
+                speakers: speakerStates.isEmpty ? fallbackSpeakers : speakerStates
+            )
+        }
     }
 }

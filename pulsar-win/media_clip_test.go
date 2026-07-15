@@ -67,6 +67,7 @@ type stubMediaClipMixer struct {
 	mainResumed    bool
 	started        func(int64)
 	ended          func(int64)
+	failed         func(error)
 	lastPlan       MediaClipPlayPlan
 	armCount       int
 	cancelCount    int
@@ -92,13 +93,27 @@ func (m *stubMediaClipMixer) Prepare(path, _ string) (*PreparedMediaClip, error)
 	return &PreparedMediaClip{LocalPath: path, DecodedDurationMS: duration, Decoder: struct{}{}}, nil
 }
 
-func (m *stubMediaClipMixer) Arm(_ *PreparedMediaClip, plan MediaClipPlayPlan, started, ended func(int64)) error {
+func (m *stubMediaClipMixer) Arm(
+	_ *PreparedMediaClip,
+	plan MediaClipPlayPlan,
+	started, ended func(int64),
+	failed func(error),
+) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.armCount++
 	m.lastPlan = plan
-	m.started, m.ended = started, ended
+	m.started, m.ended, m.failed = started, ended, failed
 	return m.armFailure
+}
+
+func (m *stubMediaClipMixer) fireFailed(err error) {
+	m.mu.Lock()
+	callback := m.failed
+	m.mu.Unlock()
+	if callback != nil {
+		callback(err)
+	}
 }
 
 func (m *stubMediaClipMixer) plan() MediaClipPlayPlan {
@@ -148,6 +163,7 @@ func (m *stubMediaClipMixer) counts() (arm, cancel, dispose int) {
 type recordedMediaEvent struct {
 	typ         string
 	generation  int64
+	stage       string
 	code        string
 	timestamp   int64
 	mainResumed bool
@@ -168,7 +184,7 @@ func (r *mediaEventRecorder) send(messageType string, payload any) {
 	case *protocol.MediaEndedPayload:
 		event.generation, event.code, event.timestamp = value.Generation, value.Reason, value.TLastSampleCoordMS
 	case *protocol.MediaFailedPayload:
-		event.generation, event.code = value.Generation, value.Code
+		event.generation, event.stage, event.code = value.Generation, value.Stage, value.Code
 	case *protocol.MediaCancelledPayload:
 		event.generation, event.code, event.mainResumed = value.Generation, value.Reason, value.MainResumed
 	default:
@@ -337,6 +353,56 @@ func TestMediaClipScheduledCallbacksAreGenerationSafeAndTerminalOnce(t *testing.
 	if len(removed) != 1 {
 		t.Fatalf("terminal cleanup removed %v", removed)
 	}
+}
+
+func TestMediaClipAsyncMixerFailureIsTypedAndNeverReportedAsEnded(t *testing.T) {
+	for _, test := range []struct {
+		name          string
+		start         bool
+		expectedStage string
+	}{
+		{name: "before_start", expectedStage: "schedule"},
+		{name: "after_start", start: true, expectedStage: "playback"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fetcher := &stubMediaClipFetcher{}
+			mixer := &stubMediaClipMixer{capabilities: []string{protocol.CapabilityInterruptResume}}
+			recorder := &mediaEventRecorder{}
+			client := newTestMediaClipClient(fetcher, mixer, recorder, nil, fixedClock{ok: true})
+			defer client.Stop()
+
+			prepare := testPrepareMedia(1)
+			prepare.Delivery = "interrupt"
+			client.Prepare(&prepare)
+			waitForMediaEvents(t, recorder, 1)
+			play := testInterruptPlay(1)
+			client.Play(&play)
+			client.Synchronize()
+			if test.start {
+				mixer.fireStarted(11_010)
+				waitForMediaEvents(t, recorder, 2)
+			}
+			mixer.fireFailed(mediaClipFailure("audio_graph_failed"))
+			events := waitForMediaEvents(t, recorder, 2+boolInt(test.start))
+			last := events[len(events)-1]
+			if last.typ != protocol.TypeMediaFailed || last.stage != test.expectedStage ||
+				last.code != "audio_graph_failed" {
+				t.Fatalf("events=%+v", events)
+			}
+			mixer.fireEnded(15_000)
+			client.Synchronize()
+			if got := recorder.snapshot(); len(got) != len(events) {
+				t.Fatalf("failure followed by false ended: %+v", got)
+			}
+		})
+	}
+}
+
+func boolInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
 }
 
 func TestWelcomeReconnectResetsActiveInterruptBeforeNewSessionCommands(t *testing.T) {
@@ -772,7 +838,9 @@ func TestPreparedOnlyWindowsMixerAdvertisesNoDeliveryModesAndDecodes(t *testing.
 		t.Fatalf("advertised capabilities %v", got)
 	}
 	play := testOverlayPlay(1)
-	if err := mixer.Arm(clip, MediaClipPlayPlan{Payload: play}, func(int64) {}, func(int64) {}); mediaClipFailureCode(err, "") != "capability_lost" {
+	if err := mixer.Arm(
+		clip, MediaClipPlayPlan{Payload: play}, func(int64) {}, func(int64) {}, func(error) {},
+	); mediaClipFailureCode(err, "") != "capability_lost" {
 		t.Fatalf("prepared-only arm error %v", err)
 	}
 	overlong := filepath.Join(t.TempDir(), "overlong.wav")

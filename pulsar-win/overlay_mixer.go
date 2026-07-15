@@ -7,18 +7,23 @@ import (
 )
 
 type windowsOverlayPrepared struct {
-	mu              sync.Mutex
-	samples         []float32
-	delivery        string
-	state           *overlayState
-	interruptState  *interruptState
-	interruptAnchor *windowsInterruptAnchor
+	mu               sync.Mutex
+	samples          []float32
+	delivery         string
+	state            *overlayState
+	interruptState   *interruptState
+	interruptAnchor  *windowsInterruptAnchor
+	interruptDone    chan struct{}
+	interruptFinal   bool
+	interruptResumed bool
+	interruptErr     error
 }
 
 type windowsInterruptController interface {
 	InterruptReady() bool
 	SuspendForInterrupt() (*windowsInterruptAnchor, error)
 	ResumeFromInterrupt(*windowsInterruptAnchor, int64) bool
+	AbandonInterrupt(*windowsInterruptAnchor)
 }
 
 // WindowsOverlayMediaClipMixer binds the protocol lifecycle to the portable
@@ -68,6 +73,7 @@ func (m *WindowsOverlayMediaClipMixer) Arm(
 	plan MediaClipPlayPlan,
 	started func(int64),
 	ended func(int64),
+	failed func(error),
 ) error {
 	if m == nil || m.engine == nil || clip == nil {
 		return mediaClipFailure("capability_lost")
@@ -78,7 +84,8 @@ func (m *WindowsOverlayMediaClipMixer) Arm(
 	}
 	prepared.mu.Lock()
 	defer prepared.mu.Unlock()
-	if prepared.state != nil || prepared.interruptState != nil || prepared.delivery != plan.Control.Delivery {
+	if prepared.state != nil || prepared.interruptState != nil ||
+		prepared.delivery != plan.Control.Delivery || failed == nil {
 		return mediaClipFailure("audio_graph_failed")
 	}
 	if plan.Control.Delivery == "interrupt" {
@@ -87,10 +94,17 @@ func (m *WindowsOverlayMediaClipMixer) Arm(
 			return mediaClipFailure("interrupt_capability_lost")
 		}
 		var state *interruptState
+		prepared.interruptDone = make(chan struct{})
+		prepared.interruptFinal = false
+		prepared.interruptResumed = false
+		prepared.interruptErr = nil
 		startedWrapper := func(localMS int64) {
 			anchor, err := controller.SuspendForInterrupt()
 			if err != nil {
-				m.engine.CancelInterrupt(state, 0, func() { m.engine.ReleaseInterrupt(state) })
+				m.engine.CancelInterrupt(state, 0, func() {
+					_, _ = m.finalizeInterrupt(prepared, controller, state, false, 0)
+					failed(mediaClipFailure("interrupt_capability_lost"))
+				})
 				return
 			}
 			prepared.mu.Lock()
@@ -99,9 +113,12 @@ func (m *WindowsOverlayMediaClipMixer) Arm(
 			started(localMS)
 		}
 		endedWrapper := func(localMS int64) {
-			resumed := m.resumeInterrupt(prepared, controller, state, plan.Control.FadeInMS)
-			if !resumed {
-				m.engine.ReleaseInterrupt(state)
+			resumed, err := m.finalizeInterrupt(
+				prepared, controller, state, true, plan.Control.FadeInMS,
+			)
+			if err != nil || !resumed {
+				failed(mediaClipFailure("audio_graph_failed"))
+				return
 			}
 			ended(localMS)
 		}
@@ -137,16 +154,31 @@ func (m *WindowsOverlayMediaClipMixer) Cancel(
 	prepared.mu.Lock()
 	overlay := prepared.state
 	interrupt := prepared.interruptState
+	interruptFinalizing := prepared.interruptFinal
 	prepared.mu.Unlock()
+	if interrupt == nil && interruptFinalizing {
+		controller := m.interruptController()
+		go func() {
+			resumed, err := m.finalizeInterrupt(prepared, controller, nil, command.ResumeMain, 0)
+			done(resumed, err)
+		}()
+		return
+	}
 	if interrupt != nil {
 		controller := m.interruptController()
 		if !m.engine.CancelInterrupt(interrupt, command.FadeMS, func() {
-			resumed := false
-			if controller != nil {
-				resumed = m.resumeInterrupt(prepared, controller, interrupt, interrupt.control.FadeInMS)
-			}
-			if !resumed {
+			if controller == nil {
 				m.engine.ReleaseInterrupt(interrupt)
+				done(false, mediaClipFailure("audio_graph_failed"))
+				return
+			}
+			resumed, finalizeErr := m.finalizeInterrupt(
+				prepared, controller, interrupt, command.ResumeMain,
+				interrupt.control.FadeInMS,
+			)
+			if finalizeErr != nil || (command.ResumeMain && !resumed) {
+				done(false, mediaClipFailure("audio_graph_failed"))
+				return
 			}
 			done(resumed, nil)
 		}) {
@@ -159,21 +191,55 @@ func (m *WindowsOverlayMediaClipMixer) Cancel(
 	}
 }
 
-func (m *WindowsOverlayMediaClipMixer) resumeInterrupt(
+func (m *WindowsOverlayMediaClipMixer) finalizeInterrupt(
 	prepared *windowsOverlayPrepared,
 	controller windowsInterruptController,
 	state *interruptState,
+	resumeMain bool,
 	fadeInMS int64,
-) bool {
+) (bool, error) {
 	prepared.mu.Lock()
+	if prepared.interruptFinal {
+		done := prepared.interruptDone
+		prepared.mu.Unlock()
+		<-done
+		prepared.mu.Lock()
+		resumed, err := prepared.interruptResumed, prepared.interruptErr
+		prepared.mu.Unlock()
+		return resumed, err
+	}
+	prepared.interruptFinal = true
+	done := prepared.interruptDone
 	anchor := prepared.interruptAnchor
 	prepared.interruptAnchor = nil
 	prepared.interruptState = nil
 	prepared.mu.Unlock()
-	if anchor == nil || !controller.ResumeFromInterrupt(anchor, fadeInMS) {
-		return false
+
+	resumed := false
+	var resultErr error
+	if anchor == nil {
+		resultErr = mediaClipFailure("audio_graph_failed")
+	} else if !resumeMain {
+		controller.AbandonInterrupt(anchor)
+	} else {
+		resumed = controller.ResumeFromInterrupt(anchor, fadeInMS)
+		if !resumed {
+			controller.AbandonInterrupt(anchor)
+			resultErr = mediaClipFailure("audio_graph_failed")
+		}
 	}
-	return m.engine.ReleaseInterrupt(state)
+	if !m.engine.ReleaseInterrupt(state) && resultErr == nil {
+		resultErr = mediaClipFailure("audio_graph_failed")
+		resumed = false
+	}
+	prepared.mu.Lock()
+	prepared.interruptResumed = resumed
+	prepared.interruptErr = resultErr
+	if done != nil {
+		close(done)
+	}
+	prepared.mu.Unlock()
+	return resumed, resultErr
 }
 
 func (*WindowsOverlayMediaClipMixer) Dispose(clip *PreparedMediaClip) {
@@ -186,6 +252,10 @@ func (*WindowsOverlayMediaClipMixer) Dispose(clip *PreparedMediaClip) {
 		prepared.state = nil
 		prepared.interruptState = nil
 		prepared.interruptAnchor = nil
+		prepared.interruptDone = nil
+		prepared.interruptFinal = false
+		prepared.interruptResumed = false
+		prepared.interruptErr = nil
 		prepared.mu.Unlock()
 	}
 	clip.Decoder = nil

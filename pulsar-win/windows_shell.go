@@ -91,6 +91,7 @@ type ShellPhaseOneHistoryItem struct {
 	OtherCount        int
 	CanDelete         bool
 	CanReplay         bool
+	CanReport         bool
 	CanBlock          bool
 }
 
@@ -132,6 +133,8 @@ type ShellSnapshot struct {
 	SelectedPhaseOneDelivery PhaseOneDelivery
 	PhaseOneHistory          []ShellPhaseOneHistoryItem
 	SelectedHistoryItem      int
+	SelectedReportReason     PhaseOneModerationReason
+	PhaseOneActionOutcome    string
 	PhaseOneFailure          string
 }
 
@@ -205,6 +208,9 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 	if !validPhaseOneDelivery(s.SelectedPhaseOneDelivery) {
 		s.SelectedPhaseOneDelivery = PhaseOneOverlay
 	}
+	if !validPhaseOneModerationReason(s.SelectedReportReason) {
+		s.SelectedReportReason = PhaseOneReportSpam
+	}
 	return s
 }
 
@@ -229,7 +235,9 @@ type ShellActions struct {
 	SelectNextPhaseOneRoute    func()
 	SelectNextPhaseOneDelivery func()
 	SelectNextHistoryItem      func()
+	SelectNextReportReason     func()
 	DeleteSelectedHistoryItem  func()
+	ReportSelectedHistoryItem  func(string)
 	ReplaySelectedHistoryItem  func()
 	BlockSelectedHistoryActor  func()
 }
@@ -475,13 +483,24 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 		return c.Text(txtTryBody) + "\r\n\r\n" + c.LocalSelfTest(snapshot)
 	case ShellHistory:
 		if len(snapshot.PhaseOneHistory) == 0 {
-			if snapshot.PhaseOneFailure != "" {
-				return c.Text(txtNoHistory) + "\r\n[!] " + snapshot.PhaseOneFailure
+			body := c.Text(txtNoHistory)
+			if snapshot.PhaseOneActionOutcome != "" {
+				body += "\r\n\r\n[+] " + c.PhaseOneActionMessage(snapshot.PhaseOneActionOutcome)
 			}
-			return c.Text(txtNoHistory)
+			if snapshot.PhaseOneFailure != "" {
+				body += "\r\n\r\n[!] " + c.PhaseOneActionMessage(snapshot.PhaseOneFailure)
+			}
+			return body
 		}
 		item := snapshot.PhaseOneHistory[snapshot.SelectedHistoryItem]
-		return c.HistoryItem(item, snapshot.SelectedHistoryItem+1, len(snapshot.PhaseOneHistory))
+		body := c.HistoryItem(item, snapshot.SelectedHistoryItem+1, len(snapshot.PhaseOneHistory))
+		if snapshot.PhaseOneActionOutcome != "" {
+			body += "\r\n\r\n[+] " + c.PhaseOneActionMessage(snapshot.PhaseOneActionOutcome)
+		}
+		if snapshot.PhaseOneFailure != "" {
+			body += "\r\n\r\n[!] " + c.PhaseOneActionMessage(snapshot.PhaseOneFailure)
+		}
+		return body
 	case ShellSettings:
 		return c.Text(txtLanguage) + "\r\n\r\n" + c.Text(txtDND) + ": " + c.DND(snapshot.DND) +
 			"\r\n" + c.Text(txtVolume) + fmt.Sprintf(": %d%%", snapshot.Volume)
@@ -577,6 +596,66 @@ func (c ShellCopy) HistoryItem(item ShellPhaseOneHistoryItem, index, count int) 
 	}
 	line += fmt.Sprintf("\r\nplayed %d · other %d", item.PlayedCount, item.OtherCount)
 	return line
+}
+
+func (c ShellCopy) ModerationReason(reason PhaseOneModerationReason) string {
+	en := map[PhaseOneModerationReason]string{
+		PhaseOneReportSpam: "Spam", PhaseOneReportHarassment: "Harassment",
+		PhaseOneReportIllegal: "Illegal content", PhaseOneReportSexualContent: "Sexual content",
+		PhaseOneReportViolence: "Violence", PhaseOneReportOther: "Other",
+	}
+	ru := map[PhaseOneModerationReason]string{
+		PhaseOneReportSpam: "Спам", PhaseOneReportHarassment: "Преследование",
+		PhaseOneReportIllegal: "Незаконный контент", PhaseOneReportSexualContent: "Сексуальный контент",
+		PhaseOneReportViolence: "Насилие", PhaseOneReportOther: "Другое",
+	}
+	if c.locale == ShellRussian {
+		return ru[reason]
+	}
+	return en[reason]
+}
+
+func (c ShellCopy) PhaseOneActionMessage(code string) string {
+	en := map[string]string{
+		"media_deleted":           "Media deleted. It can no longer be replayed.",
+		"report_received":         "Report received for moderation.",
+		"report_already_received": "This item was already reported; the existing report remains active.",
+		"sender_blocked":          "Sender blocked. New deliveries from this sender are stopped.",
+		"sender_already_blocked":  "Sender was already blocked.",
+		"replay_accepted":         "Replay accepted.", "replay_already_accepted": "Replay was already accepted.",
+		"action_not_allowed":         "This action is not available for the selected item.",
+		"history_action_unavailable": "The item changed and this action is no longer available.",
+		"coordinator_unavailable":    "Cannot reach the coordinator. Check the connection and try again.",
+		"unauthorized":               "Your current account is not allowed to perform this action.",
+		"forbidden":                  "Your current account is not allowed to perform this action.",
+		"insufficient_capability":    "Your current account is not allowed to perform this action.",
+		"invalid_request":            "Check the report details and try again.",
+	}
+	ru := map[string]string{
+		"media_deleted":           "Медиа удалено. Его больше нельзя повторно воспроизвести.",
+		"report_received":         "Жалоба принята на модерацию.",
+		"report_already_received": "На этот материал уже подана жалоба; существующая жалоба остаётся активной.",
+		"sender_blocked":          "Отправитель заблокирован. Новые доставки от него остановлены.",
+		"sender_already_blocked":  "Отправитель уже был заблокирован.",
+		"replay_accepted":         "Повтор принят.", "replay_already_accepted": "Повтор уже был принят.",
+		"action_not_allowed":         "Это действие недоступно для выбранного материала.",
+		"history_action_unavailable": "Материал изменился, и действие больше недоступно.",
+		"coordinator_unavailable":    "Нет связи с координатором. Проверьте подключение и повторите попытку.",
+		"unauthorized":               "Текущей учётной записи это действие недоступно.",
+		"forbidden":                  "Текущей учётной записи это действие недоступно.",
+		"insufficient_capability":    "Текущей учётной записи это действие недоступно.",
+		"invalid_request":            "Проверьте сведения жалобы и повторите попытку.",
+	}
+	if c.locale == ShellRussian {
+		if message := ru[code]; message != "" {
+			return message
+		}
+		return "Не удалось выполнить действие. Повторите попытку."
+	}
+	if message := en[code]; message != "" {
+		return message
+	}
+	return "The action failed. Try again."
 }
 
 func (c ShellCopy) requestedLabel() string {

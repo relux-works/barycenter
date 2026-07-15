@@ -53,6 +53,8 @@ func TestPhaseOneClientCanonicalAuthenticatedContracts(t *testing.T) {
 	mediaID := "m_" + strings.Repeat("B", 26)
 	transmissionID := "tr_" + strings.Repeat("C", 26)
 	historyID := "hi_" + strings.Repeat("D", 26)
+	reportID := "rp_" + strings.Repeat("E", 26)
+	blockID := "bl_" + strings.Repeat("F", 26)
 	doer := &phaseOneScriptedDoer{}
 	doer.handle = func(request *http.Request, index int) (*http.Response, error) {
 		if got := request.Header.Get("Authorization"); !strings.HasPrefix(got, "Bearer ") || strings.Contains(request.URL.RawQuery, "token") {
@@ -88,6 +90,17 @@ func TestPhaseOneClientCanonicalAuthenticatedContracts(t *testing.T) {
 		case 5:
 			return phaseOneJSONResponse(request, http.StatusOK, fmt.Sprintf(`{"history_item_id":%q,"deleted":true}`, historyID)), nil
 		case 6:
+			body, _ := io.ReadAll(request.Body)
+			if request.URL.Path != "/v1/history/"+historyID+"/actions/report" || !strings.Contains(string(body), `"reason":"harassment"`) || !strings.Contains(string(body), `"details":"policy evidence"`) {
+				t.Fatalf("report request=%s body=%s", request.URL, body)
+			}
+			return phaseOneJSONResponse(request, http.StatusCreated, fmt.Sprintf(`{"id":%q,"media_id":%q,"history_item_id":%q,"reason":"harassment","status":"received","created_at":"2026-07-15T00:00:00Z","updated_at":"2026-07-15T00:00:00Z","reused":false}`, reportID, mediaID, historyID)), nil
+		case 7:
+			if request.URL.Path != "/v1/history/"+historyID+"/actions/block_actor" || request.Header.Get("Idempotency-Key") != "windows-history-block-test" {
+				t.Fatalf("block request=%s headers=%v", request.URL, request.Header)
+			}
+			return phaseOneJSONResponse(request, http.StatusCreated, fmt.Sprintf(`{"block_id":%q,"scope":"actor","subject_ref":"opaque","display_name":"Ivan","created_at":"2026-07-15T00:00:00Z","revision":1,"reused":false}`, blockID)), nil
+		case 8:
 			return &http.Response{StatusCode: http.StatusNoContent, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("")), Request: request}, nil
 		default:
 			t.Fatalf("unexpected request %d", index)
@@ -114,8 +127,14 @@ func TestPhaseOneClientCanonicalAuthenticatedContracts(t *testing.T) {
 	if err != nil || len(history.Items) != 1 || history.Items[0].PlayedCount != 1 || history.NextCursor != "opaque" {
 		t.Fatalf("history=%+v err=%v", history, err)
 	}
-	if err := client.DeleteHistoryItem(context.Background(), historyID); err != nil {
+	if receipt, err := client.DeleteHistoryItem(context.Background(), historyID); err != nil || receipt.Outcome != "media_deleted" {
 		t.Fatal(err)
+	}
+	if receipt, err := client.ReportHistoryItem(context.Background(), historyID, PhaseOneReportHarassment, "policy evidence"); err != nil || receipt.Outcome != "report_received" {
+		t.Fatalf("report=%+v err=%v", receipt, err)
+	}
+	if receipt, err := client.BlockHistoryActor(context.Background(), historyID, "windows-history-block-test"); err != nil || receipt.Outcome != "sender_blocked" {
+		t.Fatalf("block=%+v err=%v", receipt, err)
 	}
 	if err := client.DeleteMedia(context.Background(), mediaID); err != nil {
 		t.Fatal(err)
@@ -141,6 +160,44 @@ func TestPhaseOneClientRejectsRedirectAndInactiveControl(t *testing.T) {
 	bundle.Control.Role = ""
 	if _, err := NewPhaseOneAppClient(bundle, nil); err == nil {
 		t.Fatal("inactive control capability created a Phase 1 client")
+	}
+}
+
+func TestPhaseOneClientPreservesRepeatedModerationOutcomesAndValidatesInput(t *testing.T) {
+	historyID := "hi_" + strings.Repeat("H", 26)
+	reportID := "rp_" + strings.Repeat("J", 26)
+	blockID := "bl_" + strings.Repeat("K", 26)
+	doer := &phaseOneScriptedDoer{handle: func(request *http.Request, index int) (*http.Response, error) {
+		switch index {
+		case 0:
+			return phaseOneJSONResponse(request, http.StatusOK, fmt.Sprintf(`{"id":%q,"media_id":"m_%s","history_item_id":%q,"reason":"spam","status":"received","created_at":"2026-07-15T00:00:00Z","updated_at":"2026-07-15T00:00:00Z","reused":true}`, reportID, strings.Repeat("M", 26), historyID)), nil
+		case 1:
+			return phaseOneJSONResponse(request, http.StatusOK, fmt.Sprintf(`{"block_id":%q,"scope":"actor","subject_ref":"opaque","display_name":"Sender","created_at":"2026-07-15T00:00:00Z","revision":1,"reused":true}`, blockID)), nil
+		default:
+			t.Fatalf("unexpected request %d", index)
+			return nil, nil
+		}
+	}}
+	client, err := NewPhaseOneAppClient(phaseOneTestBundle(), doer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := client.ReportHistoryItem(context.Background(), historyID, PhaseOneReportSpam, "")
+	if err != nil || !report.Reused || report.Outcome != "report_already_received" {
+		t.Fatalf("report=%+v err=%v", report, err)
+	}
+	block, err := client.BlockHistoryActor(context.Background(), historyID, "windows-history-block-repeated")
+	if err != nil || !block.Reused || block.Outcome != "sender_already_blocked" {
+		t.Fatalf("block=%+v err=%v", block, err)
+	}
+	if _, err := client.ReportHistoryItem(context.Background(), historyID, "unknown", ""); err == nil {
+		t.Fatal("unknown report reason reached transport")
+	}
+	if _, err := client.ReportHistoryItem(context.Background(), historyID, PhaseOneReportOther, strings.Repeat("x", 2001)); err == nil {
+		t.Fatal("oversized report details reached transport")
+	}
+	if len(doer.requests) != 2 {
+		t.Fatalf("invalid requests reached transport: %d", len(doer.requests))
 	}
 }
 

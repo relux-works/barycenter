@@ -92,6 +92,27 @@ type PhaseOneHistoryPage struct {
 	NextCursor string
 }
 
+type PhaseOneModerationReason string
+
+const (
+	PhaseOneReportSpam          PhaseOneModerationReason = "spam"
+	PhaseOneReportHarassment    PhaseOneModerationReason = "harassment"
+	PhaseOneReportIllegal       PhaseOneModerationReason = "illegal"
+	PhaseOneReportSexualContent PhaseOneModerationReason = "sexual_content"
+	PhaseOneReportViolence      PhaseOneModerationReason = "violence"
+	PhaseOneReportOther         PhaseOneModerationReason = "other"
+)
+
+var phaseOneModerationReasons = []PhaseOneModerationReason{
+	PhaseOneReportSpam, PhaseOneReportHarassment, PhaseOneReportIllegal,
+	PhaseOneReportSexualContent, PhaseOneReportViolence, PhaseOneReportOther,
+}
+
+type PhaseOneHistoryActionReceipt struct {
+	Outcome string
+	Reused  bool
+}
+
 type PhaseOneClientErrorKind string
 
 const (
@@ -137,8 +158,9 @@ type PhaseOneAppService interface {
 	DeleteMedia(context.Context, string) error
 	Presence(context.Context) ([]PhaseOnePresenceNode, error)
 	History(context.Context, int, string) (PhaseOneHistoryPage, error)
-	DeleteHistoryItem(context.Context, string) error
-	BlockHistoryActor(context.Context, string, string) error
+	DeleteHistoryItem(context.Context, string) (PhaseOneHistoryActionReceipt, error)
+	ReportHistoryItem(context.Context, string, PhaseOneModerationReason, string) (PhaseOneHistoryActionReceipt, error)
+	BlockHistoryActor(context.Context, string, string) (PhaseOneHistoryActionReceipt, error)
 	ReplayHistoryItem(context.Context, string, PhaseOneRoute, PhaseOneDelivery, string, *PhaseOneFallbackConfirmation) (PhaseOneTransmissionReceipt, error)
 }
 
@@ -329,21 +351,66 @@ func (c *PhaseOneAppClient) History(ctx context.Context, limit int, cursor strin
 	return page, nil
 }
 
-func (c *PhaseOneAppClient) DeleteHistoryItem(ctx context.Context, historyID string) error {
+func (c *PhaseOneAppClient) DeleteHistoryItem(ctx context.Context, historyID string) (PhaseOneHistoryActionReceipt, error) {
 	if !validPhaseOnePublicID(historyID, "hi_") {
-		return phaseOneError(PhaseOneInvalidRequest)
+		return PhaseOneHistoryActionReceipt{}, phaseOneError(PhaseOneInvalidRequest)
 	}
-	_, _, err := c.requestJSON(ctx, http.MethodPost, "/v1/history/"+historyID+"/actions/delete", c.token, nil, struct{}{}, http.StatusOK)
-	return err
+	raw, _, err := c.requestJSON(ctx, http.MethodPost, "/v1/history/"+historyID+"/actions/delete", c.token, nil, struct{}{}, http.StatusOK)
+	if err != nil {
+		return PhaseOneHistoryActionReceipt{}, err
+	}
+	var response phaseOneHistoryDeleteResponse
+	if decodePhaseOneJSON(raw, &response) != nil || response.HistoryItemID != historyID || !response.Deleted {
+		return PhaseOneHistoryActionReceipt{}, phaseOneError(PhaseOneInvalidResponse)
+	}
+	return PhaseOneHistoryActionReceipt{Outcome: "media_deleted"}, nil
 }
 
-func (c *PhaseOneAppClient) BlockHistoryActor(ctx context.Context, historyID, idempotencyKey string) error {
-	if !validPhaseOnePublicID(historyID, "hi_") || !validPhaseOneIdempotencyKey(idempotencyKey) {
-		return phaseOneError(PhaseOneInvalidRequest)
+func (c *PhaseOneAppClient) ReportHistoryItem(ctx context.Context, historyID string, reason PhaseOneModerationReason, details string) (PhaseOneHistoryActionReceipt, error) {
+	if !validPhaseOnePublicID(historyID, "hi_") || !validPhaseOneModerationReason(reason) ||
+		!validPhaseOneDisplayText(details, 2000, true) {
+		return PhaseOneHistoryActionReceipt{}, phaseOneError(PhaseOneInvalidRequest)
 	}
-	_, _, err := c.requestJSON(ctx, http.MethodPost, "/v1/history/"+historyID+"/actions/block_actor", c.token,
+	body := struct {
+		Reason  PhaseOneModerationReason `json:"reason"`
+		Details string                   `json:"details"`
+	}{reason, details}
+	raw, _, err := c.requestJSON(ctx, http.MethodPost, "/v1/history/"+historyID+"/actions/report", c.token, nil,
+		body, http.StatusOK, http.StatusCreated)
+	if err != nil {
+		return PhaseOneHistoryActionReceipt{}, err
+	}
+	var response phaseOneHistoryReportResponse
+	if decodePhaseOneJSON(raw, &response) != nil || response.HistoryItemID != historyID ||
+		!validPhaseOnePublicID(response.ID, "rp_") || response.Reason != reason ||
+		response.Status != "received" && response.Status != "reviewed" {
+		return PhaseOneHistoryActionReceipt{}, phaseOneError(PhaseOneInvalidResponse)
+	}
+	outcome := "report_received"
+	if response.Reused {
+		outcome = "report_already_received"
+	}
+	return PhaseOneHistoryActionReceipt{Outcome: outcome, Reused: response.Reused}, nil
+}
+
+func (c *PhaseOneAppClient) BlockHistoryActor(ctx context.Context, historyID, idempotencyKey string) (PhaseOneHistoryActionReceipt, error) {
+	if !validPhaseOnePublicID(historyID, "hi_") || !validPhaseOneIdempotencyKey(idempotencyKey) {
+		return PhaseOneHistoryActionReceipt{}, phaseOneError(PhaseOneInvalidRequest)
+	}
+	raw, _, err := c.requestJSON(ctx, http.MethodPost, "/v1/history/"+historyID+"/actions/block_actor", c.token,
 		map[string]string{"Idempotency-Key": idempotencyKey}, struct{}{}, http.StatusOK, http.StatusCreated)
-	return err
+	if err != nil {
+		return PhaseOneHistoryActionReceipt{}, err
+	}
+	var response phaseOneHistoryBlockResponse
+	if decodePhaseOneJSON(raw, &response) != nil || !validPhaseOnePublicID(response.BlockID, "bl_") || response.Reused == nil {
+		return PhaseOneHistoryActionReceipt{}, phaseOneError(PhaseOneInvalidResponse)
+	}
+	outcome := "sender_blocked"
+	if *response.Reused {
+		outcome = "sender_already_blocked"
+	}
+	return PhaseOneHistoryActionReceipt{Outcome: outcome, Reused: *response.Reused}, nil
 }
 
 func (c *PhaseOneAppClient) ReplayHistoryItem(ctx context.Context, historyID string, route PhaseOneRoute, delivery PhaseOneDelivery, idempotencyKey string, fallback *PhaseOneFallbackConfirmation) (PhaseOneTransmissionReceipt, error) {
@@ -580,6 +647,15 @@ func validPhaseOneHistoryActions(actions []string) bool {
 	return true
 }
 
+func validPhaseOneModerationReason(reason PhaseOneModerationReason) bool {
+	for _, candidate := range phaseOneModerationReasons {
+		if reason == candidate {
+			return true
+		}
+	}
+	return false
+}
+
 type phaseOneFallbackConfirmation struct {
 	Token    string `json:"token"`
 	Delivery string `json:"delivery"`
@@ -648,4 +724,31 @@ type phaseOneHistoryResponse struct {
 		} `json:"sender"`
 		TargetCounts struct{ Played, Other int } `json:"target_counts"`
 	} `json:"items"`
+}
+
+type phaseOneHistoryDeleteResponse struct {
+	HistoryItemID string `json:"history_item_id"`
+	MediaID       string `json:"media_id"`
+	Deleted       bool   `json:"deleted"`
+}
+
+type phaseOneHistoryReportResponse struct {
+	ID            string                   `json:"id"`
+	MediaID       string                   `json:"media_id"`
+	HistoryItemID string                   `json:"history_item_id"`
+	Reason        PhaseOneModerationReason `json:"reason"`
+	Status        string                   `json:"status"`
+	CreatedAt     string                   `json:"created_at"`
+	UpdatedAt     string                   `json:"updated_at"`
+	Reused        bool                     `json:"reused"`
+}
+
+type phaseOneHistoryBlockResponse struct {
+	BlockID     string `json:"block_id"`
+	Scope       string `json:"scope"`
+	SubjectRef  string `json:"subject_ref"`
+	DisplayName string `json:"display_name"`
+	CreatedAt   string `json:"created_at"`
+	Revision    int64  `json:"revision"`
+	Reused      *bool  `json:"reused"`
 }

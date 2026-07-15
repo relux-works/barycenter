@@ -52,7 +52,7 @@ $Certificate = New-SelfSignedCertificate -Type Custom -Subject $Publisher -Frien
     -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
 $CertificateFile = Join-Path $BuildRoot "codec-probe-ci-signer.cer"
 $null = Export-Certificate -Cert $Certificate -FilePath $CertificateFile
-$TrustedCertificate = Import-Certificate -FilePath $CertificateFile -CertStoreLocation "Cert:\CurrentUser\TrustedPeople"
+$TrustedCertificate = Import-Certificate -FilePath $CertificateFile -CertStoreLocation "Cert:\LocalMachine\TrustedPeople"
 $InstalledPackage = $null
 try {
     $Binaries = @(Get-ChildItem $PackageStage -File | Where-Object { $_.Extension -in ".dll", ".exe" })
@@ -107,6 +107,6 @@ try {
 } finally {
     if ($InstalledPackage) { Remove-AppxPackage -Package $InstalledPackage.PackageFullName -ErrorAction SilentlyContinue }
     Remove-Item -Force "Cert:\CurrentUser\My\$($Certificate.Thumbprint)" -ErrorAction SilentlyContinue
-    Remove-Item -Force "Cert:\CurrentUser\TrustedPeople\$($TrustedCertificate.Thumbprint)" -ErrorAction SilentlyContinue
+    Remove-Item -Force "Cert:\LocalMachine\TrustedPeople\$($TrustedCertificate.Thumbprint)" -ErrorAction SilentlyContinue
     Remove-Item -Force $CertificateFile -ErrorAction SilentlyContinue
 }

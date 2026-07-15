@@ -38,6 +38,13 @@ if [[ ! -f "$RECORDING_CUE" ]] ||
   exit 1
 fi
 cp "$RECORDING_CUE" "$APP/Contents/Resources/Audio/pulsar-recording-cue.wav"
+for locale in en ru; do
+  LOCALIZED_PLIST="$ROOT/assets/macos/${locale}.lproj/InfoPlist.strings"
+  plutil -lint "$LOCALIZED_PLIST" >/dev/null
+  mkdir -p "$APP/Contents/Resources/${locale}.lproj"
+  cp "$LOCALIZED_PLIST" \
+    "$APP/Contents/Resources/${locale}.lproj/InfoPlist.strings"
+done
 # App icon (assets/icon/Pulsar.icns, generated from the source artwork).
 if [[ -f "$ROOT/assets/icon/Pulsar.icns" ]]; then
   cp "$ROOT/assets/icon/Pulsar.icns" "$APP/Contents/Resources/Pulsar.icns"
@@ -103,6 +110,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>SUScheduledCheckInterval</key><integer>3600</integer>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Pulsar records audio only after you explicitly start recording.</string>
   <!-- Regular app (Dock icon and all): Airfoil lists only regular running
        apps as sources (spike S4); the node Macs are headless anyway. -->
   <key>NSAppleEventsUsageDescription</key>
@@ -130,12 +139,12 @@ for k in SUFeedURL SUPublicEDKey SUEnableAutomaticChecks SUAutomaticallyUpdate S
     exit 1
   fi
 done
-# Same guard for the Local Network keys: NSBonjourServices missing => the phone
-# can't discover "Pulsar" even after the user grants access (the invisible-speaker
-# class of bug), and it fails silently with no build error. Do not let it regress.
-for k in NSLocalNetworkUsageDescription NSBonjourServices; do
+# Guard every privacy-sensitive packaged declaration used by this app. Missing
+# Bonjour declarations make Pulsar undiscoverable; a missing microphone string
+# makes TCC terminate capture before our typed permission path can run.
+for k in NSLocalNetworkUsageDescription NSBonjourServices NSMicrophoneUsageDescription; do
   if ! /usr/libexec/PlistBuddy -c "Print :$k" "$PLIST_FILE" >/dev/null 2>&1; then
-    echo "FATAL: Info.plist is missing required Local Network key '$k' (Spotify can't find the speaker)" >&2
+    echo "FATAL: Info.plist is missing required privacy declaration '$k'" >&2
     exit 1
   fi
 done

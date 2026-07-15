@@ -13,10 +13,10 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-30abcm` — macos-microphone-capture-engine
-  (strict kickoff waits only for PR #51 merge)
+  (in development from synchronized `main`)
 - Next engineering task: `TASK-260712-9i5se7` — windows-main-window-tray-shell
 - Most recently accepted: `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
-- Current branch: `task/task-260712-2lrpc0-builtin-cue-temp-media-contract`
+- Current branch: `task/task-260712-30abcm-macos-microphone-capture-engine`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -596,6 +596,12 @@ microphone, audible cue, real-app, packaged-device or physical-hardware evidence
 is claimed; those remain in `EPIC-260714-th54l3`. Progress is 52/205 overall
 and 52/186 engineering. PR #51 tracking and merge remain before strict execution
 starts `TASK-260712-30abcm`.
+
+Tracking head `9391e5e3dc73b9fe07a0600b89681e2b3fd971f7` passed all four
+hosted jobs in run `29378145671`; PR #51 landed at merge
+`1a7d68cd9e8ef2b2ff4b1809bda43757f5c97774`. Strict execution started
+`TASK-260712-30abcm` from that synchronized `main` on branch
+`task/task-260712-30abcm-macos-microphone-capture-engine`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

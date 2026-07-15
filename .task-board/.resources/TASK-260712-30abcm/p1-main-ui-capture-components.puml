@@ -1,70 +1,37 @@
 @startuml
-title P1 Main UI, Local Self-Test and Capture - task seams
+title TASK-260712-30abcm - macOS microphone capture outcome
 
 left to right direction
-skinparam packageStyle rectangle
+skinparam componentStyle rectangle
 skinparam shadowing false
 
 actor User
+component "Record UI\n(later integration task)" as UI
+component "MacMicrophoneCaptureEngine\nserial lifecycle owner" as Owner
+component "TCC authorizer" as TCC
+component "MacAVAudioCaptureBackend\nCoreAudio + AVAudioEngine" as Backend
+component "Start/stop cue events" as Cue
+component "Main-program ducker\n-12 dB" as Duck
+component "Local RMS meter" as Meter
+database "CaptureMediaStore\nprivate partial -> one draft" as Store
+component "Upload service\n(later task)" as Upload
 
-package "Story TASKs" {
-  rectangle "TASK-260712-2lrpc0\nBuiltin cue + temp media contract" as Cue
-  rectangle "TASK-260712-9i5se7\nWindows shell" as WinShell
-  rectangle "TASK-260712-1p8ykc\nWindows capture/self-test" as WinCap
-  rectangle "TASK-260712-2fe5bz\nWindows integration" as WinData
-  rectangle "TASK-260712-1c04pk\nmacOS shell" as MacShell
-  rectangle "TASK-260712-1s6h6t\nmacOS capture/self-test" as MacCap
-  rectangle "TASK-260712-3dqc3l\nmacOS integration" as MacData
-  rectangle "TASK-260712-e5mfqj\nVerification evidence" as Verify
-}
+User --> UI : explicit Record / Stop / Cancel
+UI --> Owner : begin / cue completed / terminal action
+Owner --> TCC : request only after Record
+Owner --> Backend : default or selected input
+Backend --> Owner : mono 48 kHz samples\nor device failure
+Owner --> Cue : start before commit\nstop after finalization
+Owner --> Duck : capture active / inactive
+Owner --> Meter : committed samples only
+Owner --> Store : PCM16 WAV\n180 s and 50 MiB caps
+Store ..> Upload : durable handle only;\nno automatic network path
 
-package "External story dependencies" {
-  rectangle "STORY-260712-30ju1k\nWindows packaged-app spike" as WinSpike
-  rectangle "STORY-260712-2ve1c8\nIdentity + onboarding APIs" as Identity
-  rectangle "STORY-260712-ld674h\nMedia ingest + upload sessions" as Ingest
-  rectangle "STORY-260712-25lysg\nTransmission protocol + receipts" as Tx
-  rectangle "STORY-260712-34kbkn\nHistory/presence parity" as Presence
-  rectangle "STORY-260712-1i0doc\nCompliance + certification evidence" as Compliance
-}
-
-User --> WinShell
-User --> MacShell
-
-Cue --> WinCap
-Cue --> MacCap
-
-WinShell --> WinCap
-MacShell --> MacCap
-
-WinShell --> WinData
-WinCap --> WinData
-MacShell --> MacData
-MacCap --> MacData
-
-WinSpike --> WinCap : prove capture/hotkey/picker\nunder AppContainer
-Identity --> WinData
-Identity --> MacData
-Ingest --> WinData
-Ingest --> MacData
-Tx --> WinData
-Tx --> MacData
-Presence --> WinData
-Presence --> MacData
-
-WinData --> Verify
-MacData --> Verify
-WinSpike --> Verify
-Compliance --> Verify
-
-note bottom of Verify
-A1 evidence plus negative cases:
-- mic denied
-- no capture device
-- hotkey conflict
-- coordinator outage draft retention
-- keyboard and screen-reader paths
-- Windows 125/150/200 DPI
-- macOS parity checks
+note bottom of Owner
+Generation token rejects late TCC grants.
+Unsafe terminal paths close and delete partials:
+cancel, loss, revoke, sleep, lock, quit, failure.
+No AEC/noise-suppression claim.
 end note
 
 @enduml

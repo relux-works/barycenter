@@ -18,6 +18,7 @@ var (
 	ErrTransmissionConfirmationInvalid     = errors.New("transmission fallback confirmation is invalid")
 	ErrTransmissionDeliveryKindMismatch    = errors.New("transmission delivery and media kind mismatch")
 	ErrTransmissionOverlayDurationExceeded = errors.New("transmission overlay duration exceeded")
+	ErrTransmissionUnsupportedTargets      = errors.New("transmission targets do not support the requested delivery")
 )
 
 const (
@@ -27,6 +28,13 @@ const (
 
 	transmissionPresenceFreshFor = 12 * time.Second
 	transmissionConfirmationTTL  = 5 * time.Minute
+
+	TransmissionCapabilityMediaClip    = "media_clip_v1"
+	TransmissionCapabilityOverlayMix   = "overlay_mix_v1"
+	TransmissionCapabilityInterrupt    = "interrupt_resume_v1"
+	TransmissionCapabilityAudioTrack   = "audio_track_v1"
+	TransmissionCapabilityQueueReplace = "queue_replace_v1"
+	TransmissionCapabilityStream       = "stream_variant_v1"
 )
 
 var transmissionDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -38,12 +46,14 @@ const (
 	TransmissionSelectorPulsar     TransmissionAudienceSelectorKind = "pulsar"
 )
 
-// TransmissionAudienceSelector is an already syntax-checked HTTP selector.
-// Authorization and expansion still happen inside the writer transaction.
+// TransmissionAudienceSelector carries an opaque caller capability. Numeric
+// fields are populated only after server-side resolution and never accepted
+// from an application request.
 type TransmissionAudienceSelector struct {
-	Kind    TransmissionAudienceSelectorKind
-	OrbitID int64
-	Slot    string
+	Reference string
+	Kind      TransmissionAudienceSelectorKind
+	OrbitID   int64
+	Slot      string
 }
 
 // TransmissionTargetAvailability is a point-in-time projection from the
@@ -60,6 +70,10 @@ type TransmissionTargetAvailability struct {
 	InterruptCapable     bool
 	MainActive           bool
 	InterruptResumeReady bool
+	// Capabilities retains the exact canonical register set for additive
+	// policies such as streamed tracks. Phase 1 booleans remain the rollback
+	// compatibility projection used by the existing clip scheduler.
+	Capabilities []string
 }
 
 type ConfirmTransmissionFallback struct {
@@ -112,6 +126,88 @@ type TransmissionOverlayDurationError struct {
 	Alternatives []TransmissionAlternative
 }
 
+type UnsupportedTransmissionTarget struct {
+	Reference           string
+	MissingCapabilities []string
+}
+
+type TransmissionUnsupportedTargetsError struct {
+	Targets []UnsupportedTransmissionTarget
+}
+
+func (e *TransmissionUnsupportedTargetsError) Error() string {
+	return ErrTransmissionUnsupportedTargets.Error()
+}
+
+func (e *TransmissionUnsupportedTargetsError) Unwrap() error {
+	return ErrTransmissionUnsupportedTargets
+}
+
+// RequiredTransmissionCapabilities is the one transport-neutral capability
+// policy for explicit clip and future streamed-track targets.
+func RequiredTransmissionCapabilities(
+	mediaKind MediaKind,
+	delivery TransmissionDelivery,
+) ([]string, error) {
+	var required []string
+	switch mediaKind {
+	case MediaKindVoiceClip, MediaKindAudioClip, MediaKindBuiltinCue:
+		required = []string{TransmissionCapabilityMediaClip}
+		switch delivery {
+		case TransmissionDeliveryOverlay:
+			required = append(required, TransmissionCapabilityOverlayMix)
+		case TransmissionDeliveryInterrupt:
+			required = append(required, TransmissionCapabilityInterrupt)
+		case TransmissionDeliveryAfterCurrent:
+		default:
+			return nil, ErrTransmissionDeliveryKindMismatch
+		}
+	case MediaKindAudioTrack:
+		if delivery != TransmissionDelivery("queue") && delivery != TransmissionDelivery("replace") {
+			return nil, ErrTransmissionDeliveryKindMismatch
+		}
+		required = []string{
+			TransmissionCapabilityAudioTrack,
+			TransmissionCapabilityQueueReplace,
+			TransmissionCapabilityStream,
+		}
+	default:
+		return nil, ErrTransmissionDeliveryKindMismatch
+	}
+	sort.Strings(required)
+	return required, nil
+}
+
+func missingTransmissionCapabilities(
+	availability TransmissionTargetAvailability,
+	mediaKind MediaKind,
+	delivery TransmissionDelivery,
+) ([]string, error) {
+	required, err := RequiredTransmissionCapabilities(mediaKind, delivery)
+	if err != nil {
+		return nil, err
+	}
+	available := make(map[string]bool, len(availability.Capabilities)+3)
+	for _, capability := range availability.Capabilities {
+		available[capability] = true
+	}
+	available[TransmissionCapabilityMediaClip] = availability.MediaClipCapable ||
+		available[TransmissionCapabilityMediaClip]
+	available[TransmissionCapabilityOverlayMix] = availability.OverlayCapable ||
+		available[TransmissionCapabilityOverlayMix]
+	available[TransmissionCapabilityInterrupt] =
+		(availability.InterruptCapable &&
+			(!availability.MainActive || availability.InterruptResumeReady)) ||
+			available[TransmissionCapabilityInterrupt]
+	var missing []string
+	for _, capability := range required {
+		if !available[capability] {
+			missing = append(missing, capability)
+		}
+	}
+	return missing, nil
+}
+
 func (e *TransmissionOverlayDurationError) Error() string {
 	return ErrTransmissionOverlayDurationExceeded.Error()
 }
@@ -124,6 +220,8 @@ type resolvedTransmissionTarget struct {
 	OrbitID          int64
 	ActorID          int64
 	Slot             string
+	BindingPairedAt  int64
+	Reference        string
 	NodeTokenHash    string
 	ControlTokenHash string
 }
@@ -173,19 +271,8 @@ func validResolvedTransmissionParams(params CreateResolvedTransmissionParams) bo
 		return false
 	}
 	for _, selector := range params.Selectors {
-		if selector.OrbitID <= 0 {
-			return false
-		}
-		switch selector.Kind {
-		case TransmissionSelectorBarycenter:
-			if selector.Slot != "" {
-				return false
-			}
-		case TransmissionSelectorPulsar:
-			if !transmissionSlotPattern.MatchString(selector.Slot) {
-				return false
-			}
-		default:
+		if !transmissionTargetReferencePattern.MatchString(selector.Reference) ||
+			selector.Kind != "" || selector.OrbitID != 0 || selector.Slot != "" {
 			return false
 		}
 	}
@@ -201,6 +288,17 @@ func validResolvedTransmissionParams(params CreateResolvedTransmissionParams) bo
 		key := transmissionTargetKey(availability.OrbitID, availability.Slot)
 		if _, exists := seenAvailability[key]; exists {
 			return false
+		}
+		for index, capability := range availability.Capabilities {
+			if capability == "" || (index > 0 &&
+				availability.Capabilities[index-1] >= capability) {
+				return false
+			}
+			for _, b := range []byte(capability) {
+				if b < 0x21 || b > 0x7e {
+					return false
+				}
+			}
 		}
 		seenAvailability[key] = struct{}{}
 	}
@@ -224,26 +322,10 @@ func authorizeTransmissionControlTx(
 	expectedActorID int64,
 	params CreateResolvedTransmissionParams,
 ) (ActorContext, error) {
-	var ctx ActorContext
-	var err error
-	if params.Bearer != "" {
-		ctx, err = resolveTokenActorContext(tx, params.Bearer)
-	} else {
-		ctx, err = resolveActorContext(tx, params.Identity)
-	}
-	if errors.Is(err, ErrUnauthorized) || ctx.ActorID != expectedActorID {
-		return ActorContext{}, ErrUnauthorized
-	}
-	if err != nil && !errors.Is(err, ErrInsufficientCapability) {
-		return ActorContext{}, err
-	}
-	if (!ctx.Capabilities.Has(CapabilityControl) &&
-		!ctx.Capabilities.Has(CapabilityTelegram)) ||
-		(ctx.Role == "satellite" && !ctx.Capabilities.Has(CapabilityTelegram)) ||
-		ctx.OrbitID <= 0 || ctx.ActorID <= 0 {
-		return ActorContext{}, ErrInsufficientCapability
-	}
-	return ctx, nil
+	ctx, _, err := authorizeTransmissionProofTx(
+		tx, expectedActorID, params.Bearer, params.Identity,
+	)
+	return ctx, err
 }
 
 func loadTransmissionCreationTx(tx *sql.Tx, id string) (TransmissionCreation, error) {
@@ -391,7 +473,8 @@ func liveTransmissionTargetsTx(
 	slot string,
 ) ([]resolvedTransmissionTarget, error) {
 	query := `SELECT ic.slot_orbit_id, ic.actor_id, ic.slot_name,
-       ic.binding_token_hash, COALESCE(ic.control_token_hash, '')
+	       ic.slot_paired_at,
+	       ic.binding_token_hash, COALESCE(ic.control_token_hash, '')
 FROM installation_credentials ic
 JOIN actors a ON a.id = ic.actor_id AND a.revoked_at IS NULL
 JOIN memberships m ON m.actor_id = ic.actor_id
@@ -417,6 +500,7 @@ WHERE ic.slot_orbit_id = ?`
 		var target resolvedTransmissionTarget
 		if err := rows.Scan(
 			&target.OrbitID, &target.ActorID, &target.Slot,
+			&target.BindingPairedAt,
 			&target.NodeTokenHash, &target.ControlTokenHash,
 		); err != nil {
 			return nil, err
@@ -513,9 +597,16 @@ func resolveTransmissionAudienceTx(
 		return nil, "", 0, nil, err
 	}
 	resolved := make(map[string]resolvedTransmissionTarget)
-	add := func(targets []resolvedTransmissionTarget) {
+	add := func(targets []resolvedTransmissionTarget, reference string) {
 		for _, target := range targets {
-			resolved[transmissionTargetKey(target.OrbitID, target.Slot)] = target
+			key := transmissionTargetKey(target.OrbitID, target.Slot)
+			existing, found := resolved[key]
+			if found && existing.Reference != "" &&
+				(reference == "" || existing.Reference <= reference) {
+				continue
+			}
+			target.Reference = reference
+			resolved[key] = target
 		}
 	}
 	switch params.AudienceKind {
@@ -529,7 +620,7 @@ func resolveTransmissionAudienceTx(
 		}
 		for _, target := range targets {
 			if target.ActorID == ctx.ActorID {
-				add([]resolvedTransmissionTarget{target})
+				add([]resolvedTransmissionTarget{target}, "")
 			}
 		}
 	case TransmissionAudienceOwnBarycenter:
@@ -537,7 +628,7 @@ func resolveTransmissionAudienceTx(
 		if err != nil {
 			return nil, "", 0, nil, err
 		}
-		add(targets)
+		add(targets, "")
 	case TransmissionAudienceCurrentAir:
 		orbits := make([]int64, 0, len(allowedOrbits))
 		for orbitID := range allowedOrbits {
@@ -549,12 +640,23 @@ func resolveTransmissionAudienceTx(
 			if err != nil {
 				return nil, "", 0, nil, err
 			}
-			add(targets)
+			add(targets, "")
 		}
 	case TransmissionAudienceExplicit:
-		for _, selector := range params.Selectors {
-			if _, allowed := allowedOrbits[selector.OrbitID]; !allowed {
-				return nil, "", 0, nil, ErrTransmissionAudienceNotFound
+		proof, valid := transmissionProofIdentity(params.Bearer, params.Identity)
+		if !valid {
+			return nil, "", 0, nil, ErrUnauthorized
+		}
+		selectors := append([]TransmissionAudienceSelector(nil), params.Selectors...)
+		sort.Slice(selectors, func(i, j int) bool {
+			return selectors[i].Reference < selectors[j].Reference
+		})
+		for _, opaque := range selectors {
+			selector, err := resolveTransmissionTargetReferenceTx(
+				tx, ctx, proof, opaque.Reference, params.AcceptedAt, allowedOrbits,
+			)
+			if err != nil {
+				return nil, "", 0, nil, err
 			}
 			targets, err := liveTransmissionTargetsTx(tx, selector.OrbitID, selector.Slot)
 			if err != nil {
@@ -564,7 +666,7 @@ func resolveTransmissionAudienceTx(
 				(selector.Kind == TransmissionSelectorPulsar && len(targets) != 1) {
 				return nil, "", 0, nil, ErrTransmissionAudienceNotFound
 			}
-			add(targets)
+			add(targets, selector.Reference)
 		}
 	}
 	if len(resolved) == 0 {
@@ -679,7 +781,7 @@ func evaluateTransmissionTargetsTx(
 	mediaItem MediaItem,
 	resolved []resolvedTransmissionTarget,
 	params CreateResolvedTransmissionParams,
-) ([]CreateTransmissionTarget, bool, bool, error) {
+) ([]CreateTransmissionTarget, bool, bool, []UnsupportedTransmissionTarget, error) {
 	policyAt := params.AcceptedAt
 	if params.PolicyAt > 0 {
 		policyAt = params.PolicyAt
@@ -690,6 +792,7 @@ func evaluateTransmissionTargetsTx(
 	}
 	targets := make([]CreateTransmissionTarget, 0, len(resolved))
 	missingOverlay, missingInterrupt := false, false
+	unsupportedByReference := make(map[string]map[string]struct{})
 	for _, identity := range resolved {
 		current := availability[transmissionTargetKey(identity.OrbitID, identity.Slot)]
 		bindingMatches := current.CredentialTokenHash != "" &&
@@ -712,14 +815,14 @@ func evaluateTransmissionTargetsTx(
 			tx, identity.OrbitID, identity.ActorID, ctx.OrbitID, ctx.ActorID,
 		)
 		if err != nil {
-			return nil, false, false, err
+			return nil, false, false, nil, err
 		}
 		localThisPulsar := params.AudienceKind == TransmissionAudienceThisPulsar &&
 			identity.OrbitID == ctx.OrbitID && identity.ActorID == ctx.ActorID &&
 			identity.Slot == ctx.Slot
 		dnd, err := effectiveDNDTx(tx, identity, policyAt)
 		if err != nil {
-			return nil, false, false, err
+			return nil, false, false, nil, err
 		}
 		dndSuppresses := !localThisPulsar &&
 			(dnd.Mode == DNDMutedUntil ||
@@ -739,6 +842,22 @@ func evaluateTransmissionTargetsTx(
 		}
 		mandatory := target.Status == TransmissionTargetAccepted && online
 		if mandatory {
+			missing, err := missingTransmissionCapabilities(
+				current, mediaItem.Kind, params.RequestedDelivery,
+			)
+			if err != nil {
+				return nil, false, false, nil, err
+			}
+			if params.AudienceKind == TransmissionAudienceExplicit && len(missing) > 0 {
+				set := unsupportedByReference[identity.Reference]
+				if set == nil {
+					set = make(map[string]struct{})
+					unsupportedByReference[identity.Reference] = set
+				}
+				for _, capability := range missing {
+					set[capability] = struct{}{}
+				}
+			}
 			if !target.MediaClipCapable || !target.OverlayCapable {
 				missingOverlay = true
 			}
@@ -749,7 +868,21 @@ func evaluateTransmissionTargetsTx(
 		}
 		targets = append(targets, target)
 	}
-	return targets, missingOverlay, missingInterrupt, nil
+	unsupported := make([]UnsupportedTransmissionTarget, 0, len(unsupportedByReference))
+	for reference, set := range unsupportedByReference {
+		missing := make([]string, 0, len(set))
+		for capability := range set {
+			missing = append(missing, capability)
+		}
+		sort.Strings(missing)
+		unsupported = append(unsupported, UnsupportedTransmissionTarget{
+			Reference: reference, MissingCapabilities: missing,
+		})
+	}
+	sort.Slice(unsupported, func(i, j int) bool {
+		return unsupported[i].Reference < unsupported[j].Reference
+	})
+	return targets, missingOverlay, missingInterrupt, unsupported, nil
 }
 
 func interruptChallengeAlternatives(
@@ -890,11 +1023,16 @@ func (s *Store) createResolvedTransmissionTx(
 	if err != nil {
 		return ResolvedTransmissionCreation{}, err
 	}
-	targets, missingOverlay, missingInterrupt, err := evaluateTransmissionTargetsTx(
+	targets, missingOverlay, missingInterrupt, unsupported, err := evaluateTransmissionTargetsTx(
 		tx, ctx, mediaItem, resolved, params,
 	)
 	if err != nil {
 		return ResolvedTransmissionCreation{}, err
+	}
+	if len(unsupported) > 0 {
+		return ResolvedTransmissionCreation{}, &TransmissionUnsupportedTargetsError{
+			Targets: unsupported,
+		}
 	}
 	if params.RequestedDelivery == TransmissionDeliveryOverlay && mediaItem.DurationMS > 60000 {
 		return ResolvedTransmissionCreation{}, &TransmissionOverlayDurationError{

@@ -2313,7 +2313,19 @@ func (l *loop) processMediaDone(d mediaDone) {
 	if l.orbitGone(d.orbit) { // L3: /dissolve raced the ffmpeg goroutine
 		return
 	}
-	audience, selectors, includeOrigin, ok := l.telegramDefaultAudience(d)
+	if d.originalUpdateID <= 0 {
+		// Only rollback-era rows and direct internal callers lack a transport
+		// update binding. They remain readable, but production Telegram events
+		// always enter the common opaque-target service below.
+		l.processLegacyTelegramMediaDone(d)
+		return
+	}
+	audience, selectors, includeOrigin, ok, audienceErr := l.telegramDefaultAudience(d)
+	if audienceErr != nil {
+		l.log.Error("resolve Telegram default audience", "media", d.mediaID, "err", audienceErr)
+		d.reply("аудиоклип готов, но адресатов доставки определить не удалось")
+		return
+	}
 	if d.attachmentKind == "voice" && !ok {
 		d.reply("в орбите пока только твой дом — личное голосовое некому отправить")
 		return
@@ -2331,12 +2343,6 @@ func (l *loop) processMediaDone(d mediaDone) {
 	if err != nil {
 		if errors.Is(err, store.ErrAirPolicyDenied) {
 			d.reply("политика текущего Air запрещает этот способ доставки")
-			return
-		}
-		if errors.Is(err, store.ErrTransmissionInvalid) || errors.Is(err, store.ErrMediaNotFound) ||
-			errors.Is(err, store.ErrTransmissionMediaNotReady) ||
-			errors.Is(err, store.ErrTransmissionAudienceEmpty) {
-			l.processLegacyTelegramMediaDone(d)
 			return
 		}
 		l.log.Error("register Telegram inline route", "media", d.mediaID, "err", err)

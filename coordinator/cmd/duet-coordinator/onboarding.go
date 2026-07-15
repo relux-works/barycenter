@@ -395,6 +395,7 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/media/", api.secure(api.withActor(api.mediaItem)))
 	mux.HandleFunc("/v1/transmissions", api.secure(api.withControl(api.createTransmission)))
 	mux.HandleFunc("/v1/transmissions/", api.secure(api.withActor(api.transmissionItem)))
+	mux.HandleFunc("/v1/transmission-targets", api.secure(api.withControl(api.transmissionTargetReferences)))
 	mux.HandleFunc("/v1/presence", api.secure(api.withActor(api.presence)))
 	mux.HandleFunc("/v1/presence/dnd/local", api.secure(api.withControl(api.localDND)))
 	mux.HandleFunc("/v1/presence/dnd/orbit", api.secure(api.withControl(api.orbitDND)))

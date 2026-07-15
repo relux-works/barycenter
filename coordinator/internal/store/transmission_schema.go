@@ -99,6 +99,37 @@ CREATE TABLE IF NOT EXISTS transmission_fallback_confirmations (
 CREATE INDEX IF NOT EXISTS transmission_confirmations_expiry
   ON transmission_fallback_confirmations(expires_at, consumed_at);
 
+-- Explicit target selectors are bearer capabilities, never serialized
+-- actor/orbit/slot identities. Only a SHA-256 digest is durable. The current
+-- ActorContext, credential scope, caller domain and target binding are all
+-- revalidated when a transmission is accepted, so copied, stale and forged
+-- references share the same non-existence surface.
+CREATE TABLE IF NOT EXISTS transmission_target_references (
+  reference_hash TEXT PRIMARY KEY
+    CHECK(length(reference_hash) = 64
+      AND reference_hash NOT GLOB '*[^0-9a-f]*'),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  authorization_hash TEXT NOT NULL
+    CHECK(length(authorization_hash) = 64
+      AND authorization_hash NOT GLOB '*[^0-9a-f]*'),
+  target_kind TEXT NOT NULL CHECK(target_kind IN ('barycenter', 'pulsar')),
+  target_orbit_id INTEGER NOT NULL CHECK(target_orbit_id > 0),
+  target_actor_id INTEGER NOT NULL DEFAULT 0 CHECK(target_actor_id >= 0),
+  target_slot TEXT NOT NULL DEFAULT '' CHECK(
+    target_slot = '' OR (length(target_slot) = 1 AND target_slot GLOB '[a-z]')
+  ),
+  target_binding_paired_at INTEGER NOT NULL DEFAULT 0
+    CHECK(target_binding_paired_at >= 0),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  expires_at INTEGER NOT NULL CHECK(expires_at > created_at),
+  CHECK((target_kind = 'barycenter' AND target_actor_id = 0
+      AND target_slot = '' AND target_binding_paired_at = 0)
+    OR (target_kind = 'pulsar' AND target_actor_id > 0
+      AND target_slot <> ''))
+);
+CREATE INDEX IF NOT EXISTS transmission_target_references_actor
+  ON transmission_target_references(actor_id, expires_at, target_kind);
+
 CREATE TABLE IF NOT EXISTS transmission_targets (
   transmission_id TEXT NOT NULL REFERENCES transmissions(id) ON DELETE CASCADE,
   orbit_id INTEGER NOT NULL CHECK(orbit_id > 0),

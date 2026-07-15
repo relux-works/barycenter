@@ -43,6 +43,13 @@ func (l *loop) processLegacyTelegramMediaDone(d mediaDone) {
 		} else if len(others) == 0 {
 			d.reply("в орбите пока только твой дом — отправлю всем, когда появятся другие")
 			return
+		} else {
+			// Rollback-era session elements cannot encode an exact N-target set.
+			// Refuse the legacy path instead of silently turning personal delivery
+			// into a broadcast. Production media uses the common transmission
+			// service and supports every resolved recipient independently.
+			d.reply("личная доставка нескольким адресатам требует общего сервиса маршрутизации")
+			return
 		}
 	}
 	element := session.Element{
@@ -89,6 +96,7 @@ func (l *loop) telegramTransmissionAvailability() []store.TransmissionTargetAvai
 			InterruptResumeReady: state.Capabilities.Supports(
 				protocol.CapabilityInterruptResume,
 			),
+			Capabilities: state.Capabilities.Values(),
 		})
 	}
 	return result
@@ -96,33 +104,30 @@ func (l *loop) telegramTransmissionAvailability() []store.TransmissionTargetAvai
 
 func (l *loop) telegramDefaultAudience(
 	d mediaDone,
-) (store.TransmissionAudienceKind, []store.TransmissionAudienceSelector, bool, bool) {
+) (store.TransmissionAudienceKind, []store.TransmissionAudienceSelector, bool, bool, error) {
 	if d.attachmentKind != "voice" || !d.personal {
-		return store.TransmissionAudienceCurrentAir, nil, true, true
+		return store.TransmissionAudienceCurrentAir, nil, true, true, nil
 	}
-	if _, other, active, err := l.st.ActiveLink(d.orbit); err == nil && active {
-		return store.TransmissionAudienceExplicit,
-			[]store.TransmissionAudienceSelector{{
-				Kind: store.TransmissionSelectorBarycenter, OrbitID: other,
-			}}, true, true
+	actor, err := l.st.ResolveTelegramActorContext(d.from)
+	if err != nil {
+		return "", nil, false, false, err
 	}
-	// A solo barycenter may have multiple installations. Preserve the old
-	// personal rule by selecting every Pulsar except the sender's own slot.
-	mine, _ := l.st.SlotOf(d.orbit, d.from)
-	var selectors []store.TransmissionAudienceSelector
-	for _, peer := range l.orbit(d.orbit).sess.Peers {
-		slot := string(peer)
-		if slot == mine {
-			continue
-		}
-		selectors = append(selectors, store.TransmissionAudienceSelector{
-			Kind: store.TransmissionSelectorPulsar, OrbitID: d.orbit, Slot: slot,
-		})
+	selectors, err := l.st.IssuePersonalTransmissionTargets(
+		store.IssuePersonalTransmissionTargetsParams{
+			ExpectedActorID: actor.ActorID,
+			Identity: store.Identity{
+				Kind: store.IdentityTelegram, TelegramUserID: d.from,
+			},
+			SourceOrbitID: d.orbit, IssuedAt: d.acceptedAt,
+		},
+	)
+	if errors.Is(err, store.ErrTransmissionAudienceEmpty) {
+		return "", nil, false, false, nil
 	}
-	if len(selectors) == 0 {
-		return "", nil, false, false
+	if err != nil {
+		return "", nil, false, false, err
 	}
-	return store.TransmissionAudienceExplicit, selectors, true, true
+	return store.TransmissionAudienceExplicit, selectors, true, true, nil
 }
 
 func (l *loop) telegramPeerTitle(orbitID int64) string {

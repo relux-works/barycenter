@@ -118,6 +118,8 @@ class RangeHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Vary", "Authorization, X-Codec-Spike-Target")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
@@ -167,7 +169,8 @@ class RangeHandler(BaseHTTPRequestHandler):
         if self.headers.get("If-None-Match") == etag and not requested_range:
             self.send_response(HTTPStatus.NOT_MODIFIED)
             self.send_header("ETag", etag)
-            self.send_header("Cache-Control", "private, max-age=60")
+            self.send_header("Cache-Control", "private, no-store")
+            self.send_header("Vary", "Authorization, X-Codec-Spike-Target")
             self.send_header("Content-Length", "0")
             self.end_headers()
             self.server.record({"method": self.command, "fixtureId": fixture_id, "profile": profile,
@@ -182,6 +185,8 @@ class RangeHandler(BaseHTTPRequestHandler):
         except ValueError:
             self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
             self.send_header("Content-Range", f"bytes */{size}")
+            self.send_header("Cache-Control", "private, no-store")
+            self.send_header("Vary", "Authorization, X-Codec-Spike-Target")
             self.send_header("Content-Length", "0")
             self.end_headers()
             self.server.record({"method": self.command, "fixtureId": fixture_id, "profile": profile,
@@ -192,10 +197,17 @@ class RangeHandler(BaseHTTPRequestHandler):
         status = HTTPStatus.PARTIAL_CONTENT if bounds else HTTPStatus.OK
         self.send_response(status)
         self.send_header("Accept-Ranges", "none" if profile == "no_range" else "bytes")
-        self.send_header("Cache-Control", "private, max-age=60")
+        self.send_header("Cache-Control", "private, no-store")
+        self.send_header("Vary", "Authorization, X-Codec-Spike-Target")
         self.send_header("ETag", etag)
         self.send_header("X-Content-SHA256", item["sha256"])
-        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        container = item.get("recipe", {}).get("container", "")
+        content_type = {
+            "mp3": "audio/mpeg", "m4a-faststart": "audio/mp4",
+            "adts": "audio/aac", "ogg": "audio/ogg",
+        }.get(container, "application/octet-stream")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(content_length))
         if bounds:
             self.send_header("Content-Range", f"bytes {start}-{end}/{size}")

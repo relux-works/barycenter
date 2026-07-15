@@ -9,9 +9,9 @@ package "Shared spike inputs" {
 }
 
 package "Coordinator-side prototype" {
-  component "media_items + stream_variants\nadditive schema draft" as Variants
-  component "Range/chunk harness\nHTTP auth + integrity" as RangeHarness
-  component "Bounded disk cache contract\ncache ceilings + eviction" as CacheContract
+  component "stream_variants SQLite catalog\ncontent-addressed manifests\nchunk hashes + VBR seek map" as Variants
+  component "Authenticated range harness\nimmutable target snapshot\n206 / 304 / 416 + ETag" as RangeHarness
+  component "Installation-private chunk cache\n512 MiB / 64 MiB variant\nHMAC keys + atomic LRU" as CacheContract
 }
 
 package "Node candidate probes" {
@@ -28,6 +28,7 @@ component "Final ADR + handoff contract" as ADR
 Fixtures --> RangeHarness
 Rubric --> Metrics
 Variants --> RangeHarness
+RangeHarness --> CacheContract : verified <= 1 MiB chunks
 CacheContract --> PureGo
 CacheContract --> MF
 CacheContract --> Bundled

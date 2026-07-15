@@ -3,6 +3,7 @@ import http.client
 import importlib.util
 import json
 import pathlib
+import sqlite3
 import sys
 import tempfile
 import threading
@@ -28,6 +29,7 @@ contract = load("codec_spike_contract", "validate_contract.py")
 generator = load("codec_spike_generator", "generate_fixtures.py")
 range_harness = load("codec_spike_range", "range_harness.py")
 evaluator = load("codec_spike_evaluator", "evaluate_evidence.py")
+stream_contract = load("codec_spike_stream_contract", "stream_contract.py")
 
 
 def passing_evidence(rubric: dict, real: bool = True) -> dict:
@@ -229,6 +231,151 @@ class CodecSpikeContractTests(unittest.TestCase):
             lock.write_text(json.dumps({"files": [linked]}), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "unsafe"):
                 range_harness.FixtureCatalog(root, lock)
+
+    def test_stream_variant_manifest_range_client_and_uniform_acl(self):
+        stream_contract.validate_contract(stream_contract.load_contract())
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            fixtures = root / "fixtures"
+            fixtures.mkdir()
+            payload = bytes(range(256)) * 20
+            fixture = fixtures / "aac.m4a"
+            fixture.write_bytes(payload)
+            digest = hashlib.sha256(payload).hexdigest()
+            lock = root / "lock.json"
+            lock.write_text(json.dumps({"files": [{
+                "id": "canonical-aac", "path": fixture.name,
+                "bytes": len(payload), "sha256": digest,
+            }]}), encoding="utf-8")
+            manifest = stream_contract.build_variant_manifest({
+                "id": "canonical-aac", "mediaId": "media-fixture-1",
+                "codec": "aac-lc", "container": "m4a-faststart", "mime": "audio/mp4",
+                "rateMode": "cbr", "bitrateBPS": 160000, "durationMS": 120000,
+            }, payload, chunk_size=1024)
+            self.assertEqual(manifest["storageKey"], "stream/v1/" + digest)
+            self.assertEqual(stream_contract.seek_offset(manifest, 21500), 0)
+            self.assertLessEqual(max(
+                b["timeMS"] - a["timeMS"]
+                for a, b in zip(manifest["seekMap"], manifest["seekMap"][1:])
+            ), 10000)
+            catalog_db = root / "stream-variants.sqlite3"
+            lock_with_recipe = json.loads(lock.read_text(encoding="utf-8"))
+            lock_with_recipe["files"][0].update({
+                "recipe": {"codec": "aac-lc", "container": "m4a-faststart",
+                           "rateMode": "cbr", "bitrateKbps": 160, "durationSeconds": 120},
+                "probe": {"sampleRateHz": 48000, "channels": 2, "durationSeconds": 120},
+            })
+            lock.write_text(json.dumps(lock_with_recipe), encoding="utf-8")
+            catalog = stream_contract.materialize_catalog(fixtures, lock, catalog_db, chunk_size=1024)
+            self.assertEqual(len(catalog), 1)
+            connection = sqlite3.connect(catalog_db)
+            try:
+                row = connection.execute("""SELECT codec,container,size_bytes,etag,status,
+                    chunk_manifest_json,seek_map_json FROM stream_variants""").fetchone()
+            finally:
+                connection.close()
+            self.assertEqual(row[:5], ("aac-lc", "m4a-faststart", len(payload), manifest["etag"], "ready"))
+            self.assertEqual(len(json.loads(row[5])), 5)
+            self.assertEqual(json.loads(row[6])[0], {"timeMS": 0, "offset": 0})
+
+            token = "stream-secret-" + "z" * 40
+            target = "immutable-target-snapshot"
+            server = range_harness.RangeServer(
+                ("127.0.0.1", 0), range_harness.FixtureCatalog(fixtures, lock),
+                token, target, root / "range.jsonl", slow_bps=100000000,
+            )
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            url = f"http://127.0.0.1:{server.server_port}/v1/fixtures/canonical-aac"
+            try:
+                first = stream_contract.fetch_chunk(url, token, target, manifest, 0)
+                self.assertEqual(first, payload[:1024])
+                with self.assertRaises(stream_contract.AccessRevoked):
+                    stream_contract.fetch_chunk(url, token, "another-tenant", manifest, 0)
+                with self.assertRaises(stream_contract.VersionChanged):
+                    stream_contract.fetch_chunk(url + "?profile=etag_flip", token, target, manifest, 0)
+                    stream_contract.fetch_chunk(url + "?profile=etag_flip", token, target, manifest, 0)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+            log = (root / "range.jsonl").read_text(encoding="utf-8")
+            self.assertNotIn(token, log)
+            self.assertNotIn(target, log)
+
+    def test_stream_cache_is_bounded_restart_safe_private_and_revocable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory) / "cache"
+            secret = b"installation-secret-32-bytes-minimum-value"
+            cache = stream_contract.BoundedPrivateChunkCache(
+                root, secret, capacity=96, per_variant=64, pin_capacity=64, max_chunk=32,
+            )
+            a = b"a" * 32
+            b = b"b" * 32
+            c = b"c" * 32
+            da, db, dc = map(stream_contract.digest_bytes, (a, b, c))
+            key_a = cache.put("tenant-a", "variant", '"etag"', 0, a, da)
+            key_other = cache.put("tenant-b", "variant", '"etag"', 0, b, db)
+            self.assertNotEqual(key_a, key_other)
+            self.assertFalse(any("tenant" in path.name or "variant" in path.name
+                                 for path in root.glob("*.chunk")))
+            cache.put("tenant-a", "variant", '"etag"', 1, b, db)
+            cache.put("tenant-a", "variant", '"etag"', 2, c, dc)
+            self.assertLessEqual(cache.total_bytes(), 96)
+            with cache.open("tenant-a", "variant", '"etag"', 2, dc) as pinned:
+                self.assertEqual(pinned.read(), c)
+                self.assertEqual(cache.invalidate("tenant-a", "variant"), 2)
+                with cache.open("tenant-a", "variant", '"etag"', 2, dc) as denied:
+                    self.assertIsNone(denied)
+                with self.assertRaises(stream_contract.AccessRevoked):
+                    cache.put("tenant-a", "variant", '"new-etag"', 0, a, da)
+                pinned.seek(0)
+                self.assertEqual(pinned.read(), c)
+            with cache.open("tenant-a", "variant", '"etag"', 2, dc) as removed:
+                self.assertIsNone(removed)
+            cache.close()
+
+            restarted = stream_contract.BoundedPrivateChunkCache(
+                root, secret, capacity=96, per_variant=64, pin_capacity=64, max_chunk=32,
+            )
+            def read_restarted(_index):
+                with restarted.open("tenant-b", "variant", '"etag"', 0, db) as reused:
+                    return reused.read()
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                self.assertEqual(list(pool.map(read_restarted, range(16))), [b] * 16)
+            with self.assertRaises(stream_contract.AccessRevoked):
+                restarted.put("tenant-a", "variant", '"restart-etag"', 0, a, da)
+            chunk_path = next(root.glob("*.chunk"))
+            chunk_path.write_bytes(b"x" * chunk_path.stat().st_size)
+            restarted.close()
+            outside = pathlib.Path(directory) / "outside.chunk"
+            outside.write_bytes(b"must-survive")
+            connection = sqlite3.connect(root / "index.sqlite3")
+            try:
+                connection.execute("""INSERT INTO chunks VALUES(
+                    ?,?,?,?,?,?,?,?,?,?)""", (
+                    "d" * 64, "n" * 64, "v" * 64, "e" * 64, 99, 12,
+                    stream_contract.digest_bytes(b"must-survive"), "../outside.chunk", 99, 0,
+                ))
+                connection.commit()
+            finally:
+                connection.close()
+            repaired = stream_contract.BoundedPrivateChunkCache(
+                root, secret, capacity=96, per_variant=64, pin_capacity=64, max_chunk=32,
+            )
+            self.assertEqual(repaired.total_bytes(), 0)
+            self.assertEqual(outside.read_bytes(), b"must-survive")
+            with self.assertRaises(stream_contract.ContractError):
+                repaired.put("tenant", "variant", '"etag"', 0, b"x" * 33,
+                             stream_contract.digest_bytes(b"x" * 33))
+            repaired.close()
+            link = pathlib.Path(directory) / "cache-link"
+            try:
+                link.symlink_to(root, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                return
+            with self.assertRaises(stream_contract.ContractError):
+                stream_contract.BoundedPrivateChunkCache(link, secret)
 
     def test_hostile_mutations_are_deterministic_and_nonempty(self):
         base = bytes(range(64))

@@ -26,6 +26,7 @@ Story: `STORY-260712-3l1r1u`
 2. `TASK-260712-dqdoqj` Prototype canonical stream variants and the range cache contract
    - Defines the server-side transport shape the candidates actually consume:
      `stream_variants`, byte ranges, auth, integrity, and bounded disk cache.
+   - Frozen handoff: `docs/analysis/p2-stream-variants-range-cache-contract.md`.
 3. `TASK-260712-1vdlkw` Audit codec licenses, patent posture, and distribution constraints
    - Produces the legal and packaging matrix for Media Foundation, pure-Go,
      and bundled decoder families before selection.

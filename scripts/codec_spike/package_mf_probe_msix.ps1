@@ -88,11 +88,12 @@ try {
         $ImportsText = & $DumpBin.FullName /imports $StagedExecutable | Out-String
         $Imports = @($ImportsText -split "`r?`n" | ForEach-Object { $_.Trim().ToLowerInvariant() } |
             Where-Object { $_ -match '^[a-z0-9_.-]+\.dll$' } | Sort-Object -Unique)
-        $AllowedImports = @("kernel32.dll", "kernelbase.dll", "mfplat.dll", "mfreadwrite.dll", "ole32.dll", "psapi.dll")
-        foreach ($Import in $Imports) {
-            if ($Import -notin $AllowedImports -and -not $Import.StartsWith("api-ms-win-") -and -not $Import.StartsWith("ext-ms-win-")) {
-                throw "unexpected non-system import $Import for $($Target.Id)"
-            }
+        $AllowedImports = @("advapi32.dll", "kernel32.dll", "kernelbase.dll", "mfplat.dll", "mfreadwrite.dll", "ole32.dll", "psapi.dll")
+        $UnknownImports = @($Imports | Where-Object {
+            $_ -notin $AllowedImports -and -not $_.StartsWith("api-ms-win-") -and -not $_.StartsWith("ext-ms-win-")
+        })
+        if ($UnknownImports.Count -ne 0) {
+            throw "unexpected non-system imports for $($Target.Id): $($UnknownImports -join ', ')"
         }
 
         $Package = Join-Path $OutputDirectory "PulsarMediaFoundationProbe-0.1.0.0-$($Target.ManifestArch)-test-signed.msix"

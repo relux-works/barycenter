@@ -16,14 +16,16 @@ final class MacCaptureAppComposition {
 
     private let model: PulsarShellModel
     private let workflow: MacCaptureWorkflowController
+    let mediaStore: CaptureMediaStore
+    let recoveredDrafts: [CaptureMediaHandle]
     private let shortcutStore: MacRecordingShortcutStore
     private let shortcutController: MacRecordingShortcutController
     private let shortcutLifecycle: MacRecordingShortcutLifecycle
     private let defaults: UserDefaults
     private var selectedDeviceID: String?
     private var selfTestDraftAvailable = false
-    private var normalDraftAvailable = false
     private var stopped = false
+    var onNormalDraft: ((CaptureMediaHandle) -> Void)?
 
     init(
         audio: AudioEngine,
@@ -44,6 +46,8 @@ final class MacCaptureAppComposition {
         let store = CaptureMediaStore(
             root: supportRoot.appendingPathComponent("CaptureMedia", isDirectory: true))
         let recovery = try store.recover()
+        mediaStore = store
+        recoveredDrafts = recovery.retainedDrafts
         let inspector = MacShortAudioInspector()
         let intake = MacShortAudioIntake(inspector: inspector, store: store)
         let capture = MacMicrophoneCaptureEngine(
@@ -61,7 +65,6 @@ final class MacCaptureAppComposition {
         self.model = model
         self.defaults = defaults
         selectedDeviceID = defaults.string(forKey: Self.selectedInputKey)
-        normalDraftAvailable = !recovery.retainedDrafts.isEmpty
 
         shortcutStore = MacRecordingShortcutStore(defaults: defaults)
         let initialShortcut = shortcutStore.load()
@@ -95,9 +98,11 @@ final class MacCaptureAppComposition {
     func closeSelfTest() { workflow.closeSelfTest() }
 
     func deleteLocalDraft() {
-        workflow.deleteLocalDraft()
+        // This action is owned by the local self-test view. Finalized normal
+        // recordings are deleted only through PhaseOneDraftOutbox so its
+        // durable operation record cannot be orphaned.
+        workflow.deleteSelfTestDraft()
         selfTestDraftAvailable = false
-        normalDraftAvailable = false
         updateDraftAvailability()
     }
 
@@ -147,12 +152,10 @@ final class MacCaptureAppComposition {
                     PulsarCaptureDevice(id: $0.id, name: $0.name, isDefault: $0.isDefault)
                 },
                 selectedDeviceID: selectedDeviceID)
-        case .normalDraft:
-            normalDraftAvailable = true
-            updateDraftAvailability()
+        case .normalDraft(let handle):
+            onNormalDraft?(handle)
         case .normalDraftDeleted:
-            normalDraftAvailable = false
-            updateDraftAvailability()
+            break
         case .selfTest(let event):
             consume(event)
         }
@@ -192,7 +195,7 @@ final class MacCaptureAppComposition {
     private func updateDraftAvailability() {
         model.updateSelfTest(
             state: model.snapshot.selfTestState,
-            draftAvailable: selfTestDraftAvailable || normalDraftAvailable)
+            draftAvailable: selfTestDraftAvailable)
     }
 
     private static func shellRecordingState(

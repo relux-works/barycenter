@@ -81,6 +81,24 @@ struct MacCaptureWorkflowControllerTests {
         #expect(source.contains("MacRecordingShortcutLifecycle"))
     }
 
+    @Test("Application data compositions preserve the self-test and recovery boundaries")
+    func applicationDataBoundaries() throws {
+        let phaseOne = try String(contentsOf: repositoryRoot.appendingPathComponent(
+            "node-app/Sources/NodeApp/MacPhaseOneAppComposition.swift"), encoding: .utf8)
+        #expect(phaseOne.contains("PhaseOneDraftOutbox"))
+        #expect(phaseOne.contains("onNormalDraft"))
+        #expect(!phaseOne.contains("MacLocalSelfTest"))
+        #expect(!phaseOne.contains("selfTest"))
+
+        let identity = try String(contentsOf: repositoryRoot.appendingPathComponent(
+            "node-app/Sources/NodeApp/MacIdentityAppComposition.swift"), encoding: .utf8)
+        #expect(identity.contains("OnboardingService"))
+        #expect(identity.contains("RecoveryExportHelper.save"))
+        #expect(identity.contains("acknowledgeRecoveryBackup"))
+        #expect(identity.range(of: "onCredentialsActivated()", options: .backwards)!.lowerBound >
+                identity.range(of: "acknowledgeRecoveryBackup")!.lowerBound)
+    }
+
     private func makeFixture() throws -> WorkflowFixture {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mac-capture-workflow-\(UUID().uuidString)", isDirectory: true)

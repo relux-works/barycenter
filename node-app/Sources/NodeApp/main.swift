@@ -273,6 +273,8 @@ final class CoreRuntime {
 
 var runtime: CoreRuntime?
 @MainActor var macCaptureComposition: MacCaptureAppComposition?
+@MainActor var macPhaseOneComposition: MacPhaseOneAppComposition?
+@MainActor var macIdentityComposition: MacIdentityAppComposition?
 
 final class LocalCaptureAudioRuntime {
     let log: Logger
@@ -341,6 +343,7 @@ func startCore(with config: NodeConfig) {
         app.setActivationPolicy(config.airfoil.isEnabled ? .regular : .accessory)
         startShellRefresh(identity: connectionIdentity(config))
         startMacCaptureComposition(audio: rt.engine, log: rt.log)
+        startMacPhaseOneComposition(log: rt.log)
         mainWindow.show()
     } catch let err as ConfigError {
         failConfig(err.description)
@@ -458,8 +461,8 @@ func configureShell() {
     guard shellModel == nil else { return }
     shellModel = PulsarShellModel()
     shellActions = PulsarShellActions(
-        createOrbit: { openBotFlow("create") },
-        joinOrbit: { openBotFlow("join") },
+        createOrbit: { showShellSection(.create) },
+        joinOrbit: { showShellSection(.join) },
         tryLocally: { showShellSection(.tryLocally) },
         setDND: { mode in
             guard let player = runtime?.player else { return }
@@ -485,10 +488,45 @@ func configureShell() {
         reviewLocalFile: { macCaptureComposition?.reviewFile($0) },
         acceptLocalFile: { macCaptureComposition?.acceptFile($0) },
         deleteLocalDraft: { macCaptureComposition?.deleteLocalDraft() },
-        closeSelfTest: { macCaptureComposition?.closeSelfTest() }
+        closeSelfTest: { macCaptureComposition?.closeSelfTest() },
+        sendDraft: { id, route, delivery in
+            macPhaseOneComposition?.send(draftID: id, route: route, delivery: delivery)
+        },
+        deleteOutgoingDraft: { id in macPhaseOneComposition?.delete(draftID: id) },
+        refreshPhaseOneData: { macPhaseOneComposition?.refresh(force: true) },
+        historyAction: { id, action in
+            macPhaseOneComposition?.performHistoryAction(id, action: action)
+        },
+        submitCreateOrbit: { macIdentityComposition?.create(title: $0) },
+        submitJoinOrbit: { macIdentityComposition?.join(code: $0) },
+        exportRecovery: { macIdentityComposition?.exportRecovery() }
     )
     mainWindow = PulsarMainWindowController(model: shellModel, actions: shellActions)
     statusMenu = StatusMenuController()
+    startMacIdentityComposition()
+}
+
+@MainActor
+func startMacIdentityComposition() {
+    guard macIdentityComposition == nil else { return }
+    do {
+        macIdentityComposition = try MacIdentityAppComposition(
+            coordinator: defaultCoordinatorBase,
+            model: shellModel,
+            onCredentialsActivated: { activateStoredCredentials() })
+    } catch {
+        shellModel.setIdentityOperation(.failed("Identity service is unavailable"))
+    }
+}
+
+@MainActor
+func activateStoredCredentials() {
+    guard let credentials = CredentialsStore.load(besideConfig: configPath),
+          let paired = try? ConfigLoader.load(path: configPath, credentials: credentials) else {
+        shellModel.setIdentityOperation(.failed("Saved credentials could not be activated"))
+        return
+    }
+    finishPairing(paired)
 }
 
 @MainActor
@@ -509,6 +547,28 @@ func startMacCaptureComposition(audio: AudioEngine, log: Logger) {
 }
 
 @MainActor
+func startMacPhaseOneComposition(log: Logger) {
+    guard let capture = macCaptureComposition else { return }
+    do {
+        guard let bundle = try CredentialsStore.loadBundle(besideConfig: configPath) else {
+            return
+        }
+        let composition = try MacPhaseOneAppComposition(
+            bundle: bundle,
+            supportRoot: URL(fileURLWithPath: ConfigLoader.supportDir, isDirectory: true),
+            capture: capture,
+            model: shellModel)
+        macPhaseOneComposition = composition
+        composition.start()
+    } catch {
+        log.error("phase one app data unavailable", ["reason": "initialization_failed"])
+        shellModel.setPhaseOneData(
+            presenceSummary: nil,
+            failure: "Authenticated app data is unavailable")
+    }
+}
+
+@MainActor
 func startAccountlessMacCapture(config: NodeConfig) {
     materializeSupportTree(config)
     do {
@@ -525,6 +585,8 @@ func startAccountlessMacCapture(config: NodeConfig) {
 
 @MainActor
 func stopMacCaptureComposition() {
+    macPhaseOneComposition?.shutdown()
+    macPhaseOneComposition = nil
     macCaptureComposition?.shutdown()
     macCaptureComposition = nil
     localCaptureAudioRuntime?.stop()
@@ -569,6 +631,7 @@ func refreshShell(identity: String) {
         playbackState: status.playback,
         dndMode: dnd,
         volume: status.volume)
+    macPhaseOneComposition?.refresh()
 }
 
 func shortShellURI(_ uri: String) -> String {
@@ -584,9 +647,17 @@ signal(SIGINT, SIG_IGN)
 signal(SIGTERM, SIG_IGN)
 func shutdown() {
     if Thread.isMainThread {
-        MainActor.assumeIsolated { stopMacCaptureComposition() }
+        MainActor.assumeIsolated {
+            macIdentityComposition?.shutdown()
+            macIdentityComposition = nil
+            stopMacCaptureComposition()
+        }
     } else {
-        DispatchQueue.main.sync { stopMacCaptureComposition() }
+        DispatchQueue.main.sync {
+            macIdentityComposition?.shutdown()
+            macIdentityComposition = nil
+            stopMacCaptureComposition()
+        }
     }
     if let rt = runtime {
         rt.shutdown()

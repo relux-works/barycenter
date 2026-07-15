@@ -1,0 +1,43 @@
+@startuml
+title P1 macOS durable draft retry across restart
+
+actor User
+participant "Capture workflow" as Capture
+database "CaptureMediaStore" as Media
+participant "PhaseOneDraftOutbox" as Outbox
+database "Outbox state" as State
+participant "PhaseOneAppClient" as Client
+participant "Coordinator" as Coord
+
+User -> Capture : finish microphone recording
+Capture -> Media : fsync durable_unsent WAV
+Capture -> Outbox : attach(user_recording handle)
+Outbox -> State : persist upload_key + transmission_key
+
+User -> Outbox : send(own_barycenter, overlay)
+Outbox -> State : uploading
+Outbox -> Client : upload(WAV, stable upload_key)
+Client -> Coord : create/resume upload + PUT bytes
+Coord --> Client : completed + media_id
+Client --> Outbox : upload confirmed
+Outbox -> State : persist media_id + uploaded
+Outbox -> Media : delete WAV after confirmation
+Outbox -> State : transmitting
+Outbox -> Client : transmit(media_id, stable transmission_key)
+Client -> Coord : POST /v1/transmissions
+Coord --> Client : connection failure
+Client --> Outbox : coordinator_unavailable
+Outbox -> State : retryable_failure + media_id
+
+... app restarts ...
+
+Outbox -> State : recover frozen intent + media_id
+Outbox -> Media : no WAV required after confirmed upload
+User -> Outbox : retry
+Outbox -> Client : transmit(media_id, same transmission_key)
+Client -> Coord : identical POST /v1/transmissions
+Coord --> Client : accepted / reused receipt
+Client --> Outbox : requested + effective delivery
+Outbox -> State : accepted + downgrade/status
+Outbox --> User : honest receipt projection
+@enduml

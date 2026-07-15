@@ -75,27 +75,27 @@ private struct PulsarDetail: View {
         case .home:
             PulsarHomeView(model: model, actions: actions)
         case .create:
-            PulsarFlowView(
+            PulsarIdentityFlowView(
+                mode: .create,
                 titleKey: .createTitle,
                 bodyKey: .createBody,
-                actionKey: .createAction,
                 symbol: "plus.circle",
-                locale: model.locale,
-                action: actions.createOrbit
+                model: model,
+                actions: actions
             )
         case .join:
-            PulsarFlowView(
+            PulsarIdentityFlowView(
+                mode: .join,
                 titleKey: .joinTitle,
                 bodyKey: .joinBody,
-                actionKey: .joinAction,
                 symbol: "person.2",
-                locale: model.locale,
-                action: actions.joinOrbit
+                model: model,
+                actions: actions
             )
         case .tryLocally:
             PulsarSelfTestView(model: model, actions: actions)
         case .history:
-            PulsarHistoryView(model: model)
+            PulsarHistoryView(model: model, actions: actions)
         case .settings:
             PulsarSettingsView(model: model, actions: actions)
         }
@@ -176,6 +176,7 @@ private struct PulsarHomeView: View {
                     )
                 }
                 PulsarLocalControls(model: model, actions: actions)
+                PulsarOutgoingDraftsView(model: model, actions: actions)
                 PulsarHistoryPreview(model: model)
             }
             .padding(24)
@@ -374,7 +375,7 @@ private struct PulsarHistoryPreview: View {
                 Button(copy.text(.history)) { model.selectedSection = .history }
             }
             if let item = model.snapshot.history.first {
-                PulsarHistoryRow(item: item)
+                PulsarHistoryRow(item: item, locale: model.locale)
             } else {
                 ContentUnavailableView(
                     copy.text(.noHistory),
@@ -388,6 +389,7 @@ private struct PulsarHistoryPreview: View {
 
 private struct PulsarHistoryView: View {
     let model: PulsarShellModel
+    let actions: PulsarShellActions
 
     var body: some View {
         let copy = PulsarShellCopy(locale: model.locale)
@@ -395,47 +397,245 @@ private struct PulsarHistoryView: View {
             if model.snapshot.history.isEmpty {
                 ContentUnavailableView(copy.text(.noHistory), systemImage: "clock.arrow.circlepath")
             } else {
-                List(model.snapshot.history) { item in PulsarHistoryRow(item: item) }
+                List(model.snapshot.history) { item in
+                    PulsarHistoryRow(item: item, locale: model.locale, actions: actions)
+                }
             }
         }
         .navigationTitle(copy.text(.historyTitle))
+        .toolbar {
+            Button(copy.text(.refresh)) { actions.refreshPhaseOneData() }
+        }
     }
 }
 
 private struct PulsarHistoryRow: View {
     let item: PulsarHistoryItem
+    let locale: PulsarShellLocale
+    var actions: PulsarShellActions?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(item.title).font(.headline)
             Text(item.detail).foregroundStyle(.secondary)
+            if let requested = item.requestedDelivery,
+               let effective = item.effectiveDelivery {
+                Text("\(requested) → \(effective)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let downgrade = item.downgradeReason {
+                Text(downgrade)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
             Text(item.occurredAt, format: .dateTime.year().month().day().hour().minute())
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if let actions, !item.allowedActions.isEmpty {
+                HStack {
+                    ForEach(item.allowedActions, id: \.rawValue) { action in
+                        Button(label(action)) {
+                            actions.performHistoryAction(item.id, action: action)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: item.allowedActions.isEmpty ? .combine : .contain)
+    }
+
+    private func label(_ action: PulsarHistoryAction) -> String {
+        let copy = PulsarShellCopy(locale: locale)
+        switch action {
+        case .delete: return copy.text(.deleteHistory)
+        case .replay: return copy.text(.replay)
+        case .blockActor: return copy.text(.blockSender)
+        }
     }
 }
 
-private struct PulsarFlowView: View {
-    let titleKey: PulsarShellText
-    let bodyKey: PulsarShellText
-    let actionKey: PulsarShellText
-    let symbol: String
-    let locale: PulsarShellLocale
-    let action: () -> Void
+private struct PulsarOutgoingDraftsView: View {
+    let model: PulsarShellModel
+    let actions: PulsarShellActions
 
     var body: some View {
-        let copy = PulsarShellCopy(locale: locale)
-        ContentUnavailableView {
-            Label(copy.text(titleKey), systemImage: symbol)
-        } description: {
-            Text(copy.text(bodyKey))
-        } actions: {
-            Button(copy.text(actionKey), action: action)
-                .buttonStyle(.borderedProminent)
+        let copy = PulsarShellCopy(locale: model.locale)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(copy.text(.outgoingDrafts)).font(.title2.bold())
+                Spacer()
+                Button(copy.text(.refresh)) { actions.refreshPhaseOneData() }
+            }
+            if let failure = model.snapshot.phaseOneFailure {
+                Label(
+                    failure.isEmpty ? copy.text(.coordinatorFailure) : failure,
+                    systemImage: "exclamationmark.triangle")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .accessibilityElement(children: .combine)
+            }
+            ForEach(model.snapshot.outgoingDrafts) { draft in
+                PulsarOutgoingDraftRow(
+                    draft: draft, copy: copy, actions: actions)
+            }
         }
+    }
+}
+
+private struct PulsarOutgoingDraftRow: View {
+    let draft: PulsarOutgoingDraft
+    let copy: PulsarShellCopy
+    let actions: PulsarShellActions
+    @State private var route: PulsarRouteTarget = .ownBarycenter
+    @State private var delivery: PulsarDeliveryMode = .overlay
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label(draft.title, systemImage: stateSymbol)
+                    .font(.headline)
+                Spacer()
+                Text(copy.draftStateLabel(draft.state))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Picker(copy.text(.routeTarget), selection: $route) {
+                ForEach(PulsarRouteTarget.allCases) { value in
+                    Text(copy.routeLabel(value)).tag(value)
+                }
+            }
+            .disabled(draft.route != nil)
+            Picker(copy.text(.deliveryMode), selection: $delivery) {
+                ForEach(PulsarDeliveryMode.allCases) { value in
+                    Text(copy.deliveryLabel(value)).tag(value)
+                }
+            }
+            .disabled(draft.requestedDelivery != nil)
+            if let requested = draft.requestedDelivery {
+                LabeledContent(copy.text(.requestedDelivery), value: copy.deliveryLabel(requested))
+            }
+            if let effective = draft.effectiveDelivery {
+                LabeledContent(copy.text(.effectiveDelivery), value: copy.deliveryLabel(effective))
+            }
+            if let detail = draft.downgradeReason ?? draft.failureCode ?? draft.status {
+                Text(detail.replacingOccurrences(of: "_", with: " "))
+                    .font(.caption)
+                    .foregroundStyle(draft.failureCode == nil ? Color.secondary : Color.orange)
+            }
+            HStack {
+                Button(draft.state == .retryableFailure ? copy.text(.retry) : copy.text(.send)) {
+                    actions.sendDraft(
+                        draft.id,
+                        route: draft.route ?? route,
+                        delivery: draft.requestedDelivery ?? delivery)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled([.uploading, .transmitting, .accepted].contains(draft.state))
+                Button(copy.text(.deleteDraft), role: .destructive) {
+                    actions.deleteOutgoingDraft(draft.id)
+                }
+                .disabled([.uploading, .transmitting].contains(draft.state))
+            }
+        }
+        .padding(12)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+        .onAppear {
+            if let frozen = draft.route { route = frozen }
+            if let frozen = draft.requestedDelivery { delivery = frozen }
+        }
+    }
+
+    private var stateSymbol: String {
+        switch draft.state {
+        case .retained: "tray.and.arrow.up"
+        case .uploading, .transmitting: "arrow.triangle.2.circlepath"
+        case .uploaded: "checkmark.icloud"
+        case .accepted: "checkmark.circle.fill"
+        case .retryableFailure: "exclamationmark.triangle"
+        }
+    }
+}
+
+private struct PulsarIdentityFlowView: View {
+    enum Mode { case create, join }
+
+    let mode: Mode
+    let titleKey: PulsarShellText
+    let bodyKey: PulsarShellText
+    let symbol: String
+    let model: PulsarShellModel
+    let actions: PulsarShellActions
+    @State private var value = ""
+
+    var body: some View {
+        let copy = PulsarShellCopy(locale: model.locale)
+        VStack(spacing: 16) {
+            Label(copy.text(titleKey), systemImage: symbol)
+                .font(.title2.bold())
+            Text(copy.text(bodyKey))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 440)
+            TextField(
+                copy.text(mode == .create ? .orbitTitle : .inviteCode),
+                text: $value)
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: 360)
+                .disabled(isBusy)
+                .onSubmit(submit)
+            Button(
+                copy.text(mode == .create ? .createWithAPI : .joinWithAPI),
+                action: submit)
+                .buttonStyle(.borderedProminent)
+                .disabled(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isBusy)
+            identityStatus(copy)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(32)
         .navigationTitle(copy.text(titleKey))
+    }
+
+    @ViewBuilder
+    private func identityStatus(_ copy: PulsarShellCopy) -> some View {
+        switch model.snapshot.identityOperation {
+        case .idle:
+            EmptyView()
+        case .busy:
+            ProgressView(copy.text(.identityBusy))
+        case .succeeded(let message):
+            Label(message.isEmpty ? copy.text(.identitySucceeded) : message,
+                  systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+        case .recoveryExportRequired(let message):
+            VStack(spacing: 8) {
+                Label(
+                    message.isEmpty ? copy.text(.recoveryRequired) : message,
+                    systemImage: "key.fill")
+                    .multilineTextAlignment(.center)
+                Button(copy.text(.exportRecovery)) { actions.exportRecovery() }
+                    .buttonStyle(.borderedProminent)
+            }
+        case .failed(let message):
+            Label(message.isEmpty ? copy.text(.identityFailed) : message,
+                  systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.red)
+        }
+    }
+
+    private var isBusy: Bool {
+        if case .busy = model.snapshot.identityOperation { return true }
+        return false
+    }
+
+    private func submit() {
+        let clean = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return }
+        switch mode {
+        case .create: actions.submitCreateOrbit(title: clean)
+        case .join: actions.submitJoinOrbit(code: clean)
+        }
     }
 }
 

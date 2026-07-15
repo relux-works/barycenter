@@ -136,17 +136,115 @@ public enum PulsarDNDMode: String, CaseIterable, Identifiable, Sendable {
     public var id: Self { self }
 }
 
+public enum PulsarRouteTarget: String, CaseIterable, Identifiable, Sendable {
+    case thisPulsar = "this_pulsar"
+    case ownBarycenter = "own_barycenter"
+    case currentAir = "current_air"
+
+    public var id: Self { self }
+}
+
+public enum PulsarDeliveryMode: String, CaseIterable, Identifiable, Sendable {
+    case overlay
+    case interrupt
+    case afterCurrent = "after_current"
+
+    public var id: Self { self }
+}
+
+public enum PulsarHistoryAction: String, Equatable, Sendable {
+    case delete
+    case replay
+    case blockActor = "block_actor"
+}
+
+public enum PulsarOutgoingDraftState: String, Equatable, Sendable {
+    case retained, uploading, uploaded, transmitting, accepted
+    case retryableFailure = "retryable_failure"
+}
+
+public enum PulsarIdentityOperationState: Equatable, Sendable {
+    case idle
+    case busy
+    case succeeded(String)
+    case recoveryExportRequired(String)
+    case failed(String)
+}
+
+public struct PulsarOutgoingDraft: Equatable, Identifiable, Sendable {
+    public let id: String
+    public let title: String
+    public let state: PulsarOutgoingDraftState
+    public let route: PulsarRouteTarget?
+    public let requestedDelivery: PulsarDeliveryMode?
+    public let effectiveDelivery: PulsarDeliveryMode?
+    public let downgradeReason: String?
+    public let status: String?
+    public let failureCode: String?
+    public let localBytesRetained: Bool
+
+    public init(
+        id: String,
+        title: String,
+        state: PulsarOutgoingDraftState,
+        route: PulsarRouteTarget? = nil,
+        requestedDelivery: PulsarDeliveryMode? = nil,
+        effectiveDelivery: PulsarDeliveryMode? = nil,
+        downgradeReason: String? = nil,
+        status: String? = nil,
+        failureCode: String? = nil,
+        localBytesRetained: Bool = true
+    ) {
+        self.id = id
+        self.title = title
+        self.state = state
+        self.route = route
+        self.requestedDelivery = requestedDelivery
+        self.effectiveDelivery = effectiveDelivery
+        self.downgradeReason = downgradeReason
+        self.status = status
+        self.failureCode = failureCode
+        self.localBytesRetained = localBytesRetained
+    }
+}
+
 public struct PulsarHistoryItem: Equatable, Identifiable, Sendable {
     public let id: String
     public let title: String
     public let detail: String
     public let occurredAt: Date
+    public let direction: String
+    public let senderName: String?
+    public let status: String
+    public let requestedDelivery: String?
+    public let effectiveDelivery: String?
+    public let downgradeReason: String?
+    public let allowedActions: [PulsarHistoryAction]
 
-    public init(id: String, title: String, detail: String, occurredAt: Date) {
+    public init(
+        id: String,
+        title: String,
+        detail: String,
+        occurredAt: Date,
+        direction: String = "",
+        senderName: String? = nil,
+        status: String = "",
+        requestedDelivery: String? = nil,
+        effectiveDelivery: String? = nil,
+        downgradeReason: String? = nil,
+        allowedActions: [PulsarHistoryAction] = []
+    ) {
         self.id = id
         self.title = title
         self.detail = detail
         self.occurredAt = occurredAt
+        self.direction = direction
+        self.senderName = senderName
+        self.status = status
+        self.requestedDelivery = requestedDelivery
+        self.effectiveDelivery = effectiveDelivery
+        self.downgradeReason = downgradeReason
+        self.allowedActions = allowedActions
     }
 }
 
@@ -158,6 +256,9 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
     public var nowPlaying: String?
     public var playbackState: String
     public var history: [PulsarHistoryItem]
+    public var outgoingDrafts: [PulsarOutgoingDraft]
+    public var phaseOneFailure: String?
+    public var identityOperation: PulsarIdentityOperationState
     public var dndMode: PulsarDNDMode
     public var recording: PulsarRecordingState
     public var recordingAvailable: Bool
@@ -181,6 +282,9 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         nowPlaying: String? = nil,
         playbackState: String = "stopped",
         history: [PulsarHistoryItem] = [],
+        outgoingDrafts: [PulsarOutgoingDraft] = [],
+        phaseOneFailure: String? = nil,
+        identityOperation: PulsarIdentityOperationState = .idle,
         dndMode: PulsarDNDMode = .allowAll,
         recording: PulsarRecordingState = .unavailable,
         recordingAvailable: Bool = false,
@@ -203,6 +307,9 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         self.nowPlaying = nowPlaying
         self.playbackState = playbackState
         self.history = history
+        self.outgoingDrafts = outgoingDrafts
+        self.phaseOneFailure = phaseOneFailure
+        self.identityOperation = identityOperation
         self.dndMode = dndMode
         self.recording = recording
         self.recordingAvailable = recordingAvailable
@@ -262,6 +369,22 @@ public final class PulsarShellModel {
 
     public func setHistory(_ items: [PulsarHistoryItem]) {
         snapshot.history = items
+    }
+
+    public func setPhaseOneData(
+        presenceSummary: String?,
+        history: [PulsarHistoryItem]? = nil,
+        outgoingDrafts: [PulsarOutgoingDraft]? = nil,
+        failure: String?
+    ) {
+        snapshot.presenceSummary = presenceSummary
+        if let history { snapshot.history = history }
+        if let outgoingDrafts { snapshot.outgoingDrafts = outgoingDrafts }
+        snapshot.phaseOneFailure = failure
+    }
+
+    public func setIdentityOperation(_ state: PulsarIdentityOperationState) {
+        snapshot.identityOperation = state
     }
 
     public func setRecording(_ state: PulsarRecordingState, available: Bool) {
@@ -333,6 +456,13 @@ public final class PulsarShellActions {
     private let onAcceptLocalFile: (URL) -> Void
     private let onDeleteLocalDraft: () -> Void
     private let onCloseSelfTest: () -> Void
+    private let onSendDraft: (String, PulsarRouteTarget, PulsarDeliveryMode) -> Void
+    private let onDeleteOutgoingDraft: (String) -> Void
+    private let onRefreshPhaseOneData: () -> Void
+    private let onHistoryAction: (String, PulsarHistoryAction) -> Void
+    private let onSubmitCreateOrbit: (String) -> Void
+    private let onSubmitJoinOrbit: (String) -> Void
+    private let onExportRecovery: () -> Void
 
     public init(
         createOrbit: @escaping @MainActor () -> Void = {},
@@ -349,7 +479,14 @@ public final class PulsarShellActions {
         reviewLocalFile: @escaping @MainActor (URL) -> Void = { _ in },
         acceptLocalFile: @escaping @MainActor (URL) -> Void = { _ in },
         deleteLocalDraft: @escaping @MainActor () -> Void = {},
-        closeSelfTest: @escaping @MainActor () -> Void = {}
+        closeSelfTest: @escaping @MainActor () -> Void = {},
+        sendDraft: @escaping @MainActor (String, PulsarRouteTarget, PulsarDeliveryMode) -> Void = { _, _, _ in },
+        deleteOutgoingDraft: @escaping @MainActor (String) -> Void = { _ in },
+        refreshPhaseOneData: @escaping @MainActor () -> Void = {},
+        historyAction: @escaping @MainActor (String, PulsarHistoryAction) -> Void = { _, _ in },
+        submitCreateOrbit: @escaping @MainActor (String) -> Void = { _ in },
+        submitJoinOrbit: @escaping @MainActor (String) -> Void = { _ in },
+        exportRecovery: @escaping @MainActor () -> Void = {}
     ) {
         self.onCreateOrbit = createOrbit
         self.onJoinOrbit = joinOrbit
@@ -366,6 +503,13 @@ public final class PulsarShellActions {
         self.onAcceptLocalFile = acceptLocalFile
         self.onDeleteLocalDraft = deleteLocalDraft
         self.onCloseSelfTest = closeSelfTest
+        self.onSendDraft = sendDraft
+        self.onDeleteOutgoingDraft = deleteOutgoingDraft
+        self.onRefreshPhaseOneData = refreshPhaseOneData
+        self.onHistoryAction = historyAction
+        self.onSubmitCreateOrbit = submitCreateOrbit
+        self.onSubmitJoinOrbit = submitJoinOrbit
+        self.onExportRecovery = exportRecovery
     }
 
     public func createOrbit() { onCreateOrbit() }
@@ -385,6 +529,19 @@ public final class PulsarShellActions {
     public func acceptLocalFile(_ url: URL) { onAcceptLocalFile(url) }
     public func deleteLocalDraft() { onDeleteLocalDraft() }
     public func closeSelfTest() { onCloseSelfTest() }
+    public func sendDraft(
+        _ id: String,
+        route: PulsarRouteTarget,
+        delivery: PulsarDeliveryMode
+    ) { onSendDraft(id, route, delivery) }
+    public func deleteOutgoingDraft(_ id: String) { onDeleteOutgoingDraft(id) }
+    public func refreshPhaseOneData() { onRefreshPhaseOneData() }
+    public func performHistoryAction(_ id: String, action: PulsarHistoryAction) {
+        onHistoryAction(id, action)
+    }
+    public func submitCreateOrbit(title: String) { onSubmitCreateOrbit(title) }
+    public func submitJoinOrbit(code: String) { onSubmitJoinOrbit(code) }
+    public func exportRecovery() { onExportRecovery() }
 }
 
 public enum PulsarShellText: String, CaseIterable, Sendable {
@@ -405,6 +562,11 @@ public enum PulsarShellText: String, CaseIterable, Sendable {
     case dndAllowAll, dndMessagesOnly, dndMutedUntil
     case recordingIdle, recordingActive, recordingProcessing, recordingFailed
     case unpairedHelp, degradedHelp, recordingHelp, quit
+    case outgoingDrafts, routeTarget, deliveryMode, send, retry, refresh
+    case thisPulsar, ownBarycenter, currentAir, overlay, interrupt, afterCurrent
+    case requestedDelivery, effectiveDelivery, coordinatorFailure, blockSender, replay, deleteHistory
+    case orbitTitle, inviteCode, createWithAPI, joinWithAPI, identityBusy
+    case identitySucceeded, identityFailed, recoveryRequired, exportRecovery
 }
 
 public struct PulsarShellCopy: Sendable {
@@ -499,6 +661,39 @@ public struct PulsarShellCopy: Sendable {
         }
     }
 
+    public func routeLabel(_ route: PulsarRouteTarget) -> String {
+        switch route {
+        case .thisPulsar: text(.thisPulsar)
+        case .ownBarycenter: text(.ownBarycenter)
+        case .currentAir: text(.currentAir)
+        }
+    }
+
+    public func deliveryLabel(_ delivery: PulsarDeliveryMode) -> String {
+        switch delivery {
+        case .overlay: text(.overlay)
+        case .interrupt: text(.interrupt)
+        case .afterCurrent: text(.afterCurrent)
+        }
+    }
+
+    public func draftStateLabel(_ state: PulsarOutgoingDraftState) -> String {
+        switch (locale, state) {
+        case (.en, .retained): "Ready to send"
+        case (.en, .uploading): "Uploading"
+        case (.en, .uploaded): "Upload confirmed"
+        case (.en, .transmitting): "Requesting delivery"
+        case (.en, .accepted): "Accepted"
+        case (.en, .retryableFailure): "Retry available"
+        case (.ru, .retained): "Готово к отправке"
+        case (.ru, .uploading): "Загружается"
+        case (.ru, .uploaded): "Загрузка подтверждена"
+        case (.ru, .transmitting): "Запрашиваю доставку"
+        case (.ru, .accepted): "Принято"
+        case (.ru, .retryableFailure): "Можно повторить"
+        }
+    }
+
     private static let en: [PulsarShellText: String] = [
         .appName: "Pulsar", .home: "Home", .create: "Create", .join: "Join",
         .tryLocally: "Try locally", .history: "History", .settings: "Settings",
@@ -530,10 +725,10 @@ public struct PulsarShellCopy: Sendable {
         .selfTestPermission: "Waiting for microphone permission", .selfTestRecording: "Recording locally",
         .selfTestStopCue: "Finishing recording", .selfTestPlayback: "Playing local recording",
         .selfTestReview: "Local draft is ready", .selfTestFailed: "Local self-test failed",
-        .createTitle: "Create an air", .createBody: "Open the Barycenter bot and send /create to start a shared audio space.",
-        .createAction: "Open Barycenter bot", .joinTitle: "Join an air",
-        .joinBody: "Open an invitation or ask the Barycenter bot for a pairing code.",
-        .joinAction: "Open Barycenter bot", .tryTitle: "Try Pulsar locally",
+        .createTitle: "Create an air", .createBody: "Create a shared audio space directly with Barycenter. You will save a one-time recovery file before it becomes active.",
+        .createAction: "Create securely", .joinTitle: "Join an air",
+        .joinBody: "Enter the invitation code issued for this installation.",
+        .joinAction: "Join securely", .tryTitle: "Try Pulsar locally",
         .tryBody: "Record five seconds and play them only on this Mac before sending anything.",
         .tryAction: "Run local self-test", .historyTitle: "Recent activity",
         .settingsTitle: "Pulsar settings", .language: "Language",
@@ -547,6 +742,20 @@ public struct PulsarShellCopy: Sendable {
         .degradedHelp: "Local controls and settings remain available while Pulsar reconnects.",
         .recordingHelp: "Recording is active. The Stop control remains available in this window and the menu bar.",
         .quit: "Quit Pulsar",
+        .outgoingDrafts: "Ready to send", .routeTarget: "Send to",
+        .deliveryMode: "Delivery", .send: "Send", .retry: "Retry", .refresh: "Refresh",
+        .thisPulsar: "This Pulsar", .ownBarycenter: "My Barycenter",
+        .currentAir: "Current air", .overlay: "Play over current audio",
+        .interrupt: "Pause and play", .afterCurrent: "Play after current audio",
+        .requestedDelivery: "Requested", .effectiveDelivery: "Effective",
+        .coordinatorFailure: "Coordinator data is temporarily unavailable",
+        .blockSender: "Block sender", .replay: "Replay", .deleteHistory: "Delete",
+        .orbitTitle: "Air name", .inviteCode: "Invitation code",
+        .createWithAPI: "Create securely", .joinWithAPI: "Join securely",
+        .identityBusy: "Contacting Barycenter…", .identitySucceeded: "Credentials saved",
+        .identityFailed: "Identity operation failed",
+        .recoveryRequired: "Save the one-time recovery file before continuing.",
+        .exportRecovery: "Save recovery file",
     ]
 
     private static let ru: [PulsarShellText: String] = [
@@ -580,10 +789,10 @@ public struct PulsarShellCopy: Sendable {
         .selfTestPermission: "Жду разрешения на микрофон", .selfTestRecording: "Записываю локально",
         .selfTestStopCue: "Завершаю запись", .selfTestPlayback: "Воспроизвожу локальную запись",
         .selfTestReview: "Локальный черновик готов", .selfTestFailed: "Ошибка локальной самопроверки",
-        .createTitle: "Создать эфир", .createBody: "Открой бота Барицентра и отправь /create, чтобы создать общее аудиопространство.",
-        .createAction: "Открыть бота Барицентра", .joinTitle: "Присоединиться к эфиру",
-        .joinBody: "Открой приглашение или запроси код подключения в боте Барицентра.",
-        .joinAction: "Открыть бота Барицентра", .tryTitle: "Проверить Пульсар локально",
+        .createTitle: "Создать эфир", .createBody: "Создай общее аудиопространство напрямую в Барицентре. Перед активацией нужно сохранить одноразовый файл восстановления.",
+        .createAction: "Создать безопасно", .joinTitle: "Присоединиться к эфиру",
+        .joinBody: "Введи код приглашения, выпущенный для этой установки.",
+        .joinAction: "Присоединиться безопасно", .tryTitle: "Проверить Пульсар локально",
         .tryBody: "Запиши пять секунд и воспроизведи их только на этом маке до любой отправки.",
         .tryAction: "Запустить самопроверку", .historyTitle: "Недавние события",
         .settingsTitle: "Настройки Пульсара", .language: "Язык",
@@ -597,5 +806,19 @@ public struct PulsarShellCopy: Sendable {
         .degradedHelp: "Локальные настройки остаются доступны, пока Пульсар переподключается.",
         .recordingHelp: "Запись активна. Кнопка остановки остаётся доступна в этом окне и в строке меню.",
         .quit: "Выйти из Пульсара",
+        .outgoingDrafts: "Готово к отправке", .routeTarget: "Отправить в",
+        .deliveryMode: "Доставка", .send: "Отправить", .retry: "Повторить", .refresh: "Обновить",
+        .thisPulsar: "Этот Пульсар", .ownBarycenter: "Мой Барицентр",
+        .currentAir: "Текущий эфир", .overlay: "Поверх текущего звука",
+        .interrupt: "Приостановить и воспроизвести", .afterCurrent: "После текущего звука",
+        .requestedDelivery: "Запрошено", .effectiveDelivery: "Фактически",
+        .coordinatorFailure: "Данные координатора временно недоступны",
+        .blockSender: "Заблокировать отправителя", .replay: "Повторить", .deleteHistory: "Удалить",
+        .orbitTitle: "Название эфира", .inviteCode: "Код приглашения",
+        .createWithAPI: "Создать безопасно", .joinWithAPI: "Присоединиться безопасно",
+        .identityBusy: "Связываюсь с Барицентром…", .identitySucceeded: "Данные доступа сохранены",
+        .identityFailed: "Не удалось выполнить действие с доступом",
+        .recoveryRequired: "Сохрани одноразовый файл восстановления перед продолжением.",
+        .exportRecovery: "Сохранить файл восстановления",
     ]
 }

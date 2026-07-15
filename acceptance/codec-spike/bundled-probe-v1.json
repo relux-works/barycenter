@@ -39,6 +39,11 @@
       "--enable-static"
     ]
   },
+  "platformConfigure": {
+    "windows-amd64": {
+      "required": ["--disable-pthreads", "--enable-w32threads"]
+    }
+  },
   "package": {
     "allowedLibraries": ["avcodec", "avformat", "avutil", "swresample", "pulsar_codec_bridge"],
     "forbiddenNames": ["ffmpeg", "ffprobe", "ffplay"],

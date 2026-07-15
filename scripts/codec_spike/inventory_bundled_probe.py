@@ -51,6 +51,10 @@ def validate_contract(contract: dict) -> None:
         raise ValueError("decoder owns network")
     if contract.get("package", {}).get("hostileInputContainment") != "probe-process-boundary-only":
         raise ValueError("hostile input containment claim changed")
+    windows_flags = set(contract.get("platformConfigure", {}).get(
+        "windows-amd64", {}).get("required", []))
+    if windows_flags != {"--disable-pthreads", "--enable-w32threads"}:
+        raise ValueError("Windows native thread contract changed")
     matrix = {item.get("id"): item for item in contract.get("platformMatrix", [])}
     if set(matrix) != {"macos-arm64", "windows-amd64", "windows-arm64"}:
         raise ValueError("required package architecture matrix changed")

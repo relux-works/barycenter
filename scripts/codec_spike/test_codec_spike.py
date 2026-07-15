@@ -142,6 +142,7 @@ class CodecSpikeContractTests(unittest.TestCase):
         self.assertNotIn("$LASTEXITCODE:", msix_script)
         mingw_script = (HERE / "build_bundled_ffmpeg_mingw.sh").read_text(encoding="utf-8")
         self.assertIn("-static-libgcc", mingw_script)
+        self.assertIn("--disable-pthreads --enable-w32threads", mingw_script)
 
     def test_exact_license_audit_is_complete_and_fail_closed(self):
         audit = license_audit.load()

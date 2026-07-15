@@ -33,6 +33,7 @@ tar -xf "$SOURCE_ARCHIVE" -C "$OUTPUT/source" --strip-components=1
   "$OUTPUT/source/configure" \
     --prefix="$OUTPUT/prefix" \
     --target-os=mingw32 --arch=x86_64 --cc=gcc \
+    --disable-pthreads --enable-w32threads \
     --disable-everything --disable-autodetect --disable-programs --disable-doc \
     --disable-network --disable-static --enable-shared --enable-pic \
     --disable-avdevice --disable-avfilter --disable-swscale \

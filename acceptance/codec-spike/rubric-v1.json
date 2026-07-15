@@ -39,7 +39,8 @@
     "generateCorpus": "python3 scripts/codec_spike/generate_fixtures.py --output <private-dir> --lock <fixture-lock.json>",
     "serveCorpus": "CODEC_SPIKE_TOKEN=<secret> python3 scripts/codec_spike/range_harness.py --fixtures <private-dir> --lock <fixture-lock.json> --target <opaque-target> --ready-file <ready.json> --log <requests.jsonl>",
     "evaluateEvidence": "python3 scripts/codec_spike/evaluate_evidence.py <evidence.json> --output <evaluation.json>",
-    "validateContract": "python3 scripts/codec_spike/validate_contract.py"
+    "validateContract": "python3 scripts/codec_spike/validate_contract.py",
+    "validateLicenseAudit": "python3 scripts/codec_spike/validate_license_audit.py"
   },
   "requiredPairings": [
     "windows_windows",

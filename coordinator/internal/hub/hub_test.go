@@ -28,7 +28,7 @@ func TestPresencePlaybackStateIsClosedAndSanitized(t *testing.T) {
 }
 
 func websocketTestURL(raw string) string {
-	return "ws" + strings.TrimPrefix(raw, "http")
+	return "ws" + strings.TrimPrefix(raw, "http") + "/ws"
 }
 
 func registerWire(capabilities any) map[string]any {
@@ -138,6 +138,85 @@ func TestRegisterRejectsNonCanonicalCapabilities(t *testing.T) {
 				t.Fatalf("invalid capabilities close=%v", err)
 			}
 		})
+	}
+}
+
+func TestPendingRegistrationCapacityRejectsBeforeUpgradeAndRecovers(t *testing.T) {
+	h := New(slog.Default(), func(token string) (int64, string, bool) {
+		return 42, "a", token == "valid"
+	}, time.Second)
+	for i := 0; i < cap(h.registerSlots); i++ {
+		h.registerSlots <- struct{}{}
+	}
+	request := httptest.NewRequest(http.MethodGet, "/ws", nil)
+	request.Header.Set("Connection", "Upgrade")
+	request.Header.Set("Upgrade", "websocket")
+	response := httptest.NewRecorder()
+	h.HandleWS(response, request)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("saturated registration status=%d", response.Code)
+	}
+	if len(h.registerSlots) != maxPendingRegistrations {
+		t.Fatalf("rejected registration changed permits=%d", len(h.registerSlots))
+	}
+
+	<-h.registerSlots
+	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
+	defer server.Close()
+	connection, _, err := websocket.DefaultDialer.Dial(websocketTestURL(server.URL), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+	if err := connection.WriteJSON(registerWire([]any{})); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-h.Events:
+	case <-time.After(time.Second):
+		t.Fatal("registration did not recover after capacity returned")
+	}
+	if len(h.registerSlots) != maxPendingRegistrations-1 {
+		t.Fatalf("authenticated registration retained permit: %d", len(h.registerSlots))
+	}
+}
+
+func TestWebSocketRejectsCredentialBearingHTTPFraming(t *testing.T) {
+	h := New(slog.Default(), func(string) (int64, string, bool) {
+		t.Fatal("rejected HTTP framing reached credential lookup")
+		return 0, "", false
+	}, time.Second)
+	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
+	defer server.Close()
+
+	for name, headers := range map[string]http.Header{
+		"http bearer": {"Authorization": {"Bearer " + strings.Repeat("a", 64)}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, response, err := websocket.DefaultDialer.Dial(websocketTestURL(server.URL), headers)
+			if err == nil {
+				t.Fatal("invalid websocket framing upgraded")
+			}
+			if response == nil || response.StatusCode != http.StatusBadRequest {
+				t.Fatalf("rejection response=%v err=%v", response, err)
+			}
+			if len(h.registerSlots) != 0 {
+				t.Fatalf("rejected websocket leaked registration permit: %d", len(h.registerSlots))
+			}
+		})
+	}
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+"/ws?token=forbidden", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest || len(h.registerSlots) != 0 {
+		t.Fatalf("query-bearing websocket status=%d permits=%d", response.StatusCode, len(h.registerSlots))
 	}
 }
 

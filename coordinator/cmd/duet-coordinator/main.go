@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,63 +31,78 @@ import (
 // /pair endpoint (architecture: no throttle = code-spam / DB-exhaustion vector).
 type rateLimiter struct {
 	mu     sync.Mutex
-	hits   map[string][]int64
+	hits   map[string]rateLimitEntry
 	limit  int
 	window int64 // ms
+	cap    int
+	clock  uint64
+}
+
+type rateLimitEntry struct {
+	timestamps []int64
+	lastUsed   uint64
 }
 
 func newRateLimiter(limit int, window time.Duration) *rateLimiter {
-	return &rateLimiter{hits: map[string][]int64{}, limit: limit, window: window.Milliseconds()}
+	return &rateLimiter{
+		hits: map[string]rateLimitEntry{}, limit: limit,
+		window: window.Milliseconds(), cap: 4096,
+	}
 }
 
-// allow reports whether this IP may proceed, pruning stale hits.
+// allow reserves an attempt before returning. Rejected attempts therefore
+// advance the rolling window, while both per-key timestamps and attacker-
+// controlled source-key state remain bounded.
 func (rl *rateLimiter) allow(ip string) bool {
 	now := time.Now().UnixMilli()
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
+	rl.clock++
 	cut := now - rl.window
-	kept := rl.hits[ip][:0]
-	for _, t := range rl.hits[ip] {
+	entry, exists := rl.hits[ip]
+	kept := entry.timestamps[:0]
+	for _, t := range entry.timestamps {
 		if t > cut {
 			kept = append(kept, t)
 		}
 	}
-	if len(kept) >= rl.limit {
-		rl.hits[ip] = kept
-		return false
-	}
-	rl.hits[ip] = append(kept, now)
-	// Opportunistic map cleanup so idle IPs don't accumulate.
-	if len(rl.hits) > 4096 {
-		for k, v := range rl.hits {
-			if len(v) == 0 || v[len(v)-1] < cut {
-				delete(rl.hits, k)
+	if !exists && rl.cap > 0 && len(rl.hits) >= rl.cap {
+		var oldestKey string
+		oldest := ^uint64(0)
+		for candidate, current := range rl.hits {
+			if current.lastUsed < oldest {
+				oldestKey, oldest = candidate, current.lastUsed
 			}
 		}
+		delete(rl.hits, oldestKey)
 	}
-	return true
+	kept = append(kept, now)
+	if len(kept) > rl.limit+1 {
+		kept = kept[len(kept)-(rl.limit+1):]
+	}
+	entry.timestamps = kept
+	entry.lastUsed = rl.clock
+	rl.hits[ip] = entry
+	return len(kept) <= rl.limit
 }
 
 // clientIP is the rate-limit key. Behind the TLS-terminating proxy (prod)
 // RemoteAddr is the PROXY for every request — one shared bucket, so any
 // scanner posting junk starves all legitimate pairing (M3). With
-// trusted_proxy on, the proxy-appended headers name the real client:
-// X-Real-Ip, else the LAST X-Forwarded-For hop — the only entry OUR proxy
-// wrote; earlier ones are client-forgeable.
+// trusted_proxy on, only a plaintext connection from the configured loopback
+// TLS terminator may supply the canonical secure scheme plus proxy-appended
+// final X-Forwarded-For hop. A configuration flag alone never authenticates a
+// remote peer, and client-supplied X-Real-Ip is never an authority.
 func clientIP(r *http.Request, trustedProxy bool) string {
-	if trustedProxy {
-		if v := strings.TrimSpace(r.Header.Get("X-Real-Ip")); v != "" {
-			return v
-		}
-		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			parts := strings.Split(xff, ",")
-			if v := strings.TrimSpace(parts[len(parts)-1]); v != "" {
-				return v
-			}
+	peer := directPeerIP(r)
+	if trustedProxy && r.TLS == nil && peer != nil && peer.IsLoopback() &&
+		secureRequest(r, true) {
+		if forwarded, ok := forwardedClientIP(r); ok {
+			return forwarded
 		}
 	}
-	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		return host
+	if peer != nil {
+		return peer.String()
 	}
 	return r.RemoteAddr
 }
@@ -106,6 +120,18 @@ func rateLimit(rl *rateLimiter, trustedProxy bool, next http.HandlerFunc) http.H
 
 // version is stamped by the release build: -ldflags "-X main.version=vX.Y.Z".
 var version = "0.1.0-dev"
+
+func newCoordinatorHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       5 * time.Minute,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
+		MaxHeaderBytes:    32 << 10,
+	}
+}
 
 func main() {
 	configPath := flag.String("config", "/etc/duet/coordinator.yml", "path to coordinator.yml")
@@ -337,7 +363,7 @@ func main() {
 	go l.run(stop, h.Events)
 
 	log.Info("listening", "addr", cfg.Listen)
-	if err := http.ListenAndServe(cfg.Listen, mux); err != nil {
+	if err := newCoordinatorHTTPServer(cfg.Listen, mux).ListenAndServe(); err != nil {
 		log.Error("http server", "err", err)
 		os.Exit(1)
 	}

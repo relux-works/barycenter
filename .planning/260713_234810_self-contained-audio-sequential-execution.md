@@ -13,10 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-wy05n6` — p1-independent-security-review
-  (starting after migration engineering handoff)
+  (engineering audit in progress; external independence remains an Ivan Oparin
+  approval gate)
 - Next engineering task: `TASK-260712-2s4e9p` — store-listing-iarc-assets
 - Most recently accepted: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Current branch: `tracking/task-260712-1xkn75-migration-review`
+- Current branch: `task/task-260712-wy05n6-p1-independent-security-review`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run

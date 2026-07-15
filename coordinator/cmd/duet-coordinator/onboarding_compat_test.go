@@ -61,7 +61,7 @@ func TestSelfServiceFlagPreservesLegacyPairAndWebSocketRegistration(t *testing.T
 	h := hub.New(slog.Default(), lookup, time.Minute)
 	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
 	defer server.Close()
-	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
 	connection, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatal(err)

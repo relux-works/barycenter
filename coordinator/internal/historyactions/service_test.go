@@ -78,6 +78,14 @@ func newActionFixture(t *testing.T) actionFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := st.AcceptContentPolicy(store.AcceptContentPolicyParams{
+		ExpectedActorID: source.ActorID,
+		Identity:        store.Identity{Kind: store.IdentityBearer, Token: source.ControlToken},
+		Version:         store.CurrentContentPolicyVersion, PolicyHash: store.CurrentContentPolicyHash,
+		Locale: store.ContentPolicyLocaleEN, AcceptedAt: time.Now().UnixMilli(),
+	}); err != nil {
+		t.Fatal(err)
+	}
 	target, err := st.CreateSelfServiceOrbit("History action target")
 	if err != nil {
 		t.Fatal(err)

@@ -32,6 +32,7 @@ struct PhaseOneAppClientTests {
           JSONSerialization.jsonObject(with: request.httpBody!) as? [String: Any])
         #expect(object["kind"] as? String == "voice_clip")
         #expect(object["size_bytes"] as? Int == size)
+        #expect(object["rights_acknowledged"] as? Bool == true)
         return testHTTPResponse(
           request: request, status: 201,
           json: #"{"upload_id":"\#(uploadID)","media_id":"\#(mediaID)","upload_token":"\#(testNodeToken)","upload_offset":0,"upload_length":\#(size),"expires_at":"2026-07-15T00:00:00Z","status":"open"}"#)
@@ -100,10 +101,18 @@ struct PhaseOneAppClientTests {
     }
     let client = try PhaseOneAppClient(bundle: credentialBundle(), transport: transport)
 
+    await #expect(throws: PhaseOneClientError.invalidRequest) {
+      _ = try await client.upload(
+        fileURL: file,
+        title: "Pulsar recording",
+        idempotencyKey: "mac-upload-without-rights-000000000000000001",
+        rightsAcknowledged: false)
+    }
     let upload = try await client.upload(
       fileURL: file,
       title: "Pulsar recording",
-      idempotencyKey: "mac-upload-00000000000000000000000000000001")
+      idempotencyKey: "mac-upload-00000000000000000000000000000001",
+      rightsAcknowledged: true)
     #expect(upload.mediaID == mediaID)
     let receipt = try await client.transmit(
       mediaID: mediaID,
@@ -133,6 +142,64 @@ struct PhaseOneAppClientTests {
     #expect(block == .init(outcome: "sender_blocked"))
     try await client.deleteMedia(mediaID)
     #expect(transport.requests().count == 9)
+  }
+
+  @Test("Versioned RU and EN content policy is displayed before exact server-owned acceptance")
+  func versionedContentPolicyConsent() async throws {
+    let policyHash = "a4d59ec7e9bfd8aeb2ec5d84356517580bde8df4540e6a2162f9206cd7ecd30e"
+    let localeHash = "a25d1b46b530fb64f18224618701f67ed80ace9ce5c1b1cfb1a7c3d70a1988ca"
+    let index = PhaseOneRequestIndex()
+    let transport = ScriptedTransport { request, _ in
+      switch index.next() {
+      case 0:
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.path == "/v1/content-policy")
+        #expect(request.url?.query == "locale=en")
+        return testHTTPResponse(
+          request: request, status: 200,
+          json: #"{"contract":"p2-content-policy-consent.v1","version":"1.0","policy_hash":"\#(policyHash)","locale":"en","locale_hash":"\#(localeHash)","effective_at":"2026-07-13T20:00:00Z","terms_url":"https://barycenter.live/legal/terms","content_guidelines_url":"https://barycenter.live/legal/content-guidelines","title":"Upload and sharing rights","rights_text":"Only content with rights. Acceptance does not prove ownership.","consent_text":"I accept the current Terms and Content Guidelines.","controlling_language":"en"}"#)
+      case 1:
+        #expect(request.httpMethod == "PUT")
+        #expect(request.url?.path == "/v1/content-policy/acceptance")
+        let object = try #require(
+          JSONSerialization.jsonObject(with: request.httpBody!) as? [String: Any])
+        #expect(object["version"] as? String == "1.0")
+        #expect(object["policy_hash"] as? String == policyHash)
+        #expect(object["locale"] as? String == "en")
+        #expect(object["terms_accepted"] as? Bool == true)
+        return testHTTPResponse(
+          request: request, status: 200,
+          json: #"{"contract":"p2-content-policy-consent.v1","version":"1.0","policy_hash":"\#(policyHash)","locale":"en","accepted_at":"2026-07-16T12:00:00Z","revision":1,"current":true,"terms_accepted":true}"#)
+      case 2:
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.path == "/v1/content-policy/acceptance")
+        return testHTTPResponse(
+          request: request, status: 200,
+          json: #"{"contract":"p2-content-policy-consent.v1","version":"1.0","policy_hash":"\#(policyHash)","locale":"en","accepted_at":"2026-07-16T12:00:00Z","revision":1,"current":true,"terms_accepted":true}"#)
+      case 3:
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.url?.path == "/v1/content-policy/acceptance")
+        #expect(request.url?.query == "locale=en")
+        return testHTTPResponse(
+          request: request, status: 200,
+          json: #"{"contract":"p2-content-policy-consent.v1","version":"1.0","policy_hash":"\#(policyHash)","locale":"en","accepted_at":"2026-07-16T12:00:00Z","revoked_at":"2026-07-16T12:01:00Z","revision":2,"current":false,"terms_accepted":true}"#)
+      default:
+        Issue.record("unexpected content-policy request")
+        return testHTTPResponse(request: request, status: 500, json: "{}")
+      }
+    }
+    let client = try PhaseOneAppClient(bundle: credentialBundle(), transport: transport)
+    let policy = try await client.contentPolicy(locale: .en)
+    #expect(policy.policyHash == policyHash)
+    #expect(policy.termsURL.absoluteString == "https://barycenter.live/legal/terms")
+    #expect(policy.rightsText.contains("does not prove ownership"))
+    let grant = try await client.acceptContentPolicy(policy)
+    #expect(grant.current && grant.termsAccepted && grant.revision == 1)
+    let current = try await client.currentContentPolicyGrant()
+    #expect(current == grant)
+    let revoked = try await client.revokeContentPolicy(locale: .en)
+    #expect(!revoked.current && revoked.revokedAt != nil && revoked.revision == 2)
+    #expect(transport.requests().count == 4)
   }
 
   @Test("Redirects and self-test upload attempts are rejected before false success")

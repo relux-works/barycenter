@@ -38,6 +38,38 @@ const (
 	PhaseOneFile       PhaseOneOriginKind = "file"
 )
 
+type ContentPolicyLocale string
+
+const (
+	ContentPolicyEN ContentPolicyLocale = "en"
+	ContentPolicyRU ContentPolicyLocale = "ru"
+)
+
+type ContentPolicyManifest struct {
+	Version              string
+	PolicyHash           string
+	Locale               ContentPolicyLocale
+	LocaleHash           string
+	EffectiveAt          time.Time
+	TermsURL             string
+	ContentGuidelinesURL string
+	Title                string
+	RightsText           string
+	ConsentText          string
+	ControllingLanguage  string
+}
+
+type ContentPolicyGrant struct {
+	Version       string
+	PolicyHash    string
+	Locale        ContentPolicyLocale
+	AcceptedAt    time.Time
+	RevokedAt     *time.Time
+	Revision      int64
+	Current       bool
+	TermsAccepted bool
+}
+
 type PhaseOneUploadConfirmation struct {
 	MediaID string
 	Reused  bool
@@ -153,7 +185,11 @@ func (e *PhaseOneClientError) GoString() string {
 }
 
 type PhaseOneAppService interface {
-	Upload(context.Context, string, string, string) (PhaseOneUploadConfirmation, error)
+	Upload(context.Context, string, string, string, bool) (PhaseOneUploadConfirmation, error)
+	ContentPolicy(context.Context, ContentPolicyLocale) (ContentPolicyManifest, error)
+	CurrentContentPolicyGrant(context.Context) (ContentPolicyGrant, error)
+	AcceptContentPolicy(context.Context, ContentPolicyManifest) (ContentPolicyGrant, error)
+	RevokeContentPolicy(context.Context, ContentPolicyLocale) (ContentPolicyGrant, error)
 	Transmit(context.Context, string, PhaseOneRoute, PhaseOneDelivery, PhaseOneOriginKind, string, *PhaseOneFallbackConfirmation) (PhaseOneTransmissionReceipt, error)
 	DeleteMedia(context.Context, string) error
 	Presence(context.Context) ([]PhaseOnePresenceNode, error)
@@ -195,17 +231,18 @@ func NewPhaseOneAppClient(bundle CredentialBundle, doer HTTPDoer) (*PhaseOneAppC
 func (c *PhaseOneAppClient) String() string   { return "PhaseOneAppClient{<redacted>}" }
 func (c *PhaseOneAppClient) GoString() string { return c.String() }
 
-func (c *PhaseOneAppClient) Upload(ctx context.Context, filePath, title, idempotencyKey string) (PhaseOneUploadConfirmation, error) {
+func (c *PhaseOneAppClient) Upload(ctx context.Context, filePath, title, idempotencyKey string, rightsAcknowledged bool) (PhaseOneUploadConfirmation, error) {
 	title = strings.TrimSpace(title)
 	info, err := os.Stat(filePath)
-	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || !validPhaseOneDisplayText(title, 512, false) || !validPhaseOneIdempotencyKey(idempotencyKey) {
+	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || !validPhaseOneDisplayText(title, 512, false) || !validPhaseOneIdempotencyKey(idempotencyKey) || !rightsAcknowledged {
 		return PhaseOneUploadConfirmation{}, phaseOneError(PhaseOneInvalidRequest)
 	}
 	body := struct {
-		Kind      string `json:"kind"`
-		Title     string `json:"title"`
-		SizeBytes int64  `json:"size_bytes"`
-	}{"voice_clip", title, info.Size()}
+		Kind               string `json:"kind"`
+		Title              string `json:"title"`
+		SizeBytes          int64  `json:"size_bytes"`
+		RightsAcknowledged bool   `json:"rights_acknowledged"`
+	}{"voice_clip", title, info.Size(), rightsAcknowledged}
 	raw, _, err := c.requestJSON(ctx, http.MethodPost, "/v1/media/uploads", c.token,
 		map[string]string{"Idempotency-Key": idempotencyKey}, body, http.StatusOK, http.StatusCreated)
 	if err != nil {
@@ -251,6 +288,62 @@ func (c *PhaseOneAppClient) Upload(ctx context.Context, filePath, title, idempot
 		return PhaseOneUploadConfirmation{}, phaseOneError(PhaseOneInvalidResponse)
 	}
 	return PhaseOneUploadConfirmation{MediaID: completed.MediaID, Reused: session.Reused}, nil
+}
+
+func (c *PhaseOneAppClient) ContentPolicy(ctx context.Context, locale ContentPolicyLocale) (ContentPolicyManifest, error) {
+	if locale != ContentPolicyEN && locale != ContentPolicyRU {
+		return ContentPolicyManifest{}, phaseOneError(PhaseOneInvalidRequest)
+	}
+	raw, _, err := c.request(ctx, http.MethodGet, "/v1/content-policy?locale="+string(locale), c.token, nil, nil, true, http.StatusOK)
+	if err != nil {
+		return ContentPolicyManifest{}, err
+	}
+	return decodeContentPolicy(raw, locale)
+}
+
+func (c *PhaseOneAppClient) AcceptContentPolicy(ctx context.Context, manifest ContentPolicyManifest) (ContentPolicyGrant, error) {
+	if !validContentPolicyVersion(manifest.Version) || !validContentPolicyHash(manifest.PolicyHash) ||
+		(manifest.Locale != ContentPolicyEN && manifest.Locale != ContentPolicyRU) {
+		return ContentPolicyGrant{}, phaseOneError(PhaseOneInvalidRequest)
+	}
+	body := struct {
+		Version       string `json:"version"`
+		PolicyHash    string `json:"policy_hash"`
+		Locale        string `json:"locale"`
+		TermsAccepted bool   `json:"terms_accepted"`
+	}{manifest.Version, manifest.PolicyHash, string(manifest.Locale), true}
+	raw, _, err := c.requestJSON(ctx, http.MethodPut, "/v1/content-policy/acceptance", c.token, nil, body, http.StatusOK)
+	if err != nil {
+		return ContentPolicyGrant{}, err
+	}
+	return decodeContentPolicyGrant(raw, manifest.Locale, manifest.Version, manifest.PolicyHash)
+}
+
+func (c *PhaseOneAppClient) CurrentContentPolicyGrant(ctx context.Context) (ContentPolicyGrant, error) {
+	raw, _, err := c.request(ctx, http.MethodGet, "/v1/content-policy/acceptance", c.token, nil, nil, true, http.StatusOK)
+	if err != nil {
+		return ContentPolicyGrant{}, err
+	}
+	var response contentPolicyGrantResponse
+	if decodePhaseOneJSON(raw, &response) != nil {
+		return ContentPolicyGrant{}, phaseOneError(PhaseOneInvalidResponse)
+	}
+	locale := ContentPolicyLocale(response.Locale)
+	if locale != ContentPolicyEN && locale != ContentPolicyRU {
+		return ContentPolicyGrant{}, phaseOneError(PhaseOneInvalidResponse)
+	}
+	return decodeContentPolicyGrant(raw, locale, "", "")
+}
+
+func (c *PhaseOneAppClient) RevokeContentPolicy(ctx context.Context, locale ContentPolicyLocale) (ContentPolicyGrant, error) {
+	if locale != ContentPolicyEN && locale != ContentPolicyRU {
+		return ContentPolicyGrant{}, phaseOneError(PhaseOneInvalidRequest)
+	}
+	raw, _, err := c.request(ctx, http.MethodDelete, "/v1/content-policy/acceptance?locale="+string(locale), c.token, nil, nil, true, http.StatusOK)
+	if err != nil {
+		return ContentPolicyGrant{}, err
+	}
+	return decodeContentPolicyGrant(raw, locale, "", "")
 }
 
 func (c *PhaseOneAppClient) Transmit(ctx context.Context, mediaID string, route PhaseOneRoute, delivery PhaseOneDelivery, originKind PhaseOneOriginKind, idempotencyKey string, fallback *PhaseOneFallbackConfirmation) (PhaseOneTransmissionReceipt, error) {
@@ -589,6 +682,79 @@ func validPhaseOneIdempotencyKey(value string) bool {
 	return true
 }
 
+func validContentPolicyVersion(value string) bool {
+	return len(value) >= 1 && len(value) <= 32 && strings.TrimSpace(value) == value
+}
+
+func validContentPolicyHash(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, character := range value {
+		if !(character >= '0' && character <= '9' || character >= 'a' && character <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func decodeContentPolicy(raw []byte, expected ContentPolicyLocale) (ContentPolicyManifest, error) {
+	var response contentPolicyResponse
+	if decodePhaseOneJSON(raw, &response) != nil || response.Contract != "p2-content-policy-consent.v1" ||
+		!validContentPolicyVersion(response.Version) || !validContentPolicyHash(response.PolicyHash) ||
+		!validContentPolicyHash(response.LocaleHash) || ContentPolicyLocale(response.Locale) != expected ||
+		response.ControllingLanguage != "en" ||
+		!validPhaseOneDisplayText(response.Title, 512, false) ||
+		!validPhaseOneDisplayText(response.RightsText, 4_096, false) ||
+		!validPhaseOneDisplayText(response.ConsentText, 4_096, false) ||
+		response.TermsURL != "https://barycenter.live/legal/terms" ||
+		response.ContentGuidelinesURL != "https://barycenter.live/legal/content-guidelines" {
+		return ContentPolicyManifest{}, phaseOneError(PhaseOneInvalidResponse)
+	}
+	effectiveAt, err := time.Parse(time.RFC3339, response.EffectiveAt)
+	if err != nil {
+		return ContentPolicyManifest{}, phaseOneError(PhaseOneInvalidResponse)
+	}
+	return ContentPolicyManifest{
+		Version: response.Version, PolicyHash: response.PolicyHash,
+		Locale: expected, LocaleHash: response.LocaleHash, EffectiveAt: effectiveAt,
+		TermsURL: response.TermsURL, ContentGuidelinesURL: response.ContentGuidelinesURL,
+		Title: response.Title, RightsText: response.RightsText, ConsentText: response.ConsentText,
+		ControllingLanguage: response.ControllingLanguage,
+	}, nil
+}
+
+func decodeContentPolicyGrant(raw []byte, locale ContentPolicyLocale, version, hash string) (ContentPolicyGrant, error) {
+	var response contentPolicyGrantResponse
+	if decodePhaseOneJSON(raw, &response) != nil || response.Contract != "p2-content-policy-consent.v1" ||
+		!validContentPolicyVersion(response.Version) || !validContentPolicyHash(response.PolicyHash) ||
+		(version != "" && response.Version != version) || (hash != "" && response.PolicyHash != hash) ||
+		ContentPolicyLocale(response.Locale) != locale || response.Revision <= 0 {
+		return ContentPolicyGrant{}, phaseOneError(PhaseOneInvalidResponse)
+	}
+	acceptedAt, err := time.Parse(time.RFC3339, response.AcceptedAt)
+	if err != nil {
+		return ContentPolicyGrant{}, phaseOneError(PhaseOneInvalidResponse)
+	}
+	var revokedAt *time.Time
+	if response.RevokedAt != "" {
+		parsed, parseErr := time.Parse(time.RFC3339, response.RevokedAt)
+		if parseErr != nil {
+			return ContentPolicyGrant{}, phaseOneError(PhaseOneInvalidResponse)
+		}
+		revokedAt = &parsed
+	}
+	if response.Current != (response.TermsAccepted && revokedAt == nil) {
+		return ContentPolicyGrant{}, phaseOneError(PhaseOneInvalidResponse)
+	}
+	return ContentPolicyGrant{
+		Version: response.Version, PolicyHash: response.PolicyHash,
+		Locale: locale, AcceptedAt: acceptedAt, RevokedAt: revokedAt,
+		Revision: response.Revision, Current: response.Current,
+		TermsAccepted: response.TermsAccepted,
+	}, nil
+}
+
 func validPhaseOnePublicID(value, prefix string) bool {
 	if !strings.HasPrefix(value, prefix) || len(value) != len(prefix)+26 {
 		return false
@@ -678,6 +844,33 @@ type phaseOneUploadSession struct {
 	UploadLength int64  `json:"upload_length"`
 	Status       string `json:"status"`
 	Reused       bool   `json:"reused"`
+}
+
+type contentPolicyResponse struct {
+	Contract             string `json:"contract"`
+	Version              string `json:"version"`
+	PolicyHash           string `json:"policy_hash"`
+	Locale               string `json:"locale"`
+	LocaleHash           string `json:"locale_hash"`
+	EffectiveAt          string `json:"effective_at"`
+	TermsURL             string `json:"terms_url"`
+	ContentGuidelinesURL string `json:"content_guidelines_url"`
+	Title                string `json:"title"`
+	RightsText           string `json:"rights_text"`
+	ConsentText          string `json:"consent_text"`
+	ControllingLanguage  string `json:"controlling_language"`
+}
+
+type contentPolicyGrantResponse struct {
+	Contract      string `json:"contract"`
+	Version       string `json:"version"`
+	PolicyHash    string `json:"policy_hash"`
+	Locale        string `json:"locale"`
+	AcceptedAt    string `json:"accepted_at"`
+	RevokedAt     string `json:"revoked_at"`
+	Revision      int64  `json:"revision"`
+	Current       bool   `json:"current"`
+	TermsAccepted bool   `json:"terms_accepted"`
 }
 
 type phaseOneTransmissionResponse struct {

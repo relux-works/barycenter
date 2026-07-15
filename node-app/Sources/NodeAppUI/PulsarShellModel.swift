@@ -516,7 +516,7 @@ public final class PulsarShellActions {
     private let onAcceptLocalFile: (URL) -> Void
     private let onDeleteLocalDraft: () -> Void
     private let onCloseSelfTest: () -> Void
-    private let onSendDraft: (String, PulsarRouteTarget, PulsarDeliveryMode) -> Void
+    private let onSendDraft: (String, PulsarRouteTarget, PulsarDeliveryMode, Bool) -> Void
     private let onDeleteOutgoingDraft: (String) -> Void
     private let onRefreshPhaseOneData: () -> Void
     private let onHistoryAction: (String, PulsarHistoryActionRequest) -> Void
@@ -553,7 +553,7 @@ public final class PulsarShellActions {
         acceptLocalFile: @escaping @MainActor (URL) -> Void = { _ in },
         deleteLocalDraft: @escaping @MainActor () -> Void = {},
         closeSelfTest: @escaping @MainActor () -> Void = {},
-        sendDraft: @escaping @MainActor (String, PulsarRouteTarget, PulsarDeliveryMode) -> Void = { _, _, _ in },
+        sendDraft: @escaping @MainActor (String, PulsarRouteTarget, PulsarDeliveryMode, Bool) -> Void = { _, _, _, _ in },
         deleteOutgoingDraft: @escaping @MainActor (String) -> Void = { _ in },
         refreshPhaseOneData: @escaping @MainActor () -> Void = {},
         historyAction: @escaping @MainActor (String, PulsarHistoryActionRequest) -> Void = { _, _ in },
@@ -631,8 +631,9 @@ public final class PulsarShellActions {
     public func sendDraft(
         _ id: String,
         route: PulsarRouteTarget,
-        delivery: PulsarDeliveryMode
-    ) { onSendDraft(id, route, delivery) }
+        delivery: PulsarDeliveryMode,
+        rightsAcknowledged: Bool
+    ) { onSendDraft(id, route, delivery, rightsAcknowledged) }
     public func deleteOutgoingDraft(_ id: String) { onDeleteOutgoingDraft(id) }
     public func refreshPhaseOneData() { onRefreshPhaseOneData() }
     public func performHistoryAction(_ id: String, action: PulsarHistoryAction) {
@@ -684,7 +685,7 @@ public enum PulsarShellText: String, CaseIterable, Sendable {
     case dndAllowAll, dndMessagesOnly, dndMutedUntil
     case recordingIdle, recordingActive, recordingProcessing, recordingFailed
     case unpairedHelp, degradedHelp, recordingHelp, quit
-    case outgoingDrafts, routeTarget, deliveryMode, send, retry, refresh
+    case outgoingDrafts, routeTarget, deliveryMode, uploadRightsConfirm, send, retry, refresh
     case thisPulsar, ownBarycenter, currentAir, overlay, interrupt, afterCurrent
     case requestedDelivery, effectiveDelivery, coordinatorFailure, blockSender, replay, deleteHistory
     case report, reportReason, reportDetails, submitReport, cancel, confirmDelete, confirmBlock
@@ -926,6 +927,7 @@ public struct PulsarShellCopy: Sendable {
         .recordingHelp: "Recording is active. The Stop control remains available in this window and the menu bar.",
         .quit: "Quit Pulsar",
         .outgoingDrafts: "Ready to send", .routeTarget: "Send to",
+        .uploadRightsConfirm: "I created this content or have the rights, permissions, and recording consents to send it to every selected recipient.",
         .deliveryMode: "Delivery", .send: "Send", .retry: "Retry", .refresh: "Refresh",
         .thisPulsar: "This Pulsar", .ownBarycenter: "My Barycenter",
         .currentAir: "Current air", .overlay: "Play over current audio",
@@ -997,6 +999,7 @@ public struct PulsarShellCopy: Sendable {
         .recordingHelp: "Запись активна. Кнопка остановки остаётся доступна в этом окне и в строке меню.",
         .quit: "Выйти из Пульсара",
         .outgoingDrafts: "Готово к отправке", .routeTarget: "Отправить в",
+        .uploadRightsConfirm: "Я создал(а) этот материал либо имею права, разрешения и согласия на запись, чтобы отправить его каждому выбранному получателю.",
         .deliveryMode: "Доставка", .send: "Отправить", .retry: "Повторить", .refresh: "Обновить",
         .thisPulsar: "Этот Пульсар", .ownBarycenter: "Мой Барицентр",
         .currentAir: "Текущий эфир", .overlay: "Поверх текущего звука",

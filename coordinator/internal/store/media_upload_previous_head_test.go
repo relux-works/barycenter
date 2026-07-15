@@ -45,6 +45,7 @@ func TestMediaUploadExactPreviousHeadRollback(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().UnixMilli()
+	acceptCurrentContentPolicy(t, current, credentials, now-1)
 	params := authorizedUploadParams(
 		credentials, now, "current-upload-before-rollback-0001", 8,
 	)
@@ -92,6 +93,13 @@ func TestMediaUploadExactPreviousHeadRollback(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer current.Close()
+	grant, err := current.RequireCurrentContentPolicy(credentials.ActorID, Identity{
+		Kind: IdentityBearer, Token: credentials.ControlToken,
+	})
+	if err != nil || !grant.Current || grant.Version != CurrentContentPolicyVersion ||
+		grant.PolicyHash != CurrentContentPolicyHash {
+		t.Fatalf("content policy grant after exact predecessor=%+v err=%v", grant, err)
+	}
 	advanced, err := current.GetMediaUploadSession(created.Session.ID)
 	if err != nil || advanced == nil || advanced.ReceivedSizeBytes != 3 ||
 		advanced.TempCleanedAt != 0 || advanced.Status != UploadStatusOpen {

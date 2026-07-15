@@ -86,6 +86,7 @@ func readyTransmissionHTTPMediaKind(
 	kind store.MediaKind,
 ) store.MediaItem {
 	t.Helper()
+	acceptContentPolicyStore(t, harness, credentials, now-1)
 	item, err := harness.store.CreateMediaItem(store.CreateMediaItemParams{
 		OwnerOrbitID: credentials.OrbitID, ActorID: credentials.ActorID,
 		Kind: kind, Source: store.MediaSourceApp,

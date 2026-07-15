@@ -151,6 +151,10 @@ func openWithOptionsAndCheckpoint(path string, opts Options, checkpoint func(str
 		db.Close()
 		return nil, fmt.Errorf("store: init transmission schema: %w", err)
 	}
+	if err := s.initContentPolicySchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init content policy schema: %w", err)
+	}
 	if err := s.initModerationSchema(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: init moderation schema: %w", err)

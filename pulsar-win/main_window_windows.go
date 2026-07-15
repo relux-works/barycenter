@@ -848,7 +848,7 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 				actions.SelectNextPhaseOneDelivery()
 			}
 		case idShellSend:
-			if actions.SendSelectedDraft != nil {
+			if actions.SendSelectedDraft != nil && confirmWindowsUploadRights(hwnd, ctx.shell.Locale()) {
 				actions.SendSelectedDraft()
 			}
 		case idShellPhaseDelete:
@@ -1036,6 +1036,20 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 	}
 	result, _, _ := pDefWindowProcW.Call(uintptr(hwnd), uintptr(message), wParam, lParam)
 	return result
+}
+
+func confirmWindowsUploadRights(owner windows.Handle, locale ShellLocale) bool {
+	title := "Upload and sharing rights"
+	body := "Terms acceptance (when the server requires a new version):\nhttps://barycenter.live/legal/terms\nhttps://barycenter.live/legal/content-guidelines\n\nSeparate per-upload rights confirmation:\nSend only content you created or have the rights, permissions, and recording consents to share with every selected recipient. This confirmation does not prove ownership or replace those rights.\n\nAccept the current policy if needed and continue this upload?"
+	if locale == ShellRussian {
+		title = "Права на загрузку и передачу"
+		body = "Принятие условий (если сервер требует новую версию):\nhttps://barycenter.live/legal/terms\nhttps://barycenter.live/legal/content-guidelines\n\nОтдельное подтверждение для этой загрузки:\nОтправляйте только материал, который вы создали либо на передачу которого каждому выбранному получателю у вас есть права, разрешения и согласия на запись. Это подтверждение не доказывает право собственности и не заменяет такие права.\n\nПри необходимости принять текущую версию и продолжить загрузку?"
+	}
+	result, _, _ := pMessageBoxW.Call(
+		uintptr(owner), uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(body))),
+		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(title))), 0x00000004|0x00000030,
+	)
+	return result == 6
 }
 
 func windowsDroppedAudioFile(drop uintptr) (WindowsBrokeredAudioFile, bool) {

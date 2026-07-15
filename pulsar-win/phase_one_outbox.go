@@ -170,7 +170,7 @@ func (o *PhaseOneDraftOutbox) Snapshots() []PhaseOneDraftSnapshot {
 	return result
 }
 
-func (o *PhaseOneDraftOutbox) Send(ctx context.Context, draftID string, route PhaseOneRoute, delivery PhaseOneDelivery, originKind PhaseOneOriginKind) (PhaseOneDraftSnapshot, error) {
+func (o *PhaseOneDraftOutbox) Send(ctx context.Context, draftID string, route PhaseOneRoute, delivery PhaseOneDelivery, originKind PhaseOneOriginKind, rightsAcknowledged bool) (PhaseOneDraftSnapshot, error) {
 	if o == nil || !validPhaseOneRoute(route) || !validPhaseOneDelivery(delivery) ||
 		(originKind != PhaseOneMicrophone && originKind != PhaseOneFile) {
 		return PhaseOneDraftSnapshot{}, ErrPhaseOneInvalidDraft
@@ -205,6 +205,9 @@ func (o *PhaseOneDraftOutbox) Send(ctx context.Context, draftID string, route Ph
 	}()
 
 	if record.MediaID == "" {
+		if !rightsAcknowledged {
+			return o.fail(draftID, record, "rights_acknowledgement_required", ErrPhaseOneInvalidDraft)
+		}
 		o.mu.Lock()
 		handle, exists := o.handles[draftID]
 		if !exists {
@@ -219,7 +222,7 @@ func (o *PhaseOneDraftOutbox) Send(ctx context.Context, draftID string, route Ph
 		}
 		o.mu.Unlock()
 
-		confirmation, err := o.service.Upload(ctx, handle.Path, record.Title, record.UploadKey)
+		confirmation, err := o.service.Upload(ctx, handle.Path, record.Title, record.UploadKey, rightsAcknowledged)
 		if err != nil {
 			return o.fail(draftID, record, phaseOneFailureCode(err), err)
 		}

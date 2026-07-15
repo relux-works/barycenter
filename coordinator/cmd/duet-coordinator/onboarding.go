@@ -47,6 +47,7 @@ const (
 	errorBlockNotFound           = "block_not_found"
 	errorHistoryNotFound         = "history_not_found"
 	errorHistoryCursorInvalid    = "history_cursor_invalid"
+	errorContentPolicyAcceptance = "content_policy_acceptance_required"
 	errorAirNotFound             = "air_not_found"
 	errorAirMembershipNotFound   = "membership_not_found"
 	errorAirInviteUnavailable    = "invite_unavailable"
@@ -125,6 +126,7 @@ func apiError(w http.ResponseWriter, status int, code string, retry time.Duratio
 		errorBlockNotFound:           "The block was not found.",
 		errorHistoryNotFound:         "The history item was not found.",
 		errorHistoryCursorInvalid:    "The history cursor is invalid or expired.",
+		errorContentPolicyAcceptance: "Accept the current content policy before this action.",
 		errorAirNotFound:             "The Air was not found.",
 		errorAirMembershipNotFound:   "The Air membership was not found.",
 		errorAirInviteUnavailable:    "The Air invite is unavailable.",
@@ -265,6 +267,7 @@ type onboardingAPI struct {
 	recoveryID             *attemptLimiter
 	rotateActor            *attemptLimiter
 	linkActor              *attemptLimiter
+	contentPolicyNow       func() time.Time
 	mediaUploadDir         string
 	mediaUploadQuota       store.MediaUploadQuota
 	mediaUploadNow         func() time.Time
@@ -305,6 +308,7 @@ func newOnboardingAPIBase(st *store.Store, cfg *config.Config, log *slog.Logger,
 		recoveryID:       newAttemptLimiter(10, 15*time.Minute, 10_000),
 		rotateActor:      newAttemptLimiter(10, time.Hour, 0),
 		linkActor:        newAttemptLimiter(10, time.Hour, 0),
+		contentPolicyNow: time.Now,
 		mediaUploadQuota: store.DefaultMediaUploadQuota(),
 		mediaUploadNow:   time.Now,
 		transmissionNow:  time.Now,
@@ -390,6 +394,8 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/recovery/rotate", api.secure(api.withControl(api.rotateRecovery)))
 	mux.HandleFunc("/v1/actor/context", api.secure(api.withActor(api.actorContext)))
 	mux.HandleFunc("/v1/telegram-links", api.secure(api.withControl(api.telegramLinks)))
+	mux.HandleFunc("/v1/content-policy", api.secure(api.withActor(api.contentPolicy)))
+	mux.HandleFunc("/v1/content-policy/acceptance", api.secure(api.withActor(api.contentPolicyAcceptance)))
 	mux.HandleFunc("/v1/media/uploads", api.secure(api.withControl(api.createMediaUpload)))
 	mux.HandleFunc("/v1/media/uploads/", api.secure(api.writeMediaUpload))
 	mux.HandleFunc("/v1/media/", api.secure(api.withActor(api.mediaItem)))

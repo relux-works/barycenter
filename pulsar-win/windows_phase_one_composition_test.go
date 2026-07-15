@@ -47,7 +47,8 @@ func TestWindowsPhaseOneCompositionProjectsCanonicalDataAndSendsDurableDraft(t *
 	}
 	historyID := "hi_" + strings.Repeat("D", 26)
 	service := &phaseOneFakeService{
-		presence: []PhaseOnePresenceNode{{Slot: "a", Online: true, OutputState: "ready", PlaybackState: "playing", EffectiveDND: "allow_all"}},
+		policyRequired: true,
+		presence:       []PhaseOnePresenceNode{{Slot: "a", Online: true, OutputState: "ready", PlaybackState: "playing", EffectiveDND: "allow_all"}},
 		history: PhaseOneHistoryPage{Items: []PhaseOneHistoryItem{{
 			ID: historyID, Title: "Team update", SenderName: "Ivan", Direction: "received", Status: "played",
 			RequestedDelivery: "overlay", EffectiveDelivery: "after_current", PlayedCount: 1,
@@ -96,6 +97,12 @@ func TestWindowsPhaseOneCompositionProjectsCanonicalDataAndSendsDurableDraft(t *
 	}
 	if _, err := os.Stat(draft.Path); !os.IsNotExist(err) {
 		t.Fatalf("confirmed upload retained bytes: %v", err)
+	}
+	service.mu.Lock()
+	policyDisplays, policyAccepts := service.policyDisplays, service.policyAccepts
+	service.mu.Unlock()
+	if policyDisplays != 1 || policyAccepts != 1 {
+		t.Fatalf("policy display=%d accepts=%d", policyDisplays, policyAccepts)
 	}
 }
 

@@ -78,6 +78,7 @@ func TestTransmissionTargetReferencesAreOpaqueCredentialBoundAndGenerationSafe(t
 	other.IdempotencyKeyHash = strings.Repeat("7", 64)
 	other.RequestHash = strings.Repeat("8", 64)
 	other.AcceptedAt++
+	acceptCurrentContentPolicy(t, st, companion, other.AcceptedAt-1)
 	if _, err := st.CreateResolvedTransmission(other); !errors.Is(err, ErrTransmissionAudienceNotFound) {
 		t.Fatalf("cross-credential reference error=%v", err)
 	}

@@ -207,9 +207,10 @@ func (api *onboardingAPI) createMediaUpload(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	var req struct {
-		Kind      string `json:"kind"`
-		Title     string `json:"title"`
-		SizeBytes int64  `json:"size_bytes"`
+		Kind               string `json:"kind"`
+		Title              string `json:"title"`
+		SizeBytes          int64  `json:"size_bytes"`
+		RightsAcknowledged bool   `json:"rights_acknowledged"`
 	}
 	if !decodeBoundedJSON(w, r, 1024, &req) ||
 		(req.Kind != string(store.MediaKindVoiceClip) && req.Kind != string(store.MediaKindAudioClip)) ||
@@ -218,6 +219,10 @@ func (api *onboardingAPI) createMediaUpload(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	req.Title = strings.TrimSpace(req.Title)
+	if !req.RightsAcknowledged {
+		apiError(w, http.StatusPreconditionRequired, errorContentPolicyAcceptance, 0)
+		return
+	}
 	now := api.mediaUploadNow()
 	if !api.mediaUploadStorageReady(w, now) {
 		return
@@ -271,6 +276,8 @@ func (api *onboardingAPI) mediaUploadCreationError(w http.ResponseWriter, err er
 		apiError(w, http.StatusTooManyRequests, errorUploadQuota, 0)
 	case errors.Is(err, store.ErrMediaIdempotencyMismatch):
 		apiError(w, http.StatusConflict, errorUploadStateConflict, 0)
+	case errors.Is(err, store.ErrContentPolicyAcceptanceRequired):
+		apiError(w, http.StatusPreconditionRequired, errorContentPolicyAcceptance, 0)
 	case errors.Is(err, store.ErrMediaInvalid), errors.Is(err, store.ErrMediaOwnerInvalid):
 		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
 	default:

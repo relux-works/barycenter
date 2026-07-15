@@ -120,11 +120,34 @@ def validate(contract: dict[str, Any]) -> None:
     require(deletion.get("deletedDisabledOrExpiredFetch") == "404 nonexistence surface", "terminal fetch oracle introduced")
 
     policy = contract.get("contentPolicy", {})
+    require(policy.get("contract") == "p2-content-policy-consent.v1", "content policy contract changed")
+    require(policy.get("currentVersion") == "1.0", "content policy version changed")
+    require(policy.get("currentPolicyHash") ==
+            "a4d59ec7e9bfd8aeb2ec5d84356517580bde8df4540e6a2162f9206cd7ecd30e",
+            "content policy binary hash changed")
+    require(set(policy.get("localeHashes", {})) == {"en", "ru"}, "content policy locale set changed")
+    require(policy.get("controllingLanguage") == "en", "controlling language changed")
+    require(policy.get("termsURL") == "https://barycenter.live/legal/terms", "terms URL changed")
+    require(policy.get("contentGuidelinesURL") ==
+            "https://barycenter.live/legal/content-guidelines", "guidelines URL changed")
     require(policy.get("currentVersionOwnedByServer") is True and policy.get("clientTimestampTrusted") is False,
             "content policy authority moved to client")
     require(set(policy.get("requiredFor", [])) == {
         "user media upload", "create transmission", "manual replay"
     }, "content policy gate coverage changed")
+    for key in (
+        "termsAcceptanceSeparateFromPerUploadRightsReminder",
+        "telegramAudioDocumentCheckedBeforeDownload",
+        "legacyTelegramVoicePolicyUnchanged",
+    ):
+        require(policy.get(key) is True, f"content policy invariant disabled: {key}")
+    require(policy.get("contentFilenameOrRawTransportIDStored") is False,
+            "content policy grant stores content metadata")
+    require(policy.get("acceptanceProvesOwnershipOrLegalValidity") is False,
+            "content policy makes an ownership claim")
+    require(set(policy.get("surfaces", [])) == {
+        "coordinator HTTP", "Windows", "macOS", "Telegram"
+    }, "content policy surface parity changed")
 
     moderation = contract.get("moderation", {})
     require(moderation.get("reportRoute").startswith("reuse POST /v1/history"), "parallel report route introduced")

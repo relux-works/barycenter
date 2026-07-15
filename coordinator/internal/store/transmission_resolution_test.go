@@ -301,6 +301,7 @@ func TestAirPolicyAuthorizationSnapshotsAndNeverExpandsAcceptedWork(t *testing.T
 	}
 	media := readyLifecycleMedia(t, st, companion, now+10,
 		now+int64((7*24*time.Hour)/time.Millisecond))
+	acceptCurrentContentPolicy(t, st, companion, now+19)
 	params := resolvedTransmissionParams(companion, media, now+20)
 	params.Availability = []TransmissionTargetAvailability{
 		fullTransmissionAvailability(owner, params.AcceptedAt),

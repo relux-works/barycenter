@@ -102,7 +102,7 @@ func decodeObject(t *testing.T, recorder *httptest.ResponseRecorder) map[string]
 	return value
 }
 
-func createViaAPI(t *testing.T, harness onboardingHarness) map[string]any {
+func createViaAPIWithoutContentPolicy(t *testing.T, harness onboardingHarness) map[string]any {
 	t.Helper()
 	recorder := apiRequest(harness.mux, http.MethodPost, "/v1/onboarding/orbits",
 		`{"title":"Home","installation_attempt_id":"install_attempt_0001"}`, "")
@@ -110,6 +110,13 @@ func createViaAPI(t *testing.T, harness onboardingHarness) map[string]any {
 		t.Fatalf("create status=%d response_bytes=%d", recorder.Code, recorder.Body.Len())
 	}
 	return decodeObject(t, recorder)
+}
+
+func createViaAPI(t *testing.T, harness onboardingHarness) map[string]any {
+	t.Helper()
+	created := createViaAPIWithoutContentPolicy(t, harness)
+	acceptContentPolicyHTTP(t, harness, created["control_token"].(string), "en")
+	return created
 }
 
 func TestOnboardingHTTPCreateContextAndSecretRedaction(t *testing.T) {

@@ -263,13 +263,51 @@
     "alreadyOpenBoundedChunk": "may finish; grants no new open or refill"
   },
   "contentPolicy": {
+    "contract": "p2-content-policy-consent.v1",
+    "currentVersion": "1.0",
+    "currentPolicyHash": "a4d59ec7e9bfd8aeb2ec5d84356517580bde8df4540e6a2162f9206cd7ecd30e",
+    "localeHashes": {
+      "en": "a25d1b46b530fb64f18224618701f67ed80ace9ce5c1b1cfb1a7c3d70a1988ca",
+      "ru": "4726df3e447674a5d6a87a34a5f05363c53604a80da3c1d6e69a3f9c05f41082"
+    },
+    "controllingLanguage": "en",
+    "termsURL": "https://barycenter.live/legal/terms",
+    "contentGuidelinesURL": "https://barycenter.live/legal/content-guidelines",
+    "displayRoute": "GET /v1/content-policy?locale=en|ru",
+    "currentGrantRoute": "GET /v1/content-policy/acceptance",
+    "acceptRoute": "PUT /v1/content-policy/acceptance",
+    "revokeRoute": "DELETE /v1/content-policy/acceptance?locale=en|ru",
     "grantKey": "actor_id plus policy_version",
+    "persistedFields": [
+      "actor_id",
+      "orbit_id",
+      "policy_version",
+      "policy_hash",
+      "locale",
+      "accepted_via",
+      "terms_accepted",
+      "accepted_at",
+      "revoked_at",
+      "revision"
+    ],
+    "contentFilenameOrRawTransportIDStored": false,
     "currentVersionOwnedByServer": true,
     "clientTimestampTrusted": false,
+    "termsAcceptanceSeparateFromPerUploadRightsReminder": true,
+    "perUploadRightsAcknowledgementField": "rights_acknowledged=true",
+    "acceptanceProvesOwnershipOrLegalValidity": false,
     "requiredFor": [
       "user media upload",
       "create transmission",
       "manual replay"
+    ],
+    "telegramAudioDocumentCheckedBeforeDownload": true,
+    "legacyTelegramVoicePolicyUnchanged": true,
+    "surfaces": [
+      "coordinator HTTP",
+      "Windows",
+      "macOS",
+      "Telegram"
     ],
     "missingOrStale": "428 content_policy_acceptance_required",
     "policyUpgradeInvalidatesOldGrantForNewActions": true,

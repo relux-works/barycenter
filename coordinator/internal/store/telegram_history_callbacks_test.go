@@ -28,6 +28,7 @@ func newTelegramHistoryFixture(t *testing.T) telegramHistoryFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
+	acceptCurrentContentPolicy(t, st, source, time.Now().UnixMilli())
 	recipient, err := st.CreateSelfServiceOrbit("History callback recipient")
 	if err != nil {
 		t.Fatal(err)

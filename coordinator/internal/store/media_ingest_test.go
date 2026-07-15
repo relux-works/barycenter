@@ -26,6 +26,7 @@ func newMediaIngestTestStore(t *testing.T) (*Store, OnboardingCredentials) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	acceptCurrentContentPolicy(t, store, credentials, time.Now().UnixMilli())
 	return store, credentials
 }
 

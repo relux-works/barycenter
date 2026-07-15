@@ -194,6 +194,7 @@ func TestAuthorizedMediaUploadConcurrentIdempotencyHasOneResultAndToken(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
+	acceptCurrentContentPolicy(t, first, credentials, time.Now().UnixMilli())
 	second, err := OpenWithOptions(path, Options{SelfServiceOnboarding: true})
 	if err != nil {
 		t.Fatal(err)
@@ -252,6 +253,7 @@ func TestAuthorizedMediaUploadConcurrentQuotaHasOneReservation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	acceptCurrentContentPolicy(t, first, credentials, time.Now().UnixMilli())
 	second, err := OpenWithOptions(path, Options{SelfServiceOnboarding: true})
 	if err != nil {
 		t.Fatal(err)

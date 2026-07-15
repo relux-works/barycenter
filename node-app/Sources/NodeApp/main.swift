@@ -487,8 +487,10 @@ func configureShell() {
         acceptLocalFile: { macCaptureComposition?.acceptFile($0) },
         deleteLocalDraft: { macCaptureComposition?.deleteLocalDraft() },
         closeSelfTest: { macCaptureComposition?.closeSelfTest() },
-        sendDraft: { id, route, delivery in
-            macPhaseOneComposition?.send(draftID: id, route: route, delivery: delivery)
+        sendDraft: { id, route, delivery, rightsAcknowledged in
+            macPhaseOneComposition?.send(
+                draftID: id, route: route, delivery: delivery,
+                rightsAcknowledged: rightsAcknowledged)
         },
         deleteOutgoingDraft: { id in macPhaseOneComposition?.delete(draftID: id) },
         refreshPhaseOneData: { macPhaseOneComposition?.refresh(force: true) },

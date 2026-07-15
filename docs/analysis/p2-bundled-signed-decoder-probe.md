@@ -63,7 +63,10 @@ GitHub-hosted macOS ARM64, macOS Intel and Windows x64 runners. Windows compiles
 the same allowlist with UCRT MinGW, runs the same lifecycle/hostile harness,
 Authenticode-signs every staged PE binary with an ephemeral CI-only certificate,
 then builds and verifies a test-signed MSIX. Its receipt records every payload
-hash and signature state. These are engineering signatures, never release
+hash and signature state. The Windows job installs that MSIX under temporary
+CurrentUser trust, decodes a frozen MP3 fixture from the installed package with
+network capabilities absent, validates resource bounds, uninstalls the package
+and removes temporary trust. These are engineering signatures, never release
 credentials.
 
 ## Reproduction

@@ -52,7 +52,8 @@ $Certificate = New-SelfSignedCertificate -Type Custom -Subject $Publisher -Frien
     -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
 $CertificateFile = Join-Path $BuildRoot "codec-probe-ci-signer.cer"
 $null = Export-Certificate -Cert $Certificate -FilePath $CertificateFile
-$TrustedCertificate = Import-Certificate -FilePath $CertificateFile -CertStoreLocation "Cert:\CurrentUser\Root"
+$TrustedCertificate = Import-Certificate -FilePath $CertificateFile -CertStoreLocation "Cert:\CurrentUser\TrustedPeople"
+$InstalledPackage = $null
 try {
     $Binaries = @(Get-ChildItem $PackageStage -File | Where-Object { $_.Extension -in ".dll", ".exe" })
     foreach ($Binary in $Binaries) {
@@ -67,6 +68,19 @@ try {
     & $SignTool verify /pa /all $Package
     if ($LASTEXITCODE -ne 0) { throw "MSIX signature verification failed" }
 
+    Add-AppxPackage -Path $Package
+    $InstalledPackage = Get-AppxPackage -Name "ReluxWorksLLC.PulsarCodecProbe" | Select-Object -First 1
+    if (-not $InstalledPackage) { throw "test-signed codec MSIX did not install" }
+    $InstalledDriver = Join-Path $InstalledPackage.InstallLocation "pulsar-codec-probe.exe"
+    $OfflineFixture = Join-Path $RepoRoot "acceptance\codec-spike\fixtures\smoke-v1\mp3_cbr_12s.mp3"
+    $DecodeJSON = & $InstalledDriver $OfflineFixture
+    if ($LASTEXITCODE -ne 0) { throw "installed offline decode failed" }
+    $Decode = $DecodeJSON | ConvertFrom-Json
+    if ($Decode.codec -cne "mp3" -or -not $Decode.drained -or $Decode.frames -le 0 -or
+        $Decode.peakRSSBytes -le 0 -or $Decode.peakRSSBytes -gt 268435456) {
+        throw "installed offline decode returned invalid evidence"
+    }
+
     $Files = foreach ($File in Get-ChildItem $PackageStage -File -Recurse | Sort-Object FullName) {
         $Signature = if ($File.Extension -in ".dll", ".exe") { (Get-AuthenticodeSignature $File.FullName).Status.ToString() } else { "not-applicable" }
         [ordered]@{ path = $File.FullName.Substring($PackageStage.Length + 1).Replace("\", "/"); bytes = $File.Length; sha256 = (Get-FileHash $File.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); signature = $Signature }
@@ -77,11 +91,13 @@ try {
         packageSha256 = (Get-FileHash $Package -Algorithm SHA256).Hash.ToLowerInvariant();
         engineeringSignature = "ephemeral-ci-test-certificate"; releaseSignature = "not-proven";
         runtimeExecutableDownload = $false; decoderProcessOwnsNetwork = $false; files = @($Files);
+        offlineInstalledDecode = $true; installedDecode = $Decode;
         shippingDecision = "rejected-until-all-required-platform-and-release-evidence-exists";
         claimClass = "repository-engineering-prototype"
     } | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 (Join-Path $OutputDirectory "receipt-windows-amd64.json")
 } finally {
+    if ($InstalledPackage) { Remove-AppxPackage -Package $InstalledPackage.PackageFullName -ErrorAction SilentlyContinue }
     Remove-Item -Force "Cert:\CurrentUser\My\$($Certificate.Thumbprint)" -ErrorAction SilentlyContinue
-    Remove-Item -Force "Cert:\CurrentUser\Root\$($TrustedCertificate.Thumbprint)" -ErrorAction SilentlyContinue
+    Remove-Item -Force "Cert:\CurrentUser\TrustedPeople\$($TrustedCertificate.Thumbprint)" -ErrorAction SilentlyContinue
     Remove-Item -Force $CertificateFile -ErrorAction SilentlyContinue
 }

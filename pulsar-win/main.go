@@ -201,6 +201,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	} else {
 		phaseOne = configured
 	}
+	var airs *WindowsAirComposition
+	if configured, airErr := newProductionWindowsAirComposition(dir); airErr != nil {
+		log.Error("Air app data unavailable")
+	} else {
+		airs = configured
+	}
 	presenceStore := NewNodePresenceStore(filepath.Join(dir, "node-presence.v1.json"), log)
 	player.ConfigureTransmissionHooks(mediaClips, presenceStore)
 	player.Start()
@@ -311,6 +317,11 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		if phaseOne != nil {
 			phaseOne.ApplyShellSnapshot(&snapshot)
 		}
+		if airs != nil {
+			airs.ApplyShellSnapshot(&snapshot)
+		} else {
+			snapshot.AirFailure = "credential_unavailable"
+		}
 		return snapshot
 	}, ShellActions{
 		TryLocally:         workflow.TryLocally,
@@ -390,6 +401,90 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 				phaseOne.BlockSelectedHistoryActor()
 			}
 		},
+		SelectNextAir: func() {
+			if airs != nil {
+				airs.SelectNextAir()
+			}
+		},
+		CreateAir: func(title string) {
+			if airs != nil {
+				airs.Create(title)
+			}
+		},
+		ConsumeAirInvite: func(code string) {
+			if airs != nil {
+				airs.ConsumeInvite(code)
+			}
+		},
+		ConfirmAirJoin: func(activate bool) {
+			if airs != nil {
+				airs.ConfirmJoin(activate)
+			}
+		},
+		DeclineAirJoin: func() {
+			if airs != nil {
+				airs.DeclineJoin()
+			}
+		},
+		SelectNextAirInviteRole: func() {
+			if airs != nil {
+				airs.SelectNextInviteRole()
+			}
+		},
+		IssueAirInvite: func() {
+			if airs != nil {
+				airs.IssueInvite()
+			}
+		},
+		CopyAirInvite: func() {
+			if airs != nil {
+				if copyAirInviteToClipboard(airs.InviteCode()) {
+					airs.setOutcome("clipboard_copied")
+				} else {
+					airs.setFailure("clipboard_failed")
+				}
+			}
+		},
+		HideAirInvite: func() {
+			if airs != nil {
+				airs.HideInvite()
+			}
+		},
+		WithdrawAirInvite: func() {
+			if airs != nil {
+				airs.WithdrawInvite()
+			}
+		},
+		RequestAirActivation: func() {
+			if airs != nil {
+				airs.RequestActivate()
+			}
+		},
+		RequestAirLeave: func() {
+			if airs != nil {
+				airs.RequestLeave()
+			}
+		},
+		RequestAirDissolve: func() {
+			if airs != nil {
+				airs.RequestDissolve()
+			}
+		},
+		CycleAirPolicy: func() {
+			if airs != nil {
+				airs.CyclePolicy()
+			}
+		},
+		ConfirmAirDisruptive: func() {
+			if airs != nil {
+				airs.ConfirmDisruptive()
+			}
+		},
+		CancelAirDisruptive: func() {
+			if airs != nil {
+				airs.CancelDisruptive()
+			}
+		},
 	})
 
 	shortcutStore := WindowsRecordingShortcutStore{Path: filepath.Join(dir, "recording-shortcut.v1.json")}
@@ -420,6 +515,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	awaitShutdown(tray, quit)
 	if phaseOne != nil {
 		phaseOne.Close()
+	}
+	if airs != nil {
+		airs.Close()
 	}
 	workflow.Shutdown()
 	drainContext, cancelRecordingDrain := context.WithTimeout(context.Background(), 5*time.Second)

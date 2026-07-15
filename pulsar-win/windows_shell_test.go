@@ -19,7 +19,7 @@ func TestWindowsShellCatalogAndInformationArchitecture(t *testing.T) {
 			}
 		}
 	}
-	want := []ShellSection{ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellSettings}
+	want := []ShellSection{ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellAirs, ShellSettings}
 	if !reflect.DeepEqual(shellSections, want) {
 		t.Fatalf("sections=%v want %v", shellSections, want)
 	}
@@ -59,6 +59,8 @@ func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
 		`setText(ctx.reportLabel, "Details (optional)")`, `setText(ctx.reportLabel, "Детали (необязательно)")`,
 		"showControl(ctx.historyDelete, historyPage && hasHistory && selectedHistory.CanDelete)",
 		"showControl(ctx.historyReport, historyPage && hasHistory && selectedHistory.CanReport)",
+		"idShellAirs", "idShellAirConfirm", "esPassword", "windowText(ctx.airCode)",
+		"showControl(ctx.airConfirm, airPage && confirming)", "pGetDpiForWindow", "ctx.laidOutSection != section",
 	} {
 		if !strings.Contains(nativeText, seam) {
 			t.Errorf("native shell missing %q", seam)
@@ -235,6 +237,20 @@ func TestWindowsShellDPIContracts(t *testing.T) {
 	}
 }
 
+func TestWindowsAirControlsRemainReachableAtSupportedDPI(t *testing.T) {
+	for _, dpi := range []int{96, 120, 144, 192} {
+		layout := layoutWindowsShell(dip(900, dpi), dip(760, dpi), dpi)
+		layout.Body.Height = dip(210, dpi)
+		controls := layoutWindowsAirControls(layout.Content, layout.Body.Bottom(), dpi)
+		for index, rect := range controls.Rects() {
+			if rect.X < layout.Content.X || rect.Right() > layout.Content.Right() || rect.Y < layout.Content.Y ||
+				rect.Bottom() > layout.Client.Bottom() || rect.Width < dip(80, dpi) || rect.Height < dip(34, dpi) {
+				t.Fatalf("dpi %d Air control %d unreachable: %+v in %+v", dpi, index, rect, layout)
+			}
+		}
+	}
+}
+
 func TestWindowsShellKeyboardContractIsUnique(t *testing.T) {
 	seen := map[string]bool{}
 	commands := map[string]bool{}
@@ -255,6 +271,65 @@ func TestWindowsShellKeyboardContractIsUnique(t *testing.T) {
 	for _, required := range []string{"open", "section", "record", "dnd"} {
 		if !commands[required] {
 			t.Fatalf("missing %s shortcut", required)
+		}
+	}
+}
+
+func TestWindowsAirProjectionIsLocalizedHonestAndOpaque(t *testing.T) {
+	airID := "air_" + strings.Repeat("A", 26)
+	snapshot := ShellSnapshot{Airs: []ShellAirItem{{
+		AirID: airID, Title: "Family room", Status: "active", Role: AirRoleOwner,
+		MembershipStatus: AirJoined, MemberCount: 2, ActiveMemberCount: 1, OnlinePulsarCount: 3,
+		Capacity: AirCapacity{Barycenters: 8, OnlinePulsars: 16}, Current: true,
+		Policy: AirPolicy{Revision: 2, Invite: AirInviteOwnerPrimary, Overlay: AirPlaybackAdminPrimary, Queue: AirPlaybackAdminPrimary, Replace: AirPlaybackAllMemberPrimarys},
+	}}, AirInviteAvailable: true, AirConfirmAction: "dissolve"}
+	for _, locale := range []ShellLocale{ShellEnglish, ShellRussian} {
+		projection := NewShellCopy(locale).Body(ShellAirs, snapshot)
+		for _, required := range []string{"Family room", "2", "8", "3", "16"} {
+			if !strings.Contains(projection, required) {
+				t.Errorf("%s missing %q: %q", locale, required, projection)
+			}
+		}
+		for _, forbidden := range []string{airID, "aim_", "ai_", "secret"} {
+			if strings.Contains(projection, forbidden) {
+				t.Errorf("%s leaked %q: %q", locale, forbidden, projection)
+			}
+		}
+		if !strings.Contains(projection, "[!]") {
+			t.Errorf("%s confirmation lacks textual warning: %q", locale, projection)
+		}
+	}
+	if !airInviteAllowed(snapshot.Airs[0]) {
+		t.Fatal("owner lost invite action")
+	}
+	member := snapshot.Airs[0]
+	member.Role = AirRoleMember
+	if airInviteAllowed(member) {
+		t.Fatal("member bypassed owner-only invite policy")
+	}
+}
+
+func TestWindowsAirSnapshotNormalizesSelectionAndInviteRole(t *testing.T) {
+	shell := NewWindowsShell(ShellEnglish, func() ShellSnapshot {
+		return ShellSnapshot{SelectedAir: 99, AirInviteRole: AirRoleOwner, Airs: []ShellAirItem{{Title: "Room"}}}
+	}, ShellActions{})
+	got := shell.Snapshot()
+	if got.SelectedAir != 0 || got.AirInviteRole != AirRoleMember {
+		t.Fatalf("normalized=%+v", got)
+	}
+}
+
+func TestWindowsAirCopyCoversFrozenLifecycleFailures(t *testing.T) {
+	codes := []string{"invite_unavailable", "air_barycenter_capacity_reached", "air_online_pulsar_capacity_reached",
+		"revision_conflict", "active_air_changed", "air_dissolved", "already_member", "membership_confirmation_required",
+		"owner_transfer_required", "policy_denied", "coordinator_unavailable", "unauthenticated"}
+	for _, locale := range []ShellLocale{ShellEnglish, ShellRussian} {
+		copy := NewShellCopy(locale)
+		for _, code := range codes {
+			message := copy.AirActionMessage(code)
+			if strings.TrimSpace(message) == "" || strings.Contains(message, code) {
+				t.Errorf("%s code %s has unsafe/missing copy %q", locale, code, message)
+			}
 		}
 	}
 }

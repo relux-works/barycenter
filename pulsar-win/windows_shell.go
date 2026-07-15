@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 type ShellLocale string
@@ -22,11 +23,12 @@ const (
 	ShellJoin       ShellSection = "join"
 	ShellTryLocally ShellSection = "try_locally"
 	ShellHistory    ShellSection = "history"
+	ShellAirs       ShellSection = "airs"
 	ShellSettings   ShellSection = "settings"
 )
 
 var shellSections = []ShellSection{
-	ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellSettings,
+	ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellAirs, ShellSettings,
 }
 
 type ShellConnection string
@@ -95,6 +97,33 @@ type ShellPhaseOneHistoryItem struct {
 	CanBlock          bool
 }
 
+type ShellAirItem struct {
+	AirID              string
+	Title              string
+	Status             string
+	Revision           int64
+	MembershipStatus   AirMembershipStatus
+	MembershipRevision int64
+	Role               AirRole
+	MemberCount        int
+	ActiveMemberCount  int
+	OnlinePulsarCount  int
+	Capacity           AirCapacity
+	Policy             AirPolicy
+	Current            bool
+}
+
+type ShellPendingAirJoin struct {
+	AirID                 string
+	Title                 string
+	OwnerDisplayName      string
+	Role                  AirRole
+	MembershipRevision    int64
+	MemberCount           int
+	Capacity              AirCapacity
+	ActivationWouldSwitch bool
+}
+
 type ShellSnapshot struct {
 	Connection               ShellConnection
 	ConnectionDetail         string
@@ -136,6 +165,17 @@ type ShellSnapshot struct {
 	SelectedReportReason     PhaseOneModerationReason
 	PhaseOneActionOutcome    string
 	PhaseOneFailure          string
+	Airs                     []ShellAirItem
+	SelectedAir              int
+	PendingAirJoin           *ShellPendingAirJoin
+	AirInviteAvailable       bool
+	AirInviteExpires         time.Time
+	AirInviteRole            AirRole
+	AirAvailable             bool
+	AirBusy                  bool
+	AirConfirmAction         string
+	AirOutcome               string
+	AirFailure               string
 }
 
 func (s ShellSnapshot) normalized() ShellSnapshot {
@@ -211,6 +251,12 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 	if !validPhaseOneModerationReason(s.SelectedReportReason) {
 		s.SelectedReportReason = PhaseOneReportSpam
 	}
+	if s.SelectedAir < 0 || s.SelectedAir >= len(s.Airs) {
+		s.SelectedAir = 0
+	}
+	if s.AirInviteRole != AirRoleAdmin {
+		s.AirInviteRole = AirRoleMember
+	}
 	return s
 }
 
@@ -240,6 +286,22 @@ type ShellActions struct {
 	ReportSelectedHistoryItem  func(string)
 	ReplaySelectedHistoryItem  func()
 	BlockSelectedHistoryActor  func()
+	SelectNextAir              func()
+	CreateAir                  func(string)
+	ConsumeAirInvite           func(string)
+	ConfirmAirJoin             func(bool)
+	DeclineAirJoin             func()
+	SelectNextAirInviteRole    func()
+	IssueAirInvite             func()
+	CopyAirInvite              func()
+	HideAirInvite              func()
+	WithdrawAirInvite          func()
+	RequestAirActivation       func()
+	RequestAirLeave            func()
+	RequestAirDissolve         func()
+	CycleAirPolicy             func()
+	ConfirmAirDisruptive       func()
+	CancelAirDisruptive        func()
 }
 
 type WindowsShell struct {
@@ -304,6 +366,7 @@ const (
 	txtJoin                 shellText = "join"
 	txtTry                  shellText = "try"
 	txtHistory              shellText = "history"
+	txtAirs                 shellText = "airs"
 	txtSettings             shellText = "settings"
 	txtOpen                 shellText = "open"
 	txtPrimary              shellText = "primary"
@@ -372,7 +435,7 @@ const (
 )
 
 var shellTextKeys = []shellText{
-	txtApp, txtHome, txtCreate, txtJoin, txtTry, txtHistory, txtSettings, txtOpen,
+	txtApp, txtHome, txtCreate, txtJoin, txtTry, txtHistory, txtAirs, txtSettings, txtOpen,
 	txtPrimary, txtStatus, txtPresence, txtRouting, txtNowPlaying, txtLocalControls,
 	txtNoHistory, txtNoRoute, txtSilence, txtVolume, txtDND, txtRecording,
 	txtStartRecording, txtStopRecording, txtCancelRecording, txtRecordingUnavailable, txtSelfTestUnavailable,
@@ -407,7 +470,7 @@ func (c ShellCopy) Text(key shellText) string {
 func (c ShellCopy) Section(section ShellSection) string {
 	return c.Text(map[ShellSection]shellText{
 		ShellHome: txtHome, ShellCreate: txtCreate, ShellJoin: txtJoin,
-		ShellTryLocally: txtTry, ShellHistory: txtHistory, ShellSettings: txtSettings,
+		ShellTryLocally: txtTry, ShellHistory: txtHistory, ShellAirs: txtAirs, ShellSettings: txtSettings,
 	}[section])
 }
 
@@ -506,6 +569,8 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 			body += "\r\n\r\n[!] " + c.PhaseOneActionMessage(snapshot.PhaseOneFailure)
 		}
 		return body
+	case ShellAirs:
+		return c.AirProjection(snapshot)
 	case ShellSettings:
 		return c.Text(txtLanguage) + "\r\n\r\n" + c.Text(txtDND) + ": " + c.DND(snapshot.DND) +
 			"\r\n" + c.Text(txtVolume) + fmt.Sprintf(": %d%%", snapshot.Volume) +
@@ -665,6 +730,195 @@ func (c ShellCopy) PhaseOneActionMessage(code string) string {
 	return "The action failed. Try again."
 }
 
+func (c ShellCopy) AirProjection(snapshot ShellSnapshot) string {
+	var body string
+	if snapshot.PendingAirJoin != nil {
+		pending := snapshot.PendingAirJoin
+		if c.locale == ShellRussian {
+			body = "Ожидает подтверждения: " + pending.Title + fmt.Sprintf("\r\nУчастники: %d из %d · роль: %s", pending.MemberCount, pending.Capacity.Barycenters, c.AirRole(pending.Role))
+		} else {
+			body = "Pending confirmation: " + pending.Title + fmt.Sprintf("\r\nMembers: %d of %d · role: %s", pending.MemberCount, pending.Capacity.Barycenters, c.AirRole(pending.Role))
+		}
+		if pending.OwnerDisplayName != "" {
+			if c.locale == ShellRussian {
+				body += "\r\nВладелец: " + pending.OwnerDisplayName
+			} else {
+				body += "\r\nOwner: " + pending.OwnerDisplayName
+			}
+		}
+		if pending.ActivationWouldSwitch {
+			if c.locale == ShellRussian {
+				body += "\r\nАктивация сменит текущий эфир и требует отдельного подтверждения."
+			} else {
+				body += "\r\nActivation will switch the current Air and requires separate confirmation."
+			}
+		}
+	} else if len(snapshot.Airs) == 0 {
+		if c.locale == ShellRussian {
+			body = "Нет сохранённых эфиров. Создайте эфир или введите одноразовое приглашение."
+		} else {
+			body = "No saved Airs. Create one or enter a one-time invite."
+		}
+	} else {
+		air := snapshot.Airs[snapshot.SelectedAir]
+		current := ""
+		if air.Current {
+			if c.locale == ShellRussian {
+				current = " · текущий"
+			} else {
+				current = " · current"
+			}
+		}
+		if c.locale == ShellRussian {
+			body = fmt.Sprintf("%d из %d: %s%s\r\nРоль: %s · участников %d из %d, активны %d · Пульсаров онлайн %d из %d",
+				snapshot.SelectedAir+1, len(snapshot.Airs), air.Title, current, c.AirRole(air.Role),
+				air.MemberCount, air.Capacity.Barycenters, air.ActiveMemberCount, air.OnlinePulsarCount, air.Capacity.OnlinePulsars)
+			body += "\r\nПолитики: приглашения " + c.AirInvitePolicy(air.Policy.Invite) + " · поверх " + c.AirPlaybackPolicy(air.Policy.Overlay) + " · очередь " + c.AirPlaybackPolicy(air.Policy.Queue) + " · замена " + c.AirPlaybackPolicy(air.Policy.Replace)
+		} else {
+			body = fmt.Sprintf("%d of %d: %s%s\r\nRole: %s · %d of %d members, %d active · %d of %d Pulsars online",
+				snapshot.SelectedAir+1, len(snapshot.Airs), air.Title, current, c.AirRole(air.Role),
+				air.MemberCount, air.Capacity.Barycenters, air.ActiveMemberCount, air.OnlinePulsarCount, air.Capacity.OnlinePulsars)
+			body += "\r\nPolicies: invite " + c.AirInvitePolicy(air.Policy.Invite) + " · overlay " + c.AirPlaybackPolicy(air.Policy.Overlay) + " · queue " + c.AirPlaybackPolicy(air.Policy.Queue) + " · replace " + c.AirPlaybackPolicy(air.Policy.Replace)
+		}
+		if air.Current {
+			playing := snapshot.NowPlaying
+			if playing == "" {
+				playing = c.Text(txtSilence)
+			}
+			if c.locale == ShellRussian {
+				body += "\r\nТекущее воспроизведение: " + playing + ". Смена или отключение эфира меняет Air-маршрутизацию."
+			} else {
+				body += "\r\nCurrent playback: " + playing + ". Switching or deactivating changes Air routing."
+			}
+		}
+	}
+	if snapshot.AirInviteAvailable {
+		expires := ""
+		if !snapshot.AirInviteExpires.IsZero() {
+			expires = snapshot.AirInviteExpires.Local().Format("2006-01-02 15:04 MST")
+		}
+		if c.locale == ShellRussian {
+			body += "\r\n\r\n[!] Одноразовое приглашение готово. Явно скопируйте или скройте его; в журнал и подписи оно не попадает."
+			if expires != "" {
+				body += " Срок: " + expires + "."
+			}
+		} else {
+			body += "\r\n\r\n[!] One-time invite ready. Explicitly copy or hide it; it is excluded from logs and labels."
+			if expires != "" {
+				body += " Expires: " + expires + "."
+			}
+		}
+	}
+	if snapshot.AirBusy {
+		if c.locale == ShellRussian {
+			body += "\r\n\r\n[~] Обновление эфира…"
+		} else {
+			body += "\r\n\r\n[~] Updating Air…"
+		}
+	}
+	if snapshot.AirConfirmAction != "" {
+		body += "\r\n\r\n[!] " + c.AirConfirmation(snapshot.AirConfirmAction)
+	}
+	if snapshot.AirOutcome != "" {
+		body += "\r\n\r\n[+] " + c.AirActionMessage(snapshot.AirOutcome)
+	}
+	if snapshot.AirFailure != "" {
+		body += "\r\n\r\n[!] " + c.AirActionMessage(snapshot.AirFailure)
+	}
+	return body
+}
+
+func (c ShellCopy) AirRole(role AirRole) string {
+	en := map[AirRole]string{AirRoleOwner: "owner", AirRoleAdmin: "admin", AirRoleMember: "member"}
+	ru := map[AirRole]string{AirRoleOwner: "владелец", AirRoleAdmin: "администратор", AirRoleMember: "участник"}
+	if c.locale == ShellRussian {
+		return ru[role]
+	}
+	return en[role]
+}
+
+func (c ShellCopy) AirInvitePolicy(policy AirInvitePolicy) string {
+	en := map[AirInvitePolicy]string{AirInviteOwnerPrimary: "owner", AirInviteAdminPrimary: "admins", AirInviteAllMemberPrimarys: "all members"}
+	ru := map[AirInvitePolicy]string{AirInviteOwnerPrimary: "владелец", AirInviteAdminPrimary: "администраторы", AirInviteAllMemberPrimarys: "все участники"}
+	if c.locale == ShellRussian {
+		return ru[policy]
+	}
+	return en[policy]
+}
+
+func (c ShellCopy) AirPlaybackPolicy(policy AirPlaybackPolicy) string {
+	en := map[AirPlaybackPolicy]string{AirPlaybackOwnerPrimary: "owner", AirPlaybackAdminPrimary: "admins", AirPlaybackAllMemberPrimarys: "all members", AirPlaybackPrimaryCompanion: "primary companion", AirPlaybackDisabled: "disabled"}
+	ru := map[AirPlaybackPolicy]string{AirPlaybackOwnerPrimary: "владелец", AirPlaybackAdminPrimary: "администраторы", AirPlaybackAllMemberPrimarys: "все участники", AirPlaybackPrimaryCompanion: "компаньон primary", AirPlaybackDisabled: "выключено"}
+	if c.locale == ShellRussian {
+		return ru[policy]
+	}
+	return en[policy]
+}
+
+func (c ShellCopy) AirConfirmation(action string) string {
+	en := map[string]string{"switch": "Confirm switching the active Air. Current playback authority changes immediately.", "deactivate": "Confirm deactivating this Air. Current Air playback stops.", "leave": "Confirm leaving this Air. Its saved history remains governed by server policy.", "dissolve": "Confirm dissolving this Air for every member. This cannot be undone.", "join_switch": "Confirm joining and switching the active Air."}
+	ru := map[string]string{"switch": "Подтвердите смену активного эфира. Источник управления воспроизведением изменится сразу.", "deactivate": "Подтвердите отключение эфира. Текущее воспроизведение эфира остановится.", "leave": "Подтвердите выход из эфира. История остаётся под политикой сервера.", "dissolve": "Подтвердите роспуск эфира для всех участников. Это необратимо.", "join_switch": "Подтвердите присоединение и смену активного эфира."}
+	if c.locale == ShellRussian {
+		return ru[action]
+	}
+	return en[action]
+}
+
+func (c ShellCopy) AirActionMessage(code string) string {
+	en := map[string]string{
+		"created": "Air created and saved.", "invite_reviewed": "Invite accepted for review; confirm before joining.",
+		"join_confirmed": "Air membership confirmed.", "join_declined": "Pending membership declined.",
+		"invite_issued": "One-time invite created.", "invite_withdrawn": "Invite withdrawn.",
+		"activated": "Active Air changed.", "deactivated": "Air deactivated.", "left": "You left the Air.",
+		"dissolved": "Air dissolved.", "policy_updated": "Air policy updated.",
+		"membership_confirmation_required": "Review the pending membership first.",
+		"invite_unavailable":               "This invite is expired, used, withdrawn, or unavailable. Ask for a new one.",
+		"air_barycenter_capacity_reached":  "This Air already has eight Barycenters.", "air_online_pulsar_capacity_reached": "Activation would exceed the online Pulsar capacity.",
+		"revision_conflict":  "The Air changed elsewhere. The latest state is being loaded.",
+		"active_air_changed": "The active Air changed elsewhere. Review the latest state.", "air_dissolved": "This Air was dissolved.",
+		"already_member": "This identity already has a saved or pending membership.", "owner_transfer_required": "Transfer ownership or dissolve the Air before leaving.",
+		"air_parked": "This Air is saved but not active for playback.", "policy_denied": "The current Air policy denies this action.",
+		"idempotency_conflict": "This retry key was already used for a different Air action.", "membership_not_found": "This membership is no longer available.", "air_not_found": "This Air is no longer available.",
+		"coordinator_unavailable": "Cannot reach the coordinator. Check the connection and try again.",
+		"credential_unavailable":  "Air management is unavailable until this installation has an active control identity.",
+		"invalid_request":         "Check the title or invite and try again.", "invalid_response": "The coordinator returned an invalid Air response.",
+		"redirect_rejected": "A redirected Air request was rejected for safety.", "response_too_large": "The Air response exceeded the safe limit.",
+		"forbidden": "Your Air role does not permit this action.", "unauthenticated": "Your active control identity is no longer authenticated.",
+		"clipboard_copied": "Invite copied; it will be cleared automatically if unchanged.", "clipboard_failed": "The invite could not be copied safely.",
+	}
+	ru := map[string]string{
+		"created": "Эфир создан и сохранён.", "invite_reviewed": "Приглашение принято для проверки; подтвердите вступление.",
+		"join_confirmed": "Участие в эфире подтверждено.", "join_declined": "Ожидающее участие отклонено.",
+		"invite_issued": "Одноразовое приглашение создано.", "invite_withdrawn": "Приглашение отозвано.",
+		"activated": "Активный эфир изменён.", "deactivated": "Эфир отключён.", "left": "Вы вышли из эфира.",
+		"dissolved": "Эфир распущен.", "policy_updated": "Политика эфира обновлена.",
+		"membership_confirmation_required": "Сначала проверьте ожидающее участие.",
+		"invite_unavailable":               "Приглашение истекло, использовано, отозвано или недоступно. Запросите новое.",
+		"air_barycenter_capacity_reached":  "В эфире уже восемь Барицентров.", "air_online_pulsar_capacity_reached": "Активация превысит лимит Пульсаров онлайн.",
+		"revision_conflict":  "Эфир изменён в другом месте. Загружается актуальное состояние.",
+		"active_air_changed": "Активный эфир изменён в другом месте. Проверьте актуальное состояние.", "air_dissolved": "Этот эфир распущен.",
+		"already_member": "У identity уже есть сохранённое или ожидающее участие.", "owner_transfer_required": "Перед выходом передайте владение или распустите эфир.",
+		"air_parked": "Эфир сохранён, но не активен для воспроизведения.", "policy_denied": "Текущая политика эфира запрещает действие.",
+		"idempotency_conflict": "Ключ повтора уже использован для другого действия.", "membership_not_found": "Участие больше недоступно.", "air_not_found": "Эфир больше недоступен.",
+		"coordinator_unavailable": "Нет связи с координатором. Проверьте подключение и повторите.",
+		"credential_unavailable":  "Управление эфирами недоступно без активного control identity.",
+		"invalid_request":         "Проверьте название или приглашение и повторите.", "invalid_response": "Координатор вернул некорректный ответ эфира.",
+		"redirect_rejected": "Перенаправленный запрос эфира отклонён из соображений безопасности.", "response_too_large": "Ответ эфира превысил безопасный размер.",
+		"forbidden": "Ваша роль в эфире не разрешает это действие.", "unauthenticated": "Активный control identity больше не аутентифицирован.",
+		"clipboard_copied": "Приглашение скопировано и будет автоматически очищено, если не изменится.", "clipboard_failed": "Не удалось безопасно скопировать приглашение.",
+	}
+	if c.locale == ShellRussian {
+		if message := ru[code]; message != "" {
+			return message
+		}
+		return "Не удалось выполнить действие. Состояние не было принято как успешное."
+	}
+	if message := en[code]; message != "" {
+		return message
+	}
+	return "The action failed and was not treated as successful."
+}
+
 func (c ShellCopy) requestedLabel() string {
 	if c.locale == ShellRussian {
 		return "запрошено"
@@ -741,7 +995,7 @@ func shellPrimaryAction(section ShellSection) shellText {
 
 func shellActionEnabled(snapshot ShellSnapshot, action ShellSection) bool {
 	switch action {
-	case ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellSettings, ShellHome:
+	case ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellAirs, ShellSettings, ShellHome:
 		return true
 	default:
 		return false
@@ -761,6 +1015,22 @@ func shellLocalCaptureBusy(snapshot ShellSnapshot) bool {
 
 func shellDNDEnabled(snapshot ShellSnapshot) bool { return snapshot.Connection != ShellUnpaired }
 
+func airInviteAllowed(air ShellAirItem) bool {
+	if air.MembershipStatus != AirJoined {
+		return false
+	}
+	switch air.Policy.Invite {
+	case AirInviteOwnerPrimary:
+		return air.Role == AirRoleOwner
+	case AirInviteAdminPrimary:
+		return air.Role == AirRoleOwner || air.Role == AirRoleAdmin
+	case AirInviteAllMemberPrimarys:
+		return air.Role == AirRoleOwner || air.Role == AirRoleAdmin || air.Role == AirRoleMember
+	default:
+		return false
+	}
+}
+
 type ShellRect struct{ X, Y, Width, Height int }
 
 func (r ShellRect) Right() int  { return r.X + r.Width }
@@ -777,6 +1047,53 @@ type ShellLayout struct {
 	Cards     [3]ShellRect
 	Footer    ShellRect
 	Collapsed bool
+}
+
+type AirControlLayout struct {
+	TitleLabel, TitleInput, Create ShellRect
+	CodeLabel, CodeInput, Consume  ShellRect
+	Manage                         [4]ShellRect
+	Invite                         [5]ShellRect
+	Pending                        [4]ShellRect
+	Confirm, Cancel                ShellRect
+}
+
+func (l AirControlLayout) Rects() []ShellRect {
+	result := []ShellRect{l.TitleLabel, l.TitleInput, l.Create, l.CodeLabel, l.CodeInput, l.Consume}
+	result = append(result, l.Manage[:]...)
+	result = append(result, l.Invite[:]...)
+	result = append(result, l.Pending[:]...)
+	return append(result, l.Confirm, l.Cancel)
+}
+
+func layoutWindowsAirControls(content ShellRect, bodyBottom, dpi int) AirControlLayout {
+	gap, y := dip(8, dpi), bodyBottom+dip(8, dpi)
+	labelWidth, inputWidth, buttonWidth := dip(100, dpi), dip(280, dpi), dip(150, dpi)
+	result := AirControlLayout{
+		TitleLabel: ShellRect{X: content.X, Y: y + dip(7, dpi), Width: labelWidth, Height: dip(34, dpi)},
+		TitleInput: ShellRect{X: content.X + labelWidth, Y: y + dip(3, dpi), Width: inputWidth, Height: dip(34, dpi)},
+		Create:     ShellRect{X: content.X + labelWidth + inputWidth + gap, Y: y, Width: buttonWidth, Height: dip(42, dpi)},
+	}
+	y += dip(50, dpi)
+	result.CodeLabel = ShellRect{X: content.X, Y: y + dip(7, dpi), Width: labelWidth, Height: dip(34, dpi)}
+	result.CodeInput = ShellRect{X: content.X + labelWidth, Y: y + dip(3, dpi), Width: inputWidth, Height: dip(34, dpi)}
+	result.Consume = ShellRect{X: content.X + labelWidth + inputWidth + gap, Y: y, Width: buttonWidth, Height: dip(42, dpi)}
+	y += dip(50, dpi)
+	for index := range result.Manage {
+		result.Manage[index] = ShellRect{X: content.X + index*dip(142, dpi), Y: y, Width: dip(134, dpi), Height: dip(42, dpi)}
+	}
+	y += dip(50, dpi)
+	for index := range result.Invite {
+		result.Invite[index] = ShellRect{X: content.X + index*dip(114, dpi), Y: y, Width: dip(106, dpi), Height: dip(42, dpi)}
+	}
+	y += dip(50, dpi)
+	for index := range result.Pending {
+		result.Pending[index] = ShellRect{X: content.X + index*dip(142, dpi), Y: y, Width: dip(134, dpi), Height: dip(42, dpi)}
+	}
+	y += dip(50, dpi)
+	result.Confirm = ShellRect{X: content.X, Y: y, Width: dip(260, dpi), Height: dip(44, dpi)}
+	result.Cancel = ShellRect{X: content.X + dip(272, dpi), Y: y, Width: dip(180, dpi), Height: dip(44, dpi)}
+	return result
 }
 
 func dip(value, dpi int) int { return (value*dpi + 48) / 96 }
@@ -826,6 +1143,7 @@ var shellShortcuts = []ShellShortcut{
 	{Key: "0", Control: true, Command: "open"},
 	{Key: "1", Control: true, Section: ShellCreate, Command: "section"},
 	{Key: "2", Control: true, Section: ShellJoin, Command: "section"},
+	{Key: "3", Control: true, Section: ShellAirs, Command: "section"},
 	{Key: "T", Control: true, Shift: true, Section: ShellTryLocally, Command: "section"},
 	{Key: "R", Control: true, Shift: true, Command: "record"},
 	{Key: "D", Control: true, Shift: true, Command: "dnd"},
@@ -846,7 +1164,7 @@ func catalogMissing(locale ShellLocale) []string {
 var shellCatalog = map[ShellLocale]map[shellText]string{
 	ShellEnglish: {
 		txtApp: "Pulsar", txtHome: "Home", txtCreate: "Create", txtJoin: "Join", txtTry: "Try locally",
-		txtHistory: "History", txtSettings: "Settings", txtOpen: "Open Pulsar", txtPrimary: "Primary actions",
+		txtHistory: "History", txtAirs: "Airs", txtSettings: "Settings", txtOpen: "Open Pulsar", txtPrimary: "Primary actions",
 		txtStatus: "Status", txtPresence: "Presence", txtRouting: "Routing", txtNowPlaying: "Now playing",
 		txtLocalControls: "Local controls", txtNoHistory: "No recent activity", txtNoRoute: "No output route",
 		txtSilence: "Nothing is playing", txtVolume: "Volume", txtDND: "Do Not Disturb", txtRecording: "Recording",
@@ -878,7 +1196,7 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 	},
 	ShellRussian: {
 		txtApp: "Пульсар", txtHome: "Главная", txtCreate: "Создать", txtJoin: "Присоединиться", txtTry: "Попробовать локально",
-		txtHistory: "История", txtSettings: "Настройки", txtOpen: "Открыть Пульсар", txtPrimary: "Основные действия",
+		txtHistory: "История", txtAirs: "Эфиры", txtSettings: "Настройки", txtOpen: "Открыть Пульсар", txtPrimary: "Основные действия",
 		txtStatus: "Статус", txtPresence: "Присутствие", txtRouting: "Маршрут звука", txtNowPlaying: "Сейчас играет",
 		txtLocalControls: "Локальные настройки", txtNoHistory: "Недавних событий нет", txtNoRoute: "Выход звука не выбран",
 		txtSilence: "Сейчас ничего не играет", txtVolume: "Громкость", txtDND: "Не беспокоить", txtRecording: "Запись",

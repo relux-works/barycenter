@@ -35,6 +35,8 @@ bundled_probe = load("codec_spike_bundled_probe", "inventory_bundled_probe.py")
 media_foundation = load("codec_spike_media_foundation", "validate_mf_probe.py")
 macos_native = load("codec_spike_macos_native", "validate_macos_native_probe.py")
 pure_go = load("codec_spike_pure_go", "validate_pure_go_probe.py")
+comparative_generator = load("generate_comparative_matrix", "generate_comparative_matrix.py")
+comparative_matrix = load("codec_spike_comparative_matrix", "validate_comparative_matrix.py")
 
 
 def passing_evidence(rubric: dict, real: bool = True) -> dict:
@@ -111,6 +113,44 @@ def passing_evidence(rubric: dict, real: bool = True) -> dict:
 
 
 class CodecSpikeContractTests(unittest.TestCase):
+    def test_comparative_matrix_is_reproducible_and_fail_closed(self):
+        matrix = json.loads(comparative_generator.OUTPUT.read_text(encoding="utf-8"))
+        comparative_matrix.validate(matrix)
+        self.assertFalse(matrix["selection"]["allowed"])
+        self.assertEqual(
+            {row["id"] for row in matrix["combinations"]},
+            comparative_matrix.EXPECTED_COMBINATIONS,
+        )
+        for combination in matrix["combinations"]:
+            self.assertEqual(
+                [row["id"] for row in combination["pairings"]],
+                comparative_generator.PAIRINGS,
+            )
+            self.assertTrue(any(row["status"] != "pass" for row in combination["hardGates"]))
+
+    def test_comparative_matrix_rejects_averaging_and_false_selection(self):
+        matrix = comparative_generator.build_matrix()
+        matrix["combinations"][0]["aggregateScore"] = 0.99
+        with self.assertRaisesRegex(comparative_matrix.MatrixError, "score fields"):
+            comparative_matrix.validate(matrix, compare_generated=False)
+
+        matrix = comparative_generator.build_matrix()
+        matrix["selection"]["allowed"] = True
+        matrix["selection"]["productionImplementationMayProceed"] = True
+        with self.assertRaisesRegex(comparative_matrix.MatrixError, "selection flag"):
+            comparative_matrix.validate(matrix, compare_generated=False)
+
+    def test_comparative_matrix_rejects_missing_pairing_and_stale_artifact(self):
+        matrix = comparative_generator.build_matrix()
+        matrix["combinations"][0]["pairings"].pop()
+        with self.assertRaisesRegex(comparative_matrix.MatrixError, "pairing rows"):
+            comparative_matrix.validate(matrix, compare_generated=False)
+
+        matrix = comparative_generator.build_matrix()
+        matrix["artifacts"][0]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(comparative_matrix.MatrixError, "digest mismatch"):
+            comparative_matrix.validate(matrix, compare_generated=False)
+
     def test_pure_go_probe_preserves_rejected_aac_and_cgo_boundary(self):
         probe = pure_go.load(pure_go.CONTRACT_PATH)
         pure_go.validate_contract(probe)

@@ -168,8 +168,9 @@ func TestHistoryTransmissionVisibilityRetentionAggregatesAndActions(t *testing.T
 	}
 	telegramPage, err := st.QueryAuthorizedHistory(telegram.ActorID,
 		Identity{Kind: IdentityTelegram, TelegramUserID: 88001}, "sent", 30, "", now)
-	if err != nil || len(telegramPage.Items) != 1 || telegramPage.Items[0].Direction != HistorySent ||
-		len(telegramPage.Items[0].Targets) != 0 || telegramPage.Items[0].TargetCount != 3 {
+	if err != nil || len(telegramPage.Items) != 1 || telegramPage.Items[0].Direction != HistorySentAndReceived ||
+		len(telegramPage.Items[0].Targets) != 2 || telegramPage.Items[0].TargetCount != 3 ||
+		!telegramPage.Items[0].CanReport {
 		t.Fatalf("telegram projection=%+v err=%v", telegramPage, err)
 	}
 	if result, err := st.db.Exec(`UPDATE memberships SET left_at = ? WHERE actor_id = ? AND orbit_id = ? AND left_at IS NULL`,

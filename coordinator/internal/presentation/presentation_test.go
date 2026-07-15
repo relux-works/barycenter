@@ -28,7 +28,7 @@ func TestGoldenEnglishAndRussianCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(raw)
-	const goldenSHA256 = "a929dc6e74103aa3a99df0714aecfa0d6c6ea0c71dc0659e029bd22dd35b3699"
+	const goldenSHA256 = "b7f977c443f675932b77138c58e6af585d7975ddc601886fd1b61ce79b298c6b"
 	if got := hex.EncodeToString(digest[:]); got != goldenSHA256 {
 		t.Fatalf("RU/EN presentation golden digest=%s want=%s", got, goldenSHA256)
 	}
@@ -190,6 +190,46 @@ func TestCallbackPolicyAndDowngradeCopyIsExactAcrossBothLocales(t *testing.T) {
 		downgrade.Notice.EN != "Overlay is unavailable for all recipients; queued after current." ||
 		downgrade.Notice.RU != "Режим поверх эфира недоступен для всех получателей; поставлено после текущего." {
 		t.Fatalf("exact downgrade copy=%+v", downgrade)
+	}
+}
+
+func TestHistoryModerationActionsAndOutcomesShareExactLocalizedCopy(t *testing.T) {
+	actions := []struct {
+		action string
+		reason store.ModerationReason
+		key    string
+	}{
+		{"replay", "", "history.action.replay"},
+		{"delete", "", "history.action.delete"},
+		{"block_actor", "", "history.action.block_actor"},
+		{"report", store.ModerationReasonSpam, "history.action.report.spam"},
+		{"report", store.ModerationReasonHarassment, "history.action.report.harassment"},
+		{"report", store.ModerationReasonIllegal, "history.action.report.illegal"},
+		{"report", store.ModerationReasonSexualContent, "history.action.report.sexual_content"},
+		{"report", store.ModerationReasonViolence, "history.action.report.violence"},
+		{"report", store.ModerationReasonOther, "history.action.report.other"},
+	}
+	for _, tc := range actions {
+		got := HistoryActionLabel(tc.action, tc.reason)
+		if got.Key != tc.key || got.EN == "" || got.RU == "" || got.EN == got.RU {
+			t.Errorf("history action %s/%s=%+v", tc.action, tc.reason, got)
+		}
+	}
+	for _, outcome := range []string{
+		"media_deleted", "report_received", "report_already_received",
+		"sender_blocked", "sender_already_blocked", "replay_accepted",
+		"replay_already_accepted", "history_action_unavailable",
+	} {
+		got := HistoryActionOutcomeLabel(outcome)
+		if got.Key != "history.outcome."+outcome || got.EN == "" || got.RU == "" || got.EN == got.RU {
+			t.Errorf("history outcome %s=%+v", outcome, got)
+		}
+	}
+	if got := HistoryActionLabel("report", "future_reason"); got.Key != "callback.unsupported" {
+		t.Fatalf("unknown history reason did not fail closed: %+v", got)
+	}
+	if got := HistoryActionOutcomeLabel("future_outcome"); got.Key != "history.outcome.failed" {
+		t.Fatalf("unknown history outcome did not fail closed: %+v", got)
 	}
 }
 

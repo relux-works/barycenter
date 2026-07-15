@@ -396,6 +396,69 @@ CREATE TABLE IF NOT EXISTS telegram_inline_callback_queries (
 );
 CREATE INDEX IF NOT EXISTS telegram_inline_callback_queries_expiry
   ON telegram_inline_callback_queries(expires_at, actor_id);
+
+-- History moderation callbacks share the opaque tg1_ transport but are kept
+-- separate from delivery-route callbacks: foreign history media does not own
+-- a telegram_inline_routes row. Every authority and action value remains
+-- server-side and is rechecked by the canonical history action service.
+CREATE TABLE IF NOT EXISTS telegram_history_callbacks (
+  token_hash TEXT PRIMARY KEY CHECK(
+    length(token_hash) = 64 AND token_hash NOT GLOB '*[^0-9a-f]*'
+  ),
+  history_item_id TEXT NOT NULL CHECK(
+    length(history_item_id) = 29 AND substr(history_item_id, 1, 3) = 'hi_'
+  ),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  orbit_id INTEGER NOT NULL CHECK(orbit_id > 0),
+  role TEXT NOT NULL CHECK(role IN ('primary', 'companion', 'satellite')),
+  chat_id INTEGER NOT NULL,
+  message_id INTEGER NOT NULL CHECK(message_id > 0),
+  action TEXT NOT NULL CHECK(action IN ('replay', 'delete', 'report', 'block_actor')),
+  reason TEXT NOT NULL DEFAULT '' CHECK(reason IN (
+    '', 'spam', 'harassment', 'illegal', 'sexual_content', 'violence', 'other'
+  )),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  expires_at INTEGER NOT NULL CHECK(expires_at > created_at),
+  consumed_at INTEGER NOT NULL DEFAULT 0 CHECK(consumed_at >= 0),
+  callback_outcome TEXT NOT NULL DEFAULT '' CHECK(callback_outcome IN (
+    '', 'applied', 'already_applied', 'too_late', 'expired', 'forbidden',
+    'unsupported', 'failed'
+  )),
+  action_outcome TEXT NOT NULL DEFAULT '' CHECK(action_outcome IN (
+    '', 'media_deleted', 'report_received', 'report_already_received',
+    'sender_blocked', 'sender_already_blocked', 'replay_accepted',
+    'replay_already_accepted', 'history_action_unavailable'
+  )),
+  CHECK((action = 'report' AND reason <> '') OR (action <> 'report' AND reason = '')),
+  CHECK(consumed_at = 0 OR consumed_at >= created_at)
+);
+CREATE INDEX IF NOT EXISTS telegram_history_callbacks_expiry
+  ON telegram_history_callbacks(actor_id, expires_at);
+
+CREATE TABLE IF NOT EXISTS telegram_history_callback_queries (
+  query_hash TEXT PRIMARY KEY CHECK(
+    length(query_hash) = 64 AND query_hash NOT GLOB '*[^0-9a-f]*'
+  ),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  orbit_id INTEGER NOT NULL CHECK(orbit_id > 0),
+  role TEXT NOT NULL CHECK(role IN ('primary', 'companion', 'satellite')),
+  chat_id INTEGER NOT NULL,
+  message_id INTEGER NOT NULL CHECK(message_id > 0),
+  callback_outcome TEXT NOT NULL CHECK(callback_outcome IN (
+    'applied', 'already_applied', 'too_late', 'expired', 'forbidden',
+    'unsupported', 'failed'
+  )),
+  action_outcome TEXT NOT NULL DEFAULT '' CHECK(action_outcome IN (
+    '', 'media_deleted', 'report_received', 'report_already_received',
+    'sender_blocked', 'sender_already_blocked', 'replay_accepted',
+    'replay_already_accepted', 'history_action_unavailable'
+  )),
+  clear_keyboard INTEGER NOT NULL CHECK(clear_keyboard IN (0, 1)),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  expires_at INTEGER NOT NULL CHECK(expires_at > created_at)
+);
+CREATE INDEX IF NOT EXISTS telegram_history_callback_queries_expiry
+  ON telegram_history_callback_queries(expires_at, actor_id);
 `
 
 func (s *Store) initTransmissionSchema() error {

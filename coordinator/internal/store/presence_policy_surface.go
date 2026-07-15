@@ -33,12 +33,27 @@ type PresencePolicyDomain struct {
 func (s *Store) AuthorizedPresenceDomain(
 	expectedActorID int64, bearer string,
 ) (PresencePolicyDomain, error) {
+	return s.AuthorizedPresenceDomainForIdentity(expectedActorID, Identity{
+		Kind: IdentityBearer, Token: bearer,
+	})
+}
+
+func (s *Store) AuthorizedPresenceDomainForIdentity(
+	expectedActorID int64, identity Identity,
+) (PresencePolicyDomain, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return PresencePolicyDomain{}, err
 	}
 	defer tx.Rollback()
-	ctx, err := authorizeTransmissionActorTx(tx, expectedActorID, bearer)
+	ctx, err := resolveActorContext(tx, identity)
+	if err == nil && ctx.ActorID != expectedActorID {
+		err = ErrUnauthorized
+	}
+	if err == nil && !ctx.Capabilities.Has(CapabilityControl) &&
+		!ctx.Capabilities.Has(CapabilityTelegram) {
+		err = ErrInsufficientCapability
+	}
 	if err != nil {
 		return PresencePolicyDomain{}, err
 	}
@@ -371,8 +386,7 @@ func (s *Store) AuthorizedCreateTransmissionBlock(params AuthorizedCreateBlockPa
 		len(params.RequestHash) != 64 {
 		return PublicTransmissionBlock{}, ErrTransmissionInvalid
 	}
-	if (params.OwnerScope == BlockOwnerActor && params.SubjectRef[:3] != "ar_") ||
-		(params.OwnerScope == BlockOwnerOrbit && params.SubjectRef[:3] != "or_") {
+	if params.SubjectRef[:3] != "ar_" && params.SubjectRef[:3] != "or_" {
 		return PublicTransmissionBlock{}, ErrTransmissionInvalid
 	}
 	if params.Identity.Kind == "" {
@@ -410,6 +424,10 @@ FROM transmission_subject_refs WHERE public_id = ? AND viewer_actor_id = ?`,
 	}
 	if err != nil {
 		return PublicTransmissionBlock{}, err
+	}
+	if (kind == BlockedSubjectActor && params.SubjectRef[:3] != "ar_") ||
+		(kind == BlockedSubjectOrbit && params.SubjectRef[:3] != "or_") {
+		return PublicTransmissionBlock{}, ErrTransmissionInvalid
 	}
 	create := CreateTransmissionBlockParams{OwnerScope: params.OwnerScope,
 		OwnerOrbitID: ctx.OrbitID, AuthorizedByActorID: ctx.ActorID,

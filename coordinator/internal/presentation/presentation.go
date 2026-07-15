@@ -35,44 +35,66 @@ func (label Label) Text(locale Locale) string {
 type textPair struct{ en, ru string }
 
 var templates = map[string]textPair{
-	"sender.named":                         {"%s", "%s"},
-	"sender.unknown":                       {"Unknown sender", "Неизвестный отправитель"},
-	"member.unknown":                       {"Unknown member", "Неизвестный участник"},
-	"origin.named":                         {"From «%s»", "Из «%s»"},
-	"origin.unknown":                       {"Unknown Barycenter", "Неизвестный Барицентр"},
-	"target.orbit":                         {"«%s»", "«%s»"},
-	"target.pulsar":                        {"«%s», Pulsar %s", "«%s», Пульсар %s"},
-	"target.pulsar_unknown":                {"«%s», unknown Pulsar", "«%s», неизвестный Пульсар"},
-	"target.unknown":                       {"Unknown recipient", "Неизвестный получатель"},
-	"audience.this_pulsar":                 {"This Pulsar", "Этот Пульсар"},
-	"audience.own_barycenter":              {"My Barycenter", "Мой Барицентр"},
-	"audience.current_air":                 {"Current Air", "Текущий эфир"},
-	"audience.current_air_named":           {"Current Air with «%s»", "Текущий эфир с «%s»"},
-	"audience.explicit":                    {"Selected recipients", "Выбранные получатели"},
-	"audience.unknown":                     {"Recipients", "Получатели"},
-	"origin.included":                      {"Include this Pulsar", "Включая этот Пульсар"},
-	"origin.excluded":                      {"Do not play on this Pulsar", "Не воспроизводить на этом Пульсаре"},
-	"delivery.overlay":                     {"Overlay", "Поверх эфира"},
-	"delivery.interrupt":                   {"Interrupt and resume", "Прервать и продолжить"},
-	"delivery.after_current":               {"After current", "После текущего"},
-	"delivery.unknown":                     {"Delivery unavailable", "Способ доставки недоступен"},
-	"confirmation.interrupt_required":      {"Interrupt is unavailable for every recipient. Choose a fallback.", "Прерывание недоступно для всех получателей. Выберите замену."},
-	"confirmation.choose_overlay":          {"Play as overlay", "Воспроизвести поверх"},
-	"confirmation.choose_after_current":    {"Play after current", "Воспроизвести после текущего"},
-	"confirmation.expired":                 {"This choice has expired", "Срок этого выбора истёк"},
-	"confirmation.too_late":                {"Playback already started", "Воспроизведение уже началось"},
-	"callback.applied":                     {"Done", "Готово"},
-	"callback.already_applied":             {"Already applied", "Уже применено"},
-	"callback.requires_confirmation":       {"Confirmation required", "Нужно подтверждение"},
-	"callback.too_late":                    {"Too late to change", "Уже поздно менять"},
-	"callback.expired":                     {"This button has expired", "Кнопка устарела"},
-	"callback.forbidden":                   {"Insufficient permission", "Недостаточно прав"},
-	"callback.unsupported":                 {"This action is not available yet", "Действие пока недоступно"},
-	"callback.failed":                      {"Could not complete the action", "Не удалось выполнить"},
-	"downgrade.missing_overlay_capability": {"Overlay is unavailable for all recipients; queued after current.", "Режим поверх эфира недоступен для всех получателей; поставлено после текущего."},
-	"downgrade.confirmed_overlay":          {"Interrupt was replaced with overlay by the sender.", "Отправитель заменил прерывание режимом поверх эфира."},
-	"downgrade.confirmed_after_current":    {"Interrupt was queued after current by the sender.", "Отправитель поставил сообщение после текущего вместо прерывания."},
-	"downgrade.unknown":                    {"Delivery mode changed", "Способ доставки изменён"},
+	"sender.named":                               {"%s", "%s"},
+	"sender.unknown":                             {"Unknown sender", "Неизвестный отправитель"},
+	"member.unknown":                             {"Unknown member", "Неизвестный участник"},
+	"origin.named":                               {"From «%s»", "Из «%s»"},
+	"origin.unknown":                             {"Unknown Barycenter", "Неизвестный Барицентр"},
+	"target.orbit":                               {"«%s»", "«%s»"},
+	"target.pulsar":                              {"«%s», Pulsar %s", "«%s», Пульсар %s"},
+	"target.pulsar_unknown":                      {"«%s», unknown Pulsar", "«%s», неизвестный Пульсар"},
+	"target.unknown":                             {"Unknown recipient", "Неизвестный получатель"},
+	"audience.this_pulsar":                       {"This Pulsar", "Этот Пульсар"},
+	"audience.own_barycenter":                    {"My Barycenter", "Мой Барицентр"},
+	"audience.current_air":                       {"Current Air", "Текущий эфир"},
+	"audience.current_air_named":                 {"Current Air with «%s»", "Текущий эфир с «%s»"},
+	"audience.explicit":                          {"Selected recipients", "Выбранные получатели"},
+	"audience.unknown":                           {"Recipients", "Получатели"},
+	"origin.included":                            {"Include this Pulsar", "Включая этот Пульсар"},
+	"origin.excluded":                            {"Do not play on this Pulsar", "Не воспроизводить на этом Пульсаре"},
+	"delivery.overlay":                           {"Overlay", "Поверх эфира"},
+	"delivery.interrupt":                         {"Interrupt and resume", "Прервать и продолжить"},
+	"delivery.after_current":                     {"After current", "После текущего"},
+	"delivery.unknown":                           {"Delivery unavailable", "Способ доставки недоступен"},
+	"confirmation.interrupt_required":            {"Interrupt is unavailable for every recipient. Choose a fallback.", "Прерывание недоступно для всех получателей. Выберите замену."},
+	"confirmation.choose_overlay":                {"Play as overlay", "Воспроизвести поверх"},
+	"confirmation.choose_after_current":          {"Play after current", "Воспроизвести после текущего"},
+	"confirmation.expired":                       {"This choice has expired", "Срок этого выбора истёк"},
+	"confirmation.too_late":                      {"Playback already started", "Воспроизведение уже началось"},
+	"callback.applied":                           {"Done", "Готово"},
+	"callback.already_applied":                   {"Already applied", "Уже применено"},
+	"callback.requires_confirmation":             {"Confirmation required", "Нужно подтверждение"},
+	"callback.too_late":                          {"Too late to change", "Уже поздно менять"},
+	"callback.expired":                           {"This button has expired", "Кнопка устарела"},
+	"callback.forbidden":                         {"Insufficient permission", "Недостаточно прав"},
+	"callback.unsupported":                       {"This action is not available yet", "Действие пока недоступно"},
+	"callback.failed":                            {"Could not complete the action", "Не удалось выполнить"},
+	"history.action.replay":                      {"Replay", "Повторить"},
+	"history.action.delete":                      {"Delete permanently", "Удалить навсегда"},
+	"history.action.block_actor":                 {"Block sender", "Заблокировать отправителя"},
+	"history.action.report.spam":                 {"Report: Spam", "Жалоба: Спам"},
+	"history.action.report.harassment":           {"Report: Harassment", "Жалоба: Преследование"},
+	"history.action.report.illegal":              {"Report: Illegal content", "Жалоба: Незаконный контент"},
+	"history.action.report.sexual_content":       {"Report: Sexual content", "Жалоба: Сексуальный контент"},
+	"history.action.report.violence":             {"Report: Violence", "Жалоба: Насилие"},
+	"history.action.report.other":                {"Report: Other", "Жалоба: Другое"},
+	"history.outcome.media_deleted":              {"Media deleted. It can no longer be replayed.", "Медиа удалено. Его больше нельзя повторно воспроизвести."},
+	"history.outcome.report_received":            {"Report received for moderation.", "Жалоба принята на модерацию."},
+	"history.outcome.report_already_received":    {"This item was already reported; the existing report remains active.", "На этот материал уже подана жалоба; существующая жалоба остаётся активной."},
+	"history.outcome.sender_blocked":             {"Sender blocked. New deliveries from this sender are stopped.", "Отправитель заблокирован. Новые доставки от него остановлены."},
+	"history.outcome.sender_already_blocked":     {"Sender was already blocked.", "Отправитель уже был заблокирован."},
+	"history.outcome.replay_accepted":            {"Replay accepted.", "Повтор принят."},
+	"history.outcome.replay_already_accepted":    {"Replay was already accepted.", "Повтор уже был принят."},
+	"history.outcome.history_action_unavailable": {"The item changed and this action is no longer available.", "Материал изменился, и действие больше недоступно."},
+	"history.outcome.failed":                     {"The action failed. Try again.", "Не удалось выполнить действие. Повторите попытку."},
+	"history.direction.sent":                     {"Sent", "Отправлено"},
+	"history.direction.received":                 {"Received", "Получено"},
+	"history.direction.sent_and_received":        {"Sent and received", "Отправлено и получено"},
+	"history.empty":                              {"History is empty", "История пуста"},
+	"downgrade.missing_overlay_capability":       {"Overlay is unavailable for all recipients; queued after current.", "Режим поверх эфира недоступен для всех получателей; поставлено после текущего."},
+	"downgrade.confirmed_overlay":                {"Interrupt was replaced with overlay by the sender.", "Отправитель заменил прерывание режимом поверх эфира."},
+	"downgrade.confirmed_after_current":          {"Interrupt was queued after current by the sender.", "Отправитель поставил сообщение после текущего вместо прерывания."},
+	"downgrade.unknown":                          {"Delivery mode changed", "Способ доставки изменён"},
 }
 
 var rawIdentifier = regexp.MustCompile(`(?i)^(?:[a-z]|\d+|\d+:[a-z]|[a-z]@\d+|(?:actor|orbit|node|telegram|tg)[_:\- ]?\d+|(?:tr|m|hi|bl|ar|or)_[a-z0-9_-]+)$`)
@@ -244,6 +266,47 @@ func CallbackResultLabel(code string) Label {
 		return label("callback.failed")
 	}
 }
+
+func HistoryActionLabel(action string, reason store.ModerationReason) Label {
+	if action == "report" {
+		switch reason {
+		case store.ModerationReasonSpam, store.ModerationReasonHarassment,
+			store.ModerationReasonIllegal, store.ModerationReasonSexualContent,
+			store.ModerationReasonViolence, store.ModerationReasonOther:
+			return label("history.action.report." + string(reason))
+		default:
+			return label("callback.unsupported")
+		}
+	}
+	switch action {
+	case "replay", "delete", "block_actor":
+		return label("history.action." + action)
+	default:
+		return label("callback.unsupported")
+	}
+}
+
+func HistoryActionOutcomeLabel(code string) Label {
+	switch code {
+	case "media_deleted", "report_received", "report_already_received",
+		"sender_blocked", "sender_already_blocked", "replay_accepted",
+		"replay_already_accepted", "history_action_unavailable":
+		return label("history.outcome." + code)
+	default:
+		return label("history.outcome.failed")
+	}
+}
+
+func HistoryDirectionLabel(direction store.HistoryDirection) Label {
+	switch direction {
+	case store.HistorySent, store.HistoryReceived, store.HistorySentAndReceived:
+		return label("history.direction." + string(direction))
+	default:
+		return label("history.direction.received")
+	}
+}
+
+func HistoryEmptyLabel() Label { return label("history.empty") }
 
 var statusText = map[string]textPair{
 	"accepted":         {"Accepted", "Принято"},

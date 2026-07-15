@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 65 accepted, 140 remain.
-- Routed inventory: 186 engineering tasks (65 accepted, 121 remain) and 19
+- Combined inventory: 205 original tasks; 66 accepted, 139 remain.
+- Routed inventory: 186 engineering tasks (66 accepted, 120 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,9 +13,9 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-34stvx` — macos-report-block-delete
-  (reviewing)
+  (accepted; tracking and merge pending)
 - Next engineering task: `TASK-260712-dlltnr` — telegram-moderation-parity
-- Most recently accepted: `TASK-260712-pbfz37` — windows-report-block-delete
+- Most recently accepted: `TASK-260712-34stvx` — macos-report-block-delete
 - Current branch: `task/task-260712-34stvx-macos-report-block-delete`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 65 / 205 tasks (approximately 31.7%); 140 remain
-- Engineering progress: 65 / 186 tasks (approximately 34.9%); 121 remain
+- Accepted overall: 66 / 205 tasks (approximately 32.2%); 139 remain
+- Engineering progress: 66 / 186 tasks (approximately 35.5%); 120 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -933,6 +933,12 @@ response bodies fail-closed. Full local Xcode tests pass 215 tests in 35 suites,
 the release build passes, board/diff checks pass, and repository automated Swift
 acceptance is green. Physical keyboard and VoiceOver observation is not claimed
 and remains manual in `TASK-260712-e5mfqj` under `EPIC-260714-th54l3`.
+The clean exact-head acceptance manifest pins engineering commit
+`074e5a75826433778014af80487b779d19dec69c` with start/end dirty false and
+215 passing tests. Hosted run `29395040109` passed coordinator rollback,
+authoritative Xcode Swift, Windows portable/cross-build and the signed packaged
+probe. Engineering progress is now 66/205 overall and 66/186 engineering; PR
+#65 tracking and merge remain before the Telegram task starts.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1642,7 +1648,11 @@ acceptance.
   head `d5a40c0`; clean seven-stage Windows acceptance pass; all four hosted
   jobs green in run `29393834216`; physical packaged-app keyboard/screen-reader
   evidence remains manual in `TASK-260712-e5mfqj`; PR #64)
-- [ ] `TASK-260712-34stvx` — macos-report-block-delete
+- [x] `TASK-260712-34stvx` — macos-report-block-delete (accepted on exact
+  engineering head `074e5a7`; clean Swift acceptance passed 215 tests with
+  start/end dirty false; all four hosted jobs green in run `29395040109`;
+  physical keyboard/VoiceOver evidence remains manual in
+  `TASK-260712-e5mfqj`; PR #65)
 - [ ] `TASK-260712-dlltnr` — telegram-moderation-parity
 - [ ] `TASK-260712-e1ie4x` — platform-declarations-localized-copy
 - [ ] `TASK-260712-176b74` — p1-independent-protocol-review

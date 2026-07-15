@@ -128,7 +128,7 @@ try {
     $InstalledExecutable = Join-Path $InstalledPackage.InstallLocation "PulsarMediaFoundationProbe.exe"
     $DirectLaunchRejected = $false
     try {
-        $Direct = Start-Process -FilePath $InstalledExecutable -Wait -PassThru -ErrorAction Stop
+        $Direct = Start-Process -FilePath $InstalledExecutable -ArgumentList "--soak-seconds=0" -Wait -PassThru -ErrorAction Stop
         $DirectLaunchRejected = $Direct.ExitCode -ne 0
     } catch {
         $DirectLaunchRejected = $true

@@ -29,19 +29,32 @@ namespace Pulsar {
     [ComImport]
     [Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]
     public class ApplicationActivationManager { }
+
+    public sealed class ActivationResult {
+        public int HResult { get; set; }
+        public uint ProcessId { get; set; }
+    }
+
+    public static class PackagedAppActivator {
+        public static ActivationResult Activate(string appUserModelId, string arguments) {
+            var manager = (IApplicationActivationManager)new ApplicationActivationManager();
+            uint processId;
+            int hresult = manager.ActivateApplication(appUserModelId, arguments, 0, out processId);
+            Marshal.FinalReleaseComObject(manager);
+            return new ActivationResult { HResult = hresult, ProcessId = processId };
+        }
+    }
 }
 "@
 }
 
 Remove-Item -Force $EvidencePath -ErrorAction SilentlyContinue
-$manager = [Pulsar.IApplicationActivationManager][Pulsar.ApplicationActivationManager]::new()
-$processId = [uint32]0
 $arguments = "--soak-seconds=$SoakSeconds"
-$hresult = $manager.ActivateApplication($ApplicationUserModelId, $arguments, 0, [ref]$processId)
-if ($hresult -ne 0) {
-    throw ("packaged AppContainer activation failed with HRESULT 0x{0:X8}" -f ([uint32]$hresult))
+$activation = [Pulsar.PackagedAppActivator]::Activate($ApplicationUserModelId, $arguments)
+if ($activation.HResult -ne 0) {
+    throw ("packaged AppContainer activation failed with HRESULT 0x{0:X8}" -f ([uint32]$activation.HResult))
 }
-$process = [Diagnostics.Process]::GetProcessById([int]$processId)
+$process = [Diagnostics.Process]::GetProcessById([int]$activation.ProcessId)
 if (-not $process.WaitForExit(180000)) {
     $process.Kill()
     throw "packaged AppContainer probe did not exit within 180 seconds"
@@ -51,7 +64,7 @@ if (-not (Test-Path $EvidencePath)) {
     throw "packaged AppContainer probe did not write its LocalState evidence"
 }
 [pscustomobject]@{
-    ProcessId = [int]$processId
+    ProcessId = [int]$activation.ProcessId
     ExitCode = $exitCode
     EvidencePath = $EvidencePath
     Arguments = $arguments

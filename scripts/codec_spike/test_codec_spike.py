@@ -30,6 +30,7 @@ generator = load("codec_spike_generator", "generate_fixtures.py")
 range_harness = load("codec_spike_range", "range_harness.py")
 evaluator = load("codec_spike_evaluator", "evaluate_evidence.py")
 stream_contract = load("codec_spike_stream_contract", "stream_contract.py")
+license_audit = load("codec_spike_license_audit", "validate_license_audit.py")
 
 
 def passing_evidence(rubric: dict, real: bool = True) -> dict:
@@ -106,6 +107,18 @@ def passing_evidence(rubric: dict, real: bool = True) -> dict:
 
 
 class CodecSpikeContractTests(unittest.TestCase):
+    def test_exact_license_audit_is_complete_and_fail_closed(self):
+        audit = license_audit.load()
+        license_audit.validate(audit)
+        candidates = {item["id"]: item for item in audit["candidates"]}
+        self.assertEqual(candidates["pure-go-composite-v1"]["classification"], "rejected")
+        self.assertEqual(candidates["native-canonical-aac-v1"]["classification"],
+                         "shippable-with-obligations")
+        tampered = json.loads(json.dumps(audit))
+        tampered["components"][-1]["forbiddenConfigure"].remove("--enable-gpl")
+        with self.assertRaisesRegex(ValueError, "license tripwire"):
+            license_audit.validate(tampered)
+
     def test_frozen_contract_and_generator_plan_are_complete(self):
         rubric = contract.load()
         contract.validate(rubric)

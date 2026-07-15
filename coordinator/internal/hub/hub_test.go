@@ -141,6 +141,63 @@ func TestRegisterRejectsNonCanonicalCapabilities(t *testing.T) {
 	}
 }
 
+func TestRegisterRejectsUnsupportedProtocolVersionBeforeAuthentication(t *testing.T) {
+	h := New(slog.Default(), func(string) (int64, string, bool) {
+		t.Fatal("mixed-version register reached credential lookup")
+		return 0, "", false
+	}, time.Second)
+	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
+	defer server.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(websocketTestURL(server.URL), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	frame := registerWire([]any{})
+	frame["v"] = protocol.Version + 1
+	if err := conn.WriteJSON(frame); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = conn.ReadMessage()
+	var closeErr *websocket.CloseError
+	if !errors.As(err, &closeErr) || closeErr.Code != closeInvalidAuth {
+		t.Fatalf("mixed-version register close=%v", err)
+	}
+}
+
+func TestEstablishedConnectionClosesOnProtocolVersionMismatch(t *testing.T) {
+	h := New(slog.Default(), func(token string) (int64, string, bool) {
+		return 42, "a", token == "valid"
+	}, time.Second)
+	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
+	defer server.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(websocketTestURL(server.URL), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := conn.WriteJSON(registerWire([]any{})); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-h.Events:
+	case <-time.After(time.Second):
+		t.Fatal("valid registration did not complete")
+	}
+	if err := conn.WriteJSON(map[string]any{
+		"v": protocol.Version + 1, "id": "msg_test", "ts": int64(2),
+		"type": protocol.TypePing, "payload": map[string]any{"t1": int64(1)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	conn.SetReadDeadline(time.Now().Add(time.Second))
+	if _, _, err := conn.ReadMessage(); err == nil {
+		t.Fatal("mixed-version frame left the authenticated socket open")
+	}
+}
+
 func TestRegisterRetainsUnknownCapabilitiesInCanonicalOrder(t *testing.T) {
 	h := New(slog.Default(), func(token string) (int64, string, bool) {
 		return 42, "b", token == "valid"

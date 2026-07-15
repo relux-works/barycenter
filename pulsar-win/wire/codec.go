@@ -70,6 +70,9 @@ func DecodePayloadStrict(env Envelope) (any, error) {
 }
 
 func decode(env Envelope, strict bool) (any, error) {
+	if env.V != Version {
+		return nil, fmt.Errorf("unsupported protocol version %d, want %d", env.V, Version)
+	}
 	factory, ok := payloadFactory[env.Type]
 	if !ok {
 		return nil, fmt.Errorf("unknown message type %q", env.Type)

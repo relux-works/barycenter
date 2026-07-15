@@ -156,5 +156,9 @@ private func isMessageID(_ value: String) -> Bool {
         #expect(throws: ProtocolError.self) {
             _ = try ProtocolCodec.decode(frame)
         }
+        switch CoordinatorClient.classifyIncoming(frame) {
+        case .reconnectVersion(let version): #expect(version == 2)
+        default: Issue.record("runtime client did not reconnect on a major-version mismatch")
+        }
     }
 }

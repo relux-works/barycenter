@@ -294,3 +294,19 @@ func TestLegacyVoiceMessagesRemainCompatible(t *testing.T) {
 		}
 	}
 }
+
+func TestEveryDecoderRejectsMixedMajorVersionBeforePayloadDispatch(t *testing.T) {
+	for _, strict := range []bool{false, true} {
+		env := Envelope{V: Version + 1, ID: "msg_x", TS: 1, Type: TypePing,
+			Payload: json.RawMessage(`{"t1":1}`)}
+		var err error
+		if strict {
+			_, err = DecodePayloadStrict(env)
+		} else {
+			_, err = DecodePayload(env)
+		}
+		if err == nil || !strings.Contains(err.Error(), "unsupported protocol version 2, want 1") {
+			t.Fatalf("strict=%v mixed-version error=%v", strict, err)
+		}
+	}
+}

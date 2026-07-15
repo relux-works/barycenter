@@ -40,7 +40,13 @@ func (m *fakeWindowsLocalMixer) Prepare(localPath, delivery string) (*PreparedMe
 	return clip, nil
 }
 
-func (m *fakeWindowsLocalMixer) Arm(_ *PreparedMediaClip, plan MediaClipPlayPlan, _ func(int64), ended func(int64)) error {
+func (m *fakeWindowsLocalMixer) Arm(
+	_ *PreparedMediaClip,
+	plan MediaClipPlayPlan,
+	_ func(int64),
+	ended func(int64),
+	_ func(error),
+) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.plans = append(m.plans, plan)

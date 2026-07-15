@@ -38,7 +38,7 @@ type WindowsLocalClipPlaying interface {
 
 type windowsLocalClipMixer interface {
 	Prepare(string, string) (*PreparedMediaClip, error)
-	Arm(*PreparedMediaClip, MediaClipPlayPlan, func(int64), func(int64)) error
+	Arm(*PreparedMediaClip, MediaClipPlayPlan, func(int64), func(int64), func(error)) error
 	Cancel(*PreparedMediaClip, protocol.CancelMediaPayload, func(bool, error))
 	Dispose(*PreparedMediaClip)
 }
@@ -136,7 +136,13 @@ func (o *WindowsProductionLocalClipOutput) Play(ctx context.Context, localPath s
 			done(result)
 		}
 	}
-	if err := o.mixer.Arm(clip, plan, func(int64) {}, func(int64) { finish(nil) }); err != nil {
+	if err := o.mixer.Arm(
+		clip,
+		plan,
+		func(int64) {},
+		func(int64) { finish(nil) },
+		func(error) { finish(ErrWindowsLocalOutputPlayback) },
+	); err != nil {
 		finish(ErrWindowsLocalOutputPlayback)
 		return
 	}

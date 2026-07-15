@@ -135,3 +135,24 @@ func (p *Player) ResumeFromInterrupt(anchor *windowsInterruptAnchor, fadeInMS in
 	}
 	return true
 }
+
+// AbandonInterrupt consumes a suspended generation without seeking or
+// resuming it. Safety cancellations with resume_main=false intentionally keep
+// the provider paused, but must still release the stale token so a later
+// coordinator command can establish fresh ownership.
+func (p *Player) AbandonInterrupt(anchor *windowsInterruptAnchor) {
+	if anchor == nil {
+		return
+	}
+	p.mu.Lock()
+	if p.interruptAnchor == anchor {
+		p.interruptAnchor = nil
+	}
+	p.mu.Unlock()
+	if p.engine != nil {
+		p.engine.SetExpectingMusic(false)
+	}
+	if p.ring != nil {
+		p.ring.Clear()
+	}
+}

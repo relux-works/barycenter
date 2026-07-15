@@ -270,7 +270,9 @@ func TestWindowsMixerAdvertisesExactImplementedDeliveriesAndPreparesPCM(t *testi
 		t.Fatal(err)
 	}
 	plan := windowsInterruptPlan(time.Now())
-	if err := mixer.Arm(interruptClip, plan, func(int64) {}, func(int64) {}); mediaClipFailureCode(err, "") != "interrupt_capability_lost" {
+	if err := mixer.Arm(
+		interruptClip, plan, func(int64) {}, func(int64) {}, func(error) {},
+	); mediaClipFailureCode(err, "") != "interrupt_capability_lost" {
 		t.Fatalf("interrupt arm error=%v", err)
 	}
 	if engine.InterruptActive() || engine.OverlayActive() {

@@ -328,7 +328,7 @@ func mixerControlParameters(payload protocol.PlayMediaAtPayload) (MixerControlPa
 type MediaClipMixer interface {
 	DeliveryCapabilities() []string
 	Prepare(localPath, delivery string) (*PreparedMediaClip, error)
-	Arm(*PreparedMediaClip, MediaClipPlayPlan, func(localMS int64), func(localMS int64)) error
+	Arm(*PreparedMediaClip, MediaClipPlayPlan, func(localMS int64), func(localMS int64), func(error)) error
 	Cancel(*PreparedMediaClip, protocol.CancelMediaPayload, func(mainResumed bool, err error))
 	Dispose(*PreparedMediaClip)
 }
@@ -364,7 +364,13 @@ func (PreparedOnlyWindowsMediaClipMixer) Prepare(localPath, delivery string) (*P
 	return &PreparedMediaClip{LocalPath: localPath, DecodedDurationMS: duration, Decoder: samples}, nil
 }
 
-func (PreparedOnlyWindowsMediaClipMixer) Arm(_ *PreparedMediaClip, plan MediaClipPlayPlan, _ func(int64), _ func(int64)) error {
+func (PreparedOnlyWindowsMediaClipMixer) Arm(
+	_ *PreparedMediaClip,
+	plan MediaClipPlayPlan,
+	_ func(int64),
+	_ func(int64),
+	_ func(error),
+) error {
 	if plan.Payload.Delivery == "interrupt" {
 		return mediaClipFailure("interrupt_capability_lost")
 	}
@@ -735,11 +741,28 @@ func (c *MediaClipClient) beginPlay(payload protocol.PlayMediaAtPayload) {
 	}
 	err := c.mixer.Arm(entry.prepared, plan,
 		func(localMS int64) { c.post(func() bool { c.handleStarted(entry, localMS); return false }) },
-		func(localMS int64) { c.post(func() bool { c.handleEnded(entry, localMS); return false }) })
+		func(localMS int64) { c.post(func() bool { c.handleEnded(entry, localMS); return false }) },
+		func(err error) {
+			c.post(func() bool {
+				c.handleMixerFailure(entry, err)
+				return false
+			})
+		})
 	if err != nil {
 		entry.phase = mediaClipReady
 		c.fail(entry, "schedule", mediaClipFailureCode(err, "audio_graph_failed"))
 	}
+}
+
+func (c *MediaClipClient) handleMixerFailure(entry *mediaClipEntry, err error) {
+	if !c.isCurrent(entry) || entry.phase == mediaClipTerminal || entry.phase == mediaClipCancelling {
+		return
+	}
+	stage := "playback"
+	if entry.phase == mediaClipArmed {
+		stage = "schedule"
+	}
+	c.fail(entry, stage, mediaClipFailureCode(err, "audio_graph_failed"))
 }
 
 func (c *MediaClipClient) handleStarted(entry *mediaClipEntry, localMS int64) {

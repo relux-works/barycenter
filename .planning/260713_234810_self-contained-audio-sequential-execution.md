@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-176b74` — p1-independent-protocol-review
-  (development; technical self-audit active, distinct-reviewer signoff open)
-- Next engineering task: `TASK-260712-1uz0za` — p1-independent-realtime-audio-review
+- Current engineering task: `TASK-260712-1uz0za` — p1-independent-realtime-audio-review
+  (development; deterministic technical self-audit active)
+- Next engineering task: `TASK-260712-1xkn75` — p1-independent-migration-review
 - Most recently accepted: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Current branch: `task/task-260712-176b74-p1-independent-protocol-review`
+- Current branch: `task/task-260712-1uz0za-p1-independent-realtime-audio-review`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -1015,6 +1015,16 @@ signoff moved to owner-decision `TASK-260715-3ffm3r`. The original task remains
 increase accepted-task counts. Its best-effort engineering scope is exhausted,
 so strict execution may now start `TASK-260712-1uz0za`; Phase 1 root acceptance
 and Store submission remain withheld until the external signoff returns.
+
+Tracking head `7c60183` passed all four hosted jobs in run `29400207186`; PR
+#69 landed the external-signoff ledger at merge
+`aed5d7e5225aca0d4d5b0ad8347cfd500f6c0dac`. Strict execution started
+`TASK-260712-1uz0za` from synchronized `main`. Its engineering review is limited
+to deterministic render ownership, callback safety, concurrency, lifecycle and
+failure parity. Real A3/A4 listening, physical timing, packaged applications
+and hardware remain exclusively in manual `TASK-260712-2hodti`; a separate
+non-implementing audio-reviewer signature will be accumulated in the external
+owner ledger instead of being self-claimed.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

@@ -18,8 +18,10 @@ import (
 type fakeDaemon struct {
 	mu          sync.Mutex
 	calls       chan string
-	readyAfter  int  // PlaybackReady returns false this many times
-	playFails   int  // PlayPaused errors this many times
+	readyAfter  int // PlaybackReady returns false this many times
+	playFails   int // PlayPaused errors this many times
+	resumeErr   error
+	resumeGate  <-chan struct{}
 	statusEmpty bool // Status stays pre-login empty
 	lastURI     string
 }
@@ -68,9 +70,18 @@ func (f *fakeDaemon) Seek(_ context.Context, pos int64) error {
 	f.record(fmt.Sprintf("seek %d", pos))
 	return nil
 }
-func (f *fakeDaemon) Resume(context.Context) error { f.record("resume"); return nil }
-func (f *fakeDaemon) Pause(context.Context) error  { f.record("pause"); return nil }
-func (f *fakeDaemon) Stop(context.Context) error   { f.record("stop"); return nil }
+func (f *fakeDaemon) Resume(context.Context) error {
+	f.mu.Lock()
+	f.record("resume")
+	err, gate := f.resumeErr, f.resumeGate
+	f.mu.Unlock()
+	if gate != nil {
+		<-gate
+	}
+	return err
+}
+func (f *fakeDaemon) Pause(context.Context) error { f.record("pause"); return nil }
+func (f *fakeDaemon) Stop(context.Context) error  { f.record("stop"); return nil }
 func (f *fakeDaemon) AddToQueue(_ context.Context, uri string) error {
 	f.record("queue " + uri)
 	return nil

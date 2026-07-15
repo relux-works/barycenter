@@ -130,7 +130,9 @@ func setupPlayerInterrupt(t *testing.T, clipFrames int) (*Player, *fakeDaemon, *
 func TestWindowsInterruptResumesOnceFromAudibleAnchorWithFadeIn(t *testing.T) {
 	player, daemon, engine, mixer, clip, plan, started, ended :=
 		setupPlayerInterrupt(t, 441)
-	if err := mixer.Arm(clip, plan, func(v int64) { started <- v }, func(v int64) { ended <- v }); err != nil {
+	if err := mixer.Arm(
+		clip, plan, func(v int64) { started <- v }, func(v int64) { ended <- v }, func(error) {},
+	); err != nil {
 		t.Fatal(err)
 	}
 	engine.Render(make([]float32, 441*channels))
@@ -167,7 +169,9 @@ func TestWindowsInterruptResumesOnceFromAudibleAnchorWithFadeIn(t *testing.T) {
 
 func TestWindowsInterruptCancelFadesThenResumesAndAcknowledgesOnce(t *testing.T) {
 	_, daemon, engine, mixer, clip, plan, started, ended := setupPlayerInterrupt(t, sampleRate)
-	if err := mixer.Arm(clip, plan, func(v int64) { started <- v }, func(v int64) { ended <- v }); err != nil {
+	if err := mixer.Arm(
+		clip, plan, func(v int64) { started <- v }, func(v int64) { ended <- v }, func(error) {},
+	); err != nil {
 		t.Fatal(err)
 	}
 	dst := make([]float32, 441*channels)
@@ -215,7 +219,9 @@ func TestWindowsInterruptCancelFadesThenResumesAndAcknowledgesOnce(t *testing.T)
 
 func TestWindowsInterruptStopInvalidatesOldResumeToken(t *testing.T) {
 	player, daemon, engine, mixer, clip, plan, started, _ := setupPlayerInterrupt(t, sampleRate)
-	if err := mixer.Arm(clip, plan, func(v int64) { started <- v }, func(int64) {}); err != nil {
+	if err := mixer.Arm(
+		clip, plan, func(v int64) { started <- v }, func(int64) {}, func(error) {},
+	); err != nil {
 		t.Fatal(err)
 	}
 	dst := make([]float32, 441*channels)
@@ -247,4 +253,151 @@ func TestWindowsInterruptStopInvalidatesOldResumeToken(t *testing.T) {
 	if engine.InterruptActive() {
 		t.Fatal("stop left interrupt owner active")
 	}
+}
+
+func TestWindowsInterruptNaturalResumeFailureIsFailedNotEnded(t *testing.T) {
+	_, daemon, engine, mixer, clip, plan, started, ended := setupPlayerInterrupt(t, 441)
+	daemon.resumeErr = errInterruptUnavailable
+	failed := make(chan error, 1)
+	if err := mixer.Arm(
+		clip,
+		plan,
+		func(v int64) { started <- v },
+		func(v int64) { ended <- v },
+		func(err error) { failed <- err },
+	); err != nil {
+		t.Fatal(err)
+	}
+	engine.Render(make([]float32, 441*channels))
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("started callback missing")
+	}
+	expectCall(t, daemon, "pause")
+	expectCall(t, daemon, "seek ")
+	expectCall(t, daemon, "resume")
+	select {
+	case err := <-failed:
+		if mediaClipFailureCode(err, "") != "audio_graph_failed" {
+			t.Fatalf("failure=%v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("resume failure callback missing")
+	}
+	select {
+	case <-ended:
+		t.Fatal("failed resume emitted media ended")
+	default:
+	}
+	if engine.InterruptActive() {
+		t.Fatal("failed resume retained interrupt render owner")
+	}
+}
+
+func TestWindowsInterruptCancellationHonorsResumeMainFalse(t *testing.T) {
+	player, daemon, engine, mixer, clip, plan, started, _ := setupPlayerInterrupt(t, sampleRate)
+	if err := mixer.Arm(
+		clip, plan, func(v int64) { started <- v }, func(int64) {}, func(error) {},
+	); err != nil {
+		t.Fatal(err)
+	}
+	dst := make([]float32, 441*channels)
+	engine.Render(dst)
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("started callback missing")
+	}
+	expectCall(t, daemon, "pause")
+	result := make(chan bool, 1)
+	mixer.Cancel(clip, protocol.CancelMediaPayload{
+		TransmissionID: "tr_interrupt", Generation: 1, Action: "fade_stop",
+		ResumeMain: false, FadeMS: 0,
+	}, func(resumed bool, err error) {
+		if err != nil {
+			t.Errorf("cancel error: %v", err)
+		}
+		result <- resumed
+	})
+	engine.Render(dst)
+	select {
+	case resumed := <-result:
+		if resumed {
+			t.Fatal("resume_main=false resumed the provider")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("cancel acknowledgement missing")
+	}
+	neverCall(t, daemon, "seek ", 30*time.Millisecond)
+	neverCall(t, daemon, "resume", 30*time.Millisecond)
+	player.mu.Lock()
+	playback, anchor := player.playback, player.interruptAnchor
+	player.mu.Unlock()
+	if playback != PlaybackPaused || anchor != nil || engine.InterruptActive() {
+		t.Fatalf("playback=%s anchor=%v render_active=%v", playback, anchor, engine.InterruptActive())
+	}
+}
+
+func TestWindowsInterruptCancelDuringNaturalResumeAcknowledgesCachedResultOnce(t *testing.T) {
+	_, daemon, engine, mixer, clip, plan, started, ended := setupPlayerInterrupt(t, 441)
+	resumeGate := make(chan struct{})
+	daemon.resumeGate = resumeGate
+	failed := make(chan error, 1)
+	if err := mixer.Arm(
+		clip,
+		plan,
+		func(v int64) { started <- v },
+		func(v int64) { ended <- v },
+		func(err error) { failed <- err },
+	); err != nil {
+		t.Fatal(err)
+	}
+	dst := make([]float32, 441*channels)
+	engine.Render(dst)
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("started callback missing")
+	}
+	expectCall(t, daemon, "pause")
+	expectCall(t, daemon, "seek ")
+	expectCall(t, daemon, "resume")
+
+	result := make(chan struct {
+		resumed bool
+		err     error
+	}, 1)
+	mixer.Cancel(clip, protocol.CancelMediaPayload{
+		TransmissionID: "tr_interrupt", Generation: 1, Action: "fade_stop",
+		ResumeMain: true, FadeMS: 0,
+	}, func(resumed bool, err error) {
+		result <- struct {
+			resumed bool
+			err     error
+		}{resumed: resumed, err: err}
+	})
+	engine.Render(dst)
+	close(resumeGate)
+
+	select {
+	case <-ended:
+	case <-time.After(time.Second):
+		t.Fatal("natural completion did not finish resume")
+	}
+	select {
+	case got := <-result:
+		if !got.resumed || got.err != nil {
+			t.Fatalf("cancel result=%+v", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("cancel during resume was never acknowledged")
+	}
+	select {
+	case err := <-failed:
+		t.Fatalf("cancel race emitted failure: %v", err)
+	default:
+	}
+	neverCall(t, daemon, "seek ", 30*time.Millisecond)
+	neverCall(t, daemon, "resume", 30*time.Millisecond)
 }

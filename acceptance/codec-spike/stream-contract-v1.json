@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-stream-variants-range-cache.v1",
+  "rubric": "p2-codec-spike-rubric.v1",
+  "storagePolicy": {
+    "originalUpload": "retained-by-media-policy-not-a-decoder-input",
+    "canonicalVariants": "content-addressed-candidate-neutral",
+    "selection": "deferred-to-codec-player-adr",
+    "storageKeyFormat": "stream/v1/{sha256}",
+    "immutableAfterPublish": true
+  },
+  "variantRow": {
+    "table": "stream_variants",
+    "requiredFields": [
+      "id",
+      "media_id",
+      "purpose",
+      "codec",
+      "container",
+      "mime",
+      "rate_mode",
+      "bitrate_bps",
+      "sample_rate_hz",
+      "channels",
+      "duration_ms",
+      "size_bytes",
+      "sha256",
+      "etag",
+      "storage_key",
+      "chunk_size_bytes",
+      "chunk_manifest_json",
+      "seek_map_json",
+      "status",
+      "revision",
+      "published_at",
+      "revoked_at"
+    ],
+    "purposeValues": ["original", "canonical"],
+    "statusValues": ["staged", "ready", "revoked"],
+    "uniqueKeys": [
+      ["id"],
+      ["media_id", "codec", "container", "rate_mode", "bitrate_bps"],
+      ["storage_key"]
+    ]
+  },
+  "http": {
+    "path": "/v1/media/{media_id}/variants/{variant_id}",
+    "methods": ["GET", "HEAD"],
+    "authorization": "bearer-header-plus-immutable-target-snapshot-on-every-request",
+    "credentialsInUrl": false,
+    "missingUnauthorizedRevokedStatus": 404,
+    "successStatuses": [200, 206, 304, 416],
+    "acceptRanges": "bytes",
+    "singleRangeOnly": true,
+    "ifRangeMismatch": "return-full-200-client-must-re-resolve-manifest",
+    "cacheControl": "private, no-store",
+    "vary": ["Authorization", "X-Codec-Spike-Target"],
+    "etag": "strong-sha256",
+    "requiredSuccessHeaders": [
+      "Accept-Ranges",
+      "Cache-Control",
+      "Content-Length",
+      "Content-Type",
+      "ETag",
+      "Vary",
+      "X-Content-SHA256",
+      "X-Content-Type-Options"
+    ]
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "chunkSizeBytes": 1048576,
+    "wholeObjectRequired": true,
+    "mixedEtagAction": "invalidate-variant-and-re-resolve",
+    "chunkMismatchAction": "delete-chunk-retry-once-then-reject-candidate",
+    "decodeBeforeIntegrity": false
+  },
+  "seekMap": {
+    "timeUnit": "milliseconds",
+    "offsetUnit": "bytes",
+    "monotonic": true,
+    "firstPoint": [0, 0],
+    "selection": "greatest-point-not-after-requested-time",
+    "maximumPointSpacingMS": 10000,
+    "offsetMustStartChunk": true
+  },
+  "cache": {
+    "scope": "per-installation-app-private",
+    "globalCeilingBytes": 536870912,
+    "perVariantCeilingBytes": 67108864,
+    "pinnedCeilingBytes": 134217728,
+    "maximumChunkBytes": 1048576,
+    "maximumNetworkReadBytes": 1048576,
+    "eviction": "unpinned-lru",
+    "atomicWrite": "same-directory-temp-fsync-rename-directory-fsync",
+    "restartIndex": "sqlite-reconcile-files-and-digests",
+    "cacheKey": "hmac-sha256(installation-secret,namespace|variant|etag|chunk-index)",
+    "filenamesExposeIdentifiers": false,
+    "concurrentReaders": "pin-until-close",
+    "oversizeAction": "reject-before-write",
+    "corruptionAction": "remove-and-refetch",
+    "deleteOrDisableAction": "deny-new-opens-tombstone-pinned-remove-unpinned-no-refill"
+  },
+  "candidateInputs": {
+    "fixtureLockRequired": true,
+    "variantManifestRequired": true,
+    "identicalAcrossCandidates": true,
+    "containers": ["mp3", "m4a-faststart", "adts", "ogg"],
+    "codecs": ["mp3", "aac-lc", "opus"]
+  }
+}

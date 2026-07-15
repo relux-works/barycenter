@@ -1073,6 +1073,14 @@ func validAirPolicy(policy AirPolicyView) bool {
 		overlay[policy.Queue] && replace[policy.Replace]
 }
 
+func airPolicyAuditValue(policy AirPolicyView) string {
+	raw, err := json.Marshal(policy)
+	if err != nil {
+		return "{}"
+	}
+	return string(raw)
+}
+
 func (s *Store) ReplaceAuthorizedAirPolicy(auth AirMutationAuth, airID string, policy AirPolicyView) (AirProjection, error) {
 	if !validAirPolicy(policy) {
 		return AirProjection{}, ErrAirInvalid
@@ -1086,6 +1094,14 @@ func (s *Store) ReplaceAuthorizedAirPolicy(auth AirMutationAuth, airID string, p
 		return replayAirMutation[AirProjection](state)
 	}
 	if _, _, err := ownerPrimaryTx(state.tx, state.ctx, airID); err != nil {
+		return AirProjection{}, err
+	}
+	var oldPolicy AirPolicyView
+	if err := state.tx.QueryRow(`SELECT revision, invite_policy, overlay_policy,
+  queue_policy, replace_policy FROM air_policies WHERE air_id = ?`, airID).Scan(
+		&oldPolicy.Revision, &oldPolicy.Invite, &oldPolicy.Overlay,
+		&oldPolicy.Queue, &oldPolicy.Replace,
+	); err != nil {
 		return AirProjection{}, err
 	}
 	result, err := state.tx.Exec(`UPDATE air_policies SET revision = revision + 1,
@@ -1102,8 +1118,10 @@ WHERE air_id = ? AND revision = ?`, policy.Invite, policy.Overlay, policy.Queue,
 		return AirProjection{}, err
 	}
 	if err := appendAirAuditTx(state.tx, airID, "", "", state.ctx.ActorID,
-		state.ctx.OrbitID, "air.policy.replace", strconv.FormatInt(policy.Revision, 10),
-		strconv.FormatInt(policy.Revision+1, 10), "ok", auth.Now); err != nil {
+		state.ctx.OrbitID, "air.policy.replace", airPolicyAuditValue(oldPolicy),
+		airPolicyAuditValue(AirPolicyView{Revision: policy.Revision + 1, Invite: policy.Invite,
+			Overlay: policy.Overlay, Queue: policy.Queue, Replace: policy.Replace}),
+		"ok", auth.Now); err != nil {
 		return AirProjection{}, err
 	}
 	projection, err := airProjectionTx(state.tx, airID, state.ctx.OrbitID)

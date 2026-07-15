@@ -578,6 +578,18 @@ func (l *loop) genericMediaURL(mediaID string) string {
 func (l *loop) transmissionDomainState(
 	transmission store.Transmission,
 ) *orbitState {
+	if transmission.AirID != "" {
+		if state := l.airs[transmission.AirID]; state != nil {
+			return state
+		}
+		// Re-resolve after restart or a just-committed activation. The accepted
+		// target snapshot is still authoritative; this only locates its runtime.
+		state := l.stateFor(transmission.SourceOrbitID)
+		if state != nil && state.airID == transmission.AirID {
+			return state
+		}
+		return nil
+	}
 	switch transmission.PlaybackDomainKind {
 	case store.PlaybackDomainOrbit:
 		return l.orbit(transmission.PlaybackDomainID)
@@ -602,7 +614,8 @@ func (l *loop) bridgeLegacyTransmission(
 			continue
 		}
 		node := protocol.NodeID(target.Slot)
-		if work.Transmission.PlaybackDomainKind == store.PlaybackDomainApproach {
+		if work.Transmission.AirID != "" ||
+			work.Transmission.PlaybackDomainKind == store.PlaybackDomainApproach {
 			node = compositeID(target.OrbitID, node)
 		}
 		targets = append(targets, node)

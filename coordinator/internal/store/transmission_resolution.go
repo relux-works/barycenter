@@ -429,8 +429,40 @@ WHERE ic.slot_orbit_id = ?`
 func transmissionDomainTx(
 	tx *sql.Tx,
 	sourceOrbitID int64,
+	policyContext *airPolicyContext,
 ) (PlaybackDomainKind, int64, map[int64]struct{}, error) {
 	allowed := map[int64]struct{}{sourceOrbitID: {}}
+	if policyContext != nil {
+		// A parked Air has no shared runtime. Work accepted there remains scoped
+		// to the source barycenter and cannot expand when another member later
+		// activates. An active Air snapshots only current joined pointers.
+		if policyContext.AirStatus != "active" {
+			return PlaybackDomainOrbit, sourceOrbitID, allowed, nil
+		}
+		rows, err := tx.Query(`SELECT m.orbit_id
+FROM air_members m JOIN air_active_pointers p
+  ON p.air_id = m.air_id AND p.orbit_id = m.orbit_id
+WHERE m.air_id = ? AND m.status = 'joined' ORDER BY m.orbit_id`, policyContext.AirID)
+		if err != nil {
+			return "", 0, nil, err
+		}
+		for rows.Next() {
+			var orbitID int64
+			if err := rows.Scan(&orbitID); err != nil {
+				rows.Close()
+				return "", 0, nil, err
+			}
+			allowed[orbitID] = struct{}{}
+		}
+		if err := rows.Close(); err != nil {
+			return "", 0, nil, err
+		}
+		domainID, err := airPlaybackDomainTx(tx, policyContext.AirID)
+		if err != nil {
+			return "", 0, nil, err
+		}
+		return PlaybackDomainApproach, domainID, allowed, nil
+	}
 	rows, err := tx.Query(`SELECT id, orbit_a, orbit_b FROM links
 WHERE state = 'active' AND (orbit_a = ? OR orbit_b = ?)
 ORDER BY id LIMIT 2`,
@@ -471,10 +503,14 @@ func resolveTransmissionAudienceTx(
 	tx *sql.Tx,
 	ctx ActorContext,
 	params CreateResolvedTransmissionParams,
-) ([]resolvedTransmissionTarget, PlaybackDomainKind, int64, error) {
-	domainKind, domainID, allowedOrbits, err := transmissionDomainTx(tx, ctx.OrbitID)
+) ([]resolvedTransmissionTarget, PlaybackDomainKind, int64, *airPolicyContext, error) {
+	policyContext, err := activeAirPolicyContextTx(tx, ctx.OrbitID)
 	if err != nil {
-		return nil, "", 0, err
+		return nil, "", 0, nil, err
+	}
+	domainKind, domainID, allowedOrbits, err := transmissionDomainTx(tx, ctx.OrbitID, policyContext)
+	if err != nil {
+		return nil, "", 0, nil, err
 	}
 	resolved := make(map[string]resolvedTransmissionTarget)
 	add := func(targets []resolvedTransmissionTarget) {
@@ -485,11 +521,11 @@ func resolveTransmissionAudienceTx(
 	switch params.AudienceKind {
 	case TransmissionAudienceThisPulsar:
 		if ctx.Slot == "" || (!params.IncludeOrigin) {
-			return nil, "", 0, ErrTransmissionInvalid
+			return nil, "", 0, nil, ErrTransmissionInvalid
 		}
 		targets, err := liveTransmissionTargetsTx(tx, ctx.OrbitID, ctx.Slot)
 		if err != nil {
-			return nil, "", 0, err
+			return nil, "", 0, nil, err
 		}
 		for _, target := range targets {
 			if target.ActorID == ctx.ActorID {
@@ -499,7 +535,7 @@ func resolveTransmissionAudienceTx(
 	case TransmissionAudienceOwnBarycenter:
 		targets, err := liveTransmissionTargetsTx(tx, ctx.OrbitID, "")
 		if err != nil {
-			return nil, "", 0, err
+			return nil, "", 0, nil, err
 		}
 		add(targets)
 	case TransmissionAudienceCurrentAir:
@@ -511,34 +547,34 @@ func resolveTransmissionAudienceTx(
 		for _, orbitID := range orbits {
 			targets, err := liveTransmissionTargetsTx(tx, orbitID, "")
 			if err != nil {
-				return nil, "", 0, err
+				return nil, "", 0, nil, err
 			}
 			add(targets)
 		}
 	case TransmissionAudienceExplicit:
 		for _, selector := range params.Selectors {
 			if _, allowed := allowedOrbits[selector.OrbitID]; !allowed {
-				return nil, "", 0, ErrTransmissionAudienceNotFound
+				return nil, "", 0, nil, ErrTransmissionAudienceNotFound
 			}
 			targets, err := liveTransmissionTargetsTx(tx, selector.OrbitID, selector.Slot)
 			if err != nil {
-				return nil, "", 0, err
+				return nil, "", 0, nil, err
 			}
 			if len(targets) == 0 ||
 				(selector.Kind == TransmissionSelectorPulsar && len(targets) != 1) {
-				return nil, "", 0, ErrTransmissionAudienceNotFound
+				return nil, "", 0, nil, ErrTransmissionAudienceNotFound
 			}
 			add(targets)
 		}
 	}
 	if len(resolved) == 0 {
-		return nil, "", 0, ErrTransmissionAudienceEmpty
+		return nil, "", 0, nil, ErrTransmissionAudienceEmpty
 	}
 	if !params.IncludeOrigin && ctx.Slot != "" {
 		delete(resolved, transmissionTargetKey(ctx.OrbitID, ctx.Slot))
 	}
 	if len(resolved) == 0 {
-		return nil, "", 0, ErrTransmissionAudienceEmpty
+		return nil, "", 0, nil, ErrTransmissionAudienceEmpty
 	}
 	targets := make([]resolvedTransmissionTarget, 0, len(resolved))
 	for _, target := range resolved {
@@ -550,7 +586,7 @@ func resolveTransmissionAudienceTx(
 		}
 		return targets[i].OrbitID < targets[j].OrbitID
 	})
-	return targets, domainKind, domainID, nil
+	return targets, domainKind, domainID, policyContext, nil
 }
 
 func transmissionBlockDecisionTx(
@@ -844,7 +880,13 @@ func (s *Store) createResolvedTransmissionTx(
 	if err != nil {
 		return ResolvedTransmissionCreation{}, err
 	}
-	resolved, domainKind, domainID, err := resolveTransmissionAudienceTx(tx, ctx, params)
+	resolved, domainKind, domainID, policyContext, err := resolveTransmissionAudienceTx(tx, ctx, params)
+	if err != nil {
+		return ResolvedTransmissionCreation{}, err
+	}
+	requestedAuthorization, err := authorizeAirPolicyTx(
+		ctx, policyContext, airPolicyOperationForDelivery(params.RequestedDelivery),
+	)
 	if err != nil {
 		return ResolvedTransmissionCreation{}, err
 	}
@@ -927,12 +969,32 @@ func (s *Store) createResolvedTransmissionTx(
 		EffectiveDelivery: effectiveDelivery, DowngradeReason: downgradeReason,
 		AcceptedAt: params.AcceptedAt, Targets: targets,
 	}
+	acceptedAuthorization := requestedAuthorization
+	acceptedOperation := airPolicyOperationForDelivery(effectiveDelivery)
+	if acceptedOperation != requestedAuthorization.Operation {
+		acceptedAuthorization, err = authorizeAirPolicyTx(ctx, policyContext, acceptedOperation)
+		if err != nil {
+			return ResolvedTransmissionCreation{}, err
+		}
+	}
+	createParams.AirID = acceptedAuthorization.AirID
+	createParams.AirPolicyRevision = acceptedAuthorization.PolicyRevision
+	createParams.AirPolicyOperation = acceptedAuthorization.Operation
+	createParams.AirPolicyResult = acceptedAuthorization.Result
 	if err := validateCreateTransmission(createParams); err != nil {
 		return ResolvedTransmissionCreation{}, err
 	}
 	creation, err := s.createTransmissionTx(tx, createParams, mediaItem)
 	if err != nil {
 		return ResolvedTransmissionCreation{}, err
+	}
+	if acceptedAuthorization.AirID != "" {
+		if err := appendAirAuditTx(tx, acceptedAuthorization.AirID, policyContext.MemberID, "",
+			ctx.ActorID, ctx.OrbitID, "air.policy.authorize."+string(acceptedAuthorization.Operation),
+			airPolicyValue(*policyContext, acceptedAuthorization.Operation), creation.Transmission.ID,
+			"ok", params.AcceptedAt); err != nil {
+			return ResolvedTransmissionCreation{}, err
+		}
 	}
 	if _, err := tx.Exec(`INSERT INTO transmission_requests(
   actor_id, idempotency_key_hash, request_hash, transmission_id, created_at

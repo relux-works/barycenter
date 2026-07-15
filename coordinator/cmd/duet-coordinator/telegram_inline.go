@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -297,8 +298,13 @@ func (l *loop) handleTelegramInlineCallback(ev bot.Event) {
 		Availability: l.telegramTransmissionAvailability(),
 	})
 	if err != nil {
-		l.log.Error("apply Telegram inline callback", "err", err)
-		result.Outcome = store.TelegramCallbackFailed
+		if errors.Is(err, store.ErrAirPolicyDenied) {
+			result.Outcome = store.TelegramCallbackForbidden
+			ev.Reply("политика текущего Air запрещает этот способ доставки")
+		} else {
+			l.log.Error("apply Telegram inline callback", "err", err)
+			result.Outcome = store.TelegramCallbackFailed
+		}
 	}
 	if result.Cancellation != nil {
 		l.handleTransmissionSignal(transmissionSignal{

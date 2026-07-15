@@ -200,6 +200,240 @@ WHERE actor_id = ? AND idempotency_key_hash = ? AND request_hash = ?`,
 	}
 }
 
+func TestMigratedPairKeepsFrozenAirPolicyDefaultsAndSchedulerDomain(t *testing.T) {
+	st, source := newMediaIngestTestStore(t)
+	peer, err := st.CreateSelfServiceOrbit("Migrated policy peer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	linkID := activateTransmissionApproach(t, st, source, peer)
+	now := time.Now().UnixMilli()
+	if _, err := st.CutoverLinksToAirs(1, now); err != nil {
+		t.Fatal(err)
+	}
+	var airID string
+	if err := st.db.QueryRow(`SELECT air_id FROM air_legacy_link_mappings WHERE link_id = ?`, linkID).
+		Scan(&airID); err != nil {
+		t.Fatal(err)
+	}
+	policy, err := st.AirPolicy(airID)
+	if err != nil || policy.Revision != 1 || policy.Invite != "air_admin_primary" ||
+		policy.Overlay != "primary_companion" || policy.Queue != "primary_companion" ||
+		policy.Replace != "air_admin_primary" {
+		t.Fatalf("migrated policy=%+v err=%v", policy, err)
+	}
+	media := readyLifecycleMedia(t, st, source, now+1,
+		now+int64((7*24*time.Hour)/time.Millisecond))
+	params := resolvedTransmissionParams(source, media, now+5)
+	params.Availability = []TransmissionTargetAvailability{
+		fullTransmissionAvailability(source, params.AcceptedAt),
+		fullTransmissionAvailability(peer, params.AcceptedAt),
+	}
+	created, err := st.CreateResolvedTransmission(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transmission := created.Creation.Transmission
+	if transmission.AirID != airID || transmission.AirPolicyRevision != 1 ||
+		transmission.PlaybackDomainKind != PlaybackDomainApproach ||
+		transmission.PlaybackDomainID != linkID || len(created.Creation.Targets) != 2 {
+		t.Fatalf("migrated transmission=%+v targets=%+v", transmission, created.Creation.Targets)
+	}
+}
+
+func TestAirPolicyAuthorizationSnapshotsAndNeverExpandsAcceptedWork(t *testing.T) {
+	st, owner := newMediaIngestTestStore(t)
+	peer, err := st.CreateSelfServiceOrbit("Air policy peer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	if _, err := st.CutoverLinksToAirs(1, now); err != nil {
+		t.Fatal(err)
+	}
+	air, err := st.CreateAir(CreateAirParams{
+		Title: "Policy Air", OwnerOrbitID: owner.OrbitID, CreatedAt: now + 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.ActivateAir(owner.OrbitID, air.ID, "none", now+2); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := st.AddPendingAirMember(air.ID, peer.OrbitID, "member", now+3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.ConfirmAirMember(pending.ID, pending.Revision, true, "none", now+4); err != nil {
+		t.Fatal(err)
+	}
+	companion := addTransmissionInstallation(t, st, owner, "companion")
+	telegramIdentity := Identity{Kind: IdentityBearer, Token: companion.ControlToken}
+	queueAuthorization, err := st.AuthorizeAirActionForIdentity(telegramIdentity, AirPolicyQueue)
+	if err != nil || queueAuthorization.AirID != air.ID || queueAuthorization.PolicyRevision != 1 {
+		t.Fatalf("queue authorization=%+v err=%v", queueAuthorization, err)
+	}
+	if _, err := st.AuthorizeAirActionForIdentity(telegramIdentity, AirPolicyReplace); !errors.Is(err, ErrAirPolicyDenied) {
+		t.Fatalf("companion replace authorization=%v", err)
+	}
+	if _, err := st.AuthorizeInstallationAirAction(
+		owner.OrbitID, owner.Slot, AirPolicyReplace,
+	); err != nil {
+		t.Fatalf("owner installation replace authorization=%v", err)
+	}
+	telegramLink, err := st.IssueTelegramLink(owner.ActorID, owner.ControlToken, "companion")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const telegramUserID = int64(99125862)
+	if _, err := st.ConsumeTelegramLink(
+		telegramUserID, "Air policy Telegram", "private", telegramLink.Code,
+	); err != nil {
+		t.Fatal(err)
+	}
+	telegramProof := Identity{Kind: IdentityTelegram, TelegramUserID: telegramUserID}
+	if authorization, err := st.AuthorizeAirActionForIdentity(telegramProof, AirPolicyQueue); err != nil ||
+		authorization.AirID != air.ID {
+		t.Fatalf("Telegram queue authorization=%+v err=%v", authorization, err)
+	}
+	if _, err := st.AuthorizeAirActionForIdentity(telegramProof, AirPolicyReplace); !errors.Is(err, ErrAirPolicyDenied) {
+		t.Fatalf("Telegram replace authorization=%v", err)
+	}
+	media := readyLifecycleMedia(t, st, companion, now+10,
+		now+int64((7*24*time.Hour)/time.Millisecond))
+	params := resolvedTransmissionParams(companion, media, now+20)
+	params.Availability = []TransmissionTargetAvailability{
+		fullTransmissionAvailability(owner, params.AcceptedAt),
+		fullTransmissionAvailability(companion, params.AcceptedAt),
+		fullTransmissionAvailability(peer, params.AcceptedAt),
+	}
+	accepted, err := st.CreateResolvedTransmission(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := accepted.Creation.Transmission
+	if snapshot.AirID != air.ID || snapshot.AirPolicyRevision != 1 ||
+		snapshot.AirPolicyOperation != AirPolicyOverlay || snapshot.AirPolicyResult != "allowed" ||
+		snapshot.PlaybackDomainKind != PlaybackDomainApproach || len(accepted.Creation.Targets) != 3 {
+		t.Fatalf("policy snapshot=%+v targets=%+v", snapshot, accepted.Creation.Targets)
+	}
+	queuedParams := params
+	queuedParams.IdempotencyKeyHash = strings.Repeat("c", 64)
+	queuedParams.RequestHash = strings.Repeat("d", 64)
+	queuedParams.RequestedDelivery = TransmissionDeliveryAfterCurrent
+	queuedParams.AcceptedAt++
+	for i := range queuedParams.Availability {
+		queuedParams.Availability[i].LastSeenAt = queuedParams.AcceptedAt
+	}
+	queued, err := st.CreateResolvedTransmission(queuedParams)
+	if err != nil || queued.Creation.Transmission.AirPolicyOperation != AirPolicyQueue ||
+		queued.Creation.Transmission.AirPolicyRevision != 1 {
+		t.Fatalf("queue snapshot=%+v err=%v", queued, err)
+	}
+	if _, err := st.AuthorizedSetDND(AuthorizedDNDMutationParams{
+		ExpectedActorID: peer.ActorID, Bearer: peer.ControlToken, Layer: "local",
+		Mode: DNDMutedUntil, MutedUntil: now + 60_000, ExpectedRevision: 0,
+		IdempotencyKeyHash: strings.Repeat("e", 64), RequestHash: strings.Repeat("f", 64),
+		UpdatedAt: now + 22,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	dndParams := params
+	dndParams.IdempotencyKeyHash = strings.Repeat("3", 64)
+	dndParams.RequestHash = strings.Repeat("4", 64)
+	dndParams.AcceptedAt = now + 23
+	for i := range dndParams.Availability {
+		dndParams.Availability[i].LastSeenAt = dndParams.AcceptedAt
+	}
+	dndAccepted, err := st.CreateResolvedTransmission(dndParams)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var peerStatus TransmissionTargetStatus
+	for _, target := range dndAccepted.Creation.Targets {
+		if target.ActorID == peer.ActorID {
+			peerStatus = target.Status
+		}
+	}
+	if peerStatus != TransmissionTargetMissedDND {
+		t.Fatalf("local DND did not override allowed Air policy: targets=%+v", dndAccepted.Creation.Targets)
+	}
+
+	policy, err := st.AirPolicy(air.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy.Overlay = "disabled"
+	if err := st.ReplaceAirPolicy(*policy, policy.Revision, now+24); err != nil {
+		t.Fatal(err)
+	}
+	var oldPolicyAudit, newPolicyAudit string
+	if err := st.db.QueryRow(`SELECT old_value, new_value FROM air_audit_events
+WHERE air_id = ? AND operation = 'air.policy.replace' ORDER BY id DESC LIMIT 1`, air.ID).
+		Scan(&oldPolicyAudit, &newPolicyAudit); err != nil ||
+		!strings.Contains(oldPolicyAudit, `"overlay":"primary_companion"`) ||
+		!strings.Contains(newPolicyAudit, `"overlay":"disabled"`) {
+		t.Fatalf("policy audit old=%q new=%q err=%v", oldPolicyAudit, newPolicyAudit, err)
+	}
+	denied := params
+	denied.IdempotencyKeyHash = strings.Repeat("a", 64)
+	denied.RequestHash = strings.Repeat("b", 64)
+	denied.AcceptedAt++
+	for i := range denied.Availability {
+		denied.Availability[i].LastSeenAt = denied.AcceptedAt
+	}
+	if _, err := st.CreateResolvedTransmission(denied); !errors.Is(err, ErrAirPolicyDenied) {
+		t.Fatalf("restricted companion create error=%v", err)
+	}
+
+	// An exact retry remains the immutable accepted result even after policy
+	// restriction; no member or target is removed, added or reauthorized.
+	replay := params
+	replay.AcceptedAt += 1000
+	replayed, err := st.CreateResolvedTransmission(replay)
+	if err != nil || !replayed.Reused || replayed.Creation.Transmission.ID != snapshot.ID ||
+		replayed.Creation.Transmission.AirPolicyRevision != 1 ||
+		len(replayed.Creation.Targets) != len(accepted.Creation.Targets) {
+		t.Fatalf("accepted replay=%+v err=%v", replayed, err)
+	}
+	if _, err := st.db.Exec(`UPDATE transmissions SET air_policy_revision = 2 WHERE id = ?`, snapshot.ID); err == nil ||
+		!strings.Contains(err.Error(), "acceptance snapshot is immutable") {
+		t.Fatalf("policy snapshot mutation error=%v", err)
+	}
+	var audits int
+	if err := st.db.QueryRow(`SELECT COUNT(*) FROM air_audit_events
+WHERE air_id = ? AND actor_id = ? AND operation = 'air.policy.authorize.overlay'
+  AND new_value = ? AND result_code = 'ok'`, air.ID, companion.ActorID, snapshot.ID).
+		Scan(&audits); err != nil || audits != 1 {
+		t.Fatalf("authorization audits=%d err=%v", audits, err)
+	}
+	var databaseSequence int
+	var databaseName, databasePath string
+	if err := st.db.QueryRow(`PRAGMA database_list`).Scan(
+		&databaseSequence, &databaseName, &databasePath,
+	); err != nil || databasePath == "" {
+		t.Fatalf("database path=%q err=%v", databasePath, err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	restarted, err := OpenWithOptions(databasePath, Options{SelfServiceOnboarding: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = restarted.Close() })
+	restored, err := restarted.GetTransmission(snapshot.ID)
+	if err != nil || restored == nil || restored.AirID != air.ID ||
+		restored.AirPolicyRevision != 1 || restored.AirPolicyOperation != AirPolicyOverlay {
+		t.Fatalf("restart snapshot=%+v err=%v", restored, err)
+	}
+	if authorization, err := restarted.AuthorizeAirActionForIdentity(
+		Identity{Kind: IdentityBearer, Token: companion.ControlToken}, AirPolicyQueue,
+	); err != nil || authorization.PolicyRevision != 2 {
+		t.Fatalf("restart policy authorization=%+v err=%v", authorization, err)
+	}
+}
+
 func TestResolvedTransmissionRejectsCapabilitiesFromStaleBinding(t *testing.T) {
 	st, source := newMediaIngestTestStore(t)
 	now := time.Now().UnixMilli()

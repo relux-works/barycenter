@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"runtime"
 	"unsafe"
 
 	"github.com/Microsoft/go-winio"
@@ -36,11 +37,6 @@ func startAudio(pipeName string, ring *Ring, engine *Engine, player *Player, log
 	go func() {
 		<-stop
 		listener.Close()
-	}()
-	go func() {
-		if err := renderLoop(engine, player, log, stop); err != nil {
-			log.Error("wasapi render loop failed", "err", err)
-		}
 	}()
 	return nil
 }
@@ -79,7 +75,9 @@ func acceptLoop(l net.Listener, ring *Ring, log *slog.Logger, stop <-chan struct
 // with AUTOCONVERTPCM|SRC_DEFAULT_QUALITY: since Win10 the audio engine
 // converts to the device mix format, so the loop pulls raw engine floats
 // with no local resampler — the macOS AVAudioEngine did the same conversion.
-func renderLoop(engine *Engine, player *Player, log *slog.Logger, stop <-chan struct{}) error {
+func renderLoop(engine *Engine, player *Player, log *slog.Logger, stop <-chan struct{}, deviceID string) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	if err := ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED); err != nil {
 		return fmt.Errorf("CoInitializeEx: %w", err)
 	}
@@ -92,16 +90,18 @@ func renderLoop(engine *Engine, player *Player, log *slog.Logger, stop <-chan st
 	}
 	defer enumerator.Release()
 
-	var device *wca.IMMDevice
-	if err := enumerator.GetDefaultAudioEndpoint(wca.ERender, wca.EConsole, &device); err != nil {
-		return fmt.Errorf("default render endpoint: %w", err)
+	device, err := selectWindowsRenderDevice(enumerator, deviceID)
+	if err != nil {
+		return err
 	}
 	defer device.Release()
 
 	// Heartbeat speakers entry: the default endpoint's friendly name
 	// (best-effort; the "Default output" placeholder stands on failure).
-	if name := deviceFriendlyName(device); name != "" {
-		player.SetSpeakerName(name)
+	if player != nil {
+		if name := deviceFriendlyName(device); name != "" {
+			player.SetSpeakerName(name)
+		}
 	}
 
 	var client *wca.IAudioClient
@@ -189,14 +189,48 @@ func renderLoop(engine *Engine, player *Player, log *slog.Logger, stop <-chan st
 		// The engine mixes music (with fade gain), voice inserts and clicks,
 		// zero-filling any shortfall (underrun = silence, never a stale tail).
 		got := engine.Render(dst)
-		if got < len(dst) && !engine.VoiceActive() {
+		if player != nil && got < len(dst) && !engine.VoiceActive() {
 			player.NoteStarved()
 		}
-		player.NoteRendered(got)
+		if player != nil {
+			player.NoteRendered(got)
+		}
 		if err := renderer.ReleaseBuffer(frames, 0); err != nil {
 			return fmt.Errorf("ReleaseBuffer: %w", err)
 		}
 	}
+}
+
+func selectWindowsRenderDevice(enumerator *wca.IMMDeviceEnumerator, selectedID string) (*wca.IMMDevice, error) {
+	if selectedID == "" {
+		var device *wca.IMMDevice
+		if err := enumerator.GetDefaultAudioEndpoint(wca.ERender, wca.EConsole, &device); err != nil {
+			return nil, fmt.Errorf("default render endpoint: %w", err)
+		}
+		return device, nil
+	}
+	var collection *wca.IMMDeviceCollection
+	if err := enumerator.EnumAudioEndpoints(wca.ERender, 1, &collection); err != nil {
+		return nil, fmt.Errorf("enumerate render endpoints: %w", err)
+	}
+	defer collection.Release()
+	var count uint32
+	if err := collection.GetCount(&count); err != nil {
+		return nil, err
+	}
+	for index := uint32(0); index < count; index++ {
+		var device *wca.IMMDevice
+		if collection.Item(index, &device) != nil {
+			continue
+		}
+		var id string
+		_ = device.GetId(&id)
+		if id == selectedID {
+			return device, nil
+		}
+		device.Release()
+	}
+	return nil, fmt.Errorf("selected render endpoint unavailable")
 }
 
 // deviceFriendlyName reads PKEY_Device_FriendlyName from the endpoint's

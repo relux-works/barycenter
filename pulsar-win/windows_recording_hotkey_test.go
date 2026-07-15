@@ -150,7 +150,12 @@ func TestWindowsRecordingShortcutWin32RoutingAndForegroundCancelContract(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	tray, window, production := string(traySource), string(windowSource), string(mainSource)
+	compositionSource, err := os.ReadFile("windows_capture_composition_windows.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tray, window := string(traySource), string(windowSource)
+	production := string(mainSource) + string(compositionSource)
 	for _, required := range []string{
 		"NewWindowsRecordingShortcutController", "win32RecordingShortcutRegistrar{hwnd: trayHwnd}",
 		"case wmHotKey:", "case wmWtsSessionChange:", "case wmPowerBroadcast:",
@@ -168,7 +173,7 @@ func TestWindowsRecordingShortcutWin32RoutingAndForegroundCancelContract(t *test
 	}
 	for _, required := range []string{
 		"NewNativeWindowsMicrophoneBackend", "NewWindowsMicrophoneCaptureService",
-		"NewWindowsRecordingController", "ToggleRecording: recording.Toggle", "CancelRecording: recording.Cancel",
+		"NewWindowsRecordingController", "ToggleRecording:", "workflow.Toggle", "CancelRecording:", "workflow.Cancel",
 	} {
 		if !containsText(production, required) {
 			t.Errorf("production wiring missing %q", required)

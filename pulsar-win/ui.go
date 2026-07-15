@@ -3,6 +3,8 @@
 // here so the darwin test build links; the Win32 plumbing is isolated.
 package main
 
+import "context"
+
 // TrayState is what the tray menu renders and acts on, read live on each open.
 type TrayState struct {
 	// Shell is the shared main-window/tray projection. Nil retains the legacy
@@ -14,13 +16,23 @@ type TrayState struct {
 	Identity string
 	// Recording and Shortcut are single owners shared by hidden tray, visible
 	// window and Win32 lifecycle messages.
-	Recording     *WindowsRecordingController
+	Recording     WindowsRecordingControl
 	Shortcut      WindowsRecordingShortcut
 	ShortcutStore WindowsRecordingShortcutStore
 	// OnRePair opens the onboarding window to re-pair in place (F3).
 	OnRePair func()
 	// OnQuit tears the process down cleanly.
 	OnQuit func()
+}
+
+type WindowsRecordingControl interface {
+	Snapshot() (ShellRecording, bool)
+	Toggle()
+	Cancel()
+	HandleSessionLock()
+	HandleSuspend()
+	Shutdown()
+	Wait(context.Context) error
 }
 
 // OnboardingResult carries the credentials a successful pairing produced.

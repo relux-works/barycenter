@@ -1,0 +1,34 @@
+@startuml
+title P1 Windows local capture workflow
+skinparam componentStyle rectangle
+
+actor User
+component "Main window / tray /\nRegisterHotKey" as UI
+component "WindowsCaptureWorkflowController\n(single state owner)" as Workflow
+component "WindowsRecordingController" as Recording
+component "WindowsLocalSelfTestService" as SelfTest
+component "WindowsMicrophoneCaptureService" as Capture
+component "pulsar-capture.dll\nAppCapability + WASAPI" as Helper
+component "FileOpenPicker / Explorer drop" as Files
+component "CaptureMediaStore" as Store
+component "WindowsAudioOutputController" as Output
+component "WindowsOverlayMediaClipMixer" as Mixer
+
+User --> UI
+UI --> Workflow
+Workflow --> Recording
+Workflow --> SelfTest
+Recording --> Capture
+SelfTest --> Capture
+Capture --> Helper
+Capture --> Store
+Files --> Workflow : brokered stream
+SelfTest --> Store
+SelfTest --> Mixer : cue + completed draft
+Output --> Mixer : selected endpoint render
+
+note right of Workflow
+  Normal record and self-test are mutually exclusive.
+  Paired/accountless launch use the same composition.
+end note
+@enduml

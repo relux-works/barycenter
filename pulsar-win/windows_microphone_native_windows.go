@@ -5,6 +5,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -17,6 +19,129 @@ const windowsCaptureNativePoll = 50 * time.Millisecond
 type nativeWindowsMicrophoneBackend struct {
 	helper          *winprobe.Helper
 	permissionEvent windows.Handle
+	closeOnce       sync.Once
+}
+
+func (b *nativeWindowsMicrophoneBackend) Close() {
+	if b == nil {
+		return
+	}
+	b.closeOnce.Do(func() {
+		_ = b.helper.PermissionUnsubscribe()
+		if b.permissionEvent != 0 {
+			_ = windows.CloseHandle(b.permissionEvent)
+			b.permissionEvent = 0
+		}
+	})
+}
+
+// Inputs promotes the already reviewed AppCapability enumeration ABI from the
+// hardware probe into production composition. It returns stable ids only after
+// the async operation reaches a successful terminal state.
+func (b *nativeWindowsMicrophoneBackend) Inputs(ctx context.Context) ([]WindowsCaptureInput, error) {
+	event, err := windows.CreateEvent(nil, 0, 0, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer windows.CloseHandle(event)
+	id, hr := b.helper.EnumerateDevices(event)
+	if hr.Failed() || id == 0 {
+		return nil, hr
+	}
+	defer b.helper.EnumerateDevicesRelease(id)
+	for {
+		state, count, outcome, callHR := b.helper.EnumerateDevicesResult(id)
+		if callHR.Failed() {
+			_ = b.helper.EnumerateDevicesCancel(id)
+			return nil, callHR
+		}
+		if state == 1 {
+			if outcome.Failed() || count < 0 || count > 256 {
+				return nil, outcome
+			}
+			inputs := make([]WindowsCaptureInput, 0, count)
+			for index := int32(0); index < count; index++ {
+				device, infoHR := b.helper.DeviceInfo(id, index)
+				if infoHR.Failed() || device.ID == "" {
+					continue
+				}
+				inputs = append(inputs, WindowsCaptureInput{ID: device.ID, Name: device.Name})
+			}
+			return inputs, nil
+		}
+		if state == 3 {
+			return nil, outcome
+		}
+		if err := waitWindowsCaptureEvent(ctx, event); err != nil {
+			_ = b.helper.EnumerateDevicesCancel(id)
+			return nil, err
+		}
+	}
+}
+
+// PickAudio returns a broker-owned handle, never a filesystem path. The
+// intake layer takes ownership on its first Open call and closes it after the
+// bounded review/import pass.
+func (b *nativeWindowsMicrophoneBackend) PickAudio(ctx context.Context, owner windows.Handle) (WindowsBrokeredAudioFile, error) {
+	event, err := windows.CreateEvent(nil, 0, 0, nil)
+	if err != nil {
+		return WindowsBrokeredAudioFile{}, err
+	}
+	defer windows.CloseHandle(event)
+	id, hr := b.helper.PickerOpen(owner, event)
+	if hr.Failed() || id == 0 {
+		return WindowsBrokeredAudioFile{}, hr
+	}
+	defer b.helper.PickerRelease(id)
+	for {
+		result, required, callHR := b.helper.PickerResult(id, false, 0)
+		if callHR.Failed() {
+			_ = b.helper.PickerCancel(id)
+			return WindowsBrokeredAudioFile{}, callHR
+		}
+		if result.State == 1 {
+			if result.Outcome.Failed() {
+				return WindowsBrokeredAudioFile{}, result.Outcome
+			}
+			result, _, callHR = b.helper.PickerResult(id, true, required)
+			if callHR.Failed() || result.Outcome.Failed() || !result.HandleTaken || result.Handle == windows.InvalidHandle {
+				return WindowsBrokeredAudioFile{}, ErrWindowsBrokeredAccess
+			}
+			var handleMu sync.Mutex
+			handle := result.Handle
+			return WindowsBrokeredAudioFile{
+				DisplayName: result.Name, SizeBytes: result.FileSize,
+				Open: func() (io.ReadCloser, error) {
+					handleMu.Lock()
+					defer handleMu.Unlock()
+					if handle == windows.InvalidHandle {
+						return nil, ErrWindowsBrokeredAccess
+					}
+					opened := os.NewFile(uintptr(handle), result.Name)
+					handle = windows.InvalidHandle
+					if opened == nil {
+						return nil, ErrWindowsBrokeredAccess
+					}
+					return opened, nil
+				},
+				Release: func() {
+					handleMu.Lock()
+					defer handleMu.Unlock()
+					if handle != windows.InvalidHandle {
+						_ = windows.CloseHandle(handle)
+						handle = windows.InvalidHandle
+					}
+				},
+			}, nil
+		}
+		if result.State == 3 {
+			return WindowsBrokeredAudioFile{}, result.Outcome
+		}
+		if err := waitWindowsCaptureEvent(ctx, event); err != nil {
+			_ = b.helper.PickerCancel(id)
+			return WindowsBrokeredAudioFile{}, err
+		}
+	}
 }
 
 func NewNativeWindowsMicrophoneBackend() (WindowsMicrophoneBackend, error) {

@@ -34,7 +34,9 @@ func (c windowsMicrophoneRecordingCapture) Stop(reason WindowsCaptureStopReason)
 // tray and hotkey actions. Operations that can enter AppCapability, WASAPI or
 // cue playback always run away from the Win32 message thread.
 type WindowsRecordingController struct {
-	capture WindowsRecordingCapture
+	capture   WindowsRecordingCapture
+	request   func() WindowsCaptureRequest
+	onOutcome func(WindowsCaptureOutcome)
 
 	mu            sync.RWMutex
 	state         ShellRecording
@@ -56,6 +58,16 @@ func NewWindowsRecordingController(capture WindowsRecordingCapture) *WindowsReco
 			return ShellRecordingIdle
 		}(),
 	}
+}
+
+// ConfigureRequest lets the composition owner add the currently selected
+// input and a UI meter without teaching the recording controller about Win32.
+// It is intended to be called before the controller is exposed to the shell.
+func (c *WindowsRecordingController) ConfigureRequest(request func() WindowsCaptureRequest, onOutcome func(WindowsCaptureOutcome)) {
+	c.mu.Lock()
+	c.request = request
+	c.onOutcome = onOutcome
+	c.mu.Unlock()
 }
 
 func (c *WindowsRecordingController) Snapshot() (ShellRecording, bool) {
@@ -147,10 +159,16 @@ func (c *WindowsRecordingController) stop(reason WindowsCaptureStopReason) {
 }
 
 func (c *WindowsRecordingController) start(generation uint64, ctx context.Context) {
-	session, err := c.capture.Start(ctx, WindowsCaptureRequest{
-		ExplicitUserAction: true,
-		MediaClass:         CaptureUserRecording,
-	})
+	c.mu.RLock()
+	requestProvider := c.request
+	c.mu.RUnlock()
+	request := WindowsCaptureRequest{}
+	if requestProvider != nil {
+		request = requestProvider()
+	}
+	request.ExplicitUserAction = true
+	request.MediaClass = CaptureUserRecording
+	session, err := c.capture.Start(ctx, request)
 	c.mu.Lock()
 	if generation != c.generation || !c.available {
 		if !c.available {
@@ -189,8 +207,8 @@ func (c *WindowsRecordingController) finish(generation uint64, session WindowsRe
 	defer c.pending.Done()
 	outcome, ok := <-session.Done()
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if generation != c.generation || c.session != session {
+		c.mu.Unlock()
 		return
 	}
 	c.session = nil
@@ -201,5 +219,10 @@ func (c *WindowsRecordingController) finish(generation uint64, session WindowsRe
 		c.state = ShellRecordingFailed
 	} else {
 		c.state = ShellRecordingIdle
+	}
+	onOutcome := c.onOutcome
+	c.mu.Unlock()
+	if ok && onOutcome != nil {
+		onOutcome(outcome)
 	}
 }

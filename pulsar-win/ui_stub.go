@@ -35,6 +35,8 @@ func requestTrayLoopExit() {}
 
 func preferredWindowsShellLocale() ShellLocale { return ShellEnglish }
 
+func currentMainWindowOwner() uintptr { return 0 }
+
 func runUnpairedShell(dir, coordinatorBase string) (paired, supported bool) {
 	return false, false
 }

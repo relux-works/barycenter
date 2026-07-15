@@ -1,9 +1,9 @@
 # P1 Windows local self-test and short-file intake
 
-`TASK-260712-25at8b` supplies the UI-independent Windows domain flow that the
-later `TASK-260712-1p8ykc` integration binds to the main window, tray,
-AppCapability capture bridge, `FileOpenPicker` and drop data object. It does not
-claim that those physical surfaces have already been exercised.
+`TASK-260712-25at8b` supplies the UI-independent Windows domain flow. It is now
+bound by `TASK-260712-1p8ykc` to the main window, tray, AppCapability capture
+bridge, `FileOpenPicker` and Explorer drop adapter. Neither task claims that
+those physical surfaces have already been exercised.
 
 ## Offline production-output path
 

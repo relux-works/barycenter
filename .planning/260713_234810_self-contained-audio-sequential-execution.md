@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 58 accepted, 147 remain.
-- Routed inventory: 186 engineering tasks (58 accepted, 128 remain) and 19
+- Combined inventory: 205 original tasks; 59 accepted, 146 remain.
+- Routed inventory: 186 engineering tasks (59 accepted, 127 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-25at8b` — windows-self-test-file-intake
+- Current engineering task: `TASK-260712-c7dmv8` — windows-hotkey-tray-recording
   (accepted; tracking CI and merge remain)
-- Next engineering task: `TASK-260712-c7dmv8` — windows-hotkey-tray-recording
-- Most recently accepted: `TASK-260712-25at8b` — windows-self-test-file-intake
-- Current branch: `task/task-260712-25at8b-windows-self-test-file-intake`
+- Next engineering task: `TASK-260712-1s6h6t` — macos-local-capture-self-test
+- Most recently accepted: `TASK-260712-c7dmv8` — windows-hotkey-tray-recording
+- Current branch: `task/task-260712-c7dmv8-windows-hotkey-tray-recording`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 58 / 205 tasks (approximately 28.3%); 147 remain
-- Engineering progress: 58 / 186 tasks (approximately 31.2%); 128 remain
+- Accepted overall: 59 / 205 tasks (approximately 28.8%); 146 remain
+- Engineering progress: 59 / 186 tasks (approximately 31.7%); 127 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -742,6 +742,37 @@ AppContainer observation is claimed; those remain in `EPIC-260714-th54l3`.
 Progress is 58/205 overall and 58/186 engineering. PR #57 tracking and merge
 remain before strict execution starts `TASK-260712-c7dmv8`.
 
+Tracking head `4b2782565c38fd77aa9254e3ba5f1b32d1a902db` passed all four hosted
+jobs in run `29384245685`; PR #57 landed at merge
+`0b7ac742b6f7a263f203c7c0ff58489704b1d529`. Strict execution started
+`TASK-260712-c7dmv8` from that synchronized `main` on branch
+`task/task-260712-c7dmv8-windows-hotkey-tray-recording`.
+
+Checkpoint 2026-07-15: `TASK-260712-c7dmv8` is accepted at exact engineering
+head `e70e2ea25ee7a7e335032336b6d962ec9517e230`. The production Windows shell
+now has one asynchronous recording controller shared by main-window, tray and
+hotkey actions, backed by the existing microphone service, reviewed cues,
+production local mixer and private capture store. The tray HWND owns bounded
+`RegisterHotKey`/`UnregisterHotKey` registrations for persisted
+Ctrl+Shift+Space or Ctrl+Alt+R choices; conflict, unavailable, suspended and
+active states remain textual in EN/RU while direct buttons stay independent.
+Queued stale IDs are inert. WTS lock/unlock and power suspend/resume maintain a
+set of overlapping suspension reasons, cancel capture with exact lifecycle
+reasons and never re-register early. `Esc` is a main-window-only accelerator;
+hidden recording exposes explicit tray Cancel and there is no low-level or
+global bare-Escape hook. Capture start/stop/cancel never blocks the Win32 pump,
+and quit performs a bounded post-pump drain before audio teardown. Local Go
+tests/vet, full race, repeated focused race, Windows amd64 build/test compile,
+coordinator full plus pinned rollback gates, 202 Swift tests under full Xcode,
+board validation and diff checks passed. GitHub Actions run `29385014150`
+passed all four jobs after rerunning the portable Windows job whose first
+attempt failed while downloading Go modules from the proxy; the exact code
+head did not change. No physical shortcut, real conflict, tray/Narrator,
+microphone, audible cue, lock/suspend or packaged-AppContainer observation is
+claimed; those remain in `EPIC-260714-th54l3`. Progress is 59/205 overall and
+59/186 engineering. PR #58 tracking and merge remain before strict execution
+starts `TASK-260712-1s6h6t`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -1409,7 +1440,11 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
   engineering head `88868cc`; all four hosted jobs in run `29384112933` green,
   including signed MSIX packaging; real microphone/output, permission UI and
   Explorer picker/drop observations remain manual; PR #57)
-- [ ] `TASK-260712-c7dmv8` — windows-hotkey-tray-recording
+- [x] `TASK-260712-c7dmv8` — windows-hotkey-tray-recording (accepted on exact
+  engineering head `e70e2ea`; all four hosted jobs in run `29385014150` green
+  after a transient Go-module proxy rerun, including signed MSIX
+  build/install/cleanup; real shortcut, conflict, tray, microphone and
+  lifecycle observations remain manual; PR #58)
 - [ ] `TASK-260712-1s6h6t` — macos-local-capture-self-test
 - [ ] `TASK-260712-1p8ykc` — windows-local-capture-self-test
 - [ ] `TASK-260712-3dqc3l` — macos-ui-data-integration

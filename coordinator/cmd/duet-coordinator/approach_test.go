@@ -222,6 +222,105 @@ func TestProviderResolveReturnsToLinkedAir(t *testing.T) {
 	}
 }
 
+func cutoverApproachLoop(t *testing.T) (*loop, *fakeSender, int64) {
+	t.Helper()
+	legacy, fake, peerOrbit := twoOrbitLoop(t)
+	path := legacy.cfg.DBPath
+	if err := legacy.st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	legacy.cfg.SelfServiceOnboarding = true
+	st, err := store.OpenWithOptions(path, store.Options{SelfServiceOnboarding: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if _, err := st.CutoverLinksToAirs(1, 100); err != nil {
+		t.Fatal(err)
+	}
+	l := newLoop(slog.Default(), legacy.cfg, fake, st, nil, nil)
+	l.warmup()
+	l.handleNode(hub.EvOnline{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeA}})
+	l.handleNode(hub.EvOnline{Key: hub.NodeKey{Orbit: 1, Slot: protocol.NodeB}})
+	l.handleNode(hub.EvOnline{Key: hub.NodeKey{Orbit: peerOrbit, Slot: protocol.NodeA}})
+	fake.drain()
+	return l, fake, peerOrbit
+}
+
+func TestApproachAliasesUseOnlyAirAuthorityAfterCutover(t *testing.T) {
+	l, fake, peerOrbit := cutoverApproachLoop(t)
+	r := &replies{}
+
+	l.handleBot(cmdEvent(t, "a", "/approach", r))
+	match := approachCodeRe.FindStringSubmatch(r.last(t))
+	if match == nil {
+		t.Fatalf("Air alias code reply=%q", r.last(t))
+	}
+	code := match[1]
+	// Retrying creation is stable: no second Air or invite is created.
+	l.handleBot(cmdEvent(t, "a", "/approach", r))
+	second := approachCodeRe.FindStringSubmatch(r.last(t))
+	if second == nil || second[1] != code {
+		t.Fatalf("Air alias retry code=%q first=%q reply=%q", second, code, r.last(t))
+	}
+
+	l.handleBot(cmdEvent(t, "o2", "/approach "+code, r))
+	if !strings.Contains(r.last(t), "подтверди /accept") {
+		t.Fatalf("Air claim reply=%q", r.last(t))
+	}
+	// The legacy inviter no longer performs final confirmation after cutover.
+	l.handleBot(cmdEvent(t, "a", "/accept", r))
+	if runtime, err := l.st.ActiveAirRuntimeForOrbit(1); err != nil || runtime != nil {
+		t.Fatalf("issuer activated claimed Air runtime=%+v err=%v", runtime, err)
+	}
+
+	l.handleBot(cmdEvent(t, "o2", "/accept", r))
+	runtime := l.stateFor(1)
+	if runtime.airID == "" || runtime != l.stateFor(peerOrbit) || len(runtime.orbits) != 2 {
+		t.Fatalf("Air alias runtime=%+v peer=%+v", runtime, l.stateFor(peerOrbit))
+	}
+	if len(l.linkOf) != 0 || len(l.groups) != 0 {
+		t.Fatalf("legacy runtime mutated after cutover links=%v groups=%v", l.linkOf, l.groups)
+	}
+	if _, _, ok, _ := l.st.ActiveLink(1); ok {
+		t.Fatal("Air alias created an active legacy link")
+	}
+	l.handleBot(cmdEvent(t, "a", "/orbit", r))
+	if !strings.Contains(r.last(t), "сближение с «Дальний»") || strings.Contains(r.last(t), "air_") {
+		t.Fatalf("Air /home copy leaked authority identifiers: %q", r.last(t))
+	}
+
+	beforeDuplicate := len(r.texts)
+	fake.drain()
+	l.handleBot(cmdEvent(t, "o2", "/accept", r))
+	if len(r.texts) != beforeDuplicate+1 || !strings.Contains(r.last(t), "уже активно") {
+		t.Fatalf("duplicate accept reply=%q", r.last(t))
+	}
+	if len(fake.drain()) != 0 {
+		t.Fatal("duplicate accept emitted a second broadcast")
+	}
+
+	// Warmup reconstructs the same runtime strictly by stable Air ID.
+	restarted := newLoop(l.log, l.cfg, fake, l.st, nil, nil)
+	restarted.warmup()
+	restored := restarted.stateFor(peerOrbit)
+	if restored.airID != runtime.airID || restored != restarted.stateFor(1) || len(restarted.linkOf) != 0 {
+		t.Fatalf("restart alias runtime=%+v links=%v", restored, restarted.linkOf)
+	}
+	fake.drain()
+	restarted.handleBot(cmdEvent(t, "o2", "/apart", r))
+	if restarted.stateFor(peerOrbit).group() || restarted.stateFor(1).group() {
+		t.Fatal("apart did not restore personal orbit controllers")
+	}
+	if _, _, ok, err := restarted.st.ActiveAirForOrbit(peerOrbit); err != nil || ok {
+		t.Fatalf("caller pointer survived apart ok=%v err=%v", ok, err)
+	}
+	ownerAir, _, ok, err := restarted.st.ActiveAirForOrbit(1)
+	if err != nil || !ok || ownerAir != runtime.airID {
+		t.Fatalf("apart removed other member pointer=%q ok=%v err=%v", ownerAir, ok, err)
+	}
+}
+
 // /decline burns the awaiting link and leaves everyone free to try again.
 func TestApproachDecline(t *testing.T) {
 	l, _, _ := twoOrbitLoop(t)

@@ -1,0 +1,62 @@
+{
+  "commands": [
+    {
+      "argv": [
+        "go",
+        "test",
+        "-v",
+        "-count=1",
+        "./internal/store",
+        "-run",
+        "^(TestAir|TestAuthorizedAir|TestMigratedApproachAlias|TestActiveLinkBackfill|TestConcurrentAir|TestUnsafeAirRollback|TestConflictingLegacyLinks|TestTelegramAir)"
+      ],
+      "exitCode": 0,
+      "name": "air-store-lifecycle-migration-and-boundaries"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-v",
+        "-count=1",
+        "./cmd/duet-coordinator",
+        "-run",
+        "^(TestAir|TestApproach|TestLinkedVoice|TestProviderResolve|TestLastMemberLeave|TestMemberLeaveDuringLink|TestSlotPairedDuringLink|TestClaimantCanDecline|TestTelegramAir)"
+      ],
+      "exitCode": 0,
+      "name": "air-loop-runtime-alias-and-capacity"
+    }
+  ],
+  "deferred": [
+    "real Windows and macOS application playback",
+    "real Telegram transport and callback interaction",
+    "audible and physical-device verification",
+    "streamed-track catch-up and performance",
+    "explicit-target ACL and inbox parity"
+  ],
+  "expectedMetrics": {
+    "barycenters": 8,
+    "duplicate_commands": 0,
+    "legacy_groups": 0,
+    "load_commands": 20,
+    "pulsars": 20,
+    "runtime_instances": 1,
+    "unique_targets": 20
+  },
+  "failures": [],
+  "finishedAt": "2026-07-15T16:20:51Z",
+  "manualEvidence": "not-run",
+  "metrics": {
+    "barycenters": 8,
+    "duplicate_commands": 0,
+    "legacy_groups": 0,
+    "load_commands": 20,
+    "pulsars": 20,
+    "runtime_instances": 1,
+    "unique_targets": 20
+  },
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-15T16:20:47Z",
+  "status": "pass"
+}

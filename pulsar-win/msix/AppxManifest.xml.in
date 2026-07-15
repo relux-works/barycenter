@@ -60,5 +60,8 @@
     <Capability Name="internetClient" />
     <Capability Name="internetClientServer" />
     <Capability Name="privateNetworkClientServer" />
+    <!-- Requested only after the user presses Record; AppCapability is the
+         runtime gate and denial leaves no partial media behind. -->
+    <DeviceCapability Name="microphone" />
   </Capabilities>
 </Package>

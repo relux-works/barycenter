@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "locale": "en-US",
+  "product_name": "Pulsar",
+  "category": "Music",
+  "price": "Free",
+  "description": "Pulsar lets invited people in a private Barycenter exchange and play short audio clips across their computers. Create or join without a conventional username and password, test playback locally, record after an explicit microphone permission request or select a short audio file, choose a destination and delivery mode, and review delivery history.\n\nHistory shows delivery receipts and only the actions allowed for each item, including replay, delete, report and block sender. Do Not Disturb and blocking rules are enforced by the service.\n\nAn internet connection and the Pulsar coordinator are required for shared delivery. Phase 1 audio is processed by the coordinator and is not end-to-end encrypted. Spotify and Telegram integrations are optional and are not required for the primary audio flow.",
+  "short_description": "Record or choose short audio, route it inside a private Barycenter, and review delivery history. Accountless setup and local self-test are built in; Spotify and Telegram are optional.",
+  "whats_new": "",
+  "features": [
+    "Create or join a private Barycenter without a conventional account login",
+    "Try playback locally with the built-in cue or a selected short audio file",
+    "Record short clips after an explicit Windows microphone permission request",
+    "Send to This Pulsar, My Barycenter or the current air with an explicit delivery mode",
+    "Review played history, receipts and delivery outcomes",
+    "Delete your media and report or block another sender when the action is available",
+    "Use Do Not Disturb and recipient-side block enforcement",
+    "Add Spotify or Telegram only when you want their optional integration features"
+  ],
+  "keywords": [
+    "audio sharing",
+    "voice clips",
+    "private groups",
+    "audio routing",
+    "recording",
+    "delivery history",
+    "local self test"
+  ],
+  "privacy_url": "https://barycenter.live/legal/privacy",
+  "support_url": "https://barycenter.live/legal/support",
+  "terms_url": "https://barycenter.live/legal/terms",
+  "content_guidelines_url": "https://barycenter.live/legal/content-guidelines",
+  "optional_integrations": [
+    "Spotify",
+    "Telegram"
+  ],
+  "limitations": [
+    "Shared delivery requires an internet connection and the configured Pulsar coordinator.",
+    "Phase 1 audio is readable by the coordinator and is not end-to-end encrypted.",
+    "Pulsar is for people aged 13 or older and is not directed at children under 13.",
+    "Spotify and Telegram are optional and are not needed for accountless setup, local self-test, recording, routing or history."
+  ],
+  "claim_evidence": [
+    "docs/analysis/p1-windows-ui-data-integration.md",
+    "docs/analysis/p1-windows-local-capture-self-test-integration.md",
+    "docs/analysis/p1-windows-ugc-controls.md",
+    "pulsar-win/msix/Strings/en-US/Resources.resw"
+  ]
+}

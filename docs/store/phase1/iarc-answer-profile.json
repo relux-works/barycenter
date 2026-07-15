@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "state": "answer-source-ready-questionnaire-manual",
+  "minimum_age": 13,
+  "audience_note": "The approved 13+ minimum is a service audience rule, not an IARC result. The Partner Center questionnaire must rate actual content and interactive elements.",
+  "facts": [
+    {
+      "id": "internet-access",
+      "answer": "yes",
+      "rationale": "Shared delivery, history and moderation use the configured coordinator over the internet.",
+      "evidence": ["docs/analysis/p1-windows-ui-data-integration.md"]
+    },
+    {
+      "id": "user-generated-content",
+      "answer": "yes-user-audio",
+      "rationale": "Users record or choose short audio and make it accessible to other invited members.",
+      "evidence": ["docs/analysis/p1-privacy-ugc-policy-pack.md", "docs/legal/en/content-guidelines.md"]
+    },
+    {
+      "id": "user-to-user-communication",
+      "answer": "yes-private-audio",
+      "rationale": "Audio clips are sent between members of a private Barycenter and can carry arbitrary speech.",
+      "evidence": ["docs/analysis/p1-windows-ui-data-integration.md", "docs/spec-self-contained-audio.md"]
+    },
+    {
+      "id": "public-broadcast",
+      "answer": "no",
+      "rationale": "Phase 1 destinations are the current Pulsar, the member's Barycenter or its current private air, not a public feed.",
+      "evidence": ["docs/analysis/p1-transmission-contract-v1.md"]
+    },
+    {
+      "id": "content-pre-moderation",
+      "answer": "no",
+      "rationale": "Audio is not proactively screened before delivery. Reporting, sender blocking, owner deletion and operator disablement are reactive controls.",
+      "evidence": ["docs/moderation-control-plane.md", "docs/analysis/p1-windows-ugc-controls.md"]
+    },
+    {
+      "id": "report-block-remove-controls",
+      "answer": "yes",
+      "rationale": "The shipped History surface exposes authorized report/block/delete actions and moderation operators can remove or disable content.",
+      "evidence": ["docs/analysis/p1-windows-ugc-controls.md", "docs/moderation-operations-runbook.md"]
+    },
+    {
+      "id": "parental-controls",
+      "answer": "no",
+      "rationale": "Pulsar does not claim a parental-control gate. The service minimum is 13+.",
+      "evidence": ["docs/compliance/legal-ops-inputs.json", "docs/legal/en/terms.md"]
+    },
+    {
+      "id": "developer-created-mature-content",
+      "answer": "no",
+      "rationale": "The built-in cue and product-authored UI contain no violence, sexual content, profanity, gambling, drugs or fear content; user audio remains separately disclosed as UGC.",
+      "evidence": ["docs/analysis/p1-builtin-cue-temp-media-contract.md", "docs/legal/en/content-guidelines.md"]
+    },
+    {
+      "id": "purchases-and-gambling",
+      "answer": "no",
+      "rationale": "The Phase 1 Windows build has no in-product purchases, loot boxes, wagering or gambling simulation.",
+      "evidence": ["docs/spec-self-contained-audio.md"]
+    },
+    {
+      "id": "advertising",
+      "answer": "no",
+      "rationale": "The Phase 1 product contains no advertising surface or advertising SDK.",
+      "evidence": ["docs/spec-self-contained-audio.md"]
+    },
+    {
+      "id": "precise-location-sharing",
+      "answer": "no",
+      "rationale": "The Phase 1 product does not request location capability or expose user location.",
+      "evidence": ["pulsar-win/msix/AppxManifest.xml.in"]
+    },
+    {
+      "id": "third-party-integrations",
+      "answer": "optional",
+      "rationale": "Spotify and Telegram integrations are optional and do not change the primary accountless reviewer path.",
+      "evidence": ["docs/analysis/p1-platform-declarations-localized-copy.md"]
+    }
+  ],
+  "questionnaire": {
+    "state": "manual-required-in-partner-center",
+    "answers_export": "",
+    "export_sha256": "",
+    "rating_id": "",
+    "generated_at": "",
+    "reviewer": ""
+  }
+}

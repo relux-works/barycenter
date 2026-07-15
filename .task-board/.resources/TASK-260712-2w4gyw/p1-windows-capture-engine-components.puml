@@ -1,0 +1,42 @@
+@startuml
+title P1 Windows microphone capture engine - production ownership
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+left to right direction
+
+actor User
+
+component "Windows shell\n(later integration task)" as Shell
+component "WindowsMicrophoneCaptureService\nserial reservation + hard limits" as Service
+component "Recording cue player" as Cue
+component "Local main-program Gain" as Gain
+component "Native Windows backend\nCGO-free dynamic loader" as Backend
+component "pulsar-capture.dll\nAppCapability + WASAPI" as Native
+database "App-private capture store\npartial -> durable_unsent draft" as Store
+component "Local RMS meter\n(no samples)" as Meter
+
+User --> Shell : explicit Record / Stop
+Shell --> Service : Start(explicit=true) / lifecycle stop
+Service --> Cue : start before Open\nstop after Finalize
+Service --> Gain : duck / restore
+Service --> Backend : permission, resolve, open, read, stop
+Backend --> Native : frozen helper ABI
+Native --> Backend : native float frames\ntyped terminal reason
+Service --> Store : 48 kHz mono PCM16\natomic promotion
+Service --> Meter : scalar 0...1
+
+note bottom of Service
+180 seconds and 50 MiB hard limits.
+Cancel, quit, lock, suspend, device loss,
+revocation and backend failure delete partials.
+No network or upload dependency.
+end note
+
+note bottom of Native
+Physical Windows 10/11, permission UI,
+hidden capture and device/lifecycle evidence
+belong to EPIC-260714-th54l3.
+end note
+
+@enduml

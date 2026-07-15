@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 54 accepted, 151 remain.
-- Routed inventory: 186 engineering tasks (54 accepted, 132 remain) and 19
+- Combined inventory: 205 original tasks; 55 accepted, 150 remain.
+- Routed inventory: 186 engineering tasks (55 accepted, 131 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,10 +13,10 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-2w4gyw` — windows-microphone-capture-engine
-  (strict kickoff waits only for PR #53 merge)
+  (accepted; tracking commit, hosted verification and PR merge in progress)
 - Next engineering task: `TASK-260712-3lg0ht` — macos-self-test-file-intake
-- Most recently accepted: `TASK-260712-9i5se7` — windows-main-window-tray-shell
-- Current branch: `task/task-260712-9i5se7-windows-main-window-tray-shell`
+- Most recently accepted: `TASK-260712-2w4gyw` — windows-microphone-capture-engine
+- Current branch: `task/task-260712-2w4gyw-windows-microphone-capture-engine`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 54 / 205 tasks (approximately 26.3%); 151 remain
-- Engineering progress: 54 / 186 tasks (approximately 29.0%); 132 remain
+- Accepted overall: 55 / 205 tasks (approximately 26.8%); 150 remain
+- Engineering progress: 55 / 186 tasks (approximately 29.6%); 131 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -637,6 +637,31 @@ message-pointer conversion with checked Win32 memory copying. No real packaged
 UI, Narrator or physical DPI evidence is claimed; those remain in
 `EPIC-260714-th54l3`. Progress is 54/205 overall and 54/186 engineering. PR #53
 tracking and merge remain before strict execution starts `TASK-260712-2w4gyw`.
+
+Tracking head `647aafdbb0c8424bc7e6a26c8c06339c47218dfb` passed all four hosted
+jobs in run `29380324087`; PR #53 landed at merge
+`c52012b84d8c80a0ff8ccbbe445a778f381e65b3`. Strict execution started
+`TASK-260712-2w4gyw` from that synchronized `main` on branch
+`task/task-260712-2w4gyw-windows-microphone-capture-engine`.
+
+Checkpoint 2026-07-15: `TASK-260712-2w4gyw` is accepted at exact engineering
+head `b40bd16c378e2843ebe16ed38cdb8e076de4de43`. The production Windows capture
+service now promotes the selected signed-probe AppCapability/WASAPI helper ABI
+behind an explicit-Record permission boundary, resolves default or selected
+input, normalizes native float frames to private 48 kHz mono PCM16 WAV, emits
+only a scalar local RMS meter, ducks/restores the main program and atomically
+finalizes exactly one durable unsent draft after a normal or hard-limit stop.
+Start cue playback completes before native capture opens; unsafe cancel, quit,
+lock, suspend, device-loss, revoke, overflow and backend-failure paths close
+ownership and delete partials. The production MSIX declares microphone access
+and stages `pulsar-capture.dll`. Local Go race tests, Windows amd64 build/vet
+and board validation passed. GitHub Actions run `29381000568` passed all four
+jobs on rerun, including native C++ tests and signed MSIX build/install/cleanup;
+the first attempt hit an unrelated existing overlay callback timing flake
+(96/100) which passed unchanged on rerun. No physical microphone, permission
+UI, hidden-capture or real lifecycle result is claimed; those remain in
+`EPIC-260714-th54l3`. Progress is 55/205 overall and 55/186 engineering. PR #54
+tracking and merge remain before strict execution starts `TASK-260712-3lg0ht`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1289,7 +1314,10 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
 - [x] `TASK-260712-9i5se7` — windows-main-window-tray-shell (accepted on exact
   engineering head `9045097`; all four hosted jobs in run `29380174085` green;
   no real packaged UI/Narrator/DPI hardware result claimed; PR #53)
-- [ ] `TASK-260712-2w4gyw` — windows-microphone-capture-engine
+- [x] `TASK-260712-2w4gyw` — windows-microphone-capture-engine (accepted on
+  exact engineering head `b40bd16`; all four hosted jobs in run `29381000568`
+  green on rerun, including signed MSIX build/install/cleanup; real microphone,
+  permission UI, hidden capture and lifecycle hardware remain manual; PR #54)
 - [ ] `TASK-260712-3lg0ht` — macos-self-test-file-intake
 - [ ] `TASK-260712-ut6akw` — macos-hotkey-menubar-recording
 - [ ] `TASK-260712-25at8b` — windows-self-test-file-intake

@@ -226,7 +226,7 @@ public final class CaptureMediaStore: @unchecked Sendable {
 
     public func stop(_ handle: CaptureMediaHandle) throws -> CaptureMediaHandle {
         guard handle.state == .capturingPartial, Self.isIdentifier(handle.id),
-              handle.fileURL == expectedURL(for: handle) else {
+              Self.sameFilesystemPath(handle.fileURL, expectedURL(for: handle)) else {
             throw CaptureMediaStoreError.invalidState
         }
         return CaptureMediaHandle(id: handle.id, storageClass: handle.storageClass,
@@ -270,7 +270,9 @@ public final class CaptureMediaStore: @unchecked Sendable {
     public func finalize(_ handle: CaptureMediaHandle) throws -> CaptureMediaHandle {
         try queue.sync {
             guard handle.state == .finalizing, Self.isIdentifier(handle.id),
-                  handle.fileURL == partialDirectory.appendingPathComponent(handle.id + ".partial.wav") else {
+                  Self.sameFilesystemPath(
+                    handle.fileURL,
+                    partialDirectory.appendingPathComponent(handle.id + ".partial.wav")) else {
                 throw CaptureMediaStoreError.invalidState
             }
             var movedDestination: URL?
@@ -371,7 +373,7 @@ public final class CaptureMediaStore: @unchecked Sendable {
     ) throws {
         try queue.sync {
             guard allowed.contains(handle.state), Self.isIdentifier(handle.id),
-                  expectedURL(for: handle) == handle.fileURL else {
+                  Self.sameFilesystemPath(expectedURL(for: handle), handle.fileURL) else {
                 throw CaptureMediaStoreError.invalidState
             }
             try removeAndVerify(handle.fileURL)
@@ -473,6 +475,10 @@ public final class CaptureMediaStore: @unchecked Sendable {
         value.utf8.count == 32 && value.utf8.allSatisfy {
             ($0 >= 48 && $0 <= 57) || ($0 >= 97 && $0 <= 102)
         }
+    }
+
+    private static func sameFilesystemPath(_ lhs: URL, _ rhs: URL) -> Bool {
+        lhs.standardizedFileURL.path == rhs.standardizedFileURL.path
     }
 
     static func isStructurallyCompleteWAV(_ data: Data) -> Bool {

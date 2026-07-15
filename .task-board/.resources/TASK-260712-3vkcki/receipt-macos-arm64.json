@@ -1,0 +1,35 @@
+{
+  "binaryBytes": 3568866,
+  "binarySha256": "b6e81e4fabb847837da8a36c49a8b66648fd7e02aaf1beeac7cf586296a9f74c",
+  "cgoEnabled": false,
+  "classification": "rejected",
+  "contract": "p2-pure-go-streaming-decoder-probe.v1",
+  "crossBuilds": [
+    {
+      "bytes": 3568866,
+      "name": "purego-probe-darwin-arm64",
+      "sha256": "b6e81e4fabb847837da8a36c49a8b66648fd7e02aaf1beeac7cf586296a9f74c"
+    },
+    {
+      "bytes": 3746304,
+      "name": "purego-probe-windows-amd64.exe",
+      "sha256": "8d0eeed475aa8760d69c3d6bfb5a0a4e44f84170993fa296a96e9c125e18cdf6"
+    },
+    {
+      "bytes": 3530240,
+      "name": "purego-probe-windows-arm64.exe",
+      "sha256": "c8ad1fad0a2fb4445fd61760b652d634181f9f46bb5fdc04c6c7c83e44f00d9f"
+    }
+  ],
+  "evidenceSha256": "6ae0cea842f8abd31e00880e79e746f56342863a92e4adbb17fc1cec9f595a0e",
+  "goarch": "arm64",
+  "goos": "darwin",
+  "manualEvidence": "EPIC-260714-th54l3",
+  "modules": [
+    "github.com/hajimehoshi/go-mp3 v0.3.4",
+    "github.com/pion/opus v0.1.0",
+    "live.barycenter/purego-codec-probe"
+  ],
+  "productionArtifact": false,
+  "schemaVersion": 1
+}

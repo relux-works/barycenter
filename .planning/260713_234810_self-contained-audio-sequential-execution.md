@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 86 accepted, 119 remain.
-- Routed inventory: 186 engineering tasks (86 accepted, 100 remain) and 19
+- Combined inventory: 205 original tasks; 87 accepted, 118 remain.
+- Routed inventory: 186 engineering tasks (87 accepted, 99 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path
-- Next engineering task: `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path
-- Most recently accepted: `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
-- Current branch: `tracking/task-260712-350u8d-acceptance`
+- Current engineering task: `TASK-260712-ibuaxj` — run-comparative-streaming-evidence-matrix
+- Next engineering task: `TASK-260712-ibuaxj` — run-comparative-streaming-evidence-matrix
+- Most recently accepted: `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path
+- Current branch: `tracking/task-260712-3vkcki-acceptance`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 86 / 205 tasks (approximately 42.0%); 119 remain
-- Engineering progress: 86 / 186 tasks (approximately 46.2%); 100 remain
+- Accepted overall: 87 / 205 tasks (approximately 42.4%); 118 remain
+- Engineering progress: 87 / 186 tasks (approximately 46.8%); 99 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1435,6 +1435,31 @@ matrix remain explicitly unclaimed in manual epic `EPIC-260714-th54l3`.
 Progress is 86/205 overall and 86/186 engineering; strict execution advances
 to `TASK-260712-3vkcki`.
 
+Checkpoint 2026-07-15 (accepted): `TASK-260712-3vkcki` proves and rejects the
+exact pure-Go composite on engineering code head `dc1ac49` and documentation
+head `7f243e2`, merged by PR #114 as `cbbe39c`. The isolated CGo-free module
+graph pins `github.com/hajimehoshi/go-mp3 v0.3.4` and
+`github.com/pion/opus v0.1.0`; the audited GPL-2.0-only AAC module is forbidden
+and absent from the module graph and binaries. Dedicated hosted run
+`29450704499` passed native macOS ARM64, native Windows amd64 and Linux race
+jobs. MP3 produced first PCM after 621/237 source bytes, but seek-enabled
+construction full-scanned 289,818/52,674 bytes. Ogg/Opus produced first PCM
+after 16,264/19,410 bytes and decoded forward, but exposes no random-seek
+contract. AAC/M4A and AAC/ADTS are exact zero-read forbidden-module
+rejections. The fixed PCM ring peaked at 7,680 of 1,048,576 bytes, underlying
+reads remained at or below 636 bytes, hostile truncation/corruption fixtures
+did not panic, and eight concurrent Opus decoders passed the race detector.
+The macOS binary was 3,568,866 bytes with SHA-256
+`b6e81e4fabb847837da8a36c49a8b66648fd7e02aaf1beeac7cf586296a9f74c`;
+the Windows binary was 3,746,304 bytes with SHA-256
+`5625b40ddbc92e4c8b461b1416e552da64d13651aa5fb938a3b80e09efa1ab79`.
+Local repository acceptance passed 12/12 and final standard CI run
+`29450856063` passed all four jobs. Heap-system telemetry is not mislabeled
+RSS; a two-hour run, AppContainer and physical platform evidence remain
+unclaimed in `EPIC-260714-th54l3`. The production candidate is rejected on
+license, seek and manual-evidence gates. Progress is 87/205 overall and 87/186
+engineering; strict execution advances to `TASK-260712-ibuaxj`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2223,7 +2248,7 @@ Story: `STORY-260712-3l1r1u` — P2 Codec and streaming player spike.
 - [x] `TASK-260712-1canzv` — probe-bundled-signed-decoder-path
 - [x] `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
 - [x] `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
-- [ ] `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path
+- [x] `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path
 - [ ] `TASK-260712-ibuaxj` — run-comparative-streaming-evidence-matrix
 - [ ] `TASK-260712-2eympi` — publish-codec-player-adr-and-handoff
 

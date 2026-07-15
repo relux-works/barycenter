@@ -19,6 +19,10 @@ adapter -> txsvc : common createTransmission request
 txsvc -> txsvc : verify content-policy acceptance
 txsvc -> resolver : resolve current Air / explicit set
 resolver --> txsvc : snapshot = { C }\nB excluded
+alt online mandatory target lacks capability
+  txsvc --> adapter : 422 unsupported_targets\nopaque target + missing capabilities
+  adapter --> sender : explicit unsupported result\nno partial transmission
+else capabilities accepted or target offline
 txsvc -> db : persist transmission + target snapshot\nTTL + inbox policy
 txsvc -> runtime : start delivery for snapshot targets
 
@@ -31,23 +35,33 @@ else C ready
   runtime -> c : scheduled play / queue / replace
   runtime -> db : ready -> playing -> played
 end
+end
 
 b -> txsvc : GET transmission/media by known id
 txsvc -> db : authorize via target snapshot
 db --> txsvc : not a target
 txsvc --> b : 404 / forbidden-equivalent
 
-sender -> adapter : delete or report media
-adapter -> txsvc : common delete/report action
-txsvc -> db : mark deleted / disabled
-txsvc -> db : revoke future fetch
+c -> adapter : report exact received item
+adapter -> txsvc : common history report action
+txsvc -> db : reporter-local unavailable + evidence
+note right of db
+  Report alone does not quarantine,
+  delete, disable, or cancel peers.
+  Global quarantine requires a
+  distinct audited operator decision.
+end note
+
+sender -> adapter : delete owned media
+adapter -> txsvc : existing authorized media delete
+txsvc -> db : revoke fetch first + cancel active work
 
 == Later ==
 
 c -> adapter : open inbox and select replay
 adapter -> txsvc : replay missed item\n(local or targeted)
 txsvc -> db : verify media not deleted / actor not disabled\nitem not expired
-txsvc -> db : create new transmission or local replay record
+txsvc -> db : create new transmission + target snapshot\nretain bounded replay lineage
 txsvc -> runtime : deliver only from explicit replay action
 
 @enduml

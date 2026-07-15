@@ -37,6 +37,10 @@ func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	output, err := os.ReadFile("windows_output_windows.go")
+	if err != nil {
+		t.Fatal(err)
+	}
 	manifest, err := os.ReadFile("winres/pulsar.exe.manifest")
 	if err != nil {
 		t.Fatal(err)
@@ -45,10 +49,15 @@ func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
 	for _, seam := range []string{
 		"wmDPIChanged", "pGetDpiForWindow", "pIsDialogMessageW",
 		"pTranslateAcceleratorW", "wmGetMinMax", "wsExControlParent",
-		`mk(0, "BUTTON"`, `mk(0, "STATIC"`,
+		`mk(0, "BUTTON"`, `mk(0, "STATIC"`, "wmDropFiles", "pDragAcceptFiles", "AcceptDroppedFile",
 	} {
 		if !strings.Contains(nativeText, seam) {
 			t.Errorf("native shell missing %q", seam)
+		}
+	}
+	for _, seam := range []string{"EnumAudioEndpoints", "GetDefaultAudioEndpoint", "renderLoop", "SelectNext"} {
+		if !strings.Contains(string(output), seam) {
+			t.Errorf("output selection missing %q", seam)
 		}
 	}
 	for _, command := range []string{
@@ -97,6 +106,27 @@ func TestWindowsShellHonestActionAvailability(t *testing.T) {
 	active := ShellSnapshot{Connection: ShellReconnecting, Recording: ShellRecordingActive}
 	if !shellDNDEnabled(active) || !shellRecordingEnabled(active) {
 		t.Fatal("degraded/active shell hid a safe DND or Stop path")
+	}
+	selfTest := ShellSnapshot{Recording: ShellRecordingIdle, RecordingAvailable: true, SelfTestPhase: WindowsLocalSelfTestRecording}
+	if shellRecordingEnabled(selfTest) || !shellLocalCaptureBusy(selfTest) {
+		t.Fatal("normal recording remained enabled during the five-second self-test")
+	}
+}
+
+func TestWindowsShellProjectsLocalInputMeterAndDraft(t *testing.T) {
+	snapshot := ShellSnapshot{
+		SelfTestAvailable: true, SelfTestPhase: WindowsLocalSelfTestRecording, SelfTestMeter: .42,
+		LocalDraftAvailable: true, LocalDraftName: "voice.wav",
+		CaptureInputs: []WindowsCaptureInput{{ID: "id", Name: "Studio microphone"}},
+		AudioOutputs:  []WindowsAudioOutput{{ID: "out", Name: "Studio speakers"}},
+	}
+	for _, locale := range []ShellLocale{ShellEnglish, ShellRussian} {
+		body := NewShellCopy(locale).Body(ShellTryLocally, snapshot)
+		for _, required := range []string{"Studio microphone", "Studio speakers", "42%", "voice.wav"} {
+			if !strings.Contains(body, required) {
+				t.Errorf("%s local projection missing %q: %q", locale, required, body)
+			}
+		}
 	}
 }
 

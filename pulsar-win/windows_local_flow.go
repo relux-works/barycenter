@@ -293,6 +293,7 @@ type WindowsBrokeredAudioFile struct {
 	DisplayName string
 	SizeBytes   int64
 	Open        func() (io.ReadCloser, error)
+	Release     func()
 }
 
 type WindowsShortAudioInspector struct{ limits WindowsShortAudioLimits }
@@ -509,7 +510,13 @@ func (i *WindowsShortAudioIntake) Review(file WindowsBrokeredAudioFile) WindowsS
 
 func (i *WindowsShortAudioIntake) Accept(file WindowsBrokeredAudioFile) (WindowsShortAudioReview, CaptureMediaHandle, error) {
 	if i == nil || i.inspector == nil || i.store == nil {
+		if file.Release != nil {
+			file.Release()
+		}
 		return WindowsShortAudioReview{}, CaptureMediaHandle{}, ErrWindowsShortAudioStorage
+	}
+	if file.Release != nil {
+		defer file.Release()
 	}
 	review, raw := i.inspector.inspect(file)
 	if !review.Eligible() {
@@ -586,6 +593,7 @@ type WindowsLocalSelfTestService struct {
 	timer      *time.Timer
 	draft      *CaptureMediaHandle
 	onEvent    func(WindowsLocalSelfTestEvent)
+	pending    sync.WaitGroup
 }
 
 func NewWindowsLocalSelfTestService(capture WindowsSelfTestCapture, output WindowsLocalClipPlaying, store *CaptureMediaStore, intake *WindowsShortAudioIntake, cuePath string) (*WindowsLocalSelfTestService, error) {
@@ -687,8 +695,26 @@ func (s *WindowsLocalSelfTestService) RecordFiveSeconds(ctx context.Context, dev
 	s.timer = time.AfterFunc(s.duration, func() { s.stopExactRecording(generation, session) })
 	s.mu.Unlock()
 	s.emit(WindowsLocalSelfTestEvent{Phase: WindowsLocalSelfTestRecording})
-	go s.awaitCapture(generation, session)
+	s.pending.Add(1)
+	go func() {
+		defer s.pending.Done()
+		s.awaitCapture(generation, session)
+	}()
 	return nil
+}
+
+func (s *WindowsLocalSelfTestService) Wait(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+	done := make(chan struct{})
+	go func() { s.pending.Wait(); close(done) }()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (s *WindowsLocalSelfTestService) stopExactRecording(generation uint64, session WindowsSelfTestCaptureSession) {

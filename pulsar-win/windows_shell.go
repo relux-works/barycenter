@@ -57,23 +57,33 @@ const (
 )
 
 type ShellSnapshot struct {
-	Connection           ShellConnection
-	ConnectionDetail     string
-	Identity             string
-	PresenceOnline       int
-	PresenceTotal        int
-	PresenceAvailable    bool
-	RouteName            string
-	NowPlaying           string
-	PlaybackState        string
-	HistoryCount         int
-	DND                  ShellDND
-	Recording            ShellRecording
-	RecordingAvailable   bool
-	RecordingShortcut    WindowsRecordingShortcutStatus
-	RecordingShortcutKey WindowsRecordingShortcut
-	SelfTestAvailable    bool
-	Volume               int
+	Connection              ShellConnection
+	ConnectionDetail        string
+	Identity                string
+	PresenceOnline          int
+	PresenceTotal           int
+	PresenceAvailable       bool
+	RouteName               string
+	NowPlaying              string
+	PlaybackState           string
+	HistoryCount            int
+	DND                     ShellDND
+	Recording               ShellRecording
+	RecordingAvailable      bool
+	RecordingShortcut       WindowsRecordingShortcutStatus
+	RecordingShortcutKey    WindowsRecordingShortcut
+	SelfTestAvailable       bool
+	SelfTestPhase           WindowsLocalSelfTestPhase
+	SelfTestMeter           float32
+	LocalDraftAvailable     bool
+	LocalDraftName          string
+	RecordingDraftAvailable bool
+	LocalFailure            string
+	CaptureInputs           []WindowsCaptureInput
+	SelectedCaptureInput    int
+	AudioOutputs            []WindowsAudioOutput
+	SelectedAudioOutput     int
+	Volume                  int
 }
 
 func (s ShellSnapshot) normalized() ShellSnapshot {
@@ -111,16 +121,34 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 	if s.PresenceTotal < s.PresenceOnline {
 		s.PresenceTotal = s.PresenceOnline
 	}
+	if s.SelfTestMeter < 0 {
+		s.SelfTestMeter = 0
+	}
+	if s.SelfTestMeter > 1 {
+		s.SelfTestMeter = 1
+	}
+	if s.SelectedCaptureInput < 0 || s.SelectedCaptureInput >= len(s.CaptureInputs) {
+		s.SelectedCaptureInput = 0
+	}
+	if s.SelectedAudioOutput < 0 || s.SelectedAudioOutput >= len(s.AudioOutputs) {
+		s.SelectedAudioOutput = 0
+	}
 	return s
 }
 
 type ShellActions struct {
-	Create          func()
-	Join            func()
-	TryLocally      func()
-	ToggleRecording func()
-	CancelRecording func()
-	SetDND          func(ShellDND)
+	Create            func()
+	Join              func()
+	TryLocally        func()
+	PlayBuiltinCue    func()
+	ChooseLocalFile   func()
+	AcceptDroppedFile func(WindowsBrokeredAudioFile)
+	DeleteLocalDraft  func()
+	SelectNextInput   func()
+	SelectNextOutput  func()
+	ToggleRecording   func()
+	CancelRecording   func()
+	SetDND            func(ShellDND)
 }
 
 type WindowsShell struct {
@@ -361,7 +389,7 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 		if !snapshot.SelfTestAvailable {
 			return c.Text(txtTryBody) + "\r\n\r\n" + c.Text(txtSelfTestUnavailable)
 		}
-		return c.Text(txtTryBody)
+		return c.Text(txtTryBody) + "\r\n\r\n" + c.LocalSelfTest(snapshot)
 	case ShellHistory:
 		if snapshot.HistoryCount == 0 {
 			return c.Text(txtNoHistory)
@@ -381,6 +409,60 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 	}
 }
 
+func (c ShellCopy) LocalSelfTest(snapshot ShellSnapshot) string {
+	input := "Default input"
+	if c.locale == ShellRussian {
+		input = "Вход по умолчанию"
+	}
+	if snapshot.SelectedCaptureInput >= 0 && snapshot.SelectedCaptureInput < len(snapshot.CaptureInputs) {
+		candidate := snapshot.CaptureInputs[snapshot.SelectedCaptureInput].Name
+		if candidate != "" {
+			input = candidate
+		}
+	}
+	output := snapshot.RouteName
+	if snapshot.SelectedAudioOutput >= 0 && snapshot.SelectedAudioOutput < len(snapshot.AudioOutputs) {
+		output = snapshot.AudioOutputs[snapshot.SelectedAudioOutput].Name
+	}
+	if output == "" {
+		output = "Default output"
+		if c.locale == ShellRussian {
+			output = "Выход по умолчанию"
+		}
+	}
+	phase := string(snapshot.SelfTestPhase)
+	if phase == "" {
+		phase = string(WindowsLocalSelfTestIdle)
+	}
+	meter := int(snapshot.SelfTestMeter*100 + .5)
+	result := "Input: " + input + "\r\nOutput: " + output + "\r\nSelf-test: " + phase + fmt.Sprintf(" · level %d%%", meter)
+	if c.locale == ShellRussian {
+		result = "Вход: " + input + "\r\nВыход: " + output + "\r\nСамопроверка: " + phase + fmt.Sprintf(" · уровень %d%%", meter)
+	}
+	if snapshot.LocalDraftAvailable {
+		name := snapshot.LocalDraftName
+		if name == "" {
+			name = "local draft"
+		}
+		if c.locale == ShellRussian {
+			result += "\r\nЧерновик: " + name
+		} else {
+			result += "\r\nDraft: " + name
+		}
+	}
+	if snapshot.RecordingDraftAvailable {
+		if c.locale == ShellRussian {
+			result += "\r\nЧерновик записи готов к отправке"
+		} else {
+			result += "\r\nRecording draft is ready to send"
+		}
+	}
+	if snapshot.LocalFailure != "" {
+		result += "\r\n[!] " + snapshot.LocalFailure
+	}
+	return result
+}
+
 func shellPrimaryAction(section ShellSection) shellText {
 	return map[ShellSection]shellText{
 		ShellCreate: txtCreateAction, ShellJoin: txtJoinAction, ShellTryLocally: txtTryAction,
@@ -397,7 +479,14 @@ func shellActionEnabled(snapshot ShellSnapshot, action ShellSection) bool {
 }
 
 func shellRecordingEnabled(snapshot ShellSnapshot) bool {
-	return snapshot.RecordingAvailable || snapshot.Recording == ShellRecordingActive
+	if snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing {
+		return true
+	}
+	return snapshot.RecordingAvailable && !shellLocalCaptureBusy(snapshot)
+}
+
+func shellLocalCaptureBusy(snapshot ShellSnapshot) bool {
+	return snapshot.SelfTestPhase != "" && !windowsLocalSelfTestCanStart(snapshot.SelfTestPhase)
 }
 
 func shellDNDEnabled(snapshot ShellSnapshot) bool { return snapshot.Connection != ShellUnpaired }
@@ -445,7 +534,7 @@ func layoutWindowsShell(clientWidth, clientHeight, dpi int) ShellLayout {
 	layout.Header = ShellRect{X: contentX, Y: margin, Width: contentWidth, Height: dip(42, dpi)}
 	layout.Banner = ShellRect{X: contentX, Y: layout.Header.Bottom() + gap, Width: contentWidth, Height: dip(64, dpi)}
 	bodyY := layout.Banner.Bottom() + gap
-	layout.Body = ShellRect{X: contentX, Y: bodyY, Width: contentWidth, Height: dip(104, dpi)}
+	layout.Body = ShellRect{X: contentX, Y: bodyY, Width: contentWidth, Height: dip(140, dpi)}
 	cardY := layout.Body.Bottom() + gap
 	cardWidth := (contentWidth - gap*2) / 3
 	for i := range layout.Cards {

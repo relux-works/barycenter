@@ -3,6 +3,9 @@
 package main
 
 import (
+	"io"
+	"os"
+	"path/filepath"
 	"syscall"
 	"unsafe"
 
@@ -24,6 +27,9 @@ var (
 	pTranslateAcceleratorW    = user32.NewProc("TranslateAcceleratorW")
 	pCreateAcceleratorTableW  = user32.NewProc("CreateAcceleratorTableW")
 	pDestroyAcceleratorTableW = user32.NewProc("DestroyAcceleratorTable")
+	pDragAcceptFiles          = shell32.NewProc("DragAcceptFiles")
+	pDragQueryFileW           = shell32.NewProc("DragQueryFileW")
+	pDragFinish               = shell32.NewProc("DragFinish")
 	pDeleteObject             = gdi32.NewProc("DeleteObject")
 	pRtlMoveMemory            = kernel32.NewProc("RtlMoveMemory")
 )
@@ -41,6 +47,7 @@ const (
 	wmTimer      = 0x0113
 	wmGetMinMax  = 0x0024
 	wmDPIChanged = 0x02E0
+	wmDropFiles  = 0x0233
 
 	swHide    = 0
 	swRestore = 9
@@ -60,6 +67,11 @@ const (
 	idShellRussian  = 3014
 	idShellOpen     = 3020
 	idShellCancel   = 3021
+	idShellCue      = 3022
+	idShellFile     = 3023
+	idShellDelete   = 3024
+	idShellInput    = 3025
+	idShellOutput   = 3026
 
 	bsPushButton = 0x00000000
 	bsMultiline  = 0x00002000
@@ -99,6 +111,11 @@ type mainWindowCtx struct {
 	cards   [3]windows.Handle
 	footer  windows.Handle
 	detail  windows.Handle
+	cue     windows.Handle
+	file    windows.Handle
+	delete  windows.Handle
+	input   windows.Handle
+	output  windows.Handle
 	record  windows.Handle
 	dnd     windows.Handle
 	english windows.Handle
@@ -113,6 +130,8 @@ var (
 	mainAccel      windows.Handle
 	mainClassReady bool
 )
+
+func currentMainWindowOwner() uintptr { return uintptr(mainHwnd) }
 
 func preferredWindowsShellLocale() ShellLocale {
 	p := kernel32.NewProc("GetUserDefaultUILanguage")
@@ -162,6 +181,7 @@ func createMainWindow(shell *WindowsShell) windows.Handle {
 	// WM_CREATE arrived before mainCtx was assigned; build after creation so
 	// the callback never has to recover Go pointers from CREATESTRUCT.
 	mainCtx.createControls()
+	pDragAcceptFiles.Call(hwnd, 1)
 	mainCtx.installAccelerators()
 	mainCtx.render()
 	mainCtx.layout()
@@ -194,6 +214,11 @@ func (ctx *mainWindowCtx) createControls() {
 	}
 	ctx.footer = mk(wsExClientEdge, "STATIC", "", wsChild|wsVisible|ssLeft, 0)
 	ctx.detail = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAction)
+	ctx.cue = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellCue)
+	ctx.file = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellFile)
+	ctx.delete = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDelete)
+	ctx.input = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellInput)
+	ctx.output = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellOutput)
 	ctx.record = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellRecord)
 	ctx.dnd = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDND)
 	ctx.english = mk(0, "BUTTON", "English", buttonStyle|bsPushButton, idShellEnglish)
@@ -284,6 +309,11 @@ func (ctx *mainWindowCtx) layout() {
 	}
 	move(ctx.footer, ShellRect{X: layout.Footer.X + pad, Y: layout.Footer.Y + pad, Width: layout.Footer.Width - pad*2, Height: layout.Footer.Height - pad*2})
 	move(ctx.detail, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap, Width: dip(220, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.cue, ShellRect{X: layout.Content.X + dip(232, layout.DPI), Y: layout.Body.Bottom() + gap, Width: dip(150, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.file, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap + dip(52, layout.DPI), Width: dip(180, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.delete, ShellRect{X: layout.Content.X + dip(192, layout.DPI), Y: layout.Body.Bottom() + gap + dip(52, layout.DPI), Width: dip(150, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.input, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap + dip(104, layout.DPI), Width: dip(180, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.output, ShellRect{X: layout.Content.X + dip(192, layout.DPI), Y: layout.Body.Bottom() + gap + dip(104, layout.DPI), Width: dip(180, layout.DPI), Height: dip(44, layout.DPI)})
 	move(ctx.english, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap, Width: dip(130, layout.DPI), Height: dip(42, layout.DPI)})
 	move(ctx.russian, ShellRect{X: layout.Content.X + dip(142, layout.DPI), Y: layout.Body.Bottom() + gap, Width: dip(130, layout.DPI), Height: dip(42, layout.DPI)})
 }
@@ -329,8 +359,32 @@ func (ctx *mainWindowCtx) render() {
 	}
 	showControl(ctx.footer, home)
 	showControl(ctx.detail, !home && (section == ShellCreate || section == ShellJoin || section == ShellTryLocally))
-	detailEnabled := section != ShellTryLocally || snapshot.SelfTestAvailable
+	tryPage := section == ShellTryLocally
+	busy := shellLocalCaptureBusy(snapshot)
+	detailEnabled := !tryPage || (snapshot.SelfTestAvailable && !busy && snapshot.Recording != ShellRecordingActive && snapshot.Recording != ShellRecordingProcessing)
 	pEnableWindow.Call(uintptr(ctx.detail), boolWord(detailEnabled))
+	for _, control := range []windows.Handle{ctx.cue, ctx.file, ctx.delete, ctx.input, ctx.output} {
+		showControl(control, tryPage)
+	}
+	localEnabled := snapshot.SelfTestAvailable && !busy && snapshot.Recording != ShellRecordingActive && snapshot.Recording != ShellRecordingProcessing
+	pEnableWindow.Call(uintptr(ctx.cue), boolWord(localEnabled))
+	pEnableWindow.Call(uintptr(ctx.file), boolWord(localEnabled))
+	pEnableWindow.Call(uintptr(ctx.delete), boolWord(localEnabled && snapshot.LocalDraftAvailable))
+	pEnableWindow.Call(uintptr(ctx.input), boolWord(localEnabled && len(snapshot.CaptureInputs) > 1))
+	pEnableWindow.Call(uintptr(ctx.output), boolWord(localEnabled && len(snapshot.AudioOutputs) > 1))
+	if copy.locale == ShellRussian {
+		setText(ctx.cue, "Проиграть сигнал")
+		setText(ctx.file, "Выбрать WAV-файл")
+		setText(ctx.delete, "Удалить черновик")
+		setText(ctx.input, "Сменить вход")
+		setText(ctx.output, "Сменить выход")
+	} else {
+		setText(ctx.cue, "Play cue")
+		setText(ctx.file, "Choose WAV file")
+		setText(ctx.delete, "Delete draft")
+		setText(ctx.input, "Next input")
+		setText(ctx.output, "Next output")
+	}
 	showControl(ctx.english, section == ShellSettings)
 	showControl(ctx.russian, section == ShellSettings)
 
@@ -429,8 +483,28 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 				actions.ToggleRecording()
 			}
 		case idShellCancel:
-			if (snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing) && actions.CancelRecording != nil {
+			if (snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing || shellLocalCaptureBusy(snapshot)) && actions.CancelRecording != nil {
 				actions.CancelRecording()
+			}
+		case idShellCue:
+			if actions.PlayBuiltinCue != nil {
+				actions.PlayBuiltinCue()
+			}
+		case idShellFile:
+			if actions.ChooseLocalFile != nil {
+				actions.ChooseLocalFile()
+			}
+		case idShellDelete:
+			if actions.DeleteLocalDraft != nil {
+				actions.DeleteLocalDraft()
+			}
+		case idShellInput:
+			if actions.SelectNextInput != nil {
+				actions.SelectNextInput()
+			}
+		case idShellOutput:
+			if actions.SelectNextOutput != nil {
+				actions.SelectNextOutput()
 			}
 		case idShellDND:
 			if shellDNDEnabled(snapshot) && actions.SetDND != nil {
@@ -455,6 +529,20 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 	case wmSize:
 		if ctx != nil {
 			ctx.layout()
+		}
+		return 0
+	case wmDropFiles:
+		if ctx != nil && ctx.shell != nil {
+			snapshot := ctx.shell.Snapshot()
+			if snapshot.SelfTestAvailable && !shellLocalCaptureBusy(snapshot) && snapshot.Recording != ShellRecordingActive && snapshot.Recording != ShellRecordingProcessing {
+				if file, ok := windowsDroppedAudioFile(wParam); ok {
+					if action := ctx.shell.Actions().AcceptDroppedFile; action != nil {
+						action(file)
+					}
+				}
+			} else {
+				pDragFinish.Call(wParam)
+			}
 		}
 		return 0
 	case wmDPIChanged:
@@ -493,12 +581,35 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		brush, _, _ := pGetSysColorBr.Call(colorWindow)
 		return brush
 	case wmDestroy:
+		pDragAcceptFiles.Call(uintptr(hwnd), 0)
 		pKillTimer.Call(uintptr(hwnd), mainRefreshTimer)
 		mainHwnd = 0
 		return 0
 	}
 	result, _, _ := pDefWindowProcW.Call(uintptr(hwnd), uintptr(message), wParam, lParam)
 	return result
+}
+
+func windowsDroppedAudioFile(drop uintptr) (WindowsBrokeredAudioFile, bool) {
+	defer pDragFinish.Call(drop)
+	length, _, _ := pDragQueryFileW.Call(drop, 0, 0, 0)
+	if length == 0 || length > 32767 {
+		return WindowsBrokeredAudioFile{}, false
+	}
+	buffer := make([]uint16, length+1)
+	written, _, _ := pDragQueryFileW.Call(drop, 0, uintptr(unsafe.Pointer(&buffer[0])), length+1)
+	if written == 0 {
+		return WindowsBrokeredAudioFile{}, false
+	}
+	path := windows.UTF16ToString(buffer)
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return WindowsBrokeredAudioFile{}, false
+	}
+	return WindowsBrokeredAudioFile{
+		DisplayName: filepath.Base(path), SizeBytes: info.Size(),
+		Open: func() (io.ReadCloser, error) { return os.Open(path) },
+	}, true
 }
 
 func showMainWindow(explicit bool) {

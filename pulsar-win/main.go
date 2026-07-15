@@ -187,28 +187,13 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	}
 
 	player := NewPlayer(daemon, ring, engine, cache, ws.Clock(), ws.Send, cfg.OutputLatencyOffsetMS, log)
+	outputControl := newWindowsAudioOutputController(engine, player, log)
 	mediaMixer.BindInterruptController(player)
-	recording := NewWindowsRecordingController(nil)
-	if backend, captureErr := NewNativeWindowsMicrophoneBackend(); captureErr != nil {
-		log.Error("microphone recording unavailable", "err", captureErr)
-	} else if executable, executableErr := os.Executable(); executableErr != nil {
-		log.Error("microphone recording unavailable", "err", executableErr)
+	workflow := NewWindowsCaptureWorkflowController(NewWindowsRecordingController(nil), nil, nil)
+	if configured, captureErr := newWindowsCaptureWorkflow(dir, mediaMixer, gain); captureErr != nil {
+		log.Error("local capture workflow unavailable", "err", captureErr)
 	} else {
-		cuePath := filepath.Join(filepath.Dir(executable), "Assets", "Audio", BuiltinRecordingCueFilename)
-		if cueData, cueErr := os.ReadFile(cuePath); cueErr != nil || !ValidateBuiltinRecordingCue(cueData) {
-			log.Error("microphone recording unavailable", "err", ErrRecordingCueUnavailable)
-		} else {
-			captureStore := NewCaptureMediaStore(filepath.Join(dir, "capture-media"))
-			if _, recoveryErr := captureStore.Recover(); recoveryErr != nil {
-				log.Error("microphone recording recovery failed", "err", recoveryErr)
-			} else {
-				localOutput := NewWindowsProductionLocalClipOutput(mediaMixer)
-				captureService := NewWindowsMicrophoneCaptureService(
-					backend, captureStore,
-					WindowsLocalRecordingCuePlayer{Output: localOutput, CuePath: cuePath}, gain)
-				recording = NewWindowsRecordingController(windowsMicrophoneRecordingCapture{service: captureService})
-			}
-		}
+		workflow = configured
 	}
 	presenceStore := NewNodePresenceStore(filepath.Join(dir, "node-presence.v1.json"), log)
 	player.ConfigureTransmissionHooks(mediaClips, presenceStore)
@@ -270,8 +255,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 			connection = ShellDegraded
 		}
 		route := ""
+		outputs, selectedOutput := outputControl.Snapshot()
 		if len(state.Speakers) > 0 {
 			route = state.Speakers[0].Name
+		}
+		if selectedOutput >= 0 && selectedOutput < len(outputs) {
+			route = outputs[selectedOutput].Name
 		}
 		nowPlaying := ""
 		if state.URI != nil {
@@ -291,7 +280,8 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		shellStateMu.RLock()
 		dnd := shellDND
 		shellStateMu.RUnlock()
-		recordingState, recordingAvailable := recording.Snapshot()
+		recordingState, recordingAvailable := workflow.Snapshot()
+		local := workflow.LocalSnapshot()
 		return ShellSnapshot{
 			Connection: connection, Identity: identityLine(*creds),
 			PresenceOnline: presenceOnline, PresenceTotal: presenceTotal,
@@ -301,13 +291,26 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 			RecordingAvailable:   recordingAvailable,
 			RecordingShortcut:    currentWindowsRecordingShortcutStatus(),
 			RecordingShortcutKey: currentWindowsRecordingShortcut(),
-			SelfTestAvailable:    false, Volume: state.Volume,
+			SelfTestAvailable:    local.Available, SelfTestPhase: local.SelfTestPhase,
+			SelfTestMeter: local.Meter, LocalDraftAvailable: local.DraftAvailable,
+			LocalDraftName: local.DraftName, LocalFailure: local.Failure,
+			RecordingDraftAvailable: local.RecordingDraftAvailable,
+			CaptureInputs:           local.Inputs, SelectedCaptureInput: local.SelectedInput,
+			AudioOutputs: outputs, SelectedAudioOutput: selectedOutput,
+			Volume: state.Volume,
 		}
 	}, ShellActions{
-		Create:          func() { openURL(uiBotURL) },
-		Join:            func() { openURL(uiBotURL) },
-		ToggleRecording: recording.Toggle,
-		CancelRecording: recording.Cancel,
+		Create:            func() { openURL(uiBotURL) },
+		Join:              func() { openURL(uiBotURL) },
+		TryLocally:        workflow.TryLocally,
+		PlayBuiltinCue:    workflow.PlayBuiltinCue,
+		ChooseLocalFile:   func() { workflow.ChooseFile(currentMainWindowOwner()) },
+		AcceptDroppedFile: workflow.AcceptBrokeredFile,
+		DeleteLocalDraft:  workflow.DeleteLocalDraft,
+		SelectNextInput:   workflow.SelectNextInput,
+		SelectNextOutput:  func() { go outputControl.SelectNext() },
+		ToggleRecording:   workflow.Toggle,
+		CancelRecording:   workflow.Cancel,
 		SetDND: func(mode ShellDND) {
 			if mode != ShellDNDAllowAll && mode != ShellDNDMessagesOnly {
 				return
@@ -325,7 +328,7 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	shortcutStore := WindowsRecordingShortcutStore{Path: filepath.Join(dir, "recording-shortcut.v1.json")}
 	tray := &TrayState{
 		Shell:         shell,
-		Recording:     recording,
+		Recording:     workflow,
 		Shortcut:      shortcutStore.Load(),
 		ShortcutStore: shortcutStore,
 		Connected:     func() bool { return ws.Healthy() },
@@ -348,18 +351,20 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		OnQuit: func() { close(quit) },
 	}
 	awaitShutdown(tray, quit)
-	recording.Shutdown()
+	workflow.Shutdown()
 	drainContext, cancelRecordingDrain := context.WithTimeout(context.Background(), 5*time.Second)
-	if drainErr := recording.Wait(drainContext); drainErr != nil {
+	if drainErr := workflow.Wait(drainContext); drainErr != nil {
 		log.Error("microphone recording shutdown drain failed", "err", drainErr)
 	}
 	cancelRecordingDrain()
+	workflow.ClosePlatform()
 
 	log.Info("shutting down")
 	close(stop)
 	events.Stop()
 	ws.Stop()
 	sup.Stop()
+	outputControl.Close()
 	player.Close()
 	gain.Close()
 }

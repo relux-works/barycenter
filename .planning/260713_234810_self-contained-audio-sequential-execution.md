@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 60 accepted, 145 remain.
-- Routed inventory: 186 engineering tasks (60 accepted, 126 remain) and 19
+- Combined inventory: 205 original tasks; 61 accepted, 144 remain.
+- Routed inventory: 186 engineering tasks (61 accepted, 125 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1s6h6t` — macos-local-capture-self-test
-  (accepted on exact engineering head `f8e9db9`; tracking/merge pending)
-- Next engineering task: `TASK-260712-1p8ykc` — windows-local-capture-self-test
-- Most recently accepted: `TASK-260712-1s6h6t` — macos-local-capture-self-test
-- Current branch: `task/task-260712-1s6h6t-macos-local-capture-self-test`
+- Current engineering task: `TASK-260712-3dqc3l` — macos-ui-data-integration
+  (queued after PR #60 landing)
+- Next engineering task: `TASK-260712-2fe5bz` — windows-ui-data-integration
+- Most recently accepted: `TASK-260712-1p8ykc` — windows-local-capture-self-test
+- Current branch: `task/task-260712-1p8ykc-windows-local-capture-self-test`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 60 / 205 tasks (approximately 29.3%); 145 remain
-- Engineering progress: 60 / 186 tasks (approximately 32.3%); 126 remain
+- Accepted overall: 61 / 205 tasks (approximately 29.8%); 144 remain
+- Engineering progress: 61 / 186 tasks (approximately 32.8%); 125 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -800,6 +800,30 @@ production-app observation is claimed; those remain in `EPIC-260714-th54l3`.
 Progress is 60/205 overall and 60/186 engineering. PR #59 tracking and merge
 remain before strict execution starts `TASK-260712-1p8ykc`.
 
+Tracking head `6fd8dc5db2ce819ae6134f42d34519f894b683ab` passed all four hosted
+jobs in run `29386121628`; PR #59 landed at merge
+`c0f0509f55fb2162ea67a42ee62f0925c416b55b`. Strict execution started
+`TASK-260712-1p8ykc` from that synchronized `main` on branch
+`task/task-260712-1p8ykc-windows-local-capture-self-test`.
+
+Checkpoint 2026-07-15: `TASK-260712-1p8ykc` is accepted at exact engineering
+head `d29f391`. Paired and accountless Windows launches now construct the same
+single-owner local capture workflow. Stable AppCapability input selection,
+active `IMMDevice` output switching with a drained WASAPI owner, bounded meter,
+reviewed cues, exact five-second record-then-play, normal durable drafts,
+broker-handle `FileOpenPicker`, Explorer drop fallback and window/tray/hotkey
+actions share one honest state projection. Normal recording and self-test are
+mutually exclusive; Escape, lock, suspend, permission revoke and quit cancel,
+drain, delete disposable media and only then unsubscribe/close the native
+helper. Local Go test/race/vet, Windows amd64 cross-vet/build, coordinator
+vet/full and 205 Swift tests passed. All four hosted jobs passed in run
+`29387172394`, including native helper tests and reproducible signed MSIX
+packaging. No real permission UI, microphone, speaker, audible cue/loopback,
+Explorer, shortcut/conflict, lock/suspend or packaged-AppContainer observation
+is claimed; those remain in `EPIC-260714-th54l3`. Progress is 61/205 overall
+and 61/186 engineering. PR #60 tracking and merge remain before strict
+execution starts `TASK-260712-3dqc3l`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -1477,7 +1501,11 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
   including 205 Swift tests and signed MSIX packaging; real TCC, microphone,
   audible route/cue, Finder, shortcut/conflict and lifecycle observations
   remain manual; PR #59)
-- [ ] `TASK-260712-1p8ykc` — windows-local-capture-self-test
+- [x] `TASK-260712-1p8ykc` — windows-local-capture-self-test (accepted on exact
+  engineering head `d29f391`; all four hosted jobs in run `29387172394` green,
+  including native helper tests and reproducible signed MSIX packaging; real
+  permission UI, microphone/output, audible loopback, Explorer, shortcut and
+  lifecycle observations remain manual; PR #60)
 - [ ] `TASK-260712-3dqc3l` — macos-ui-data-integration
 - [ ] `TASK-260712-2fe5bz` — windows-ui-data-integration
 - ↪ manual `TASK-260712-e5mfqj` — cross-platform-ui-verification →

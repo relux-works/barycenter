@@ -70,6 +70,7 @@ class AcceptanceHarnessTests(unittest.TestCase):
         workflow = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         self.assertNotIn("runs-on: ubuntu-latest", workflow)
         self.assertNotIn("runs-on: windows-latest", workflow)
+        self.assertEqual(workflow.count("fetch-depth: 0"), 4)
         for runner in pins["githubHostedRunners"].values():
             self.assertIn(f"runs-on: {runner}", workflow)
         topology = harness.json.loads(

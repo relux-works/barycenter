@@ -1,0 +1,40 @@
+@startuml
+title P1 Windows UI/data integration
+
+actor User
+component "Win32 main window\nand tray" as UI
+component "WindowsIdentityComposition" as Identity
+component "WindowsPhaseOneComposition" as Phase
+component "WindowsCaptureWorkflowController" as Capture
+component "WindowsOnboardingService" as Onboarding
+component "DPAPI credential repository" as DPAPI
+component "RecoveryExporter" as Recovery
+component "PhaseOneDraftOutbox" as Outbox
+component "PhaseOneAppClient" as Client
+database "capture-media/drafts" as Drafts
+database "draft-outbox-v1.json" as Metadata
+cloud "Barycenter coordinator" as Coordinator
+
+User --> UI
+UI --> Identity : Create / Join / Save recovery
+Identity --> Onboarding
+Onboarding --> DPAPI
+Identity --> Recovery : explicit selected path
+UI --> Phase : route / delivery / send / history action
+UI --> Capture : record / choose outgoing file
+Capture --> Outbox : finalized user draft only
+Capture --> Drafts
+Phase --> Outbox
+Outbox --> Metadata : fsync + atomic rename
+Outbox --> Drafts : confirmed cleanup / explicit delete
+Outbox --> Client
+Phase --> Client : presence / history / policy actions
+Client --> Coordinator : active origin-bound bearer
+
+note bottom of Capture
+Microphone and picked-file drafts share
+the durable user-recording boundary.
+Self-test remains local/disposable and
+never reaches Outbox.
+end note
+@enduml

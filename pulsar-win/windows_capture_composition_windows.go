@@ -30,7 +30,8 @@ func newWindowsCaptureWorkflow(dir string, mixer *WindowsOverlayMediaClipMixer, 
 		return nil, ErrRecordingCueUnavailable
 	}
 	store := NewCaptureMediaStore(filepath.Join(dir, "capture-media"))
-	if _, err := store.Recover(); err != nil {
+	recovery, err := store.Recover()
+	if err != nil {
 		return nil, err
 	}
 	output := NewWindowsProductionLocalClipOutput(mixer)
@@ -45,6 +46,8 @@ func newWindowsCaptureWorkflow(dir string, mixer *WindowsOverlayMediaClipMixer, 
 	inputs, _ := backend.Inputs(ctx)
 	cancel()
 	workflow := NewWindowsCaptureWorkflowController(recording, selfTest, inputs)
+	workflow.ConfigureDraftBoundary(store, recovery.RetainedDrafts)
+	workflow.SetOutgoingIntake(intake)
 	workflow.SetPicker(func(ctx context.Context, owner uintptr) (WindowsBrokeredAudioFile, error) {
 		return backend.PickAudio(ctx, windows.Handle(owner))
 	})

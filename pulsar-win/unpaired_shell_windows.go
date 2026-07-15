@@ -7,11 +7,12 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 )
 
 func runUnpairedShell(dir, coordinatorBase string) (paired, supported bool) {
-	var didPair bool
+	var didPair atomic.Bool
 	ring := NewRing(sampleRate * channels)
 	gain := NewGain()
 	engine := NewEngine(ring, gain)
@@ -24,6 +25,13 @@ func runUnpairedShell(dir, coordinatorBase string) (paired, supported bool) {
 	} else {
 		log.Error("accountless local capture unavailable", "err", err)
 	}
+	identity, identityErr := newProductionWindowsIdentityComposition(dir, coordinatorBase, func() {
+		didPair.Store(true)
+		requestTrayLoopExit()
+	})
+	if identityErr != nil {
+		log.Error("self-service identity unavailable")
+	}
 	shell := NewWindowsShell(preferredWindowsShellLocale(), func() ShellSnapshot {
 		recording, recordingAvailable := workflow.Snapshot()
 		local := workflow.LocalSnapshot()
@@ -32,7 +40,7 @@ func runUnpairedShell(dir, coordinatorBase string) (paired, supported bool) {
 		if selectedOutput >= 0 && selectedOutput < len(outputs) {
 			route = outputs[selectedOutput].Name
 		}
-		return ShellSnapshot{
+		snapshot := ShellSnapshot{
 			Connection: ShellUnpaired, Recording: recording, RecordingAvailable: recordingAvailable,
 			RecordingShortcut: currentWindowsRecordingShortcutStatus(), RecordingShortcutKey: currentWindowsRecordingShortcut(),
 			SelfTestAvailable: local.Available, SelfTestPhase: local.SelfTestPhase, SelfTestMeter: local.Meter,
@@ -42,8 +50,29 @@ func runUnpairedShell(dir, coordinatorBase string) (paired, supported bool) {
 			AudioOutputs: outputs, SelectedAudioOutput: selectedOutput,
 			RouteName: route, DND: ShellDNDAllowAll, Volume: 80,
 		}
+		if identity != nil {
+			identity.ApplyShellSnapshot(&snapshot)
+		} else {
+			snapshot.IdentityOperation = ShellIdentityFailed
+			snapshot.IdentityFailure = "identity_unavailable"
+		}
+		return snapshot
 	}, ShellActions{
-		Create: func() { openURL(uiBotURL) }, Join: func() { openURL(uiBotURL) },
+		Create: func(title string) {
+			if identity != nil {
+				identity.Create(title)
+			}
+		},
+		Join: func(invite string) {
+			if identity != nil {
+				identity.Join(invite)
+			}
+		},
+		SaveRecovery: func(path string) {
+			if identity != nil {
+				identity.SaveRecovery(path)
+			}
+		},
 		TryLocally: workflow.TryLocally, PlayBuiltinCue: workflow.PlayBuiltinCue,
 		ChooseLocalFile: func() { workflow.ChooseFile(currentMainWindowOwner()) }, DeleteLocalDraft: workflow.DeleteLocalDraft,
 		AcceptDroppedFile: workflow.AcceptBrokeredFile,
@@ -55,12 +84,15 @@ func runUnpairedShell(dir, coordinatorBase string) (paired, supported bool) {
 	state.Connected = func() bool { return false }
 	state.OnRePair = func() {
 		if _, err := showOnboardingWindow(dir, coordinatorBase); err == nil {
-			didPair = true
+			didPair.Store(true)
 			requestTrayLoopExit()
 		}
 	}
 	state.OnQuit = func() {}
 	awaitShutdown(state, make(chan struct{}))
+	if identity != nil {
+		identity.Close()
+	}
 	workflow.Shutdown()
 	drain, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	_ = workflow.Wait(drain)
@@ -68,5 +100,5 @@ func runUnpairedShell(dir, coordinatorBase string) (paired, supported bool) {
 	workflow.ClosePlatform()
 	outputControl.Close()
 	gain.Close()
-	return didPair, true
+	return didPair.Load(), true
 }

@@ -138,6 +138,9 @@ class CodecSpikeContractTests(unittest.TestCase):
         msix_script = (HERE / "package_bundled_probe_msix.ps1").read_text(encoding="utf-8")
         self.assertIn('uap10:TrustLevel="appContainer"', msix_script)
         self.assertNotIn("runFullTrust", msix_script)
+        self.assertIn("unpackaged non-system import", msix_script)
+        mingw_script = (HERE / "build_bundled_ffmpeg_mingw.sh").read_text(encoding="utf-8")
+        self.assertIn("-static-libgcc", mingw_script)
 
     def test_exact_license_audit_is_complete_and_fail_closed(self):
         audit = license_audit.load()

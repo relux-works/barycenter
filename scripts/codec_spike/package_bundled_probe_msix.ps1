@@ -18,7 +18,7 @@ $MakeAppx = "$($Sdk.FullName)\x64\makeappx.exe"
 $SignTool = "$($Sdk.FullName)\x64\signtool.exe"
 
 Remove-Item -Recurse -Force $PackageStage -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force -Path $PackageStage, (Join-Path $PackageStage "Assets"), $OutputDirectory | Out-Null
+New-Item -ItemType Directory -Force -Path $PackageStage, (Join-Path $PackageStage "Assets"), (Join-Path $PackageStage "Fixtures"), $OutputDirectory | Out-Null
 Copy-Item (Join-Path $Stage "*.dll") $PackageStage
 Copy-Item (Join-Path $Stage "pulsar-codec-probe.exe") $PackageStage
 $Dlls = @(Get-ChildItem $PackageStage -File -Filter "*.dll")
@@ -30,6 +30,20 @@ foreach ($Pattern in $RequiredDllPatterns) {
 if (Test-Path (Join-Path $PackageStage "ff*.exe")) { throw "FFmpeg program must not be packaged" }
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Copy-Item (Join-Path $RepoRoot "pulsar-win\msix\Assets\*.png") (Join-Path $PackageStage "Assets")
+Copy-Item (Join-Path $RepoRoot "acceptance\codec-spike\fixtures\smoke-v1\mp3_cbr_12s.mp3") (Join-Path $PackageStage "Fixtures")
+
+$Objdump = (Get-Command objdump.exe -ErrorAction Stop).Source
+$SystemImports = @("advapi32.dll", "bcrypt.dll", "kernel32.dll", "msvcrt.dll", "ntdll.dll", "ole32.dll", "shell32.dll", "user32.dll", "ucrtbase.dll", "ws2_32.dll")
+$ImportInventory = @{}
+foreach ($Binary in @(Get-ChildItem $PackageStage -File | Where-Object { $_.Extension -in ".dll", ".exe" })) {
+    $Imports = @(& $Objdump -p $Binary.FullName | Select-String 'DLL Name:' | ForEach-Object { ($_ -split 'DLL Name:', 2)[1].Trim().ToLowerInvariant() } | Sort-Object -Unique)
+    foreach ($Import in $Imports) {
+        $PackageLocal = Test-Path (Join-Path $PackageStage $Import)
+        $System = $Import -in $SystemImports -or $Import.StartsWith("api-ms-win-") -or $Import.StartsWith("ext-ms-win-")
+        if (-not $PackageLocal -and -not $System) { throw "unpackaged non-system import $Import from $($Binary.Name)" }
+    }
+    $ImportInventory[$Binary.Name] = $Imports
+}
 
 $Manifest = @"
 <?xml version="1.0" encoding="utf-8"?>
@@ -75,9 +89,9 @@ try {
     $InstalledPackage = Get-AppxPackage -Name "ReluxWorksLLC.PulsarCodecProbe" | Select-Object -First 1
     if (-not $InstalledPackage) { throw "test-signed codec MSIX did not install" }
     $InstalledDriver = Join-Path $InstalledPackage.InstallLocation "pulsar-codec-probe.exe"
-    $OfflineFixture = Join-Path $RepoRoot "acceptance\codec-spike\fixtures\smoke-v1\mp3_cbr_12s.mp3"
-    $DecodeJSON = & $InstalledDriver $OfflineFixture
-    if ($LASTEXITCODE -ne 0) { throw "installed offline decode failed" }
+    $OfflineFixture = Join-Path $InstalledPackage.InstallLocation "Fixtures\mp3_cbr_12s.mp3"
+    $DecodeJSON = & $InstalledDriver $OfflineFixture 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "installed offline decode failed with exit $LASTEXITCODE: $DecodeJSON" }
     $Decode = $DecodeJSON | ConvertFrom-Json
     if ($Decode.codec -cne "mp3" -or -not $Decode.drained -or $Decode.frames -le 0 -or
         $Decode.peakRSSBytes -le 0 -or $Decode.peakRSSBytes -gt 268435456) {
@@ -92,7 +106,8 @@ try {
         }
         $Signature = if ($FileSignature) { $FileSignature.Status.ToString() } else { "not-applicable" }
         $SignerThumbprint = if ($FileSignature) { $FileSignature.SignerCertificate.Thumbprint.ToLowerInvariant() } else { $null }
-        [ordered]@{ path = $File.FullName.Substring($PackageStage.Length + 1).Replace("\", "/"); bytes = $File.Length; sha256 = (Get-FileHash $File.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); signature = $Signature; signerThumbprint = $SignerThumbprint }
+        $RecordedImports = if ($ImportInventory.ContainsKey($File.Name)) { @($ImportInventory[$File.Name]) } else { @() }
+        [ordered]@{ path = $File.FullName.Substring($PackageStage.Length + 1).Replace("\", "/"); bytes = $File.Length; sha256 = (Get-FileHash $File.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); signature = $Signature; signerThumbprint = $SignerThumbprint; imports = $RecordedImports }
     }
     [ordered]@{
         schemaVersion = 1; contract = "p2-bundled-ffmpeg-probe.v1"; platform = "windows-amd64";

@@ -43,7 +43,7 @@ tar -xf "$SOURCE_ARCHIVE" -C "$OUTPUT/source" --strip-components=1
     --enable-parser=aac,mpegaudio,opus \
     --enable-swresample \
     --extra-cflags='-O2 -fno-common' \
-    --extra-ldflags='-Wl,--dynamicbase -Wl,--nxcompat'
+    --extra-ldflags='-static-libgcc -Wl,--dynamicbase -Wl,--nxcompat'
   make -j"$(nproc 2>/dev/null || echo 2)"
   make install
 )

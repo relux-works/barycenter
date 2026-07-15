@@ -1398,7 +1398,7 @@ func (l *loop) handleBot(ev bot.Event) {
 	if member.Role == "satellite" {
 		switch cmd.Kind {
 		case bot.KindLink, bot.KindQueue, bot.KindNow, bot.KindStatus,
-			bot.KindHistory, bot.KindStart, bot.KindShare, bot.KindOrbit, bot.KindPairCode, bot.KindLeave:
+			bot.KindHistory, bot.KindAir, bot.KindStart, bot.KindShare, bot.KindOrbit, bot.KindPairCode, bot.KindLeave:
 		default:
 			ev.Reply("это управление эфиром — оно у companion'ов. Твоё оружие: треки и голосовые")
 			return
@@ -1580,6 +1580,9 @@ func (l *loop) handleBot(ev bot.Event) {
 
 	case bot.KindHistory:
 		l.sendTelegramHistory(ev)
+
+	case bot.KindAir:
+		l.handleTelegramAirCommand(ev, cmd.Target)
 
 	case bot.KindCancel:
 		if _, err := o.sess.Cancel(cmd.Number); err != nil {

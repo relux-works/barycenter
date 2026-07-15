@@ -220,6 +220,7 @@ const commandMenuJSON = `[
 {"command":"pause","description":"пауза"},
 {"command":"resume","description":"продолжить"},
 {"command":"queue","description":"очередь"},
+{"command":"air","description":"Air-комнаты и друзья"},
 {"command":"vol","description":"громкость (0–100)"},
 {"command":"home","description":"кто на связи и что настроено"},
 {"command":"pair","description":"подключить свой дом"},

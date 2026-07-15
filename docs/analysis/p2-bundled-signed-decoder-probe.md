@@ -54,6 +54,9 @@ strict code-signature validation and their Mach-O imports were recorded. All six
 fixtures decoded at 48 kHz stereo; decoded samples were 576,000–577,536. Seek
 changed the PCM checksum, cancellation stopped without drain, normal completion
 drained, and the five hostile cases terminated with at most 651 output bytes.
+Each decode result also records process CPU milliseconds and peak resident bytes;
+the harness rejects a 15-second CPU overrun or peak RSS above 256 MiB. Package
+disk bytes come from the signed file inventory rather than an estimate.
 
 The dedicated `codec-bundle-probe.yml` workflow repeats the exact recipe on
 GitHub-hosted macOS ARM64, macOS Intel and Windows x64 runners. Windows compiles

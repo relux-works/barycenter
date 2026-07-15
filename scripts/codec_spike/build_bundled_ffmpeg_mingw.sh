@@ -63,7 +63,7 @@ gcc -shared -O2 -fvisibility=hidden -static-libgcc -DPULSAR_CODEC_BUILD \
 
 gcc -O2 -static-libgcc -I"$ROOT/scripts/codec_spike/native" \
   "$ROOT/scripts/codec_spike/native/pulsar_codec_probe.c" \
-  -L"$OUTPUT/stage" -lpulsar_codec_bridge \
+  -L"$OUTPUT/stage" -lpulsar_codec_bridge -lpsapi \
   -o "$OUTPUT/stage/pulsar-codec-probe.exe"
 rm "$OUTPUT/stage/libpulsar_codec_bridge.dll.a"
 cp "$OUTPUT/build/ffbuild/config.mak" "$OUTPUT/config.mak"

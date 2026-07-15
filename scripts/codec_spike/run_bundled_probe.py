@@ -76,7 +76,9 @@ def exercise(driver: pathlib.Path) -> dict:
                 lifecycle.append({"fixture": fixture["id"], "event": "scheduled-start", "generation": 1})
                 if complete["codec"] != fixture["codec"] or complete["sampleRate"] != 48000 or \
                         complete["channels"] != 2 or complete["frames"] <= 0 or \
-                        complete["samples"] < fixture["minimumDurationMS"] * 48 or not complete["drained"]:
+                        complete["samples"] < fixture["minimumDurationMS"] * 48 or not complete["drained"] or \
+                        complete["peakRSSBytes"] <= 0 or complete["peakRSSBytes"] > 256 * 1024 * 1024 or \
+                        complete["cpuMS"] > 15_000:
                     raise RuntimeError(f"decode contract failed: {fixture['id']} {complete}")
                 paused = invoke(driver, prepared, "--cancel-after-frames", "3")
                 if not paused["cancelled"] or paused["drained"]:
@@ -120,6 +122,9 @@ def exercise(driver: pathlib.Path) -> dict:
         "lifecycle": lifecycle,
         "cacheCeilingBytes": 64 * 1024 * 1024,
         "maxChunkBytes": 1024 * 1024,
+        "peakRSSBytes": max(item["full"]["peakRSSBytes"] for item in results),
+        "totalDecodeCPUMS": sum(item["full"]["cpuMS"] for item in results),
+        "packageDiskBytesFromReceipt": True,
         "networkOwnedByDecoder": False,
         "renderCallbackCallsDecoder": False,
         "shippingDecision": "rejected-until-all-required-platform-and-release-evidence-exists",

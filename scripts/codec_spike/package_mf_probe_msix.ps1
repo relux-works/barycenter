@@ -144,7 +144,9 @@ try {
     $Evidence = Get-Content $EvidencePath -Raw | ConvertFrom-Json
     Write-Host "MF_PROBE_EVIDENCE $($Evidence | ConvertTo-Json -Depth 12 -Compress)"
     $GateFailures = @()
-    if ($Activation.ExitCode -ne 0) { $GateFailures += "exitCode=$($Activation.ExitCode)" }
+    if ($null -ne $Activation.ExitCode -and $Activation.ExitCode -ne 0) {
+        $GateFailures += "exitCode=$($Activation.ExitCode)"
+    }
     if (-not $Evidence.passed) { $GateFailures += "evidence.passed=false" }
     if (-not $Evidence.tokenIsAppContainer) { $GateFailures += "tokenIsAppContainer=false" }
     if ($Evidence.renderCallbackUsed) { $GateFailures += "renderCallbackUsed=true" }
@@ -177,7 +179,7 @@ try {
             options = $Activation.ActivationOptions
             debugModeEnabled = $Activation.DebugModeEnabled
             processId = $Activation.ProcessId
-            exitCode = $Activation.ExitCode
+            exitCode = if ($null -eq $Activation.ExitCode) { "unavailable-after-packaged-activation" } else { $Activation.ExitCode }
             directInstalledLaunchExitCode = $Direct.ExitCode
             directInstalledLaunchTokenIsAppContainer = $DirectEvidence.tokenIsAppContainer
         }

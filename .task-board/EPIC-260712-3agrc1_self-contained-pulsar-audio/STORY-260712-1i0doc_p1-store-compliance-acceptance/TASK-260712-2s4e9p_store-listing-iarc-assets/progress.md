@@ -8,7 +8,7 @@ to-review
 2026-07-12T15:45:04Z
 
 ## Last Update
-2026-07-15T10:05:41Z
+2026-07-15T10:22:36Z
 
 ## Blocked By
 - TASK-260712-1epb3a
@@ -23,7 +23,6 @@ to-review
 
 ## Blocks
 - TASK-260712-1xik11
-- TASK-260712-38lssj
 
 ## Checklist
 - [x] Replace the current Spotify first listing copy with self contained phase one descriptions and feature bullets in RU and EN.

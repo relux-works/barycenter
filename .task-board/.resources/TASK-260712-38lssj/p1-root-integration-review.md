@@ -1,0 +1,3 @@
+# Phase 1 root integration review outcome
+
+Authoritative report: docs/analysis/p1-root-integration-review.md (SHA-256 009670ced87f372afa2219a5865cdf5e8d6ad632643efa169e0039f9b3db6f9d). Complete 737-path AC and A1-A8 manifest: docs/analysis/p1-root-review-manifest.json (SHA-256 1391249d5d61f7489572670b5871231903f860a646a1592c99e526db7916b3be). Exact reviewed engineering candidate: 16420c2ce652d05d534fb45b5ef9a7124d4bbdd6. Engineering baseline accepted for reversible P2 coding; Phase 1 product, Store and release acceptance withheld pending the explicitly listed independent, manual, mailbox and Partner Center holds.

@@ -1,21 +1,16 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-review
 
 ## Created
 2026-07-12T16:14:30Z
 
 ## Last Update
-2026-07-14T00:48:39Z
+2026-07-15T10:23:14Z
 
 ## Blocked By
-- TASK-260712-wy05n6
-- TASK-260712-176b74
-- TASK-260712-1xkn75
-- TASK-260712-1uz0za
-- TASK-260712-2s4e9p
 - TASK-260712-1x0lot
 
 ## Blocks
@@ -27,9 +22,10 @@ backlog
 - [ ] Record accepted build hash and reject every self-report-only or waived claim
 
 ## Notes
+Strict inline root review started from synchronized main 16420c2 on branch task/task-260712-38lssj-p1-root-integration-review. Engineering review will inventory baseline 38ebd385..HEAD, map AC/A1-A8, inspect findings and rerun broad gates. Acceptance remains fail-closed while independent approvals and real Store/manual evidence are unresolved.
 
 ## Precondition Resources
 - [p1-root-review-amendments.md](file://TASK-260712-38lssj/p1-root-review-amendments.md) — Mandatory root review rules and Phase 1 risk seams
 
 ## Outcome Resources
-(none)
+- [p1-root-integration-review.md](file://TASK-260712-38lssj/p1-root-integration-review.md) — Root diff review decision, exact candidate, complete manifest and fail-closed remaining holds

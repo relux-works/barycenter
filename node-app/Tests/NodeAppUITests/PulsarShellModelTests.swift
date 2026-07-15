@@ -37,6 +37,11 @@ struct PulsarShellModelTests {
             #expect(!copy.recordingLabel(state).isEmpty)
             #expect(!copy.recordingSymbol(state).isEmpty)
         }
+        for state in [
+            PulsarRecordingShortcutState.inactive, .registered, .conflict, .unavailable, .suspended,
+        ] {
+            #expect(!copy.recordingShortcutLabel(state).isEmpty)
+        }
     }
 
     @MainActor
@@ -111,6 +116,17 @@ struct PulsarShellModelTests {
         }
     }
 
+    @MainActor
+    @Test("Shortcut projection keeps configured chord and honest availability separate")
+    func shortcutProjection() {
+        let model = PulsarShellModel()
+        model.setRecordingShortcut(.controlOptionSpace, state: .conflict)
+        #expect(model.snapshot.recordingShortcut == .controlOptionSpace)
+        #expect(model.snapshot.recordingShortcut.displayValue == "⌃⌥Space")
+        #expect(model.snapshot.recordingShortcutState == .conflict)
+        #expect(PulsarRecordingShortcutChoice.allCases.count == 4)
+    }
+
     @Test("DND labels map the frozen wire values in both languages")
     func dndWireValuesStayStable() {
         #expect(PulsarDNDMode.allowAll.rawValue == "allow_all")
@@ -135,6 +151,8 @@ struct PulsarShellModelTests {
             setDND: { calls.append($0.rawValue) },
             setVolume: { calls.append("volume:\($0)") },
             toggleRecording: { calls.append("record") },
+            cancelRecording: { calls.append("cancel-record") },
+            setRecordingShortcut: { calls.append("shortcut:\($0.rawValue)") },
             playBuiltinCue: { calls.append("cue") },
             recordFiveSeconds: { calls.append("five") },
             reviewLocalFile: { calls.append("review:\($0.lastPathComponent)") },
@@ -149,6 +167,8 @@ struct PulsarShellModelTests {
         actions.setDND(.messagesOnly)
         actions.setVolume(45)
         actions.toggleRecording()
+        actions.cancelRecording()
+        actions.setRecordingShortcut(.controlShiftR)
         let file = URL(fileURLWithPath: "/tmp/voice.wav")
         actions.playBuiltinCue()
         actions.recordFiveSeconds()
@@ -159,7 +179,29 @@ struct PulsarShellModelTests {
 
         #expect(calls == [
             "create", "join", "self-test", "messages_only", "volume:45", "record",
-            "cue", "five", "review:voice.wav", "accept:voice.wav", "delete", "close",
+            "cancel-record", "shortcut:control_shift_r", "cue", "five", "review:voice.wav",
+            "accept:voice.wav", "delete", "close",
         ])
+    }
+
+    @Test("Escape is foreground-scoped and hidden recording has an explicit menu cancel")
+    func escapeAndHiddenCancelBoundary() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let window = try String(contentsOf:
+            root.appendingPathComponent("node-app/Sources/NodeAppUI/PulsarMainWindow.swift"),
+            encoding: .utf8)
+        let menu = try String(contentsOf:
+            root.appendingPathComponent("node-app/Sources/NodeApp/StatusMenu.swift"),
+            encoding: .utf8)
+        #expect(window.contains(".onExitCommand"))
+        #expect(window.contains("actions.cancelRecording()"))
+        #expect(menu.contains("#selector(cancelRecording)"))
+        #expect(menu.contains("copy.text(.cancelRecording)"))
+        #expect(!window.contains("addGlobalMonitorForEvents"))
+        #expect(!menu.contains("addGlobalMonitorForEvents"))
     }
 }

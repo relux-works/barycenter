@@ -1,0 +1,50 @@
+@startuml
+title P1 macOS recording shortcut and menu lifecycle
+
+skinparam shadowing false
+
+actor User
+participant "SwiftUI window\nfocused onExitCommand" as Window
+participant "Status menu\nvisible while hidden" as Menu
+participant "Shell action seam" as Actions
+participant "MacRecordingShortcutController\nmain actor + generation" as Controller
+participant "Carbon registrar\nRegisterEventHotKey exclusive" as Carbon
+participant "Capture controller\n(next integration task)" as Capture
+
+== Configured toggle ==
+Controller -> Carbon: register modifier-bearing preset
+alt success
+  Carbon --> Controller: opaque registration
+  Controller --> Window: registered state
+else conflict or unsupported
+  Carbon --> Controller: typed failure
+  Controller --> Window: honest fallback state
+  note right of Window
+  Window and status-menu buttons
+  remain independently available.
+  end note
+end
+
+User -> Carbon: press configured chord
+Carbon -> Controller: hot-key event + generation
+Controller -> Actions: toggle recording
+Actions -> Capture: start or stop
+
+== Cancel ==
+User -> Window: Esc while Pulsar is focused
+Window -> Actions: cancel recording
+User -> Menu: Cancel recording while window hidden
+Menu -> Actions: cancel recording
+
+note over Window,Menu
+No global bare-Escape registration.
+No NSEvent global key monitor.
+No CGEvent tap or Accessibility permission.
+end note
+
+== Lifecycle ==
+Controller -> Carbon: unregister on reconfigure / sleep / lock / quit
+Controller -> Actions: cancel on sleep / lock / quit
+Controller -> Carbon: register current preset once on wake / unlock
+
+@enduml

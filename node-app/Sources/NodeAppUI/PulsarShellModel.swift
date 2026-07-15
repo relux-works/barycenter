@@ -43,6 +43,32 @@ public enum PulsarRecordingState: Equatable, Sendable {
     case failed(String)
 }
 
+public enum PulsarRecordingShortcutChoice: String, CaseIterable, Identifiable, Sendable {
+    case controlShiftSpace = "control_shift_space"
+    case commandShiftSpace = "command_shift_space"
+    case controlOptionSpace = "control_option_space"
+    case controlShiftR = "control_shift_r"
+
+    public var id: Self { self }
+
+    public var displayValue: String {
+        switch self {
+        case .controlShiftSpace: "⌃⇧Space"
+        case .commandShiftSpace: "⌘⇧Space"
+        case .controlOptionSpace: "⌃⌥Space"
+        case .controlShiftR: "⌃⇧R"
+        }
+    }
+}
+
+public enum PulsarRecordingShortcutState: Equatable, Sendable {
+    case inactive
+    case registered
+    case conflict
+    case unavailable
+    case suspended
+}
+
 public enum PulsarSelfTestState: String, Equatable, Sendable {
     case idle
     case playingBuiltinCue
@@ -123,6 +149,8 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
     public var dndMode: PulsarDNDMode
     public var recording: PulsarRecordingState
     public var recordingAvailable: Bool
+    public var recordingShortcut: PulsarRecordingShortcutChoice
+    public var recordingShortcutState: PulsarRecordingShortcutState
     public var selfTestAvailable: Bool
     public var selfTestState: PulsarSelfTestState
     public var selfTestMeter: Float
@@ -141,6 +169,8 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         dndMode: PulsarDNDMode = .allowAll,
         recording: PulsarRecordingState = .unavailable,
         recordingAvailable: Bool = false,
+        recordingShortcut: PulsarRecordingShortcutChoice = .controlShiftSpace,
+        recordingShortcutState: PulsarRecordingShortcutState = .inactive,
         selfTestAvailable: Bool = false,
         selfTestState: PulsarSelfTestState = .idle,
         selfTestMeter: Float = 0,
@@ -158,6 +188,8 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         self.dndMode = dndMode
         self.recording = recording
         self.recordingAvailable = recordingAvailable
+        self.recordingShortcut = recordingShortcut
+        self.recordingShortcutState = recordingShortcutState
         self.selfTestAvailable = selfTestAvailable
         self.selfTestState = selfTestState
         self.selfTestMeter = min(max(selfTestMeter, 0), 1)
@@ -216,6 +248,14 @@ public final class PulsarShellModel {
         snapshot.recordingAvailable = available
     }
 
+    public func setRecordingShortcut(
+        _ shortcut: PulsarRecordingShortcutChoice,
+        state: PulsarRecordingShortcutState
+    ) {
+        snapshot.recordingShortcut = shortcut
+        snapshot.recordingShortcutState = state
+    }
+
     public func setSelfTestAvailable(_ available: Bool) {
         snapshot.selfTestAvailable = available
     }
@@ -251,6 +291,8 @@ public final class PulsarShellActions {
     private let onSetDND: (PulsarDNDMode) -> Void
     private let onSetVolume: (Int) -> Void
     private let onToggleRecording: () -> Void
+    private let onCancelRecording: () -> Void
+    private let onSetRecordingShortcut: (PulsarRecordingShortcutChoice) -> Void
     private let onPlayBuiltinCue: () -> Void
     private let onRecordFiveSeconds: () -> Void
     private let onReviewLocalFile: (URL) -> Void
@@ -265,6 +307,8 @@ public final class PulsarShellActions {
         setDND: @escaping @MainActor (PulsarDNDMode) -> Void = { _ in },
         setVolume: @escaping @MainActor (Int) -> Void = { _ in },
         toggleRecording: @escaping @MainActor () -> Void = {},
+        cancelRecording: @escaping @MainActor () -> Void = {},
+        setRecordingShortcut: @escaping @MainActor (PulsarRecordingShortcutChoice) -> Void = { _ in },
         playBuiltinCue: @escaping @MainActor () -> Void = {},
         recordFiveSeconds: @escaping @MainActor () -> Void = {},
         reviewLocalFile: @escaping @MainActor (URL) -> Void = { _ in },
@@ -278,6 +322,8 @@ public final class PulsarShellActions {
         self.onSetDND = setDND
         self.onSetVolume = setVolume
         self.onToggleRecording = toggleRecording
+        self.onCancelRecording = cancelRecording
+        self.onSetRecordingShortcut = setRecordingShortcut
         self.onPlayBuiltinCue = playBuiltinCue
         self.onRecordFiveSeconds = recordFiveSeconds
         self.onReviewLocalFile = reviewLocalFile
@@ -292,6 +338,10 @@ public final class PulsarShellActions {
     public func setDND(_ mode: PulsarDNDMode) { onSetDND(mode) }
     public func setVolume(_ volume: Int) { onSetVolume(volume) }
     public func toggleRecording() { onToggleRecording() }
+    public func cancelRecording() { onCancelRecording() }
+    public func setRecordingShortcut(_ shortcut: PulsarRecordingShortcutChoice) {
+        onSetRecordingShortcut(shortcut)
+    }
     public func playBuiltinCue() { onPlayBuiltinCue() }
     public func recordFiveSeconds() { onRecordFiveSeconds() }
     public func reviewLocalFile(_ url: URL) { onReviewLocalFile(url) }
@@ -305,6 +355,8 @@ public enum PulsarShellText: String, CaseIterable, Sendable {
     case openMainWindow, primaryActions, status, presence, routing, nowPlaying
     case localControls, noHistory, noRoute, silence, volume, dnd, recording
     case startRecording, stopRecording, recordingUnavailable, selfTestUnavailable
+    case cancelRecording, recordingShortcut, shortcutRegistered, shortcutConflict
+    case shortcutUnavailable, shortcutSuspended, shortcutInactive, shortcutFallback
     case playBuiltinCue, recordFiveSeconds, chooseAudioFile, dropAudioFile
     case fileReview, filename, format, duration, size, audience, deliveryModes
     case rightsReminder, serverWillRecheck, acceptDraft, deleteDraft, p2FileGuidance
@@ -400,6 +452,16 @@ public struct PulsarShellCopy: Sendable {
         }
     }
 
+    public func recordingShortcutLabel(_ state: PulsarRecordingShortcutState) -> String {
+        switch state {
+        case .inactive: text(.shortcutInactive)
+        case .registered: text(.shortcutRegistered)
+        case .conflict: text(.shortcutConflict)
+        case .unavailable: text(.shortcutUnavailable)
+        case .suspended: text(.shortcutSuspended)
+        }
+    }
+
     private static let en: [PulsarShellText: String] = [
         .appName: "Pulsar", .home: "Home", .create: "Create", .join: "Join",
         .tryLocally: "Try locally", .history: "History", .settings: "Settings",
@@ -411,6 +473,13 @@ public struct PulsarShellCopy: Sendable {
         .recording: "Recording", .startRecording: "Start recording",
         .stopRecording: "Stop recording", .recordingUnavailable: "Recording is not configured yet",
         .selfTestUnavailable: "Local self-test is not configured yet",
+        .cancelRecording: "Cancel recording", .recordingShortcut: "Recording shortcut",
+        .shortcutRegistered: "Global shortcut is active",
+        .shortcutConflict: "Shortcut is used by another app",
+        .shortcutUnavailable: "Global shortcuts are unavailable on this Mac",
+        .shortcutSuspended: "Shortcut is paused while the session is inactive",
+        .shortcutInactive: "Global shortcut is not active",
+        .shortcutFallback: "Window and menu-bar recording remain available.",
         .playBuiltinCue: "Play reviewed cue", .recordFiveSeconds: "Record 5 seconds",
         .chooseAudioFile: "Choose short audio file", .dropAudioFile: "or drop an audio file here",
         .fileReview: "Local file review", .filename: "Filename", .format: "Format",
@@ -453,6 +522,13 @@ public struct PulsarShellCopy: Sendable {
         .recording: "Запись", .startRecording: "Начать запись",
         .stopRecording: "Остановить запись", .recordingUnavailable: "Запись пока не настроена",
         .selfTestUnavailable: "Локальная самопроверка пока не настроена",
+        .cancelRecording: "Отменить запись", .recordingShortcut: "Комбинация для записи",
+        .shortcutRegistered: "Глобальная комбинация активна",
+        .shortcutConflict: "Комбинация занята другим приложением",
+        .shortcutUnavailable: "Глобальные комбинации недоступны на этом маке",
+        .shortcutSuspended: "Комбинация приостановлена, пока сессия неактивна",
+        .shortcutInactive: "Глобальная комбинация не активна",
+        .shortcutFallback: "Запись из окна и строки меню остаётся доступна.",
         .playBuiltinCue: "Воспроизвести проверенный сигнал", .recordFiveSeconds: "Записать 5 секунд",
         .chooseAudioFile: "Выбрать короткий аудиофайл", .dropAudioFile: "или перетащи аудиофайл сюда",
         .fileReview: "Проверка локального файла", .filename: "Имя файла", .format: "Формат",

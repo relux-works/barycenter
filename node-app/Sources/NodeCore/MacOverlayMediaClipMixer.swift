@@ -291,7 +291,7 @@ final class MacOverlayMediaClipMixer: MediaClipMixer, @unchecked Sendable {
             state.started = true
             state.startedAtMs = self.nowLocalMs()
             state.onStarted(state.startedAtMs!)
-            self.startTelemetry(state)
+            if state.plan.collectTelemetry { self.startTelemetry(state) }
         }
     }
 
@@ -320,7 +320,7 @@ final class MacOverlayMediaClipMixer: MediaClipMixer, @unchecked Sendable {
         let endedAt = nowLocalMs()
         active = nil
         state.onEnded(endedAt)
-        logTelemetry(reason: "completed")
+        logTelemetry(state, reason: "completed")
     }
 
     private func finishInterruptNaturally(_ state: State) {
@@ -348,10 +348,10 @@ final class MacOverlayMediaClipMixer: MediaClipMixer, @unchecked Sendable {
                     self.active = nil
                     if let cancelCompletion {
                         cancelCompletion(.success(true))
-                        self.logTelemetry(reason: "cancelled")
+                        self.logTelemetry(state, reason: "cancelled")
                     } else {
                         state.onEnded(self.nowLocalMs())
-                        self.logTelemetry(reason: "completed")
+                        self.logTelemetry(state, reason: "completed")
                     }
                 } else {
                     self.failInterruptResume(state, cancelCompletion: cancelCompletion)
@@ -376,7 +376,7 @@ final class MacOverlayMediaClipMixer: MediaClipMixer, @unchecked Sendable {
         } else {
             state.onFailed(failure)
         }
-        logTelemetry(reason: "resume_failed")
+        logTelemetry(state, reason: "resume_failed")
     }
 
     private func beginCancel(
@@ -427,7 +427,7 @@ final class MacOverlayMediaClipMixer: MediaClipMixer, @unchecked Sendable {
             }
             self.active = nil
             completion(.success(false))
-            self.logTelemetry(reason: "cancelled")
+            self.logTelemetry(state, reason: "cancelled")
         }
     }
 
@@ -490,7 +490,7 @@ final class MacOverlayMediaClipMixer: MediaClipMixer, @unchecked Sendable {
                         state.terminal = true
                         self.active = nil
                         completion(.success(true))
-                        self.logTelemetry(reason: "cancelled")
+                        self.logTelemetry(state, reason: "cancelled")
                     } else {
                         self.failInterruptResume(state, cancelCompletion: completion)
                     }
@@ -531,7 +531,8 @@ final class MacOverlayMediaClipMixer: MediaClipMixer, @unchecked Sendable {
         state.telemetryTimer = timer
     }
 
-    private func logTelemetry(reason: String) {
+    private func logTelemetry(_ state: State, reason: String) {
+        guard state.plan.collectTelemetry else { return }
         log.info("macOS media mixer telemetry", [
             "reason": reason,
             "overlay_frames": overlayFrames,

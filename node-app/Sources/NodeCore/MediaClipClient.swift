@@ -262,6 +262,21 @@ struct MediaClipPlayPlan {
     let localStartMs: Int64
     let localStartDeadlineMs: Int64
     let control: MixerControlParameters
+    let collectTelemetry: Bool
+
+    init(
+        payload: PlayMediaAtPayload,
+        localStartMs: Int64,
+        localStartDeadlineMs: Int64,
+        control: MixerControlParameters,
+        collectTelemetry: Bool = true
+    ) {
+        self.payload = payload
+        self.localStartMs = localStartMs
+        self.localStartDeadlineMs = localStartDeadlineMs
+        self.control = control
+        self.collectTelemetry = collectTelemetry
+    }
 }
 
 /// Immutable, pointer-free carrier handed from the protocol/control queue to

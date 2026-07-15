@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "rubric": "p2-codec-spike-rubric.v1",
+  "candidateId": "unmeasured",
+  "claimClass": "repository-synthetic",
+  "build": {
+    "gitCommit": "0000000000000000000000000000000000000000",
+    "buildSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "sbomSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "corpus": {
+    "lockSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "environments": [],
+  "coverage": {
+    "pairings": [],
+    "fixtureIds": [],
+    "rangeProfiles": []
+  },
+  "artifacts": [],
+  "samples": [],
+  "checks": [],
+  "failures": [],
+  "notes": [
+    "Template only. It is not passing evidence."
+  ]
+}

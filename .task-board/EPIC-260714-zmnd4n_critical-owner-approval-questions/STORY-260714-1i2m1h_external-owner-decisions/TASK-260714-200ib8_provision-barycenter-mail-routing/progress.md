@@ -2,13 +2,13 @@
 backlog
 
 ## Assigned To
-(none)
+ivan-oparin
 
 ## Created
 2026-07-14T16:26:31Z
 
 ## Last Update
-2026-07-14T16:26:42Z
+2026-07-15T10:39:04Z
 
 ## Blocked By
 - (none)

@@ -8,7 +8,7 @@ backlog
 2026-07-12T15:29:06Z
 
 ## Last Update
-2026-07-15T09:56:23Z
+2026-07-15T10:37:47Z
 
 ## Blocked By
 - TASK-260712-2fe5bz
@@ -25,6 +25,7 @@ backlog
 - [ ] Collect sanitized screenshots, logs and remaining external blockers for review and later certification evidence.
 - [ ] Capture all six EN and six RU exact-build Store scenes from docs/store/phase1/screenshots.json and populate reviewed hashes
 - [ ] Run WACK against the same signed MSIX in an interactive Windows session and preserve the reviewed manifest/report
+- [ ] Run real Telegram A5 on the exact build: default voice stays first after current, pre-start callback atomically replaces it, post-start callback is too_late, and no duplicate playback occurs
 
 ## Notes
 2026-07-14 scope routing: moved to EPIC-260714-th54l3 Manual real-app hardware testing. This task is deferred for hands-on execution in original sequence and no longer gates best-effort coding, unit tests or deterministic CI in EPIC-260712-3agrc1.

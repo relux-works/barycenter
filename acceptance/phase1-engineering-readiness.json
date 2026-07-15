@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 1,
+  "task": "TASK-260712-1xik11",
+  "generatedAtUTC": "2026-07-15T10:35:00Z",
+  "decision": "engineering-ready-for-reversible-p2-coding",
+  "releaseAccepted": false,
+  "storeSubmissionAuthorized": false,
+  "partnerCenterMutated": false,
+  "candidate": {
+    "approvedPlanningBaseline": "38ebd385e105eb2f6c7012c608cd1debfa3aad5e",
+    "engineeringSourceCommit": "16420c2ce652d05d534fb45b5ef9a7124d4bbdd6",
+    "engineeringSourceTree": "8319f3481c4468ac10f157eb8582cc29623580e1",
+    "rootReviewPacketCommit": "4c79d12bb2982f6916d8e612b7d6d50a3732ee2f",
+    "rootReviewPacketTree": "280528eaec18e917900a7120206cb0ef16c667ce",
+    "rootReviewMergeCommit": "0762ed232492c95829f152922a0e5d1ab3a5c397",
+    "rootReviewTrackingMergeCommit": "602e1e9051de15a7bd61215ce6beb4344f52d68b"
+  },
+  "rootReview": {
+    "status": "engineering-pass-release-hold",
+    "report": "docs/analysis/p1-root-integration-review.md",
+    "reportSha256": "c894ae7bf315de1a184e4c32c5d6b44f3f80aeae046d9d5092d03794deb66a32",
+    "manifest": "docs/analysis/p1-root-review-manifest.json",
+    "manifestSha256": "1391249d5d61f7489572670b5871231903f860a646a1592c99e526db7916b3be",
+    "changedPathsNoRenames": 737,
+    "unmappedPaths": 0,
+    "closedHighFindings": 9,
+    "openCriticalOrHighEngineeringFindings": 0
+  },
+  "localAcceptance": {
+    "status": "pass",
+    "scope": "repository-automated-only",
+    "commit": "4c79d12bb2982f6916d8e612b7d6d50a3732ee2f",
+    "runId": "task-260712-38lssj-4c79d12",
+    "manifestSha256": "fcd47bbc7e69813465898e91b27668a859ef2384d89725f308cc9a314cb8eb26",
+    "commandsPassed": 12,
+    "startDirty": false,
+    "endDirty": false,
+    "manualEvidence": "not-run"
+  },
+  "hostedAcceptance": {
+    "status": "pass",
+    "runId": 29408109562,
+    "event": "pull_request",
+    "apiHeadSha": "4c79d12bb2982f6916d8e612b7d6d50a3732ee2f",
+    "checkoutSha": "cfcfc0cee6fbb07cf7ff2a92a3c1ca93ed29665c",
+    "checkoutKind": "synthetic-pr-merge-ref",
+    "baseSha": "16420c2ce652d05d534fb45b5ef9a7124d4bbdd6",
+    "jobs": [
+      {
+        "name": "coordinator",
+        "status": "pass",
+        "artifactId": 8339941164,
+        "artifactName": "phase1-acceptance-coordinator",
+        "manifestSha256": "ebccff806a24a93ef2b6a2718f1beeecde4f034f341642b28e5feef89d9b1977",
+        "recordedCheckoutSha": "cfcfc0cee6fbb07cf7ff2a92a3c1ca93ed29665c",
+        "startDirty": false,
+        "endDirty": false
+      },
+      {
+        "name": "node-core",
+        "status": "pass",
+        "artifactId": 8339923177,
+        "artifactName": "phase1-acceptance-swift",
+        "manifestSha256": "4392f02e9c2a6eefcdf0223f457f6a245dca4d87f4779d61bb32ec84e71bd168",
+        "recordedCheckoutSha": "cfcfc0cee6fbb07cf7ff2a92a3c1ca93ed29665c",
+        "startDirty": false,
+        "endDirty": false
+      },
+      {
+        "name": "pulsar-win",
+        "status": "pass",
+        "artifactId": 8339938363,
+        "artifactName": "phase1-acceptance-windows",
+        "manifestSha256": "b7aaeb327e3bdc7d5634c51dde8c3b6b2fdfffaca137386f51e00720baf42c12",
+        "recordedCheckoutSha": "cfcfc0cee6fbb07cf7ff2a92a3c1ca93ed29665c",
+        "startDirty": false,
+        "endDirty": false
+      },
+      {
+        "name": "pulsar-win-packaged-probe",
+        "status": "pass",
+        "artifactId": 8339976642,
+        "artifactName": "pulsar-signed-msix-probe"
+      }
+    ]
+  },
+  "signedProbe": {
+    "status": "engineering-pass-not-production-candidate",
+    "verificationBoundary": "package-build-install-cleanup-only; not real hardware, WACK, Store or production-signing evidence",
+    "runId": 29408109562,
+    "artifactId": 8339976642,
+    "packageFile": "PulsarProbe-0.1.0.0-x64-signed.msix",
+    "packageSha256": "df80eed7fa00852bd6079da8ba134a6ee341d3215c6d49356e50c1788258c51d",
+    "packageIdentity": "ReluxWorksLLC.PulsarBarycenter",
+    "version": "0.1.0.0",
+    "publisher": "CN=60105954-A0D9-4E89-B32D-18AF2F423ABE",
+    "signerKind": "ephemeral-test-certificate",
+    "privateSigningMaterialIncluded": false,
+    "signatureValidAfterTemporaryTrust": true,
+    "installedAsAppContainer": true,
+    "cleanupPassed": true,
+    "packageManifestSha256": "3e1659211f2b29736b27600abeaa08be65d48fb523cddcd5244e92150fd8ca95",
+    "installReceiptSha256": "be82e50c40b1ae2a3c9b878ada284bde3b3ebec1003928d5f933de8d084b2376",
+    "cleanupReceiptSha256": "f923823fb78bf21057025483c8c2cd6926634978465c3ebca11dcb83c0c2180d"
+  },
+  "targetedGates": {
+    "legalOperations": "approved",
+    "policyPackExactHashes": "approved",
+    "publicPolicyLiveHashesAndCache": "pass",
+    "storePolicyBaseline": "valid-hold",
+    "storeListingEngineeringShape": "pass",
+    "storeListingReady": "expected-fail-manual-owner-required",
+    "moderationOperations": "pass",
+    "moderationMailboxDelivery": "expected-fail-external-action-required",
+    "coordinatorGovulncheckGo1_25_12": "no-vulnerabilities-found",
+    "windowsGovulncheckGo1_25_12": "no-vulnerabilities-found"
+  },
+  "productionCandidate": {
+    "status": "manual-and-owner-required",
+    "signedMsixSha256": null,
+    "version": null,
+    "signerSubject": null,
+    "wackStatus": "manual-required",
+    "screenshotsStatus": "manual-required",
+    "iarcStatus": "owner-required",
+    "ownerProceed": "hold",
+    "manualTask": "TASK-260712-e5mfqj",
+    "ownerTask": "TASK-260715-24ube9"
+  },
+  "scenarios": {
+    "A1": {
+      "automated": "engineering-pass",
+      "manual": "manual-required",
+      "manualTasks": ["TASK-260712-1vtwkl", "TASK-260712-e5mfqj"]
+    },
+    "A2": {
+      "automated": "engineering-pass",
+      "manual": "manual-required",
+      "manualTasks": ["TASK-260712-1vtwkl", "TASK-260712-2hodti"]
+    },
+    "A3": {
+      "automated": "engineering-pass",
+      "manual": "manual-required",
+      "manualTasks": ["TASK-260712-2hodti"]
+    },
+    "A4": {
+      "automated": "engineering-pass",
+      "manual": "manual-required",
+      "manualTasks": ["TASK-260712-2hodti"]
+    },
+    "A5": {
+      "automated": "engineering-pass",
+      "manual": "manual-required",
+      "manualTasks": ["TASK-260712-e5mfqj"]
+    },
+    "A6": {
+      "automated": "engineering-pass",
+      "manual": "manual-required",
+      "manualTasks": ["TASK-260712-2hodti", "TASK-260712-e5mfqj"]
+    },
+    "A7": {
+      "automated": "engineering-pass",
+      "manual": "manual-required",
+      "manualTasks": ["TASK-260712-e5mfqj"]
+    },
+    "A8": {
+      "automated": "engineering-pass-release-hold",
+      "manual": "manual-required",
+      "manualTasks": ["TASK-260712-1vtwkl", "TASK-260712-e5mfqj"],
+      "ownerTasks": ["TASK-260714-200ib8", "TASK-260715-24ube9"]
+    }
+  },
+  "manualP1Program": {
+    "epic": "EPIC-260714-th54l3",
+    "story": "STORY-260714-36vmp0",
+    "status": "0-of-3-tasks-accepted",
+    "strictOrder": [
+      "TASK-260712-1vtwkl",
+      "TASK-260712-2hodti",
+      "TASK-260712-e5mfqj"
+    ],
+    "allResults": "manual-required"
+  },
+  "externalOwnerHolds": {
+    "epic": "EPIC-260714-zmnd4n",
+    "owner": "Ivan Oparin",
+    "status": "open",
+    "tasks": [
+      "TASK-260714-200ib8",
+      "TASK-260715-3ffm3r",
+      "TASK-260715-s838ym",
+      "TASK-260715-unbb7c",
+      "TASK-260715-10ksxz",
+      "TASK-260715-24ube9"
+    ]
+  },
+  "independentReviews": [
+    {
+      "originalTask": "TASK-260712-176b74",
+      "engineeringAudit": "pass-with-closed-high",
+      "independentSignoff": "open",
+      "ownerTask": "TASK-260715-3ffm3r"
+    },
+    {
+      "originalTask": "TASK-260712-1uz0za",
+      "engineeringAudit": "pass-with-closed-high",
+      "independentSignoff": "open",
+      "ownerTask": "TASK-260715-s838ym"
+    },
+    {
+      "originalTask": "TASK-260712-1xkn75",
+      "engineeringAudit": "pass-with-closed-high",
+      "independentSignoff": "open",
+      "ownerTask": "TASK-260715-unbb7c"
+    },
+    {
+      "originalTask": "TASK-260712-wy05n6",
+      "engineeringAudit": "pass-with-closed-high",
+      "independentSignoff": "open",
+      "ownerTask": "TASK-260715-10ksxz"
+    }
+  ]
+}

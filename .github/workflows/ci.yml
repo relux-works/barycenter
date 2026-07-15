@@ -36,6 +36,10 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The readiness contract verifies the frozen P1 candidate and root
+          # review commit-to-tree bindings, not only the synthetic PR merge.
+          fetch-depth: 0
       - name: Pinned full-Xcode Swift acceptance suite
         run: python3 scripts/acceptance/run_automated.py --suite swift --require-clean --run-id ci-swift
       - name: Upload Swift acceptance provenance
@@ -55,6 +59,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Keep the exact P1 readiness and predecessor provenance available
+          # to the shared acceptance-contract tests.
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: pulsar-win/go.mod
@@ -79,6 +87,10 @@ jobs:
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Package evidence must be attributable to the same complete source
+          # history consumed by the other P1 acceptance jobs.
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: pulsar-win/go.mod

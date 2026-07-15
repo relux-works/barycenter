@@ -53,6 +53,20 @@ subprocess output is never written to disk. Use `--require-clean` for evidence
 that can be promoted; it rejects both a dirty start and repository drift caused
 by the suite itself.
 
+The P1 engineering/manual boundary is frozen separately in
+[`phase1-engineering-readiness.json`](../../acceptance/phase1-engineering-readiness.json).
+Its fail-closed validator is part of the acceptance contract tests and can be
+run directly:
+
+```sh
+python3 scripts/acceptance/validate_phase1_readiness.py
+```
+
+It verifies exact Git/tree and evidence hashes, distinguishes the GitHub
+Actions API head from the checked-out PR merge-ref, requires all four hosted
+artifacts, maps every A1-A8 scenario to the ordered manual P1 program and keeps
+release, Store submission and Partner Center mutation false.
+
 ## Nonproduction migration and rollback rehearsal
 
 The automated gate creates fresh temporary databases and executes the current

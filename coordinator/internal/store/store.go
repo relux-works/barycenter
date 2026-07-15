@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "modernc.org/sqlite"
+	sqlite "modernc.org/sqlite"
 
 	"relux.works/duet/coordinator/internal/session"
 )
@@ -85,33 +85,51 @@ func Open(path string) (*Store, error) {
 // enabled, reconciles the transport-neutral identity model before callers can
 // serve requests.
 func OpenWithOptions(path string, opts Options) (*Store, error) {
+	return openWithOptionsAndCheckpoint(path, opts, nil)
+}
+
+// openWithOptionsAndCheckpoint is the production open path with a test-only
+// fault seam installed before the first DDL transaction. Keeping one path is
+// important: migration tests must exercise the same ordering as startup.
+func openWithOptionsAndCheckpoint(path string, opts Options, checkpoint func(string) error) (*Store, error) {
 	// WAL keeps concurrent readers (hub LookupToken, /media + /pair handlers,
 	// retention sweep) from erroring against the single writer; busy_timeout
 	// makes any lock contention wait instead of returning SQLITE_BUSY
 	// (architecture review #10 / #1.7). Foreign keys protect only additive
 	// tables (legacy tables declare no REFERENCES), and _txlock=immediate makes
 	// every database/sql transaction acquire the SQLite writer lock up front.
-	dsn := path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_txlock=immediate"
+	dsn := path + "?_txlock=immediate"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("store: open %s: %w", path, err)
 	}
 	db.SetMaxOpenConns(1) // single writer, keeps SQLITE_BUSY away
+	// Apply busy_timeout on the sole connection before WAL negotiation. DSN
+	// pragma hooks initialize the connection as one unit, so a concurrent WAL
+	// opener could otherwise fail before the timeout became effective.
+	for _, pragma := range []string{
+		`PRAGMA busy_timeout = 5000`,
+		`PRAGMA journal_mode = WAL`,
+		`PRAGMA foreign_keys = ON`,
+	} {
+		if err := execStartupPragma(db, pragma); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("store: initialize connection with %q: %w", pragma, err)
+		}
+	}
 	if err := detectBrokenOrbitMigration(db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: identity migration preflight: %w", err)
 	}
-	if _, err := db.Exec(schema); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("store: init schema: %w", err)
-	}
-	// Pre-media-scoping databases lack media.orbit_id: additive migration so
-	// the /media handler can enforce tenant isolation (security review #4.1).
-	db.Exec(`ALTER TABLE media ADD COLUMN orbit_id INTEGER NOT NULL DEFAULT 0`)
 	s := &Store{
 		db:                    db,
 		selfServiceOnboarding: opts.SelfServiceOnboarding,
 		telegramLinkAttempts:  newTelegramLinkAttemptLimiter(),
+		testCheckpoint:        checkpoint,
+	}
+	if err := s.initLegacySchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init legacy schema: %w", err)
 	}
 	if err := s.initOrbits(); err != nil {
 		db.Close()
@@ -140,6 +158,50 @@ func OpenWithOptions(path string, opts Options) (*Store, error) {
 		}
 	}
 	return s, nil
+}
+
+func execStartupPragma(db *sql.DB, pragma string) error {
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		_, err := db.Exec(pragma)
+		if err == nil {
+			return nil
+		}
+		var sqliteErr *sqlite.Error
+		if !errors.As(err, &sqliteErr) || sqliteErr.Code()&0xff != 5 || time.Now().After(deadline) {
+			return err
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// initLegacySchema keeps the original elements/media/settings/events model
+// writable by rollback binaries while installing its one additive media
+// ownership column atomically. Older startup code ignored ALTER failures and
+// could continue with a partially usable database.
+func (s *Store) initLegacySchema() error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(schema); err != nil {
+		return err
+	}
+	hasOrbitID, err := txColumnExists(tx, "media", "orbit_id")
+	if err != nil {
+		return err
+	}
+	if !hasOrbitID {
+		if _, err := tx.Exec(`ALTER TABLE media
+ADD COLUMN orbit_id INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+	}
+	if err := s.checkpoint("legacy_ddl_before_commit"); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) Close() error { return s.db.Close() }

@@ -1,5 +1,5 @@
 ## Status
-development
+done
 
 ## Assigned To
 codex-inline
@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:45:04Z
 
 ## Last Update
-2026-07-15T07:44:11Z
+2026-07-15T07:52:17Z
 
 ## Blocked By
 - TASK-260712-1epb3a
@@ -31,6 +31,7 @@ codex-inline
 ## Notes
 2026-07-15 strict inline kickoff from synchronized main merge 4bc8418 after accepted Telegram moderation parity. Ivan Oparin approved the supplied legal operations and product defaults. Engineering scope is minimal truthful manifests localized copy static schema validation explicit-action permission wiring and automated denial-path coverage. Actual WACK UI real packaged-app permission prompts physical hardware and screenshots remain manual in EPIC-260714-th54l3 and are not claimed here.
 2026-07-15 engineering candidate: canonical EN/RU platform-copy contract is bound to both desktop shells, localized MSIX .resw/resources.pri staging and localized macOS privacy strings; manifests keep the exact reviewed capability set and add no Accessibility or broad filesystem entitlement. Legacy Spotify and Telegram flows are plainly optional and Spotify help is no longer auto-presented. Local full make test, Windows Go suite, XML/plist/YAML validation and an ad-hoc macOS bundle assembly passed. Checklist item 6 records completed static schema/package-equivalent validation only; actual WACK UI, signed installed prompts and physical hardware remain explicitly deferred to EPIC-260714-th54l3 / TASK-260712-1vtwkl and are not claimed.
+2026-07-15 engineering acceptance: exact code head 918b377275db7d01c6646d2fbe8428ec8d4382eb passed the clean 12-stage repository suite with start/end dirty false. Hosted run 29398604558 passed coordinator, authoritative Xcode Swift, Windows portable/race/cross-build and signed packaged-probe jobs; the new production-schema step compiled EN/RU PRI resources and packed the production MSIX with the Windows SDK before the existing install checks completed. Actual WACK UI and real installed-app/hardware observations remain manual in EPIC-260714-th54l3.
 
 ## Precondition Resources
 (none)

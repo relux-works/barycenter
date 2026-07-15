@@ -212,7 +212,9 @@ struct PulsarShellModelTests {
             acceptLocalFile: { calls.append("accept:\($0.lastPathComponent)") },
             deleteLocalDraft: { calls.append("delete") },
             closeSelfTest: { calls.append("close") },
-            sendDraft: { calls.append("send:\($0):\($1.rawValue):\($2.rawValue)") },
+            sendDraft: {
+                calls.append("send:\($0):\($1.rawValue):\($2.rawValue):rights=\($3)")
+            },
             deleteOutgoingDraft: { calls.append("delete-outbox:\($0)") },
             refreshPhaseOneData: { calls.append("refresh-data") },
             historyAction: { calls.append("history:\($0):\($1.action.rawValue)") },
@@ -250,7 +252,9 @@ struct PulsarShellModelTests {
         actions.acceptLocalFile(file)
         actions.deleteLocalDraft()
         actions.closeSelfTest()
-        actions.sendDraft("draft-1", route: .ownBarycenter, delivery: .overlay)
+        actions.sendDraft(
+            "draft-1", route: .ownBarycenter, delivery: .overlay,
+            rightsAcknowledged: true)
         actions.deleteOutgoingDraft("draft-1")
         actions.refreshPhaseOneData()
         actions.performHistoryAction("history-1", action: .blockActor)
@@ -280,7 +284,7 @@ struct PulsarShellModelTests {
             "create", "join", "self-test", "messages_only", "volume:45", "record",
             "cancel-record", "input:mic-1", "shortcut:control_shift_r", "cue", "five", "review:voice.wav",
             "accept:voice.wav", "delete", "close",
-            "send:draft-1:own_barycenter:overlay", "delete-outbox:draft-1",
+            "send:draft-1:own_barycenter:overlay:rights=true", "delete-outbox:draft-1",
             "refresh-data", "history:history-1:block_actor", "history:history-2:report", "create-api:Family",
             "join-api:ABCDEFGH", "export-recovery", "air-refresh", "air-create:Friends",
             "air-consume:secret", "air-confirm:opaque-air:true", "air-decline:opaque-air",

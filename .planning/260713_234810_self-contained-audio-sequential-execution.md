@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 71 accepted, 134 remain.
-- Routed inventory: 186 engineering tasks (71 accepted, 115 remain) and 19
+- Combined inventory: 205 original tasks; 72 accepted, 133 remain.
+- Routed inventory: 186 engineering tasks (72 accepted, 114 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3n36ny` — air-schema-link-migration
-  (starting after the Air contract tracking merge)
-- Next engineering task: `TASK-260712-kr64r2` — air-runtime-session-resolution
-- Most recently accepted: `TASK-260712-17yizc` — air-lifecycle-policy-contract
-- Current branch: `task/task-260712-3n36ny-air-schema-link-migration`
+- Current engineering task: `TASK-260712-kr64r2` — air-runtime-session-resolution
+  (starting after the Air schema/link migration tracking merge)
+- Next engineering task: `TASK-260712-2vhf80` — air-control-plane-api
+- Most recently accepted: `TASK-260712-3n36ny` — air-schema-link-migration
+- Current branch: `tracking/task-260712-3n36ny-air-schema-link-migration`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 71 / 205 tasks (approximately 34.6%); 134 remain
-- Engineering progress: 71 / 186 tasks (approximately 38.2%); 115 remain
+- Accepted overall: 72 / 205 tasks (approximately 35.1%); 133 remain
+- Engineering progress: 72 / 186 tasks (approximately 38.7%); 114 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1156,6 +1156,23 @@ passed 12/12; hosted run `29410722718` passed all four jobs. PR #82 landed at
 merge `b5d10b26b22fc4cae88fef590191f8015f401fb9`. Progress is 71/205 overall
 and 71/186 engineering; strict execution advances to `TASK-260712-3n36ny`.
 
+Checkpoint 2026-07-15 (accepted): `TASK-260712-3n36ny` adds the complete
+additive Air persistence foundation on exact engineering head
+`b5a633932e7d616bbdee252e1f255c2dfbf49054`. Airs, saved/pending/left
+memberships, invite hashes, revisioned policies, audits and per-barycenter
+active pointers are transactional and enforce one active Air. Legacy active
+links backfill exactly once into deterministic two-member Airs. Persisted
+authority generations and immutable legacy runtime snapshots make cutover and
+rollback single-authority and fail closed on unsafe old-binary writes. Failure
+injection covers DDL/backfill/cutover rollback, concurrent lifecycle updates
+have one winner, and the exact predecessor coordinator creates/breaks legacy
+links while preserving unknown Phase 2 rows. Self-review also fixed a
+concurrent identity-bootstrap ALTER race and separated legitimate Air restart
+state from legacy mutation detection. Clean local acceptance passed 12/12;
+hosted run `29413065743` passed all four jobs. PR #84 landed at merge
+`68059d9c03d6af3dcdd84468805309d4be559901`. Progress is 72/205 overall and
+72/186 engineering; strict execution advances to `TASK-260712-kr64r2`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -1897,7 +1914,9 @@ critical path.
 - [x] `TASK-260712-17yizc` — air-lifecycle-policy-contract (accepted on exact
   head `77fb68231e0c18a1ecb9bdeae5725386d5e64a1a`; clean acceptance 12/12,
   hosted run `29410722718` 4/4, PR #82 merge `b5d10b2`)
-- [ ] `TASK-260712-3n36ny` — air-schema-link-migration
+- [x] `TASK-260712-3n36ny` — air-schema-link-migration (accepted on exact head
+  `b5a633932e7d616bbdee252e1f255c2dfbf49054`; clean acceptance 12/12,
+  hosted run `29413065743` 4/4, PR #84 merge `68059d9`)
 - [ ] `TASK-260712-kr64r2` — air-runtime-session-resolution
 - [ ] `TASK-260712-2vhf80` — air-control-plane-api
 - [ ] `TASK-260712-25862f` — air-policy-enforcement

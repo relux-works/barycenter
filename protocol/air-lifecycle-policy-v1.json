@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "contract_id": "pulsar.air-lifecycle-policy.v1",
+  "identifiers": {
+    "air": "air_<26-character Crockford ULID>",
+    "membership": "aim_<26-character Crockford ULID>",
+    "invite": "ai_<26-character Crockford ULID>"
+  },
+  "statuses": {
+    "air": ["parked", "active", "dissolved"],
+    "membership": ["pending_confirmation", "joined", "left"],
+    "invite": ["open", "consumed", "expired", "withdrawn"],
+    "air_role": ["owner", "admin", "member"],
+    "authority": ["links_authoritative", "airs_shadow", "airs_authoritative", "rollback_hold"]
+  },
+  "limits": {
+    "barycenters_per_air": 8,
+    "online_pulsars_per_active_air": 20,
+    "invite_entropy_bits": 256,
+    "invite_ttl_seconds": 900,
+    "invite_issues_per_actor_per_air_per_hour": 10,
+    "invite_consume_failures_per_actor_or_ip_per_minute": 5,
+    "telegram_callback_ttl_seconds": 900,
+    "leave_fade_ms": 250
+  },
+  "policies": {
+    "revision_initial": 1,
+    "defaults": {
+      "invite": "air_admin_primary",
+      "overlay": "primary_companion",
+      "queue": "primary_companion",
+      "replace": "air_admin_primary"
+    },
+    "allowed": {
+      "invite": ["owner_primary", "air_admin_primary", "all_member_primaries"],
+      "overlay": ["air_admin_primary", "all_member_primaries", "primary_companion", "disabled"],
+      "queue": ["air_admin_primary", "all_member_primaries", "primary_companion", "disabled"],
+      "replace": ["owner_primary", "air_admin_primary", "all_member_primaries", "disabled"]
+    },
+    "mutation_authority": "current primary of the owner barycenter",
+    "accepted_work_is_nonretroactive": true
+  },
+  "routes": [
+    {"method": "POST", "path": "/v1/airs", "operation": "create"},
+    {"method": "GET", "path": "/v1/airs", "operation": "list_saved_and_current"},
+    {"method": "GET", "path": "/v1/airs/{air_id}", "operation": "read"},
+    {"method": "POST", "path": "/v1/airs/{air_id}/invites", "operation": "issue_invite"},
+    {"method": "POST", "path": "/v1/airs/{air_id}/invites/{invite_id}/withdraw", "operation": "withdraw_invite"},
+    {"method": "POST", "path": "/v1/air-invites/consume", "operation": "consume_invite"},
+    {"method": "POST", "path": "/v1/airs/{air_id}/join/confirm", "operation": "confirm_join"},
+    {"method": "POST", "path": "/v1/airs/{air_id}/join/decline", "operation": "decline_join"},
+    {"method": "POST", "path": "/v1/airs/{air_id}/activate", "operation": "activate_or_switch"},
+    {"method": "POST", "path": "/v1/airs/{air_id}/deactivate", "operation": "deactivate"},
+    {"method": "POST", "path": "/v1/airs/{air_id}/leave", "operation": "leave"},
+    {"method": "PUT", "path": "/v1/airs/{air_id}/members/{membership_id}/role", "operation": "replace_member_role"},
+    {"method": "POST", "path": "/v1/airs/{air_id}/ownership/transfer", "operation": "transfer_ownership"},
+    {"method": "PUT", "path": "/v1/airs/{air_id}/policy", "operation": "replace_policy"},
+    {"method": "POST", "path": "/v1/airs/{air_id}/dissolve", "operation": "dissolve"}
+  ],
+  "aliases": {
+    "/approach": "with no current Air, create a parked Air, point the creator barycenter to it and issue one invite",
+    "/approach CODE": "consume the invite into pending_confirmation; never activates",
+    "/accept": "joining barycenter primary confirms its pending membership with activate=true",
+    "/decline": "joining primary declines a pending membership; issuer or Air-admin primary cancels its pending claim or withdraws its newest open invite",
+    "/apart": "the caller barycenter leaves its current Air; it never dissolves the Air"
+  },
+  "errors": [
+    "invalid_request",
+    "unauthenticated",
+    "forbidden",
+    "air_not_found",
+    "invite_unavailable",
+    "membership_not_found",
+    "idempotency_conflict",
+    "revision_conflict",
+    "air_dissolved",
+    "already_member",
+    "membership_confirmation_required",
+    "air_barycenter_capacity_reached",
+    "air_online_pulsar_capacity_reached",
+    "active_air_changed",
+    "air_parked",
+    "policy_denied",
+    "owner_transfer_required",
+    "rollback_unsafe"
+  ],
+  "invariants": [
+    "durable joined membership is separate from the barycenter active_air_id pointer",
+    "a barycenter has zero or one active_air_id and may retain multiple joined Air memberships",
+    "only the current primary of the joining barycenter confirms a pending membership",
+    "an Air is active only while at least two joined barycenters point to it; otherwise it is parked",
+    "parked Airs retain state, do not run audio and are not garbage-collected in phase two",
+    "accepted transmission target and policy snapshots never expand or change retroactively",
+    "joining an active Air catches up only the current main program and never autoplays an old overlay or interrupt",
+    "leaving stops or cancels audio only for the leaving barycenter unless the Air parks",
+    "the runtime resolves every barycenter through exactly one persisted authority generation",
+    "links and Airs are never simultaneously authoritative for playback",
+    "explicit target selection and offline inbox semantics are outside this contract"
+  ]
+}

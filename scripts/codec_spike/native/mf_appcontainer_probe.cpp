@@ -1,4 +1,3 @@
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <appmodel.h>
 #include <mfapi.h>
@@ -193,7 +192,7 @@ public:
 
 private:
     RangeFileStream(HANDLE file, uint64_t length) : file_(file), length_(length) {}
-    ~RangeFileStream() override { if (file_ != INVALID_HANDLE_VALUE) CloseHandle(file_); }
+    ~RangeFileStream() { if (file_ != INVALID_HANDLE_VALUE) CloseHandle(file_); }
 
     std::atomic<ULONG> refs_{1};
     HANDLE file_ = INVALID_HANDLE_VALUE;
@@ -230,18 +229,18 @@ ReaderContext open_reader(const std::wstring& path, const std::wstring& mime) {
         byte_attributes->SetString(MF_BYTESTREAM_ORIGIN_NAME, path.c_str());
     }
     ComPtr<IMFAttributes> attributes;
-    hr = MFCreateAttributes(&attributes, 2);
-    if (SUCCEEDED(hr)) hr = attributes->SetUINT32(MF_SOURCE_READER_ENABLE_AUDIO_PROCESSING, TRUE);
+    hr = MFCreateAttributes(&attributes, 1);
     if (SUCCEEDED(hr)) hr = MFCreateSourceReaderFromByteStream(byte_stream.Get(), attributes.Get(), &context.reader);
     if (FAILED(hr)) { context.open_hr = hr; return context; }
-    hr = context.reader->SetStreamSelection(MF_SOURCE_READER_ALL_STREAMS, FALSE);
-    if (SUCCEEDED(hr)) hr = context.reader->SetStreamSelection(MF_SOURCE_READER_FIRST_AUDIO_STREAM, TRUE);
+    hr = context.reader->SetStreamSelection(static_cast<DWORD>(MF_SOURCE_READER_ALL_STREAMS), FALSE);
+    if (SUCCEEDED(hr)) hr = context.reader->SetStreamSelection(
+        static_cast<DWORD>(MF_SOURCE_READER_FIRST_AUDIO_STREAM), TRUE);
     ComPtr<IMFMediaType> pcm;
     if (SUCCEEDED(hr)) hr = MFCreateMediaType(&pcm);
     if (SUCCEEDED(hr)) hr = pcm->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio);
     if (SUCCEEDED(hr)) hr = pcm->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_Float);
     if (SUCCEEDED(hr)) hr = context.reader->SetCurrentMediaType(
-        MF_SOURCE_READER_FIRST_AUDIO_STREAM, nullptr, pcm.Get());
+        static_cast<DWORD>(MF_SOURCE_READER_FIRST_AUDIO_STREAM), nullptr, pcm.Get());
     context.open_hr = hr;
     if (FAILED(hr)) context.reader.Reset();
     return context;
@@ -259,7 +258,7 @@ SampleResult read_sample(IMFSourceReader* reader) {
     SampleResult result;
     ComPtr<IMFSample> sample;
     DWORD stream_index = 0;
-    result.hr = reader->ReadSample(MF_SOURCE_READER_FIRST_AUDIO_STREAM, 0, &stream_index,
+    result.hr = reader->ReadSample(static_cast<DWORD>(MF_SOURCE_READER_FIRST_AUDIO_STREAM), 0, &stream_index,
                                    &result.flags, &result.timestamp, &sample);
     if (SUCCEEDED(result.hr) && sample) {
         result.sample = true;

@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -16,6 +17,8 @@ type WindowsPhaseOneSnapshot struct {
 	Presence         []PhaseOnePresenceNode
 	History          []PhaseOneHistoryItem
 	SelectedHistory  int
+	SelectedReason   PhaseOneModerationReason
+	ActionOutcome    string
 	FailureCode      string
 }
 
@@ -24,14 +27,15 @@ type WindowsPhaseOneSnapshot struct {
 // successful. Opaque IDs remain inside the composition; the shell receives
 // canonical labels and allowed-action flags only.
 type WindowsPhaseOneComposition struct {
-	mu      sync.RWMutex
-	service PhaseOneAppService
-	outbox  *PhaseOneDraftOutbox
-	ctx     context.Context
-	cancel  context.CancelFunc
-	state   WindowsPhaseOneSnapshot
-	busy    bool
-	wake    chan struct{}
+	mu            sync.RWMutex
+	service       PhaseOneAppService
+	outbox        *PhaseOneDraftOutbox
+	ctx           context.Context
+	cancel        context.CancelFunc
+	state         WindowsPhaseOneSnapshot
+	busy          bool
+	actionFailure bool
+	wake          chan struct{}
 }
 
 func NewWindowsPhaseOneComposition(service PhaseOneAppService, outbox *PhaseOneDraftOutbox, workflow *WindowsCaptureWorkflowController) (*WindowsPhaseOneComposition, error) {
@@ -41,7 +45,8 @@ func NewWindowsPhaseOneComposition(service PhaseOneAppService, outbox *PhaseOneD
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &WindowsPhaseOneComposition{
 		service: service, outbox: outbox, ctx: ctx, cancel: cancel, wake: make(chan struct{}, 1),
-		state: WindowsPhaseOneSnapshot{SelectedRoute: PhaseOneThisPulsar, SelectedDelivery: PhaseOneOverlay, FailureCode: "refresh_pending"},
+		state: WindowsPhaseOneSnapshot{SelectedRoute: PhaseOneThisPulsar, SelectedDelivery: PhaseOneOverlay,
+			SelectedReason: PhaseOneReportSpam, FailureCode: "refresh_pending"},
 	}
 	c.refreshDrafts()
 	workflow.SetNormalDraftHandler(func(handle CaptureMediaHandle, originKind PhaseOneOriginKind) {
@@ -80,7 +85,8 @@ func newProductionWindowsPhaseOneComposition(dir string, workflow *WindowsCaptur
 
 func (c *WindowsPhaseOneComposition) Snapshot() WindowsPhaseOneSnapshot {
 	if c == nil {
-		return WindowsPhaseOneSnapshot{SelectedRoute: PhaseOneThisPulsar, SelectedDelivery: PhaseOneOverlay, FailureCode: "phase_one_unavailable"}
+		return WindowsPhaseOneSnapshot{SelectedRoute: PhaseOneThisPulsar, SelectedDelivery: PhaseOneOverlay,
+			SelectedReason: PhaseOneReportSpam, FailureCode: "phase_one_unavailable"}
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -103,6 +109,8 @@ func (c *WindowsPhaseOneComposition) ApplyShellSnapshot(shell *ShellSnapshot) {
 	shell.SelectedPhaseOneRoute = state.SelectedRoute
 	shell.SelectedPhaseOneDelivery = state.SelectedDelivery
 	shell.SelectedHistoryItem = state.SelectedHistory
+	shell.SelectedReportReason = state.SelectedReason
+	shell.PhaseOneActionOutcome = state.ActionOutcome
 	shell.PhaseOneFailure = state.FailureCode
 	shell.RecordingDraftAvailable = len(state.Drafts) > 0
 	shell.HistoryCount = len(state.History)
@@ -131,7 +139,7 @@ func (c *WindowsPhaseOneComposition) ApplyShellSnapshot(shell *ShellSnapshot) {
 			RequestedDelivery: item.RequestedDelivery, EffectiveDelivery: item.EffectiveDelivery,
 			DowngradeReason: item.DowngradeReason, PlayedCount: item.PlayedCount, OtherCount: item.OtherCount,
 			CanDelete: phaseOneActionAllowed(item.Actions, "delete"), CanReplay: phaseOneActionAllowed(item.Actions, "replay"),
-			CanBlock: phaseOneActionAllowed(item.Actions, "block_actor"),
+			CanReport: phaseOneActionAllowed(item.Actions, "report"), CanBlock: phaseOneActionAllowed(item.Actions, "block_actor"),
 		})
 	}
 }
@@ -177,7 +185,25 @@ func (c *WindowsPhaseOneComposition) SelectNextHistory() {
 	if len(c.state.History) > 0 {
 		c.state.SelectedHistory = (c.state.SelectedHistory + 1) % len(c.state.History)
 	}
+	c.state.ActionOutcome = ""
+	c.state.FailureCode = ""
+	c.actionFailure = false
 	c.mu.Unlock()
+}
+
+func (c *WindowsPhaseOneComposition) SelectNextReportReason() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.state.ActionOutcome = ""
+	c.state.FailureCode = ""
+	c.actionFailure = false
+	for index, reason := range phaseOneModerationReasons {
+		if reason == c.state.SelectedReason {
+			c.state.SelectedReason = phaseOneModerationReasons[(index+1)%len(phaseOneModerationReasons)]
+			return
+		}
+	}
+	c.state.SelectedReason = PhaseOneReportSpam
 }
 
 func (c *WindowsPhaseOneComposition) SendSelectedDraft() {
@@ -226,34 +252,41 @@ func (c *WindowsPhaseOneComposition) DeleteSelectedDraft() {
 }
 
 func (c *WindowsPhaseOneComposition) DeleteSelectedHistoryItem() {
-	c.mutateHistory("delete", func(ctx context.Context, item PhaseOneHistoryItem, _ PhaseOneRoute, _ PhaseOneDelivery) error {
-		if !phaseOneActionAllowed(item.Actions, "delete") {
-			return ErrPhaseOneInvalidDraft
-		}
-		return c.service.DeleteHistoryItem(ctx, item.ID)
+	c.mutateHistory("delete", func(ctx context.Context, item PhaseOneHistoryItem, _ WindowsPhaseOneSnapshot) (string, error) {
+		receipt, err := c.service.DeleteHistoryItem(ctx, item.ID)
+		return receipt.Outcome, err
 	})
 }
 
 func (c *WindowsPhaseOneComposition) ReplaySelectedHistoryItem() {
-	c.mutateHistory("replay", func(ctx context.Context, item PhaseOneHistoryItem, route PhaseOneRoute, delivery PhaseOneDelivery) error {
-		if !phaseOneActionAllowed(item.Actions, "replay") {
-			return ErrPhaseOneInvalidDraft
+	c.mutateHistory("replay", func(ctx context.Context, item PhaseOneHistoryItem, state WindowsPhaseOneSnapshot) (string, error) {
+		receipt, err := c.service.ReplayHistoryItem(ctx, item.ID, state.SelectedRoute, state.SelectedDelivery, "windows-history-replay-"+item.ID, nil)
+		if err != nil {
+			return "", err
 		}
-		_, err := c.service.ReplayHistoryItem(ctx, item.ID, route, delivery, "windows-history-replay-"+item.ID, nil)
-		return err
+		if receipt.Reused {
+			return "replay_already_accepted", nil
+		}
+		return "replay_accepted", nil
 	})
 }
 
 func (c *WindowsPhaseOneComposition) BlockSelectedHistoryActor() {
-	c.mutateHistory("block", func(ctx context.Context, item PhaseOneHistoryItem, _ PhaseOneRoute, _ PhaseOneDelivery) error {
-		if !phaseOneActionAllowed(item.Actions, "block_actor") {
-			return ErrPhaseOneInvalidDraft
-		}
-		return c.service.BlockHistoryActor(ctx, item.ID, "windows-history-block-"+item.ID)
+	c.mutateHistory("block_actor", func(ctx context.Context, item PhaseOneHistoryItem, _ WindowsPhaseOneSnapshot) (string, error) {
+		receipt, err := c.service.BlockHistoryActor(ctx, item.ID, "windows-history-block-"+item.ID)
+		return receipt.Outcome, err
 	})
 }
 
-func (c *WindowsPhaseOneComposition) mutateHistory(_ string, operation func(context.Context, PhaseOneHistoryItem, PhaseOneRoute, PhaseOneDelivery) error) {
+func (c *WindowsPhaseOneComposition) ReportSelectedHistoryItem(details string) {
+	details = strings.TrimSpace(details)
+	c.mutateHistory("report", func(ctx context.Context, item PhaseOneHistoryItem, state WindowsPhaseOneSnapshot) (string, error) {
+		receipt, err := c.service.ReportHistoryItem(ctx, item.ID, state.SelectedReason, details)
+		return receipt.Outcome, err
+	})
+}
+
+func (c *WindowsPhaseOneComposition) mutateHistory(requiredAction string, operation func(context.Context, PhaseOneHistoryItem, WindowsPhaseOneSnapshot) (string, error)) {
 	if !c.beginMutation() {
 		return
 	}
@@ -265,9 +298,16 @@ func (c *WindowsPhaseOneComposition) mutateHistory(_ string, operation func(cont
 		return
 	}
 	item := state.History[state.SelectedHistory]
+	if !phaseOneActionAllowed(item.Actions, requiredAction) {
+		c.endMutationResult("action_not_allowed", "")
+		return
+	}
 	go func() {
-		err := operation(c.ctx, item, state.SelectedRoute, state.SelectedDelivery)
-		c.endMutation(phaseOneFailureCodeOrEmpty(err))
+		outcome, err := operation(c.ctx, item, state)
+		if err != nil {
+			outcome = ""
+		}
+		c.endMutationResult(phaseOneFailureCodeOrEmpty(err), outcome)
 		c.wakeRefresh()
 	}()
 }
@@ -303,7 +343,7 @@ func (c *WindowsPhaseOneComposition) refreshRemote() {
 	}
 	if presenceErr != nil || historyErr != nil {
 		c.state.FailureCode = "coordinator_unavailable"
-	} else if !c.busy {
+	} else if !c.busy && !c.actionFailure {
 		c.state.FailureCode = ""
 	}
 	c.mu.Unlock()
@@ -330,14 +370,22 @@ func (c *WindowsPhaseOneComposition) beginMutation() bool {
 		return false
 	}
 	c.busy = true
+	c.actionFailure = false
 	c.state.FailureCode = ""
+	c.state.ActionOutcome = ""
 	return true
 }
 
 func (c *WindowsPhaseOneComposition) endMutation(failure string) {
+	c.endMutationResult(failure, "")
+}
+
+func (c *WindowsPhaseOneComposition) endMutationResult(failure, outcome string) {
 	c.mu.Lock()
 	c.busy = false
+	c.actionFailure = failure != ""
 	c.state.FailureCode = failure
+	c.state.ActionOutcome = outcome
 	c.mu.Unlock()
 }
 

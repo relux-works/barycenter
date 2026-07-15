@@ -51,6 +51,14 @@ func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
 		"pTranslateAcceleratorW", "wmGetMinMax", "wsExControlParent",
 		`mk(0, "BUTTON"`, `mk(0, "STATIC"`, "wmDropFiles", "pDragAcceptFiles", "AcceptDroppedFile",
 		"windowText(ctx.identityInput)", "chooseWindowsRecoveryDestination", "idShellSend", "SendSelectedDraft",
+		`mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellReportReason)`,
+		`mk(0, "STATIC", "", wsChild|wsVisible|ssLeft, 0)`,
+		`mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop|0x0080, idShellReportDetails)`,
+		"pSendMessageW.Call(uintptr(ctx.reportDetails), emSetLimitText, 2000, 0)",
+		"ReportSelectedHistoryItem(windowText(ctx.reportDetails))",
+		`setText(ctx.reportLabel, "Details (optional)")`, `setText(ctx.reportLabel, "Детали (необязательно)")`,
+		"showControl(ctx.historyDelete, historyPage && hasHistory && selectedHistory.CanDelete)",
+		"showControl(ctx.historyReport, historyPage && hasHistory && selectedHistory.CanReport)",
 	} {
 		if !strings.Contains(nativeText, seam) {
 			t.Errorf("native shell missing %q", seam)
@@ -73,6 +81,33 @@ func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
 	}
 	if !strings.Contains(string(manifest), "PerMonitorV2") {
 		t.Error("packaged executable is not PerMonitorV2-aware")
+	}
+}
+
+func TestWindowsModerationCopyCoversFrozenReasonsAndPrivacySafeOutcomes(t *testing.T) {
+	for _, locale := range []ShellLocale{ShellEnglish, ShellRussian} {
+		copy := NewShellCopy(locale)
+		for _, reason := range phaseOneModerationReasons {
+			if label := copy.ModerationReason(reason); strings.TrimSpace(label) == "" || strings.Contains(label, string(reason)+"_") {
+				t.Errorf("%s reason %s has non-user-facing label %q", locale, reason, label)
+			}
+		}
+		for _, outcome := range []string{
+			"media_deleted", "report_received", "report_already_received", "sender_blocked",
+			"sender_already_blocked", "action_not_allowed", "coordinator_unavailable", "unauthorized", "insufficient_capability",
+		} {
+			message := copy.PhaseOneActionMessage(outcome)
+			if strings.TrimSpace(message) == "" || strings.Contains(message, "hi_") || strings.Contains(message, "rp_") || strings.Contains(message, "bl_") {
+				t.Errorf("%s outcome %s unsafe/missing message %q", locale, outcome, message)
+			}
+		}
+	}
+	snapshot := ShellSnapshot{
+		PhaseOneHistory:      []ShellPhaseOneHistoryItem{{Title: "Foreign clip", SenderName: "Sender", Status: "played", CanReport: true, CanBlock: true}},
+		SelectedReportReason: PhaseOneReportHarassment, PhaseOneActionOutcome: "report_received",
+	}
+	if body := NewShellCopy(ShellEnglish).Body(ShellHistory, snapshot); !strings.Contains(body, "Report received") || strings.Contains(body, "report_received") {
+		t.Fatalf("history outcome not localized: %q", body)
 	}
 }
 

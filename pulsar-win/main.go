@@ -365,9 +365,19 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 				phaseOne.SelectNextHistory()
 			}
 		},
+		SelectNextReportReason: func() {
+			if phaseOne != nil {
+				phaseOne.SelectNextReportReason()
+			}
+		},
 		DeleteSelectedHistoryItem: func() {
 			if phaseOne != nil {
 				phaseOne.DeleteSelectedHistoryItem()
+			}
+		},
+		ReportSelectedHistoryItem: func(details string) {
+			if phaseOne != nil {
+				phaseOne.ReportSelectedHistoryItem(details)
 			}
 		},
 		ReplaySelectedHistoryItem: func() {

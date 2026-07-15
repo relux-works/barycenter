@@ -85,16 +85,20 @@ const (
 	idShellHistoryReplay = 3037
 	idShellHistoryBlock  = 3038
 	idShellOutgoingFile  = 3039
+	idShellReportReason  = 3040
+	idShellReportDetails = 3041
+	idShellHistoryReport = 3042
 
 	bsPushButton = 0x00000000
 	bsMultiline  = 0x00002000
 	ssLeft       = 0x00000000
 
-	fVirtKey = 0x01
-	fShift   = 0x04
-	fControl = 0x08
-	vkComma  = 0xBC
-	vkEscape = 0x1B
+	fVirtKey       = 0x01
+	fShift         = 0x04
+	fControl       = 0x08
+	vkComma        = 0xBC
+	vkEscape       = 0x1B
+	emSetLimitText = 0x00C5
 )
 
 type winRect struct{ left, top, right, bottom int32 }
@@ -141,6 +145,10 @@ type mainWindowCtx struct {
 	historyDelete windows.Handle
 	historyReplay windows.Handle
 	historyBlock  windows.Handle
+	reportReason  windows.Handle
+	reportLabel   windows.Handle
+	reportDetails windows.Handle
+	historyReport windows.Handle
 	record        windows.Handle
 	dnd           windows.Handle
 	english       windows.Handle
@@ -256,6 +264,11 @@ func (ctx *mainWindowCtx) createControls() {
 	ctx.historyDelete = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellHistoryDelete)
 	ctx.historyReplay = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellHistoryReplay)
 	ctx.historyBlock = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellHistoryBlock)
+	ctx.reportReason = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellReportReason)
+	ctx.reportLabel = mk(0, "STATIC", "", wsChild|wsVisible|ssLeft, 0)
+	ctx.reportDetails = mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop|0x0080, idShellReportDetails)
+	pSendMessageW.Call(uintptr(ctx.reportDetails), emSetLimitText, 2000, 0)
+	ctx.historyReport = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellHistoryReport)
 	ctx.record = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellRecord)
 	ctx.dnd = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDND)
 	ctx.english = mk(0, "BUTTON", "English", buttonStyle|bsPushButton, idShellEnglish)
@@ -365,6 +378,11 @@ func (ctx *mainWindowCtx) layout() {
 	move(ctx.historyDelete, ShellRect{X: layout.Content.X + dip(120, layout.DPI), Y: layout.Body.Bottom() + gap + dip(104, layout.DPI), Width: dip(112, layout.DPI), Height: dip(40, layout.DPI)})
 	move(ctx.historyReplay, ShellRect{X: layout.Content.X + dip(240, layout.DPI), Y: layout.Body.Bottom() + gap + dip(104, layout.DPI), Width: dip(112, layout.DPI), Height: dip(40, layout.DPI)})
 	move(ctx.historyBlock, ShellRect{X: layout.Content.X + dip(360, layout.DPI), Y: layout.Body.Bottom() + gap + dip(104, layout.DPI), Width: dip(112, layout.DPI), Height: dip(40, layout.DPI)})
+	reportY := layout.Body.Bottom() + gap + dip(152, layout.DPI)
+	move(ctx.reportReason, ShellRect{X: layout.Content.X, Y: reportY, Width: dip(124, layout.DPI), Height: dip(40, layout.DPI)})
+	move(ctx.reportLabel, ShellRect{X: layout.Content.X + dip(132, layout.DPI), Y: reportY + dip(3, layout.DPI), Width: dip(108, layout.DPI), Height: dip(36, layout.DPI)})
+	move(ctx.reportDetails, ShellRect{X: layout.Content.X + dip(248, layout.DPI), Y: reportY + dip(3, layout.DPI), Width: dip(108, layout.DPI), Height: dip(34, layout.DPI)})
+	move(ctx.historyReport, ShellRect{X: layout.Content.X + dip(364, layout.DPI), Y: reportY, Width: dip(104, layout.DPI), Height: dip(40, layout.DPI)})
 }
 
 func (ctx *mainWindowCtx) render() {
@@ -449,7 +467,7 @@ func (ctx *mainWindowCtx) render() {
 	showControl(ctx.english, section == ShellSettings)
 	showControl(ctx.russian, section == ShellSettings)
 	historyPage := section == ShellHistory
-	for _, control := range []windows.Handle{ctx.draftNext, ctx.route, ctx.delivery, ctx.send, ctx.phaseDelete, ctx.outgoingFile, ctx.historyNext, ctx.historyDelete, ctx.historyReplay, ctx.historyBlock} {
+	for _, control := range []windows.Handle{ctx.draftNext, ctx.route, ctx.delivery, ctx.send, ctx.phaseDelete, ctx.outgoingFile, ctx.historyNext, ctx.historyDelete, ctx.historyReplay, ctx.historyBlock, ctx.reportReason, ctx.reportLabel, ctx.reportDetails, ctx.historyReport} {
 		showControl(control, historyPage)
 	}
 	hasDraft := len(snapshot.PhaseOneDrafts) > 0
@@ -466,9 +484,12 @@ func (ctx *mainWindowCtx) render() {
 		}
 		setText(ctx.phaseDelete, "Удалить черновик")
 		setText(ctx.historyNext, "След. запись")
-		setText(ctx.historyDelete, "Удалить")
+		setText(ctx.historyDelete, "Удалить навсегда")
 		setText(ctx.historyReplay, "Повторить")
-		setText(ctx.historyBlock, "Заблокировать")
+		setText(ctx.historyBlock, "Заблокировать отправителя")
+		setText(ctx.reportReason, "Причина: "+copy.ModerationReason(snapshot.SelectedReportReason))
+		setText(ctx.reportLabel, "Детали (необязательно)")
+		setText(ctx.historyReport, "Отправить жалобу")
 	} else {
 		setText(ctx.outgoingFile, "Add audio file...")
 		if hasDraft && snapshot.PhaseOneDrafts[snapshot.SelectedPhaseOneDraft].FallbackConfirmationAvailable {
@@ -478,9 +499,12 @@ func (ctx *mainWindowCtx) render() {
 		}
 		setText(ctx.phaseDelete, "Delete draft")
 		setText(ctx.historyNext, "Next item")
-		setText(ctx.historyDelete, "Delete")
+		setText(ctx.historyDelete, "Delete permanently")
 		setText(ctx.historyReplay, "Replay")
-		setText(ctx.historyBlock, "Block")
+		setText(ctx.historyBlock, "Block sender")
+		setText(ctx.reportReason, "Reason: "+copy.ModerationReason(snapshot.SelectedReportReason))
+		setText(ctx.reportLabel, "Details (optional)")
+		setText(ctx.historyReport, "Submit report")
 	}
 	pEnableWindow.Call(uintptr(ctx.draftNext), boolWord(len(snapshot.PhaseOneDrafts) > 1))
 	pEnableWindow.Call(uintptr(ctx.send), boolWord(hasDraft))
@@ -491,9 +515,19 @@ func (ctx *mainWindowCtx) render() {
 	if hasHistory {
 		selectedHistory = snapshot.PhaseOneHistory[snapshot.SelectedHistoryItem]
 	}
+	showControl(ctx.historyDelete, historyPage && hasHistory && selectedHistory.CanDelete)
+	showControl(ctx.historyReplay, historyPage && hasHistory && selectedHistory.CanReplay)
+	showControl(ctx.historyBlock, historyPage && hasHistory && selectedHistory.CanBlock)
+	showControl(ctx.reportReason, historyPage && hasHistory && selectedHistory.CanReport)
+	showControl(ctx.reportLabel, historyPage && hasHistory && selectedHistory.CanReport)
+	showControl(ctx.reportDetails, historyPage && hasHistory && selectedHistory.CanReport)
+	showControl(ctx.historyReport, historyPage && hasHistory && selectedHistory.CanReport)
 	pEnableWindow.Call(uintptr(ctx.historyDelete), boolWord(hasHistory && selectedHistory.CanDelete))
 	pEnableWindow.Call(uintptr(ctx.historyReplay), boolWord(hasHistory && selectedHistory.CanReplay))
 	pEnableWindow.Call(uintptr(ctx.historyBlock), boolWord(hasHistory && selectedHistory.CanBlock))
+	pEnableWindow.Call(uintptr(ctx.reportReason), boolWord(hasHistory && selectedHistory.CanReport))
+	pEnableWindow.Call(uintptr(ctx.reportDetails), boolWord(hasHistory && selectedHistory.CanReport))
+	pEnableWindow.Call(uintptr(ctx.historyReport), boolWord(hasHistory && selectedHistory.CanReport))
 
 	if home {
 		setText(ctx.body, copy.Text(txtPrimary)+"\r\n"+copy.Body(section, snapshot))
@@ -547,7 +581,7 @@ func fmtPercent(value int) string {
 
 func windowText(control windows.Handle) string {
 	length, _, _ := pGetWindowTextLengthW.Call(uintptr(control))
-	if length == 0 || length > 512 {
+	if length == 0 || length > 2000 {
 		return ""
 	}
 	buffer := make([]uint16, length+1)
@@ -663,6 +697,7 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		case idShellHistoryNext:
 			if actions.SelectNextHistoryItem != nil {
 				actions.SelectNextHistoryItem()
+				setText(ctx.reportDetails, "")
 			}
 		case idShellHistoryDelete:
 			if actions.DeleteSelectedHistoryItem != nil {
@@ -675,6 +710,14 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		case idShellHistoryBlock:
 			if actions.BlockSelectedHistoryActor != nil {
 				actions.BlockSelectedHistoryActor()
+			}
+		case idShellReportReason:
+			if actions.SelectNextReportReason != nil {
+				actions.SelectNextReportReason()
+			}
+		case idShellHistoryReport:
+			if actions.ReportSelectedHistoryItem != nil {
+				actions.ReportSelectedHistoryItem(windowText(ctx.reportDetails))
 			}
 		case idShellDND:
 			if shellDNDEnabled(snapshot) && actions.SetDND != nil {

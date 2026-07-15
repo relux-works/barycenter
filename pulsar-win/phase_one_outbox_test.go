@@ -22,6 +22,15 @@ type phaseOneFakeService struct {
 	requireConfirmation bool
 	confirmations       int
 	origins             []PhaseOneOriginKind
+	deleteReceipt       PhaseOneHistoryActionReceipt
+	reportReceipt       PhaseOneHistoryActionReceipt
+	blockReceipt        PhaseOneHistoryActionReceipt
+	historyActionErr    error
+	reportedReason      PhaseOneModerationReason
+	reportedDetails     string
+	deletedHistory      int
+	reportedHistory     int
+	blockedHistory      int
 }
 
 func (s *phaseOneFakeService) Upload(_ context.Context, path, _ string, key string) (PhaseOneUploadConfirmation, error) {
@@ -77,8 +86,25 @@ func (s *phaseOneFakeService) History(context.Context, int, string) (PhaseOneHis
 	result.Items = append([]PhaseOneHistoryItem(nil), s.history.Items...)
 	return result, nil
 }
-func (*phaseOneFakeService) DeleteHistoryItem(context.Context, string) error         { return nil }
-func (*phaseOneFakeService) BlockHistoryActor(context.Context, string, string) error { return nil }
+func (s *phaseOneFakeService) DeleteHistoryItem(context.Context, string) (PhaseOneHistoryActionReceipt, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.deletedHistory++
+	return s.deleteReceipt, s.historyActionErr
+}
+func (s *phaseOneFakeService) ReportHistoryItem(_ context.Context, _ string, reason PhaseOneModerationReason, details string) (PhaseOneHistoryActionReceipt, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reportedHistory++
+	s.reportedReason, s.reportedDetails = reason, details
+	return s.reportReceipt, s.historyActionErr
+}
+func (s *phaseOneFakeService) BlockHistoryActor(context.Context, string, string) (PhaseOneHistoryActionReceipt, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.blockedHistory++
+	return s.blockReceipt, s.historyActionErr
+}
 func (*phaseOneFakeService) ReplayHistoryItem(context.Context, string, PhaseOneRoute, PhaseOneDelivery, string, *PhaseOneFallbackConfirmation) (PhaseOneTransmissionReceipt, error) {
 	return PhaseOneTransmissionReceipt{}, nil
 }

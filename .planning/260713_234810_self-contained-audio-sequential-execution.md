@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1cdoxh` — acceptance-env-gate-repair
-  (accepted; final tracking commit and PR #63 merge pending)
-- Next engineering task: `TASK-260712-pbfz37` — windows-report-block-delete
+- Current engineering task: `TASK-260712-pbfz37` — windows-report-block-delete
+  (reviewing; engineering candidate `c6b2819`)
+- Next engineering task: `TASK-260712-34stvx` — macos-report-block-delete
 - Most recently accepted: `TASK-260712-1cdoxh` — acceptance-env-gate-repair
-- Current branch: `task/task-260712-1cdoxh-acceptance-env-gate-repair`
+- Current branch: `task/task-260712-pbfz37-windows-report-block-delete`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -898,6 +898,23 @@ clean local run passed 12/12 with start/end dirty false; hosted run
 `pass` with empty `endDirtyPaths`. Progress is 64/205 overall and 64/186
 engineering. PR #63 tracking and merge remain before strict execution starts
 `TASK-260712-pbfz37`.
+
+Tracking head `42f9ab2` passed all four hosted jobs in run `29392816247`; PR
+#63 landed at merge `f08d16784c4455e46169d0de8292686c419ff745`. Strict
+execution started `TASK-260712-pbfz37` from that synchronized `main` on branch
+`task/task-260712-pbfz37-windows-report-block-delete`.
+
+Engineering candidate `c6b2819` implements the Windows Phase 1 UGC surface:
+the authenticated History view now projects only coordinator-authorized report,
+block, owner-delete and replay controls; reports use the six frozen moderation
+reasons plus optional bounded details; repeated backend outcomes, denial and
+offline failures are localized without exposing opaque IDs. Standard Win32
+tab-stop buttons and the explicitly labelled details edit preserve the
+keyboard/accessibility contract. `go test -race ./...`, Windows amd64 test
+cross-compilation, amd64/arm64 builds and the seven-stage local Windows
+acceptance suite pass. The physical packaged-app keyboard/screen-reader pass is
+not claimed and remains `TASK-260712-e5mfqj` in `EPIC-260714-th54l3`. Hosted CI,
+tracking commit and merge remain before the engineering task is accepted.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

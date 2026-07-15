@@ -1,0 +1,158 @@
+{
+  "artifacts": [
+    {
+      "bytes": 105,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "e586fc0f3bb2a05f4c80f07d1b4c6171e830592f6c7aaf70d4af3b0aa3ebd072"
+    },
+    {
+      "bytes": 0,
+      "path": "02-windows-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 210,
+      "path": "03-windows-tests.log",
+      "sha256": "ff95f3924eddb4e7142b0e2d0a46e72f78fa23f6674fe81b4fc7ff7966652a54"
+    },
+    {
+      "bytes": 211,
+      "path": "04-windows-race.log",
+      "sha256": "8aa56e96bc65790cccda30d26a62e0c859779730edc003558ce7c52ab7794cd2"
+    },
+    {
+      "bytes": 0,
+      "path": "05-windows-cross-vet-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "06-windows-cross-build-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "07-windows-cross-build-arm64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "02-windows-vet.log",
+      "name": "windows-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "03-windows-tests.log",
+      "name": "windows-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "04-windows-race.log",
+      "name": "windows-race"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "05-windows-cross-vet-amd64.log",
+      "name": "windows-cross-vet-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "06-windows-cross-build-amd64.log",
+      "name": "windows-cross-build-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "07-windows-cross-build-arm64.log",
+      "name": "windows-cross-build-arm64"
+    }
+  ],
+  "finishedAt": "2026-07-15T06:13:33Z",
+  "git": {
+    "dirty": true,
+    "endDirty": true,
+    "endDirtyPaths": [
+      "M .planning/260713_234810_self-contained-audio-sequential-execution.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1i0doc_p1-store-compliance-acceptance/TASK-260712-pbfz37_windows-report-block-delete/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1i0doc_p1-store-compliance-acceptance/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/progress.md",
+      " M pulsar-win/main.go",
+      " M pulsar-win/main_window_windows.go",
+      " M pulsar-win/phase_one_client.go",
+      " M pulsar-win/phase_one_client_test.go",
+      " M pulsar-win/phase_one_outbox_test.go",
+      " M pulsar-win/windows_phase_one_composition.go",
+      " M pulsar-win/windows_phase_one_composition_test.go",
+      " M pulsar-win/windows_shell.go",
+      " M pulsar-win/windows_shell_test.go",
+      "?? docs/analysis/p1-windows-ugc-controls.md"
+    ],
+    "head": "f08d16784c4455e46169d0de8292686c419ff745",
+    "startDirty": true
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-15T06:12:56Z",
+  "status": "pass",
+  "suite": "windows",
+  "toolchains": {
+    "apple": null,
+    "go": "go version go1.25.0 darwin/amd64"
+  }
+}

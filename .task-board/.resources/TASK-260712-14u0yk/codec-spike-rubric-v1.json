@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-codec-spike-rubric.v1",
+  "frozenAt": "2026-07-15",
+  "sourceSections": [
+    "docs/spec-self-contained-audio.md#202-обязательный-codecplayer-spike",
+    "docs/spec-self-contained-audio.md#b1-one-hour-track",
+    "docs/spec-self-contained-audio.md#205-нефункциональные-ворота"
+  ],
+  "claimBoundary": {
+    "repositoryAutomation": "May validate recipes, HTTP faults, artifact shape and metric evaluation only.",
+    "finalPerformanceClaim": "Requires real packaged Windows and macOS builds on recorded hardware for every required pairing.",
+    "manualEpic": "EPIC-260714-th54l3"
+  },
+  "fixtureToolchain": {
+    "name": "FFmpeg",
+    "version": "8.1.2",
+    "releaseUrl": "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz",
+    "signatureUrl": "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz.asc",
+    "signingKeyFingerprint": "FCF986EA15E6E293A5644F10B4322F04D67658D8",
+    "exactVersionRequired": true,
+    "buildConfigurationDigestRequired": true
+  },
+  "decodedPCM": {
+    "sampleRateHz": 48000,
+    "channels": 2,
+    "sampleFormat": "float32-interleaved",
+    "comparison": "Decoded duration must be within one output frame and marker windows within 20 ms of the fixture lock.",
+    "markers": "Stereo synthetic tones change every 10 seconds through six bands per minute; the fixture lock records the measured duration and every seek sample records expected and observed marker bands."
+  },
+  "packageArchitectures": {
+    "windowsBuild": ["amd64", "arm64"],
+    "macosBuild": ["arm64"],
+    "minimumRealTimingMatrix": ["Windows x64 packaged node", "Apple-silicon macOS packaged node"]
+  },
+  "commands": {
+    "generateCorpus": "python3 scripts/codec_spike/generate_fixtures.py --output <private-dir> --lock <fixture-lock.json>",
+    "serveCorpus": "CODEC_SPIKE_TOKEN=<secret> python3 scripts/codec_spike/range_harness.py --fixtures <private-dir> --lock <fixture-lock.json> --target <opaque-target> --ready-file <ready.json> --log <requests.jsonl>",
+    "evaluateEvidence": "python3 scripts/codec_spike/evaluate_evidence.py <evidence.json> --output <evaluation.json>",
+    "validateContract": "python3 scripts/codec_spike/validate_contract.py"
+  },
+  "requiredPairings": [
+    "windows_windows",
+    "windows_macos",
+    "macos_macos"
+  ],
+  "samplePlan": {
+    "warmupsPerTimedGroup": 3,
+    "measuredSamplesPerTimedGroup": 30,
+    "percentileMethod": "nearest-rank",
+    "order": "Seeded shuffle recorded in the evidence artifact; warmups run before measured samples; failures are retained and never discarded.",
+    "clocks": "Coordinator monotonic milliseconds plus each node's monotonic first-audio timestamp; wall clocks are metadata only.",
+    "rss": "Sample process-tree RSS once per second from prepare through drain. Record baseline, peak, one-hour p95, final-ten-minute p95 and two-hour least-squares slope.",
+    "diskCache": "Sample app-private cache bytes once per second and after eviction, revoke and shutdown. The candidate declares its ceiling; the next transport task freezes the production ceiling.",
+    "network": "Loopback is allowed for repository correctness. Final timing uses recorded sufficient-network topology and also repeats the frozen slow/reset profiles."
+  },
+  "hardGates": [
+    {
+      "metric": "track_start_ms",
+      "method": "nearest-rank-p95",
+      "limit": 5000,
+      "unit": "ms",
+      "warmups": 3,
+      "samples": 30,
+      "groupBy": ["candidateId", "buildSha256", "pairing", "nodeId", "fixtureId"]
+    },
+    {
+      "metric": "seek_to_audio_ms",
+      "method": "nearest-rank-p95",
+      "limit": 3000,
+      "unit": "ms",
+      "warmups": 3,
+      "samples": 30,
+      "groupBy": ["candidateId", "buildSha256", "pairing", "nodeId", "fixtureId"]
+    },
+    {
+      "metric": "scheduled_skew_ms",
+      "method": "nearest-rank-p95",
+      "limit": 100,
+      "unit": "ms",
+      "warmups": 3,
+      "samples": 30,
+      "groupBy": ["candidateId", "buildSha256", "pairing", "fixtureId"]
+    },
+    {
+      "metric": "peak_rss_mib",
+      "method": "maximum",
+      "limit": 200,
+      "unit": "MiB",
+      "warmups": 0,
+      "samples": 1,
+      "groupBy": ["candidateId", "buildSha256", "pairing", "nodeId", "fixtureId"]
+    },
+    {
+      "metric": "duration_rss_growth_mib",
+      "method": "maximum",
+      "limit": 16,
+      "unit": "MiB",
+      "warmups": 0,
+      "samples": 1,
+      "groupBy": ["candidateId", "buildSha256", "pairing", "nodeId"]
+    },
+    {
+      "metric": "duration_rss_slope_mib_per_hour",
+      "method": "absolute-maximum",
+      "limit": 1,
+      "unit": "MiB/hour",
+      "warmups": 0,
+      "samples": 1,
+      "groupBy": ["candidateId", "buildSha256", "pairing", "nodeId"]
+    }
+  ],
+  "zeroFailureChecks": [
+    "decode_expected_pcm",
+    "start_before_full_download",
+    "pause_holds_audible_position",
+    "resume_uses_same_generation",
+    "seek_uses_new_generation_and_range",
+    "ended_after_decoder_and_output_drain",
+    "cache_never_exceeds_declared_ceiling",
+    "evicted_or_revoked_bytes_are_not_replayed",
+    "hostile_input_rejected_without_crash",
+    "render_callback_has_no_network_disk_allocation_wait_or_blocking_lock"
+  ],
+  "fixtureClasses": [
+    {
+      "id": "mp3_cbr_1h",
+      "codec": "mp3",
+      "container": "mp3",
+      "durationSeconds": 3600,
+      "rateMode": "cbr",
+      "bitrateKbps": 192,
+      "seekHeavy": false,
+      "requiredFor": ["decode", "start", "pause", "resume", "rss"]
+    },
+    {
+      "id": "mp3_vbr_2h_seek",
+      "codec": "mp3",
+      "container": "mp3",
+      "durationSeconds": 7200,
+      "rateMode": "vbr",
+      "quality": 4,
+      "seekHeavy": true,
+      "requiredFor": ["decode", "start", "seek", "rss", "duration-independence"]
+    },
+    {
+      "id": "aac_m4a_cbr_1h",
+      "codec": "aac-lc",
+      "container": "m4a-faststart",
+      "durationSeconds": 3600,
+      "rateMode": "cbr",
+      "bitrateKbps": 160,
+      "seekHeavy": false,
+      "requiredFor": ["decode", "start", "pause", "resume", "rss"]
+    },
+    {
+      "id": "aac_adts_vbr_2h_seek",
+      "codec": "aac-lc",
+      "container": "adts",
+      "durationSeconds": 7200,
+      "rateMode": "vbr",
+      "quality": 2,
+      "seekHeavy": true,
+      "requiredFor": ["decode", "start", "seek", "rss", "duration-independence"]
+    },
+    {
+      "id": "opus_ogg_cbr_1h",
+      "codec": "opus",
+      "container": "ogg",
+      "durationSeconds": 3600,
+      "rateMode": "cbr",
+      "bitrateKbps": 128,
+      "seekHeavy": false,
+      "requiredFor": ["decode", "start", "pause", "resume", "rss"]
+    },
+    {
+      "id": "opus_ogg_vbr_2h_seek",
+      "codec": "opus",
+      "container": "ogg",
+      "durationSeconds": 7200,
+      "rateMode": "vbr",
+      "bitrateKbps": 128,
+      "seekHeavy": true,
+      "requiredFor": ["decode", "start", "seek", "rss", "duration-independence"]
+    }
+  ],
+  "smokeFixtures": [
+    "mp3_cbr_12s",
+    "mp3_vbr_12s",
+    "aac_m4a_12s",
+    "aac_adts_12s",
+    "opus_ogg_cbr_12s",
+    "opus_ogg_vbr_12s"
+  ],
+  "hostileFixtures": [
+    {"id": "mp3_truncated_header", "base": "mp3_cbr_12s", "mutation": "truncate:8"},
+    {"id": "mp3_oversized_id3", "base": "mp3_cbr_12s", "mutation": "prefix:max-synchsafe-id3"},
+    {"id": "mp3_midframe_bitflip", "base": "mp3_vbr_12s", "mutation": "xor:middle:0x5a"},
+    {"id": "m4a_truncated_atom", "base": "aac_m4a_12s", "mutation": "truncate:24"},
+    {"id": "m4a_atom_size_overflow", "base": "aac_m4a_12s", "mutation": "prefix:overflowing-mp4-atom"},
+    {"id": "aac_truncated_frame", "base": "aac_adts_12s", "mutation": "truncate:6"},
+    {"id": "ogg_bad_page_crc", "base": "opus_ogg_vbr_12s", "mutation": "xor:ogg-crc:0xff"},
+    {"id": "ogg_truncated_lacing", "base": "opus_ogg_cbr_12s", "mutation": "truncate:31"}
+  ],
+  "rangeProfiles": [
+    "normal",
+    "no_range",
+    "slow_256kbit",
+    "reset_mid_body",
+    "truncate_body",
+    "corrupt_chunk",
+    "etag_flip",
+    "revoked"
+  ],
+  "requiredArtifactKinds": [
+    "fixture-lock",
+    "range-requests",
+    "metric-samples",
+    "rss-series",
+    "package-receipts",
+    "sbom"
+  ],
+  "candidates": [
+    {
+      "id": "native-canonical-aac-v1",
+      "windows": "Media Foundation Source Reader and inbox MP3/AAC decoders on recorded Windows 10 and Windows 11 builds",
+      "macos": "AudioFileStream Services plus AudioConverter/AVAudioEngine on macOS 14 or newer",
+      "server": "FFmpeg 8.1.2 canonical AAC-LC/M4A variant for unsupported source combinations",
+      "firstRunExecutableDownload": false,
+      "knownProbe": "Windows inbox support lists MP3/AAC but not Ogg/Opus; canonical conversion is mandatory unless the probe proves an inbox Opus path."
+    },
+    {
+      "id": "pure-go-composite-v1",
+      "windows": "Go 1.25.12 composite decoder",
+      "macos": "Go 1.25.12 composite decoder bridged outside the render callback",
+      "modules": [
+        "github.com/hajimehoshi/go-mp3@v0.3.4",
+        "github.com/llehouerou/go-aac@v0.0.0-20260119142340-5f2857eb82ad",
+        "github.com/Eyevinn/mp4ff@v0.54.0",
+        "github.com/pion/opus@v0.1.0"
+      ],
+      "firstRunExecutableDownload": false,
+      "knownProbe": "No component is accepted by this shortlist; correctness, hostile-input, license and bounded-memory evidence are mandatory."
+    },
+    {
+      "id": "bundled-ffmpeg-8.1.2-v1",
+      "windows": "Signed MSIX-bundled libavformat/libavcodec/libswresample 8.1.2 bridge",
+      "macos": "Codesigned and notarized bundled libavformat/libavcodec/libswresample 8.1.2 bridge",
+      "source": "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz",
+      "firstRunExecutableDownload": false,
+      "knownProbe": "Only the audited minimal decoder build may ship; CLI spawning and runtime downloads are rejected."
+    }
+  ],
+  "proofMap": [
+    {"requirement": "decode MP3/AAC/Opus", "fixtures": ["all smokeFixtures", "all fixtureClasses"], "artifact": "fixture-lock.json plus decode_expected_pcm checks"},
+    {"requirement": "range/chunk fetch", "fixtures": ["all smokeFixtures"], "artifact": "sanitized requests.jsonl for every rangeProfile"},
+    {"requirement": "pause/seek/resume", "fixtures": ["all seekHeavy fixtureClasses"], "artifact": "timed samples and zero-failure lifecycle checks"},
+    {"requirement": "bounded memory on two-hour media", "fixtures": ["all 2h fixtureClasses"], "artifact": "1 Hz RSS series, peak, growth and slope metrics"},
+    {"requirement": "scheduled start", "fixtures": ["one 1h fixture per codec"], "artifact": "30 samples per requiredPairing after three warmups"},
+    {"requirement": "Store/AppContainer compatibility", "fixtures": ["all smokeFixtures"], "artifact": "signed package identity, architecture and sandbox receipt"},
+    {"requirement": "license suitability", "fixtures": [], "artifact": "versioned SBOM, notices, signatures and legal disposition from TASK-260712-1vdlkw"},
+    {"requirement": "B1 one-hour start before full download", "fixtures": ["all 1h fixtureClasses"], "artifact": "first-audio byte count less than content length and track_start_ms samples"},
+    {"requirement": "20.5 start/seek/skew/RSS", "fixtures": ["all fixtureClasses"], "artifact": "evaluate_evidence.py result"}
+  ]
+}

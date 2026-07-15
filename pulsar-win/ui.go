@@ -12,6 +12,11 @@ type TrayState struct {
 	Connected func() bool
 	// Identity is the "host · дом slot" line (empty while unpaired).
 	Identity string
+	// Recording and Shortcut are single owners shared by hidden tray, visible
+	// window and Win32 lifecycle messages.
+	Recording     *WindowsRecordingController
+	Shortcut      WindowsRecordingShortcut
+	ShortcutStore WindowsRecordingShortcutStore
 	// OnRePair opens the onboarding window to re-pair in place (F3).
 	OnRePair func()
 	// OnQuit tears the process down cleanly.

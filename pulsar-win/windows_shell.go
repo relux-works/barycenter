@@ -57,21 +57,23 @@ const (
 )
 
 type ShellSnapshot struct {
-	Connection         ShellConnection
-	ConnectionDetail   string
-	Identity           string
-	PresenceOnline     int
-	PresenceTotal      int
-	PresenceAvailable  bool
-	RouteName          string
-	NowPlaying         string
-	PlaybackState      string
-	HistoryCount       int
-	DND                ShellDND
-	Recording          ShellRecording
-	RecordingAvailable bool
-	SelfTestAvailable  bool
-	Volume             int
+	Connection           ShellConnection
+	ConnectionDetail     string
+	Identity             string
+	PresenceOnline       int
+	PresenceTotal        int
+	PresenceAvailable    bool
+	RouteName            string
+	NowPlaying           string
+	PlaybackState        string
+	HistoryCount         int
+	DND                  ShellDND
+	Recording            ShellRecording
+	RecordingAvailable   bool
+	RecordingShortcut    WindowsRecordingShortcutStatus
+	RecordingShortcutKey WindowsRecordingShortcut
+	SelfTestAvailable    bool
+	Volume               int
 }
 
 func (s ShellSnapshot) normalized() ShellSnapshot {
@@ -90,6 +92,12 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 		ShellRecordingProcessing, ShellRecordingFailed:
 	default:
 		s.Recording = ShellRecordingUnavailable
+	}
+	switch s.RecordingShortcut {
+	case WindowsShortcutInactive, WindowsShortcutRegistered, WindowsShortcutConflict,
+		WindowsShortcutUnavailable, WindowsShortcutSuspended:
+	default:
+		s.RecordingShortcut = WindowsShortcutInactive
 	}
 	if s.Volume < 0 {
 		s.Volume = 0
@@ -111,6 +119,7 @@ type ShellActions struct {
 	Join            func()
 	TryLocally      func()
 	ToggleRecording func()
+	CancelRecording func()
 	SetDND          func(ShellDND)
 }
 
@@ -192,6 +201,7 @@ const (
 	txtRecording            shellText = "recording"
 	txtStartRecording       shellText = "start_recording"
 	txtStopRecording        shellText = "stop_recording"
+	txtCancelRecording      shellText = "cancel_recording"
 	txtRecordingUnavailable shellText = "recording_unavailable"
 	txtSelfTestUnavailable  shellText = "self_test_unavailable"
 	txtCreateTitle          shellText = "create_title"
@@ -220,6 +230,12 @@ const (
 	txtUnpairedHelp         shellText = "unpaired_help"
 	txtDegradedHelp         shellText = "degraded_help"
 	txtRecordingHelp        shellText = "recording_help"
+	txtShortcutRegistered   shellText = "shortcut_registered"
+	txtShortcutConflict     shellText = "shortcut_conflict"
+	txtShortcutUnavailable  shellText = "shortcut_unavailable"
+	txtShortcutSuspended    shellText = "shortcut_suspended"
+	txtShortcutInactive     shellText = "shortcut_inactive"
+	txtShortcut             shellText = "shortcut"
 	txtPair                 shellText = "pair"
 	txtRepair               shellText = "repair"
 	txtHowToSound           shellText = "how_to_sound"
@@ -236,13 +252,14 @@ var shellTextKeys = []shellText{
 	txtApp, txtHome, txtCreate, txtJoin, txtTry, txtHistory, txtSettings, txtOpen,
 	txtPrimary, txtStatus, txtPresence, txtRouting, txtNowPlaying, txtLocalControls,
 	txtNoHistory, txtNoRoute, txtSilence, txtVolume, txtDND, txtRecording,
-	txtStartRecording, txtStopRecording, txtRecordingUnavailable, txtSelfTestUnavailable,
+	txtStartRecording, txtStopRecording, txtCancelRecording, txtRecordingUnavailable, txtSelfTestUnavailable,
 	txtCreateTitle, txtCreateBody, txtCreateAction, txtJoinTitle, txtJoinBody,
 	txtJoinAction, txtTryTitle, txtTryBody, txtTryAction, txtHistoryTitle,
 	txtSettingsTitle, txtLanguage, txtUnpaired, txtReconnecting, txtOnline, txtDegraded,
 	txtDNDAllow, txtDNDMessages, txtDNDMuted, txtRecordingIdle, txtRecordingActive,
 	txtRecordingProcessing, txtRecordingFailed, txtUnpairedHelp, txtDegradedHelp,
-	txtRecordingHelp, txtPair, txtRepair, txtHowToSound, txtNoPulsar, txtPrivacy,
+	txtRecordingHelp, txtShortcutRegistered, txtShortcutConflict, txtShortcutUnavailable,
+	txtShortcutSuspended, txtShortcutInactive, txtShortcut, txtPair, txtRepair, txtHowToSound, txtNoPulsar, txtPrivacy,
 	txtTerms, txtGuidelines, txtUploadRights, txtSupport, txtQuit,
 }
 
@@ -298,6 +315,23 @@ func (c ShellCopy) Recording(snapshot ShellSnapshot) string {
 		prefix = "[!] "
 	}
 	return prefix + c.Text(key)
+}
+
+func (c ShellCopy) RecordingShortcut(status WindowsRecordingShortcutStatus, shortcut WindowsRecordingShortcut) string {
+	key := map[WindowsRecordingShortcutStatus]shellText{
+		WindowsShortcutRegistered:  txtShortcutRegistered,
+		WindowsShortcutConflict:    txtShortcutConflict,
+		WindowsShortcutUnavailable: txtShortcutUnavailable,
+		WindowsShortcutSuspended:   txtShortcutSuspended,
+		WindowsShortcutInactive:    txtShortcutInactive,
+	}[status]
+	if key == "" {
+		key = txtShortcutInactive
+	}
+	if !shortcut.Valid() {
+		shortcut = DefaultWindowsRecordingShortcut()
+	}
+	return c.Text(txtShortcut) + ": " + shortcut.Label() + " — " + c.Text(key)
 }
 
 func (c ShellCopy) DND(mode ShellDND) string {
@@ -457,7 +491,7 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtStatus: "Status", txtPresence: "Presence", txtRouting: "Routing", txtNowPlaying: "Now playing",
 		txtLocalControls: "Local controls", txtNoHistory: "No recent activity", txtNoRoute: "No output route",
 		txtSilence: "Nothing is playing", txtVolume: "Volume", txtDND: "Do Not Disturb", txtRecording: "Recording",
-		txtStartRecording: "Start recording", txtStopRecording: "Stop recording",
+		txtStartRecording: "Start recording", txtStopRecording: "Stop recording", txtCancelRecording: "Cancel recording",
 		txtRecordingUnavailable: "Recording is not configured yet", txtSelfTestUnavailable: "Local self-test is not configured yet",
 		txtCreateTitle: "Create an air", txtCreateBody: "Open the Barycenter bot and send /create to start a shared audio space.",
 		txtCreateAction: "Open Barycenter bot", txtJoinTitle: "Join an air",
@@ -471,7 +505,10 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtUnpairedHelp:  "Create or join an air, try local audio, or open settings. Pairing is not required for those paths.",
 		txtDegradedHelp:  "Local controls and settings remain available while Pulsar reconnects.",
 		txtRecordingHelp: "Recording is active. Stop remains available in this window and the tray.",
-		txtPair:          "Connect...", txtRepair: "Connect again...", txtHowToSound: "How to enable sound...",
+		txtShortcut:      "Recording shortcut", txtShortcutRegistered: "active", txtShortcutConflict: "in use; buttons still work",
+		txtShortcutUnavailable: "unavailable; buttons still work", txtShortcutSuspended: "paused while Windows is locked or asleep",
+		txtShortcutInactive: "inactive",
+		txtPair:             "Connect...", txtRepair: "Connect again...", txtHowToSound: "How to enable sound...",
 		txtNoPulsar: "Cannot see Pulsar in Spotify?", txtPrivacy: "Privacy", txtTerms: "Terms of use",
 		txtGuidelines: "Content guidelines", txtUploadRights: "Recording and upload rights",
 		txtSupport: "Support and safety", txtQuit: "Quit Pulsar",
@@ -482,7 +519,7 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtStatus: "Статус", txtPresence: "Присутствие", txtRouting: "Маршрут звука", txtNowPlaying: "Сейчас играет",
 		txtLocalControls: "Локальные настройки", txtNoHistory: "Недавних событий нет", txtNoRoute: "Выход звука не выбран",
 		txtSilence: "Сейчас ничего не играет", txtVolume: "Громкость", txtDND: "Не беспокоить", txtRecording: "Запись",
-		txtStartRecording: "Начать запись", txtStopRecording: "Остановить запись",
+		txtStartRecording: "Начать запись", txtStopRecording: "Остановить запись", txtCancelRecording: "Отменить запись",
 		txtRecordingUnavailable: "Запись пока не настроена", txtSelfTestUnavailable: "Локальная самопроверка пока не настроена",
 		txtCreateTitle: "Создать эфир", txtCreateBody: "Открой бота Барицентра и отправь /create, чтобы создать общее аудиопространство.",
 		txtCreateAction: "Открыть бота Барицентра", txtJoinTitle: "Присоединиться к эфиру",
@@ -496,7 +533,10 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtUnpairedHelp:  "Создай эфир, присоединись, проверь локальный звук или открой настройки - для этих путей подключение не требуется.",
 		txtDegradedHelp:  "Локальные настройки остаются доступны, пока Пульсар переподключается.",
 		txtRecordingHelp: "Запись активна. Остановка остаётся доступна в этом окне и в области уведомлений.",
-		txtPair:          "Подключить...", txtRepair: "Подключить заново...", txtHowToSound: "Как включить звук...",
+		txtShortcut:      "Комбинация записи", txtShortcutRegistered: "активна", txtShortcutConflict: "занята; кнопки продолжают работать",
+		txtShortcutUnavailable: "недоступна; кнопки продолжают работать", txtShortcutSuspended: "приостановлена, пока Windows заблокирована или спит",
+		txtShortcutInactive: "не активна",
+		txtPair:             "Подключить...", txtRepair: "Подключить заново...", txtHowToSound: "Как включить звук...",
 		txtNoPulsar: "Не вижу Pulsar в Spotify?", txtPrivacy: "Конфиденциальность", txtTerms: "Условия использования",
 		txtGuidelines: "Правила содержимого", txtUploadRights: "Права на запись и загрузку",
 		txtSupport: "Поддержка и безопасность", txtQuit: "Выйти из Пульсара",

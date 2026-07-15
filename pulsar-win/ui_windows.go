@@ -17,6 +17,7 @@ import (
 var (
 	user32   = windows.NewLazyDLL("user32.dll")
 	shell32  = windows.NewLazyDLL("shell32.dll")
+	wtsapi32 = windows.NewLazyDLL("wtsapi32.dll")
 	kernel32 = windows.NewLazyDLL("kernel32.dll")
 	gdi32    = windows.NewLazyDLL("gdi32.dll")
 
@@ -26,26 +27,28 @@ var (
 	pSendMessageW  = user32.NewProc("SendMessageW")
 	pGetSysColorBr = user32.NewProc("GetSysColorBrush")
 
-	pRegisterClassExW = user32.NewProc("RegisterClassExW")
-	pCreateWindowExW  = user32.NewProc("CreateWindowExW")
-	pDefWindowProcW   = user32.NewProc("DefWindowProcW")
-	pGetMessageW      = user32.NewProc("GetMessageW")
-	pTranslateMessage = user32.NewProc("TranslateMessage")
-	pDispatchMessageW = user32.NewProc("DispatchMessageW")
-	pPostQuitMessage  = user32.NewProc("PostQuitMessage")
-	pDestroyWindow    = user32.NewProc("DestroyWindow")
-	pGetWindowTextW   = user32.NewProc("GetWindowTextW")
-	pSetWindowTextW   = user32.NewProc("SetWindowTextW")
-	pShowWindow       = user32.NewProc("ShowWindow")
-	pUpdateWindow     = user32.NewProc("UpdateWindow")
-	pLoadCursorW      = user32.NewProc("LoadCursorW")
-	pPostMessageW     = user32.NewProc("PostMessageW")
-	pCreatePopupMenu  = user32.NewProc("CreatePopupMenu")
-	pAppendMenuW      = user32.NewProc("AppendMenuW")
-	pTrackPopupMenu   = user32.NewProc("TrackPopupMenu")
-	pGetCursorPos     = user32.NewProc("GetCursorPos")
-	pSetForegroundWin = user32.NewProc("SetForegroundWindow")
-	pDestroyMenu      = user32.NewProc("DestroyMenu")
+	pRegisterClassExW                 = user32.NewProc("RegisterClassExW")
+	pCreateWindowExW                  = user32.NewProc("CreateWindowExW")
+	pDefWindowProcW                   = user32.NewProc("DefWindowProcW")
+	pGetMessageW                      = user32.NewProc("GetMessageW")
+	pTranslateMessage                 = user32.NewProc("TranslateMessage")
+	pDispatchMessageW                 = user32.NewProc("DispatchMessageW")
+	pPostQuitMessage                  = user32.NewProc("PostQuitMessage")
+	pDestroyWindow                    = user32.NewProc("DestroyWindow")
+	pGetWindowTextW                   = user32.NewProc("GetWindowTextW")
+	pSetWindowTextW                   = user32.NewProc("SetWindowTextW")
+	pShowWindow                       = user32.NewProc("ShowWindow")
+	pUpdateWindow                     = user32.NewProc("UpdateWindow")
+	pLoadCursorW                      = user32.NewProc("LoadCursorW")
+	pPostMessageW                     = user32.NewProc("PostMessageW")
+	pCreatePopupMenu                  = user32.NewProc("CreatePopupMenu")
+	pAppendMenuW                      = user32.NewProc("AppendMenuW")
+	pTrackPopupMenu                   = user32.NewProc("TrackPopupMenu")
+	pGetCursorPos                     = user32.NewProc("GetCursorPos")
+	pSetForegroundWin                 = user32.NewProc("SetForegroundWindow")
+	pDestroyMenu                      = user32.NewProc("DestroyMenu")
+	pWTSRegisterSessionNotification   = wtsapi32.NewProc("WTSRegisterSessionNotification")
+	pWTSUnregisterSessionNotification = wtsapi32.NewProc("WTSUnRegisterSessionNotification")
 
 	pShellNotifyIconW = shell32.NewProc("Shell_NotifyIconW")
 	pShellExecuteW    = shell32.NewProc("ShellExecuteW")
@@ -87,17 +90,21 @@ const (
 
 	swShow = 5
 
-	wmDestroy = 0x0002
-	wmCommand = 0x0111
-	wmApp     = 0x8000 // tray callback message base
-	wmRButton = 0x0205 // WM_RBUTTONUP inside the tray lParam
-	wmLButton = 0x0202 // WM_LBUTTONUP
+	wmDestroy          = 0x0002
+	wmCommand          = 0x0111
+	wmPowerBroadcast   = 0x0218
+	wmWtsSessionChange = 0x02B1
+	wmHotKey           = 0x0312
+	wmApp              = 0x8000 // tray callback message base
+	wmRButton          = 0x0205 // WM_RBUTTONUP inside the tray lParam
+	wmLButton          = 0x0202 // WM_LBUTTONUP
 
 	bnClicked = 0
 
 	mfString    = 0x0000
 	mfSeparator = 0x0800
 	mfGrayed    = 0x0001
+	mfChecked   = 0x0008
 
 	tpmLeftAlign = 0x0000
 	tpmRightBtn  = 0x0002
@@ -112,31 +119,40 @@ const (
 	// goroutine (M6 — the HTTP exchange must not block the wndproc: the
 	// window went "Not Responding" for up to 15 s and queued clicks replayed
 	// against an already-used code).
-	wmAppPairDone  = wmApp + 2
-	idcArrow       = 32512
-	colorWindow    = 5
-	esCenter       = 0x0001
-	essUppercase   = 0x0008 // ES_UPPERCASE
-	editStyle      = wsChild | wsVisible | wsBorder | wsTabStop | esCenter | essUppercase
-	buttonStyle    = wsChild | wsVisible | wsTabStop
-	staticCenter   = wsChild | wsVisible | 0x0001 /* SS_CENTER */
-	idSubmit       = 1001
-	idCodeEdit     = 1002
-	menuRePairCmd  = 2001
-	menuQuitCmd    = 2002
-	menuSoundCmd   = 2003 // "Как включить звук" — reopen the Spotify-step modal
-	menuNoPulsar   = 2004 // "Не вижу Pulsar в Spotify?" — open the guide
-	menuPrivacy    = 2005
-	menuTerms      = 2006
-	menuGuidelines = 2007
-	menuUpload     = 2008
-	menuSupport    = 2009
-	menuOpen       = 2010
-	menuRecord     = 2011
-	menuDND        = 2012
-	menuCreate     = 2013
-	menuJoin       = 2014
-	menuTry        = 2015
+	wmAppPairDone           = wmApp + 2
+	idcArrow                = 32512
+	colorWindow             = 5
+	esCenter                = 0x0001
+	essUppercase            = 0x0008 // ES_UPPERCASE
+	editStyle               = wsChild | wsVisible | wsBorder | wsTabStop | esCenter | essUppercase
+	buttonStyle             = wsChild | wsVisible | wsTabStop
+	staticCenter            = wsChild | wsVisible | 0x0001 /* SS_CENTER */
+	idSubmit                = 1001
+	idCodeEdit              = 1002
+	menuRePairCmd           = 2001
+	menuQuitCmd             = 2002
+	menuSoundCmd            = 2003 // "Как включить звук" — reopen the Spotify-step modal
+	menuNoPulsar            = 2004 // "Не вижу Pulsar в Spotify?" — open the guide
+	menuPrivacy             = 2005
+	menuTerms               = 2006
+	menuGuidelines          = 2007
+	menuUpload              = 2008
+	menuSupport             = 2009
+	menuOpen                = 2010
+	menuRecord              = 2011
+	menuDND                 = 2012
+	menuCreate              = 2013
+	menuJoin                = 2014
+	menuTry                 = 2015
+	menuCancel              = 2016
+	menuShortcutDefault     = 2017
+	menuShortcutAlternative = 2018
+
+	pbtApmSuspend         = 0x0004
+	pbtApmResumeAutomatic = 0x0012
+	wtsSessionLock        = 0x0007
+	wtsSessionUnlock      = 0x0008
+	notifyForThisSession  = 0
 
 	// MessageBoxW flags: MB_OK + an information icon. The OS renders the modal,
 	// so Cyrillic and DPI are handled for us (unlike the hand-built window).
@@ -495,6 +511,22 @@ func pumpMessages() {
 
 var curTray *TrayState
 var trayHwnd windows.Handle
+var curRecordingShortcut *WindowsRecordingShortcutController
+var traySessionNotifications bool
+
+func currentWindowsRecordingShortcutStatus() WindowsRecordingShortcutStatus {
+	if curRecordingShortcut == nil {
+		return WindowsShortcutInactive
+	}
+	return curRecordingShortcut.Status()
+}
+
+func currentWindowsRecordingShortcut() WindowsRecordingShortcut {
+	if curRecordingShortcut == nil {
+		return DefaultWindowsRecordingShortcut()
+	}
+	return curRecordingShortcut.Shortcut()
+}
 
 // awaitShutdown runs the tray's Win32 message loop as the main-thread
 // blocker. It returns when the user picks Quit (trayProc posts WM_QUIT). The
@@ -522,13 +554,38 @@ func runTrayLoop(state *TrayState) {
 		uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(u16("PulsarTray"))),
 		0, 0, 0, 0, 0, ^uintptr(2), 0, hInst, 0)
 	trayHwnd = windows.Handle(hwnd)
+	if state != nil && state.Recording != nil {
+		_, recordingAvailable := state.Recording.Snapshot()
+		if recordingAvailable {
+			shortcut := state.Shortcut
+			if !shortcut.Valid() {
+				shortcut = DefaultWindowsRecordingShortcut()
+			}
+			curRecordingShortcut = NewWindowsRecordingShortcutController(
+				&win32RecordingShortcutRegistrar{hwnd: trayHwnd}, shortcut, state.Recording.Toggle)
+			curRecordingShortcut.Start()
+			registered, _, _ := pWTSRegisterSessionNotification.Call(uintptr(trayHwnd), notifyForThisSession)
+			traySessionNotifications = registered != 0
+		}
+	}
 
 	addTrayIcon(trayHwnd)
 	showMainWindow(false)
 	pumpMessages()
+	if state != nil && state.Recording != nil {
+		state.Recording.Shutdown()
+	}
+	if curRecordingShortcut != nil {
+		curRecordingShortcut.Stop()
+	}
+	if traySessionNotifications {
+		pWTSUnregisterSessionNotification.Call(uintptr(trayHwnd))
+		traySessionNotifications = false
+	}
 	removeTrayIcon(trayHwnd)
 	destroyMainWindow()
 	curTray = nil
+	curRecordingShortcut = nil
 }
 
 // requestTrayLoopExit is called only from a callback already executing on the
@@ -561,6 +618,39 @@ func removeTrayIcon(hwnd windows.Handle) {
 
 func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintptr {
 	switch message {
+	case wmHotKey:
+		if curRecordingShortcut != nil {
+			curRecordingShortcut.HandleHotKey(WindowsShortcutRegistration(wParam))
+		}
+		return 0
+	case wmWtsSessionChange:
+		if wParam == wtsSessionLock {
+			if curTray != nil && curTray.Recording != nil {
+				curTray.Recording.HandleSessionLock()
+			}
+			if curRecordingShortcut != nil {
+				curRecordingShortcut.Suspend(WindowsShortcutSessionLocked)
+			}
+		} else if wParam == wtsSessionUnlock {
+			if curRecordingShortcut != nil {
+				curRecordingShortcut.Resume(WindowsShortcutSessionLocked)
+			}
+		}
+		return 0
+	case wmPowerBroadcast:
+		if wParam == pbtApmSuspend {
+			if curTray != nil && curTray.Recording != nil {
+				curTray.Recording.HandleSuspend()
+			}
+			if curRecordingShortcut != nil {
+				curRecordingShortcut.Suspend(WindowsShortcutSystemSuspend)
+			}
+		} else if wParam == pbtApmResumeAutomatic {
+			if curRecordingShortcut != nil {
+				curRecordingShortcut.Resume(WindowsShortcutSystemSuspend)
+			}
+		}
+		return 1
 	case trayCallback:
 		// Left click is the native default action: restore the main window.
 		// Right click opens quick actions without stealing focus beforehand.
@@ -598,6 +688,28 @@ func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintp
 					actions.ToggleRecording()
 				}
 			}
+		case menuCancel:
+			if curTray != nil && curTray.Shell != nil {
+				actions := curTray.Shell.Actions()
+				if actions.CancelRecording != nil {
+					actions.CancelRecording()
+				}
+			}
+		case menuShortcutDefault, menuShortcutAlternative:
+			if curTray != nil && curRecordingShortcut != nil {
+				shortcut := DefaultWindowsRecordingShortcut()
+				if wParam&0xFFFF == menuShortcutAlternative {
+					shortcut = WindowsRecordingShortcut{
+						VirtualKey: WindowsShortcutVKR,
+						Modifiers:  WindowsShortcutModControl | WindowsShortcutModAlt,
+					}
+				}
+				if curRecordingShortcut.Reconfigure(shortcut) {
+					if err := curTray.ShortcutStore.Save(shortcut); err == nil {
+						curTray.Shortcut = shortcut
+					}
+				}
+			}
 		case menuDND:
 			if curTray != nil && curTray.Shell != nil {
 				snapshot := curTray.Shell.Snapshot()
@@ -633,6 +745,12 @@ func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintp
 		case menuSupport:
 			openURL(uiSupportURL)
 		case menuQuitCmd:
+			if curTray != nil && curTray.Recording != nil {
+				curTray.Recording.Shutdown()
+			}
+			if curRecordingShortcut != nil {
+				curRecordingShortcut.Stop()
+			}
 			if curTray != nil && curTray.OnQuit != nil {
 				curTray.OnQuit()
 			}
@@ -671,10 +789,26 @@ func showTrayMenu(hwnd windows.Handle) {
 			recordFlags |= mfGrayed
 		}
 		recordText := copy.Text(txtStartRecording)
-		if snapshot.Recording == ShellRecordingActive {
+		if snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing {
 			recordText = copy.Text(txtStopRecording)
 		}
 		add(recordFlags, menuRecord, recordText)
+		add(mfString|mfGrayed, 0, copy.RecordingShortcut(snapshot.RecordingShortcut, snapshot.RecordingShortcutKey))
+		selectedShortcut := snapshot.RecordingShortcutKey
+		defaultShortcut := DefaultWindowsRecordingShortcut()
+		alternativeShortcut := WindowsRecordingShortcut{VirtualKey: WindowsShortcutVKR, Modifiers: WindowsShortcutModControl | WindowsShortcutModAlt}
+		defaultFlags, alternativeFlags := uint32(mfString), uint32(mfString)
+		if selectedShortcut == defaultShortcut {
+			defaultFlags |= mfChecked
+		}
+		if selectedShortcut == alternativeShortcut {
+			alternativeFlags |= mfChecked
+		}
+		add(defaultFlags, menuShortcutDefault, defaultShortcut.Label())
+		add(alternativeFlags, menuShortcutAlternative, alternativeShortcut.Label())
+		if snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing {
+			add(mfString, menuCancel, copy.Text(txtCancelRecording))
+		}
 		dndFlags := uint32(mfString)
 		if !shellDNDEnabled(snapshot) {
 			dndFlags |= mfGrayed

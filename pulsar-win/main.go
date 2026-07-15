@@ -12,6 +12,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -23,6 +24,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	protocol "relux.works/duet/pulsar-win/wire"
 )
@@ -159,7 +161,7 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	daemon := NewDaemonClient(cfg.APIPort)
 	capabilities := []string{protocol.CapabilitySeamlessAdoption}
 	var mediaClips *MediaClipClient
-	var mediaMixer *WindowsOverlayMediaClipMixer
+	mediaMixer := NewWindowsOverlayMediaClipMixer(engine)
 	mediaFetcher, mediaErr := NewAuthenticatedMediaClipFetcher(
 		filepath.Join(cfg.CacheDir, "media-clips"), creds.Token, creds.WSURL)
 	if mediaErr != nil {
@@ -167,7 +169,6 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		// this installation cannot create its authenticated cache.
 		log.Error("media clip hooks unavailable")
 	} else {
-		mediaMixer = NewWindowsOverlayMediaClipMixer(engine)
 		mediaClips = NewMediaClipClient(mediaFetcher, mediaMixer, log, nil)
 		capabilities = append(capabilities, mediaClips.AdvertisedCapabilities()...)
 	}
@@ -186,8 +187,28 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	}
 
 	player := NewPlayer(daemon, ring, engine, cache, ws.Clock(), ws.Send, cfg.OutputLatencyOffsetMS, log)
-	if mediaMixer != nil {
-		mediaMixer.BindInterruptController(player)
+	mediaMixer.BindInterruptController(player)
+	recording := NewWindowsRecordingController(nil)
+	if backend, captureErr := NewNativeWindowsMicrophoneBackend(); captureErr != nil {
+		log.Error("microphone recording unavailable", "err", captureErr)
+	} else if executable, executableErr := os.Executable(); executableErr != nil {
+		log.Error("microphone recording unavailable", "err", executableErr)
+	} else {
+		cuePath := filepath.Join(filepath.Dir(executable), "Assets", "Audio", BuiltinRecordingCueFilename)
+		if cueData, cueErr := os.ReadFile(cuePath); cueErr != nil || !ValidateBuiltinRecordingCue(cueData) {
+			log.Error("microphone recording unavailable", "err", ErrRecordingCueUnavailable)
+		} else {
+			captureStore := NewCaptureMediaStore(filepath.Join(dir, "capture-media"))
+			if _, recoveryErr := captureStore.Recover(); recoveryErr != nil {
+				log.Error("microphone recording recovery failed", "err", recoveryErr)
+			} else {
+				localOutput := NewWindowsProductionLocalClipOutput(mediaMixer)
+				captureService := NewWindowsMicrophoneCaptureService(
+					backend, captureStore,
+					WindowsLocalRecordingCuePlayer{Output: localOutput, CuePath: cuePath}, gain)
+				recording = NewWindowsRecordingController(windowsMicrophoneRecordingCapture{service: captureService})
+			}
+		}
 	}
 	presenceStore := NewNodePresenceStore(filepath.Join(dir, "node-presence.v1.json"), log)
 	player.ConfigureTransmissionHooks(mediaClips, presenceStore)
@@ -270,17 +291,23 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		shellStateMu.RLock()
 		dnd := shellDND
 		shellStateMu.RUnlock()
+		recordingState, recordingAvailable := recording.Snapshot()
 		return ShellSnapshot{
 			Connection: connection, Identity: identityLine(*creds),
 			PresenceOnline: presenceOnline, PresenceTotal: presenceTotal,
 			PresenceAvailable: presenceAvailable, RouteName: route,
 			NowPlaying: nowPlaying, PlaybackState: state.Playback,
-			DND: dnd, Recording: ShellRecordingUnavailable,
-			RecordingAvailable: false, SelfTestAvailable: false, Volume: state.Volume,
+			DND: dnd, Recording: recordingState,
+			RecordingAvailable:   recordingAvailable,
+			RecordingShortcut:    currentWindowsRecordingShortcutStatus(),
+			RecordingShortcutKey: currentWindowsRecordingShortcut(),
+			SelfTestAvailable:    false, Volume: state.Volume,
 		}
 	}, ShellActions{
-		Create: func() { openURL(uiBotURL) },
-		Join:   func() { openURL(uiBotURL) },
+		Create:          func() { openURL(uiBotURL) },
+		Join:            func() { openURL(uiBotURL) },
+		ToggleRecording: recording.Toggle,
+		CancelRecording: recording.Cancel,
 		SetDND: func(mode ShellDND) {
 			if mode != ShellDNDAllowAll && mode != ShellDNDMessagesOnly {
 				return
@@ -295,10 +322,14 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		},
 	})
 
+	shortcutStore := WindowsRecordingShortcutStore{Path: filepath.Join(dir, "recording-shortcut.v1.json")}
 	tray := &TrayState{
-		Shell:     shell,
-		Connected: func() bool { return ws.Healthy() },
-		Identity:  identityLine(*creds),
+		Shell:         shell,
+		Recording:     recording,
+		Shortcut:      shortcutStore.Load(),
+		ShortcutStore: shortcutStore,
+		Connected:     func() bool { return ws.Healthy() },
+		Identity:      identityLine(*creds),
 		OnRePair: func() {
 			// Best-effort re-pair (F3): collect a fresh code, save, and exit so
 			// the app relaunches paired. In-place restart is a follow-up
@@ -317,6 +348,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		OnQuit: func() { close(quit) },
 	}
 	awaitShutdown(tray, quit)
+	recording.Shutdown()
+	drainContext, cancelRecordingDrain := context.WithTimeout(context.Background(), 5*time.Second)
+	if drainErr := recording.Wait(drainContext); drainErr != nil {
+		log.Error("microphone recording shutdown drain failed", "err", drainErr)
+	}
+	cancelRecordingDrain()
 
 	log.Info("shutting down")
 	close(stop)

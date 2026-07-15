@@ -59,6 +59,7 @@ const (
 	idShellEnglish  = 3013
 	idShellRussian  = 3014
 	idShellOpen     = 3020
+	idShellCancel   = 3021
 
 	bsPushButton = 0x00000000
 	bsMultiline  = 0x00002000
@@ -68,6 +69,7 @@ const (
 	fShift   = 0x04
 	fControl = 0x08
 	vkComma  = 0xBC
+	vkEscape = 0x1B
 )
 
 type winRect struct{ left, top, right, bottom int32 }
@@ -208,6 +210,7 @@ func (ctx *mainWindowCtx) installAccelerators() {
 		{fVirtKey | fControl | fShift, 0, 'R', idShellRecord},
 		{fVirtKey | fControl | fShift, 0, 'D', idShellDND},
 		{fVirtKey | fControl, 0, vkComma, idShellSettings},
+		{fVirtKey, 0, vkEscape, idShellCancel},
 	}
 	h, _, _ := pCreateAcceleratorTableW.Call(uintptr(unsafe.Pointer(&entries[0])), uintptr(len(entries)))
 	mainAccel = windows.Handle(h)
@@ -304,12 +307,12 @@ func (ctx *mainWindowCtx) render() {
 	if snapshot.Identity != "" {
 		banner += "\r\n" + snapshot.Identity
 	}
-	if snapshot.Recording == ShellRecordingActive {
+	if snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing {
 		banner += "\r\n" + copy.Text(txtRecordingHelp)
 	}
 	setText(ctx.banner, banner)
 	recordText := copy.Text(txtStartRecording)
-	if snapshot.Recording == ShellRecordingActive {
+	if snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing {
 		recordText = copy.Text(txtStopRecording)
 	}
 	setText(ctx.record, recordText)
@@ -348,6 +351,7 @@ func (ctx *mainWindowCtx) render() {
 		}
 		setText(ctx.cards[2], copy.Text(txtNowPlaying)+"\r\n"+playing)
 		setText(ctx.footer, copy.Text(txtLocalControls)+"\r\n"+copy.Recording(snapshot)+"\r\n"+
+			copy.RecordingShortcut(snapshot.RecordingShortcut, snapshot.RecordingShortcutKey)+"\r\n"+
 			copy.Text(txtDND)+": "+copy.DND(snapshot.DND)+"    "+copy.Text(txtVolume)+fmtPercent(snapshot.Volume)+
 			"\r\n\r\n"+copy.Text(txtHistoryTitle)+"\r\n"+copy.Text(txtNoHistory))
 	} else {
@@ -423,6 +427,10 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		case idShellRecord:
 			if shellRecordingEnabled(snapshot) && actions.ToggleRecording != nil {
 				actions.ToggleRecording()
+			}
+		case idShellCancel:
+			if (snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing) && actions.CancelRecording != nil {
+				actions.CancelRecording()
 			}
 		case idShellDND:
 			if shellDNDEnabled(snapshot) && actions.SetDND != nil {

@@ -1,0 +1,35 @@
+@startuml
+title Windows recording hotkey and tray ownership
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+left to right direction
+
+actor User
+component "Win32 owner thread\ntray HWND + message pump" as UI
+component "Recording shortcut controller\nregistration + suspension set" as Shortcut
+component "Recording controller\nsingle projected state" as Recording
+component "Microphone capture service\ncues + WASAPI + private draft" as Capture
+component "Window / tray projection\nEN/RU text + explicit fallback" as Projection
+
+User --> UI : hotkey / button / tray / Esc
+UI --> Shortcut : start, reconfigure, lock,\nsuspend, resume, quit
+Shortcut --> UI : WM_HOTKEY registration id
+UI --> Recording : toggle / cancel / lifecycle stop
+Recording --> Capture : async start / stop(reason)
+Capture --> Recording : terminal outcome
+Recording --> Projection : idle / processing / active / failed
+Shortcut --> Projection : registered / conflict /\nunavailable / suspended
+
+note bottom of UI
+RegisterHotKey and UnregisterHotKey run only here.
+Esc is a foreground-window accelerator, never a global hook.
+Hidden recording exposes an explicit tray Cancel command.
+end note
+
+note bottom of Recording
+Win32 callbacks only enqueue bounded controller work.
+Shutdown drains capture after the message pump exits.
+end note
+
+@enduml

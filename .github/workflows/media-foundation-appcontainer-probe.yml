@@ -1,0 +1,52 @@
+name: Media Foundation AppContainer probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - task/task-260712-298tyq-*
+    paths:
+      - .github/workflows/media-foundation-appcontainer-probe.yml
+      - acceptance/codec-spike/**
+      - scripts/codec_spike/**
+
+permissions:
+  contents: read
+
+jobs:
+  signed-package-appcontainer-probe:
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate frozen candidate contract
+        shell: pwsh
+        run: python scripts/codec_spike/validate_mf_probe.py
+      - name: Parse PowerShell package and activation scripts
+        shell: pwsh
+        run: |
+          foreach ($path in @(
+            "scripts/codec_spike/package_mf_probe_msix.ps1",
+            "scripts/codec_spike/activate_mf_probe.ps1"
+          )) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path), [ref]$tokens, [ref]$errors
+            )
+            if ($errors.Count -ne 0) { throw "$path`n$($errors | Out-String)" }
+          }
+      - name: Build x64 and ARM64, sign packages, and activate x64 AppContainer
+        shell: pwsh
+        run: |
+          scripts/codec_spike/package_mf_probe_msix.ps1 `
+            -BuildRoot "$env:RUNNER_TEMP\media-foundation-probe" `
+            -OutputDirectory "$env:RUNNER_TEMP\media-foundation-probe\package" `
+            -SoakSeconds 60
+      - name: Archive exact package and sandbox evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-foundation-appcontainer-windows
+          path: ${{ runner.temp }}/media-foundation-probe/package/*
+          if-no-files-found: error
+          retention-days: 14

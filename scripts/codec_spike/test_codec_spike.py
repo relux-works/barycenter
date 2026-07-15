@@ -37,6 +37,7 @@ macos_native = load("codec_spike_macos_native", "validate_macos_native_probe.py"
 pure_go = load("codec_spike_pure_go", "validate_pure_go_probe.py")
 comparative_generator = load("generate_comparative_matrix", "generate_comparative_matrix.py")
 comparative_matrix = load("codec_spike_comparative_matrix", "validate_comparative_matrix.py")
+player_handoff = load("codec_spike_player_handoff", "validate_player_handoff.py")
 
 
 def passing_evidence(rubric: dict, real: bool = True) -> dict:
@@ -113,6 +114,42 @@ def passing_evidence(rubric: dict, real: bool = True) -> dict:
 
 
 class CodecSpikeContractTests(unittest.TestCase):
+    def test_player_handoff_publishes_no_go_with_frozen_seams(self):
+        handoff = player_handoff.load(player_handoff.CONTRACT_PATH)
+        player_handoff.validate(handoff)
+        self.assertEqual(handoff["decision"]["production"], "no-go")
+        self.assertIsNone(handoff["decision"]["selectedCombination"])
+        self.assertEqual(handoff["decoderAdapter"]["productionImplementations"], [])
+        self.assertTrue(handoff["downstreamMode"]["engineeringMayProceed"])
+        self.assertFalse(handoff["downstreamMode"]["productionPlaybackAllowed"])
+
+    def test_player_handoff_rejects_false_winner_and_production_escape(self):
+        handoff = player_handoff.load(player_handoff.CONTRACT_PATH)
+        handoff["decision"]["selectedCombination"] = "bundled-ffmpeg-both-platforms"
+        with self.assertRaisesRegex(player_handoff.HandoffError, "ADR decision"):
+            player_handoff.validate(handoff)
+
+        handoff = player_handoff.load(player_handoff.CONTRACT_PATH)
+        handoff["downstreamMode"]["productionPlaybackAllowed"] = True
+        with self.assertRaisesRegex(player_handoff.HandoffError, "no-go escape"):
+            player_handoff.validate(handoff)
+
+    def test_player_handoff_rejects_cache_fixture_and_release_drift(self):
+        handoff = player_handoff.load(player_handoff.CONTRACT_PATH)
+        handoff["cache"]["perVariantCeilingBytes"] += 1
+        with self.assertRaisesRegex(player_handoff.HandoffError, "cache contract drifted"):
+            player_handoff.validate(handoff)
+
+        handoff = player_handoff.load(player_handoff.CONTRACT_PATH)
+        handoff["fixtures"][0]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(player_handoff.HandoffError, "fixture digest mismatch"):
+            player_handoff.validate(handoff)
+
+        handoff = player_handoff.load(player_handoff.CONTRACT_PATH)
+        handoff["releaseObligations"].pop()
+        with self.assertRaisesRegex(player_handoff.HandoffError, "release obligations drifted"):
+            player_handoff.validate(handoff)
+
     def test_comparative_matrix_is_reproducible_and_fail_closed(self):
         matrix = json.loads(comparative_generator.OUTPUT.read_text(encoding="utf-8"))
         comparative_matrix.validate(matrix)

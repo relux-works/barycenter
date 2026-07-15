@@ -23,7 +23,9 @@ package "Node candidate probes" {
 component "Current node scheduling seam\nready -> resume_at -> mixer" as Scheduler
 component "Metrics collector\nRSS, skew, seek-to-audio,\nrange faults, cache reuse" as Metrics
 component "Legal and distribution matrix" as Legal
-component "Final ADR + handoff contract" as ADR
+component "Accepted no-go ADR\nproduction registry empty" as ADR
+component "Candidate-neutral handoff\nrange + cache + scheduler + test doubles" as Handoff
+component "Production streamed playback\nBLOCKED pending replacement ADR" as Production
 
 Fixtures --> RangeHarness
 Rubric --> Metrics
@@ -45,5 +47,8 @@ Legal --> ADR
 Metrics --> ADR
 Variants --> ADR
 Scheduler --> ADR
+ADR --> Handoff : freeze reusable seams
+ADR -[#red]-> Production : no-go
+Handoff --> Production : only after every gate passes
 
 @enduml

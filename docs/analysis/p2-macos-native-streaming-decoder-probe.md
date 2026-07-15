@@ -55,9 +55,37 @@ test-harness failures.
 
 Exact per-fixture values live in `evidence.json`; `receipt.json` binds that file
 to the signed executable hash, architecture, OS string, hardened-runtime flag
-and entitlement plist. CI runs the same package independently on hosted Apple
-silicon and Intel macOS runners. Physical Macs, route/device behavior and the
-supported release matrix remain in `EPIC-260714-th54l3`.
+and entitlement plist.
+
+## Hosted architecture evidence
+
+Dedicated run `29449314111` passed both jobs on exact engineering head
+`c1ec5c0`. The macOS 15.7.7 ARM64 and x86_64 jobs independently compiled,
+sandbox-signed, executed and validated the app. Both decoded all six exact
+fixtures and both rejected the candidate for complete-source preparation plus
+the cold MP3 CBR lifecycle gate:
+
+| Measurement | ARM64 | x86_64 |
+|---|---:|---:|
+| Peak RSS | 28,065,792 bytes | 20,623,360 bytes |
+| MP3 CBR start | 210 ms | 465 ms |
+| MP3 CBR scheduled skew | 213 ms | 466 ms |
+| Worst other scheduled skew | 39 ms | 29 ms |
+| Worst seek-to-PCM | 14 ms | 21 ms |
+| Maximum underlying read | 65,536 bytes | 65,536 bytes |
+
+Every fixture had `bytesBeforeFirstSample >= sourceBytes`. The ARM64 executable
+was 222,944 bytes with SHA-256
+`e529ddb7fc3360ee2e39e5c990740457012c439faca6d997a4cb3180d880ffb4`;
+the 198,416-byte x86_64 executable SHA-256 was
+`7aa9123f86ed6c7427aebb4d076a618311eb86fb38c1d8e88600702f61472179`.
+Both receipts record `0x10002(adhoc,runtime)`, the exact sandbox entitlement,
+and identical hashes for every sealed fixture. They explicitly set
+`realHardwareClaim=false`, production signature and notarization to
+`not-proven`.
+
+Physical Macs, route/device behavior and the supported release matrix remain
+in `EPIC-260714-th54l3`.
 
 ## Reproduction
 

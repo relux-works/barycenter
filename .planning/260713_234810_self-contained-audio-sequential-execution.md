@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 51 accepted, 154 remain.
-- Routed inventory: 186 engineering tasks (51 accepted, 135 remain) and 19
+- Combined inventory: 205 original tasks; 53 accepted, 152 remain.
+- Routed inventory: 186 engineering tasks (53 accepted, 133 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-30abcm` — macos-microphone-capture-engine
-  (strict kickoff waits only for PR #51 merge)
-- Next engineering task: `TASK-260712-9i5se7` — windows-main-window-tray-shell
-- Most recently accepted: `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
-- Current branch: `task/task-260712-2lrpc0-builtin-cue-temp-media-contract`
+- Current engineering task: `TASK-260712-9i5se7` — windows-main-window-tray-shell
+  (strict kickoff waits only for PR #52 merge)
+- Next engineering task: `TASK-260712-2w4gyw` — windows-microphone-capture-engine
+- Most recently accepted: `TASK-260712-30abcm` — macos-microphone-capture-engine
+- Current branch: `task/task-260712-30abcm-macos-microphone-capture-engine`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 51 / 205 tasks (approximately 24.9%); 154 remain
-- Engineering progress: 51 / 186 tasks (approximately 27.4%); 135 remain
+- Accepted overall: 53 / 205 tasks (approximately 25.9%); 152 remain
+- Engineering progress: 53 / 186 tasks (approximately 28.5%); 133 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -596,6 +596,26 @@ microphone, audible cue, real-app, packaged-device or physical-hardware evidence
 is claimed; those remain in `EPIC-260714-th54l3`. Progress is 52/205 overall
 and 52/186 engineering. PR #51 tracking and merge remain before strict execution
 starts `TASK-260712-30abcm`.
+
+Tracking head `9391e5e3dc73b9fe07a0600b89681e2b3fd971f7` passed all four
+hosted jobs in run `29378145671`; PR #51 landed at merge
+`1a7d68cd9e8ef2b2ff4b1809bda43757f5c97774`. Strict execution started
+`TASK-260712-30abcm` from that synchronized `main` on branch
+`task/task-260712-30abcm-macos-microphone-capture-engine`.
+
+Checkpoint 2026-07-15: `TASK-260712-30abcm` is accepted at exact engineering
+head `18bae352eb76544dd13b2aa0bf646c887926c43b`; all four hosted jobs passed in
+run `29379013937`, including 188 Swift tests. The repository now has an
+explicit Record-only TCC boundary, default/selected CoreAudio input capture,
+mono 48 kHz PCM16 app-private drafts, a local bounded meter, exact 180-second
+and 50-MiB caps, generation-safe TCC cancellation, start/stop cue exclusion,
+-12 dB main-program ducking and one serialized cleanup owner for device, TCC,
+sleep, session, quit and backend terminals. The packaged app carries guarded
+English/Russian microphone purpose strings. No real microphone, TCC UI,
+audible, lifecycle-transition, packaged-device or hardware result is claimed;
+those remain in `EPIC-260714-th54l3`. Progress is 53/205 overall and 53/186
+engineering. PR #52 tracking and merge remain before strict execution starts
+`TASK-260712-9i5se7`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1241,7 +1261,10 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
   engineering head `895eddf`; all four hosted jobs in run `29375974503` green;
   no real-app/live-VoiceOver/audible/microphone/hardware result claimed; PR #50)
 - [x] `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
-- [ ] `TASK-260712-30abcm` — macos-microphone-capture-engine
+- [x] `TASK-260712-30abcm` — macos-microphone-capture-engine (accepted on exact
+  engineering head `18bae35`; all four hosted jobs in run `29379013937` green,
+  including 188 Swift tests; no real microphone/audible/hardware result claimed;
+  PR #52)
 - [ ] `TASK-260712-9i5se7` — windows-main-window-tray-shell
 - [ ] `TASK-260712-2w4gyw` — windows-microphone-capture-engine
 - [ ] `TASK-260712-3lg0ht` — macos-self-test-file-intake

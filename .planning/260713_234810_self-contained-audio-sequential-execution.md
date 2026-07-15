@@ -1002,8 +1002,19 @@ protocol/clip/clock tests and exact predecessor transmission rollback pass.
 The reproducible review packet is
 `docs/analysis/p1-independent-protocol-technical-audit.md`. No other critical or
 high technical finding remains, but the task is not accepted: the explicitly
-required non-implementing reviewer signoff is still open, so strict execution
-cannot advance to `TASK-260712-1uz0za`.
+required non-implementing reviewer signoff is still open.
+
+Corrective engineering head `cde0aa4b2c67157bc06add3e46495e48711ba427`
+passed the clean exact-head 12-stage repository acceptance suite with
+start/end dirty false. Hosted run `29399875529` passed coordinator, node-core,
+pulsar-win and the packaged probe; PR #68 landed the HIGH fix at merge
+`524eb78`. The owner's standing goal says external approvals must be accumulated
+without stopping reversible engineering, so the genuinely non-implementing
+signoff moved to owner-decision `TASK-260715-3ffm3r`. The original task remains
+`to-review`, its independence checklist stays honestly open and it does not yet
+increase accepted-task counts. Its best-effort engineering scope is exhausted,
+so strict execution may now start `TASK-260712-1uz0za`; Phase 1 root acceptance
+and Store submission remain withheld until the external signoff returns.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1727,7 +1738,9 @@ acceptance.
   exact engineering head `918b377`; clean 12-stage repository acceptance and
   all four hosted jobs passed in run `29398604558`; production EN/RU PRI/MSIX
   schema packed on Windows SDK; actual WACK UI and hardware stay manual; PR #67)
-- [ ] `TASK-260712-176b74` — p1-independent-protocol-review
+- [ ] `TASK-260712-176b74` — p1-independent-protocol-review (technical audit
+  and HIGH fix landed through PR #68; external non-implementing signoff is
+  tracked in `TASK-260715-3ffm3r`; remains `to-review` and unaccepted)
 - [ ] `TASK-260712-1uz0za` — p1-independent-realtime-audio-review
 - [ ] `TASK-260712-1xkn75` — p1-independent-migration-review
 - [ ] `TASK-260712-wy05n6` — p1-independent-security-review

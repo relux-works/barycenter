@@ -1,5 +1,5 @@
 ## Status
-reviewing
+done
 
 ## Assigned To
 codex-inline-developer
@@ -8,7 +8,7 @@ codex-inline-developer
 2026-07-12T16:14:55Z
 
 ## Last Update
-2026-07-15T11:48:43Z
+2026-07-15T11:54:34Z
 
 ## Blocked By
 - TASK-260712-17yizc
@@ -32,6 +32,7 @@ codex-inline-developer
 ## Notes
 Strict inline execution started from synchronized main d496409 after accepted Air contract. Implementing additive schema, deterministic link backfill, persisted authority generations and fail-closed rollback without dual runtime.
 Implemented additive Air persistence, deterministic exactly-once link migration, generation-fenced cutover/rollback, immutable legacy snapshots, concurrent one-active repositories, failure injection, and exact predecessor-binary legacy service. Focused/full/race suites green; preparing clean acceptance and PR.
+Accepted: exact engineering head b5a633932e7d616bbdee252e1f255c2dfbf49054 passed local acceptance 12/12 and hosted CI run 29413065743 (4/4); PR #84 merged as 68059d9c03d6af3dcdd84468805309d4be559901.
 
 ## Precondition Resources
 - [p2-air-rooms-components.puml](file://TASK-260712-3n36ny/p2-air-rooms-components.puml) — Persistence and migration boundaries for Air schema work

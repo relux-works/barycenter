@@ -1,0 +1,42 @@
+@startuml
+title P1 Windows local self-test and brokered file intake
+
+skinparam shadowing false
+
+component "Later Windows UI integration" as UI
+component "WindowsLocalSelfTestService\nexact 5 s + generations" as SelfTest
+component "WindowsMicrophoneCaptureService\nself_test media class" as Capture
+component "WindowsProductionLocalClipOutput\nlocal schedule; reports disabled" as LocalOutput
+component "WindowsOverlayMediaClipMixer\nproduction clip branch" as Mixer
+database "CaptureMediaStore\nself-tests + opaque drafts" as Store
+component "Broker-authorized stream\npicker or drop adapter" as Broker
+component "WindowsShortAudioInspector\ncontent + limits" as Inspector
+component "WindowsShortAudioIntake\ncanonical PCM16" as Intake
+cloud "Coordinator / upload / telemetry" as Network
+
+UI --> SelfTest : cue / record / close / delete
+SelfTest --> Capture : explicit self-test capture
+Capture --> Store : partial -> self_test_local
+Capture --> LocalOutput : start and stop cues
+SelfTest --> LocalOutput : completed recording
+LocalOutput --> Mixer : direct prepare + arm
+
+UI --> Broker : OS-granted file access
+Broker --> Inspector : fresh bounded stream
+Inspector --> Intake : eligible strict WAV
+Intake --> Store : opaque durable draft
+
+SelfTest .. Network : no dependency
+LocalOutput .. Network : no MediaClipClient
+
+note right of Broker
+No broad filesystem capability.
+No external path crosses the seam.
+end note
+
+note bottom of Network
+Server probing remains authoritative only after
+a later explicit upload; Try locally never calls it.
+end note
+
+@enduml

@@ -100,6 +100,7 @@ type WindowsCaptureDucker interface {
 type WindowsCaptureRequest struct {
 	ExplicitUserAction bool
 	DeviceID           string
+	MediaClass         CaptureMediaClass
 	Meter              func(float32)
 }
 
@@ -142,6 +143,13 @@ func (s *WindowsMicrophoneCaptureService) Start(ctx context.Context, request Win
 	}
 	if s.backend == nil || s.store == nil {
 		return nil, ErrWindowsCaptureBackendFailure
+	}
+	mediaClass := request.MediaClass
+	if mediaClass == "" {
+		mediaClass = CaptureUserRecording
+	}
+	if mediaClass != CaptureUserRecording && mediaClass != CaptureSelfTest {
+		return nil, ErrCaptureInvalidState
 	}
 	s.mu.Lock()
 	if s.active != nil {
@@ -200,7 +208,7 @@ func (s *WindowsMicrophoneCaptureService) Start(ctx context.Context, request Win
 		releaseReservation()
 		return nil, ErrWindowsCaptureFormat
 	}
-	partial, err := s.store.Begin(CaptureUserRecording)
+	partial, err := s.store.Begin(mediaClass)
 	if err != nil {
 		_ = stream.Stop(WindowsCaptureCancel)
 		_ = stream.Close()

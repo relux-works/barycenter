@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "go": {
+    "version": "1.25.0",
+    "toolchain": "go1.25.0"
+  },
+  "apple": {
+    "xcodeVersion": "26.2",
+    "xcodeBuild": "17C52",
+    "swiftVersion": "6.2.3"
+  },
+  "githubHostedRunners": {
+    "linux": "ubuntu-24.04",
+    "macos": "macos-15",
+    "windows": "windows-2025"
+  },
+  "windows": {
+    "packageIdentityName": "ReluxWorksLLC.PulsarBarycenter",
+    "wackExecutable": "C:\\Program Files (x86)\\Windows Kits\\10\\App Certification Kit\\appcert.exe",
+    "sdkPolicy": "record-installed-version-and-use-current-Store-supported-WACK"
+  }
+}

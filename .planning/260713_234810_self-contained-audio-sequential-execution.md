@@ -16,7 +16,7 @@
   (starting from synchronized `main` after realtime-audio engineering handoff)
 - Next engineering task: `TASK-260712-wy05n6` — p1-independent-security-review
 - Most recently accepted: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Current branch: `tracking/task-260712-1uz0za-realtime-audio-review`
+- Current branch: `task/task-260712-1xkn75-p1-independent-migration-review`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -1041,6 +1041,12 @@ manual A3/A4 completion is routed to owner task `TASK-260715-s838ym` and
 hardware task `TASK-260712-2hodti`. The original review remains `to-review` and
 does not increase accepted-task counts; its engineering scope is exhausted, so
 strict execution advances to `TASK-260712-1xkn75`.
+
+Tracking head `6d62cf0` passed all four hosted jobs in run `29401906752`; PR
+#71 landed the external audio-signoff ledger at merge
+`635a8d3e3e9d7929a474ae6a5278187071c520c9`. Strict execution started
+`TASK-260712-1xkn75` from synchronized `main` on branch
+`task/task-260712-1xkn75-p1-independent-migration-review`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

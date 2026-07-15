@@ -130,19 +130,48 @@ func randomCode() string {
 }
 
 func (s *Store) initOrbits() error {
-	if _, err := s.db.Exec(orbitSchema); err != nil {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(orbitSchema); err != nil {
 		return err
 	}
 	// Approaches between barycenters (design §12 L1): additive table.
-	if _, err := s.db.Exec(linksSchema); err != nil {
+	if _, err := tx.Exec(linksSchema); err != nil {
 		return err
 	}
 	// Pre-provider databases lack slots.provider: additive migration.
-	s.db.Exec(`ALTER TABLE slots ADD COLUMN provider TEXT NOT NULL DEFAULT 'spotify'`)
+	hasProvider, err := txColumnExists(tx, "slots", "provider")
+	if err != nil {
+		return err
+	}
+	if !hasProvider {
+		if _, err := tx.Exec(`ALTER TABLE slots
+ADD COLUMN provider TEXT NOT NULL DEFAULT 'spotify'`); err != nil {
+			return err
+		}
+	}
 	// Pre-M1.5 databases lack members.display_name: additive migration so
 	// /home can render members by name instead of raw tg_user_id (bot-ux #4).
-	s.db.Exec(`ALTER TABLE members ADD COLUMN display_name TEXT NOT NULL DEFAULT ''`)
-	return nil
+	hasDisplayName, err := txColumnExists(tx, "members", "display_name")
+	if err != nil {
+		return err
+	}
+	if !hasDisplayName {
+		if _, err := tx.Exec(`ALTER TABLE members
+ADD COLUMN display_name TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+	// Do not run the global FK check here. A rollback binary may have removed
+	// an orbit while leaving additive identity children; initIdentitySchema
+	// owns the narrowly bounded cleanup and the subsequent global check.
+	if err := s.checkpoint("orbit_ddl_before_commit"); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // --- Provider layer (spec-providers §2, behind DUET_PROVIDERS) ---

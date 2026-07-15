@@ -23,6 +23,7 @@ package "Coordinator" {
 }
 
 database "Store\nmedia_items\ntransmissions\ntransmission_targets\ntarget reference digests\nreports\nairs / air_members" as db
+database "Inbox Projection\ntransmission_inbox_items\ntransmission_replay_lineage\ninbox cursor digests" as inboxdb
 component "Air Membership and Presence\n(active Air, capabilities, DND)" as air
 component "Windows/macOS Pulsars" as nodes
 
@@ -46,20 +47,25 @@ resolver --> targetrefs : resolve opaque selector\n404 for forged/stale/cross-sc
 txsvc --> capabilities : fail whole create with\n422 unsupported_targets
 txsvc --> runtime : schedule clip or main-program action
 txsvc --> db : persist transmission\nsnapshot / expiry
-inboxsvc --> db : read inbox / receipts\nwith pagination
-runtime --> db : update per-target receipts\ncreate inbox entries
+inboxsvc --> inboxdb : exact-binding keyset reads\nand opaque cursor state
+runtime --> db : update exact target receipt
+runtime --> inboxdb : same transaction creates\none eligible target item
 runtime --> nodes : prepare / play / queue / replace
 acl --> db : authorize by target snapshot\nand disable / delete state
 nodes --> acl : authenticated media fetch
 rights --> db : reports / delete / disable
+rights --> inboxdb : project canonical\nrevocation state
 rights --> acl : revoke future fetch
 admin --> rights : review report / disable actor
 
-note right of inboxsvc
-Inbox persistence and query APIs are intentionally
-owned by the next tasks. This task reuses Phase 1
-transmission targets and does not create a second
-history, ACL, or moderation model.
+note right of inboxdb
+Ownership is the immutable transmission target tuple,
+including actor, slot and binding generation. There is
+no Air-membership edge. Replacement bindings and later
+members cannot inherit historical media or inbox rows.
+Eligible terminal receipts are exactly-once by a unique
+target tuple; replay lineage never rewrites the receipt.
+HTTP presentation and action routes remain downstream.
 end note
 
 note bottom of txsvc

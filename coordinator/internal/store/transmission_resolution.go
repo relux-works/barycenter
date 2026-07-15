@@ -806,6 +806,10 @@ func evaluateTransmissionTargetsTx(
 			OnlineAtAcceptance: online,
 		}
 		if online {
+			target.CapabilitySetHash = transmissionTargetCapabilitySetHash(
+				current.Capabilities, current.MediaClipCapable, current.OverlayCapable,
+				current.InterruptCapable, current.InterruptResumeReady,
+			)
 			target.MediaClipCapable = current.MediaClipCapable
 			target.OverlayCapable = current.OverlayCapable
 			target.InterruptCapable = current.InterruptCapable

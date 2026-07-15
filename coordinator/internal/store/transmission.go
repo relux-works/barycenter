@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
+	"strings"
 	"time"
 
 	"relux.works/duet/coordinator/internal/ulid"
@@ -163,6 +165,8 @@ type TransmissionTarget struct {
 	ActorID              int64
 	Slot                 string
 	BindingPairedAt      int64
+	CapabilitySetHash    string
+	ResolvedAtMS         int64
 	OnlineAtAcceptance   bool
 	MediaClipCapable     bool
 	OverlayCapable       bool
@@ -184,6 +188,7 @@ type CreateTransmissionTarget struct {
 	OrbitID              int64
 	ActorID              int64
 	Slot                 string
+	CapabilitySetHash    string
 	OnlineAtAcceptance   bool
 	MediaClipCapable     bool
 	OverlayCapable       bool
@@ -257,7 +262,8 @@ expires_at, revision, updated_at, completed_at, air_id, air_policy_revision,
 air_policy_operation, air_policy_result`
 
 const transmissionTargetColumns = `transmission_id, orbit_id, actor_id, slot,
-binding_paired_at, online_at_acceptance, media_clip_capable, overlay_capable,
+binding_paired_at, capability_set_hash, resolved_at_ms, online_at_acceptance,
+media_clip_capable, overlay_capable,
 interrupt_capable, interrupt_resume_ready, status, reason_code, generation,
 revision, ready_at, scheduled_at, started_at, ended_at, last_receipt_at,
 updated_at`
@@ -288,7 +294,8 @@ func scanTransmissionTarget(row sqlScanner) (TransmissionTarget, error) {
 	var online, mediaClip, overlay, interrupt, interruptResume int
 	err := row.Scan(
 		&target.TransmissionID, &target.OrbitID, &target.ActorID, &target.Slot,
-		&target.BindingPairedAt, &online, &mediaClip, &overlay, &interrupt,
+		&target.BindingPairedAt, &target.CapabilitySetHash, &target.ResolvedAtMS,
+		&online, &mediaClip, &overlay, &interrupt,
 		&interruptResume, &target.Status, &target.ReasonCode,
 		&target.Generation, &target.Revision, &target.ReadyAt,
 		&target.ScheduledAt, &target.StartedAt, &target.EndedAt,
@@ -300,6 +307,41 @@ func scanTransmissionTarget(row sqlScanner) (TransmissionTarget, error) {
 	target.InterruptCapable = interrupt != 0
 	target.InterruptResumeReady = interruptResume != 0
 	return target, err
+}
+
+func transmissionTargetCapabilityHash(
+	mediaClip, overlay, interrupt, interruptResume bool,
+) string {
+	return transmissionTargetCapabilitySetHash(
+		nil, mediaClip, overlay, interrupt, interruptResume,
+	)
+}
+
+func transmissionTargetCapabilitySetHash(
+	registered []string,
+	mediaClip, overlay, interrupt, interruptResume bool,
+) string {
+	capabilitySet := make(map[string]struct{}, len(registered)+3)
+	for _, capability := range registered {
+		if capability != "" {
+			capabilitySet[capability] = struct{}{}
+		}
+	}
+	if mediaClip {
+		capabilitySet[TransmissionCapabilityMediaClip] = struct{}{}
+	}
+	if overlay {
+		capabilitySet[TransmissionCapabilityOverlayMix] = struct{}{}
+	}
+	if interrupt && interruptResume {
+		capabilitySet[TransmissionCapabilityInterrupt] = struct{}{}
+	}
+	capabilities := make([]string, 0, len(capabilitySet))
+	for capability := range capabilitySet {
+		capabilities = append(capabilities, capability)
+	}
+	sort.Strings(capabilities)
+	return hashToken(strings.Join(capabilities, ","))
 }
 
 func validTransmissionDelivery(delivery TransmissionDelivery) bool {
@@ -424,6 +466,10 @@ func validateCreateTransmission(params CreateTransmissionParams) error {
 		if target.OrbitID <= 0 || target.ActorID <= 0 ||
 			!transmissionSlotPattern.MatchString(target.Slot) {
 			return fmt.Errorf("%w: malformed target", ErrTransmissionTargetInvalid)
+		}
+		if target.CapabilitySetHash != "" &&
+			!transmissionDigestPattern.MatchString(target.CapabilitySetHash) {
+			return fmt.Errorf("%w: malformed capability snapshot", ErrTransmissionTargetInvalid)
 		}
 		if _, exists := seenActors[target.ActorID]; exists {
 			return fmt.Errorf("%w: duplicate target actor", ErrTransmissionTargetInvalid)
@@ -620,11 +666,21 @@ func (s *Store) createTransmissionTx(
 		}
 		if _, err := tx.Exec(`INSERT INTO transmission_targets(
   transmission_id, orbit_id, actor_id, slot, binding_paired_at,
+  capability_set_hash, resolved_at_ms,
   online_at_acceptance, media_clip_capable, overlay_capable,
   interrupt_capable, interrupt_resume_ready, status, reason_code,
   generation, revision, ended_at, last_receipt_at, updated_at
-) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)`,
+) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)`,
 			id, candidate.OrbitID, candidate.ActorID, candidate.Slot, pairedAt,
+			func() string {
+				if candidate.CapabilitySetHash != "" {
+					return candidate.CapabilitySetHash
+				}
+				return transmissionTargetCapabilityHash(
+					candidate.MediaClipCapable, candidate.OverlayCapable,
+					candidate.InterruptCapable, candidate.InterruptResumeReady,
+				)
+			}(), params.AcceptedAt,
 			candidate.OnlineAtAcceptance, candidate.MediaClipCapable,
 			candidate.OverlayCapable, candidate.InterruptCapable,
 			candidate.InterruptResumeReady, status, candidate.ReasonCode,
@@ -638,6 +694,9 @@ WHERE transmission_id = ? AND orbit_id = ? AND slot = ?`,
 			id, candidate.OrbitID, candidate.Slot,
 		))
 		if err != nil {
+			return TransmissionCreation{}, err
+		}
+		if _, err := createTransmissionInboxItemTx(tx, target, params.AcceptedAt); err != nil {
 			return TransmissionCreation{}, err
 		}
 		createdTargets = append(createdTargets, target)
@@ -862,6 +921,9 @@ WHERE transmission_id = ? AND orbit_id = ? AND slot = ?`,
 		params.TransmissionID, params.OrbitID, params.Slot,
 	))
 	if err != nil {
+		return TransmissionTargetTransition{}, err
+	}
+	if _, err := createTransmissionInboxItemTx(tx, target, params.OccurredAt); err != nil {
 		return TransmissionTargetTransition{}, err
 	}
 	transmission, err := recomputeTransmissionTx(tx, params.TransmissionID, params.OccurredAt)

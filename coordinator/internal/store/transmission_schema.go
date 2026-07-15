@@ -136,6 +136,11 @@ CREATE TABLE IF NOT EXISTS transmission_targets (
   actor_id INTEGER NOT NULL CHECK(actor_id > 0),
   slot TEXT NOT NULL CHECK(length(slot) = 1 AND slot GLOB '[a-z]'),
   binding_paired_at INTEGER NOT NULL CHECK(binding_paired_at >= 0),
+  capability_set_hash TEXT NOT NULL DEFAULT
+    'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+    CHECK(length(capability_set_hash) = 64
+      AND capability_set_hash NOT GLOB '*[^0-9a-f]*'),
+  resolved_at_ms INTEGER NOT NULL DEFAULT 0 CHECK(resolved_at_ms >= 0),
   online_at_acceptance INTEGER NOT NULL CHECK(online_at_acceptance IN (0, 1)),
   media_clip_capable INTEGER NOT NULL CHECK(media_clip_capable IN (0, 1)),
   overlay_capable INTEGER NOT NULL CHECK(overlay_capable IN (0, 1)),
@@ -168,6 +173,133 @@ CREATE INDEX IF NOT EXISTS transmission_targets_actor_acl
   ON transmission_targets(actor_id, orbit_id, slot, transmission_id);
 CREATE INDEX IF NOT EXISTS transmission_targets_work
   ON transmission_targets(status, updated_at, transmission_id);
+CREATE INDEX IF NOT EXISTS transmission_targets_receipt_history
+  ON transmission_targets(
+    actor_id, binding_paired_at, last_receipt_at DESC, transmission_id DESC
+  );
+CREATE UNIQUE INDEX IF NOT EXISTS transmission_targets_inbox_owner
+  ON transmission_targets(
+    transmission_id, orbit_id, actor_id, slot, binding_paired_at
+  );
+
+-- One inbox item belongs to one immutable target binding.  It is created in
+-- the same transaction as the first eligible terminal receipt.  The unique
+-- owner key is the database-level exactly-once guard; Air membership is not
+-- represented anywhere in this graph and therefore cannot expand it later.
+CREATE TABLE IF NOT EXISTS transmission_inbox_items (
+  id TEXT PRIMARY KEY
+    CHECK(length(id) = 29 AND substr(id, 1, 3) = 'ib_'),
+  transmission_id TEXT NOT NULL,
+  media_id TEXT NOT NULL REFERENCES media_items(id),
+  orbit_id INTEGER NOT NULL CHECK(orbit_id > 0),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  slot TEXT NOT NULL CHECK(length(slot) = 1 AND slot GLOB '[a-z]'),
+  binding_paired_at INTEGER NOT NULL CHECK(binding_paired_at >= 0),
+  media_kind TEXT NOT NULL CHECK(media_kind IN (
+    'voice_clip', 'audio_clip', 'audio_track', 'builtin_cue'
+  )),
+  requested_delivery TEXT NOT NULL
+    CHECK(requested_delivery IN ('overlay', 'interrupt', 'after_current')),
+  effective_delivery TEXT NOT NULL
+    CHECK(effective_delivery IN ('overlay', 'interrupt', 'after_current')),
+  missed_status TEXT NOT NULL CHECK(missed_status IN (
+    'missed_offline', 'missed_dnd', 'missed_not_ready', 'failed'
+  )),
+  missed_reason TEXT NOT NULL CHECK(missed_reason IN (
+    'offline_at_acceptance', 'offline_before_prepare', 'offline_before_start',
+    'local_dnd', 'orbit_dnd', 'prepare_deadline', 'connection_lost',
+    'device_unavailable', 'audio_graph_failed'
+  )),
+  availability TEXT NOT NULL DEFAULT 'available'
+    CHECK(availability IN (
+      'available', 'dismissed', 'replayed', 'unavailable', 'expired'
+    )),
+  replay_of_inbox_id TEXT NOT NULL DEFAULT '' CHECK(
+    replay_of_inbox_id = '' OR
+    (length(replay_of_inbox_id) = 29 AND substr(replay_of_inbox_id, 1, 3) = 'ib_')
+  ),
+  replay_of_transmission_id TEXT NOT NULL DEFAULT '' CHECK(
+    replay_of_transmission_id = '' OR
+    (length(replay_of_transmission_id) = 29
+      AND substr(replay_of_transmission_id, 1, 3) = 'tr_')
+  ),
+  replay_root_transmission_id TEXT NOT NULL CHECK(
+    length(replay_root_transmission_id) = 29
+      AND substr(replay_root_transmission_id, 1, 3) = 'tr_'
+  ),
+  replay_depth INTEGER NOT NULL DEFAULT 0 CHECK(replay_depth BETWEEN 0 AND 8),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  updated_at INTEGER NOT NULL CHECK(updated_at >= created_at),
+  expires_at INTEGER NOT NULL CHECK(expires_at >= created_at),
+  dismissed_at INTEGER NOT NULL DEFAULT 0 CHECK(dismissed_at >= 0),
+  consumed_at INTEGER NOT NULL DEFAULT 0 CHECK(consumed_at >= 0),
+  revoked_at INTEGER NOT NULL DEFAULT 0 CHECK(revoked_at >= 0),
+  revocation_reason TEXT NOT NULL DEFAULT '' CHECK(revocation_reason IN (
+    '', 'media_deleted', 'media_expired', 'moderation_disabled',
+    'target_revoked', 'reported'
+  )),
+  UNIQUE(transmission_id, orbit_id, actor_id, slot, binding_paired_at),
+  FOREIGN KEY(transmission_id, orbit_id, actor_id, slot, binding_paired_at)
+    REFERENCES transmission_targets(
+      transmission_id, orbit_id, actor_id, slot, binding_paired_at
+    ),
+  CHECK(availability <> 'dismissed' OR dismissed_at > 0),
+  CHECK(availability <> 'replayed' OR consumed_at > 0),
+  CHECK((availability = 'unavailable' AND revoked_at > 0
+      AND revocation_reason <> '')
+    OR (availability <> 'unavailable' AND revoked_at = 0
+      AND revocation_reason = '')),
+  CHECK(replay_depth > 0 OR (replay_of_inbox_id = ''
+    AND replay_of_transmission_id = '')),
+  CHECK(replay_depth = 0 OR (replay_of_inbox_id <> ''
+    AND replay_of_transmission_id <> ''))
+);
+CREATE INDEX IF NOT EXISTS transmission_inbox_target_page
+  ON transmission_inbox_items(
+    actor_id, orbit_id, slot, binding_paired_at, created_at DESC, id DESC
+  );
+CREATE INDEX IF NOT EXISTS transmission_inbox_media_revocation
+  ON transmission_inbox_items(media_id, availability, expires_at);
+
+-- Replay lineage is attached to the newly accepted transmission instead of
+-- rewriting its source inbox receipt.  A missed replay can therefore inherit
+-- the same root/depth when its own inbox row is materialized.
+CREATE TABLE IF NOT EXISTS transmission_replay_lineage (
+  transmission_id TEXT PRIMARY KEY REFERENCES transmissions(id) ON DELETE CASCADE,
+  replay_of_inbox_id TEXT NOT NULL REFERENCES transmission_inbox_items(id),
+  replay_of_transmission_id TEXT NOT NULL REFERENCES transmissions(id),
+  replay_root_transmission_id TEXT NOT NULL REFERENCES transmissions(id),
+  replay_depth INTEGER NOT NULL CHECK(replay_depth BETWEEN 1 AND 8),
+  created_at INTEGER NOT NULL CHECK(created_at > 0)
+);
+CREATE INDEX IF NOT EXISTS transmission_replay_lineage_root
+  ON transmission_replay_lineage(
+    replay_root_transmission_id, replay_depth, created_at, transmission_id
+  );
+
+-- Inbox cursors mirror the Phase 1 history capability design.  Only a digest
+-- is durable and every page boundary remains bound to one actor credential,
+-- current installation generation, view and limit.
+CREATE TABLE IF NOT EXISTS transmission_inbox_cursors (
+  token_hash TEXT PRIMARY KEY
+    CHECK(length(token_hash) = 64 AND token_hash NOT GLOB '*[^0-9a-f]*'),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  authorization_hash TEXT NOT NULL
+    CHECK(length(authorization_hash) = 64
+      AND authorization_hash NOT GLOB '*[^0-9a-f]*'),
+  binding_paired_at INTEGER NOT NULL CHECK(binding_paired_at >= 0),
+  view TEXT NOT NULL CHECK(view IN ('all', 'available', 'dismissed')),
+  page_limit INTEGER NOT NULL CHECK(page_limit BETWEEN 1 AND 100),
+  upper_at INTEGER NOT NULL CHECK(upper_at > 0),
+  upper_id TEXT NOT NULL CHECK(length(upper_id) = 29 AND substr(upper_id, 1, 3) = 'ib_'),
+  last_at INTEGER NOT NULL CHECK(last_at > 0),
+  last_id TEXT NOT NULL CHECK(length(last_id) = 29 AND substr(last_id, 1, 3) = 'ib_'),
+  expires_at INTEGER NOT NULL CHECK(expires_at > 0),
+  created_at INTEGER NOT NULL CHECK(created_at > 0)
+);
+CREATE INDEX IF NOT EXISTS transmission_inbox_cursors_expiry
+  ON transmission_inbox_cursors(expires_at, actor_id);
 
 -- Scheduler timestamps live outside the immutable acceptance snapshot.  This
 -- keeps the domain FIFO and barrier restart-safe while allowing a previous
@@ -229,6 +361,8 @@ WHEN NEW.transmission_id <> OLD.transmission_id
   OR NEW.actor_id <> OLD.actor_id
   OR NEW.slot <> OLD.slot
   OR NEW.binding_paired_at <> OLD.binding_paired_at
+  OR NEW.capability_set_hash <> OLD.capability_set_hash
+  OR NEW.resolved_at_ms <> OLD.resolved_at_ms
   OR NEW.online_at_acceptance <> OLD.online_at_acceptance
   OR NEW.media_clip_capable <> OLD.media_clip_capable
   OR NEW.overlay_capable <> OLD.overlay_capable
@@ -514,15 +648,18 @@ func (s *Store) initTransmissionSchema() error {
 	// These acceptance fields were introduced after the transmission table.
 	// Defaults keep the immediately preceding coordinator rollback-compatible.
 	for _, column := range []struct {
-		name string
-		ddl  string
+		table string
+		name  string
+		ddl   string
 	}{
-		{"air_id", `ALTER TABLE transmissions ADD COLUMN air_id TEXT NOT NULL DEFAULT ''`},
-		{"air_policy_revision", `ALTER TABLE transmissions ADD COLUMN air_policy_revision INTEGER NOT NULL DEFAULT 0 CHECK(air_policy_revision >= 0)`},
-		{"air_policy_operation", `ALTER TABLE transmissions ADD COLUMN air_policy_operation TEXT NOT NULL DEFAULT '' CHECK(air_policy_operation IN ('', 'overlay', 'queue', 'replace'))`},
-		{"air_policy_result", `ALTER TABLE transmissions ADD COLUMN air_policy_result TEXT NOT NULL DEFAULT '' CHECK(air_policy_result IN ('', 'allowed'))`},
+		{"transmissions", "air_id", `ALTER TABLE transmissions ADD COLUMN air_id TEXT NOT NULL DEFAULT ''`},
+		{"transmissions", "air_policy_revision", `ALTER TABLE transmissions ADD COLUMN air_policy_revision INTEGER NOT NULL DEFAULT 0 CHECK(air_policy_revision >= 0)`},
+		{"transmissions", "air_policy_operation", `ALTER TABLE transmissions ADD COLUMN air_policy_operation TEXT NOT NULL DEFAULT '' CHECK(air_policy_operation IN ('', 'overlay', 'queue', 'replace'))`},
+		{"transmissions", "air_policy_result", `ALTER TABLE transmissions ADD COLUMN air_policy_result TEXT NOT NULL DEFAULT '' CHECK(air_policy_result IN ('', 'allowed'))`},
+		{"transmission_targets", "capability_set_hash", `ALTER TABLE transmission_targets ADD COLUMN capability_set_hash TEXT NOT NULL DEFAULT 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' CHECK(length(capability_set_hash) = 64 AND capability_set_hash NOT GLOB '*[^0-9a-f]*')`},
+		{"transmission_targets", "resolved_at_ms", `ALTER TABLE transmission_targets ADD COLUMN resolved_at_ms INTEGER NOT NULL DEFAULT 0 CHECK(resolved_at_ms >= 0)`},
 	} {
-		exists, err := txColumnExists(tx, "transmissions", column.name)
+		exists, err := txColumnExists(tx, column.table, column.name)
 		if err != nil {
 			return err
 		}
@@ -532,6 +669,42 @@ func (s *Store) initTransmissionSchema() error {
 			}
 		}
 	}
+	// A previous binary can insert rollback-era rows using the defaults above.
+	// Drop either generation of the immutable trigger before reconciling those
+	// rows, then reinstall the current trigger after the snapshot is complete.
+	if _, err := tx.Exec(`DROP TRIGGER IF EXISTS transmission_targets_snapshot_immutable`); err != nil {
+		return err
+	}
+	// Upgrade rows freeze the only capability and resolution evidence the
+	// previous schema retained.  Hashes use the same canonical capability list
+	// as fresh acceptance; accepted_at is the exact safe resolution boundary.
+	for mediaClip := 0; mediaClip <= 1; mediaClip++ {
+		for overlay := 0; overlay <= 1; overlay++ {
+			for interrupt := 0; interrupt <= 1; interrupt++ {
+				for resume := 0; resume <= 1; resume++ {
+					capabilityHash := transmissionTargetCapabilityHash(
+						mediaClip != 0, overlay != 0, interrupt != 0, resume != 0,
+					)
+					if _, err := tx.Exec(`UPDATE transmission_targets
+SET capability_set_hash = ?
+WHERE resolved_at_ms = 0 AND media_clip_capable = ?
+  AND overlay_capable = ? AND interrupt_capable = ?
+  AND interrupt_resume_ready = ?`, capabilityHash, mediaClip, overlay,
+						interrupt, resume); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	if _, err := tx.Exec(`UPDATE transmission_targets
+SET resolved_at_ms = (
+  SELECT accepted_at FROM transmissions
+  WHERE transmissions.id = transmission_targets.transmission_id
+)
+WHERE resolved_at_ms = 0`); err != nil {
+		return err
+	}
 	// Existing databases already have the trigger created by the prior schema;
 	// replace it so the additive policy snapshot is immutable there too.
 	if _, err := tx.Exec(`DROP TRIGGER IF EXISTS transmissions_acceptance_immutable`); err != nil {
@@ -540,12 +713,18 @@ func (s *Store) initTransmissionSchema() error {
 	if _, err := tx.Exec(transmissionAcceptanceImmutableTrigger); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(transmissionTargetSnapshotImmutableTrigger); err != nil {
+		return err
+	}
 	// Rows accepted by the immediately preceding schema did not yet have the
 	// additive scheduler companion. Their immutable acceptance time is the only
 	// safe backfill timestamp; no barrier or schedule is invented here.
 	if _, err := tx.Exec(`INSERT OR IGNORE INTO transmission_scheduler_state(
   transmission_id, updated_at
 ) SELECT id, accepted_at FROM transmissions`); err != nil {
+		return err
+	}
+	if err := backfillTransmissionInboxItemsTx(tx); err != nil {
 		return err
 	}
 	if err := foreignKeyCheck(tx); err != nil {
@@ -581,5 +760,25 @@ WHEN NEW.id <> OLD.id
   OR NEW.expires_at <> OLD.expires_at
 BEGIN
   SELECT RAISE(ABORT, 'transmission acceptance snapshot is immutable');
+END;
+`
+
+const transmissionTargetSnapshotImmutableTrigger = `
+CREATE TRIGGER transmission_targets_snapshot_immutable
+BEFORE UPDATE ON transmission_targets
+WHEN NEW.transmission_id <> OLD.transmission_id
+  OR NEW.orbit_id <> OLD.orbit_id
+  OR NEW.actor_id <> OLD.actor_id
+  OR NEW.slot <> OLD.slot
+  OR NEW.binding_paired_at <> OLD.binding_paired_at
+  OR NEW.capability_set_hash <> OLD.capability_set_hash
+  OR NEW.resolved_at_ms <> OLD.resolved_at_ms
+  OR NEW.online_at_acceptance <> OLD.online_at_acceptance
+  OR NEW.media_clip_capable <> OLD.media_clip_capable
+  OR NEW.overlay_capable <> OLD.overlay_capable
+  OR NEW.interrupt_capable <> OLD.interrupt_capable
+  OR NEW.interrupt_resume_ready <> OLD.interrupt_resume_ready
+BEGIN
+  SELECT RAISE(ABORT, 'transmission target snapshot is immutable');
 END;
 `

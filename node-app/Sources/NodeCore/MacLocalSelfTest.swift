@@ -469,7 +469,8 @@ public final class MacLocalSelfTestService: @unchecked Sendable {
         intake: MacShortAudioIntake,
         cueURL: URL,
         recordingDuration: TimeInterval = MacLocalSelfTestService.exactRecordingSeconds,
-        eventQueue: DispatchQueue = .main
+        eventQueue: DispatchQueue = .main,
+        bindCaptureEvents: Bool = true
     ) throws {
         _ = try BuiltinRecordingCue.load(from: cueURL)
         precondition(recordingDuration > 0)
@@ -480,7 +481,9 @@ public final class MacLocalSelfTestService: @unchecked Sendable {
         self.cueURL = cueURL
         self.recordingDuration = recordingDuration
         self.eventQueue = eventQueue
-        capture.onEvent = { [weak self] event in self?.handleCapture(event) }
+        if bindCaptureEvents {
+            capture.onEvent = { [weak self] event in self?.consumeCaptureEvent(event) }
+        }
     }
 
     public func playBuiltinCue() {
@@ -555,6 +558,14 @@ public final class MacLocalSelfTestService: @unchecked Sendable {
             self.deleteDraftLocked()
             self.setPhase(.idle)
         }
+    }
+
+    /// Integration seam for a single physical capture engine shared by the
+    /// normal-recording and five-second self-test workflows. Standalone users
+    /// keep the default direct binding above; the app composition root routes
+    /// events here only while a self-test owns capture.
+    public func consumeCaptureEvent(_ event: MacCaptureEvent) {
+        handleCapture(event)
     }
 
     private func handleCapture(_ event: MacCaptureEvent) {

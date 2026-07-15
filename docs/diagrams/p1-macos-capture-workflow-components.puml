@@ -1,0 +1,31 @@
+@startuml
+title P1 macOS integrated capture and local self-test
+
+actor User
+component "Pulsar shell\nwindow + status menu" as Shell
+component "MacCaptureAppComposition\napp lifecycle + projection" as App
+component "MacRecordingShortcutLifecycle\nCarbon bounded presets" as Shortcut
+component "MacCaptureWorkflowController\nsingle operation gate" as Workflow
+component "MacMicrophoneCaptureEngine\nTCC + CoreAudio + bounded WAV" as Capture
+component "MacLocalSelfTestService\nexact 5 seconds + file intake" as SelfTest
+component "MacProductionLocalClipOutput\nproduction overlay mixer" as Output
+database "CaptureMediaStore\nprivate partials + drafts" as Store
+component "AudioEngine\naccountless or paired graph" as Audio
+
+User --> Shell
+Shortcut --> Workflow : toggle/cancel
+Shell --> App : typed actions
+App --> Workflow
+Workflow --> Capture : one owner at a time
+Workflow --> SelfTest : local-only actions/events
+Capture --> Store
+SelfTest --> Store
+Workflow --> Output : serialized cues
+SelfTest --> Output : cue + completed self-test
+Output --> Audio
+
+note bottom of Workflow
+No coordinator, upload, transmission,
+fetch or network client in this boundary.
+end note
+@enduml

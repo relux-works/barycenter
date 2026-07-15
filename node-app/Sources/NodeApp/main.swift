@@ -272,6 +272,25 @@ final class CoreRuntime {
 // --- Bootstrap: paired -> core + menu bar; unpaired -> onboarding window ---
 
 var runtime: CoreRuntime?
+@MainActor var macCaptureComposition: MacCaptureAppComposition?
+
+final class LocalCaptureAudioRuntime {
+    let log: Logger
+    let engine: AudioEngine
+
+    init(config: NodeConfig) throws {
+        log = Logger(level: Logger.Level(name: config.log.level), path: config.log.path)
+        engine = AudioEngine(
+            fifoPath: config.audio.fifoPath,
+            ringMs: config.audio.ringBufferMs,
+            log: log)
+        try engine.start()
+    }
+
+    func stop() { engine.stopEngine() }
+}
+
+@MainActor var localCaptureAudioRuntime: LocalCaptureAudioRuntime?
 @MainActor var shellRefreshTimer: Timer?
 @MainActor var shellConfiguredRoute: String?
 @MainActor var shellModel: PulsarShellModel!
@@ -300,6 +319,7 @@ func startCore(with config: NodeConfig) {
     // L6: never stack a second core on a live one (two librespots fighting
     // for one token = hub last-write-wins flapping). Any path that reaches
     // here with a runtime still up tears it down first.
+    stopMacCaptureComposition()
     if let old = runtime {
         old.teardown()
         runtime = nil
@@ -320,6 +340,7 @@ func startCore(with config: NodeConfig) {
             : nil
         app.setActivationPolicy(config.airfoil.isEnabled ? .regular : .accessory)
         startShellRefresh(identity: connectionIdentity(config))
+        startMacCaptureComposition(audio: rt.engine, log: rt.log)
         mainWindow.show()
     } catch let err as ConfigError {
         failConfig(err.description)
@@ -353,6 +374,7 @@ func rePairFlow() {
     shellRefreshTimer?.invalidate()
     shellRefreshTimer = nil
     shellConfiguredRoute = nil
+    stopMacCaptureComposition()
     runtime?.teardown()
     runtime = nil
     statusMenu.player = nil
@@ -413,6 +435,7 @@ func bootstrap() {
         }
         app.setActivationPolicy(.regular)
         shellModel.replaceSnapshot(.init(connection: .unpaired))
+        startAccountlessMacCapture(config: config)
         // First launch: prime the Local Network permission before pairing, so the
         // system prompt lands on an explained button — not out of nowhere while a
         // headless daemon touches the LAN (the failure that hid Timur's speaker).
@@ -453,12 +476,59 @@ func configureShell() {
             runtime?.player.setLocalVolume(volume)
             shellModel.setVolume(volume)
         },
-        // Capture tasks replace this seam and set recordingAvailable=true. The
-        // visible disabled control is deliberate; this shell must not fake audio.
-        toggleRecording: {}
+        toggleRecording: { macCaptureComposition?.toggleRecording() },
+        cancelRecording: { macCaptureComposition?.cancelRecording() },
+        setCaptureDevice: { macCaptureComposition?.selectDevice($0) },
+        setRecordingShortcut: { macCaptureComposition?.setShortcut($0) },
+        playBuiltinCue: { macCaptureComposition?.playBuiltinCue() },
+        recordFiveSeconds: { macCaptureComposition?.recordFiveSeconds() },
+        reviewLocalFile: { macCaptureComposition?.reviewFile($0) },
+        acceptLocalFile: { macCaptureComposition?.acceptFile($0) },
+        deleteLocalDraft: { macCaptureComposition?.deleteLocalDraft() },
+        closeSelfTest: { macCaptureComposition?.closeSelfTest() }
     )
     mainWindow = PulsarMainWindowController(model: shellModel, actions: shellActions)
     statusMenu = StatusMenuController()
+}
+
+@MainActor
+func startMacCaptureComposition(audio: AudioEngine, log: Logger) {
+    do {
+        let composition = try MacCaptureAppComposition(
+            audio: audio,
+            log: log,
+            supportRoot: URL(fileURLWithPath: ConfigLoader.supportDir, isDirectory: true),
+            model: shellModel)
+        macCaptureComposition = composition
+        composition.start()
+    } catch {
+        log.error("mac capture composition unavailable", ["reason": "initialization_failed"])
+        shellModel.setRecording(.unavailable, available: false)
+        shellModel.setSelfTestAvailable(false)
+    }
+}
+
+@MainActor
+func startAccountlessMacCapture(config: NodeConfig) {
+    materializeSupportTree(config)
+    do {
+        let local = try LocalCaptureAudioRuntime(config: config)
+        localCaptureAudioRuntime = local
+        startMacCaptureComposition(audio: local.engine, log: local.log)
+    } catch {
+        localCaptureAudioRuntime?.stop()
+        localCaptureAudioRuntime = nil
+        shellModel.setRecording(.unavailable, available: false)
+        shellModel.setSelfTestAvailable(false)
+    }
+}
+
+@MainActor
+func stopMacCaptureComposition() {
+    macCaptureComposition?.shutdown()
+    macCaptureComposition = nil
+    localCaptureAudioRuntime?.stop()
+    localCaptureAudioRuntime = nil
 }
 
 @MainActor
@@ -513,6 +583,11 @@ let sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: signalQueu
 signal(SIGINT, SIG_IGN)
 signal(SIGTERM, SIG_IGN)
 func shutdown() {
+    if Thread.isMainThread {
+        MainActor.assumeIsolated { stopMacCaptureComposition() }
+    } else {
+        DispatchQueue.main.sync { stopMacCaptureComposition() }
+    }
     if let rt = runtime {
         rt.shutdown()
     } else {

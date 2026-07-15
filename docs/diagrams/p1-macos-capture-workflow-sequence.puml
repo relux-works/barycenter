@@ -1,0 +1,48 @@
+@startuml
+title P1 macOS normal recording and self-test ownership
+
+actor User
+participant Shell
+participant Workflow
+participant Output
+participant Capture
+database Store
+
+== Normal recording ==
+User -> Shell : Record button or registered hotkey
+Shell -> Workflow : toggleNormalRecording()
+Workflow -> Capture : begin(selected input, explicit action)
+Capture --> Workflow : playStartCue
+Workflow -> Output : play reviewed cue
+Output --> Workflow : completed
+Workflow -> Capture : startCueCompleted()
+Capture --> Shell : recording + scalar meter
+User -> Shell : Stop
+Shell -> Workflow : toggleNormalRecording()
+Workflow -> Capture : stop()
+Capture -> Store : finalize durable unsent draft
+Capture --> Workflow : playStopCue + finished(draft)
+Workflow -> Output : play reviewed cue
+Output --> Workflow : completed
+Workflow --> Shell : draft ready + idle
+
+== Exact local self-test ==
+User -> Shell : Record 5 seconds
+Shell -> Workflow : recordFiveSeconds()
+Workflow -> Capture : begin(explicit action)
+Capture --> Workflow : start cue event
+Workflow -> Output : cue
+Output --> Workflow : completed
+Workflow -> Capture : commit exactly 5 seconds
+Capture -> Store : finalize completed draft
+Workflow -> Output : stop cue, then completed draft
+Output --> Shell : reviewing draft
+User -> Shell : close or delete
+Shell -> Workflow : closeSelfTest/deleteLocalDraft
+Workflow -> Store : delete owned self-test media
+
+note over Workflow,Store
+Normal and self-test capture cannot overlap.
+No upload or network call occurs in either local sequence.
+end note
+@enduml

@@ -1,0 +1,244 @@
+{
+  "artifacts": [
+    {
+      "bytes": 106,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "9ca5e6579ec05933c8339c9e52ec37ade54f3d135113b7b66055f34c74e4ed58"
+    },
+    {
+      "bytes": 0,
+      "path": "02-coordinator-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 1873,
+      "path": "03-coordinator-tests.log",
+      "sha256": "fcfacdb3d5f0503d8bf36affa6ad17ff3a31ef8a749957a41bdec98f09d767b5"
+    },
+    {
+      "bytes": 68,
+      "path": "04-moderation-contract.log",
+      "sha256": "461fdcf0892fae2772307ccb9b42b9e908a64612d72feda14a0b64b25b257c1f"
+    },
+    {
+      "bytes": 57,
+      "path": "05-previous-head-rollback.log",
+      "sha256": "59d78e646c4e506c50df36480439fe7220f8e004d959044a073df2e42efb8e30"
+    },
+    {
+      "bytes": 0,
+      "path": "06-windows-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 212,
+      "path": "07-windows-tests.log",
+      "sha256": "3e7f2ec3d48226e90b059307d4d2dad9e4f49492f2b90470e671299a334771e8"
+    },
+    {
+      "bytes": 212,
+      "path": "08-windows-race.log",
+      "sha256": "3e7f2ec3d48226e90b059307d4d2dad9e4f49492f2b90470e671299a334771e8"
+    },
+    {
+      "bytes": 0,
+      "path": "09-windows-cross-vet-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "10-windows-cross-build-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "11-windows-cross-build-arm64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 48678,
+      "path": "12-swift-tests.log",
+      "sha256": "f6eae854b0cee31933e0b250c024d42567875c3eafae7dc4d46888b32aba61af"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "02-coordinator-vet.log",
+      "name": "coordinator-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "03-coordinator-tests.log",
+      "name": "coordinator-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "run",
+        "./cmd/moderation-ops-check"
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "04-moderation-contract.log",
+      "name": "moderation-contract"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-tags",
+        "previoushead",
+        "-count=1",
+        "./internal/store",
+        "-run",
+        "^(TestR8ExactPreviousHEAD(AuthorityRoundTrip|TwoGenerationProjectionComposition|ConfigBootstrapContract)|TestMediaIngestExactPreviousHeadRollback|TestMediaUploadExactPreviousHeadRollback|TestMediaProcessingExactPreviousHeadRollback|TestMediaLifecycleExactPreviousHeadRollback|TestMediaIntegrationExactPreviousHeadRollback|TestTransmissionStoreExactPreviousHeadRollback|TestModerationExactPreviousHeadRollback|TestAirExactPreviousCoordinatorLegacyServicePreservesPhase2Rows)$"
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "05-previous-head-rollback.log",
+      "name": "previous-head-rollback"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "06-windows-vet.log",
+      "name": "windows-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "07-windows-tests.log",
+      "name": "windows-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "08-windows-race.log",
+      "name": "windows-race"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "09-windows-cross-vet-amd64.log",
+      "name": "windows-cross-vet-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "10-windows-cross-build-amd64.log",
+      "name": "windows-cross-build-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "11-windows-cross-build-arm64.log",
+      "name": "windows-cross-build-arm64"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "test"
+      ],
+      "cwd": "node-app",
+      "exitCode": 0,
+      "log": "12-swift-tests.log",
+      "name": "swift-tests"
+    }
+  ],
+  "finishedAt": "2026-07-15T16:22:59Z",
+  "git": {
+    "dirty": true,
+    "endDirty": true,
+    "endDirtyPaths": [
+      "M .planning/260713_234810_self-contained-audio-sequential-execution.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-3v14m9_p2-air-rooms/TASK-260712-3nq0tq_air-lifecycle-regression-rehearsal/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-3v14m9_p2-air-rooms/progress.md",
+      " M coordinator/cmd/duet-coordinator/loop_test.go",
+      " M coordinator/internal/store/transmission_scheduler.go",
+      " M docs/analysis/p2-acceptance-rollout-cross-story-deps.md",
+      "?? coordinator/cmd/duet-coordinator/air_regression_rehearsal_test.go",
+      "?? coordinator/internal/store/air_regression_rehearsal_test.go",
+      "?? docs/analysis/p2-air-lifecycle-regression-rehearsal.md",
+      "?? scripts/acceptance/run_air_regression.py"
+    ],
+    "head": "8d20fa9b557b9f0fdde23b80551570c25113c7eb",
+    "startDirty": true
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-15T16:21:21Z",
+  "status": "pass",
+  "suite": "all",
+  "toolchains": {
+    "apple": {
+      "developerDir": "/Applications/Xcode.app/Contents/Developer",
+      "swiftVersion": "6.2.3",
+      "xcodeBuild": "17C52",
+      "xcodeVersion": "26.2"
+    },
+    "go": "go version go1.25.12 darwin/amd64"
+  }
+}

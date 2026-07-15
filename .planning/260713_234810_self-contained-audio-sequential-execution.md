@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 79 accepted, 126 remain.
-- Routed inventory: 186 engineering tasks (79 accepted, 107 remain) and 19
+- Combined inventory: 205 original tasks; 80 accepted, 125 remain.
+- Routed inventory: 186 engineering tasks (80 accepted, 106 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3nq0tq` — air-lifecycle-regression-rehearsal
-- Next engineering task: `TASK-260712-3nq0tq` — air-lifecycle-regression-rehearsal
-- Most recently accepted: `TASK-260712-2zdetx` — telegram-air-lifecycle-parity
-- Current branch: `main` at `009fba2e9e3f93bd36614725da3702c76625ba1f`; next task branch not yet created
+- Current engineering task: `TASK-260712-14u0yk` — freeze-codec-spike-rubric-fixtures-harness
+- Next engineering task: `TASK-260712-14u0yk` — freeze-codec-spike-rubric-fixtures-harness
+- Most recently accepted: `TASK-260712-3nq0tq` — air-lifecycle-regression-rehearsal
+- Current branch: `main` (accepted Air regression tracking checkpoint)
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 79 / 205 tasks (approximately 38.5%); 126 remain
-- Engineering progress: 79 / 186 tasks (approximately 42.5%); 107 remain
+- Accepted overall: 80 / 205 tasks (approximately 39.0%); 125 remain
+- Engineering progress: 80 / 186 tasks (approximately 43.0%); 106 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1294,6 +1294,26 @@ landed at merge `009fba2e9e3f93bd36614725da3702c76625ba1f`. No real Telegram
 client, app or hardware evidence is claimed. Progress is 79/205 overall and
 79/186 engineering; strict execution advances to `TASK-260712-3nq0tq`.
 
+Checkpoint 2026-07-15 (accepted): `TASK-260712-3nq0tq` closes the Air story
+with an adversarial lifecycle and capacity rehearsal on engineering commit
+`b984230`. The generic transmission scheduler now rechecks that every accepted
+Air target is still a joined member with that Air active: a leaver is cancelled
+during prepare or moved to cancelling during playback with stable
+`approach_left`, while remaining targets continue and the immutable accepted
+snapshot is never expanded. A deterministic production-loop fixture proves 8
+Barycenters, 20 Pulsars, 20 unique load commands, zero duplicates, one Air
+runtime and zero legacy groups. The repository-only harness covers one-active
+and role/invite races, exact current union, join/leave boundaries, lazy parking,
+restart, aliases, secure Telegram callbacks, fault-injected backfill/cutover,
+rollback hold and explicit downstream gaps. Full coordinator tests/vet/race
+passed; repository acceptance passed 12/12 including exact predecessor,
+Windows race/cross-build and Swift fixtures. Hosted run `29432415158` passed
+all four jobs; PR #100 landed at merge
+`e4aa266913ed7daed1ae07c50d7b33c1e7d1288f`. Real applications, hardware,
+Telegram transport and audible playback remain unclaimed in the manual-test
+epic. Progress is 80/205 overall and 80/186 engineering; the Air story is
+complete and strict execution advances to `TASK-260712-14u0yk`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2060,7 +2080,9 @@ critical path.
 - [x] `TASK-260712-2zdetx` — telegram-air-lifecycle-parity (accepted on
   engineering commit `e8d8214`; repository automated gate 12/12, hosted run
   `29430796136` 4/4, PR #98 merge `009fba2`)
-- [ ] `TASK-260712-3nq0tq` — air-lifecycle-regression-rehearsal
+- [x] `TASK-260712-3nq0tq` — air-lifecycle-regression-rehearsal (accepted on
+  engineering commit `b984230`; full coordinator tests/vet/race and repository
+  acceptance 12/12, hosted run `29432415158` 4/4, PR #100 merge `e4aa266`)
 
 ## 10. P2 codec and streaming player spike
 

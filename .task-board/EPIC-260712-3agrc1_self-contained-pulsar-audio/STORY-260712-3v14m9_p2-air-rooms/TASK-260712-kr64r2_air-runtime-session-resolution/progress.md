@@ -1,5 +1,5 @@
 ## Status
-reviewing
+done
 
 ## Assigned To
 codex-inline-developer
@@ -8,7 +8,7 @@ codex-inline-developer
 2026-07-12T16:14:55Z
 
 ## Last Update
-2026-07-15T12:30:48Z
+2026-07-15T12:41:34Z
 
 ## Blocked By
 - TASK-260712-17yizc
@@ -34,6 +34,7 @@ codex-inline-developer
 ## Notes
 Strict inline execution started from synchronized main ebadce7 after accepted Air schema migration. Inspecting current link-keyed runtime/session ownership before implementing stable Air resolution and generation fencing.
 Implemented stable Air-ID runtime ownership, exact current-member unions, active-only warmup, generation/revision fences, main-only join catch-up, caller-only leave, lazy parked rooms, stale async rejection, Air media cancellation and rollback-hold fail-closed behavior. Full tests/vet and race suites green; preparing clean acceptance and PR.
+Accepted: exact engineering head d344f32e20bf1934022acdefc241fbc34a8c0ff9 passed clean local acceptance 12/12 with start/end dirty false and hosted CI run 29415681872 (4/4 after one unrelated Windows callback-dispatch flake retry); PR #86 merged as 3dcf309f623c55a8d3bfa6f4582b2c194cc96d7c.
 
 ## Precondition Resources
 - [p2-air-rooms-components.puml](file://TASK-260712-kr64r2/p2-air-rooms-components.puml) — Runtime ownership and stateFor boundaries for Air session routing

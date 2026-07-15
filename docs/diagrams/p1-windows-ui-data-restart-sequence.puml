@@ -1,0 +1,46 @@
+@startuml
+title Windows finalized draft restart and retry
+
+actor User
+participant "Win32 shell" as UI
+participant "Draft outbox" as Outbox
+database "outbox metadata" as State
+database "private WAV" as WAV
+participant "Coordinator" as Coordinator
+
+User -> UI : Send(route, delivery)
+UI -> Outbox : send(draft ID)
+Outbox -> State : persist frozen intent + source + stable keys
+Outbox -> Coordinator : create/resume upload (same upload key)
+Coordinator --> Outbox : completed(media ID)
+Outbox -> State : persist media ID
+Outbox -> WAV : delete exact confirmed draft
+
+alt process stops before/while cleanup
+  Outbox -> State : retryable local_cleanup_failed
+  ... process restart ...
+  Outbox -> State : load media ID + recovered handle
+  Outbox -> WAV : retry exact cleanup
+  note right of Outbox
+  No second upload.
+  end note
+end
+
+Outbox -> Coordinator : transmit(same media ID, same transmission key)
+alt interrupt needs downgrade confirmation
+  Coordinator --> Outbox : challenge(memory-only token, after_current)
+  Outbox --> UI : requires explicit confirmation
+  User -> UI : Confirm: after current
+  UI -> Outbox : confirm fallback
+  Outbox -> Coordinator : same request/key + short-lived token
+end
+alt coordinator unavailable
+  Outbox -> State : retryable coordinator_unavailable
+  User -> UI : Retry
+  UI -> Outbox : same frozen intent
+  Outbox -> Coordinator : same transmission key
+end
+Coordinator --> Outbox : accepted(requested, effective, downgrade)
+Outbox -> State : persist honest receipt
+Outbox --> UI : accepted projection
+@enduml

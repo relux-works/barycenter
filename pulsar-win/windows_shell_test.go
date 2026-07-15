@@ -50,6 +50,7 @@ func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
 		"wmDPIChanged", "pGetDpiForWindow", "pIsDialogMessageW",
 		"pTranslateAcceleratorW", "wmGetMinMax", "wsExControlParent",
 		`mk(0, "BUTTON"`, `mk(0, "STATIC"`, "wmDropFiles", "pDragAcceptFiles", "AcceptDroppedFile",
+		"windowText(ctx.identityInput)", "chooseWindowsRecoveryDestination", "idShellSend", "SendSelectedDraft",
 	} {
 		if !strings.Contains(nativeText, seam) {
 			t.Errorf("native shell missing %q", seam)
@@ -72,6 +73,39 @@ func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
 	}
 	if !strings.Contains(string(manifest), "PerMonitorV2") {
 		t.Error("packaged executable is not PerMonitorV2-aware")
+	}
+}
+
+func TestWindowsShellPhaseOneLabelsAreCanonicalAndHideOpaqueIDs(t *testing.T) {
+	snapshot := ShellSnapshot{
+		SelectedPhaseOneRoute: PhaseOneOwnBarycenter, SelectedPhaseOneDelivery: PhaseOneOverlay,
+		PhaseOneDrafts: []ShellPhaseOneDraft{{
+			Title: "Daily note", State: PhaseOneDraftRetryableFailure,
+			RequestedDelivery: PhaseOneOverlay, EffectiveDelivery: PhaseOneAfterCurrent,
+			DowngradeReason: "mandatory_target_missing_overlay_capability", FailureCode: "coordinator_unavailable",
+		}},
+		PhaseOneHistory: []ShellPhaseOneHistoryItem{{
+			Title: "Team update", SenderName: "Ivan", Status: "played",
+			RequestedDelivery: "overlay", EffectiveDelivery: "after_current", PlayedCount: 1,
+		}},
+	}
+	for _, locale := range []ShellLocale{ShellEnglish, ShellRussian} {
+		copy := NewShellCopy(locale)
+		projection := copy.Draft(snapshot) + "\n" + copy.Body(ShellHistory, snapshot)
+		deliveryLabel := "After current"
+		if locale == ShellRussian {
+			deliveryLabel = "После текущего"
+		}
+		for _, required := range []string{"Daily note", "Team update", deliveryLabel} {
+			if !strings.Contains(projection, required) {
+				t.Errorf("%s projection missing %q: %q", locale, required, projection)
+			}
+		}
+		for _, forbidden := range []string{"m_", "tr_", "hi_"} {
+			if strings.Contains(projection, forbidden) {
+				t.Errorf("%s projection leaked opaque ID marker %q: %q", locale, forbidden, projection)
+			}
+		}
 	}
 }
 

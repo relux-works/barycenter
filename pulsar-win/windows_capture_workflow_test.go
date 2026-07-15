@@ -120,3 +120,37 @@ func TestWindowsCaptureWorkflowBrokeredPickerAndHonestProjection(t *testing.T) {
 		t.Fatalf("deleted draft projection=%+v", snapshot)
 	}
 }
+
+func TestWindowsCaptureWorkflowOutgoingPickerCreatesNormalDurableDraft(t *testing.T) {
+	store := NewCaptureMediaStore(t.TempDir())
+	intake := NewWindowsShortAudioIntake(NewWindowsShortAudioInspector(DefaultWindowsShortAudioLimits()), store)
+	selfTest := newWindowsSelfTestServiceForTest(t, failingWindowsSelfTestCapture{err: ErrWindowsCapturePermission}, &fakeWindowsLocalOutput{}, store, time.Hour)
+	workflow := NewWindowsCaptureWorkflowController(NewWindowsRecordingController(nil), selfTest, nil)
+	workflow.ConfigureDraftBoundary(store, nil)
+	workflow.SetOutgoingIntake(intake)
+	workflow.SetPicker(func(context.Context, uintptr) (WindowsBrokeredAudioFile, error) {
+		return brokeredBytes(`C:\Users\Ivan\picked.wav`, makeWAV16(1, 48_000, make([]int16, 4_800))), nil
+	})
+	drafts := make(chan CaptureMediaHandle, 1)
+	origins := make(chan PhaseOneOriginKind, 1)
+	workflow.SetNormalDraftHandler(func(handle CaptureMediaHandle, originKind PhaseOneOriginKind) {
+		drafts <- handle
+		origins <- originKind
+	})
+
+	workflow.ChooseOutgoingFile(42)
+	select {
+	case draft := <-drafts:
+		if draft.Class != CaptureUserRecording || draft.State != CaptureDurableUnsent {
+			t.Fatalf("outgoing draft=%+v", draft)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("outgoing draft was not delivered to the normal boundary")
+	}
+	if origin := <-origins; origin != PhaseOneFile {
+		t.Fatalf("outgoing origin=%s", origin)
+	}
+	if snapshot := workflow.LocalSnapshot(); !snapshot.RecordingDraftAvailable || snapshot.DraftAvailable {
+		t.Fatalf("outgoing projection crossed self-test boundary: %+v", snapshot)
+	}
+}

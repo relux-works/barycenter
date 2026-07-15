@@ -29,9 +29,13 @@ type WindowsCaptureWorkflowSnapshot struct {
 }
 
 type WindowsCaptureWorkflowController struct {
-	recording *WindowsRecordingController
-	selfTest  *WindowsLocalSelfTestService
-	picker    func(context.Context, uintptr) (WindowsBrokeredAudioFile, error)
+	recording       *WindowsRecordingController
+	selfTest        *WindowsLocalSelfTestService
+	picker          func(context.Context, uintptr) (WindowsBrokeredAudioFile, error)
+	outgoingIntake  *WindowsShortAudioIntake
+	mediaStore      *CaptureMediaStore
+	recoveredDrafts []CaptureMediaHandle
+	onNormalDraft   func(CaptureMediaHandle, PhaseOneOriginKind)
 
 	mu                sync.RWMutex
 	snapshot          WindowsCaptureWorkflowSnapshot
@@ -42,12 +46,77 @@ type WindowsCaptureWorkflowController struct {
 	platformCloseOnce sync.Once
 }
 
+// ConfigureDraftBoundary exposes only finalized user recordings to the Phase
+// 1 outbox composition. Self-test media remains owned by the local service and
+// never reaches this callback or the recovered draft set.
+func (c *WindowsCaptureWorkflowController) ConfigureDraftBoundary(store *CaptureMediaStore, recovered []CaptureMediaHandle) {
+	if c == nil {
+		return
+	}
+	filtered := make([]CaptureMediaHandle, 0, len(recovered))
+	for _, handle := range recovered {
+		if handle.Class == CaptureUserRecording && handle.State == CaptureDurableUnsent {
+			filtered = append(filtered, handle)
+		}
+	}
+	c.mu.Lock()
+	c.mediaStore = store
+	c.recoveredDrafts = filtered
+	c.snapshot.RecordingDraftAvailable = len(filtered) > 0
+	c.mu.Unlock()
+}
+
+func (c *WindowsCaptureWorkflowController) SetNormalDraftHandler(handler func(CaptureMediaHandle, PhaseOneOriginKind)) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	c.onNormalDraft = handler
+	recovered := append([]CaptureMediaHandle(nil), c.recoveredDrafts...)
+	c.mu.Unlock()
+	if handler != nil {
+		for _, handle := range recovered {
+			handler(handle, PhaseOneMicrophone)
+		}
+	}
+}
+
+func (c *WindowsCaptureWorkflowController) CaptureMediaStore() *CaptureMediaStore {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.mediaStore
+}
+
+func (c *WindowsCaptureWorkflowController) RecoveredUserDrafts() []CaptureMediaHandle {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return append([]CaptureMediaHandle(nil), c.recoveredDrafts...)
+}
+
 func (c *WindowsCaptureWorkflowController) SetPicker(picker func(context.Context, uintptr) (WindowsBrokeredAudioFile, error)) {
 	if c == nil {
 		return
 	}
 	c.mu.Lock()
 	c.picker = picker
+	c.mu.Unlock()
+}
+
+// SetOutgoingIntake keeps user-selected outgoing files on the same durable
+// CaptureUserRecording boundary as microphone recordings. The local self-test
+// has its own intake call path and never invokes the normal-draft handler.
+func (c *WindowsCaptureWorkflowController) SetOutgoingIntake(intake *WindowsShortAudioIntake) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	c.outgoingIntake = intake
 	c.mu.Unlock()
 }
 
@@ -188,6 +257,56 @@ func (c *WindowsCaptureWorkflowController) ChooseFile(owner uintptr) {
 		}
 		_, _ = c.selfTest.AcceptFile(file)
 	}()
+}
+
+// ChooseOutgoingFile imports a brokered short-audio file as a durable unsent
+// draft. It is intentionally separate from ChooseFile, which is disposable
+// local self-test intake.
+func (c *WindowsCaptureWorkflowController) ChooseOutgoingFile(owner uintptr) {
+	if c == nil || c.recordingBusy() || c.selfTestBusy() {
+		return
+	}
+	c.mu.RLock()
+	picker, intake := c.picker, c.outgoingIntake
+	c.mu.RUnlock()
+	if picker == nil || intake == nil || !c.beginOperation() {
+		return
+	}
+	go func() {
+		defer c.pending.Done()
+		file, err := picker(c.ctx, owner)
+		if err != nil {
+			if c.ctx.Err() == nil {
+				c.setLocalFailure("file_picker_failed")
+			}
+			return
+		}
+		if c.ctx.Err() != nil {
+			if file.Release != nil {
+				file.Release()
+			}
+			return
+		}
+		_, handle, err := intake.Accept(file)
+		if err != nil {
+			c.setLocalFailure("outgoing_file_intake_failed")
+			return
+		}
+		c.mu.Lock()
+		c.snapshot.Failure = ""
+		c.snapshot.RecordingDraftAvailable = true
+		handler := c.onNormalDraft
+		c.mu.Unlock()
+		if handler != nil {
+			handler(handle, PhaseOneFile)
+		}
+	}()
+}
+
+func (c *WindowsCaptureWorkflowController) setLocalFailure(code string) {
+	c.mu.Lock()
+	c.snapshot.Failure = code
+	c.mu.Unlock()
 }
 
 func (c *WindowsCaptureWorkflowController) DeleteLocalDraft() {
@@ -342,7 +461,11 @@ func (c *WindowsCaptureWorkflowController) handleRecordingOutcome(outcome Window
 	if outcome.Draft != nil {
 		c.snapshot.RecordingDraftAvailable = true
 	}
+	handler := c.onNormalDraft
 	c.mu.Unlock()
+	if outcome.Draft != nil && outcome.Draft.Class == CaptureUserRecording && outcome.Draft.State == CaptureDurableUnsent && handler != nil {
+		handler(*outcome.Draft, PhaseOneMicrophone)
+	}
 }
 
 func (c *WindowsCaptureWorkflowController) handleSelfTestEvent(event WindowsLocalSelfTestEvent) {

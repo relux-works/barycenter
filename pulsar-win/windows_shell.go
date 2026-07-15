@@ -56,34 +56,83 @@ const (
 	ShellDNDMutedUntil   ShellDND = "muted_until"
 )
 
+type ShellIdentityOperation string
+
+const (
+	ShellIdentityIdle             ShellIdentityOperation = "idle"
+	ShellIdentityWorking          ShellIdentityOperation = "working"
+	ShellIdentityRecoveryRequired ShellIdentityOperation = "recovery_required"
+	ShellIdentityActive           ShellIdentityOperation = "active"
+	ShellIdentityFailed           ShellIdentityOperation = "failed"
+)
+
+type ShellPhaseOneDraft struct {
+	Title                         string
+	State                         PhaseOneDraftState
+	Route                         PhaseOneRoute
+	RequestedDelivery             PhaseOneDelivery
+	EffectiveDelivery             PhaseOneDelivery
+	DowngradeReason               string
+	Status                        string
+	FailureCode                   string
+	LocalBytesRetained            bool
+	FallbackConfirmationAvailable bool
+}
+
+type ShellPhaseOneHistoryItem struct {
+	Title             string
+	SenderName        string
+	Direction         string
+	Status            string
+	RequestedDelivery string
+	EffectiveDelivery string
+	DowngradeReason   string
+	PlayedCount       int
+	OtherCount        int
+	CanDelete         bool
+	CanReplay         bool
+	CanBlock          bool
+}
+
 type ShellSnapshot struct {
-	Connection              ShellConnection
-	ConnectionDetail        string
-	Identity                string
-	PresenceOnline          int
-	PresenceTotal           int
-	PresenceAvailable       bool
-	RouteName               string
-	NowPlaying              string
-	PlaybackState           string
-	HistoryCount            int
-	DND                     ShellDND
-	Recording               ShellRecording
-	RecordingAvailable      bool
-	RecordingShortcut       WindowsRecordingShortcutStatus
-	RecordingShortcutKey    WindowsRecordingShortcut
-	SelfTestAvailable       bool
-	SelfTestPhase           WindowsLocalSelfTestPhase
-	SelfTestMeter           float32
-	LocalDraftAvailable     bool
-	LocalDraftName          string
-	RecordingDraftAvailable bool
-	LocalFailure            string
-	CaptureInputs           []WindowsCaptureInput
-	SelectedCaptureInput    int
-	AudioOutputs            []WindowsAudioOutput
-	SelectedAudioOutput     int
-	Volume                  int
+	Connection               ShellConnection
+	ConnectionDetail         string
+	Identity                 string
+	PresenceOnline           int
+	PresenceTotal            int
+	PresenceReady            int
+	PresenceAvailable        bool
+	RouteName                string
+	NowPlaying               string
+	PlaybackState            string
+	HistoryCount             int
+	DND                      ShellDND
+	Recording                ShellRecording
+	RecordingAvailable       bool
+	RecordingShortcut        WindowsRecordingShortcutStatus
+	RecordingShortcutKey     WindowsRecordingShortcut
+	SelfTestAvailable        bool
+	SelfTestPhase            WindowsLocalSelfTestPhase
+	SelfTestMeter            float32
+	LocalDraftAvailable      bool
+	LocalDraftName           string
+	RecordingDraftAvailable  bool
+	LocalFailure             string
+	CaptureInputs            []WindowsCaptureInput
+	SelectedCaptureInput     int
+	AudioOutputs             []WindowsAudioOutput
+	SelectedAudioOutput      int
+	Volume                   int
+	IdentityOperation        ShellIdentityOperation
+	IdentityFailure          string
+	RecoveryExportRequired   bool
+	PhaseOneDrafts           []ShellPhaseOneDraft
+	SelectedPhaseOneDraft    int
+	SelectedPhaseOneRoute    PhaseOneRoute
+	SelectedPhaseOneDelivery PhaseOneDelivery
+	PhaseOneHistory          []ShellPhaseOneHistoryItem
+	SelectedHistoryItem      int
+	PhaseOneFailure          string
 }
 
 func (s ShellSnapshot) normalized() ShellSnapshot {
@@ -121,6 +170,12 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 	if s.PresenceTotal < s.PresenceOnline {
 		s.PresenceTotal = s.PresenceOnline
 	}
+	if s.PresenceReady < 0 {
+		s.PresenceReady = 0
+	}
+	if s.PresenceReady > s.PresenceOnline {
+		s.PresenceReady = s.PresenceOnline
+	}
 	if s.SelfTestMeter < 0 {
 		s.SelfTestMeter = 0
 	}
@@ -133,22 +188,50 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 	if s.SelectedAudioOutput < 0 || s.SelectedAudioOutput >= len(s.AudioOutputs) {
 		s.SelectedAudioOutput = 0
 	}
+	switch s.IdentityOperation {
+	case ShellIdentityIdle, ShellIdentityWorking, ShellIdentityRecoveryRequired, ShellIdentityActive, ShellIdentityFailed:
+	default:
+		s.IdentityOperation = ShellIdentityIdle
+	}
+	if s.SelectedPhaseOneDraft < 0 || s.SelectedPhaseOneDraft >= len(s.PhaseOneDrafts) {
+		s.SelectedPhaseOneDraft = 0
+	}
+	if s.SelectedHistoryItem < 0 || s.SelectedHistoryItem >= len(s.PhaseOneHistory) {
+		s.SelectedHistoryItem = 0
+	}
+	if !validPhaseOneRoute(s.SelectedPhaseOneRoute) {
+		s.SelectedPhaseOneRoute = PhaseOneThisPulsar
+	}
+	if !validPhaseOneDelivery(s.SelectedPhaseOneDelivery) {
+		s.SelectedPhaseOneDelivery = PhaseOneOverlay
+	}
 	return s
 }
 
 type ShellActions struct {
-	Create            func()
-	Join              func()
-	TryLocally        func()
-	PlayBuiltinCue    func()
-	ChooseLocalFile   func()
-	AcceptDroppedFile func(WindowsBrokeredAudioFile)
-	DeleteLocalDraft  func()
-	SelectNextInput   func()
-	SelectNextOutput  func()
-	ToggleRecording   func()
-	CancelRecording   func()
-	SetDND            func(ShellDND)
+	Create                     func(string)
+	Join                       func(string)
+	SaveRecovery               func(string)
+	TryLocally                 func()
+	PlayBuiltinCue             func()
+	ChooseLocalFile            func()
+	ChooseOutgoingFile         func()
+	AcceptDroppedFile          func(WindowsBrokeredAudioFile)
+	DeleteLocalDraft           func()
+	SelectNextInput            func()
+	SelectNextOutput           func()
+	ToggleRecording            func()
+	CancelRecording            func()
+	SetDND                     func(ShellDND)
+	SendSelectedDraft          func()
+	DeleteSelectedDraft        func()
+	SelectNextPhaseOneDraft    func()
+	SelectNextPhaseOneRoute    func()
+	SelectNextPhaseOneDelivery func()
+	SelectNextHistoryItem      func()
+	DeleteSelectedHistoryItem  func()
+	ReplaySelectedHistoryItem  func()
+	BlockSelectedHistoryActor  func()
 }
 
 type WindowsShell struct {
@@ -374,27 +457,31 @@ func (c ShellCopy) Presence(snapshot ShellSnapshot) string {
 		return c.Connection(snapshot)
 	}
 	if c.locale == ShellRussian {
-		return fmt.Sprintf("В сети %d из %d", snapshot.PresenceOnline, snapshot.PresenceTotal)
+		return fmt.Sprintf("В сети %d из %d · готовы %d", snapshot.PresenceOnline, snapshot.PresenceTotal, snapshot.PresenceReady)
 	}
-	return fmt.Sprintf("%d of %d online", snapshot.PresenceOnline, snapshot.PresenceTotal)
+	return fmt.Sprintf("%d of %d online · %d ready", snapshot.PresenceOnline, snapshot.PresenceTotal, snapshot.PresenceReady)
 }
 
 func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 	switch section {
 	case ShellCreate:
-		return c.Text(txtCreateBody)
+		return c.Text(txtCreateBody) + c.IdentityStatus(snapshot)
 	case ShellJoin:
-		return c.Text(txtJoinBody)
+		return c.Text(txtJoinBody) + c.IdentityStatus(snapshot)
 	case ShellTryLocally:
 		if !snapshot.SelfTestAvailable {
 			return c.Text(txtTryBody) + "\r\n\r\n" + c.Text(txtSelfTestUnavailable)
 		}
 		return c.Text(txtTryBody) + "\r\n\r\n" + c.LocalSelfTest(snapshot)
 	case ShellHistory:
-		if snapshot.HistoryCount == 0 {
+		if len(snapshot.PhaseOneHistory) == 0 {
+			if snapshot.PhaseOneFailure != "" {
+				return c.Text(txtNoHistory) + "\r\n[!] " + snapshot.PhaseOneFailure
+			}
 			return c.Text(txtNoHistory)
 		}
-		return fmt.Sprintf("%s: %d", c.Text(txtHistoryTitle), snapshot.HistoryCount)
+		item := snapshot.PhaseOneHistory[snapshot.SelectedHistoryItem]
+		return c.HistoryItem(item, snapshot.SelectedHistoryItem+1, len(snapshot.PhaseOneHistory))
 	case ShellSettings:
 		return c.Text(txtLanguage) + "\r\n\r\n" + c.Text(txtDND) + ": " + c.DND(snapshot.DND) +
 			"\r\n" + c.Text(txtVolume) + fmt.Sprintf(": %d%%", snapshot.Volume)
@@ -407,6 +494,103 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 		}
 		return ""
 	}
+}
+
+func (c ShellCopy) IdentityStatus(snapshot ShellSnapshot) string {
+	if snapshot.IdentityOperation == ShellIdentityIdle && snapshot.IdentityFailure == "" {
+		return ""
+	}
+	labelsEN := map[ShellIdentityOperation]string{
+		ShellIdentityWorking: "Request in progress", ShellIdentityRecoveryRequired: "Save the recovery file before this installation becomes active",
+		ShellIdentityActive: "Identity saved securely", ShellIdentityFailed: "Identity request failed",
+	}
+	labelsRU := map[ShellIdentityOperation]string{
+		ShellIdentityWorking: "Запрос выполняется", ShellIdentityRecoveryRequired: "Сохраните файл восстановления до активации установки",
+		ShellIdentityActive: "Идентификатор защищённо сохранён", ShellIdentityFailed: "Ошибка запроса идентификатора",
+	}
+	label := labelsEN[snapshot.IdentityOperation]
+	if c.locale == ShellRussian {
+		label = labelsRU[snapshot.IdentityOperation]
+	}
+	if snapshot.IdentityFailure != "" {
+		label += ": " + snapshot.IdentityFailure
+	}
+	return "\r\n\r\n" + label
+}
+
+func (c ShellCopy) Draft(snapshot ShellSnapshot) string {
+	if len(snapshot.PhaseOneDrafts) == 0 {
+		if c.locale == ShellRussian {
+			return "Нет черновика для отправки"
+		}
+		return "No outgoing draft"
+	}
+	draft := snapshot.PhaseOneDrafts[snapshot.SelectedPhaseOneDraft]
+	line := draft.Title + " — " + string(draft.State)
+	line += "\r\n" + c.Route(snapshot.SelectedPhaseOneRoute) + " · " + c.Delivery(snapshot.SelectedPhaseOneDelivery)
+	if draft.RequestedDelivery != "" {
+		line += "\r\n" + c.requestedLabel() + ": " + c.Delivery(draft.RequestedDelivery)
+	}
+	if draft.EffectiveDelivery != "" {
+		line += " · " + c.effectiveLabel() + ": " + c.Delivery(draft.EffectiveDelivery)
+	}
+	if draft.DowngradeReason != "" {
+		line += "\r\n[~] " + draft.DowngradeReason
+	}
+	if draft.FailureCode != "" {
+		line += "\r\n[!] " + draft.FailureCode
+	}
+	return line
+}
+
+func (c ShellCopy) Route(route PhaseOneRoute) string {
+	en := map[PhaseOneRoute]string{PhaseOneThisPulsar: "This Pulsar", PhaseOneOwnBarycenter: "My Barycenter", PhaseOneCurrentAir: "Current air"}
+	ru := map[PhaseOneRoute]string{PhaseOneThisPulsar: "Этот Пульсар", PhaseOneOwnBarycenter: "Мой Барицентр", PhaseOneCurrentAir: "Текущий эфир"}
+	if c.locale == ShellRussian {
+		return ru[route]
+	}
+	return en[route]
+}
+
+func (c ShellCopy) Delivery(delivery PhaseOneDelivery) string {
+	en := map[PhaseOneDelivery]string{PhaseOneOverlay: "Overlay", PhaseOneInterrupt: "Interrupt", PhaseOneAfterCurrent: "After current"}
+	ru := map[PhaseOneDelivery]string{PhaseOneOverlay: "Поверх", PhaseOneInterrupt: "Прервать", PhaseOneAfterCurrent: "После текущего"}
+	if c.locale == ShellRussian {
+		return ru[delivery]
+	}
+	return en[delivery]
+}
+
+func (c ShellCopy) HistoryItem(item ShellPhaseOneHistoryItem, index, count int) string {
+	line := fmt.Sprintf("%d/%d · %s — %s", index, count, item.Title, item.Status)
+	if item.SenderName != "" {
+		line += "\r\n" + item.SenderName
+	}
+	if item.RequestedDelivery != "" {
+		line += "\r\n" + c.requestedLabel() + ": " + c.Delivery(PhaseOneDelivery(item.RequestedDelivery))
+	}
+	if item.EffectiveDelivery != "" {
+		line += " · " + c.effectiveLabel() + ": " + c.Delivery(PhaseOneDelivery(item.EffectiveDelivery))
+	}
+	if item.DowngradeReason != "" {
+		line += "\r\n[~] " + item.DowngradeReason
+	}
+	line += fmt.Sprintf("\r\nplayed %d · other %d", item.PlayedCount, item.OtherCount)
+	return line
+}
+
+func (c ShellCopy) requestedLabel() string {
+	if c.locale == ShellRussian {
+		return "запрошено"
+	}
+	return "requested"
+}
+
+func (c ShellCopy) effectiveLabel() string {
+	if c.locale == ShellRussian {
+		return "фактически"
+	}
+	return "effective"
 }
 
 func (c ShellCopy) LocalSelfTest(snapshot ShellSnapshot) string {
@@ -582,9 +766,9 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtSilence: "Nothing is playing", txtVolume: "Volume", txtDND: "Do Not Disturb", txtRecording: "Recording",
 		txtStartRecording: "Start recording", txtStopRecording: "Stop recording", txtCancelRecording: "Cancel recording",
 		txtRecordingUnavailable: "Recording is not configured yet", txtSelfTestUnavailable: "Local self-test is not configured yet",
-		txtCreateTitle: "Create an air", txtCreateBody: "Open the Barycenter bot and send /create to start a shared audio space.",
-		txtCreateAction: "Open Barycenter bot", txtJoinTitle: "Join an air",
-		txtJoinBody: "Open an invitation or ask the Barycenter bot for a pairing code.", txtJoinAction: "Open Barycenter bot",
+		txtCreateTitle: "Create a Barycenter", txtCreateBody: "Enter a title. Pulsar stores the identity with Windows protection and requires an explicit recovery-file export before activation.",
+		txtCreateAction: "Create securely", txtJoinTitle: "Join a Barycenter",
+		txtJoinBody: "Enter the device invitation. Pulsar activates this installation only after the identity is protected on this PC.", txtJoinAction: "Join securely",
 		txtTryTitle: "Try Pulsar locally", txtTryBody: "Record five seconds and play them only on this PC before sending anything.",
 		txtTryAction: "Run local self-test", txtHistoryTitle: "Recent activity", txtSettingsTitle: "Pulsar settings",
 		txtLanguage: "Language", txtUnpaired: "Not paired", txtReconnecting: "Reconnecting", txtOnline: "Connected",
@@ -610,9 +794,9 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtSilence: "Сейчас ничего не играет", txtVolume: "Громкость", txtDND: "Не беспокоить", txtRecording: "Запись",
 		txtStartRecording: "Начать запись", txtStopRecording: "Остановить запись", txtCancelRecording: "Отменить запись",
 		txtRecordingUnavailable: "Запись пока не настроена", txtSelfTestUnavailable: "Локальная самопроверка пока не настроена",
-		txtCreateTitle: "Создать эфир", txtCreateBody: "Открой бота Барицентра и отправь /create, чтобы создать общее аудиопространство.",
-		txtCreateAction: "Открыть бота Барицентра", txtJoinTitle: "Присоединиться к эфиру",
-		txtJoinBody: "Открой приглашение или запроси код подключения в боте Барицентра.", txtJoinAction: "Открыть бота Барицентра",
+		txtCreateTitle: "Создать Барицентр", txtCreateBody: "Введи название. Пульсар защищённо сохраняет идентификатор средствами Windows и требует явно экспортировать файл восстановления до активации.",
+		txtCreateAction: "Создать защищённо", txtJoinTitle: "Присоединиться к Барицентру",
+		txtJoinBody: "Введи приглашение устройства. Пульсар активирует эту установку только после защищённого сохранения идентификатора на этом ПК.", txtJoinAction: "Присоединиться защищённо",
 		txtTryTitle: "Проверить Пульсар локально", txtTryBody: "Запиши пять секунд и воспроизведи их только на этом ПК до любой отправки.",
 		txtTryAction: "Запустить самопроверку", txtHistoryTitle: "Недавние события", txtSettingsTitle: "Настройки Пульсара",
 		txtLanguage: "Язык", txtUnpaired: "Не подключён", txtReconnecting: "Переподключение", txtOnline: "Подключён",

@@ -32,6 +32,7 @@ var (
 	pDragFinish               = shell32.NewProc("DragFinish")
 	pDeleteObject             = gdi32.NewProc("DeleteObject")
 	pRtlMoveMemory            = kernel32.NewProc("RtlMoveMemory")
+	pGetWindowTextLengthW     = user32.NewProc("GetWindowTextLengthW")
 )
 
 const (
@@ -54,24 +55,36 @@ const (
 
 	mainRefreshTimer = 1
 
-	idShellHome     = 3001
-	idShellCreate   = 3002
-	idShellJoin     = 3003
-	idShellTry      = 3004
-	idShellHistory  = 3005
-	idShellSettings = 3006
-	idShellAction   = 3010
-	idShellRecord   = 3011
-	idShellDND      = 3012
-	idShellEnglish  = 3013
-	idShellRussian  = 3014
-	idShellOpen     = 3020
-	idShellCancel   = 3021
-	idShellCue      = 3022
-	idShellFile     = 3023
-	idShellDelete   = 3024
-	idShellInput    = 3025
-	idShellOutput   = 3026
+	idShellHome          = 3001
+	idShellCreate        = 3002
+	idShellJoin          = 3003
+	idShellTry           = 3004
+	idShellHistory       = 3005
+	idShellSettings      = 3006
+	idShellAction        = 3010
+	idShellRecord        = 3011
+	idShellDND           = 3012
+	idShellEnglish       = 3013
+	idShellRussian       = 3014
+	idShellOpen          = 3020
+	idShellCancel        = 3021
+	idShellCue           = 3022
+	idShellFile          = 3023
+	idShellDelete        = 3024
+	idShellInput         = 3025
+	idShellOutput        = 3026
+	idShellIdentityInput = 3027
+	idShellRecovery      = 3028
+	idShellDraftNext     = 3030
+	idShellRoute         = 3031
+	idShellDelivery      = 3032
+	idShellSend          = 3033
+	idShellPhaseDelete   = 3034
+	idShellHistoryNext   = 3035
+	idShellHistoryDelete = 3036
+	idShellHistoryReplay = 3037
+	idShellHistoryBlock  = 3038
+	idShellOutgoingFile  = 3039
 
 	bsPushButton = 0x00000000
 	bsMultiline  = 0x00002000
@@ -101,27 +114,39 @@ type mainFonts struct {
 }
 
 type mainWindowCtx struct {
-	hwnd    windows.Handle
-	shell   *WindowsShell
-	nav     map[ShellSection]windows.Handle
-	title   windows.Handle
-	banner  windows.Handle
-	body    windows.Handle
-	home    [3]windows.Handle
-	cards   [3]windows.Handle
-	footer  windows.Handle
-	detail  windows.Handle
-	cue     windows.Handle
-	file    windows.Handle
-	delete  windows.Handle
-	input   windows.Handle
-	output  windows.Handle
-	record  windows.Handle
-	dnd     windows.Handle
-	english windows.Handle
-	russian windows.Handle
-	all     []windows.Handle
-	fonts   mainFonts
+	hwnd          windows.Handle
+	shell         *WindowsShell
+	nav           map[ShellSection]windows.Handle
+	title         windows.Handle
+	banner        windows.Handle
+	body          windows.Handle
+	home          [3]windows.Handle
+	cards         [3]windows.Handle
+	footer        windows.Handle
+	detail        windows.Handle
+	identityInput windows.Handle
+	recovery      windows.Handle
+	cue           windows.Handle
+	file          windows.Handle
+	outgoingFile  windows.Handle
+	delete        windows.Handle
+	input         windows.Handle
+	output        windows.Handle
+	draftNext     windows.Handle
+	route         windows.Handle
+	delivery      windows.Handle
+	send          windows.Handle
+	phaseDelete   windows.Handle
+	historyNext   windows.Handle
+	historyDelete windows.Handle
+	historyReplay windows.Handle
+	historyBlock  windows.Handle
+	record        windows.Handle
+	dnd           windows.Handle
+	english       windows.Handle
+	russian       windows.Handle
+	all           []windows.Handle
+	fonts         mainFonts
 }
 
 var (
@@ -214,11 +239,23 @@ func (ctx *mainWindowCtx) createControls() {
 	}
 	ctx.footer = mk(wsExClientEdge, "STATIC", "", wsChild|wsVisible|ssLeft, 0)
 	ctx.detail = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAction)
+	ctx.identityInput = mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop|0x0080, idShellIdentityInput)
+	ctx.recovery = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellRecovery)
 	ctx.cue = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellCue)
 	ctx.file = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellFile)
+	ctx.outgoingFile = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellOutgoingFile)
 	ctx.delete = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDelete)
 	ctx.input = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellInput)
 	ctx.output = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellOutput)
+	ctx.draftNext = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDraftNext)
+	ctx.route = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellRoute)
+	ctx.delivery = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDelivery)
+	ctx.send = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellSend)
+	ctx.phaseDelete = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellPhaseDelete)
+	ctx.historyNext = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellHistoryNext)
+	ctx.historyDelete = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellHistoryDelete)
+	ctx.historyReplay = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellHistoryReplay)
+	ctx.historyBlock = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellHistoryBlock)
 	ctx.record = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellRecord)
 	ctx.dnd = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDND)
 	ctx.english = mk(0, "BUTTON", "English", buttonStyle|bsPushButton, idShellEnglish)
@@ -309,6 +346,8 @@ func (ctx *mainWindowCtx) layout() {
 	}
 	move(ctx.footer, ShellRect{X: layout.Footer.X + pad, Y: layout.Footer.Y + pad, Width: layout.Footer.Width - pad*2, Height: layout.Footer.Height - pad*2})
 	move(ctx.detail, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap, Width: dip(220, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.identityInput, ShellRect{X: layout.Content.X, Y: layout.Body.Y + dip(72, layout.DPI), Width: layout.Body.Width, Height: dip(34, layout.DPI)})
+	move(ctx.recovery, ShellRect{X: layout.Content.X + dip(232, layout.DPI), Y: layout.Body.Bottom() + gap, Width: dip(220, layout.DPI), Height: dip(44, layout.DPI)})
 	move(ctx.cue, ShellRect{X: layout.Content.X + dip(232, layout.DPI), Y: layout.Body.Bottom() + gap, Width: dip(150, layout.DPI), Height: dip(44, layout.DPI)})
 	move(ctx.file, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap + dip(52, layout.DPI), Width: dip(180, layout.DPI), Height: dip(44, layout.DPI)})
 	move(ctx.delete, ShellRect{X: layout.Content.X + dip(192, layout.DPI), Y: layout.Body.Bottom() + gap + dip(52, layout.DPI), Width: dip(150, layout.DPI), Height: dip(44, layout.DPI)})
@@ -316,6 +355,16 @@ func (ctx *mainWindowCtx) layout() {
 	move(ctx.output, ShellRect{X: layout.Content.X + dip(192, layout.DPI), Y: layout.Body.Bottom() + gap + dip(104, layout.DPI), Width: dip(180, layout.DPI), Height: dip(44, layout.DPI)})
 	move(ctx.english, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap, Width: dip(130, layout.DPI), Height: dip(42, layout.DPI)})
 	move(ctx.russian, ShellRect{X: layout.Content.X + dip(142, layout.DPI), Y: layout.Body.Bottom() + gap, Width: dip(130, layout.DPI), Height: dip(42, layout.DPI)})
+	move(ctx.draftNext, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap, Width: dip(132, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.route, ShellRect{X: layout.Content.X + dip(140, layout.DPI), Y: layout.Body.Bottom() + gap, Width: dip(160, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.delivery, ShellRect{X: layout.Content.X + dip(308, layout.DPI), Y: layout.Body.Bottom() + gap, Width: dip(160, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.send, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap + dip(52, layout.DPI), Width: dip(132, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.phaseDelete, ShellRect{X: layout.Content.X + dip(140, layout.DPI), Y: layout.Body.Bottom() + gap + dip(52, layout.DPI), Width: dip(132, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.outgoingFile, ShellRect{X: layout.Content.X + dip(280, layout.DPI), Y: layout.Body.Bottom() + gap + dip(52, layout.DPI), Width: dip(188, layout.DPI), Height: dip(44, layout.DPI)})
+	move(ctx.historyNext, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap + dip(104, layout.DPI), Width: dip(112, layout.DPI), Height: dip(40, layout.DPI)})
+	move(ctx.historyDelete, ShellRect{X: layout.Content.X + dip(120, layout.DPI), Y: layout.Body.Bottom() + gap + dip(104, layout.DPI), Width: dip(112, layout.DPI), Height: dip(40, layout.DPI)})
+	move(ctx.historyReplay, ShellRect{X: layout.Content.X + dip(240, layout.DPI), Y: layout.Body.Bottom() + gap + dip(104, layout.DPI), Width: dip(112, layout.DPI), Height: dip(40, layout.DPI)})
+	move(ctx.historyBlock, ShellRect{X: layout.Content.X + dip(360, layout.DPI), Y: layout.Body.Bottom() + gap + dip(104, layout.DPI), Width: dip(112, layout.DPI), Height: dip(40, layout.DPI)})
 }
 
 func (ctx *mainWindowCtx) render() {
@@ -359,9 +408,21 @@ func (ctx *mainWindowCtx) render() {
 	}
 	showControl(ctx.footer, home)
 	showControl(ctx.detail, !home && (section == ShellCreate || section == ShellJoin || section == ShellTryLocally))
+	identityPage := section == ShellCreate || section == ShellJoin
+	showControl(ctx.identityInput, identityPage)
+	showControl(ctx.recovery, identityPage && snapshot.RecoveryExportRequired)
+	pEnableWindow.Call(uintptr(ctx.identityInput), boolWord(snapshot.IdentityOperation != ShellIdentityWorking && snapshot.IdentityOperation != ShellIdentityActive && !snapshot.RecoveryExportRequired))
+	if copy.locale == ShellRussian {
+		setText(ctx.recovery, "Сохранить файл восстановления...")
+	} else {
+		setText(ctx.recovery, "Save recovery file...")
+	}
 	tryPage := section == ShellTryLocally
 	busy := shellLocalCaptureBusy(snapshot)
 	detailEnabled := !tryPage || (snapshot.SelfTestAvailable && !busy && snapshot.Recording != ShellRecordingActive && snapshot.Recording != ShellRecordingProcessing)
+	if identityPage && (snapshot.IdentityOperation == ShellIdentityWorking || snapshot.IdentityOperation == ShellIdentityActive || snapshot.RecoveryExportRequired) {
+		detailEnabled = false
+	}
 	pEnableWindow.Call(uintptr(ctx.detail), boolWord(detailEnabled))
 	for _, control := range []windows.Handle{ctx.cue, ctx.file, ctx.delete, ctx.input, ctx.output} {
 		showControl(control, tryPage)
@@ -387,6 +448,52 @@ func (ctx *mainWindowCtx) render() {
 	}
 	showControl(ctx.english, section == ShellSettings)
 	showControl(ctx.russian, section == ShellSettings)
+	historyPage := section == ShellHistory
+	for _, control := range []windows.Handle{ctx.draftNext, ctx.route, ctx.delivery, ctx.send, ctx.phaseDelete, ctx.outgoingFile, ctx.historyNext, ctx.historyDelete, ctx.historyReplay, ctx.historyBlock} {
+		showControl(control, historyPage)
+	}
+	hasDraft := len(snapshot.PhaseOneDrafts) > 0
+	hasHistory := len(snapshot.PhaseOneHistory) > 0
+	setText(ctx.draftNext, map[bool]string{true: "Next draft", false: "След. черновик"}[copy.locale == ShellEnglish])
+	setText(ctx.route, copy.Route(snapshot.SelectedPhaseOneRoute))
+	setText(ctx.delivery, copy.Delivery(snapshot.SelectedPhaseOneDelivery))
+	if copy.locale == ShellRussian {
+		setText(ctx.outgoingFile, "Добавить аудиофайл...")
+		if hasDraft && snapshot.PhaseOneDrafts[snapshot.SelectedPhaseOneDraft].FallbackConfirmationAvailable {
+			setText(ctx.send, "Подтвердить: после текущего")
+		} else {
+			setText(ctx.send, "Отправить / повторить")
+		}
+		setText(ctx.phaseDelete, "Удалить черновик")
+		setText(ctx.historyNext, "След. запись")
+		setText(ctx.historyDelete, "Удалить")
+		setText(ctx.historyReplay, "Повторить")
+		setText(ctx.historyBlock, "Заблокировать")
+	} else {
+		setText(ctx.outgoingFile, "Add audio file...")
+		if hasDraft && snapshot.PhaseOneDrafts[snapshot.SelectedPhaseOneDraft].FallbackConfirmationAvailable {
+			setText(ctx.send, "Confirm: after current")
+		} else {
+			setText(ctx.send, "Send / retry")
+		}
+		setText(ctx.phaseDelete, "Delete draft")
+		setText(ctx.historyNext, "Next item")
+		setText(ctx.historyDelete, "Delete")
+		setText(ctx.historyReplay, "Replay")
+		setText(ctx.historyBlock, "Block")
+	}
+	pEnableWindow.Call(uintptr(ctx.draftNext), boolWord(len(snapshot.PhaseOneDrafts) > 1))
+	pEnableWindow.Call(uintptr(ctx.send), boolWord(hasDraft))
+	pEnableWindow.Call(uintptr(ctx.phaseDelete), boolWord(hasDraft))
+	pEnableWindow.Call(uintptr(ctx.outgoingFile), boolWord(snapshot.SelfTestAvailable && !busy))
+	pEnableWindow.Call(uintptr(ctx.historyNext), boolWord(len(snapshot.PhaseOneHistory) > 1))
+	selectedHistory := ShellPhaseOneHistoryItem{}
+	if hasHistory {
+		selectedHistory = snapshot.PhaseOneHistory[snapshot.SelectedHistoryItem]
+	}
+	pEnableWindow.Call(uintptr(ctx.historyDelete), boolWord(hasHistory && selectedHistory.CanDelete))
+	pEnableWindow.Call(uintptr(ctx.historyReplay), boolWord(hasHistory && selectedHistory.CanReplay))
+	pEnableWindow.Call(uintptr(ctx.historyBlock), boolWord(hasHistory && selectedHistory.CanBlock))
 
 	if home {
 		setText(ctx.body, copy.Text(txtPrimary)+"\r\n"+copy.Body(section, snapshot))
@@ -409,7 +516,11 @@ func (ctx *mainWindowCtx) render() {
 			copy.Text(txtDND)+": "+copy.DND(snapshot.DND)+"    "+copy.Text(txtVolume)+fmtPercent(snapshot.Volume)+
 			"\r\n\r\n"+copy.Text(txtHistoryTitle)+"\r\n"+copy.Text(txtNoHistory))
 	} else {
-		setText(ctx.body, copy.Body(section, snapshot))
+		body := copy.Body(section, snapshot)
+		if section == ShellHistory {
+			body += "\r\n\r\n" + copy.Draft(snapshot)
+		}
+		setText(ctx.body, body)
 		if key := shellPrimaryAction(section); key != "" {
 			setText(ctx.detail, copy.Text(key))
 		}
@@ -432,6 +543,19 @@ func fmtPercent(value int) string {
 		digits[0] = byte('0' + value)
 	}
 	return ": " + string(digits) + "%"
+}
+
+func windowText(control windows.Handle) string {
+	length, _, _ := pGetWindowTextLengthW.Call(uintptr(control))
+	if length == 0 || length > 512 {
+		return ""
+	}
+	buffer := make([]uint16, length+1)
+	written, _, _ := pGetWindowTextW.Call(uintptr(control), uintptr(unsafe.Pointer(&buffer[0])), length+1)
+	if written == 0 {
+		return ""
+	}
+	return windows.UTF16ToString(buffer[:written])
 }
 
 func boolWord(value bool) uintptr {
@@ -467,11 +591,11 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 			switch ctx.shell.Section() {
 			case ShellCreate:
 				if actions.Create != nil {
-					actions.Create()
+					actions.Create(windowText(ctx.identityInput))
 				}
 			case ShellJoin:
 				if actions.Join != nil {
-					actions.Join()
+					actions.Join(windowText(ctx.identityInput))
 				}
 			case ShellTryLocally:
 				if snapshot.SelfTestAvailable && actions.TryLocally != nil {
@@ -505,6 +629,52 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		case idShellOutput:
 			if actions.SelectNextOutput != nil {
 				actions.SelectNextOutput()
+			}
+		case idShellRecovery:
+			if actions.SaveRecovery != nil {
+				if path := chooseWindowsRecoveryDestination(uintptr(hwnd), ctx.shell.Locale()); path != "" {
+					actions.SaveRecovery(path)
+				}
+			}
+		case idShellDraftNext:
+			if actions.SelectNextPhaseOneDraft != nil {
+				actions.SelectNextPhaseOneDraft()
+			}
+		case idShellRoute:
+			if actions.SelectNextPhaseOneRoute != nil {
+				actions.SelectNextPhaseOneRoute()
+			}
+		case idShellDelivery:
+			if actions.SelectNextPhaseOneDelivery != nil {
+				actions.SelectNextPhaseOneDelivery()
+			}
+		case idShellSend:
+			if actions.SendSelectedDraft != nil {
+				actions.SendSelectedDraft()
+			}
+		case idShellPhaseDelete:
+			if actions.DeleteSelectedDraft != nil {
+				actions.DeleteSelectedDraft()
+			}
+		case idShellOutgoingFile:
+			if actions.ChooseOutgoingFile != nil {
+				actions.ChooseOutgoingFile()
+			}
+		case idShellHistoryNext:
+			if actions.SelectNextHistoryItem != nil {
+				actions.SelectNextHistoryItem()
+			}
+		case idShellHistoryDelete:
+			if actions.DeleteSelectedHistoryItem != nil {
+				actions.DeleteSelectedHistoryItem()
+			}
+		case idShellHistoryReplay:
+			if actions.ReplaySelectedHistoryItem != nil {
+				actions.ReplaySelectedHistoryItem()
+			}
+		case idShellHistoryBlock:
+			if actions.BlockSelectedHistoryActor != nil {
+				actions.BlockSelectedHistoryActor()
 			}
 		case idShellDND:
 			if shellDNDEnabled(snapshot) && actions.SetDND != nil {

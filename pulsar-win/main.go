@@ -195,6 +195,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	} else {
 		workflow = configured
 	}
+	var phaseOne *WindowsPhaseOneComposition
+	if configured, phaseErr := newProductionWindowsPhaseOneComposition(dir, workflow); phaseErr != nil {
+		log.Error("Phase 1 app data unavailable")
+	} else {
+		phaseOne = configured
+	}
 	presenceStore := NewNodePresenceStore(filepath.Join(dir, "node-presence.v1.json"), log)
 	player.ConfigureTransmissionHooks(mediaClips, presenceStore)
 	player.Start()
@@ -266,7 +272,7 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		if state.URI != nil {
 			nowPlaying = *state.URI
 		}
-		presenceOnline, presenceTotal := 0, 0
+		presenceOnline, presenceTotal, presenceReady := 0, 0, 0
 		presenceAvailable := false
 		if presence := player.LatestPresence(); presence != nil {
 			presenceAvailable = true
@@ -274,6 +280,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 			for _, node := range presence.Nodes {
 				if node.Online {
 					presenceOnline++
+					if node.OutputState == "ready" {
+						presenceReady++
+					}
 				}
 			}
 		}
@@ -282,9 +291,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		shellStateMu.RUnlock()
 		recordingState, recordingAvailable := workflow.Snapshot()
 		local := workflow.LocalSnapshot()
-		return ShellSnapshot{
+		snapshot := ShellSnapshot{
 			Connection: connection, Identity: identityLine(*creds),
-			PresenceOnline: presenceOnline, PresenceTotal: presenceTotal,
+			PresenceOnline: presenceOnline, PresenceTotal: presenceTotal, PresenceReady: presenceReady,
 			PresenceAvailable: presenceAvailable, RouteName: route,
 			NowPlaying: nowPlaying, PlaybackState: state.Playback,
 			DND: dnd, Recording: recordingState,
@@ -297,20 +306,23 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 			RecordingDraftAvailable: local.RecordingDraftAvailable,
 			CaptureInputs:           local.Inputs, SelectedCaptureInput: local.SelectedInput,
 			AudioOutputs: outputs, SelectedAudioOutput: selectedOutput,
-			Volume: state.Volume,
+			Volume: state.Volume, IdentityOperation: ShellIdentityActive,
 		}
+		if phaseOne != nil {
+			phaseOne.ApplyShellSnapshot(&snapshot)
+		}
+		return snapshot
 	}, ShellActions{
-		Create:            func() { openURL(uiBotURL) },
-		Join:              func() { openURL(uiBotURL) },
-		TryLocally:        workflow.TryLocally,
-		PlayBuiltinCue:    workflow.PlayBuiltinCue,
-		ChooseLocalFile:   func() { workflow.ChooseFile(currentMainWindowOwner()) },
-		AcceptDroppedFile: workflow.AcceptBrokeredFile,
-		DeleteLocalDraft:  workflow.DeleteLocalDraft,
-		SelectNextInput:   workflow.SelectNextInput,
-		SelectNextOutput:  func() { go outputControl.SelectNext() },
-		ToggleRecording:   workflow.Toggle,
-		CancelRecording:   workflow.Cancel,
+		TryLocally:         workflow.TryLocally,
+		PlayBuiltinCue:     workflow.PlayBuiltinCue,
+		ChooseLocalFile:    func() { workflow.ChooseFile(currentMainWindowOwner()) },
+		ChooseOutgoingFile: func() { workflow.ChooseOutgoingFile(currentMainWindowOwner()) },
+		AcceptDroppedFile:  workflow.AcceptBrokeredFile,
+		DeleteLocalDraft:   workflow.DeleteLocalDraft,
+		SelectNextInput:    workflow.SelectNextInput,
+		SelectNextOutput:   func() { go outputControl.SelectNext() },
+		ToggleRecording:    workflow.Toggle,
+		CancelRecording:    workflow.Cancel,
 		SetDND: func(mode ShellDND) {
 			if mode != ShellDNDAllowAll && mode != ShellDNDMessagesOnly {
 				return
@@ -322,6 +334,51 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 			shellStateMu.Lock()
 			shellDND = mode
 			shellStateMu.Unlock()
+		},
+		SendSelectedDraft: func() {
+			if phaseOne != nil {
+				phaseOne.SendSelectedDraft()
+			}
+		},
+		DeleteSelectedDraft: func() {
+			if phaseOne != nil {
+				phaseOne.DeleteSelectedDraft()
+			}
+		},
+		SelectNextPhaseOneDraft: func() {
+			if phaseOne != nil {
+				phaseOne.SelectNextDraft()
+			}
+		},
+		SelectNextPhaseOneRoute: func() {
+			if phaseOne != nil {
+				phaseOne.SelectNextRoute()
+			}
+		},
+		SelectNextPhaseOneDelivery: func() {
+			if phaseOne != nil {
+				phaseOne.SelectNextDelivery()
+			}
+		},
+		SelectNextHistoryItem: func() {
+			if phaseOne != nil {
+				phaseOne.SelectNextHistory()
+			}
+		},
+		DeleteSelectedHistoryItem: func() {
+			if phaseOne != nil {
+				phaseOne.DeleteSelectedHistoryItem()
+			}
+		},
+		ReplaySelectedHistoryItem: func() {
+			if phaseOne != nil {
+				phaseOne.ReplaySelectedHistoryItem()
+			}
+		},
+		BlockSelectedHistoryActor: func() {
+			if phaseOne != nil {
+				phaseOne.BlockSelectedHistoryActor()
+			}
 		},
 	})
 
@@ -351,6 +408,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		OnQuit: func() { close(quit) },
 	}
 	awaitShutdown(tray, quit)
+	if phaseOne != nil {
+		phaseOne.Close()
+	}
 	workflow.Shutdown()
 	drainContext, cancelRecordingDrain := context.WithTimeout(context.Background(), 5*time.Second)
 	if drainErr := workflow.Wait(drainContext); drainErr != nil {

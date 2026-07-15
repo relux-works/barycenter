@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-bundled-ffmpeg-probe.v1",
+  "candidateId": "bundled-ffmpeg-8.1.2-v1",
+  "platform": "macos-arm64",
+  "host": {
+    "system": "Darwin",
+    "machine": "arm64"
+  },
+  "sourceSha256": "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c",
+  "configurationSha256": "a5edab2e1e0e99832dd6fa981f38fb41bc98148ac8fd2f8b037d8f0bbe974ec9",
+  "packageBytes": 2100847,
+  "files": [
+    {
+      "path": "Contents/Frameworks/libavcodec.62.dylib",
+      "bytes": 661280,
+      "sha256": "da2cb2a48c584e31d5ff545e1e42f6e62a2833248f18ddefd96b0ff2db5630de",
+      "imports": [
+        "@rpath/libavcodec.62.dylib",
+        "@rpath/libswresample.6.dylib",
+        "@rpath/libavutil.60.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia"
+      ],
+      "engineeringSignature": "ad-hoc"
+    },
+    {
+      "path": "Contents/Frameworks/libavformat.62.dylib",
+      "bytes": 471552,
+      "sha256": "c7ca419d0a3b7bd0567acc2ec249f3c56bef4a6e5a58a200d1215f4ebcdd1ff3",
+      "imports": [
+        "@rpath/libavformat.62.dylib",
+        "@rpath/libavcodec.62.dylib",
+        "@rpath/libswresample.6.dylib",
+        "@rpath/libavutil.60.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia"
+      ],
+      "engineeringSignature": "ad-hoc"
+    },
+    {
+      "path": "Contents/Frameworks/libavutil.60.dylib",
+      "bytes": 737152,
+      "sha256": "49b4d17c95e7c7226d34a1b2d2abe7356428ca2b6ca54bdcaef1bc5ac128786c",
+      "imports": [
+        "@rpath/libavutil.60.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia"
+      ],
+      "engineeringSignature": "ad-hoc"
+    },
+    {
+      "path": "Contents/Frameworks/libpulsar_codec_bridge.dylib",
+      "bytes": 53152,
+      "sha256": "fbd836576f75c77dce0c1e515aa3f3d63a7328c13ab48f1efac042b4fbba6855",
+      "imports": [
+        "@rpath/libpulsar_codec_bridge.dylib",
+        "@rpath/libavformat.62.dylib",
+        "@rpath/libavcodec.62.dylib",
+        "@rpath/libswresample.6.dylib",
+        "@rpath/libavutil.60.dylib",
+        "/usr/lib/libSystem.B.dylib"
+      ],
+      "engineeringSignature": "ad-hoc"
+    },
+    {
+      "path": "Contents/Frameworks/libswresample.6.dylib",
+      "bytes": 121616,
+      "sha256": "22408a72a789f82e0686554d0dac29f6228db4b0fe0edd4e3786c58ae9c3ba86",
+      "imports": [
+        "@rpath/libswresample.6.dylib",
+        "@rpath/libavutil.60.dylib",
+        "/usr/lib/libSystem.B.dylib",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia"
+      ],
+      "engineeringSignature": "ad-hoc"
+    },
+    {
+      "path": "Contents/Info.plist",
+      "bytes": 546,
+      "sha256": "cc13518ad756d5d56377ebe6a695b2d958abd4564ad2cd2a2268fbe14c6303e7"
+    },
+    {
+      "path": "Contents/MacOS/pulsar-codec-probe",
+      "bytes": 52160,
+      "sha256": "31dfb8a7288484462d07377680aa84a104c730efa0b53b0a6164acbc937136f1"
+    },
+    {
+      "path": "Contents/_CodeSignature/CodeResources",
+      "bytes": 3389,
+      "sha256": "9339feac93224f04fa182c68703f147ca898b60a5759f573864c5797111c750e"
+    }
+  ],
+  "runtimeExecutableDownload": false,
+  "decoderProcessOwnsNetwork": false,
+  "releaseSignature": "not-proven",
+  "notarization": "not-proven",
+  "shippingDecision": "rejected-until-all-required-platform-and-release-evidence-exists",
+  "claimClass": "repository-engineering-prototype"
+}

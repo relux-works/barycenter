@@ -1,0 +1,591 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-bundled-ffmpeg-probe.v1",
+  "claimClass": "repository-engineering-prototype",
+  "driverSha256": "31dfb8a7288484462d07377680aa84a104c730efa0b53b0a6164acbc937136f1",
+  "decodeResults": [
+    {
+      "fixture": "aac_adts_12s",
+      "full": {
+        "abi": 1,
+        "codec": "aac",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 564,
+        "samples": 577536,
+        "firstPtsMS": 0,
+        "lastPtsMS": 12011,
+        "pcmChecksum": "2b9e24cad4203f82",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 14,
+        "peakRSSBytes": 5177344,
+        "errorCode": 0
+      },
+      "seek": {
+        "abi": 1,
+        "codec": "aac",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 330,
+        "samples": 337920,
+        "firstPtsMS": 4992,
+        "lastPtsMS": 12011,
+        "pcmChecksum": "31d46250c0095947",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 8,
+        "peakRSSBytes": 5079040,
+        "errorCode": 0
+      },
+      "cancel": {
+        "abi": 1,
+        "codec": "aac",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 3,
+        "samples": 3072,
+        "firstPtsMS": 0,
+        "lastPtsMS": 43,
+        "pcmChecksum": "d1b1f552b063e9a6",
+        "drained": false,
+        "cancelled": true,
+        "cpuMS": 0,
+        "peakRSSBytes": 5079040,
+        "errorCode": 0
+      }
+    },
+    {
+      "fixture": "aac_m4a_12s",
+      "full": {
+        "abi": 1,
+        "codec": "aac",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 563,
+        "samples": 576512,
+        "firstPtsMS": 0,
+        "lastPtsMS": 11989,
+        "pcmChecksum": "b07edb440477a9bd",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 12,
+        "peakRSSBytes": 5210112,
+        "errorCode": 0
+      },
+      "seek": {
+        "abi": 1,
+        "codec": "aac",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 329,
+        "samples": 336896,
+        "firstPtsMS": 4992,
+        "lastPtsMS": 11989,
+        "pcmChecksum": "cf2eff93804e08fb",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 7,
+        "peakRSSBytes": 5128192,
+        "errorCode": 0
+      },
+      "cancel": {
+        "abi": 1,
+        "codec": "aac",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 3,
+        "samples": 3072,
+        "firstPtsMS": 0,
+        "lastPtsMS": 43,
+        "pcmChecksum": "40325c49f3d1afcc",
+        "drained": false,
+        "cancelled": true,
+        "cpuMS": 0,
+        "peakRSSBytes": 5128192,
+        "errorCode": 0
+      }
+    },
+    {
+      "fixture": "mp3_cbr_12s",
+      "full": {
+        "abi": 1,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 501,
+        "samples": 576000,
+        "firstPtsMS": 0,
+        "lastPtsMS": 12000,
+        "pcmChecksum": "528285e3a26ce93d",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 13,
+        "peakRSSBytes": 4243456,
+        "errorCode": 0
+      },
+      "seek": {
+        "abi": 1,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 293,
+        "samples": 337489,
+        "firstPtsMS": 4992,
+        "lastPtsMS": 12000,
+        "pcmChecksum": "7a4a3c7a3172c406",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 8,
+        "peakRSSBytes": 4243456,
+        "errorCode": 0
+      },
+      "cancel": {
+        "abi": 1,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 3,
+        "samples": 2351,
+        "firstPtsMS": 0,
+        "lastPtsMS": 48,
+        "pcmChecksum": "8a5ed63cf1a05756",
+        "drained": false,
+        "cancelled": true,
+        "cpuMS": 0,
+        "peakRSSBytes": 4227072,
+        "errorCode": 0
+      }
+    },
+    {
+      "fixture": "mp3_vbr_12s",
+      "full": {
+        "abi": 1,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 501,
+        "samples": 576000,
+        "firstPtsMS": 0,
+        "lastPtsMS": 12000,
+        "pcmChecksum": "7d897b1f9a83fc83",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 11,
+        "peakRSSBytes": 4341760,
+        "errorCode": 0
+      },
+      "seek": {
+        "abi": 1,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 293,
+        "samples": 337489,
+        "firstPtsMS": 4992,
+        "lastPtsMS": 12000,
+        "pcmChecksum": "a458f39427283a50",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 6,
+        "peakRSSBytes": 4194304,
+        "errorCode": 0
+      },
+      "cancel": {
+        "abi": 1,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 3,
+        "samples": 2351,
+        "firstPtsMS": 0,
+        "lastPtsMS": 48,
+        "pcmChecksum": "c9a6c11ab8440df6",
+        "drained": false,
+        "cancelled": true,
+        "cpuMS": 0,
+        "peakRSSBytes": 4194304,
+        "errorCode": 0
+      }
+    },
+    {
+      "fixture": "opus_ogg_cbr_12s",
+      "full": {
+        "abi": 1,
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 601,
+        "samples": 576000,
+        "firstPtsMS": -7,
+        "lastPtsMS": 11994,
+        "pcmChecksum": "5c1cede42e6ee38f",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 21,
+        "peakRSSBytes": 4521984,
+        "errorCode": 0
+      },
+      "seek": {
+        "abi": 1,
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 351,
+        "samples": 336000,
+        "firstPtsMS": 4994,
+        "lastPtsMS": 11994,
+        "pcmChecksum": "8ca073917e0e1e17",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 13,
+        "peakRSSBytes": 4407296,
+        "errorCode": 0
+      },
+      "cancel": {
+        "abi": 1,
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 3,
+        "samples": 2568,
+        "firstPtsMS": -7,
+        "lastPtsMS": 34,
+        "pcmChecksum": "87fcb6ffb2c0664b",
+        "drained": false,
+        "cancelled": true,
+        "cpuMS": 0,
+        "peakRSSBytes": 4390912,
+        "errorCode": 0
+      }
+    },
+    {
+      "fixture": "opus_ogg_vbr_12s",
+      "full": {
+        "abi": 1,
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 601,
+        "samples": 576000,
+        "firstPtsMS": -7,
+        "lastPtsMS": 11994,
+        "pcmChecksum": "b52f717236be35ff",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 22,
+        "peakRSSBytes": 4423680,
+        "errorCode": 0
+      },
+      "seek": {
+        "abi": 1,
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 351,
+        "samples": 336000,
+        "firstPtsMS": 4994,
+        "lastPtsMS": 11994,
+        "pcmChecksum": "420081169ee05f83",
+        "drained": true,
+        "cancelled": false,
+        "cpuMS": 13,
+        "peakRSSBytes": 4423680,
+        "errorCode": 0
+      },
+      "cancel": {
+        "abi": 1,
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 2,
+        "frames": 3,
+        "samples": 2568,
+        "firstPtsMS": -7,
+        "lastPtsMS": 34,
+        "pcmChecksum": "55beeff7f6d976cb",
+        "drained": false,
+        "cancelled": true,
+        "cpuMS": 0,
+        "peakRSSBytes": 4407296,
+        "errorCode": 0
+      }
+    }
+  ],
+  "hostileResults": [
+    {
+      "mutation": "truncate:8",
+      "exitCode": 1,
+      "boundedOutputBytes": 672
+    },
+    {
+      "mutation": "truncate:31",
+      "exitCode": 1,
+      "boundedOutputBytes": 287
+    },
+    {
+      "mutation": "xor:middle:0x5a",
+      "exitCode": 0,
+      "boundedOutputBytes": 427
+    },
+    {
+      "mutation": "prefix:overflowing-mp4-atom",
+      "exitCode": 1,
+      "boundedOutputBytes": 287
+    },
+    {
+      "mutation": "xor:ogg-crc:0xff",
+      "exitCode": 1,
+      "boundedOutputBytes": 296
+    }
+  ],
+  "lifecycle": [
+    {
+      "fixture": "aac_adts_12s",
+      "event": "prepare",
+      "generation": 1
+    },
+    {
+      "fixture": "aac_adts_12s",
+      "event": "arm",
+      "generation": 1
+    },
+    {
+      "fixture": "aac_adts_12s",
+      "event": "scheduled-start",
+      "generation": 1
+    },
+    {
+      "fixture": "aac_adts_12s",
+      "event": "pause",
+      "generation": 1
+    },
+    {
+      "fixture": "aac_adts_12s",
+      "event": "seek-new-generation",
+      "generation": 2
+    },
+    {
+      "fixture": "aac_adts_12s",
+      "event": "resume",
+      "generation": 2
+    },
+    {
+      "fixture": "aac_adts_12s",
+      "event": "drain",
+      "generation": 2
+    },
+    {
+      "fixture": "aac_adts_12s",
+      "event": "cancel",
+      "generation": 1
+    },
+    {
+      "fixture": "aac_m4a_12s",
+      "event": "prepare",
+      "generation": 1
+    },
+    {
+      "fixture": "aac_m4a_12s",
+      "event": "arm",
+      "generation": 1
+    },
+    {
+      "fixture": "aac_m4a_12s",
+      "event": "scheduled-start",
+      "generation": 1
+    },
+    {
+      "fixture": "aac_m4a_12s",
+      "event": "pause",
+      "generation": 1
+    },
+    {
+      "fixture": "aac_m4a_12s",
+      "event": "seek-new-generation",
+      "generation": 2
+    },
+    {
+      "fixture": "aac_m4a_12s",
+      "event": "resume",
+      "generation": 2
+    },
+    {
+      "fixture": "aac_m4a_12s",
+      "event": "drain",
+      "generation": 2
+    },
+    {
+      "fixture": "aac_m4a_12s",
+      "event": "cancel",
+      "generation": 1
+    },
+    {
+      "fixture": "mp3_cbr_12s",
+      "event": "prepare",
+      "generation": 1
+    },
+    {
+      "fixture": "mp3_cbr_12s",
+      "event": "arm",
+      "generation": 1
+    },
+    {
+      "fixture": "mp3_cbr_12s",
+      "event": "scheduled-start",
+      "generation": 1
+    },
+    {
+      "fixture": "mp3_cbr_12s",
+      "event": "pause",
+      "generation": 1
+    },
+    {
+      "fixture": "mp3_cbr_12s",
+      "event": "seek-new-generation",
+      "generation": 2
+    },
+    {
+      "fixture": "mp3_cbr_12s",
+      "event": "resume",
+      "generation": 2
+    },
+    {
+      "fixture": "mp3_cbr_12s",
+      "event": "drain",
+      "generation": 2
+    },
+    {
+      "fixture": "mp3_cbr_12s",
+      "event": "cancel",
+      "generation": 1
+    },
+    {
+      "fixture": "mp3_vbr_12s",
+      "event": "prepare",
+      "generation": 1
+    },
+    {
+      "fixture": "mp3_vbr_12s",
+      "event": "arm",
+      "generation": 1
+    },
+    {
+      "fixture": "mp3_vbr_12s",
+      "event": "scheduled-start",
+      "generation": 1
+    },
+    {
+      "fixture": "mp3_vbr_12s",
+      "event": "pause",
+      "generation": 1
+    },
+    {
+      "fixture": "mp3_vbr_12s",
+      "event": "seek-new-generation",
+      "generation": 2
+    },
+    {
+      "fixture": "mp3_vbr_12s",
+      "event": "resume",
+      "generation": 2
+    },
+    {
+      "fixture": "mp3_vbr_12s",
+      "event": "drain",
+      "generation": 2
+    },
+    {
+      "fixture": "mp3_vbr_12s",
+      "event": "cancel",
+      "generation": 1
+    },
+    {
+      "fixture": "opus_ogg_cbr_12s",
+      "event": "prepare",
+      "generation": 1
+    },
+    {
+      "fixture": "opus_ogg_cbr_12s",
+      "event": "arm",
+      "generation": 1
+    },
+    {
+      "fixture": "opus_ogg_cbr_12s",
+      "event": "scheduled-start",
+      "generation": 1
+    },
+    {
+      "fixture": "opus_ogg_cbr_12s",
+      "event": "pause",
+      "generation": 1
+    },
+    {
+      "fixture": "opus_ogg_cbr_12s",
+      "event": "seek-new-generation",
+      "generation": 2
+    },
+    {
+      "fixture": "opus_ogg_cbr_12s",
+      "event": "resume",
+      "generation": 2
+    },
+    {
+      "fixture": "opus_ogg_cbr_12s",
+      "event": "drain",
+      "generation": 2
+    },
+    {
+      "fixture": "opus_ogg_cbr_12s",
+      "event": "cancel",
+      "generation": 1
+    },
+    {
+      "fixture": "opus_ogg_vbr_12s",
+      "event": "prepare",
+      "generation": 1
+    },
+    {
+      "fixture": "opus_ogg_vbr_12s",
+      "event": "arm",
+      "generation": 1
+    },
+    {
+      "fixture": "opus_ogg_vbr_12s",
+      "event": "scheduled-start",
+      "generation": 1
+    },
+    {
+      "fixture": "opus_ogg_vbr_12s",
+      "event": "pause",
+      "generation": 1
+    },
+    {
+      "fixture": "opus_ogg_vbr_12s",
+      "event": "seek-new-generation",
+      "generation": 2
+    },
+    {
+      "fixture": "opus_ogg_vbr_12s",
+      "event": "resume",
+      "generation": 2
+    },
+    {
+      "fixture": "opus_ogg_vbr_12s",
+      "event": "drain",
+      "generation": 2
+    },
+    {
+      "fixture": "opus_ogg_vbr_12s",
+      "event": "cancel",
+      "generation": 1
+    }
+  ],
+  "cacheCeilingBytes": 67108864,
+  "maxChunkBytes": 1048576,
+  "peakRSSBytes": 5210112,
+  "totalDecodeCPUMS": 93,
+  "packageDiskBytesFromReceipt": true,
+  "networkOwnedByDecoder": false,
+  "renderCallbackCallsDecoder": false,
+  "shippingDecision": "rejected-until-all-required-platform-and-release-evidence-exists"
+}

@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-bundled-ffmpeg-probe.v1",
+  "platform": "windows-amd64",
+  "package": "PulsarCodecProbe-0.1.0.0-x64-test-signed.msix",
+  "packageBytes": 1965989,
+  "packageSha256": "c003ceab37a35b21e9bfc8bea168eed735fbf5c0b964355c0c59a860d15bcb50",
+  "engineeringSignature": "ephemeral-ci-test-certificate",
+  "releaseSignature": "not-proven",
+  "runtimeExecutableDownload": false,
+  "decoderProcessOwnsNetwork": false,
+  "files": [
+    {
+      "path": "AppxManifest.xml",
+      "bytes": 1247,
+      "sha256": "978b2e9187368277a0d102aac6f6aedae2eebe5eb6f26e5a9c65874d3bbb3016",
+      "signature": "not-applicable",
+      "signerThumbprint": null,
+      "imports": null
+    },
+    {
+      "path": "Assets/Square150x150Logo.png",
+      "bytes": 36238,
+      "sha256": "fe27630101dfdc3f4a52223c084fb6dcc0c66373c04e489355a6b5dc2a24f063",
+      "signature": "not-applicable",
+      "signerThumbprint": null,
+      "imports": null
+    },
+    {
+      "path": "Assets/Square310x310Logo.png",
+      "bytes": 127729,
+      "sha256": "350ed3b380f06d9bea15c6b4f557eee8bd96afd3fb3f5ef2b05cf974ecc8e380",
+      "signature": "not-applicable",
+      "signerThumbprint": null,
+      "imports": null
+    },
+    {
+      "path": "Assets/Square44x44Logo.png",
+      "bytes": 5558,
+      "sha256": "c00dfc664d36b435860221ff7fe32fe749f731faf4fe3a7cf5986fadbdf0d0b4",
+      "signature": "not-applicable",
+      "signerThumbprint": null,
+      "imports": null
+    },
+    {
+      "path": "Assets/Square71x71Logo.png",
+      "bytes": 10921,
+      "sha256": "fcad4c767d01dbdde1a4cee7e0f43fc8fa63ae761ada7c130300eca0e8f1d447",
+      "signature": "not-applicable",
+      "signerThumbprint": null,
+      "imports": null
+    },
+    {
+      "path": "Assets/StoreLogo.png",
+      "bytes": 6587,
+      "sha256": "53e67bb356bdab4c3d03965a7df56cbb8349ff18e54a765234991f38c6c624c8",
+      "signature": "not-applicable",
+      "signerThumbprint": null,
+      "imports": null
+    },
+    {
+      "path": "Assets/Wide310x150Logo.png",
+      "bytes": 64558,
+      "sha256": "2aefdac11cb030d0086764c1037f06b8c210ca36e69da1be71250254f432e08b",
+      "signature": "not-applicable",
+      "signerThumbprint": null,
+      "imports": null
+    },
+    {
+      "path": "avcodec-62.dll",
+      "bytes": 1037768,
+      "sha256": "43006eb2f496ffffa5ad5a648e14347f66d58126bba3da8645cee95a44ad4f9f",
+      "signature": "Valid",
+      "signerThumbprint": "47ee438d511d7ff23cc2b8989a9a89aec9fc278c",
+      "imports": [
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-private-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "avutil-60.dll",
+        "kernel32.dll",
+        "swresample-6.dll"
+      ]
+    },
+    {
+      "path": "avformat-62.dll",
+      "bytes": 582600,
+      "sha256": "5bb633c9ed087208cd0125f6bfaaee988a5c4c7e1b7eaee5a1ccb94fa3ae6697",
+      "signature": "Valid",
+      "signerThumbprint": "47ee438d511d7ff23cc2b8989a9a89aec9fc278c",
+      "imports": [
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-private-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "avcodec-62.dll",
+        "avutil-60.dll",
+        "kernel32.dll"
+      ]
+    },
+    {
+      "path": "avutil-60.dll",
+      "bytes": 1049544,
+      "sha256": "8f807449aa1876659cd681005536312ea8421657f9559041700091c76258627c",
+      "signature": "Valid",
+      "signerThumbprint": "47ee438d511d7ff23cc2b8989a9a89aec9fc278c",
+      "imports": [
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-private-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "bcrypt.dll",
+        "kernel32.dll",
+        "libwinpthread-1.dll"
+      ]
+    },
+    {
+      "path": "Fixtures/mp3_cbr_12s.mp3",
+      "bytes": 289197,
+      "sha256": "bcc68fd551cf39bbfc4df81601b2968e8704d61161ff0912f46f0f03d0d0b6f0",
+      "signature": "not-applicable",
+      "signerThumbprint": null,
+      "imports": null
+    },
+    {
+      "path": "libwinpthread-1.dll",
+      "bytes": 66184,
+      "sha256": "1bb7c9a286089e996a4e168fa27d75ff0cc1906fe9836b471434684c4b267d82",
+      "signature": "Valid",
+      "signerThumbprint": "47ee438d511d7ff23cc2b8989a9a89aec9fc278c",
+      "imports": [
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-private-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "kernel32.dll"
+      ]
+    },
+    {
+      "path": "pulsar_codec_bridge.dll",
+      "bytes": 103344,
+      "sha256": "db0b29f5505b396be09bf9cd3880b486e25fd67f5049546a86fc8135e58c8d40",
+      "signature": "Valid",
+      "signerThumbprint": "47ee438d511d7ff23cc2b8989a9a89aec9fc278c",
+      "imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-private-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "avcodec-62.dll",
+        "avformat-62.dll",
+        "avutil-60.dll",
+        "kernel32.dll"
+      ]
+    },
+    {
+      "path": "pulsar-codec-probe.exe",
+      "bytes": 135448,
+      "sha256": "93f747401410dc3b1163c5d516d15ead1425d0503b768a7aacc9eba39fd9a0e1",
+      "signature": "Valid",
+      "signerThumbprint": "47ee438d511d7ff23cc2b8989a9a89aec9fc278c",
+      "imports": [
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-private-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "kernel32.dll",
+        "pulsar_codec_bridge.dll"
+      ]
+    },
+    {
+      "path": "swresample-6.dll",
+      "bytes": 180168,
+      "sha256": "3de8317cad10ba1a972ec4fa2467fc133b0608b94a29204009d8615c4772c961",
+      "signature": "Valid",
+      "signerThumbprint": "47ee438d511d7ff23cc2b8989a9a89aec9fc278c",
+      "imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-private-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "avutil-60.dll",
+        "kernel32.dll"
+      ]
+    }
+  ],
+  "offlineInstalledDecode": true,
+  "installedDecode": {
+    "abi": 1,
+    "codec": "mp3",
+    "sampleRate": 48000,
+    "channels": 2,
+    "frames": 501,
+    "samples": 576000,
+    "firstPtsMS": 0,
+    "lastPtsMS": 12000,
+    "pcmChecksum": "528285e3a26ce93d",
+    "drained": true,
+    "cancelled": false,
+    "cpuMS": 24,
+    "peakRSSBytes": 6270976,
+    "errorCode": 0
+  },
+  "installedDecodeStderrSha256": "3bfe206f8f088a822236d66d07f291f312295c9d00fe104f87349a0553485336",
+  "shippingDecision": "rejected-until-all-required-platform-and-release-evidence-exists",
+  "claimClass": "repository-engineering-prototype"
+}

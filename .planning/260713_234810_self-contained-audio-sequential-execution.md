@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 82 accepted, 123 remain.
-- Routed inventory: 186 engineering tasks (82 accepted, 104 remain) and 19
+- Combined inventory: 205 original tasks; 84 accepted, 121 remain.
+- Routed inventory: 186 engineering tasks (84 accepted, 102 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1vdlkw` — audit-codec-licenses-and-distribution-constraints
-- Next engineering task: `TASK-260712-1vdlkw` — audit-codec-licenses-and-distribution-constraints
-- Most recently accepted: `TASK-260712-dqdoqj` — prototype-stream-variants-range-cache-contract
-- Current branch: `task/task-260712-1vdlkw-audit-codec-licenses-distribution`
+- Current engineering task: `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
+- Next engineering task: `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
+- Most recently accepted: `TASK-260712-1canzv` — probe-bundled-signed-decoder-path
+- Current branch: `tracking/task-260712-1canzv-acceptance`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 82 / 205 tasks (40.0%); 123 remain
-- Engineering progress: 82 / 186 tasks (approximately 44.1%); 104 remain
+- Accepted overall: 84 / 205 tasks (approximately 41.0%); 121 remain
+- Engineering progress: 84 / 186 tasks (approximately 45.2%); 102 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1370,6 +1370,26 @@ audible or hardware result is claimed. Progress is 83/205 overall and 83/186
 engineering; 122 overall and 103 engineering tasks remain. Strict execution
 advances to `TASK-260712-1canzv`.
 
+Checkpoint 2026-07-15 (accepted): `TASK-260712-1canzv` proves the exact
+bundled FFmpeg 8.1.2 engineering path on code head `ad51481`, merged by PR
+#108 as `666220d`. A pinned LGPL-only configure allowlist, six synthetic
+MP3/AAC/Opus CBR/VBR/container fixtures, narrow C bridge and private bounded
+cache harness cover decode, scheduled start, pause/cancel, seek generation,
+resume, drain, hostile inputs, disk, CPU and RSS. Dedicated hosted run
+`29444807851` passed macOS ARM64, macOS Intel and Windows amd64. ARM64 package
+size was 2,100,847 bytes with 5,210,112 peak RSS and 93 ms aggregate decode
+CPU. The 1,965,989-byte Windows AppContainer MSIX has SHA-256
+`c003ceab37a35b21e9bfc8bea168eed735fbf5c0b964355c0c59a860d15bcb50`;
+all PE imports and embedded signers are inventoried, including package-local
+winpthreads `14.0.0.r190.g96fb1bff7-1`; temporary machine trust supports an
+offline installed-package decode and is removed with the package. Windows
+peak RSS was 7,028,736 bytes and aggregate decode CPU was 124 ms. Standard CI
+run `29444811403` passed all four jobs. Shipping remains rejected pending
+Windows ARM64, production signing/notarization, current SBOM/advisory/counsel
+review and accepted hostile-input isolation; no Store, production-signing or
+physical-hardware result is claimed. Progress is 84/205 overall and 84/186
+engineering; strict execution advances to `TASK-260712-298tyq`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2155,7 +2175,7 @@ Story: `STORY-260712-3l1r1u` — P2 Codec and streaming player spike.
   (accepted on engineering commit `3fc2409`; codec tests 9/9 and repository
   acceptance 12/12, hosted run `29437923424` attempt 2 passed 4/4, PR #106
   merge `594495b`)
-- [ ] `TASK-260712-1canzv` — probe-bundled-signed-decoder-path
+- [x] `TASK-260712-1canzv` — probe-bundled-signed-decoder-path
 - [ ] `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
 - [ ] `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
 - [ ] `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path

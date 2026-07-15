@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 59 accepted, 146 remain.
-- Routed inventory: 186 engineering tasks (59 accepted, 127 remain) and 19
+- Combined inventory: 205 original tasks; 60 accepted, 145 remain.
+- Routed inventory: 186 engineering tasks (60 accepted, 126 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-c7dmv8` — windows-hotkey-tray-recording
-  (accepted; tracking CI and merge remain)
-- Next engineering task: `TASK-260712-1s6h6t` — macos-local-capture-self-test
-- Most recently accepted: `TASK-260712-c7dmv8` — windows-hotkey-tray-recording
-- Current branch: `task/task-260712-c7dmv8-windows-hotkey-tray-recording`
+- Current engineering task: `TASK-260712-1s6h6t` — macos-local-capture-self-test
+  (accepted on exact engineering head `f8e9db9`; tracking/merge pending)
+- Next engineering task: `TASK-260712-1p8ykc` — windows-local-capture-self-test
+- Most recently accepted: `TASK-260712-1s6h6t` — macos-local-capture-self-test
+- Current branch: `task/task-260712-1s6h6t-macos-local-capture-self-test`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 59 / 205 tasks (approximately 28.8%); 146 remain
-- Engineering progress: 59 / 186 tasks (approximately 31.7%); 127 remain
+- Accepted overall: 60 / 205 tasks (approximately 29.3%); 145 remain
+- Engineering progress: 60 / 186 tasks (approximately 32.3%); 126 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -773,6 +773,33 @@ claimed; those remain in `EPIC-260714-th54l3`. Progress is 59/205 overall and
 59/186 engineering. PR #58 tracking and merge remain before strict execution
 starts `TASK-260712-1s6h6t`.
 
+Tracking head `c9e0ad0b902f656cbeb48bc4477ab850fb016870` passed all four hosted
+jobs in run `29385206888`; PR #58 landed at merge
+`707593ecf43c6ad31a9c60676940ff7f8a941e34`. Strict execution started
+`TASK-260712-1s6h6t` from that synchronized `main` on branch
+`task/task-260712-1s6h6t-macos-local-capture-self-test`.
+
+Checkpoint 2026-07-15: `TASK-260712-1s6h6t` is accepted at exact engineering
+head `f8e9db9`. The macOS app now has one composition and operation gate for
+the accepted TCC capture engine, exact five-second self-test, file intake,
+production local clip output and persisted Carbon shortcut. Accountless mode
+starts the same production audio graph without coordinator/librespot and hands
+ownership cleanly to the paired runtime. Normal capture serializes reviewed
+start/stop cues, publishes a bounded durable draft only after finalization and
+stop-cue success, exposes persisted enumerated input selection plus bounded
+meters, and projects processing/recording/failure state consistently in the
+window, menu and hotkey paths. Self-test and normal recording cannot overlap;
+foreground Escape, hidden-menu Cancel, conflict fallback, sleep/session and
+quit keep their accepted bounded ownership. Local coordinator vet/full plus
+pinned rollback, Windows vet/full/cross-build, 205 Swift tests, release build,
+packaged cue/plist/strict codesign verification, board validation and diff
+checks passed. GitHub Actions run `29385946438` passed all four jobs, including
+signed MSIX build/install/cleanup. No real TCC dialog, microphone, audible
+route/cue, Finder, physical shortcut/conflict, sleep/session or signed
+production-app observation is claimed; those remain in `EPIC-260714-th54l3`.
+Progress is 60/205 overall and 60/186 engineering. PR #59 tracking and merge
+remain before strict execution starts `TASK-260712-1p8ykc`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -1445,7 +1472,11 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
   after a transient Go-module proxy rerun, including signed MSIX
   build/install/cleanup; real shortcut, conflict, tray, microphone and
   lifecycle observations remain manual; PR #58)
-- [ ] `TASK-260712-1s6h6t` — macos-local-capture-self-test
+- [x] `TASK-260712-1s6h6t` — macos-local-capture-self-test (accepted on exact
+  engineering head `f8e9db9`; all four hosted jobs in run `29385946438` green,
+  including 205 Swift tests and signed MSIX packaging; real TCC, microphone,
+  audible route/cue, Finder, shortcut/conflict and lifecycle observations
+  remain manual; PR #59)
 - [ ] `TASK-260712-1p8ykc` — windows-local-capture-self-test
 - [ ] `TASK-260712-3dqc3l` — macos-ui-data-integration
 - [ ] `TASK-260712-2fe5bz` — windows-ui-data-integration

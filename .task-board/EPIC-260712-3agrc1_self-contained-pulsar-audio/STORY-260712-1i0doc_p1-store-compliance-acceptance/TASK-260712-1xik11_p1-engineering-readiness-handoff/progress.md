@@ -8,7 +8,7 @@ backlog
 2026-07-12T15:45:05Z
 
 ## Last Update
-2026-07-14T00:51:33Z
+2026-07-15T10:30:50Z
 
 ## Blocked By
 - TASK-260712-2kec2s
@@ -17,7 +17,6 @@ backlog
 - TASK-260712-dlltnr
 - TASK-260712-3t9nr8
 - TASK-260712-e1ie4x
-- TASK-260712-2s4e9p
 - TASK-260712-1cdoxh
 - TASK-260712-g9ycx5
 - TASK-260712-16zfvu
@@ -26,10 +25,6 @@ backlog
 - TASK-260712-jolzhh
 - TASK-260712-2cdjq8
 - TASK-260712-1f9jtm
-- TASK-260712-wy05n6
-- TASK-260712-176b74
-- TASK-260712-1xkn75
-- TASK-260712-1uz0za
 - TASK-260712-38lssj
 
 ## Blocks
@@ -48,6 +43,7 @@ backlog
 
 ## Notes
 2026-07-14 scope change: legacy checklist lines that say execute live hardware or submit to Partner Center are superseded by the user-approved extraction. They now mean index the corresponding deferred manual task and submission prerequisite, not claim it ran.
+2026-07-15 root-review routing: external independent signatures and Store/real-app owner evidence stay open in EPIC-260714-zmnd4n and EPIC-260714-th54l3 but no longer block the engineering-readiness handoff. This task must index those explicit holds and may authorize reversible P2 coding only; it cannot claim Phase 1 product, Store or release acceptance.
 
 ## Precondition Resources
 (none)

@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 68 accepted, 137 remain.
-- Routed inventory: 186 engineering tasks (68 accepted, 118 remain) and 19
+- Combined inventory: 205 original tasks; 69 accepted, 136 remain.
+- Routed inventory: 186 engineering tasks (69 accepted, 117 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-38lssj` — p1-root-integration-review
-  (starting after the Store engineering handoff)
-- Next engineering task: `TASK-260712-1xik11` — p1-engineering-readiness-handoff
-- Most recently accepted: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Current branch: `task/task-260712-38lssj-p1-root-integration-review`
+- Current engineering task: `TASK-260712-1xik11` — p1-engineering-readiness-handoff
+  (starting after the root-review tracking merge)
+- Next engineering task: `TASK-260712-17yizc` — air-lifecycle-policy-contract
+- Most recently accepted: `TASK-260712-38lssj` — p1-root-integration-review
+- Current branch: `tracking/task-260712-38lssj-root-review`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 68 / 205 tasks (approximately 33.2%); 137 remain
-- Engineering progress: 68 / 186 tasks (approximately 36.6%); 118 remain
+- Accepted overall: 69 / 205 tasks (approximately 33.7%); 136 remain
+- Engineering progress: 69 / 186 tasks (approximately 37.1%); 117 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1098,6 +1098,24 @@ in existing manual task `TASK-260712-e5mfqj`; exact IARC, candidate hashes and
 owner proceed remain in `TASK-260715-24ube9`. The original task stays
 `to-review`, does not increase accepted counts, and strict engineering advances
 to `TASK-260712-38lssj`.
+
+The Phase 1 root integration review accepts exact engineering candidate
+`16420c2ce652d05d534fb45b5ef9a7124d4bbdd6` for reversible P2 coding while
+explicitly withholding product, Store and release acceptance. Its deterministic
+manifest covers all 68 first-parent intervals and 737 no-renames path entries
+from approved baseline `38ebd385`, embeds every task AC, maps every path to
+A1-A8 and has zero unmapped files. Root semantic review rechecked all nine
+closed HIGH findings across protocol, realtime audio, migration and security;
+no critical or high engineering finding remains. Coordinator and Windows full
+race suites pass, as do 218 Swift tests in 35 suites. Exact review-packet head
+`4c79d12bb2982f6916d8e612b7d6d50a3732ee2f` passed clean local acceptance
+12/12 with start/end dirty false and all four hosted jobs in run `29408109562`.
+PR #78 landed at merge `0762ed232492c95829f152922a0e5d1ab3a5c397`.
+Independent signatures, physical A1-A8, WACK/screenshots, IARC/Partner Center
+and mailbox delivery remain fail-closed in their external/manual ledgers; they
+no longer block the explicitly engineering-only readiness handoff. Progress is
+69/205 overall and 69/186 engineering, and strict execution advances to
+`TASK-260712-1xik11`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

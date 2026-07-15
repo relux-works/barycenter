@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-bundled-ffmpeg-probe.v1",
+  "candidateId": "bundled-ffmpeg-8.1.2-v1",
+  "source": {
+    "url": "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz",
+    "sha256": "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c",
+    "signatureUrl": "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz.asc",
+    "signingKeyFingerprint": "FCF986EA15E6E293A5644F10B4322F04D67658D8"
+  },
+  "configure": {
+    "required": [
+      "--disable-everything",
+      "--disable-autodetect",
+      "--disable-programs",
+      "--disable-doc",
+      "--disable-network",
+      "--disable-static",
+      "--enable-shared",
+      "--enable-pic",
+      "--disable-avdevice",
+      "--disable-avfilter",
+      "--disable-swscale",
+      "--disable-gpl",
+      "--disable-version3",
+      "--disable-nonfree",
+      "--enable-protocol=file",
+      "--enable-demuxer=aac,mov,mp3,ogg",
+      "--enable-decoder=aac,mp3,opus",
+      "--enable-parser=aac,mpegaudio,opus",
+      "--enable-swresample"
+    ],
+    "forbidden": [
+      "--enable-gpl",
+      "--enable-version3",
+      "--enable-nonfree",
+      "--enable-network",
+      "--enable-programs",
+      "--enable-static"
+    ]
+  },
+  "platformConfigure": {
+    "windows-amd64": {
+      "required": ["--disable-pthreads", "--enable-w32threads"],
+      "packageLocalRuntime": ["libwinpthread-1.dll"],
+      "runtimeVersionReceipt": "toolchain-components.txt"
+    }
+  },
+  "package": {
+    "allowedLibraries": ["avcodec", "avformat", "avutil", "swresample", "pulsar_codec_bridge", "winpthread"],
+    "forbiddenNames": ["ffmpeg", "ffprobe", "ffplay"],
+    "runtimeExecutableDownload": false,
+    "sandboxWeakening": false,
+    "decoderProcessOwnsNetwork": false,
+    "maxChunkBytes": 1048576,
+    "maxPreparedBytes": 67108864,
+    "renderCallbackCallsDecoder": false,
+    "hostileInputContainment": "probe-process-boundary-only"
+  },
+  "platformMatrix": [
+    {
+      "id": "macos-arm64",
+      "required": true,
+      "package": "signed nested dylibs in Contents/Frameworks",
+      "engineeringSignature": "ad-hoc",
+      "releaseSignature": "Developer ID or Apple Distribution plus notarization",
+      "releaseEvidenceRequired": true
+    },
+    {
+      "id": "windows-amd64",
+      "required": true,
+      "package": "test-signed MSIX with package-local DLLs",
+      "engineeringSignature": "ephemeral CI test certificate",
+      "releaseSignature": "Partner Center accepted production signer",
+      "releaseEvidenceRequired": true
+    },
+    {
+      "id": "windows-arm64",
+      "required": true,
+      "package": "production-signed MSIX with package-local ARM64 DLLs",
+      "engineeringSignature": "not-yet-proven",
+      "releaseSignature": "Partner Center accepted production signer",
+      "releaseEvidenceRequired": true
+    }
+  ],
+  "smokeFixtures": [
+    {"id":"aac_adts_12s","path":"acceptance/codec-spike/fixtures/smoke-v1/aac_adts_12s.aac","codec":"aac","container":"adts","sha256":"5f4b33b02475a99bdf99c7ca9833a5147de938deb32a18962e55f362319c3ff1","minimumDurationMS":11800},
+    {"id":"aac_m4a_12s","path":"acceptance/codec-spike/fixtures/smoke-v1/aac_m4a_12s.m4a","codec":"aac","container":"m4a","sha256":"4a9d09ab5e799b3c17eaca416fb473e6e290766f1ea413dc4f9ae5066b6d4851","minimumDurationMS":11900},
+    {"id":"mp3_cbr_12s","path":"acceptance/codec-spike/fixtures/smoke-v1/mp3_cbr_12s.mp3","codec":"mp3","container":"mp3","sha256":"bcc68fd551cf39bbfc4df81601b2968e8704d61161ff0912f46f0f03d0d0b6f0","minimumDurationMS":11900},
+    {"id":"mp3_vbr_12s","path":"acceptance/codec-spike/fixtures/smoke-v1/mp3_vbr_12s.mp3","codec":"mp3","container":"mp3","sha256":"9b6cb30493e80eb80c28284a30ea401e6c1393287cf916c6acd8e125420b5934","minimumDurationMS":11900},
+    {"id":"opus_ogg_cbr_12s","path":"acceptance/codec-spike/fixtures/smoke-v1/opus_ogg_cbr_12s.ogg","codec":"opus","container":"ogg","sha256":"c975e2a86593577daffa3a85d5540ec12968662b2cf6d2b23a56cad05f3c7bc0","minimumDurationMS":11900},
+    {"id":"opus_ogg_vbr_12s","path":"acceptance/codec-spike/fixtures/smoke-v1/opus_ogg_vbr_12s.ogg","codec":"opus","container":"ogg","sha256":"e4a3cf994c3adbfe13ae46393c122040c67369f7784fdc1827a34acb43c08741","minimumDurationMS":11900}
+  ],
+  "hostileMutations": ["truncate:8", "truncate:31", "xor:middle:0x5a", "prefix:overflowing-mp4-atom", "xor:ogg-crc:0xff"],
+  "requiredLifecycle": ["prepare", "arm", "scheduled-start", "pause", "seek-new-generation", "resume", "cancel", "drain"],
+  "decision": {
+    "engineering": "prototype-only",
+    "shipping": "rejected-until-all-required-platform-and-release-evidence-exists",
+    "unresolvedAssumptionsAllowed": false,
+    "missingEvidenceIsRejection": true
+  }
+}

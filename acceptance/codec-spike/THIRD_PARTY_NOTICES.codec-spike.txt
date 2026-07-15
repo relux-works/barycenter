@@ -11,6 +11,15 @@ library recipe. Source: https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz
 The release must publish the exact corresponding source, patches and build
 recipe beside the application download and include the full LGPL-2.1 text.
 
+mingw-w64 winpthreads runtime (Windows bundled-probe transitive)
+Copyright mingw-w64 contributors.
+The exact MSYS2 package version and DLL digest must be captured by every build.
+The mingw-w64 project describes the runtime as permissively licensed; its
+COPYING.MinGW-w64-runtime terms and notices from the exact corresponding source
+must accompany any distributed prototype or release. Source and license:
+https://github.com/mingw-w64/mingw-w64/tree/master/COPYING.MinGW-w64-runtime
+This dependency is an explicit release-review and vulnerability-update gate.
+
 github.com/hajimehoshi/go-mp3 v0.3.4 (candidate component)
 Copyright Hajime Hoshi.
 Licensed under Apache-2.0. A shipping release must include the full license and

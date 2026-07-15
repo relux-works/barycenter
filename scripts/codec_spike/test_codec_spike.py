@@ -31,6 +31,7 @@ range_harness = load("codec_spike_range", "range_harness.py")
 evaluator = load("codec_spike_evaluator", "evaluate_evidence.py")
 stream_contract = load("codec_spike_stream_contract", "stream_contract.py")
 license_audit = load("codec_spike_license_audit", "validate_license_audit.py")
+bundled_probe = load("codec_spike_bundled_probe", "inventory_bundled_probe.py")
 
 
 def passing_evidence(rubric: dict, real: bool = True) -> dict:
@@ -107,6 +108,43 @@ def passing_evidence(rubric: dict, real: bool = True) -> dict:
 
 
 class CodecSpikeContractTests(unittest.TestCase):
+    def test_bundled_probe_contract_is_complete_and_fails_closed(self):
+        probe = bundled_probe.load_contract()
+        bundled_probe.validate_contract(probe)
+        self.assertEqual(len(probe["smokeFixtures"]), 6)
+        self.assertEqual(
+            {item["id"] for item in probe["platformMatrix"]},
+            {"macos-arm64", "windows-amd64", "windows-arm64"},
+        )
+        self.assertFalse(probe["package"]["runtimeExecutableDownload"])
+        self.assertFalse(probe["package"]["renderCallbackCallsDecoder"])
+
+        for mutation, expected in (
+            (("package", "runtimeExecutableDownload", True), "runtime executable download"),
+            (("package", "decoderProcessOwnsNetwork", True), "decoder owns network"),
+            (("decision", "shipping", "approved"), "shipping decision"),
+        ):
+            tampered = json.loads(json.dumps(probe))
+            section, field, value = mutation
+            tampered[section][field] = value
+            with self.assertRaisesRegex(ValueError, expected):
+                bundled_probe.validate_contract(tampered)
+
+        tampered = json.loads(json.dumps(probe))
+        tampered["platformMatrix"].pop()
+        with self.assertRaisesRegex(ValueError, "architecture matrix"):
+            bundled_probe.validate_contract(tampered)
+
+        msix_script = (HERE / "package_bundled_probe_msix.ps1").read_text(encoding="utf-8")
+        self.assertIn('uap10:TrustLevel="appContainer"', msix_script)
+        self.assertNotIn("runFullTrust", msix_script)
+        self.assertIn("unpackaged non-system import", msix_script)
+        self.assertNotIn("$LASTEXITCODE:", msix_script)
+        mingw_script = (HERE / "build_bundled_ffmpeg_mingw.sh").read_text(encoding="utf-8")
+        self.assertIn("-static-libgcc", mingw_script)
+        self.assertIn("--disable-pthreads --enable-w32threads", mingw_script)
+        self.assertIn("mingw-w64-ucrt-x86_64-winpthreads", mingw_script)
+
     def test_exact_license_audit_is_complete_and_fail_closed(self):
         audit = license_audit.load()
         license_audit.validate(audit)

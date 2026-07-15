@@ -506,11 +506,15 @@ class BoundedPrivateChunkCache:
                     stream.flush()
                     os.fsync(stream.fileno())
                 os.replace(temporary, self.root / relative)
-                directory_fd = os.open(self.root, os.O_RDONLY)
-                try:
-                    os.fsync(directory_fd)
-                finally:
-                    os.close(directory_fd)
+                # POSIX directory fsync makes the atomic rename durable. Windows
+                # rejects a normal os.open on directories; the file fsync plus
+                # same-volume replace above is the supported bounded-cache path.
+                if os.name != "nt":
+                    directory_fd = os.open(self.root, os.O_RDONLY)
+                    try:
+                        os.fsync(directory_fd)
+                    finally:
+                        os.close(directory_fd)
             finally:
                 pathlib.Path(temporary).unlink(missing_ok=True)
             self.clock += 1

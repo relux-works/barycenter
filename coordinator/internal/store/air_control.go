@@ -40,8 +40,12 @@ const (
 // middleware. The same credential is re-resolved after the SQLite writer lock
 // is acquired, closing the revoke/role-change race.
 type AirMutationAuth struct {
-	ExpectedActorID    int64
-	Bearer             string
+	ExpectedActorID int64
+	Bearer          string
+	// Identity lets non-HTTP adapters use the same transactional Air service.
+	// Bearer remains for source compatibility and is normalized to a bearer
+	// identity when Identity is empty.
+	Identity           Identity
 	IdempotencyKeyHash string
 	RequestHash        string
 	Now                int64
@@ -121,7 +125,12 @@ func normalizeAirMutationAuth(auth AirMutationAuth) (AirMutationAuth, error) {
 	if auth.Now <= 0 {
 		auth.Now = time.Now().UnixMilli()
 	}
-	if auth.ExpectedActorID <= 0 || len(auth.IdempotencyKeyHash) != 64 ||
+	if auth.Identity.Kind == "" && auth.Bearer != "" {
+		auth.Identity = Identity{Kind: IdentityBearer, Token: auth.Bearer}
+	}
+	if auth.ExpectedActorID <= 0 ||
+		(auth.Identity.Kind != IdentityBearer && auth.Identity.Kind != IdentityTelegram) ||
+		len(auth.IdempotencyKeyHash) != 64 ||
 		len(auth.RequestHash) != 64 || !lowerHexTokenPattern.MatchString(auth.IdempotencyKeyHash) ||
 		!lowerHexTokenPattern.MatchString(auth.RequestHash) {
 		return AirMutationAuth{}, ErrAirInvalid
@@ -142,10 +151,14 @@ func (s *Store) beginAirMutation(auth AirMutationAuth, operation string) (airMut
 		tx.Rollback()
 		return airMutationState{}, auth, err
 	}
-	ctx, err := mutationActorContextTx(tx, auth.ExpectedActorID, hashToken(auth.Bearer))
+	ctx, err := resolveActorContext(tx, auth.Identity)
 	if err != nil {
 		tx.Rollback()
 		return airMutationState{}, auth, err
+	}
+	if ctx.ActorID != auth.ExpectedActorID {
+		tx.Rollback()
+		return airMutationState{}, auth, ErrUnauthorized
 	}
 	var storedOperation, storedRequest string
 	var raw string
@@ -229,6 +242,10 @@ func hashAirInviteCode(key []byte, code string) string {
 }
 
 func (s *Store) AuthorizedAirList(actorID int64, bearer string) (AirListView, error) {
+	return s.AuthorizedAirListForIdentity(actorID, Identity{Kind: IdentityBearer, Token: bearer})
+}
+
+func (s *Store) AuthorizedAirListForIdentity(actorID int64, identity Identity) (AirListView, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return AirListView{}, err
@@ -237,9 +254,12 @@ func (s *Store) AuthorizedAirList(actorID int64, bearer string) (AirListView, er
 	if _, err := requireAirsAuthoritativeTx(tx); err != nil {
 		return AirListView{}, err
 	}
-	ctx, err := mutationActorContextTx(tx, actorID, hashToken(bearer))
+	ctx, err := resolveActorContext(tx, identity)
 	if err != nil {
 		return AirListView{}, err
+	}
+	if ctx.ActorID != actorID {
+		return AirListView{}, ErrUnauthorized
 	}
 	view, err := airListViewTx(tx, ctx.OrbitID)
 	if err != nil {
@@ -249,6 +269,10 @@ func (s *Store) AuthorizedAirList(actorID int64, bearer string) (AirListView, er
 }
 
 func (s *Store) AuthorizedAir(actorID int64, bearer, airID string) (AirProjection, error) {
+	return s.AuthorizedAirForIdentity(actorID, Identity{Kind: IdentityBearer, Token: bearer}, airID)
+}
+
+func (s *Store) AuthorizedAirForIdentity(actorID int64, identity Identity, airID string) (AirProjection, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return AirProjection{}, err
@@ -257,9 +281,12 @@ func (s *Store) AuthorizedAir(actorID int64, bearer, airID string) (AirProjectio
 	if _, err := requireAirsAuthoritativeTx(tx); err != nil {
 		return AirProjection{}, err
 	}
-	ctx, err := mutationActorContextTx(tx, actorID, hashToken(bearer))
+	ctx, err := resolveActorContext(tx, identity)
 	if err != nil {
 		return AirProjection{}, err
+	}
+	if ctx.ActorID != actorID {
+		return AirProjection{}, ErrUnauthorized
 	}
 	projection, err := airProjectionTx(tx, airID, ctx.OrbitID)
 	if err != nil {

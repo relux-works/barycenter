@@ -133,6 +133,61 @@ CREATE TABLE IF NOT EXISTS air_mutation_results (
   PRIMARY KEY(actor_id, idempotency_key_hash)
 );
 
+-- Telegram Air controls carry only an opaque random capability. Air ids,
+-- revisions, actor/role authority and the requested action stay server-side.
+-- Tokens are single-use and additionally fenced by Telegram query id.
+CREATE TABLE IF NOT EXISTS telegram_air_callbacks (
+  token_hash TEXT PRIMARY KEY CHECK(
+    length(token_hash) = 64 AND token_hash NOT GLOB '*[^0-9a-f]*'
+  ),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  orbit_id INTEGER NOT NULL CHECK(orbit_id > 0),
+  role TEXT NOT NULL CHECK(role IN ('primary', 'companion', 'satellite')),
+  chat_id INTEGER NOT NULL,
+  message_id INTEGER NOT NULL CHECK(message_id > 0),
+  action TEXT NOT NULL CHECK(action IN (
+    'activate', 'deactivate', 'confirm_join', 'confirm_join_activate',
+    'decline_join', 'leave', 'dissolve', 'issue_member', 'issue_admin',
+    'withdraw_invite', 'policy_next'
+  )),
+  air_id TEXT NOT NULL REFERENCES airs(public_id),
+  membership_id TEXT NOT NULL DEFAULT '',
+  invite_id TEXT NOT NULL DEFAULT '',
+  air_revision INTEGER NOT NULL DEFAULT 0 CHECK(air_revision >= 0),
+  membership_revision INTEGER NOT NULL DEFAULT 0 CHECK(membership_revision >= 0),
+  invite_revision INTEGER NOT NULL DEFAULT 0 CHECK(invite_revision >= 0),
+  expected_active_air_id TEXT NOT NULL DEFAULT '',
+  policy_revision INTEGER NOT NULL DEFAULT 0 CHECK(policy_revision >= 0),
+  invite_policy TEXT NOT NULL DEFAULT '',
+  overlay_policy TEXT NOT NULL DEFAULT '',
+  queue_policy TEXT NOT NULL DEFAULT '',
+  replace_policy TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  expires_at INTEGER NOT NULL CHECK(expires_at > created_at),
+  consumed_at INTEGER NOT NULL DEFAULT 0 CHECK(consumed_at >= 0),
+  outcome TEXT NOT NULL DEFAULT '' CHECK(outcome IN (
+    '', 'claimed', 'applied', 'already_applied', 'too_late', 'expired',
+    'forbidden', 'unsupported', 'failed'
+  )),
+  CHECK(consumed_at = 0 OR consumed_at >= created_at)
+);
+CREATE INDEX IF NOT EXISTS telegram_air_callbacks_expiry
+  ON telegram_air_callbacks(expires_at, actor_id);
+
+CREATE TABLE IF NOT EXISTS telegram_air_callback_queries (
+  query_hash TEXT PRIMARY KEY CHECK(
+    length(query_hash) = 64 AND query_hash NOT GLOB '*[^0-9a-f]*'
+  ),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  orbit_id INTEGER NOT NULL CHECK(orbit_id > 0),
+  role TEXT NOT NULL,
+  chat_id INTEGER NOT NULL,
+  message_id INTEGER NOT NULL CHECK(message_id > 0),
+  outcome TEXT NOT NULL,
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  expires_at INTEGER NOT NULL CHECK(expires_at > created_at)
+);
+
 -- /approach is a compatibility facade over the Air lifecycle. The facade
 -- keeps only durable references; the user-facing code is derived from the
 -- invite id and the Air HMAC key, so it is recoverable after restart without

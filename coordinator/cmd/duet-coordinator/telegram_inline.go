@@ -275,6 +275,22 @@ func (l *loop) handleTelegramInlineCallback(ev bot.Event) {
 		}
 		return
 	}
+	airResult, err := l.st.ClaimTelegramAirCallback(store.ClaimTelegramAirCallbackParams{
+		TelegramUserID: ev.FromUserID, QueryID: callback.QueryID,
+		Token: callback.Data, ChatID: ev.ChatID, MessageID: ev.MessageID,
+		Now: time.Now().UnixMilli(),
+	})
+	if err != nil {
+		l.log.Error("claim Telegram Air callback", "err", err)
+		if callback.Answer != nil {
+			callback.Answer(bot.CallbackFailed)
+		}
+		return
+	}
+	if airResult.Found {
+		l.handleTelegramAirCallback(ev, airResult)
+		return
+	}
 	historyResult, err := l.st.ClaimTelegramHistoryCallback(
 		store.ClaimTelegramHistoryCallbackParams{
 			TelegramUserID: ev.FromUserID, QueryID: callback.QueryID,

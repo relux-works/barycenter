@@ -32,6 +32,7 @@ evaluator = load("codec_spike_evaluator", "evaluate_evidence.py")
 stream_contract = load("codec_spike_stream_contract", "stream_contract.py")
 license_audit = load("codec_spike_license_audit", "validate_license_audit.py")
 bundled_probe = load("codec_spike_bundled_probe", "inventory_bundled_probe.py")
+media_foundation = load("codec_spike_media_foundation", "validate_mf_probe.py")
 
 
 def passing_evidence(rubric: dict, real: bool = True) -> dict:
@@ -108,6 +109,36 @@ def passing_evidence(rubric: dict, real: bool = True) -> dict:
 
 
 class CodecSpikeContractTests(unittest.TestCase):
+    def test_media_foundation_probe_is_appcontainer_only_and_fails_closed(self):
+        probe = media_foundation.load()
+        media_foundation.validate(probe)
+        self.assertEqual(len(probe["smokeFixtures"]), 6)
+        self.assertEqual(
+            {item["id"] for item in probe["platformMatrix"]},
+            {"windows-amd64", "windows-arm64"},
+        )
+        self.assertEqual(probe["distributionBaseline"]["capabilities"], [])
+        self.assertFalse(probe["distributionBaseline"]["runFullTrust"])
+        self.assertFalse(probe["adapter"]["renderCallbackUsed"])
+
+        tampered = json.loads(json.dumps(probe))
+        tampered["distributionBaseline"]["runFullTrust"] = True
+        with self.assertRaisesRegex(ValueError, "runFullTrust"):
+            media_foundation.validate(tampered)
+        tampered = json.loads(json.dumps(probe))
+        tampered["adapter"]["maximumPreparedReadBytes"] = 2 * 1024 * 1024
+        with self.assertRaisesRegex(ValueError, "read ceiling"):
+            media_foundation.validate(tampered)
+
+        package_script = (HERE / "package_mf_probe_msix.ps1").read_text(encoding="utf-8")
+        self.assertIn('uap10:TrustLevel="appContainer"', package_script)
+        self.assertIn("directLaunchRejected", package_script)
+        self.assertNotIn("EnableDebugging", package_script)
+        native = (HERE / "native" / "mf_appcontainer_probe.cpp").read_text(encoding="utf-8")
+        self.assertIn("MFCreateSourceReaderFromByteStream", native)
+        self.assertIn("MFCreateMFByteStreamOnStreamEx", native)
+        self.assertNotIn("IAudioClient", native)
+
     def test_bundled_probe_contract_is_complete_and_fails_closed(self):
         probe = bundled_probe.load_contract()
         bundled_probe.validate_contract(probe)

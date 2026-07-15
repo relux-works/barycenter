@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-media-foundation-appcontainer-probe.v1",
+  "candidateId": "native-canonical-aac-v1",
+  "claimClass": "repository-engineering-prototype",
+  "distributionBaseline": {
+    "packageIdentity": "ReluxWorksLLC.PulsarMediaFoundationProbe",
+    "publisher": "CN=60105954-A0D9-4E89-B32D-18AF2F423ABE",
+    "minimumWindowsBuild": "10.0.19041.0",
+    "trustLevel": "appContainer",
+    "runtimeBehavior": "packagedClassicApp",
+    "capabilities": [],
+    "runFullTrust": false,
+    "developerMode": false,
+    "runtimeExecutableDownload": false
+  },
+  "adapter": {
+    "api": "MFCreateSourceReaderFromByteStream",
+    "byteStreamBridge": "MFCreateMFByteStreamOnStreamEx(IStream)",
+    "comApartment": "MTA",
+    "owner": "single decode worker thread",
+    "maximumPreparedReadBytes": 1048576,
+    "networkOwner": "coordinator range/cache layer",
+    "decoderOwnsNetwork": false,
+    "renderCallbackUsed": false,
+    "cancellation": "cooperative between Source Reader samples",
+    "seekGeneration": "new generation plus IMFSourceReader SetCurrentPosition"
+  },
+  "platformMatrix": [
+    {
+      "id": "windows-amd64",
+      "required": true,
+      "hostedProof": "signed package install and AppContainer activation"
+    },
+    {
+      "id": "windows-arm64",
+      "required": true,
+      "hostedProof": "cross-build, PE AppContainer flag, signing and package schema only"
+    }
+  ],
+  "smokeFixtures": [
+    {
+      "id": "mp3_cbr_12s",
+      "codec": "mp3",
+      "container": "mp3",
+      "mime": "audio/mpeg",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/mp3_cbr_12s.mp3",
+      "expected": "decode"
+    },
+    {
+      "id": "mp3_vbr_12s",
+      "codec": "mp3",
+      "container": "mp3",
+      "mime": "audio/mpeg",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/mp3_vbr_12s.mp3",
+      "expected": "decode"
+    },
+    {
+      "id": "aac_m4a_12s",
+      "codec": "aac",
+      "container": "m4a",
+      "mime": "audio/mp4",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/aac_m4a_12s.m4a",
+      "expected": "decode"
+    },
+    {
+      "id": "aac_adts_12s",
+      "codec": "aac",
+      "container": "adts",
+      "mime": "audio/aac",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/aac_adts_12s.aac",
+      "expected": "decode"
+    },
+    {
+      "id": "opus_ogg_cbr_12s",
+      "codec": "opus",
+      "container": "ogg",
+      "mime": "audio/ogg",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/opus_ogg_cbr_12s.ogg",
+      "expected": "reject-with-hresult"
+    },
+    {
+      "id": "opus_ogg_vbr_12s",
+      "codec": "opus",
+      "container": "ogg",
+      "mime": "audio/ogg",
+      "path": "acceptance/codec-spike/fixtures/smoke-v1/opus_ogg_vbr_12s.ogg",
+      "expected": "reject-with-hresult"
+    }
+  ],
+  "lifecycle": [
+    "range-backed-prepare",
+    "arm-from-coordinator-monotonic-time",
+    "scheduled-start",
+    "pause-without-read",
+    "seek-new-generation",
+    "resume-same-reader",
+    "drain-ended",
+    "cooperative-cancel"
+  ],
+  "hostedLimits": {
+    "scheduledSkewMS": 100,
+    "seekToSampleMS": 3000,
+    "peakRSSBytes": 209715200,
+    "maximumPreparedReadBytes": 1048576,
+    "soakSeconds": 60
+  },
+  "manualLimits": {
+    "soakSeconds": 7200,
+    "maximumRSSGrowthBytes": 16777216,
+    "maximumAbsoluteRSSSlopeBytesPerHour": 1048576,
+    "requiredOSBuilds": [
+      "supported Windows 10 x64",
+      "supported Windows 11 x64",
+      "supported Windows 11 ARM64"
+    ],
+    "manualEpic": "EPIC-260714-th54l3"
+  },
+  "decision": {
+    "shipping": "rejected-until-opus-and-manual-platform-evidence-exists",
+    "canonicalServerConversionRequiredForOpus": true,
+    "missingEvidenceIsRejection": true
+  }
+}

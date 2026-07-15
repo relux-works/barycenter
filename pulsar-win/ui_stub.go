@@ -6,6 +6,14 @@ package main
 
 import "errors"
 
+func currentWindowsRecordingShortcutStatus() WindowsRecordingShortcutStatus {
+	return WindowsShortcutInactive
+}
+
+func currentWindowsRecordingShortcut() WindowsRecordingShortcut {
+	return DefaultWindowsRecordingShortcut()
+}
+
 // errNoGUI is returned by showOnboardingWindow off Windows so main falls back
 // to the CLI onboarding message.
 var errNoGUI = errors.New("onboarding window is available only on Windows; use --pair CODE")

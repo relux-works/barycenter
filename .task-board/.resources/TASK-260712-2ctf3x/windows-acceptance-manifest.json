@@ -1,0 +1,193 @@
+{
+  "artifacts": [
+    {
+      "bytes": 130,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "df756e1ce082a4f5f396c96209855dabfcee8b13eac613d48e30fdf131925582"
+    },
+    {
+      "bytes": 0,
+      "path": "02-windows-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 210,
+      "path": "03-windows-tests.log",
+      "sha256": "83aab1aed632743e01f5b2c2d2d8535c555287530f17ea3609c316195e90aae4"
+    },
+    {
+      "bytes": 211,
+      "path": "04-windows-race.log",
+      "sha256": "693bb1e255ef6e78a6f895652e3af31ce9aad0fe89a59728708d076f8b4ba0af"
+    },
+    {
+      "bytes": 0,
+      "path": "05-windows-cross-vet-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "06-windows-cross-build-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "07-windows-cross-build-arm64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/codec_spike/test_codec_spike.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "02-windows-vet.log",
+      "name": "windows-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "03-windows-tests.log",
+      "name": "windows-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "04-windows-race.log",
+      "name": "windows-race"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "05-windows-cross-vet-amd64.log",
+      "name": "windows-cross-vet-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "06-windows-cross-build-amd64.log",
+      "name": "windows-cross-build-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "07-windows-cross-build-arm64.log",
+      "name": "windows-cross-build-arm64"
+    }
+  ],
+  "finishedAt": "2026-07-15T23:37:14Z",
+  "git": {
+    "dirty": true,
+    "endDirty": true,
+    "endDirtyPaths": [
+      "M .planning/260713_234810_self-contained-audio-sequential-execution.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-ob1tx2_p2-targets-inbox-parity/TASK-260712-2ctf3x_versioned-content-policy-consent/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-ob1tx2_p2-targets-inbox-parity/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/progress.md",
+      " M acceptance/targets-inbox-contract-v1.json",
+      " M coordinator/cmd/duet-coordinator/loop.go",
+      " M coordinator/cmd/duet-coordinator/media_ingest_acceptance_test.go",
+      " M coordinator/cmd/duet-coordinator/media_upload.go",
+      " M coordinator/cmd/duet-coordinator/media_upload_test.go",
+      " M coordinator/cmd/duet-coordinator/onboarding.go",
+      " M coordinator/cmd/duet-coordinator/onboarding_test.go",
+      " M coordinator/cmd/duet-coordinator/transmission_http.go",
+      " M coordinator/cmd/duet-coordinator/transmission_http_test.go",
+      " M coordinator/internal/bot/commands.go",
+      " M coordinator/internal/bot/commands_test.go",
+      " M coordinator/internal/historyactions/service_test.go",
+      " M coordinator/internal/store/media_ingest.go",
+      " M coordinator/internal/store/media_ingest_test.go",
+      " M coordinator/internal/store/media_upload_auth_test.go",
+      " M coordinator/internal/store/media_upload_previous_head_test.go",
+      " M coordinator/internal/store/store.go",
+      " M coordinator/internal/store/telegram_history_callbacks_test.go",
+      " M coordinator/internal/store/transmission_resolution.go",
+      " M coordinator/internal/store/transmission_resolution_test.go",
+      " M coordinator/internal/store/transmission_target_references_test.go",
+      " M docs/diagrams/p2-targets-inbox-parity-components.puml",
+      " M node-app/Sources/NodeApp/MacPhaseOneAppComposition.swift",
+      " M node-app/Sources/NodeApp/main.swift",
+      " M node-app/Sources/NodeAppUI/PulsarMainWindow.swift",
+      " M node-app/Sources/NodeAppUI/PulsarShellModel.swift",
+      " M node-app/Sources/NodeCore/PhaseOneAppClient.swift",
+      " M node-app/Sources/NodeCore/PhaseOneDraftOutbox.swift",
+      " M node-app/Tests/NodeCoreTests/PhaseOneAppClientTests.swift",
+      " M node-app/Tests/NodeCoreTests/PhaseOneDraftOutboxTests.swift",
+      " M pulsar-win/main_window_windows.go",
+      " M pulsar-win/phase_one_client.go",
+      " M pulsar-win/phase_one_client_test.go",
+      " M pulsar-win/phase_one_outbox.go",
+      " M pulsar-win/phase_one_outbox_test.go",
+      " M pulsar-win/windows_phase_one_composition.go",
+      " M pulsar-win/windows_phase_one_composition_test.go",
+      " M scripts/validate_targets_inbox_contract.py",
+      "?? coordinator/cmd/duet-coordinator/content_policy_http.go",
+      "?? coordinator/cmd/duet-coordinator/content_policy_http_test.go",
+      "?? coordinator/cmd/duet-coordinator/content_policy_telegram_test.go",
+      "?? coordinator/internal/store/content_policy.go",
+      "?? coordinator/internal/store/content_policy_test.go",
+      "?? docs/analysis/p2-versioned-content-policy-consent.md"
+    ],
+    "head": "f52fae1c0949b48d898732cd5408b3468caa18da",
+    "startDirty": true
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-15T23:36:38Z",
+  "status": "pass",
+  "suite": "windows",
+  "toolchains": {
+    "apple": null,
+    "go": "go version go1.25.12 darwin/amd64"
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "artifacts": [
+    {
+      "bytes": 130,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "49f0c05cae1e88da8f30257a42acbcd7b5d5fb2e33bc845723840ae02a0af084"
+    },
+    {
+      "bytes": 0,
+      "path": "02-coordinator-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 3885,
+      "path": "03-coordinator-tests.log",
+      "sha256": "249ed55fc351ce6df908fb6f2b7485e40e13ff07749c838fcc16e046cb3676ef"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/codec_spike/test_codec_spike.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "02-coordinator-vet.log",
+      "name": "coordinator-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 1,
+      "log": "03-coordinator-tests.log",
+      "name": "coordinator-tests"
+    }
+  ],
+  "finishedAt": "2026-07-15T23:30:16Z",
+  "git": {
+    "dirty": true,
+    "endDirty": true,
+    "endDirtyPaths": [
+      "M .planning/260713_234810_self-contained-audio-sequential-execution.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-ob1tx2_p2-targets-inbox-parity/TASK-260712-2ctf3x_versioned-content-policy-consent/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-ob1tx2_p2-targets-inbox-parity/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/progress.md",
+      " M acceptance/targets-inbox-contract-v1.json",
+      " M coordinator/cmd/duet-coordinator/loop.go",
+      " M coordinator/cmd/duet-coordinator/media_ingest_acceptance_test.go",
+      " M coordinator/cmd/duet-coordinator/media_upload.go",
+      " M coordinator/cmd/duet-coordinator/media_upload_test.go",
+      " M coordinator/cmd/duet-coordinator/onboarding.go",
+      " M coordinator/cmd/duet-coordinator/onboarding_test.go",
+      " M coordinator/cmd/duet-coordinator/transmission_http.go",
+      " M coordinator/cmd/duet-coordinator/transmission_http_test.go",
+      " M coordinator/internal/bot/commands.go",
+      " M coordinator/internal/bot/commands_test.go",
+      " M coordinator/internal/store/media_ingest.go",
+      " M coordinator/internal/store/media_ingest_test.go",
+      " M coordinator/internal/store/media_upload_auth_test.go",
+      " M coordinator/internal/store/store.go",
+      " M coordinator/internal/store/telegram_history_callbacks_test.go",
+      " M coordinator/internal/store/transmission_resolution.go",
+      " M coordinator/internal/store/transmission_resolution_test.go",
+      " M coordinator/internal/store/transmission_target_references_test.go",
+      " M docs/diagrams/p2-targets-inbox-parity-components.puml",
+      " M node-app/Sources/NodeApp/MacPhaseOneAppComposition.swift",
+      " M node-app/Sources/NodeApp/main.swift",
+      " M node-app/Sources/NodeAppUI/PulsarMainWindow.swift",
+      " M node-app/Sources/NodeAppUI/PulsarShellModel.swift",
+      " M node-app/Sources/NodeCore/PhaseOneAppClient.swift",
+      " M node-app/Sources/NodeCore/PhaseOneDraftOutbox.swift",
+      " M node-app/Tests/NodeCoreTests/PhaseOneAppClientTests.swift",
+      " M node-app/Tests/NodeCoreTests/PhaseOneDraftOutboxTests.swift",
+      " M pulsar-win/main_window_windows.go",
+      " M pulsar-win/phase_one_client.go",
+      " M pulsar-win/phase_one_client_test.go",
+      " M pulsar-win/phase_one_outbox.go",
+      " M pulsar-win/phase_one_outbox_test.go",
+      " M pulsar-win/windows_phase_one_composition.go",
+      " M scripts/validate_targets_inbox_contract.py",
+      "?? coordinator/cmd/duet-coordinator/content_policy_http.go",
+      "?? coordinator/cmd/duet-coordinator/content_policy_http_test.go",
+      "?? coordinator/cmd/duet-coordinator/content_policy_telegram_test.go",
+      "?? coordinator/internal/store/content_policy.go",
+      "?? coordinator/internal/store/content_policy_test.go",
+      "?? docs/analysis/p2-versioned-content-policy-consent.md"
+    ],
+    "head": "f52fae1c0949b48d898732cd5408b3468caa18da",
+    "startDirty": true
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-15T23:29:41Z",
+  "status": "fail",
+  "suite": "coordinator",
+  "toolchains": {
+    "apple": null,
+    "go": "go version go1.25.12 darwin/amd64"
+  }
+}

@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2w4gyw` — windows-microphone-capture-engine
-  (accepted; tracking commit, hosted verification and PR merge in progress)
-- Next engineering task: `TASK-260712-3lg0ht` — macos-self-test-file-intake
-- Most recently accepted: `TASK-260712-2w4gyw` — windows-microphone-capture-engine
-- Current branch: `task/task-260712-2w4gyw-windows-microphone-capture-engine`
+- Current engineering task: `TASK-260712-3lg0ht` — macos-self-test-file-intake
+  (accepted engineering head; tracking/merge pending)
+- Next engineering task: `TASK-260712-ut6akw` — macos-hotkey-menubar-recording
+- Most recently accepted: `TASK-260712-3lg0ht` — macos-self-test-file-intake
+- Current branch: `task/task-260712-3lg0ht-macos-self-test-file-intake`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 55 / 205 tasks (approximately 26.8%); 150 remain
-- Engineering progress: 55 / 186 tasks (approximately 29.6%); 131 remain
+- Accepted overall: 56 / 205 tasks (approximately 27.3%); 149 remain
+- Engineering progress: 56 / 186 tasks (approximately 30.1%); 130 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -662,6 +662,29 @@ the first attempt hit an unrelated existing overlay callback timing flake
 UI, hidden-capture or real lifecycle result is claimed; those remain in
 `EPIC-260714-th54l3`. Progress is 55/205 overall and 55/186 engineering. PR #54
 tracking and merge remain before strict execution starts `TASK-260712-3lg0ht`.
+
+Tracking head `708995f7e151ec0bf1518f08f0babfff72b28d65` passed all four hosted
+jobs in run `29381291476`; PR #54 landed at merge
+`a5351f4cc02d72b280a67e8e8b206a0baee3417b`. Strict execution started
+`TASK-260712-3lg0ht` from that synchronized `main` on branch
+`task/task-260712-3lg0ht-macos-self-test-file-intake`.
+
+Checkpoint 2026-07-15: `TASK-260712-3lg0ht` is accepted at exact engineering
+head `50b872d`. The macOS offline domain flow now plays the reviewed builtin cue
+or records exactly five seconds between serialized cues and plays only the
+completed draft through the same production clip mixer/output branch. That
+local schedule has no coordinator, fetch, upload or mixer-telemetry ownership;
+close and explicit delete remove the owned draft. System picker and drag/drop
+surfaces show content-probed format, duration, size, audience, eligible modes,
+rights and authoritative-server guidance before explicit acceptance. Intake
+rechecks security-scoped content, rejects unsupported/unreadable/over-limit
+files and streams accepted input to owner-only canonical PCM16 storage. Root
+review and local Go, 193 Swift tests, release Swift build, app packaging/cue/
+plist/codesign checks passed. GitHub Actions run `29382291652` passed all four
+jobs. No real microphone, audible route or Finder observation is claimed;
+those remain in `EPIC-260714-th54l3`. Progress is 56/205 overall and 56/186
+engineering. PR #55 tracking and merge remain before strict execution starts
+`TASK-260712-ut6akw`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1318,7 +1341,10 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
   exact engineering head `b40bd16`; all four hosted jobs in run `29381000568`
   green on rerun, including signed MSIX build/install/cleanup; real microphone,
   permission UI, hidden capture and lifecycle hardware remain manual; PR #54)
-- [ ] `TASK-260712-3lg0ht` — macos-self-test-file-intake
+- [x] `TASK-260712-3lg0ht` — macos-self-test-file-intake (accepted on exact
+  engineering head `50b872d`; all four hosted jobs in run `29382291652` green;
+  real microphone, audible route and Finder picker/drop evidence remain manual;
+  PR #55)
 - [ ] `TASK-260712-ut6akw` — macos-hotkey-menubar-recording
 - [ ] `TASK-260712-25at8b` — windows-self-test-file-intake
 - [ ] `TASK-260712-c7dmv8` — windows-hotkey-tray-recording

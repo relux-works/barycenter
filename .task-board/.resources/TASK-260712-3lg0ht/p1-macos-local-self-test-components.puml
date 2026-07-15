@@ -1,0 +1,42 @@
+@startuml
+title P1 macOS local self-test and short-file intake
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+actor User
+component "PulsarSelfTestView\nSwiftUI picker + drop" as View
+component "PulsarShellModel / Actions\n@MainActor projection" as Shell
+component "MacLocalSelfTestService\nserial local lifecycle" as Service
+component "MacMicrophoneCaptureEngine\nTCC + bounded capture" as Capture
+component "MacShortAudioInspector / Intake\nprobe + canonicalize" as Intake
+database "CaptureMediaStore\nowner-only drafts" as Store
+component "MacProductionLocalClipOutput" as LocalOutput
+component "MacOverlayMediaClipMixer\nproduction clip branch" as Mixer
+component "Selected AudioEngine output" as Output
+
+User --> View : cue / 5 s record / pick / drop / delete
+View --> Shell : explicit actions
+Shell --> Service : later integration binding
+Service --> Capture : begin, start cue complete, stop, cancel
+Service --> Intake : review then explicit accept
+Capture --> Store : finalized microphone draft
+Intake --> Store : canonical durable-unsent draft
+Service --> LocalOutput : cue or completed draft only
+LocalOutput --> Mixer
+Mixer --> Output
+
+note right of Service
+No URLSession
+No CoordinatorClient
+No upload state transition
+No telemetry client
+end note
+
+note bottom of Intake
+50 MiB / 180 s P1 gate
+overlay eligible through 60 s
+server probe remains authoritative
+end note
+
+@enduml

@@ -1,0 +1,34 @@
+@startuml
+title Phase 1 acceptance environment and evidence boundary
+
+skinparam componentStyle rectangle
+
+package "Repository / CI evidence" {
+  [Pinned acceptance runner] as Runner
+  database "Temporary deterministic SQLite" as DB
+  artifact "Sanitized logs + SHA-256 manifest" as AutomatedEvidence
+  Runner --> DB : migrations + rollback fixtures
+  Runner --> AutomatedEvidence : tests, golden contracts,
+provenance
+}
+
+package "Manual real-app evidence (EPIC-260714-th54l3)" {
+  node "Windows 10 machine\nPulsar A" as Win10
+  node "Windows 11 machine\nPulsar B" as Win11
+  [WACK in active user session] as WACK
+  artifact "Screenshots, WACK XML,\nmeasurements + hashes" as ManualEvidence
+  Win10 --> WACK
+  Win11 --> WACK
+  WACK --> ManualEvidence
+}
+
+[Nonproduction coordinator] as Coordinator
+Runner --> Coordinator : seeded fixture
+Win10 --> Coordinator : authenticated app traffic
+Win11 --> Coordinator : authenticated app traffic
+
+note bottom of AutomatedEvidence
+  Never represents audible, physical-hardware,
+  WACK, Partner Center, or screenshot evidence.
+end note
+@enduml

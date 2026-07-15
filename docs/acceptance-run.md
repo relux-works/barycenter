@@ -1,4 +1,11 @@
-# Acceptance Run — Phase 1 (spec ch. 18, goal DoD-8/DoD-10)
+# Legacy Acceptance Run — original Spotify/Airfoil baseline
+
+For the current self-contained Phase 1 engineering gate, pinned toolchains,
+two-Pulsar topology, migration/rollback rehearsal, WACK command, metrics, and
+the automated/manual evidence boundary, use
+[`acceptance/phase1-environment.md`](acceptance/phase1-environment.md). This file
+is retained as historical evidence for the original Spotify/Airfoil baseline;
+none of its pending rows is promoted by repository automation.
 
 Scope: items 18.1-18.7 and 18.9-18.13 (18.8 is phase 2), plus the factual
 clean-install run (goal 3.6). A row counts only with date, environment and an

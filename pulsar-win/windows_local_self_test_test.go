@@ -183,6 +183,7 @@ func (o *fakeWindowsLocalOutput) Cancel() {
 }
 
 type fakeWindowsSelfTestCapture struct {
+	mu      sync.Mutex
 	store   *CaptureMediaStore
 	events  chan string
 	request WindowsCaptureRequest
@@ -190,20 +191,31 @@ type fakeWindowsSelfTestCapture struct {
 }
 
 func (c *fakeWindowsSelfTestCapture) Start(_ context.Context, request WindowsCaptureRequest) (WindowsSelfTestCaptureSession, error) {
+	session := &fakeWindowsSelfTestSession{store: c.store, events: c.events, done: make(chan WindowsCaptureOutcome, 1)}
+	c.mu.Lock()
 	c.request = request
+	c.session = session
+	c.mu.Unlock()
 	c.events <- "start-cue"
 	if request.Meter != nil {
 		request.Meter(0.25)
 	}
-	session := &fakeWindowsSelfTestSession{store: c.store, events: c.events, done: make(chan WindowsCaptureOutcome, 1)}
-	c.session = session
 	return session, nil
 }
 
 func (c *fakeWindowsSelfTestCapture) Cancel() {
-	if c.session != nil {
-		c.session.Stop(WindowsCaptureCancel)
+	c.mu.Lock()
+	session := c.session
+	c.mu.Unlock()
+	if session != nil {
+		session.Stop(WindowsCaptureCancel)
 	}
+}
+
+func (c *fakeWindowsSelfTestCapture) snapshot() (WindowsCaptureRequest, *fakeWindowsSelfTestSession) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.request, c.session
 }
 
 type fakeWindowsSelfTestSession struct {
@@ -256,11 +268,12 @@ func TestWindowsLocalSelfTestExactRecordCuePlaybackAndCleanup(t *testing.T) {
 		t.Fatalf("record: %v", err)
 	}
 	waitForWindowsSelfTestPhase(t, phases, WindowsLocalSelfTestReviewingDraft)
-	if capture.request.MediaClass != CaptureSelfTest || !capture.request.ExplicitUserAction || capture.request.DeviceID != "selected-input" {
-		t.Fatalf("capture request=%+v", capture.request)
+	request, session := capture.snapshot()
+	if request.MediaClass != CaptureSelfTest || !request.ExplicitUserAction || request.DeviceID != "selected-input" {
+		t.Fatalf("capture request=%+v", request)
 	}
-	if capture.session.stopAt.Sub(started) < 20*time.Millisecond {
-		t.Fatalf("recording stopped early after %s", capture.session.stopAt.Sub(started))
+	if session.stopAt.Sub(started) < 20*time.Millisecond {
+		t.Fatalf("recording stopped early after %s", session.stopAt.Sub(started))
 	}
 	if got := []string{<-capture.events, <-capture.events}; !reflect.DeepEqual(got, []string{"start-cue", "stop-cue"}) {
 		t.Fatalf("cue sequence=%v", got)

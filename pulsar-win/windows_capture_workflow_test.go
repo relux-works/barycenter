@@ -48,8 +48,9 @@ func TestWindowsCaptureWorkflowSerializesRecordingAndSelfTest(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("self-test did not start")
 	}
-	if selfCapture.request.DeviceID != "two" || selfCapture.request.MediaClass != CaptureSelfTest {
-		t.Fatalf("self-test request=%+v", selfCapture.request)
+	selfTestRequest, _ := selfCapture.snapshot()
+	if selfTestRequest.DeviceID != "two" || selfTestRequest.MediaClass != CaptureSelfTest {
+		t.Fatalf("self-test request=%+v", selfTestRequest)
 	}
 	workflow.Toggle()
 	if state, _ := recording.Snapshot(); state != ShellRecordingIdle {

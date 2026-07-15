@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "status": "manual-required",
+  "build": {
+    "gitCommit": "",
+    "packageSha256": "",
+    "packageIdentity": "ReluxWorksLLC.PulsarBarycenter"
+  },
+  "environment": {
+    "windowsEdition": "",
+    "windowsVersion": "",
+    "windowsBuild": "",
+    "machineModel": "",
+    "audioDevice": "",
+    "wackVersion": "",
+    "clockSyncSource": ""
+  },
+  "operator": "",
+  "startedAt": "",
+  "finishedAt": "",
+  "result": "not-run",
+  "evidence": [],
+  "notes": ""
+}

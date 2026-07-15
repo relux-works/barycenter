@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 53 accepted, 152 remain.
-- Routed inventory: 186 engineering tasks (53 accepted, 133 remain) and 19
+- Combined inventory: 205 original tasks; 54 accepted, 151 remain.
+- Routed inventory: 186 engineering tasks (54 accepted, 132 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-9i5se7` — windows-main-window-tray-shell
-  (in development from synchronized `main`)
-- Next engineering task: `TASK-260712-2w4gyw` — windows-microphone-capture-engine
-- Most recently accepted: `TASK-260712-30abcm` — macos-microphone-capture-engine
+- Current engineering task: `TASK-260712-2w4gyw` — windows-microphone-capture-engine
+  (strict kickoff waits only for PR #53 merge)
+- Next engineering task: `TASK-260712-3lg0ht` — macos-self-test-file-intake
+- Most recently accepted: `TASK-260712-9i5se7` — windows-main-window-tray-shell
 - Current branch: `task/task-260712-9i5se7-windows-main-window-tray-shell`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 53 / 205 tasks (approximately 25.9%); 152 remain
-- Engineering progress: 53 / 186 tasks (approximately 28.5%); 133 remain
+- Accepted overall: 54 / 205 tasks (approximately 26.3%); 151 remain
+- Engineering progress: 54 / 186 tasks (approximately 29.0%); 132 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -622,6 +622,21 @@ jobs in run `29379179792`; PR #52 landed at merge
 `44c4bf3b60d9f4b29cda7639f7f2a1e775356025`. Strict execution started
 `TASK-260712-9i5se7` from that synchronized `main` on branch
 `task/task-260712-9i5se7-windows-main-window-tray-shell`.
+
+Checkpoint 2026-07-15: `TASK-260712-9i5se7` is accepted at exact engineering
+head `90450979463dcf96035cc4278a79f4d528b0778f`; all four hosted jobs passed in
+run `29380174085`. The repository now has a shared EN/RU Windows shell model,
+an honest unpaired startup, a native Home/Create/Join/Try locally/History/
+Settings main window, direct tray Open/Create/Join/Try/record/DND/Quit paths,
+textual non-color state semantics, native Tab/Ctrl navigation and PerMonitorV2
+font/layout handling with deterministic 100/125/150/200-percent geometry
+coverage. The task also repaired the old tray's ignored `TPM_RETURNCMD` result,
+which had left visible commands inert. The first hosted run `29380017663`
+exposed Windows-target vet violations; the accepted head replaced direct
+message-pointer conversion with checked Win32 memory copying. No real packaged
+UI, Narrator or physical DPI evidence is claimed; those remain in
+`EPIC-260714-th54l3`. Progress is 54/205 overall and 54/186 engineering. PR #53
+tracking and merge remain before strict execution starts `TASK-260712-2w4gyw`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1271,7 +1286,9 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
   engineering head `18bae35`; all four hosted jobs in run `29379013937` green,
   including 188 Swift tests; no real microphone/audible/hardware result claimed;
   PR #52)
-- [ ] `TASK-260712-9i5se7` — windows-main-window-tray-shell
+- [x] `TASK-260712-9i5se7` — windows-main-window-tray-shell (accepted on exact
+  engineering head `9045097`; all four hosted jobs in run `29380174085` green;
+  no real packaged UI/Narrator/DPI hardware result claimed; PR #53)
 - [ ] `TASK-260712-2w4gyw` — windows-microphone-capture-engine
 - [ ] `TASK-260712-3lg0ht` — macos-self-test-file-intake
 - [ ] `TASK-260712-ut6akw` — macos-hotkey-menubar-recording

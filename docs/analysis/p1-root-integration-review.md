@@ -133,12 +133,18 @@ non-implementing approval remains open in `TASK-260715-3ffm3r`,
 | same full race command in `pulsar-win` | pass, all four packages |
 | `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test` | pass, 218 tests in 35 suites |
 | exact task clean acceptance runs | 12/12 on protocol `cde0aa4`, audio `805337d`, migration `7736b75`, security `a87532c` and Store `99f1957` |
-| hosted exact engineering runs | all four jobs green: `29399875529`, `29401627207`, `29402957156`, `29404910264`, `29406679102` |
+| hosted PR runs associated with the exact engineering heads | all four jobs green: `29399875529`, `29401627207`, `29402957156`, `29404910264`, `29406679102` |
 | manifest regeneration and JSON parse | deterministic and valid; zero unmapped files |
 
 The root packet itself must pass the repository-wide clean 12-stage acceptance
 suite and hosted four-job CI after its commit is frozen; that exact run belongs
 in the task-board outcome resource rather than being predicted here.
+
+GitHub reports the PR head SHA through the Actions API, while the acceptance
+manifests produced by `pull_request` jobs record the checked-out synthetic
+merge-ref SHA. These are deliberately recorded as separate provenance fields;
+hosted evidence is not described as an exact-head checkout unless its manifest
+actually contains that head.
 
 ## Remaining risks and hard holds
 

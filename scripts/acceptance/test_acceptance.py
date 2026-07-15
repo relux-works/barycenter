@@ -19,6 +19,7 @@ def load(name: str, filename: str):
 
 metrics = load("acceptance_metrics", "evaluate_metrics.py")
 harness = load("acceptance_harness", "run_automated.py")
+readiness = load("phase1_readiness", "validate_phase1_readiness.py")
 
 
 class AcceptanceHarnessTests(unittest.TestCase):
@@ -98,6 +99,12 @@ class AcceptanceHarnessTests(unittest.TestCase):
             "operatorReviewRequired = $true",
         ):
             self.assertIn(contract, source)
+
+    def test_phase1_readiness_handoff_is_fail_closed_and_complete(self):
+        data = readiness.load_strict(
+            readiness.ROOT / "acceptance/phase1-engineering-readiness.json"
+        )
+        readiness.validate(data)
 
 
 if __name__ == "__main__":

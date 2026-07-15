@@ -16,7 +16,7 @@
   (starting after the root-review tracking merge)
 - Next engineering task: `TASK-260712-17yizc` — air-lifecycle-policy-contract
 - Most recently accepted: `TASK-260712-38lssj` — p1-root-integration-review
-- Current branch: `tracking/task-260712-38lssj-root-review`
+- Current branch: `task/task-260712-1xik11-p1-engineering-readiness-handoff`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -1109,7 +1109,9 @@ closed HIGH findings across protocol, realtime audio, migration and security;
 no critical or high engineering finding remains. Coordinator and Windows full
 race suites pass, as do 218 Swift tests in 35 suites. Exact review-packet head
 `4c79d12bb2982f6916d8e612b7d6d50a3732ee2f` passed clean local acceptance
-12/12 with start/end dirty false and all four hosted jobs in run `29408109562`.
+12/12 with start/end dirty false. All four PR jobs passed in run `29408109562`;
+the Actions API binds the run to head `4c79d12`, while its downloaded manifests
+honestly record checked-out synthetic merge-ref `cfcfc0c`.
 PR #78 landed at merge `0762ed232492c95829f152922a0e5d1ab3a5c397`.
 Independent signatures, physical A1-A8, WACK/screenshots, IARC/Partner Center
 and mailbox delivery remain fail-closed in their external/manual ledgers; they

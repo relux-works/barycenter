@@ -241,6 +241,9 @@ func main() {
 	}
 
 	l := newLoop(log, cfg, h, st, tgBot, sp)
+	if mediaLifecycleInitErr == nil {
+		l.mediaLifecycle = mediaLifecycle
+	}
 	if tgBot != nil {
 		if mediaSubmitterInitErr != nil {
 			l.telegramMediaInitErr = mediaSubmitterInitErr
@@ -265,8 +268,6 @@ func main() {
 	if mediaLifecycle != nil && mediaLifecycleInitErr == nil {
 		mediaLifecycle.SetDeliveryCancellationSink(l)
 	}
-	go l.run(stop, h.Events)
-
 	go retentionSweep(log, st, cfg.MediaDir, stop)
 
 	mux := http.NewServeMux()
@@ -326,12 +327,14 @@ func main() {
 				log.Error("moderation control plane unavailable")
 			} else {
 				onboarding.moderationService = moderationService
+				l.moderationService = moderationService
 			}
 		}
 		go onboarding.runMediaUploadMaintenance(stop)
 	} else if mediaLifecycle != nil && mediaLifecycleInitErr == nil {
 		go runStandaloneMediaLifecycle(log, mediaLifecycle, stop)
 	}
+	go l.run(stop, h.Events)
 
 	log.Info("listening", "addr", cfg.Listen)
 	if err := http.ListenAndServe(cfg.Listen, mux); err != nil {

@@ -1,5 +1,13 @@
 package store
 
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"strings"
+)
+
 // moderationSchema is an additive control-plane companion. It intentionally
 // does not reference legacy orbit/identity tables: a rollback coordinator may
 // still dissolve legacy state while these historical reports remain readable
@@ -61,7 +69,6 @@ CREATE TABLE IF NOT EXISTS moderation_reports (
   resolved_at INTEGER NOT NULL DEFAULT 0 CHECK(resolved_at >= 0),
   UNIQUE(reporter_actor_id, media_id),
   CHECK(reporter_actor_id <> reported_actor_id),
-  CHECK(target_actor_id = reporter_actor_id),
   CHECK((status = 'open' AND resolved_at = 0)
     OR (status = 'resolved' AND resolved_at >= created_at))
 );
@@ -164,6 +171,184 @@ BEGIN
 END;
 `
 
+// moderationReportsSharedTargetDDL is used only to rebuild databases created
+// before verified Telegram history could act on a current Pulsar receipt in
+// the same Barycenter. The reporter remains the Telegram actor while the
+// immutable target snapshot remains the installation actor that received the
+// transmission; conflating those identities would corrupt moderation
+// evidence. All other checks and columns are byte-for-byte equivalent to the
+const moderationReportsSharedTargetDDL = `CREATE TABLE moderation_reports_shared_target (
+  id TEXT PRIMARY KEY
+    CHECK(length(id) = 29 AND substr(id, 1, 3) = 'rp_'),
+  reporter_orbit_id INTEGER NOT NULL CHECK(reporter_orbit_id > 0),
+  reporter_actor_id INTEGER NOT NULL CHECK(reporter_actor_id > 0),
+  media_id TEXT NOT NULL REFERENCES media_items(id),
+  reported_orbit_id INTEGER NOT NULL CHECK(reported_orbit_id > 0),
+  reported_actor_id INTEGER NOT NULL CHECK(reported_actor_id > 0),
+  media_kind TEXT NOT NULL
+    CHECK(media_kind IN ('voice_clip', 'audio_clip', 'audio_track', 'builtin_cue')),
+  media_source TEXT NOT NULL CHECK(media_source IN ('app', 'telegram', 'system')),
+  media_title TEXT NOT NULL DEFAULT '' CHECK(length(media_title) <= 512),
+  media_duration_ms INTEGER NOT NULL CHECK(media_duration_ms >= 0),
+  transmission_id TEXT NOT NULL REFERENCES transmissions(id),
+  target_orbit_id INTEGER NOT NULL CHECK(target_orbit_id > 0),
+  target_actor_id INTEGER NOT NULL CHECK(target_actor_id > 0),
+  target_slot TEXT NOT NULL CHECK(length(target_slot) = 1 AND target_slot GLOB '[a-z]'),
+  audience_kind TEXT NOT NULL
+    CHECK(audience_kind IN ('this_pulsar', 'own_barycenter', 'current_air', 'explicit')),
+  playback_domain_kind TEXT NOT NULL CHECK(playback_domain_kind IN ('orbit', 'approach')),
+  playback_domain_id INTEGER NOT NULL CHECK(playback_domain_id > 0),
+  accepted_at INTEGER NOT NULL CHECK(accepted_at > 0),
+  reason_code TEXT NOT NULL
+    CHECK(reason_code IN ('spam', 'harassment', 'illegal', 'sexual_content', 'violence', 'other')),
+  details TEXT NOT NULL DEFAULT '' CHECK(length(details) <= 2000),
+  status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'resolved')),
+  evidence_storage_key TEXT NOT NULL
+    CHECK(length(evidence_storage_key) = 73
+      AND substr(evidence_storage_key, 1, 9) = 'media/v1/'
+      AND substr(evidence_storage_key, 10) NOT GLOB '*[^0-9a-f]*'),
+  evidence_sha256 TEXT NOT NULL
+    CHECK(length(evidence_sha256) = 64 AND evidence_sha256 NOT GLOB '*[^0-9a-f]*'),
+  evidence_size_bytes INTEGER NOT NULL CHECK(evidence_size_bytes > 0),
+  evidence_mime TEXT NOT NULL CHECK(length(evidence_mime) BETWEEN 1 AND 128),
+  evidence_expires_at INTEGER NOT NULL CHECK(evidence_expires_at > accepted_at),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  updated_at INTEGER NOT NULL CHECK(updated_at >= created_at),
+  resolved_at INTEGER NOT NULL DEFAULT 0 CHECK(resolved_at >= 0),
+  UNIQUE(reporter_actor_id, media_id),
+  CHECK(reporter_actor_id <> reported_actor_id),
+  CHECK((status = 'open' AND resolved_at = 0)
+    OR (status = 'resolved' AND resolved_at >= created_at))
+)`
+
+const moderationReportsSharedTargetAuxDDL = `
+CREATE INDEX moderation_reports_queue
+  ON moderation_reports(status, created_at, id);
+CREATE INDEX moderation_reports_evidence_hold
+  ON moderation_reports(media_id, evidence_storage_key, evidence_expires_at);
+CREATE TRIGGER moderation_report_snapshot_immutable
+BEFORE UPDATE ON moderation_reports
+WHEN NEW.id <> OLD.id
+  OR NEW.reporter_orbit_id <> OLD.reporter_orbit_id
+  OR NEW.reporter_actor_id <> OLD.reporter_actor_id
+  OR NEW.media_id <> OLD.media_id
+  OR NEW.reported_orbit_id <> OLD.reported_orbit_id
+  OR NEW.reported_actor_id <> OLD.reported_actor_id
+  OR NEW.media_kind <> OLD.media_kind
+  OR NEW.media_source <> OLD.media_source
+  OR NEW.media_title <> OLD.media_title
+  OR NEW.media_duration_ms <> OLD.media_duration_ms
+  OR NEW.transmission_id <> OLD.transmission_id
+  OR NEW.target_orbit_id <> OLD.target_orbit_id
+  OR NEW.target_actor_id <> OLD.target_actor_id
+  OR NEW.target_slot <> OLD.target_slot
+  OR NEW.audience_kind <> OLD.audience_kind
+  OR NEW.playback_domain_kind <> OLD.playback_domain_kind
+  OR NEW.playback_domain_id <> OLD.playback_domain_id
+  OR NEW.accepted_at <> OLD.accepted_at
+  OR NEW.reason_code <> OLD.reason_code
+  OR NEW.evidence_storage_key <> OLD.evidence_storage_key
+  OR NEW.evidence_sha256 <> OLD.evidence_sha256
+  OR NEW.evidence_size_bytes <> OLD.evidence_size_bytes
+  OR NEW.evidence_mime <> OLD.evidence_mime
+  OR NEW.evidence_expires_at <> OLD.evidence_expires_at
+  OR NEW.created_at <> OLD.created_at
+BEGIN
+  SELECT RAISE(ABORT, 'moderation report evidence snapshot is immutable');
+END;`
+
+const moderationReportColumnsForRebuild = `id, reporter_orbit_id, reporter_actor_id,
+  media_id, reported_orbit_id, reported_actor_id, media_kind, media_source,
+  media_title, media_duration_ms, transmission_id, target_orbit_id,
+  target_actor_id, target_slot, audience_kind, playback_domain_kind,
+  playback_domain_id, accepted_at, reason_code, details, status,
+  evidence_storage_key, evidence_sha256, evidence_size_bytes, evidence_mime,
+  evidence_expires_at, created_at, updated_at, resolved_at`
+
+func (s *Store) ensureModerationSharedTargets() (retErr error) {
+	var tableSQL sql.NullString
+	if err := s.db.QueryRow(`SELECT sql FROM sqlite_master
+WHERE type = 'table' AND name = 'moderation_reports'`).Scan(&tableSQL); err != nil {
+		return err
+	}
+	if !tableSQL.Valid || !strings.Contains(tableSQL.String,
+		"CHECK(target_actor_id = reporter_actor_id)") {
+		return nil
+	}
+
+	ctx := context.Background()
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	var foreignKeysBefore int
+	if err := conn.QueryRowContext(ctx, `PRAGMA foreign_keys`).Scan(&foreignKeysBefore); err != nil {
+		return err
+	}
+	if foreignKeysBefore != 1 {
+		return fmt.Errorf("foreign_keys = %d before moderation report rebuild, want 1", foreignKeysBefore)
+	}
+	var tx *sql.Tx
+	defer func() {
+		var cleanupErr error
+		if tx != nil {
+			if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+				cleanupErr = errors.Join(cleanupErr, fmt.Errorf("rollback moderation report rebuild: %w", err))
+			}
+		}
+		if _, err := conn.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
+			cleanupErr = errors.Join(cleanupErr, fmt.Errorf("restore foreign_keys after moderation report rebuild: %w", err))
+		}
+		var restored int
+		if err := conn.QueryRowContext(ctx, `PRAGMA foreign_keys`).Scan(&restored); err != nil {
+			cleanupErr = errors.Join(cleanupErr, err)
+		} else if restored != 1 {
+			cleanupErr = errors.Join(cleanupErr,
+				fmt.Errorf("foreign_keys = %d after moderation report rebuild, want 1", restored))
+		}
+		retErr = errors.Join(retErr, cleanupErr)
+	}()
+
+	if _, err := conn.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
+		return err
+	}
+	tx, err = conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DROP TABLE IF EXISTS moderation_reports_shared_target`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(moderationReportsSharedTargetDDL); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO moderation_reports_shared_target(` + moderationReportColumnsForRebuild + `)
+SELECT ` + moderationReportColumnsForRebuild + ` FROM moderation_reports`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DROP TABLE moderation_reports`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`ALTER TABLE moderation_reports_shared_target RENAME TO moderation_reports`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(moderationReportsSharedTargetAuxDDL); err != nil {
+		return err
+	}
+	if err := foreignKeyCheck(tx); err != nil {
+		return err
+	}
+	if err := s.checkpoint("moderation_report_rebuild_before_commit"); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	tx = nil
+	return nil
+}
+
 func (s *Store) initModerationSchema() error {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -179,5 +364,14 @@ func (s *Store) initModerationSchema() error {
 	if err := s.checkpoint("moderation_ddl_before_commit"); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if err := s.ensureModerationSharedTargets(); err != nil {
+		return err
+	}
+	if err := assertForeignKeys(s.db); err != nil {
+		return err
+	}
+	return foreignKeyCheck(s.db)
 }

@@ -15,6 +15,7 @@ import (
 	"relux.works/duet/coordinator/internal/config"
 	"relux.works/duet/coordinator/internal/hub"
 	"relux.works/duet/coordinator/internal/media"
+	"relux.works/duet/coordinator/internal/moderation"
 	"relux.works/duet/coordinator/internal/presentation"
 	"relux.works/duet/coordinator/internal/protocol"
 	"relux.works/duet/coordinator/internal/session"
@@ -84,6 +85,8 @@ type loop struct {
 	telegramMedia        telegramMediaAdapter
 	telegramMediaInitErr error
 	telegramInlinePrompt func(int64, string, bot.InlineKeyboardBuilder)
+	mediaLifecycle       *media.LifecycleService
+	moderationService    *moderation.Service
 
 	// resolveTrack runs the provider cascade for one track (providers.go).
 	// nil while the provider layer is off; tests stub it directly.
@@ -1068,7 +1071,7 @@ func (l *loop) handleBot(ev bot.Event) {
 	if member.Role == "satellite" {
 		switch cmd.Kind {
 		case bot.KindLink, bot.KindQueue, bot.KindNow, bot.KindStatus,
-			bot.KindStart, bot.KindShare, bot.KindOrbit, bot.KindPairCode, bot.KindLeave:
+			bot.KindHistory, bot.KindStart, bot.KindShare, bot.KindOrbit, bot.KindPairCode, bot.KindLeave:
 		default:
 			ev.Reply("это управление эфиром — оно у companion'ов. Твоё оружие: треки и голосовые")
 			return
@@ -1246,6 +1249,9 @@ func (l *loop) handleBot(ev bot.Event) {
 
 	case bot.KindQueue:
 		ev.Reply(l.queueText(o))
+
+	case bot.KindHistory:
+		l.sendTelegramHistory(ev)
 
 	case bot.KindCancel:
 		if _, err := o.sess.Cancel(cmd.Number); err != nil {

@@ -132,12 +132,14 @@ func historyBlockStateTx(tx *sql.Tx, ctx ActorContext, sourceActorID, sourceOrbi
 	var actorCount, orbitCount int
 	err = tx.QueryRow(`SELECT
   (SELECT COUNT(*) FROM blocks WHERE revoked_at = 0
-    AND owner_scope = 'actor' AND owner_orbit_id = ? AND owner_actor_id = ?
+    AND owner_orbit_id = ?
+    AND ((owner_scope = 'actor' AND owner_actor_id = ?)
+      OR (owner_scope = 'orbit' AND ? = 'primary'))
     AND blocked_kind = 'actor' AND blocked_actor_id = ?),
   (SELECT COUNT(*) FROM blocks WHERE revoked_at = 0
     AND owner_scope = 'orbit' AND owner_orbit_id = ?
     AND blocked_kind = 'orbit' AND blocked_orbit_id = ?)`,
-		ctx.OrbitID, ctx.ActorID, sourceActorID, ctx.OrbitID, sourceOrbitID).Scan(&actorCount, &orbitCount)
+		ctx.OrbitID, ctx.ActorID, ctx.Role, sourceActorID, ctx.OrbitID, sourceOrbitID).Scan(&actorCount, &orbitCount)
 	if err != nil {
 		return false, false, err
 	}
@@ -145,7 +147,9 @@ func historyBlockStateTx(tx *sql.Tx, ctx ActorContext, sourceActorID, sourceOrbi
 }
 
 func currentHistoryTargetTx(tx *sql.Tx, ctx ActorContext, target TransmissionTarget) (bool, error) {
-	if target.ActorID != ctx.ActorID {
+	ownedInstallation := target.ActorID == ctx.ActorID
+	sharedTelegramReceipt := ctx.Capabilities.Has(CapabilityTelegram) && target.OrbitID == ctx.OrbitID
+	if !ownedInstallation && !sharedTelegramReceipt {
 		return false, nil
 	}
 	return targetMatchesCurrentBindingTx(tx, target)
@@ -197,7 +201,8 @@ func historyTransmissionItemTx(tx *sql.Tx, ctx ActorContext, id string, now int6
 		if err != nil {
 			return HistoryQueryItem{}, false, err
 		}
-		item.CanBlockActor = canUseHistoryControls && !actorBlocked
+		item.CanBlockActor = canUseHistoryControls && !actorBlocked &&
+			(!ctx.Capabilities.Has(CapabilityTelegram) || ctx.Role == "primary")
 		item.CanBlockOrbit = canUseHistoryControls && ctx.Role == "primary" &&
 			t.SourceOrbitID != ctx.OrbitID && !orbitBlocked
 		item.CanUnblock = actorBlocked || orbitBlocked
@@ -256,15 +261,21 @@ func (s *Store) QueryAuthorizedHistory(expectedActorID int64, identity Identity,
 		}
 		return HistoryPage{}, err
 	}
+	sharedTelegramReceipts := 0
+	if ctx.Capabilities.Has(CapabilityTelegram) {
+		sharedTelegramReceipts = 1
+	}
 	cutoff := now - int64((30*24*time.Hour)/time.Millisecond)
 	rows, err := tx.Query(`SELECT 'transmission', id, accepted_at FROM transmissions
 WHERE accepted_at >= ? AND (source_orbit_id = ? OR EXISTS(
-  SELECT 1 FROM transmission_targets tt WHERE tt.transmission_id = transmissions.id AND tt.actor_id = ?))
+  SELECT 1 FROM transmission_targets tt WHERE tt.transmission_id = transmissions.id
+    AND (tt.actor_id = ? OR (? = 1 AND tt.orbit_id = ?))))
 UNION ALL
 SELECT 'media', m.id, m.created_at FROM media_items m
 WHERE (m.actor_id = ? OR (? = 'primary' AND m.owner_orbit_id = ?))
   AND NOT EXISTS(SELECT 1 FROM transmissions t WHERE t.media_id = m.id)`,
-		cutoff, ctx.OrbitID, ctx.ActorID, ctx.ActorID, ctx.Role, ctx.OrbitID)
+		cutoff, ctx.OrbitID, ctx.ActorID, sharedTelegramReceipts, ctx.OrbitID,
+		ctx.ActorID, ctx.Role, ctx.OrbitID)
 	if err != nil {
 		return HistoryPage{}, err
 	}

@@ -21,6 +21,7 @@ func TestParse(t *testing.T) {
 		{"empty ignored", "   ", Command{Kind: KindIgnore}},
 		{"playnow", "/playnow " + trackURL, Command{Kind: KindPlayNow, URI: trackURI}},
 		{"queue", "/queue", Command{Kind: KindQueue}},
+		{"history", "/history", Command{Kind: KindHistory}},
 		{"cancel", "/cancel 3", Command{Kind: KindCancel, Number: 3}},
 		{"skip with botname", "/skip@duet_bot", Command{Kind: KindSkip}},
 		{"pause", "/pause", Command{Kind: KindPause}},

@@ -140,7 +140,11 @@ func (service *Service) Block(params BlockParams) (store.PublicTransmissionBlock
 	switch params.Kind {
 	case BlockActor:
 		allowed = item.CanBlockActor
-		subjectKind, subjectID, ownerScope = store.BlockedSubjectActor, item.SourceActorID, store.BlockOwnerActor
+		ownerScope = store.BlockOwnerActor
+		if params.Actor.Identity.Kind == store.IdentityTelegram {
+			ownerScope = store.BlockOwnerOrbit
+		}
+		subjectKind, subjectID = store.BlockedSubjectActor, item.SourceActorID
 	case BlockOrbit:
 		allowed = item.CanBlockOrbit
 		subjectKind, subjectID, ownerScope = store.BlockedSubjectOrbit, item.SourceOrbitID, store.BlockOwnerOrbit

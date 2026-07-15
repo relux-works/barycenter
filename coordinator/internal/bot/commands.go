@@ -29,6 +29,7 @@ const (
 	KindMode         CommandKind = "mode"
 	KindNow          CommandKind = "now"
 	KindStatus       CommandKind = "status"
+	KindHistory      CommandKind = "history"
 	KindSync         CommandKind = "sync"
 	KindOffset       CommandKind = "offset"
 	KindOffsetTest   CommandKind = "offset_test"
@@ -167,6 +168,8 @@ func Parse(text string) (Command, error) {
 
 	case "/queue":
 		return Command{Kind: KindQueue}, nil
+	case "/history":
+		return Command{Kind: KindHistory}, nil
 
 	case "/cancel":
 		if len(args) != 1 {
@@ -314,7 +317,7 @@ const helpText = `<b>Барицентр</b> — общая музыка на д�
 Ссылки, плейлисты и альбомы в чат тоже работают как очередь.
 Запиши голосовое — встанет между песнями (подпись «лично» — только партнёру).
 /skip — дальше · /pause — пауза · /resume — продолжить
-/now — что играет · /queue — очередь · /vol 60 — громкость
+/now — что играет · /queue — очередь · /history — история и действия · /vol 60 — громкость
 
 <b>Слушать вместе или порознь</b>
 /together — общий эфир на оба дома · /solo — каждый слушает своё

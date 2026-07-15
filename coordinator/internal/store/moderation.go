@@ -437,7 +437,19 @@ JOIN transmissions tr ON tr.media_id = i.id
 JOIN transmission_targets tt ON tt.transmission_id = tr.id
 WHERE i.id = ? AND i.actor_id <> ? AND i.status = 'ready'
   AND i.expires_at > ? AND tr.accepted_at <= ?
-  AND tt.orbit_id = ? AND tt.actor_id = ? AND tt.slot = ?
+  AND tt.orbit_id = ? AND (
+    (? = 'telegram' AND EXISTS (
+      SELECT 1 FROM installation_credentials ic
+      JOIN actors ta ON ta.id = ic.actor_id AND ta.revoked_at IS NULL
+      JOIN memberships tm ON tm.actor_id = ic.actor_id
+        AND tm.orbit_id = ic.slot_orbit_id AND tm.left_at IS NULL
+      JOIN slots sl ON sl.orbit_id = ic.slot_orbit_id AND sl.slot = ic.slot_name
+        AND sl.revoked_at IS NULL AND sl.token_hash = ic.binding_token_hash
+        AND COALESCE(sl.paired_at, 0) = ic.slot_paired_at
+      WHERE ic.slot_orbit_id = tt.orbit_id AND ic.actor_id = tt.actor_id
+        AND ic.slot_name = tt.slot AND ic.slot_paired_at = tt.binding_paired_at
+    )) OR (? <> 'telegram' AND tt.actor_id = ? AND tt.slot = ?)
+  )
   AND tt.status <> 'blocked'
   AND tt.reason_code NOT IN ('actor_blocked', 'orbit_blocked', 'sender_blocked')
   AND NOT EXISTS (
@@ -453,7 +465,8 @@ LIMIT 1`,
 		ctx.OrbitID, ctx.ActorID, params.Reason, params.Details,
 		params.CreatedAt+moderationEvidenceRetention.Milliseconds(),
 		params.CreatedAt, params.CreatedAt, params.MediaID, ctx.ActorID,
-		params.CreatedAt, params.CreatedAt, ctx.OrbitID, ctx.ActorID, ctx.Slot,
+		params.CreatedAt, params.CreatedAt, ctx.OrbitID, identity.Kind, identity.Kind,
+		ctx.ActorID, ctx.Slot,
 	).Scan(
 		&report.ID, &report.ReporterOrbitID, &report.ReporterActorID,
 		&report.MediaID, &report.ReportedOrbitID, &report.ReportedActorID,

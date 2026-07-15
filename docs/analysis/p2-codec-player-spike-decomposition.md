@@ -22,6 +22,7 @@ Story: `STORY-260712-3l1r1u`
    - Blocking foundation task that turns spec section 20.2 and the relevant
      section 20.5 gates into one shared proof harness, artifact format, and
      candidate shortlist.
+   - Frozen handoff: `docs/analysis/p2-codec-spike-rubric-fixtures-harness.md`.
 2. `TASK-260712-dqdoqj` Prototype canonical stream variants and the range cache contract
    - Defines the server-side transport shape the candidates actually consume:
      `stream_variants`, byte ranges, auth, integrity, and bounded disk cache.

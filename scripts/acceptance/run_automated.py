@@ -164,7 +164,11 @@ def suite_commands(suite: str, go_env: dict[str, str] | None, apple_env: dict[st
         Command(
             "acceptance-contract-tests",
             ROOT,
-            ("python3", "-m", "unittest", "scripts/acceptance/test_acceptance.py"),
+            (
+                "python3", "-m", "unittest",
+                "scripts/acceptance/test_acceptance.py",
+                "scripts/codec_spike/test_codec_spike.py",
+            ),
             {"PYTHONDONTWRITEBYTECODE": "1"},
         )
     ]

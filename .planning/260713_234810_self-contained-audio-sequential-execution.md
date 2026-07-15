@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 69 accepted, 136 remain.
-- Routed inventory: 186 engineering tasks (69 accepted, 117 remain) and 19
+- Combined inventory: 205 original tasks; 70 accepted, 135 remain.
+- Routed inventory: 186 engineering tasks (70 accepted, 116 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1xik11` — p1-engineering-readiness-handoff
-  (starting after the root-review tracking merge)
-- Next engineering task: `TASK-260712-17yizc` — air-lifecycle-policy-contract
-- Most recently accepted: `TASK-260712-38lssj` — p1-root-integration-review
-- Current branch: `task/task-260712-1xik11-p1-engineering-readiness-handoff`
+- Current engineering task: `TASK-260712-17yizc` — air-lifecycle-policy-contract
+  (starting after the P1 readiness tracking merge)
+- Next engineering task: `TASK-260712-3n36ny` — air-schema-link-migration
+- Most recently accepted: `TASK-260712-1xik11` — p1-engineering-readiness-handoff
+- Current branch: `tracking/task-260712-1xik11-p1-readiness`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 69 / 205 tasks (approximately 33.7%); 136 remain
-- Engineering progress: 69 / 186 tasks (approximately 37.1%); 117 remain
+- Accepted overall: 70 / 205 tasks (approximately 34.1%); 135 remain
+- Engineering progress: 70 / 186 tasks (approximately 37.6%); 116 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1118,6 +1118,27 @@ and mailbox delivery remain fail-closed in their external/manual ledgers; they
 no longer block the explicitly engineering-only readiness handoff. Progress is
 69/205 overall and 69/186 engineering, and strict execution advances to
 `TASK-260712-1xik11`.
+
+The P1 engineering readiness handoff freezes exact source candidate `16420c2`,
+root packet `4c79d12`, local acceptance and four hosted artifact IDs in a
+fail-closed machine authority. Every A1-A8 scenario keeps deterministic
+engineering coverage and `manual-required`, mapped in strict order to
+`TASK-260712-1vtwkl`, `TASK-260712-2hodti` and `TASK-260712-e5mfqj`; the latter
+now explicitly includes the previously missing real Telegram A5 FIFO/callback
+check. The test-signed AppContainer probe is plainly not a production
+candidate. Release, Store submission and Partner Center mutation remain false;
+six external owner holds remain open. Legal inputs, exact policy hashes, live
+public pages, default Store/listing and moderation gates pass; production Store
+readiness and mailbox-ready gates fail exactly as expected. Both Go 1.25.12
+vulnerability scans report no vulnerabilities. Initial hosted run
+`29409214595` exposed that three CI jobs used depth-1 checkout and could not
+verify historical commit-to-tree provenance; fix head
+`ce33d1724d46a6b691f9a088cc9da9dc9d28b6c6` makes all four checkouts full-depth
+and adds a regression assertion. That head passed clean local acceptance 12/12
+and hosted run `29409373973` passed all four jobs. PR #80 landed at merge
+`9bf3d100cf69388ba76cc40bddd3906e91e72f26`. Progress is 70/205 overall and
+70/186 engineering. P1 engineering is complete, product/release acceptance is
+not claimed, and strict execution advances to `TASK-260712-17yizc`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

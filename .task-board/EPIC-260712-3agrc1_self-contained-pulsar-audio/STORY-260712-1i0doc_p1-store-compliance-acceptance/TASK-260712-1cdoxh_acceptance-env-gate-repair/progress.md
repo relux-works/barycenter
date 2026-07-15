@@ -1,5 +1,5 @@
 ## Status
-done
+development
 
 ## Assigned To
 codex-inline
@@ -8,7 +8,7 @@ codex-inline
 2026-07-12T15:45:05Z
 
 ## Last Update
-2026-07-15T05:39:59Z
+2026-07-15T05:45:17Z
 
 ## Blocked By
 - (none)
@@ -28,6 +28,7 @@ codex-inline
 ## Notes
 2026-07-15 strict inline kickoff from synchronized main 5be6f15 after PR #62. Engineering scope is the reproducible repository harness, pinned toolchains, deterministic fixtures, provenance, sanitized artifacts and nonproduction migration/rollback rehearsal. Actual Windows 10/11 app operation, WACK UI execution, physical hardware/audio, screenshots and Partner Center observations remain manual evidence in EPIC-260714-th54l3; this task may prepare commands and fail-closed templates but will not claim those runs.
 2026-07-15 engineering acceptance: exact code head 6fc647989b36779c765a31fd78eef5b44947c61a. Frozen Go 1.25.0, Xcode 26.2 build 17C52, Swift 6.2.3 and explicit hosted runner images; added a mode-0700 sanitized provenance runner, deterministic fresh two-Pulsar nonproduction fixture with private mode-0600 credentials, exact previous-head rollback rehearsal, WACK package-identity wrapper, fail-closed p95/memory calculator, templates and topology documentation. Clean local all-suite manifest is pass with dirty=false and 12/12 commands; Swift ran 211 tests. Hosted run 29391844793 passed coordinator, node-core, pulsar-win and signed packaged-probe jobs on exact head; PR #63 is ready. Actual Windows 10/11 real-app use, WACK execution/review, audible output, physical hardware, screenshots and Partner Center remain manual-required in EPIC-260714-th54l3 and are not claimed.
+2026-07-15 tracking CI run 29392093503 revoked provisional acceptance: the new gate exposed a race in fakeWindowsSelfTestCapture cancellation and a zero-busy-timeout SQLite inspection connection in TestTelegramLinkRateLimitAuditFailureUsesGenericAdapterResponse. Merge is stopped; task returned to development until both are fixed and exact-head/tracking hosted runs are green. Hosted manifests also report post-run dirty=true, so the harness will record sanitized dirty paths and enforce end-clean provenance to identify and eliminate that drift.
 
 ## Precondition Resources
 (none)

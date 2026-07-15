@@ -45,11 +45,13 @@ exact pinned version and build.
 
 Each invocation creates a new mode-0700 directory beneath
 `.temp/acceptance/<UTC-run-id>/`. It contains one sanitized log per command and
-`manifest.json` with commit, dirty-state, host, exact toolchains, command exit
+`manifest.json` with commit, start/end dirty-state and sanitized dirty paths,
+host, exact toolchains, command exit
 codes, relative artifact names, sizes, and SHA-256 hashes. Repository/home paths
 and common token/credential forms are redacted before logs are persisted. Raw
 subprocess output is never written to disk. Use `--require-clean` for evidence
-that can be promoted.
+that can be promoted; it rejects both a dirty start and repository drift caused
+by the suite itself.
 
 ## Nonproduction migration and rollback rehearsal
 

@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 64 accepted, 141 remain.
-- Routed inventory: 186 engineering tasks (64 accepted, 122 remain) and 19
+- Combined inventory: 205 original tasks; 63 accepted, 142 remain.
+- Routed inventory: 186 engineering tasks (63 accepted, 123 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,9 +13,9 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-1cdoxh` — acceptance-env-gate-repair
-  (accepted; tracking CI and PR #63 merge pending)
+  (development; tracking CI repair in progress)
 - Next engineering task: `TASK-260712-pbfz37` — windows-report-block-delete
-- Most recently accepted: `TASK-260712-1cdoxh` — acceptance-env-gate-repair
+- Most recently accepted: `TASK-260712-2fe5bz` — windows-ui-data-integration
 - Current branch: `task/task-260712-1cdoxh-acceptance-env-gate-repair`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 64 / 205 tasks (approximately 31.2%); 141 remain
-- Engineering progress: 64 / 186 tasks (approximately 34.4%); 122 remain
+- Accepted overall: 63 / 205 tasks (approximately 30.7%); 142 remain
+- Engineering progress: 63 / 186 tasks (approximately 33.9%); 123 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -873,8 +873,8 @@ Tracking head `05014e0` passed all four hosted jobs in run `29390804757`; PR
 `TASK-260712-1cdoxh` from that synchronized `main` on branch
 `task/task-260712-1cdoxh-acceptance-env-gate-repair`.
 
-Checkpoint 2026-07-15: `TASK-260712-1cdoxh` is accepted at exact engineering
-head `6fc647989b36779c765a31fd78eef5b44947c61a`. Go 1.25.0, Xcode 26.2 build
+Checkpoint 2026-07-15 (candidate revoked): `TASK-260712-1cdoxh` produced exact
+engineering head `6fc647989b36779c765a31fd78eef5b44947c61a`. Go 1.25.0, Xcode 26.2 build
 17C52, Swift 6.2.3 and explicit GitHub runner images are machine-pinned. A
 single mode-0700 runner records sanitized command logs, exact commit/toolchain
 provenance and artifact SHA-256; its clean exact-head run passed all 12 stages,
@@ -885,9 +885,14 @@ mode-0600 file. WACK package identity, p95/clock/memory methods, screenshot and
 result templates fail closed. Hosted run `29391844793` passed coordinator,
 node-core, pulsar-win and signed packaged-probe jobs. No Windows 10/11 real-app,
 WACK execution/review, audible, hardware, screenshot or Partner Center result
-is claimed; all remain manual under `EPIC-260714-th54l3`. Progress is 64/205
-overall and 64/186 engineering. PR #63 tracking and merge remain before strict
-execution starts `TASK-260712-pbfz37`.
+is claimed; all remain manual under `EPIC-260714-th54l3`. Tracking run
+`29392093503` then correctly stopped the merge: it exposed a cancellation race
+in the Windows self-test fake, a zero-busy-timeout concurrent SQLite inspector,
+and post-suite repository drift that was not yet named in manifests. The task
+returned to development; targeted fixes pass 20 repetitions under race/SQLite
+contention, and the harness now fails end-dirty runs with sanitized paths.
+Progress remains 63/205 overall and 63/186 engineering until a replacement
+exact-head and tracking run are green.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1589,10 +1594,10 @@ Story: `STORY-260712-1i0doc` — P1 Store compliance and engineering readiness.
 This is the engineering stop before P2; it cannot assert manual or Store
 acceptance.
 
-- [x] `TASK-260712-1cdoxh` — acceptance-env-gate-repair (accepted on exact
-  engineering head `6fc6479`; clean 12-stage provenance run and all four hosted
-  jobs in run `29391844793` passed; real-app/WACK/hardware evidence stays manual;
-  PR #63)
+- [ ] `TASK-260712-1cdoxh` — acceptance-env-gate-repair (candidate `6fc6479`
+  revoked after tracking run `29392093503` exposed race/SQLite flakiness and
+  unnamed post-suite drift; fixes are in development; real-app/WACK/hardware
+  evidence stays manual; PR #63)
 - [ ] `TASK-260712-pbfz37` — windows-report-block-delete
 - [ ] `TASK-260712-34stvx` — macos-report-block-delete
 - [ ] `TASK-260712-dlltnr` — telegram-moderation-parity

@@ -406,7 +406,7 @@ func TestMigratedTelegramActorContextKeepsLegacyAndSelfServicePairCompatibility(
 
 	// Leave the legacy membership intact while revoking only its additive
 	// actor. A bot path that fell back to MemberOf would still authorize it.
-	inspect, err := sql.Open("sqlite", cfg.DBPath)
+	inspect, err := sql.Open("sqlite", cfg.DBPath+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -456,7 +456,7 @@ func TestTelegramActorLifecycleControlsStrangerOnboarding(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	inspect, err := sql.Open("sqlite", cfg.DBPath)
+	inspect, err := sql.Open("sqlite", cfg.DBPath+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -624,7 +624,7 @@ func TestAppOwnedOrbitTelegramLinkUsesTrustedAdapterAndPreservesPairOwnership(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	inspect, err := sql.Open("sqlite", cfg.DBPath)
+	inspect, err := sql.Open("sqlite", cfg.DBPath+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -676,7 +676,7 @@ func TestTelegramLinkRateLimitAuditFailureUsesGenericAdapterResponse(t *testing.
 		}
 	}
 
-	inspect, err := sql.Open("sqlite", cfg.DBPath)
+	inspect, err := sql.Open("sqlite", cfg.DBPath+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -859,7 +859,7 @@ func TestTelegramLinkFeatureOffKeepsCodeShapedChatterSilent(t *testing.T) {
 		t.Fatal(err)
 	}
 	l, _ := newTelegramIdentityLoop(t, cfg, st)
-	inspect, err := sql.Open("sqlite", cfg.DBPath)
+	inspect, err := sql.Open("sqlite", cfg.DBPath+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		t.Fatal(err)
 	}

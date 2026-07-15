@@ -221,7 +221,8 @@ def artifact_record(path: pathlib.Path, run_dir: pathlib.Path) -> dict:
 
 def run(args: argparse.Namespace) -> int:
     pins = load_pins()
-    if args.require_clean and git("status", "--porcelain"):
+    start_status = git("status", "--porcelain")
+    if args.require_clean and start_status:
         raise RuntimeError("--require-clean rejected a dirty worktree")
     go_env: dict[str, str] | None = None
     go_version: str | None = None
@@ -272,6 +273,9 @@ def run(args: argparse.Namespace) -> int:
             break
 
     manifest_path = run_dir / "manifest.json"
+    end_status = git("status", "--porcelain")
+    if args.require_clean and end_status:
+        status = "fail"
     manifest = {
         "schemaVersion": 1,
         "scope": "repository-automated-only",
@@ -282,7 +286,10 @@ def run(args: argparse.Namespace) -> int:
         "finishedAt": utc_now(),
         "git": {
             "head": git("rev-parse", "HEAD"),
-            "dirty": bool(git("status", "--porcelain")),
+            "dirty": bool(end_status),
+            "startDirty": bool(start_status),
+            "endDirty": bool(end_status),
+            "endDirtyPaths": [sanitize(line) for line in end_status.splitlines()],
         },
         "host": {"system": platform.system(), "release": platform.release(), "machine": platform.machine()},
         "toolchains": {"go": go_version, "apple": apple_version},

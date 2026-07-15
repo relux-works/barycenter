@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 
 	protocol "relux.works/duet/pulsar-win/wire"
@@ -111,17 +112,26 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		os.Exit(1)
 	}
 	if creds == nil {
-		// Unpaired: the onboarding window (Windows) collects a code and saves
-		// credentials in place. Off Windows the stub errors and we fall back
-		// to the CLI message (R1).
-		c, werr := showOnboardingWindow(dir, coordinatorBase)
-		if werr != nil {
+		// Unpaired Windows starts in the full shell rather than forcing a
+		// Spotify-only pairing dialog. Create, Join, Try locally, Settings and
+		// the honest unavailable states remain reachable; Connect in the tray
+		// opens the existing code-entry onboarding window. Non-Windows dev builds
+		// keep the CLI fallback.
+		paired, supported := runUnpairedShell(dir, coordinatorBase)
+		if !supported {
 			fmt.Fprintln(os.Stderr, "Pulsar не сопряжён с координатором.")
 			fmt.Fprintln(os.Stderr, "Получи код у бота (/pair) и запусти:")
 			fmt.Fprintln(os.Stderr, "  pulsar-win.exe --pair КОД")
 			os.Exit(2)
 		}
-		creds = &c
+		if !paired {
+			return
+		}
+		creds, err = LoadCredentials(dir)
+		if err != nil || creds == nil {
+			log.Error("paired credentials unavailable after shell onboarding", "err", err)
+			return
+		}
 	}
 	if err := ValidateCredentials(*creds); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -179,10 +189,8 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	if mediaMixer != nil {
 		mediaMixer.BindInterruptController(player)
 	}
-	player.ConfigureTransmissionHooks(
-		mediaClips,
-		NewNodePresenceStore(filepath.Join(dir, "node-presence.v1.json"), log),
-	)
+	presenceStore := NewNodePresenceStore(filepath.Join(dir, "node-presence.v1.json"), log)
+	player.ConfigureTransmissionHooks(mediaClips, presenceStore)
 	player.Start()
 	events := NewEventsClient(cfg.APIPort, player.HandleLibrespotEvent, log)
 	sup.OnCrash = func() {
@@ -226,7 +234,69 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	quit := make(chan struct{})
 	go func() { <-osSig; close(quit) }()
 
+	var shellStateMu sync.RWMutex
+	shellDND := ShellDNDAllowAll
+	if current := presenceStore.CurrentLocalDND(); current != nil {
+		shellDND = ShellDND(current.Mode)
+	}
+	shell := NewWindowsShell(preferredWindowsShellLocale(), func() ShellSnapshot {
+		state := player.StatePayload(ws.Clock().LastRTTMS())
+		connection := ShellReconnecting
+		if ws.Healthy() {
+			connection = ShellOnline
+		}
+		if state.Degraded {
+			connection = ShellDegraded
+		}
+		route := ""
+		if len(state.Speakers) > 0 {
+			route = state.Speakers[0].Name
+		}
+		nowPlaying := ""
+		if state.URI != nil {
+			nowPlaying = *state.URI
+		}
+		presenceOnline, presenceTotal := 0, 0
+		presenceAvailable := false
+		if presence := player.LatestPresence(); presence != nil {
+			presenceAvailable = true
+			presenceTotal = len(presence.Nodes)
+			for _, node := range presence.Nodes {
+				if node.Online {
+					presenceOnline++
+				}
+			}
+		}
+		shellStateMu.RLock()
+		dnd := shellDND
+		shellStateMu.RUnlock()
+		return ShellSnapshot{
+			Connection: connection, Identity: identityLine(*creds),
+			PresenceOnline: presenceOnline, PresenceTotal: presenceTotal,
+			PresenceAvailable: presenceAvailable, RouteName: route,
+			NowPlaying: nowPlaying, PlaybackState: state.Playback,
+			DND: dnd, Recording: ShellRecordingUnavailable,
+			RecordingAvailable: false, SelfTestAvailable: false, Volume: state.Volume,
+		}
+	}, ShellActions{
+		Create: func() { openURL(uiBotURL) },
+		Join:   func() { openURL(uiBotURL) },
+		SetDND: func(mode ShellDND) {
+			if mode != ShellDNDAllowAll && mode != ShellDNDMessagesOnly {
+				return
+			}
+			if err := player.SetLocalDND(string(mode), nil); err != nil {
+				log.Error("shell DND update failed", "mode", mode)
+				return
+			}
+			shellStateMu.Lock()
+			shellDND = mode
+			shellStateMu.Unlock()
+		},
+	})
+
 	tray := &TrayState{
+		Shell:     shell,
 		Connected: func() bool { return ws.Healthy() },
 		Identity:  identityLine(*creds),
 		OnRePair: func() {

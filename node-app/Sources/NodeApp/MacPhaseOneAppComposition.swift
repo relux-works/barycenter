@@ -95,31 +95,52 @@ final class MacPhaseOneAppComposition {
         }
     }
 
-    func performHistoryAction(_ historyID: String, action: PulsarHistoryAction) {
+    func performHistoryAction(_ historyID: String, request: PulsarHistoryActionRequest) {
         guard !stopped, !mutationInFlight else { return }
+        guard let item = model.snapshot.history.first(where: { $0.id == historyID }),
+              item.allowedActions.contains(request.action) else {
+            model.setPhaseOneActionState(outcome: nil, failure: "action_not_allowed")
+            return
+        }
         mutationInFlight = true
+        model.setPhaseOneActionState(outcome: nil, failure: nil)
         refreshTask?.cancel()
         mutationTask = Task { [weak self] in
             guard let self else { return }
             defer { mutationInFlight = false }
             do {
-                switch action {
+                let outcome: String
+                switch request.action {
                 case .delete:
-                    try await client.deleteHistoryItem(historyID)
+                    outcome = try await client.deleteHistoryItem(historyID).outcome
                 case .blockActor:
-                    try await client.blockHistoryActor(
+                    outcome = try await client.blockHistoryActor(
                         historyID,
-                        idempotencyKey: "mac-history-block-\(historyID)")
+                        idempotencyKey: "mac-history-block-\(historyID)").outcome
                 case .replay:
-                    _ = try await client.replayHistoryItem(
+                    let receipt = try await client.replayHistoryItem(
                         historyID,
                         route: .currentAir,
                         delivery: .overlay,
                         idempotencyKey: "mac-history-replay-\(historyID)")
+                    outcome = receipt.reused ? "replay_already_accepted" : "replay_accepted"
+                case .report:
+                    guard let reason = request.reason,
+                          let coreReason = PhaseOneModerationReason(rawValue: reason.rawValue) else {
+                        throw PhaseOneClientError.invalidRequest
+                    }
+                    outcome = try await client.reportHistoryItem(
+                        historyID,
+                        reason: coreReason,
+                        details: request.details).outcome
                 }
                 await loadProjection()
+                guard !Task.isCancelled, !stopped else { return }
+                model.setPhaseOneActionState(outcome: outcome, failure: nil)
             } catch {
-                await loadOutbox(failure: shellFailure(error))
+                await loadOutbox(failure: nil)
+                guard !Task.isCancelled, !stopped else { return }
+                model.setPhaseOneActionState(outcome: nil, failure: shellFailure(error))
             }
         }
     }
@@ -236,9 +257,17 @@ final class MacPhaseOneAppComposition {
         case let value as PhaseOneDraftOutboxError:
             return String(describing: value).replacingOccurrences(of: "_", with: " ")
         case let value as PhaseOneClientError:
-            return String(describing: value).replacingOccurrences(of: "_", with: " ")
+            switch value {
+            case .transport: return "coordinator_unavailable"
+            case .redirectRejected: return "redirect_rejected"
+            case .responseTooLarge: return "response_too_large"
+            case .invalidConfiguration: return "credential_unavailable"
+            case .invalidRequest: return "invalid_request"
+            case .invalidResponse: return "invalid_response"
+            case .rejected(_, let code, _): return code
+            }
         default:
-            return "Coordinator data is temporarily unavailable"
+            return "coordinator_unavailable"
         }
     }
 }

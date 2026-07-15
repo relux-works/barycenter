@@ -403,6 +403,21 @@ private struct PulsarHistoryView: View {
             }
         }
         .navigationTitle(copy.text(.historyTitle))
+        .safeAreaInset(edge: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                if let outcome = model.snapshot.phaseOneActionOutcome {
+                    Label(copy.historyActionMessage(outcome), systemImage: "checkmark.circle")
+                        .foregroundStyle(.green)
+                        .accessibilityElement(children: .combine)
+                }
+                if let failure = model.snapshot.phaseOneFailure {
+                    Label(copy.historyActionMessage(failure), systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                        .accessibilityElement(children: .combine)
+                }
+            }
+            .padding(.horizontal)
+        }
         .toolbar {
             Button(copy.text(.refresh)) { actions.refreshPhaseOneData() }
         }
@@ -413,8 +428,12 @@ private struct PulsarHistoryRow: View {
     let item: PulsarHistoryItem
     let locale: PulsarShellLocale
     var actions: PulsarShellActions?
+    @State private var reportReason = PulsarModerationReason.spam
+    @State private var reportDetails = ""
+    @State private var pendingAction: PulsarHistoryAction?
 
     var body: some View {
+        let copy = PulsarShellCopy(locale: locale)
         VStack(alignment: .leading, spacing: 4) {
             Text(item.title).font(.headline)
             Text(item.detail).foregroundStyle(.secondary)
@@ -434,16 +453,62 @@ private struct PulsarHistoryRow: View {
                 .foregroundStyle(.secondary)
             if let actions, !item.allowedActions.isEmpty {
                 HStack {
-                    ForEach(item.allowedActions, id: \.rawValue) { action in
+                    ForEach(item.allowedActions.filter { $0 != .report }, id: \.rawValue) { action in
                         Button(label(action)) {
-                            actions.performHistoryAction(item.id, action: action)
+                            if action == .delete || action == .blockActor {
+                                pendingAction = action
+                            } else {
+                                actions.performHistoryAction(item.id, action: action)
+                            }
                         }
                         .buttonStyle(.borderless)
+                    }
+                }
+                if item.allowedActions.contains(.report) {
+                    HStack {
+                        Picker(copy.text(.reportReason), selection: $reportReason) {
+                            ForEach(PulsarModerationReason.allCases) { reason in
+                                Text(copy.moderationReasonLabel(reason)).tag(reason)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityLabel(copy.text(.reportReason))
+                        TextField(copy.text(.reportDetails), text: $reportDetails)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityLabel(copy.text(.reportDetails))
+                            .onChange(of: reportDetails) { _, value in
+                                reportDetails = boundedReportDetails(value)
+                            }
+                        Button(copy.text(.submitReport)) {
+                            actions.performHistoryAction(
+                                item.id,
+                                request: .init(
+                                    action: .report,
+                                    reason: reportReason,
+                                    details: reportDetails.trimmingCharacters(
+                                        in: .whitespacesAndNewlines)))
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
                 }
             }
         }
         .accessibilityElement(children: item.allowedActions.isEmpty ? .combine : .contain)
+        .confirmationDialog(
+            confirmationTitle(copy),
+            isPresented: Binding(
+                get: { pendingAction != nil },
+                set: { if !$0 { pendingAction = nil } }),
+            titleVisibility: .visible
+        ) {
+            if let pendingAction, let actions {
+                Button(label(pendingAction), role: pendingAction == .delete ? .destructive : nil) {
+                    actions.performHistoryAction(item.id, action: pendingAction)
+                    self.pendingAction = nil
+                }
+            }
+            Button(copy.text(.cancel), role: .cancel) { pendingAction = nil }
+        }
     }
 
     private func label(_ action: PulsarHistoryAction) -> String {
@@ -451,8 +516,23 @@ private struct PulsarHistoryRow: View {
         switch action {
         case .delete: return copy.text(.deleteHistory)
         case .replay: return copy.text(.replay)
+        case .report: return copy.text(.report)
         case .blockActor: return copy.text(.blockSender)
         }
+    }
+
+    private func confirmationTitle(_ copy: PulsarShellCopy) -> String {
+        pendingAction == .delete ? copy.text(.confirmDelete) : copy.text(.confirmBlock)
+    }
+
+    private func boundedReportDetails(_ value: String) -> String {
+        var bytes = 0
+        return String(value.prefix { character in
+            let count = String(character).utf8.count
+            guard bytes + count <= 2_000 else { return false }
+            bytes += count
+            return true
+        })
     }
 }
 

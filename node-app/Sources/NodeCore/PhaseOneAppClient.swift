@@ -130,6 +130,25 @@ public struct PhaseOneHistoryPage: Equatable, Sendable {
   }
 }
 
+public enum PhaseOneModerationReason: String, Codable, CaseIterable, Sendable {
+  case spam
+  case harassment
+  case illegal
+  case sexualContent = "sexual_content"
+  case violence
+  case other
+}
+
+public struct PhaseOneHistoryActionReceipt: Equatable, Sendable {
+  public let outcome: String
+  public let reused: Bool
+
+  public init(outcome: String, reused: Bool = false) {
+    self.outcome = outcome
+    self.reused = reused
+  }
+}
+
 public enum PhaseOneClientError: Error, Equatable, Sendable {
   case invalidConfiguration
   case invalidRequest
@@ -158,8 +177,16 @@ public protocol PhaseOneAppServicing: Sendable {
   func deleteMedia(_ mediaID: String) async throws
   func presence() async throws -> [PhaseOnePresenceNode]
   func history(limit: Int, cursor: String?) async throws -> PhaseOneHistoryPage
-  func deleteHistoryItem(_ historyItemID: String) async throws
-  func blockHistoryActor(_ historyItemID: String, idempotencyKey: String) async throws
+  func deleteHistoryItem(_ historyItemID: String) async throws -> PhaseOneHistoryActionReceipt
+  func reportHistoryItem(
+    _ historyItemID: String,
+    reason: PhaseOneModerationReason,
+    details: String
+  ) async throws -> PhaseOneHistoryActionReceipt
+  func blockHistoryActor(
+    _ historyItemID: String,
+    idempotencyKey: String
+  ) async throws -> PhaseOneHistoryActionReceipt
   func replayHistoryItem(
     _ historyItemID: String,
     route: PhaseOneRoute,
@@ -348,8 +375,10 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
     let items = try value.items.map { item -> PhaseOneHistoryItem in
       guard Self.validHistoryID(item.historyItemID),
         let date = formatter.date(from: item.occurredAt),
+        ["sent", "received"].contains(item.direction),
         !item.media.title.isEmpty,
-        !item.status.isEmpty
+        !item.status.isEmpty,
+        Self.validHistoryActions(item.actions)
       else { throw PhaseOneClientError.invalidResponse }
       return PhaseOneHistoryItem(
         id: item.historyItemID,
@@ -369,27 +398,67 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
     return PhaseOneHistoryPage(items: items, nextCursor: value.nextCursor)
   }
 
-  public func deleteHistoryItem(_ historyItemID: String) async throws {
+  public func deleteHistoryItem(_ historyItemID: String) async throws -> PhaseOneHistoryActionReceipt {
     guard Self.validHistoryID(historyItemID) else { throw PhaseOneClientError.invalidRequest }
-    _ = try await request(
+    let response = try await request(
       method: "POST",
       path: "/v1/history/\(historyItemID)/actions/delete",
       bearer: controlToken,
       jsonBody: EmptyBody(),
       success: [200])
+    let value: HistoryDeleteResponse = try decode(response.data)
+    guard value.historyItemID == historyItemID, value.deleted else {
+      throw PhaseOneClientError.invalidResponse
+    }
+    return .init(outcome: "media_deleted")
   }
 
-  public func blockHistoryActor(_ historyItemID: String, idempotencyKey: String) async throws {
+  public func reportHistoryItem(
+    _ historyItemID: String,
+    reason: PhaseOneModerationReason,
+    details: String
+  ) async throws -> PhaseOneHistoryActionReceipt {
+    guard Self.validHistoryID(historyItemID), Self.validReportDetails(details) else {
+      throw PhaseOneClientError.invalidRequest
+    }
+    let response = try await request(
+      method: "POST",
+      path: "/v1/history/\(historyItemID)/actions/report",
+      bearer: controlToken,
+      jsonBody: HistoryReportBody(reason: reason, details: details),
+      success: [200, 201])
+    let value: HistoryReportResponse = try decode(response.data)
+    guard value.historyItemID == historyItemID,
+      Self.validPublicID(value.id, prefix: "rp_"),
+      value.reason == reason,
+      ["received", "reviewed"].contains(value.status)
+    else { throw PhaseOneClientError.invalidResponse }
+    return .init(
+      outcome: value.reused ? "report_already_received" : "report_received",
+      reused: value.reused)
+  }
+
+  public func blockHistoryActor(
+    _ historyItemID: String,
+    idempotencyKey: String
+  ) async throws -> PhaseOneHistoryActionReceipt {
     guard Self.validHistoryID(historyItemID), Self.validIdempotencyKey(idempotencyKey) else {
       throw PhaseOneClientError.invalidRequest
     }
-    _ = try await request(
+    let response = try await request(
       method: "POST",
       path: "/v1/history/\(historyItemID)/actions/block_actor",
       bearer: controlToken,
       headers: ["Idempotency-Key": idempotencyKey],
       jsonBody: EmptyBody(),
       success: [200, 201])
+    let value: HistoryBlockResponse = try decode(response.data)
+    guard Self.validPublicID(value.blockID, prefix: "bl_") else {
+      throw PhaseOneClientError.invalidResponse
+    }
+    return .init(
+      outcome: value.reused ? "sender_already_blocked" : "sender_blocked",
+      reused: value.reused)
   }
 
   public func replayHistoryItem(
@@ -560,6 +629,20 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
     validPublicID(value, prefix: "hi_")
   }
 
+  private static func validReportDetails(_ value: String) -> Bool {
+    value == value.trimmingCharacters(in: .whitespacesAndNewlines) &&
+      value.utf8.count <= 2_000 && value.unicodeScalars.allSatisfy {
+        $0.value >= 0x20 && $0.value != 0x7f
+      }
+  }
+
+  private static func validHistoryActions(_ values: [String]) -> Bool {
+    let allowed = Set([
+      "cancel", "delete", "replay", "report", "block_actor", "block_orbit", "unblock",
+    ])
+    return Set(values).count == values.count && values.allSatisfy(allowed.contains)
+  }
+
   private static func validPublicID(_ value: String, prefix: String) -> Bool {
     guard value.hasPrefix(prefix) else { return false }
     let suffix = value.dropFirst(prefix.count)
@@ -637,6 +720,44 @@ private struct HistoryReplayBody: Encodable {
   enum CodingKeys: String, CodingKey {
     case audience, delivery
     case includeOrigin = "include_origin"
+  }
+}
+
+private struct HistoryReportBody: Encodable {
+  let reason: PhaseOneModerationReason
+  let details: String
+}
+
+private struct HistoryDeleteResponse: Decodable {
+  let historyItemID: String
+  let deleted: Bool
+
+  enum CodingKeys: String, CodingKey {
+    case historyItemID = "history_item_id"
+    case deleted
+  }
+}
+
+private struct HistoryReportResponse: Decodable {
+  let id: String
+  let historyItemID: String
+  let reason: PhaseOneModerationReason
+  let status: String
+  let reused: Bool
+
+  enum CodingKeys: String, CodingKey {
+    case id, reason, status, reused
+    case historyItemID = "history_item_id"
+  }
+}
+
+private struct HistoryBlockResponse: Decodable {
+  let blockID: String
+  let reused: Bool
+
+  enum CodingKeys: String, CodingKey {
+    case blockID = "block_id"
+    case reused
   }
 }
 

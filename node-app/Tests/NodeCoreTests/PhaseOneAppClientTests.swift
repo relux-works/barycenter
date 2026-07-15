@@ -16,6 +16,8 @@ struct PhaseOneAppClientTests {
     let mediaID = "m_" + String(repeating: "B", count: 26)
     let transmissionID = "tr_" + String(repeating: "C", count: 26)
     let historyID = "hi_" + String(repeating: "D", count: 26)
+    let reportID = "rp_" + String(repeating: "E", count: 26)
+    let blockID = "bl_" + String(repeating: "F", count: 26)
     let requestIndex = PhaseOneRequestIndex()
     let transport = ScriptedTransport { request, maximum in
       let current = requestIndex.next()
@@ -71,6 +73,21 @@ struct PhaseOneAppClientTests {
           request: request, status: 200,
           json: #"{"history_item_id":"\#(historyID)","media_id":"\#(mediaID)","deleted":true}"#)
       case 6:
+        #expect(request.url?.path == "/v1/history/\(historyID)/actions/report")
+        let object = try #require(
+          JSONSerialization.jsonObject(with: request.httpBody!) as? [String: Any])
+        #expect(object["reason"] as? String == "harassment")
+        #expect(object["details"] as? String == "policy evidence")
+        return testHTTPResponse(
+          request: request, status: 201,
+          json: #"{"id":"\#(reportID)","media_id":"\#(mediaID)","history_item_id":"\#(historyID)","reason":"harassment","status":"received","created_at":"2026-07-15T00:00:00Z","updated_at":"2026-07-15T00:00:00Z","reused":false}"#)
+      case 7:
+        #expect(request.url?.path == "/v1/history/\(historyID)/actions/block_actor")
+        #expect(request.value(forHTTPHeaderField: "Idempotency-Key") == "mac-history-block-test")
+        return testHTTPResponse(
+          request: request, status: 201,
+          json: #"{"block_id":"\#(blockID)","scope":"actor","subject_ref":"opaque","display_name":"Sender","created_at":"2026-07-15T00:00:00Z","revision":1,"reused":false}"#)
+      case 8:
         #expect(request.httpMethod == "DELETE")
         #expect(request.url?.path == "/v1/media/\(mediaID)")
         let response = HTTPURLResponse(
@@ -106,9 +123,16 @@ struct PhaseOneAppClientTests {
     #expect(history.items.first?.effectiveDelivery == "after_current")
     #expect(history.items.first?.playedCount == 1)
     #expect(history.nextCursor == "opaque-cursor")
-    try await client.deleteHistoryItem(historyID)
+    let deleted = try await client.deleteHistoryItem(historyID)
+    #expect(deleted.outcome == "media_deleted")
+    let report = try await client.reportHistoryItem(
+      historyID, reason: .harassment, details: "policy evidence")
+    #expect(report == .init(outcome: "report_received"))
+    let block = try await client.blockHistoryActor(
+      historyID, idempotencyKey: "mac-history-block-test")
+    #expect(block == .init(outcome: "sender_blocked"))
     try await client.deleteMedia(mediaID)
-    #expect(transport.requests().count == 7)
+    #expect(transport.requests().count == 9)
   }
 
   @Test("Redirects and self-test upload attempts are rejected before false success")
@@ -127,6 +151,70 @@ struct PhaseOneAppClientTests {
     }
   }
 
+  @Test("Repeated moderation outcomes and bounded report input remain exact")
+  func repeatedModerationOutcomes() async throws {
+    let historyID = "hi_" + String(repeating: "H", count: 26)
+    let reportID = "rp_" + String(repeating: "J", count: 26)
+    let blockID = "bl_" + String(repeating: "K", count: 26)
+    let requestIndex = PhaseOneRequestIndex()
+    let transport = ScriptedTransport { request, _ in
+      switch requestIndex.next() {
+      case 0:
+        return testHTTPResponse(
+          request: request, status: 200,
+          json: #"{"id":"\#(reportID)","media_id":"m_MMMMMMMMMMMMMMMMMMMMMMMMMM","history_item_id":"\#(historyID)","reason":"spam","status":"received","created_at":"2026-07-15T00:00:00Z","updated_at":"2026-07-15T00:00:00Z","reused":true}"#)
+      case 1:
+        return testHTTPResponse(
+          request: request, status: 200,
+          json: #"{"block_id":"\#(blockID)","scope":"actor","subject_ref":"opaque","display_name":"Sender","created_at":"2026-07-15T00:00:00Z","revision":1,"reused":true}"#)
+      default:
+        Issue.record("invalid moderation request reached transport")
+        return testHTTPResponse(request: request, status: 500, json: "{}")
+      }
+    }
+    let client = try PhaseOneAppClient(bundle: credentialBundle(), transport: transport)
+    let report = try await client.reportHistoryItem(historyID, reason: .spam, details: "")
+    #expect(report == .init(outcome: "report_already_received", reused: true))
+    let block = try await client.blockHistoryActor(
+      historyID, idempotencyKey: "mac-history-block-repeated")
+    #expect(block == .init(outcome: "sender_already_blocked", reused: true))
+    await #expect(throws: PhaseOneClientError.invalidRequest) {
+      _ = try await client.reportHistoryItem(
+        historyID, reason: .other, details: String(repeating: "x", count: 2_001))
+    }
+    await #expect(throws: PhaseOneClientError.invalidRequest) {
+      _ = try await client.reportHistoryItem(
+        historyID, reason: .other, details: " leading whitespace")
+    }
+    #expect(transport.requests().count == 2)
+  }
+
+  @Test("Moderation denial and offline failures remain exact and privacy-safe")
+  func moderationFailureContracts() async throws {
+    let historyID = "hi_" + String(repeating: "N", count: 26)
+    let denied = ScriptedTransport { request, _ in
+      testHTTPResponse(
+        request: request, status: 403,
+        json: #"{"error":{"code":"insufficient_capability","retry_after_seconds":null}}"#)
+    }
+    let deniedClient = try PhaseOneAppClient(bundle: credentialBundle(), transport: denied)
+    await #expect(
+      throws: PhaseOneClientError.rejected(
+        status: 403, code: "insufficient_capability", retryAfterSeconds: nil)
+    ) {
+      _ = try await deniedClient.reportHistoryItem(historyID, reason: .spam, details: "")
+    }
+    #expect(denied.requests().count == 1)
+
+    let offline = ScriptedTransport { _, _ in throw PhaseOneTestTransportError.offline }
+    let offlineClient = try PhaseOneAppClient(bundle: credentialBundle(), transport: offline)
+    await #expect(throws: PhaseOneClientError.transport) {
+      _ = try await offlineClient.blockHistoryActor(
+        historyID, idempotencyKey: "mac-history-block-offline")
+    }
+    #expect(offline.requests().count == 1)
+  }
+
   private func credentialBundle() throws -> CredentialBundle {
     CredentialBundle(
       coordinatorOrigin: try CoordinatorOrigin("https://coord.example"),
@@ -137,6 +225,10 @@ struct PhaseOneAppClientTests {
         actorId: 2, orbitId: 1, role: .primary,
         controlToken: testControlToken, contextStrength: .active))
   }
+}
+
+private enum PhaseOneTestTransportError: Error {
+  case offline
 }
 
 private final class PhaseOneRequestIndex: @unchecked Sendable {

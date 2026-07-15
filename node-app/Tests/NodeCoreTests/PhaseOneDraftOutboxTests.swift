@@ -145,8 +145,22 @@ private actor ScriptedPhaseOneService: PhaseOneAppServicing {
   func history(limit: Int, cursor: String?) async throws -> PhaseOneHistoryPage {
     .init(items: [], nextCursor: nil)
   }
-  func deleteHistoryItem(_ historyItemID: String) async throws {}
-  func blockHistoryActor(_ historyItemID: String, idempotencyKey: String) async throws {}
+  func deleteHistoryItem(_ historyItemID: String) async throws -> PhaseOneHistoryActionReceipt {
+    .init(outcome: "media_deleted")
+  }
+  func reportHistoryItem(
+    _ historyItemID: String,
+    reason: PhaseOneModerationReason,
+    details: String
+  ) async throws -> PhaseOneHistoryActionReceipt {
+    .init(outcome: "report_received")
+  }
+  func blockHistoryActor(
+    _ historyItemID: String,
+    idempotencyKey: String
+  ) async throws -> PhaseOneHistoryActionReceipt {
+    .init(outcome: "sender_blocked")
+  }
   func replayHistoryItem(
     _ historyItemID: String,
     route: PhaseOneRoute,

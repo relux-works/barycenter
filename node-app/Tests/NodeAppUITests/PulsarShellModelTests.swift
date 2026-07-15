@@ -170,7 +170,7 @@ struct PulsarShellModelTests {
             sendDraft: { calls.append("send:\($0):\($1.rawValue):\($2.rawValue)") },
             deleteOutgoingDraft: { calls.append("delete-outbox:\($0)") },
             refreshPhaseOneData: { calls.append("refresh-data") },
-            historyAction: { calls.append("history:\($0):\($1.rawValue)") },
+            historyAction: { calls.append("history:\($0):\($1.action.rawValue)") },
             submitCreateOrbit: { calls.append("create-api:\($0)") },
             submitJoinOrbit: { calls.append("join-api:\($0)") },
             exportRecovery: { calls.append("export-recovery") }
@@ -196,6 +196,9 @@ struct PulsarShellModelTests {
         actions.deleteOutgoingDraft("draft-1")
         actions.refreshPhaseOneData()
         actions.performHistoryAction("history-1", action: .blockActor)
+        actions.performHistoryAction(
+            "history-2",
+            request: .init(action: .report, reason: .harassment, details: "evidence"))
         actions.submitCreateOrbit(title: "Family")
         actions.submitJoinOrbit(code: "ABCDEFGH")
         actions.exportRecovery()
@@ -205,8 +208,52 @@ struct PulsarShellModelTests {
             "cancel-record", "input:mic-1", "shortcut:control_shift_r", "cue", "five", "review:voice.wav",
             "accept:voice.wav", "delete", "close",
             "send:draft-1:own_barycenter:overlay", "delete-outbox:draft-1",
-            "refresh-data", "history:history-1:block_actor", "create-api:Family",
+            "refresh-data", "history:history-1:block_actor", "history:history-2:report", "create-api:Family",
             "join-api:ABCDEFGH", "export-recovery",
+        ])
+    }
+
+    @MainActor
+    @Test("Moderation reasons and privacy-safe action outcomes cover EN and RU")
+    func moderationPresentationContract() {
+        let model = PulsarShellModel()
+        let foreign = PulsarHistoryItem(
+            id: "hi_foreign", title: "Foreign", detail: "played", occurredAt: .now,
+            direction: "received", allowedActions: [.report, .blockActor])
+        let owned = PulsarHistoryItem(
+            id: "hi_owned", title: "Owned", detail: "accepted", occurredAt: .now,
+            direction: "sent", allowedActions: [.delete, .replay])
+        model.setHistory([foreign, owned])
+        #expect(model.snapshot.history[0].allowedActions.contains(.report))
+        #expect(!model.snapshot.history[0].allowedActions.contains(.delete))
+        #expect(model.snapshot.history[1].allowedActions.contains(.delete))
+        #expect(!model.snapshot.history[1].allowedActions.contains(.report))
+        model.setPhaseOneActionState(outcome: "report_received", failure: nil)
+        #expect(model.snapshot.phaseOneActionOutcome == "report_received")
+        #expect(model.snapshot.phaseOneFailure == nil)
+        model.setPhaseOneActionState(outcome: nil, failure: "coordinator_unavailable")
+        #expect(model.snapshot.phaseOneActionOutcome == nil)
+        #expect(model.snapshot.phaseOneFailure == "coordinator_unavailable")
+        for locale in PulsarShellLocale.allCases {
+            let copy = PulsarShellCopy(locale: locale)
+            for reason in PulsarModerationReason.allCases {
+                #expect(!copy.moderationReasonLabel(reason).isEmpty)
+            }
+            for code in [
+                "media_deleted", "report_received", "report_already_received",
+                "sender_blocked", "sender_already_blocked", "action_not_allowed",
+                "history_action_unavailable", "coordinator_unavailable", "unauthorized",
+                "forbidden", "insufficient_capability",
+            ] {
+                let message = copy.historyActionMessage(code)
+                #expect(!message.isEmpty)
+                #expect(!message.contains("hi_"))
+                #expect(!message.contains("rp_"))
+                #expect(!message.contains("bl_"))
+            }
+        }
+        #expect(PulsarModerationReason.allCases.map(\.rawValue) == [
+            "spam", "harassment", "illegal", "sexual_content", "violence", "other",
         ])
     }
 
@@ -261,5 +308,38 @@ struct PulsarShellModelTests {
         #expect(menu.contains("copy.text(.cancelRecording)"))
         #expect(!window.contains("addGlobalMonitorForEvents"))
         #expect(!menu.contains("addGlobalMonitorForEvents"))
+    }
+
+    @Test("History moderation controls retain SwiftUI accessibility and authorization seams")
+    func historyModerationSourceContract() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let window = try String(
+            contentsOf: root.appendingPathComponent("Sources/NodeAppUI/PulsarMainWindow.swift"),
+            encoding: .utf8)
+        let composition = try String(
+            contentsOf: root.appendingPathComponent("Sources/NodeApp/MacPhaseOneAppComposition.swift"),
+            encoding: .utf8)
+        for seam in [
+            "item.allowedActions.contains(.report)",
+            ".accessibilityLabel(copy.text(.reportReason))",
+            ".accessibilityLabel(copy.text(.reportDetails))",
+            ".confirmationDialog(",
+            "boundedReportDetails",
+        ] {
+            #expect(window.contains(seam))
+        }
+        for seam in [
+            "item.allowedActions.contains(request.action)",
+            "client.reportHistoryItem(",
+            "model.setPhaseOneActionState(outcome: outcome, failure: nil)",
+            "failure: \"action_not_allowed\"",
+        ] {
+            #expect(composition.contains(seam))
+        }
+        #expect(!window.contains("Text(item.id)"))
+        #expect(!window.contains("accessibilityLabel(item.id)"))
     }
 }

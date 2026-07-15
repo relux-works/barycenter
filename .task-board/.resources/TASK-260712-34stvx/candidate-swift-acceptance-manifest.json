@@ -1,0 +1,81 @@
+{
+  "artifacts": [
+    {
+      "bytes": 105,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "9ec9e3c52e7908b746c625587944c7e1eb71f90fc834fbb4527d510523684dd2"
+    },
+    {
+      "bytes": 160416,
+      "path": "02-swift-tests.log",
+      "sha256": "0027c298d3cfb747ef35639abb36d4b1d387840cceaec9d6d6d434eeb6ccdf76"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "test"
+      ],
+      "cwd": "node-app",
+      "exitCode": 0,
+      "log": "02-swift-tests.log",
+      "name": "swift-tests"
+    }
+  ],
+  "finishedAt": "2026-07-15T06:40:57Z",
+  "git": {
+    "dirty": true,
+    "endDirty": true,
+    "endDirtyPaths": [
+      "M .planning/260713_234810_self-contained-audio-sequential-execution.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1i0doc_p1-store-compliance-acceptance/TASK-260712-34stvx_macos-report-block-delete/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1i0doc_p1-store-compliance-acceptance/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/progress.md",
+      " M node-app/Sources/NodeApp/MacPhaseOneAppComposition.swift",
+      " M node-app/Sources/NodeApp/main.swift",
+      " M node-app/Sources/NodeAppUI/PulsarMainWindow.swift",
+      " M node-app/Sources/NodeAppUI/PulsarShellModel.swift",
+      " M node-app/Sources/NodeCore/PhaseOneAppClient.swift",
+      " M node-app/Tests/NodeAppUITests/PulsarShellModelTests.swift",
+      " M node-app/Tests/NodeCoreTests/PhaseOneAppClientTests.swift",
+      " M node-app/Tests/NodeCoreTests/PhaseOneDraftOutboxTests.swift",
+      "?? docs/analysis/p1-macos-ugc-controls.md"
+    ],
+    "head": "ab0992321fee609f984969724415eeaa0629139f",
+    "startDirty": true
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-15T06:39:49Z",
+  "status": "pass",
+  "suite": "swift",
+  "toolchains": {
+    "apple": {
+      "developerDir": "/Applications/Xcode.app/Contents/Developer",
+      "swiftVersion": "6.2.3",
+      "xcodeBuild": "17C52",
+      "xcodeVersion": "26.2"
+    },
+    "go": null
+  }
+}

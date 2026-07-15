@@ -20,9 +20,41 @@ def load(name: str, filename: str):
 metrics = load("acceptance_metrics", "evaluate_metrics.py")
 harness = load("acceptance_harness", "run_automated.py")
 readiness = load("phase1_readiness", "validate_phase1_readiness.py")
+targets_inbox = load("targets_inbox_contract", "../validate_targets_inbox_contract.py")
 
 
 class AcceptanceHarnessTests(unittest.TestCase):
+    def test_targets_inbox_contract_reuses_phase1_and_blocks_late_autoplay(self):
+        contract = targets_inbox.load()
+        targets_inbox.validate(contract)
+        self.assertFalse(contract["reuse"]["parallelACLAllowed"])
+        self.assertFalse(contract["inboxEligibility"]["autoPlayOnReconnect"])
+        self.assertFalse(contract["replay"]["lateAutoPlayAllowed"])
+        self.assertEqual(contract["moderation"]["reportImmediateGlobalEffect"], "none")
+
+    def test_targets_inbox_contract_rejects_partial_mixed_version_create(self):
+        contract = targets_inbox.load()
+        contract["mixedVersion"]["partialCreateAllowed"] = True
+        with self.assertRaisesRegex(targets_inbox.ContractError, "partial mixed-version"):
+            targets_inbox.validate(contract)
+
+    def test_targets_inbox_contract_rejects_acl_and_autoplay_expansion(self):
+        contract = targets_inbox.load()
+        contract["targetSnapshot"]["laterMemberExpansionAllowed"] = True
+        with self.assertRaisesRegex(targets_inbox.ContractError, "snapshot ACL widened"):
+            targets_inbox.validate(contract)
+
+        contract = targets_inbox.load()
+        contract["replay"]["lateAutoPlayAllowed"] = True
+        with self.assertRaisesRegex(targets_inbox.ContractError, "late autoplay"):
+            targets_inbox.validate(contract)
+
+    def test_targets_inbox_contract_rejects_report_driven_denial_of_service(self):
+        contract = targets_inbox.load()
+        contract["moderation"]["reportImmediateGlobalEffect"] = "quarantine"
+        with self.assertRaisesRegex(targets_inbox.ContractError, "global side effects"):
+            targets_inbox.validate(contract)
+
     def test_sanitize_paths_and_secrets(self):
         source = f"{harness.ROOT}/x Authorization: Bearer abc token=def password:ghi"
         clean = harness.sanitize(source)

@@ -63,6 +63,17 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Parse Windows package script before the native build
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path scripts/codec_spike/package_bundled_probe_msix.ps1),
+            [ref]$tokens,
+            [ref]$errors
+          )
+          if ($errors.Count -ne 0) { throw ($errors | Out-String) }
       - name: Fetch and verify pinned pristine source
         shell: pwsh
         run: |

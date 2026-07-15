@@ -91,7 +91,7 @@ try {
     $InstalledDriver = Join-Path $InstalledPackage.InstallLocation "pulsar-codec-probe.exe"
     $OfflineFixture = Join-Path $InstalledPackage.InstallLocation "Fixtures\mp3_cbr_12s.mp3"
     $DecodeJSON = & $InstalledDriver $OfflineFixture 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "installed offline decode failed with exit $LASTEXITCODE: $DecodeJSON" }
+    if ($LASTEXITCODE -ne 0) { throw "installed offline decode failed with exit ${LASTEXITCODE}: $DecodeJSON" }
     $Decode = $DecodeJSON | ConvertFrom-Json
     if ($Decode.codec -cne "mp3" -or -not $Decode.drained -or $Decode.frames -le 0 -or
         $Decode.peakRSSBytes -le 0 -or $Decode.peakRSSBytes -gt 268435456) {

@@ -139,6 +139,7 @@ class CodecSpikeContractTests(unittest.TestCase):
         self.assertIn('uap10:TrustLevel="appContainer"', msix_script)
         self.assertNotIn("runFullTrust", msix_script)
         self.assertIn("unpackaged non-system import", msix_script)
+        self.assertNotIn("$LASTEXITCODE:", msix_script)
         mingw_script = (HERE / "build_bundled_ffmpeg_mingw.sh").read_text(encoding="utf-8")
         self.assertIn("-static-libgcc", mingw_script)
 

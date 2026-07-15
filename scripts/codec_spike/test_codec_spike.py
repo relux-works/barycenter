@@ -33,6 +33,7 @@ stream_contract = load("codec_spike_stream_contract", "stream_contract.py")
 license_audit = load("codec_spike_license_audit", "validate_license_audit.py")
 bundled_probe = load("codec_spike_bundled_probe", "inventory_bundled_probe.py")
 media_foundation = load("codec_spike_media_foundation", "validate_mf_probe.py")
+macos_native = load("codec_spike_macos_native", "validate_macos_native_probe.py")
 
 
 def passing_evidence(rubric: dict, real: bool = True) -> dict:
@@ -109,6 +110,13 @@ def passing_evidence(rubric: dict, real: bool = True) -> dict:
 
 
 class CodecSpikeContractTests(unittest.TestCase):
+    def test_macos_native_probe_is_sandboxed_range_backed_and_fails_closed(self):
+        probe = macos_native.load_json(macos_native.CONTRACT_PATH)
+        macos_native.validate_contract(probe)
+        self.assertEqual([item["id"] for item in probe["fixtures"]], macos_native.EXPECTED_FIXTURES)
+        self.assertFalse(probe["package"]["networkClient"])
+        self.assertTrue(probe["streamBoundary"]["fullFileBeforeFirstSampleRejectsCandidate"])
+
     def test_media_foundation_probe_is_appcontainer_only_and_fails_closed(self):
         probe = media_foundation.load()
         media_foundation.validate(probe)

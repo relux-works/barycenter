@@ -56,9 +56,11 @@ x64 is runnable on the hosted runner; ARM64 remains a signed cross-build/schema
 proof until real ARM64 hardware is tested.
 
 The x64 package is installed through `Add-AppxPackage` after temporary
-`LocalMachine\\TrustedPeople` trust. The harness first proves that the installed
-AppContainer-only PE cannot be launched directly. It then activates the package
-with `IApplicationActivationManager::ActivateApplication`, `AO_NONE`, and never
+`LocalMachine\\TrustedPeople` trust. The harness runs the installed-path PE and
+accepts it only when the process self-reports the installed package family plus
+`TokenIsAppContainer=true`; package registration and the PE flag keep this path
+inside the sandbox. It then independently activates the package with
+`IApplicationActivationManager::ActivateApplication`, `AO_NONE`, and never
 calls package debug APIs. The process records its package identity,
 `TokenIsAppContainer`, COM apartment/thread, fixture outcomes, lifecycle
 timings, range-read ceiling and RSS into its own `LocalState`. The harness reads

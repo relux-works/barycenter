@@ -132,7 +132,7 @@ class CodecSpikeContractTests(unittest.TestCase):
 
         package_script = (HERE / "package_mf_probe_msix.ps1").read_text(encoding="utf-8")
         self.assertIn('uap10:TrustLevel="appContainer"', package_script)
-        self.assertIn("directLaunchRejected", package_script)
+        self.assertIn("directInstalledLaunchTokenIsAppContainer", package_script)
         self.assertNotIn("EnableDebugging", package_script)
         native = (HERE / "native" / "mf_appcontainer_probe.cpp").read_text(encoding="utf-8")
         self.assertIn("MFCreateSourceReaderFromByteStream", native)

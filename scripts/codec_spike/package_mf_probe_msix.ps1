@@ -126,18 +126,18 @@ try {
     $InstalledPackage = Get-AppxPackage -Name $Identity | Select-Object -First 1
     if (-not $InstalledPackage) { throw "test-signed Media Foundation MSIX did not install" }
     $InstalledExecutable = Join-Path $InstalledPackage.InstallLocation "PulsarMediaFoundationProbe.exe"
-    $DirectLaunchRejected = $false
-    try {
-        $Direct = Start-Process -FilePath $InstalledExecutable -ArgumentList "--soak-seconds=0" -Wait -PassThru -ErrorAction Stop
-        $DirectLaunchRejected = $Direct.ExitCode -ne 0
-    } catch {
-        $DirectLaunchRejected = $true
-    }
-    if (-not $DirectLaunchRejected) { throw "AppContainer-only PE executed successfully outside package activation" }
-
     $LocalState = Join-Path $env:LOCALAPPDATA "Packages\$($InstalledPackage.PackageFamilyName)\LocalState"
     New-Item -ItemType Directory -Force -Path $LocalState | Out-Null
     $EvidencePath = Join-Path $LocalState "mf-probe-evidence.json"
+    Remove-Item -Force $EvidencePath -ErrorAction SilentlyContinue
+    $Direct = Start-Process -FilePath $InstalledExecutable -ArgumentList "--soak-seconds=0" -Wait -PassThru -ErrorAction Stop
+    if ($Direct.ExitCode -ne 0 -or -not (Test-Path $EvidencePath)) {
+        throw "installed-path AppContainer launch failed its self-check"
+    }
+    $DirectEvidence = Get-Content $EvidencePath -Raw | ConvertFrom-Json
+    if (-not $DirectEvidence.tokenIsAppContainer -or $DirectEvidence.packageFamilyName -cne $InstalledPackage.PackageFamilyName) {
+        throw "installed-path launch did not retain AppContainer package identity"
+    }
     $Aumid = "$($InstalledPackage.PackageFamilyName)!PulsarMediaFoundationProbe"
     $Activation = & (Join-Path $PSScriptRoot "activate_mf_probe.ps1") `
         -ApplicationUserModelId $Aumid -EvidencePath $EvidencePath -SoakSeconds $SoakSeconds
@@ -171,7 +171,8 @@ try {
             debugModeEnabled = $Activation.DebugModeEnabled
             processId = $Activation.ProcessId
             exitCode = $Activation.ExitCode
-            directLaunchRejected = $DirectLaunchRejected
+            directInstalledLaunchExitCode = $Direct.ExitCode
+            directInstalledLaunchTokenIsAppContainer = $DirectEvidence.tokenIsAppContainer
         }
         evidence = $Evidence
         manualEvidence = [ordered]@{

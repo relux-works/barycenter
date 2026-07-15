@@ -1,0 +1,788 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-codec-player-comparative-matrix.v1",
+  "generatedFromRubric": "p2-codec-spike-rubric.v1",
+  "claimClass": "repository-and-hosted-engineering-evidence",
+  "manualEvidence": "EPIC-260714-th54l3",
+  "rules": {
+    "requiredPairings": [
+      "windows_windows",
+      "windows_macos",
+      "macos_macos"
+    ],
+    "requiredFixtures": [
+      "mp3_cbr_12s",
+      "mp3_vbr_12s",
+      "aac_m4a_12s",
+      "aac_adts_12s",
+      "opus_ogg_cbr_12s",
+      "opus_ogg_vbr_12s"
+    ],
+    "scoreAveragingAllowed": false,
+    "selectionRule": "One complete combination must pass every format row, every hard gate and every required pairing."
+  },
+  "artifacts": [
+    {
+      "id": "rubric",
+      "path": "acceptance/codec-spike/rubric-v1.json",
+      "sha256": "8701ddc6307e289817b020f07aa56b74203e472894b65ec84e4f61d5c9f6a4d2"
+    },
+    {
+      "id": "stream-contract",
+      "path": "acceptance/codec-spike/stream-contract-v1.json",
+      "sha256": "98cf82be24407a8605054fc1d8ad61cc533edc3e6fd490f21fea5ebc9d53e687"
+    },
+    {
+      "id": "license-audit",
+      "path": "acceptance/codec-spike/license-audit-v1.json",
+      "sha256": "d86767ed6fb885d983b99ff1f287bff24fb77e3fe5497a9f43f8f6ca318b7684"
+    },
+    {
+      "id": "bundled-macos-evidence",
+      "path": ".task-board/.resources/TASK-260712-1canzv/decode-evidence-macos-arm64.json",
+      "sha256": "ff1e95b35d267934e9003e8264c6a7a4c8842059062813279b6c082df04d46d4"
+    },
+    {
+      "id": "bundled-windows-evidence",
+      "path": ".task-board/.resources/TASK-260712-1canzv/decode-evidence-windows-amd64.json",
+      "sha256": "07697abedc887f098332d74f28e0cfa4833e52466070261f423f932825aaf6c3"
+    },
+    {
+      "id": "bundled-macos-receipt",
+      "path": ".task-board/.resources/TASK-260712-1canzv/receipt-macos-arm64.json",
+      "sha256": "1460e998832ff16d94a57840be025d689d4c98552ffebb320eeff5e4483c5159"
+    },
+    {
+      "id": "bundled-windows-receipt",
+      "path": ".task-board/.resources/TASK-260712-1canzv/receipt-windows-amd64.json",
+      "sha256": "b804510f818d8228be6e57d1e8cb1edf6df6fa4a2a9c93e7cc53d10bc2b20335"
+    },
+    {
+      "id": "media-foundation-receipt",
+      "path": ".task-board/.resources/TASK-260712-298tyq/receipt-windows-media-foundation.json",
+      "sha256": "0cca0a913471eb26178b9327978f43ee6b8568fd38e1cc052ee1b6e4dc72d423"
+    },
+    {
+      "id": "native-macos-evidence",
+      "path": ".task-board/.resources/TASK-260712-350u8d/evidence-macos-arm64.json",
+      "sha256": "fea03e7cdb765b8d9d3bfa164bf148030e787a1bb0d44a9fc2670fad8d53555c"
+    },
+    {
+      "id": "native-macos-receipt",
+      "path": ".task-board/.resources/TASK-260712-350u8d/receipt-macos-arm64.json",
+      "sha256": "7f6867746a3fc772144860e804856664bb106edd61445cf8a072bf6270b744e5"
+    },
+    {
+      "id": "pure-go-macos-evidence",
+      "path": ".task-board/.resources/TASK-260712-3vkcki/evidence-macos-arm64.json",
+      "sha256": "6ae0cea842f8abd31e00880e79e746f56342863a92e4adbb17fc1cec9f595a0e"
+    },
+    {
+      "id": "pure-go-windows-evidence",
+      "path": ".task-board/.resources/TASK-260712-3vkcki/evidence-windows-amd64.json",
+      "sha256": "735767ef29db3b81277a349c1fb23d485349249b9d2407697b63c5f6f5ca0fb1"
+    },
+    {
+      "id": "pure-go-macos-receipt",
+      "path": ".task-board/.resources/TASK-260712-3vkcki/receipt-macos-arm64.json",
+      "sha256": "5dffc5d3a114de84156afbb20f15944b188ed24fef1dbf3de47f2749d73f776d"
+    },
+    {
+      "id": "pure-go-windows-receipt",
+      "path": ".task-board/.resources/TASK-260712-3vkcki/receipt-windows-amd64.json",
+      "sha256": "672b4096daa6502ab3ac945f1c9a1831f9f8747ee2a500812b0e55e9dc442a20"
+    }
+  ],
+  "transportSubstrate": {
+    "status": "repository-pass-only",
+    "artifact": "stream-contract",
+    "rangeProfiles": [
+      "normal",
+      "no_range",
+      "slow_256kbit",
+      "reset_mid_body",
+      "truncate_body",
+      "corrupt_chunk",
+      "etag_flip",
+      "revoked"
+    ],
+    "candidateIntegrationClaimed": false
+  },
+  "combinations": [
+    {
+      "id": "bundled-ffmpeg-both-platforms",
+      "windowsCandidate": "bundled-ffmpeg-8.1.2-v1",
+      "macosCandidate": "bundled-ffmpeg-8.1.2-v1",
+      "formatRows": [
+        {
+          "fixtureId": "mp3_cbr_12s",
+          "windowsOutcome": "decode",
+          "macosOutcome": "decode",
+          "formatPass": true
+        },
+        {
+          "fixtureId": "mp3_vbr_12s",
+          "windowsOutcome": "decode",
+          "macosOutcome": "decode",
+          "formatPass": true
+        },
+        {
+          "fixtureId": "aac_m4a_12s",
+          "windowsOutcome": "decode",
+          "macosOutcome": "decode",
+          "formatPass": true
+        },
+        {
+          "fixtureId": "aac_adts_12s",
+          "windowsOutcome": "decode",
+          "macosOutcome": "decode",
+          "formatPass": true
+        },
+        {
+          "fixtureId": "opus_ogg_cbr_12s",
+          "windowsOutcome": "decode",
+          "macosOutcome": "decode",
+          "formatPass": true
+        },
+        {
+          "fixtureId": "opus_ogg_vbr_12s",
+          "windowsOutcome": "decode",
+          "macosOutcome": "decode",
+          "formatPass": true
+        }
+      ],
+      "hardGates": [
+        {
+          "id": "all_required_formats",
+          "status": "pass",
+          "evidence": [
+            "bundled-macos-evidence",
+            "bundled-windows-evidence"
+          ],
+          "reason": "All six smoke fixtures decode on both hosted architectures."
+        },
+        {
+          "id": "start_before_full_download",
+          "status": "not-run",
+          "evidence": [
+            "bundled-macos-evidence",
+            "bundled-windows-evidence"
+          ],
+          "reason": "The decoder probe receives coordinator-prepared local files; end-to-end first-audio range evidence is absent.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "pause_seek_resume_drain_cancel",
+          "status": "pass",
+          "evidence": [
+            "bundled-macos-evidence",
+            "bundled-windows-evidence"
+          ],
+          "reason": "All fixtures preserve the frozen lifecycle and generation seam."
+        },
+        {
+          "id": "scheduled_start_p95_30",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "Smoke timing is not the frozen 30-sample packaged-hardware matrix.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "seek_to_audio_p95_30",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "Smoke timing is not the frozen 30-sample packaged-hardware matrix.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "peak_rss_2h",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "No two-hour process-tree RSS series was run on physical packaged nodes.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "rss_growth_2h",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "No two-hour process-tree RSS growth series was run.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "rss_slope_2h",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "No two-hour process-tree RSS slope was measured.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "range_fault_cache_reuse",
+          "status": "not-run",
+          "evidence": [
+            "stream-contract"
+          ],
+          "reason": "The transport substrate passes deterministic fault tests, but no candidate-specific packaged pairing run exists.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "hostile_input",
+          "status": "pass",
+          "evidence": [
+            "bundled-macos-evidence",
+            "bundled-windows-evidence"
+          ],
+          "reason": "Hostile fixtures terminate under process and output bounds without a crash."
+        },
+        {
+          "id": "store_sandbox_release_package",
+          "status": "fail",
+          "evidence": [
+            "bundled-macos-receipt",
+            "bundled-windows-receipt"
+          ],
+          "reason": "Windows ARM64, production signing, notarization and accepted native-decoder isolation are absent."
+        },
+        {
+          "id": "license_release_disposition",
+          "status": "fail",
+          "evidence": [
+            "license-audit"
+          ],
+          "reason": "The audit requires release-time counsel, source-offer, notices, SBOM and advisory closure."
+        }
+      ],
+      "pairings": [
+        {
+          "id": "windows_windows",
+          "platforms": [
+            "windows",
+            "windows"
+          ],
+          "status": "rejected",
+          "blockingGates": [
+            "start_before_full_download",
+            "scheduled_start_p95_30",
+            "seek_to_audio_p95_30",
+            "peak_rss_2h",
+            "rss_growth_2h",
+            "rss_slope_2h",
+            "range_fault_cache_reuse",
+            "store_sandbox_release_package",
+            "license_release_disposition"
+          ]
+        },
+        {
+          "id": "windows_macos",
+          "platforms": [
+            "windows",
+            "macos"
+          ],
+          "status": "rejected",
+          "blockingGates": [
+            "start_before_full_download",
+            "scheduled_start_p95_30",
+            "seek_to_audio_p95_30",
+            "peak_rss_2h",
+            "rss_growth_2h",
+            "rss_slope_2h",
+            "range_fault_cache_reuse",
+            "store_sandbox_release_package",
+            "license_release_disposition"
+          ]
+        },
+        {
+          "id": "macos_macos",
+          "platforms": [
+            "macos",
+            "macos"
+          ],
+          "status": "rejected",
+          "blockingGates": [
+            "start_before_full_download",
+            "scheduled_start_p95_30",
+            "seek_to_audio_p95_30",
+            "peak_rss_2h",
+            "rss_growth_2h",
+            "rss_slope_2h",
+            "range_fault_cache_reuse",
+            "store_sandbox_release_package",
+            "license_release_disposition"
+          ]
+        }
+      ],
+      "conclusion": "rejected"
+    },
+    {
+      "id": "native-mf-plus-avfoundation",
+      "windowsCandidate": "native-canonical-aac-v1/media-foundation",
+      "macosCandidate": "native-canonical-aac-v1/avfoundation-probe",
+      "formatRows": [
+        {
+          "fixtureId": "mp3_cbr_12s",
+          "windowsOutcome": "decode",
+          "macosOutcome": "decode",
+          "formatPass": true
+        },
+        {
+          "fixtureId": "mp3_vbr_12s",
+          "windowsOutcome": "decode",
+          "macosOutcome": "decode",
+          "formatPass": true
+        },
+        {
+          "fixtureId": "aac_m4a_12s",
+          "windowsOutcome": "decode",
+          "macosOutcome": "decode",
+          "formatPass": true
+        },
+        {
+          "fixtureId": "aac_adts_12s",
+          "windowsOutcome": "decode",
+          "macosOutcome": "decode",
+          "formatPass": true
+        },
+        {
+          "fixtureId": "opus_ogg_cbr_12s",
+          "windowsOutcome": "reject:0xC00D36C4",
+          "macosOutcome": "decode",
+          "formatPass": false
+        },
+        {
+          "fixtureId": "opus_ogg_vbr_12s",
+          "windowsOutcome": "reject:0xC00D36C4",
+          "macosOutcome": "decode",
+          "formatPass": false
+        }
+      ],
+      "hardGates": [
+        {
+          "id": "all_required_formats",
+          "status": "fail",
+          "evidence": [
+            "media-foundation-receipt",
+            "native-macos-evidence"
+          ],
+          "reason": "Windows rejects both Ogg/Opus fixtures with 0xC00D36C4."
+        },
+        {
+          "id": "start_before_full_download",
+          "status": "fail",
+          "evidence": [
+            "media-foundation-receipt",
+            "native-macos-evidence"
+          ],
+          "reason": "macOS requests at least the complete source before first PCM; several Windows fixtures also exceed source length before first sample."
+        },
+        {
+          "id": "pause_seek_resume_drain_cancel",
+          "status": "fail",
+          "evidence": [
+            "media-foundation-receipt",
+            "native-macos-evidence"
+          ],
+          "reason": "Lifecycle is unavailable for Windows Ogg/Opus and the cold macOS MP3 row fails its lifecycle timing gate."
+        },
+        {
+          "id": "scheduled_start_p95_30",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "Smoke timing is not the frozen 30-sample packaged-hardware matrix.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "seek_to_audio_p95_30",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "Smoke timing is not the frozen 30-sample packaged-hardware matrix.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "peak_rss_2h",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "No two-hour process-tree RSS series was run on physical packaged nodes.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "rss_growth_2h",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "No two-hour process-tree RSS growth series was run.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "rss_slope_2h",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "No two-hour process-tree RSS slope was measured.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "range_fault_cache_reuse",
+          "status": "not-run",
+          "evidence": [
+            "stream-contract"
+          ],
+          "reason": "The transport substrate passes deterministic fault tests, but no candidate-specific packaged pairing run exists.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "hostile_input",
+          "status": "not-run",
+          "evidence": [
+            "media-foundation-receipt",
+            "native-macos-evidence"
+          ],
+          "reason": "The complete identical hostile corpus was not run through both native candidates.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "store_sandbox_release_package",
+          "status": "fail",
+          "evidence": [
+            "media-foundation-receipt",
+            "native-macos-receipt"
+          ],
+          "reason": "Windows is CI test-signed and macOS is ad-hoc signed; no production notarized/release package pair exists."
+        },
+        {
+          "id": "license_release_disposition",
+          "status": "pass",
+          "evidence": [
+            "license-audit"
+          ],
+          "reason": "Inbox/native frameworks avoid bundled third-party decoder distribution."
+        }
+      ],
+      "pairings": [
+        {
+          "id": "windows_windows",
+          "platforms": [
+            "windows",
+            "windows"
+          ],
+          "status": "rejected",
+          "blockingGates": [
+            "all_required_formats",
+            "start_before_full_download",
+            "pause_seek_resume_drain_cancel",
+            "scheduled_start_p95_30",
+            "seek_to_audio_p95_30",
+            "peak_rss_2h",
+            "rss_growth_2h",
+            "rss_slope_2h",
+            "range_fault_cache_reuse",
+            "hostile_input",
+            "store_sandbox_release_package"
+          ]
+        },
+        {
+          "id": "windows_macos",
+          "platforms": [
+            "windows",
+            "macos"
+          ],
+          "status": "rejected",
+          "blockingGates": [
+            "all_required_formats",
+            "start_before_full_download",
+            "pause_seek_resume_drain_cancel",
+            "scheduled_start_p95_30",
+            "seek_to_audio_p95_30",
+            "peak_rss_2h",
+            "rss_growth_2h",
+            "rss_slope_2h",
+            "range_fault_cache_reuse",
+            "hostile_input",
+            "store_sandbox_release_package"
+          ]
+        },
+        {
+          "id": "macos_macos",
+          "platforms": [
+            "macos",
+            "macos"
+          ],
+          "status": "rejected",
+          "blockingGates": [
+            "all_required_formats",
+            "start_before_full_download",
+            "pause_seek_resume_drain_cancel",
+            "scheduled_start_p95_30",
+            "seek_to_audio_p95_30",
+            "peak_rss_2h",
+            "rss_growth_2h",
+            "rss_slope_2h",
+            "range_fault_cache_reuse",
+            "hostile_input",
+            "store_sandbox_release_package"
+          ]
+        }
+      ],
+      "conclusion": "rejected"
+    },
+    {
+      "id": "pure-go-both-platforms",
+      "windowsCandidate": "pure-go-composite-v1",
+      "macosCandidate": "pure-go-composite-v1",
+      "formatRows": [
+        {
+          "fixtureId": "mp3_cbr_12s",
+          "windowsOutcome": "decode-rejected-seek-full-scan",
+          "macosOutcome": "decode-rejected-seek-full-scan",
+          "formatPass": false
+        },
+        {
+          "fixtureId": "mp3_vbr_12s",
+          "windowsOutcome": "decode-rejected-seek-full-scan",
+          "macosOutcome": "decode-rejected-seek-full-scan",
+          "formatPass": false
+        },
+        {
+          "fixtureId": "aac_m4a_12s",
+          "windowsOutcome": "reject-forbidden-module",
+          "macosOutcome": "reject-forbidden-module",
+          "formatPass": false
+        },
+        {
+          "fixtureId": "aac_adts_12s",
+          "windowsOutcome": "reject-forbidden-module",
+          "macosOutcome": "reject-forbidden-module",
+          "formatPass": false
+        },
+        {
+          "fixtureId": "opus_ogg_cbr_12s",
+          "windowsOutcome": "decode-rejected-no-random-seek",
+          "macosOutcome": "decode-rejected-no-random-seek",
+          "formatPass": false
+        },
+        {
+          "fixtureId": "opus_ogg_vbr_12s",
+          "windowsOutcome": "decode-rejected-no-random-seek",
+          "macosOutcome": "decode-rejected-no-random-seek",
+          "formatPass": false
+        }
+      ],
+      "hardGates": [
+        {
+          "id": "all_required_formats",
+          "status": "fail",
+          "evidence": [
+            "pure-go-macos-evidence",
+            "pure-go-windows-evidence"
+          ],
+          "reason": "AAC is rejected without reads because the audited GPL-only module is forbidden."
+        },
+        {
+          "id": "start_before_full_download",
+          "status": "fail",
+          "evidence": [
+            "pure-go-macos-evidence",
+            "pure-go-windows-evidence"
+          ],
+          "reason": "MP3 first PCM is incremental, but seek construction full-scans MP3 and Ogg has no random-seek API."
+        },
+        {
+          "id": "pause_seek_resume_drain_cancel",
+          "status": "fail",
+          "evidence": [
+            "pure-go-macos-evidence",
+            "pure-go-windows-evidence"
+          ],
+          "reason": "No acceptable seek lifecycle exists for MP3 or Ogg and AAC cannot decode."
+        },
+        {
+          "id": "scheduled_start_p95_30",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "Smoke timing is not the frozen 30-sample packaged-hardware matrix.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "seek_to_audio_p95_30",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "Smoke timing is not the frozen 30-sample packaged-hardware matrix.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "peak_rss_2h",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "No two-hour process-tree RSS series was run on physical packaged nodes.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "rss_growth_2h",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "No two-hour process-tree RSS growth series was run.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "rss_slope_2h",
+          "status": "not-run",
+          "evidence": [],
+          "reason": "No two-hour process-tree RSS slope was measured.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "range_fault_cache_reuse",
+          "status": "not-run",
+          "evidence": [
+            "stream-contract"
+          ],
+          "reason": "The transport substrate passes deterministic fault tests, but no candidate-specific packaged pairing run exists.",
+          "manualEpic": "EPIC-260714-th54l3"
+        },
+        {
+          "id": "hostile_input",
+          "status": "pass",
+          "evidence": [
+            "pure-go-macos-evidence",
+            "pure-go-windows-evidence"
+          ],
+          "reason": "Truncated and corrupt MP3/Ogg fixtures remain bounded and panic-free; race coverage passes."
+        },
+        {
+          "id": "store_sandbox_release_package",
+          "status": "fail",
+          "evidence": [
+            "pure-go-macos-receipt",
+            "pure-go-windows-receipt"
+          ],
+          "reason": "CGo-free research binaries are not sandboxed production application packages."
+        },
+        {
+          "id": "license_release_disposition",
+          "status": "fail",
+          "evidence": [
+            "license-audit",
+            "pure-go-macos-receipt",
+            "pure-go-windows-receipt"
+          ],
+          "reason": "The only audited AAC module is GPL-2.0-only and is intentionally absent."
+        }
+      ],
+      "pairings": [
+        {
+          "id": "windows_windows",
+          "platforms": [
+            "windows",
+            "windows"
+          ],
+          "status": "rejected",
+          "blockingGates": [
+            "all_required_formats",
+            "start_before_full_download",
+            "pause_seek_resume_drain_cancel",
+            "scheduled_start_p95_30",
+            "seek_to_audio_p95_30",
+            "peak_rss_2h",
+            "rss_growth_2h",
+            "rss_slope_2h",
+            "range_fault_cache_reuse",
+            "store_sandbox_release_package",
+            "license_release_disposition"
+          ]
+        },
+        {
+          "id": "windows_macos",
+          "platforms": [
+            "windows",
+            "macos"
+          ],
+          "status": "rejected",
+          "blockingGates": [
+            "all_required_formats",
+            "start_before_full_download",
+            "pause_seek_resume_drain_cancel",
+            "scheduled_start_p95_30",
+            "seek_to_audio_p95_30",
+            "peak_rss_2h",
+            "rss_growth_2h",
+            "rss_slope_2h",
+            "range_fault_cache_reuse",
+            "store_sandbox_release_package",
+            "license_release_disposition"
+          ]
+        },
+        {
+          "id": "macos_macos",
+          "platforms": [
+            "macos",
+            "macos"
+          ],
+          "status": "rejected",
+          "blockingGates": [
+            "all_required_formats",
+            "start_before_full_download",
+            "pause_seek_resume_drain_cancel",
+            "scheduled_start_p95_30",
+            "seek_to_audio_p95_30",
+            "peak_rss_2h",
+            "rss_growth_2h",
+            "rss_slope_2h",
+            "range_fault_cache_reuse",
+            "store_sandbox_release_package",
+            "license_release_disposition"
+          ]
+        }
+      ],
+      "conclusion": "rejected"
+    }
+  ],
+  "rawFailures": [
+    {
+      "combination": "native-mf-plus-avfoundation",
+      "artifact": "media-foundation-receipt",
+      "jsonPointer": "/evidence/fixtures/4/openHRESULT",
+      "observed": "0xC00D36C4",
+      "meaning": "Windows Media Foundation cannot open Ogg/Opus."
+    },
+    {
+      "combination": "native-mf-plus-avfoundation",
+      "artifact": "native-macos-evidence",
+      "jsonPointer": "/fixtures/0/bytesBeforeFirstSample",
+      "observed": 289199,
+      "sourceBytes": 289197,
+      "meaning": "Native macOS consumes the complete MP3 before first PCM."
+    },
+    {
+      "combination": "pure-go-both-platforms",
+      "artifact": "pure-go-macos-evidence",
+      "jsonPointer": "/fixtures/2/outcome",
+      "observed": "reject-forbidden-module",
+      "meaning": "AAC is unavailable under the accepted license boundary."
+    },
+    {
+      "combination": "pure-go-both-platforms",
+      "artifact": "pure-go-windows-evidence",
+      "jsonPointer": "/fixtures/0/seekPrepareBytes",
+      "observed": 289818,
+      "sourceBytes": 289197,
+      "meaning": "MP3 seek construction requires a full scan."
+    },
+    {
+      "combination": "pure-go-both-platforms",
+      "artifact": "pure-go-windows-evidence",
+      "jsonPointer": "/fixtures/4/seekSupported",
+      "observed": false,
+      "meaning": "The pure-Go Ogg reader has no random-seek contract."
+    },
+    {
+      "combination": "bundled-ffmpeg-both-platforms",
+      "artifact": "bundled-windows-receipt",
+      "jsonPointer": "/shippingDecision",
+      "observed": "rejected-until-all-required-platform-and-release-evidence-exists",
+      "meaning": "The technically viable bundled prototype lacks release evidence."
+    }
+  ],
+  "selection": {
+    "allowed": false,
+    "selectedCombination": null,
+    "productionImplementationMayProceed": false,
+    "decision": "no-complete-combination-passes-every-hard-gate",
+    "nextTask": "TASK-260712-2eympi"
+  }
+}

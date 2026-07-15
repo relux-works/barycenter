@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 64 accepted, 141 remain.
-- Routed inventory: 186 engineering tasks (64 accepted, 122 remain) and 19
+- Combined inventory: 205 original tasks; 65 accepted, 140 remain.
+- Routed inventory: 186 engineering tasks (65 accepted, 121 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,9 +13,9 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: `TASK-260712-pbfz37` — windows-report-block-delete
-  (reviewing; engineering candidate `c6b2819`)
+  (accepted on tracking head `d5a40c0`; PR #64 merge pending)
 - Next engineering task: `TASK-260712-34stvx` — macos-report-block-delete
-- Most recently accepted: `TASK-260712-1cdoxh` — acceptance-env-gate-repair
+- Most recently accepted: `TASK-260712-pbfz37` — windows-report-block-delete
 - Current branch: `task/task-260712-pbfz37-windows-report-block-delete`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 64 / 205 tasks (approximately 31.2%); 141 remain
-- Engineering progress: 64 / 186 tasks (approximately 34.4%); 122 remain
+- Accepted overall: 65 / 205 tasks (approximately 31.7%); 140 remain
+- Engineering progress: 65 / 186 tasks (approximately 34.9%); 121 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -913,8 +913,11 @@ tab-stop buttons and the explicitly labelled details edit preserve the
 keyboard/accessibility contract. `go test -race ./...`, Windows amd64 test
 cross-compilation, amd64/arm64 builds and the seven-stage local Windows
 acceptance suite pass. The physical packaged-app keyboard/screen-reader pass is
-not claimed and remains `TASK-260712-e5mfqj` in `EPIC-260714-th54l3`. Hosted CI,
-tracking commit and merge remain before the engineering task is accepted.
+not claimed and remains `TASK-260712-e5mfqj` in `EPIC-260714-th54l3`. Clean
+exact-head run `engineering-d5a40c0` passed 7/7 with start/end dirty false and
+hosted run `29393834216` passed coordinator, node-core, pulsar-win and the
+signed packaged probe. The engineering task is accepted at 65/205 overall and
+65/186 engineering; the final tracking commit and PR #64 merge remain.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1620,7 +1623,10 @@ acceptance.
   replacement head `f8ae903`; clean local 12-stage run and all four hosted jobs
   in run `29392625265` passed with empty end-dirty paths; two earlier candidates
   correctly failed closed; real-app/WACK/hardware evidence stays manual; PR #63)
-- [ ] `TASK-260712-pbfz37` — windows-report-block-delete
+- [x] `TASK-260712-pbfz37` — windows-report-block-delete (accepted on tracking
+  head `d5a40c0`; clean seven-stage Windows acceptance pass; all four hosted
+  jobs green in run `29393834216`; physical packaged-app keyboard/screen-reader
+  evidence remains manual in `TASK-260712-e5mfqj`; PR #64)
 - [ ] `TASK-260712-34stvx` — macos-report-block-delete
 - [ ] `TASK-260712-dlltnr` — telegram-moderation-parity
 - [ ] `TASK-260712-e1ie4x` — platform-declarations-localized-copy

@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1xkn75` — p1-independent-migration-review
-  (starting from synchronized `main` after realtime-audio engineering handoff)
-- Next engineering task: `TASK-260712-wy05n6` — p1-independent-security-review
+- Current engineering task: `TASK-260712-wy05n6` — p1-independent-security-review
+  (starting after migration engineering handoff)
+- Next engineering task: `TASK-260712-2s4e9p` — store-listing-iarc-assets
 - Most recently accepted: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Current branch: `task/task-260712-1xkn75-p1-independent-migration-review`
+- Current branch: `tracking/task-260712-1xkn75-migration-review`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -1047,6 +1047,19 @@ Tracking head `6d62cf0` passed all four hosted jobs in run `29401906752`; PR
 `635a8d3e3e9d7929a474ae6a5278187071c520c9`. Strict execution started
 `TASK-260712-1xkn75` from synchronized `main` on branch
 `task/task-260712-1xkn75-p1-independent-migration-review`.
+
+The migration audit closed two HIGH findings. Legacy and orbit bootstrap now
+installs atomically and no longer discards `media.orbit_id`, `slots.provider`
+or `members.display_name` migration errors. Connection setup installs and
+retries the bounded busy policy before WAL negotiation, so concurrent rollout
+startup serializes instead of failing before `busy_timeout`. Failure, partial,
+ten-run concurrent, full/race and all ten exact-predecessor scenarios pass.
+Exact engineering head `7736b7546b7ef86347d86dfefb095c9f795ad9ff`
+passed clean 12-stage acceptance with start/end dirty false; hosted run
+`29402957156` passed all four jobs. PR #72 landed at merge `d7e0065`.
+Independent signoff is routed to owner task `TASK-260715-unbb7c`; the original
+review remains `to-review` and does not increase accepted counts. Strict
+engineering advances to `TASK-260712-wy05n6`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

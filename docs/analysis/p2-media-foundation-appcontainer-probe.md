@@ -81,6 +81,42 @@ Canonical server-side AAC/M4A conversion remains mandatory for unsupported
 uploads if this native path is selected. Final candidate comparison and
 selection belongs to `TASK-260712-ibuaxj` and the subsequent ADR task.
 
+## Hosted result
+
+Engineering head `34d3f681a776061ec0e8a0fe4c1c8d5f3c9c1a0f` passed the dedicated
+package run `29447847569`. The standard repository run `29447849837` then
+passed all four jobs. The dedicated receipt contains these exact packages:
+
+- x64: 1,309,068 bytes, SHA-256
+  `c83bc27303507140c91d2273bd8de018709df1d1ded8368b63452e8d9fc4fc95`
+- ARM64: 1,293,354 bytes, SHA-256
+  `9506b60f1ef7c092369f6e2a764c1f002e3cebe02ec06308eea0b77f2f126e43`
+
+Both nested executables were signed and had the PE AppContainer flag; both
+manifests contained zero capabilities and no `runFullTrust`. The x64
+installed-path run exited zero and self-reported `TokenIsAppContainer=true`.
+The independent AUMID run used `AO_NONE` with package debugging disabled. The
+external process API did not retain an exit status after packaged activation,
+so the receipt records `unavailable-after-packaged-activation` rather than
+inventing zero; acceptance is bound to the atomically written, parsed
+`passed=true` LocalState evidence.
+
+MP3 CBR/VBR and AAC M4A/ADTS all decoded, paused without reads, sought with a
+new generation, resumed, cancelled cooperatively and drained. Scheduled skew
+was 2–7 ms and seek-to-sample was 1–4 ms. The maximum underlying prepared read
+was 262,144 bytes, below the 1 MiB ceiling. Both real Ogg/Opus fixtures rejected
+at open with `0xC00D36C4` (`MF_E_UNSUPPORTED_BYTESTREAM_TYPE`), providing the
+concrete reason this candidate cannot satisfy the universal three-codec input
+matrix without canonical conversion.
+
+The 60,008 ms hosted soak completed 2,214 open/decode/dispose iterations. Peak
+RSS was 24,805,376 bytes; observed start/end RSS was 21,970,944/24,764,416
+bytes. This short accelerated run is a leak signal only, not a two-hour slope
+claim. Likewise, the 12-second package fixtures prove exact handlers and
+lifecycle behavior but do not prove one-hour start-before-full-download. Those
+duration and physical OS/hardware claims remain rejected pending the manual
+matrix and the later comparative evidence task.
+
 ## Primary references
 
 - [Microsoft: supported codecs for Windows apps](https://learn.microsoft.com/windows/apps/develop/media-authoring-processing/supported-codecs)

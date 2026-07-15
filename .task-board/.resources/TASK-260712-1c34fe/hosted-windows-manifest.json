@@ -1,0 +1,144 @@
+{
+  "artifacts": [
+    {
+      "bytes": 130,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "0c0ff990f7fb9e0ca1973ff139ed9e8d0c146c2ad2647a6402e3ca74305db021"
+    },
+    {
+      "bytes": 176,
+      "path": "02-windows-vet.log",
+      "sha256": "3da69f5997c302160ade63a0196dbd64fb1ed320242274a542911bfc34ad4cb7"
+    },
+    {
+      "bytes": 204,
+      "path": "03-windows-tests.log",
+      "sha256": "11f8f9743807f068d2ca474da76044c28c92dfd1e04e8f2caa9490eb99d75df1"
+    },
+    {
+      "bytes": 204,
+      "path": "04-windows-race.log",
+      "sha256": "c23f66b9da131410020c735a9a2cce3382df83721cf85b526fdd44d85df6ab62"
+    },
+    {
+      "bytes": 150,
+      "path": "05-windows-cross-vet-amd64.log",
+      "sha256": "82c4f713c9ae52544273d5a4eb795bbc54a8174bff5acc363f89af0690c013ab"
+    },
+    {
+      "bytes": 0,
+      "path": "06-windows-cross-build-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "07-windows-cross-build-arm64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/codec_spike/test_codec_spike.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "02-windows-vet.log",
+      "name": "windows-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "03-windows-tests.log",
+      "name": "windows-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "04-windows-race.log",
+      "name": "windows-race"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "05-windows-cross-vet-amd64.log",
+      "name": "windows-cross-vet-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "06-windows-cross-build-amd64.log",
+      "name": "windows-cross-build-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "07-windows-cross-build-arm64.log",
+      "name": "windows-cross-build-arm64"
+    }
+  ],
+  "finishedAt": "2026-07-15T22:27:52Z",
+  "git": {
+    "dirty": false,
+    "endDirty": false,
+    "endDirtyPaths": [],
+    "head": "568b8f967e4e5e86a2b3f9a8bd86e0d3dd61a744",
+    "startDirty": false
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "6.17.0-1020-azure",
+    "system": "Linux"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-15T22:26:20Z",
+  "status": "pass",
+  "suite": "windows",
+  "toolchains": {
+    "apple": null,
+    "go": "go version go1.25.12 linux/amd64"
+  }
+}

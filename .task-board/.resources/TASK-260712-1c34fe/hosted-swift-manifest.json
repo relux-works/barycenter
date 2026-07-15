@@ -1,0 +1,68 @@
+{
+  "artifacts": [
+    {
+      "bytes": 1322,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "f8142e1d14136478ef57e138397a879da2f165231ae11c09c2ce1aec85f0f593"
+    },
+    {
+      "bytes": 271627,
+      "path": "02-swift-tests.log",
+      "sha256": "eb48dc444d767ed120f8c5dd62c684601d129e4c2111e193c0f0b9d2682fe455"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/codec_spike/test_codec_spike.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "test"
+      ],
+      "cwd": "node-app",
+      "exitCode": 0,
+      "log": "02-swift-tests.log",
+      "name": "swift-tests"
+    }
+  ],
+  "finishedAt": "2026-07-15T22:27:59Z",
+  "git": {
+    "dirty": false,
+    "endDirty": false,
+    "endDirtyPaths": [],
+    "head": "568b8f967e4e5e86a2b3f9a8bd86e0d3dd61a744",
+    "startDirty": false
+  },
+  "host": {
+    "machine": "arm64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-15T22:26:31Z",
+  "status": "pass",
+  "suite": "swift",
+  "toolchains": {
+    "apple": {
+      "developerDir": "/Applications/Xcode_26.2.app/Contents/Developer",
+      "swiftVersion": "6.2.3",
+      "xcodeBuild": "17C52",
+      "xcodeVersion": "26.2"
+    },
+    "go": null
+  }
+}

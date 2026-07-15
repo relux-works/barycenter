@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 80 accepted, 125 remain.
-- Routed inventory: 186 engineering tasks (80 accepted, 106 remain) and 19
+- Combined inventory: 205 original tasks; 81 accepted, 124 remain.
+- Routed inventory: 186 engineering tasks (81 accepted, 105 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-14u0yk` — freeze-codec-spike-rubric-fixtures-harness
-- Next engineering task: `TASK-260712-14u0yk` — freeze-codec-spike-rubric-fixtures-harness
-- Most recently accepted: `TASK-260712-3nq0tq` — air-lifecycle-regression-rehearsal
-- Current branch: `main` (accepted Air regression tracking checkpoint)
+- Current engineering task: `TASK-260712-dqdoqj` — prototype-stream-variants-range-cache-contract
+- Next engineering task: `TASK-260712-dqdoqj` — prototype-stream-variants-range-cache-contract
+- Most recently accepted: `TASK-260712-14u0yk` — freeze-codec-spike-rubric-fixtures-harness
+- Current branch: `main` (accepted codec-spike foundation checkpoint)
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 80 / 205 tasks (approximately 39.0%); 125 remain
-- Engineering progress: 80 / 186 tasks (approximately 43.0%); 106 remain
+- Accepted overall: 81 / 205 tasks (approximately 39.5%); 124 remain
+- Engineering progress: 81 / 186 tasks (approximately 43.5%); 105 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1314,6 +1314,24 @@ Telegram transport and audible playback remain unclaimed in the manual-test
 epic. Progress is 80/205 overall and 80/186 engineering; the Air story is
 complete and strict execution advances to `TASK-260712-14u0yk`.
 
+Checkpoint 2026-07-15 (accepted): `TASK-260712-14u0yk` freezes the
+candidate-neutral codec/player spike contract on engineering commit `aba592e`.
+The versioned rubric defines identical MP3, AAC-LC and Opus fixture recipes,
+long-duration CBR/VBR and hostile cases, authenticated single-range/cache and
+fault semantics, exact warm-up/sample counts, artifact schemas and immutable
+hard gates for start, seek, cross-node skew, RSS and duration-independent
+memory. The content-addressed generator requires exact FFmpeg 8.1.2 source and
+signature inputs; the bounded streaming harness rejects unsafe or mismatched
+fixture locks and does not expose bearer tokens. A fail-closed evaluator
+requires all three platform pairings and distinguishes synthetic
+`engineering-pass` from final packaged-hardware evidence. The shortlist pins
+native AAC, exact pure-Go modules and bundled FFmpeg 8.1.2 without claiming a
+decoder, licensing, Store, audible or hardware result. Codec tests passed
+10/10 repeatedly and repository acceptance passed 12/12. Hosted run
+`29434417154` passed all four jobs; PR #102 landed at merge
+`8f91187d3ab9bb62fe31a00407a1a7058df27d9b`. Progress is 81/205 overall and
+81/186 engineering; strict execution advances to `TASK-260712-dqdoqj`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2088,7 +2106,9 @@ critical path.
 
 Story: `STORY-260712-3l1r1u` — P2 Codec and streaming player spike.
 
-- [ ] `TASK-260712-14u0yk` — freeze-codec-spike-rubric-fixtures-harness
+- [x] `TASK-260712-14u0yk` — freeze-codec-spike-rubric-fixtures-harness
+  (accepted on engineering commit `aba592e`; codec tests 10/10 and repository
+  acceptance 12/12, hosted run `29434417154` 4/4, PR #102 merge `8f91187`)
 - [ ] `TASK-260712-dqdoqj` — prototype-stream-variants-range-cache-contract
 - [ ] `TASK-260712-1vdlkw` — audit-codec-licenses-and-distribution-constraints
 - [ ] `TASK-260712-1canzv` — probe-bundled-signed-decoder-path

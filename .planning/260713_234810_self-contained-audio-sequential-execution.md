@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2s4e9p` — store-listing-iarc-assets
-  (starting after the security engineering handoff)
-- Next engineering task: `TASK-260712-38lssj` — p1-root-integration-review
+- Current engineering task: `TASK-260712-38lssj` — p1-root-integration-review
+  (starting after the Store engineering handoff)
+- Next engineering task: `TASK-260712-1xik11` — p1-engineering-readiness-handoff
 - Most recently accepted: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Current branch: `task/task-260712-2s4e9p-store-listing-iarc-assets`
+- Current branch: `tracking/task-260712-2s4e9p-store-listing`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -1082,6 +1082,22 @@ work covers exact versioned EN/RU listing inputs, IARC/certification answers,
 asset manifests and validation. Actual localized screenshots, WACK execution
 and Partner Center mutation remain manual/external evidence and cannot be
 self-claimed from this engineering environment.
+
+The Store engineering package replaces the historical Spotify-first draft
+with exact EN/RU self-contained Phase 1 inputs, binds approved locale links and
+shipped-claim evidence, records a source-linked IARC truth profile, directly
+answers `10.3.1` and `10.1.1.3`, and reserves six real screenshot slots per
+locale. Its validator checks Partner Center field limits, path containment,
+PNG dimensions/hashes and every exact-build/manual/owner gate; default
+engineering validation passes while `--require-ready` fails closed. Live
+policy pages match approved hashes. Exact engineering head
+`99f195704d8ef66b6c8f324e023f0504a3e1bc1c` passed clean 12-stage acceptance;
+hosted run `29406679102` passed all four jobs. PR #76 landed at merge
+`ee0cf0313487cd5bb54208d41f1d1bbce783d8c4`. Real screenshots and WACK remain
+in existing manual task `TASK-260712-e5mfqj`; exact IARC, candidate hashes and
+owner proceed remain in `TASK-260715-24ube9`. The original task stays
+`to-review`, does not increase accepted counts, and strict engineering advances
+to `TASK-260712-38lssj`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

@@ -1,14 +1,14 @@
 ## Status
-development
+to-review
 
 ## Assigned To
-codex-inline
+(none)
 
 ## Created
 2026-07-12T15:45:04Z
 
 ## Last Update
-2026-07-15T09:56:23Z
+2026-07-15T10:05:41Z
 
 ## Blocked By
 - TASK-260712-1epb3a
@@ -37,6 +37,7 @@ codex-inline
 ## Notes
 2026-07-15 strict engineering started from synchronized main 6664ffd after security tracking PR #75 passed hosted run 29405188885. Scope is versioned EN/RU listing, IARC/certification answer source, validators and exact-build asset manifest. Real localized screenshots, WACK execution and Partner Center mutation remain manual/external evidence and will not be self-claimed.
 Engineering package now validates exact EN/RU copy, approved links, feature/keyword limits, optional Spotify/Telegram wording, Phase 1 limitations, IARC truth facts, certification findings and six screenshot slots per locale. Default validation passes; --require-ready fails closed on absent real evidence. Live policy pages match approved hashes. Manual screenshots/WACK are routed to existing TASK-260712-e5mfqj without changing the 205-task inventory; Partner Center/IARC/exact-build owner completion is TASK-260715-24ube9. Checklist items that require those observations remain open.
+2026-07-15 exact engineering head 99f1957 passed clean acceptance 12/12; hosted run 29406679102 passed all four jobs. PR #76 merged at ee0cf03. Manual completion remains in TASK-260712-e5mfqj and Partner Center/IARC/exact-build owner completion in TASK-260715-24ube9. Original Store asset task remains to-review and is not counted accepted; strict engineering advances to TASK-260712-38lssj.
 
 ## Precondition Resources
 (none)

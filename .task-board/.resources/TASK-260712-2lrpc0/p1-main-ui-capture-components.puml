@@ -1,70 +1,56 @@
 @startuml
-title P1 Main UI, Local Self-Test and Capture - task seams
+title TASK-260712-2lrpc0 - implemented cue and local-media contract
 
 left to right direction
 skinparam packageStyle rectangle
 skinparam shadowing false
 
-actor User
-
-package "Story TASKs" {
-  rectangle "TASK-260712-2lrpc0\nBuiltin cue + temp media contract" as Cue
-  rectangle "TASK-260712-9i5se7\nWindows shell" as WinShell
-  rectangle "TASK-260712-1p8ykc\nWindows capture/self-test" as WinCap
-  rectangle "TASK-260712-2fe5bz\nWindows integration" as WinData
-  rectangle "TASK-260712-1c04pk\nmacOS shell" as MacShell
-  rectangle "TASK-260712-1s6h6t\nmacOS capture/self-test" as MacCap
-  rectangle "TASK-260712-3dqc3l\nmacOS integration" as MacData
-  rectangle "TASK-260712-e5mfqj\nVerification evidence" as Verify
+package "Reviewed sources" {
+  artifact "generate-recording-cue.go" as Generator
+  artifact "pulsar-recording-cue.wav\nSHA-256 479b...30fd" as Cue
+  artifact "capture-media-lifecycle-v1.json\n17 transitions" as Contract
 }
 
-package "External story dependencies" {
-  rectangle "STORY-260712-30ju1k\nWindows packaged-app spike" as WinSpike
-  rectangle "STORY-260712-2ve1c8\nIdentity + onboarding APIs" as Identity
-  rectangle "STORY-260712-ld674h\nMedia ingest + upload sessions" as Ingest
-  rectangle "STORY-260712-25lysg\nTransmission protocol + receipts" as Tx
-  rectangle "STORY-260712-34kbkn\nHistory/presence parity" as Presence
-  rectangle "STORY-260712-1i0doc\nCompliance + certification evidence" as Compliance
+package "macOS" {
+  component "BuiltinRecordingCue\nexact loader" as MacLoader
+  component "RecordingCueSequencer" as MacSequence
+  component "CaptureMediaStore" as MacStore
+  folder "Contents/Resources/Audio" as MacPackage
 }
 
-User --> WinShell
-User --> MacShell
+package "Windows" {
+  component "LoadBuiltinRecordingCue\nexact loader" as WinLoader
+  component "RecordingCueSequencer" as WinSequence
+  component "CaptureMediaStore" as WinStore
+  folder "Assets/Audio" as WinPackage
+}
 
-Cue --> WinCap
-Cue --> MacCap
+database "app-private/capture-media-v1" as Private {
+  folder "partials\n*.partial.wav" as Partials
+  folder "self-tests\n*.selftest.wav" as SelfTests
+  folder "drafts\n*.draft.wav" as Drafts
+}
 
-WinShell --> WinCap
-MacShell --> MacCap
+Generator --> Cue : deterministic PCM16
+Cue --> MacPackage : build verifies digest
+Cue --> WinPackage : build verifies digest
+MacPackage --> MacLoader
+WinPackage --> WinLoader
+Contract ..> MacSequence : conformance tests
+Contract ..> WinSequence : conformance tests
+Contract ..> MacStore : lifecycle
+Contract ..> WinStore : lifecycle
+MacStore --> Partials
+MacStore --> SelfTests
+MacStore --> Drafts
+WinStore --> Partials
+WinStore --> SelfTests
+WinStore --> Drafts
 
-WinShell --> WinData
-WinCap --> WinData
-MacShell --> MacData
-MacCap --> MacData
-
-WinSpike --> WinCap : prove capture/hotkey/picker\nunder AppContainer
-Identity --> WinData
-Identity --> MacData
-Ingest --> WinData
-Ingest --> MacData
-Tx --> WinData
-Tx --> MacData
-Presence --> WinData
-Presence --> MacData
-
-WinData --> Verify
-MacData --> Verify
-WinSpike --> Verify
-Compliance --> Verify
-
-note bottom of Verify
-A1 evidence plus negative cases:
-- mic denied
-- no capture device
-- hotkey conflict
-- coordinator outage draft retention
-- keyboard and screen-reader paths
-- Windows 125/150/200 DPI
-- macOS parity checks
+note bottom of Private
+Owner-only files and opaque 128-bit IDs.
+No source filename, path, token, or media bytes enter logs.
+Partials are never sendable. Valid durable drafts survive restart.
 end note
 
 @enduml

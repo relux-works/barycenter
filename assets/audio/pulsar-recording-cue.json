@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "asset_id": "pulsar.recording-cue.v1",
+  "file": "pulsar-recording-cue.wav",
+  "sha256": "479b1a9d605ac12454e3449e129991b7ce8599251506ca54a93be0b6144730fd",
+  "bytes": 15404,
+  "format": {
+    "container": "wav",
+    "encoding": "pcm_s16le",
+    "sample_rate_hz": 48000,
+    "channels": 1,
+    "bits_per_sample": 16,
+    "frames": 7680,
+    "duration_ms": 160
+  },
+  "provenance": {
+    "generator": "scripts/generate-recording-cue.go",
+    "method": "deterministic two-partial sine synthesis with a raised-cosine envelope",
+    "third_party_samples": false,
+    "copyright_holder": "Ivan Oparin",
+    "license": "MIT",
+    "license_file": "LICENSE"
+  },
+  "review_boundary": "Source, exact bytes, format, digest, package paths and deterministic regeneration are reviewed. Audible quality on real output hardware is manual evidence."
+}

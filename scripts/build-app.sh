@@ -28,8 +28,16 @@ fi
 
 APP="$OUT_DIR/${APP_NAME:-NodeApp}.app"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/Audio"
 cp "$BIN" "$APP/Contents/MacOS/NodeApp"
+RECORDING_CUE="$ROOT/assets/audio/pulsar-recording-cue.wav"
+RECORDING_CUE_SHA256="479b1a9d605ac12454e3449e129991b7ce8599251506ca54a93be0b6144730fd"
+if [[ ! -f "$RECORDING_CUE" ]] ||
+   [[ "$(shasum -a 256 "$RECORDING_CUE" | awk '{print $1}')" != "$RECORDING_CUE_SHA256" ]]; then
+  echo "FATAL: canonical recording cue is missing or has an unreviewed digest" >&2
+  exit 1
+fi
+cp "$RECORDING_CUE" "$APP/Contents/Resources/Audio/pulsar-recording-cue.wav"
 # App icon (assets/icon/Pulsar.icns, generated from the source artwork).
 if [[ -f "$ROOT/assets/icon/Pulsar.icns" ]]; then
   cp "$ROOT/assets/icon/Pulsar.icns" "$APP/Contents/Resources/Pulsar.icns"

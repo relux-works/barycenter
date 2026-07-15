@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
-  (strict kickoff waits only for PR #50 merge)
-- Next engineering task: `TASK-260712-30abcm` — macos-microphone-capture-engine
-- Most recently accepted: `TASK-260712-1c04pk` — macos-main-window-menubar-shell
-- Current branch: `task/task-260712-1c04pk-macos-main-window-menubar-shell`
+- Current engineering task: `TASK-260712-30abcm` — macos-microphone-capture-engine
+  (strict kickoff waits only for PR #51 merge)
+- Next engineering task: `TASK-260712-9i5se7` — windows-main-window-tray-shell
+- Most recently accepted: `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
+- Current branch: `task/task-260712-2lrpc0-builtin-cue-temp-media-contract`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -576,8 +576,26 @@ passed locally. Exact engineering head
 `29375974503`. No real app, live VoiceOver, audible output, microphone,
 packaged-device, signing/notarization or physical-hardware result is claimed;
 those remain in `EPIC-260714-th54l3`. Progress is 51/205 overall and 51/186
-engineering. PR #50 tracking and merge remain before strict execution starts
-`TASK-260712-2lrpc0`.
+engineering. Tracking head `7cea8f824cc4cac7308f93119f12b55b6931a5a6`
+passed all four hosted jobs in run `29376248901`; PR #50 landed at merge
+`0008147512fdd4d82d9acc7b40a6a61174e490f8`. Strict execution started
+`TASK-260712-2lrpc0` from that synchronized `main` on branch
+`task/task-260712-2lrpc0-builtin-cue-temp-media-contract`.
+
+Checkpoint 2026-07-15: `TASK-260712-2lrpc0` is accepted at exact engineering
+head `52fa9ea40bb400ee5e5e7ca77eb0769eea04f9fc`; all four hosted jobs passed in
+run `29377961960`, including 180 Swift tests and the signed MSIX package/install
+contract. The repository now has one deterministically generated Relux
+Works-owned PCM cue with exact provenance/hash and guarded macOS/Windows package
+paths; a shared 17-transition Swift/Go lifecycle; owner-only opaque partial,
+self-test and durable-draft storage; picker-copy/token closure; fsync plus atomic
+rename; crash recovery; path-free errors; and cue sequencing outside committed
+microphone samples. Hosted CI exposed and the final head fixed macOS `/var` to
+`/private/var` firmlink identity and directory-mode edge cases. No real
+microphone, audible cue, real-app, packaged-device or physical-hardware evidence
+is claimed; those remain in `EPIC-260714-th54l3`. Progress is 52/205 overall
+and 52/186 engineering. PR #51 tracking and merge remain before strict execution
+starts `TASK-260712-30abcm`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1222,7 +1240,7 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
 - [x] `TASK-260712-1c04pk` — macos-main-window-menubar-shell (accepted on exact
   engineering head `895eddf`; all four hosted jobs in run `29375974503` green;
   no real-app/live-VoiceOver/audible/microphone/hardware result claimed; PR #50)
-- [ ] `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
+- [x] `TASK-260712-2lrpc0` — builtin-cue-temp-media-contract
 - [ ] `TASK-260712-30abcm` — macos-microphone-capture-engine
 - [ ] `TASK-260712-9i5se7` — windows-main-window-tray-shell
 - [ ] `TASK-260712-2w4gyw` — windows-microphone-capture-engine

@@ -1,93 +1,62 @@
 @startuml
-title P1 Main UI, Local Self-Test and Capture - key flows
+title TASK-260712-2lrpc0 - frozen capture, picker, and recovery flows
 
 skinparam shadowing false
-
 actor User
-participant "Main window / tray" as Shell
-participant "Capture service" as Capture
-database "Temp media store" as Temp
-participant "Output path" as Output
+participant "Capture UI" as UI
+participant "Cue sequencer" as Seq
+participant "Capture writer" as Writer
+database "Private media store" as Store
+participant "Upload client" as Upload
 
-== Try locally - no upload ==
+== Record without cue contamination ==
+User -> UI: Start
+UI -> Writer: open (commit disabled)
+UI -> Seq: begin
+Seq --> UI: play start cue
+UI -> Seq: start cue completed
+Seq --> Writer: enable microphone commit
+User -> UI: Stop
+UI -> Seq: stop requested
+Seq --> Writer: disable commit and close
+Writer -> Store: fsync + validate + atomic rename
+Store --> UI: self_test_local or durable_unsent
+UI -> Seq: capture closed
+Seq --> UI: play stop cue
 
-User -> Shell: Open Try locally
-User -> Shell: Pick input/output and choose builtin cue\nor Record 5 seconds
-
-alt Builtin cue
-  Shell -> Output: Play builtin cue on selected output
-else Microphone self-test
-  Shell -> Capture: Start explicit local recording
-  Capture -> Shell: Request microphone permission
-  alt Permission granted
-    Capture -> Capture: Capture mono PCM and update level meter
-    Capture -> Temp: Write app-private temp file
-    Capture -> Output: Play back through the same clip output path
-  else Permission denied
-    Capture -> Shell: Show honest denial guidance
-    note right
-    File playback and builtin cue remain available.
-    No hidden background capture is allowed.
+alt self-test
+  UI -> Store: close/delete
+  Store --> UI: deleted; never uploadable
+else user recording
+  UI -> Upload: upload durable_unsent
+  alt failure or outage
+    Upload --> UI: unavailable
+    note right of Store
+    Durable draft remains for retry or explicit delete.
     end note
+  else confirmed
+    Upload --> UI: confirmed
+    UI -> Store: cleanup
   end
 end
 
-User -> Shell: Delete or close self-test
-Shell -> Temp: Delete temporary media
+== Picker intake ==
+User -> UI: approve external file
+UI -> UI: acquire scoped access
+UI -> Store: copy bytes into opaque partial
+UI -> UI: close external access
+Store -> Store: validate + fsync + atomic rename
+Store --> UI: durable_unsent
 
-note over Shell,Temp
-No upload session, control token, coordinator call,
-or transmission request occurs anywhere in Try locally.
-end note
-
-newpage
-
-title P1 Main UI, Local Self-Test and Capture - record and send
-
-actor User
-participant "Main window / tray" as Shell2
-participant "Capture service" as Capture2
-database "Temp media store" as Temp2
-participant "Upload API" as Upload
-participant "Transmission API" as Tx
-participant "History/presence model" as Model
-
-== Record and send ==
-
-User -> Shell2: Press Record or toggle hotkey
-Shell2 -> Capture2: Begin capture
-Capture2 -> Shell2: Visible + audible recording indication
-Capture2 -> Capture2: Update level meter\nand enforce 180 second limit
-
-alt User presses Esc
-  Shell2 -> Capture2: Cancel recording
-  Capture2 -> Temp2: Delete temp draft
-  Shell2 -> User: Show cancelled state
-else User stops normally
-  Shell2 -> Capture2: Finalize draft
-  Capture2 -> Temp2: Persist temp draft
-  Shell2 -> Upload: Create upload session
-  Upload --> Shell2: Scoped upload token
-  Shell2 -> Upload: Upload draft bytes
-  alt Upload or coordinator failure
-    Upload --> Shell2: Failed or unavailable
-    Shell2 -> User: Show honest unsent state
-    note right
-    Draft is retained for retry or delete.
-    UI must not claim "sent".
-    end note
-  else Media ready
-    Upload --> Shell2: media_id
-    Shell2 -> Tx: Create transmission\naudience + delivery + play here
-    Tx --> Model: Receipts, history, presence updates
-    Model --> Shell2: Render accepted -> played\nor missed/failure reasons
-    Shell2 -> Temp2: Delete draft after confirmed upload
-  end
-end
+== Startup recovery ==
+UI -> Store: recover
+Store -> Store: delete all partials and self-tests
+Store -> Store: delete invalid/truncated drafts
+Store --> UI: retain valid durable_unsent drafts
 
 note bottom
-Capture tasks own permission, meter, cue, temp-file and hotkey behavior.
-Integration tasks start at upload-session creation and receipt rendering.
+Real microphone, audible cue, restart, and hardware behavior are manual-epic evidence.
+Automated evidence covers exact bytes, state parity, filesystem outcomes, and packaging.
 end note
 
 @enduml

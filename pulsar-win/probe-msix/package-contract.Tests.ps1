@@ -43,4 +43,15 @@ foreach ($Name in $Mutations.Keys) {
     }
 }
 
-Write-Host "Frozen package identity, package family, declarations, and capability regressions passed."
+$RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$RecordingCue = Join-Path $RepoRoot "assets\audio\pulsar-recording-cue.wav"
+$ExpectedCueSHA256 = "479b1a9d605ac12454e3449e129991b7ce8599251506ca54a93be0b6144730fd"
+if (-not (Test-Path $RecordingCue)) {
+    throw "canonical recording cue source is missing"
+}
+$CueHash = (Get-FileHash $RecordingCue -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($CueHash -cne $ExpectedCueSHA256) {
+    throw "canonical recording cue digest is '$CueHash', expected '$ExpectedCueSHA256'"
+}
+
+Write-Host "Frozen package identity, declarations, capabilities, and recording cue regressions passed."

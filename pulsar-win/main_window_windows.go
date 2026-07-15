@@ -25,6 +25,7 @@ var (
 	pCreateAcceleratorTableW  = user32.NewProc("CreateAcceleratorTableW")
 	pDestroyAcceleratorTableW = user32.NewProc("DestroyAcceleratorTable")
 	pDeleteObject             = gdi32.NewProc("DeleteObject")
+	pRtlMoveMemory            = kernel32.NewProc("RtlMoveMemory")
 )
 
 const (
@@ -449,7 +450,10 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		}
 		return 0
 	case wmDPIChanged:
-		if suggested := (*winRect)(unsafe.Pointer(lParam)); suggested != nil {
+		if lParam != 0 {
+			var suggested winRect
+			pRtlMoveMemory.Call(
+				uintptr(unsafe.Pointer(&suggested)), lParam, unsafe.Sizeof(suggested))
 			pSetWindowPos.Call(uintptr(hwnd), 0, uintptr(suggested.left), uintptr(suggested.top),
 				uintptr(suggested.right-suggested.left), uintptr(suggested.bottom-suggested.top), 0x0014)
 		}
@@ -459,12 +463,17 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		}
 		return 0
 	case wmGetMinMax:
-		if info := (*minMaxInfo)(unsafe.Pointer(lParam)); info != nil {
+		if lParam != 0 {
+			var info minMaxInfo
+			pRtlMoveMemory.Call(
+				uintptr(unsafe.Pointer(&info)), lParam, unsafe.Sizeof(info))
 			dpi := 96
 			if ctx != nil {
 				dpi = ctx.dpi()
 			}
 			info.minTrackSize = pointStruct{int32(dip(700, dpi)), int32(dip(500, dpi))}
+			pRtlMoveMemory.Call(
+				lParam, uintptr(unsafe.Pointer(&info)), unsafe.Sizeof(info))
 		}
 		return 0
 	case wmClose:

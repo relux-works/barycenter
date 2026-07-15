@@ -228,6 +228,57 @@ func TestReconnectWithBackoff(t *testing.T) {
 		"client never reconnected after a dropped connection")
 }
 
+func TestReconnectOnProtocolVersionMismatch(t *testing.T) {
+	var dials atomic.Int64
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ws, err := testUpgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		n := dials.Add(1)
+		defer ws.Close()
+		ws.SetReadDeadline(time.Now().Add(5 * time.Second))
+		_, raw, readErr := ws.ReadMessage()
+		if readErr != nil {
+			t.Errorf("connection %d register read: %v", n, readErr)
+			return
+		}
+		var register protocol.Envelope
+		if decodeErr := json.Unmarshal(raw, &register); decodeErr != nil {
+			t.Errorf("connection %d register decode: %v", n, decodeErr)
+			return
+		}
+		if register.Type != protocol.TypeRegister {
+			t.Errorf("connection %d first message=%q", n, register.Type)
+			return
+		}
+		if n == 1 {
+			env, envelopeErr := protocol.NewEnvelope(
+				newMessageID(time.Now()), nowMS(), protocol.TypePong,
+				&protocol.PongPayload{T1: 1, T2: 1, T3: 1})
+			if envelopeErr != nil {
+				t.Error(envelopeErr)
+				return
+			}
+			env.V = protocol.Version + 1
+			if writeErr := ws.WriteJSON(env); writeErr != nil {
+				t.Error(writeErr)
+			}
+			ws.SetReadDeadline(time.Now().Add(5 * time.Second))
+			_, _, _ = ws.ReadMessage()
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}))
+	defer srv.Close()
+
+	client := newTestClient(wsURL(srv))
+	client.Start()
+	defer client.Stop()
+	waitFor(t, 5*time.Second, func() bool { return dials.Load() >= 2 },
+		"client did not reconnect after a major-version mismatch")
+}
+
 func waitFor(t *testing.T, timeout time.Duration, cond func() bool, msg string) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)

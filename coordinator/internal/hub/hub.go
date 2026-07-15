@@ -431,6 +431,11 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 			h.log.Warn("bad frame", "slot", key.Slot, "err", err)
 			continue
 		}
+		if env.V != protocol.Version {
+			h.log.Warn("protocol version mismatch; disconnecting", "slot", key.Slot,
+				"got", env.V, "want", protocol.Version)
+			return
+		}
 		if !protocol.KnownType(env.Type) {
 			h.log.Warn("unknown message type ignored", "slot", key.Slot, "type", env.Type) // spec 8.6
 			continue

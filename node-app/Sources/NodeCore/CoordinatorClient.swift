@@ -159,24 +159,52 @@ public final class CoordinatorClient: NSObject {
                     case .string(let s): data = Data(s.utf8)
                     @unknown default: data = Data()
                     }
-                    self.handleIncoming(data, t4: t4)
-                    self.receiveNext()
+                    if self.handleIncoming(data, t4: t4) {
+                        self.receiveNext()
+                    }
                 }
             }
         }
     }
 
-    private func handleIncoming(_ data: Data, t4: Int64) {
+    enum IncomingFrameDecision {
+        case deliver(EnvelopeHead, Message)
+        case ignoreUnknown(String)
+        case reconnectVersion(Int)
+        case ignoreMalformed
+    }
+
+    static func classifyIncoming(_ data: Data) -> IncomingFrameDecision {
+        do {
+            let (head, message) = try ProtocolCodec.decode(data)
+            return .deliver(head, message)
+        } catch ProtocolError.unknownType(let type) {
+            return .ignoreUnknown(type)
+        } catch ProtocolError.versionMismatch(let version) {
+            return .reconnectVersion(version)
+        } catch {
+            return .ignoreMalformed
+        }
+    }
+
+    private func handleIncoming(_ data: Data, t4: Int64) -> Bool {
         let head: EnvelopeHead
         let message: Message
-        do {
-            (head, message) = try ProtocolCodec.decode(data)
-        } catch ProtocolError.unknownType(let t) {
-            log.warn("unknown message type ignored", ["type": URLRedactor.safeProtocolType(t)]) // spec 8.6
-            return
-        } catch {
+        switch Self.classifyIncoming(data) {
+        case .deliver(let decodedHead, let decodedMessage):
+            (head, message) = (decodedHead, decodedMessage)
+        case .ignoreUnknown(let type):
+            log.warn("unknown message type ignored", ["type": URLRedactor.safeProtocolType(type)]) // spec 8.6
+            return true
+        case .reconnectVersion(let version):
+            log.warn("protocol version mismatch; reconnecting", [
+                "got": version, "want": ProtocolConstants.version,
+            ])
+            scheduleReconnect()
+            return false
+        case .ignoreMalformed:
             log.warn("bad frame")
-            return
+            return true
         }
         log.debug("received", ["type": URLRedactor.safeProtocolType(head.type), "id": head.id])
 
@@ -187,9 +215,10 @@ public final class CoordinatorClient: NSObject {
                 "offset_ms": clock.offsetMs.map { String(format: "%.1f", $0) } ?? "n/a",
                 "accepted": accepted,
             ])
-            return
+            return true
         }
         onMessage?(head, message)
+        return true
     }
 
     private func scheduleReconnect() {

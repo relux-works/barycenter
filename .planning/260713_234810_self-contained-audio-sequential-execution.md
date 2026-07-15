@@ -12,11 +12,11 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-  (accepted; PR #67 tracking/merge pending)
-- Next engineering task: `TASK-260712-176b74` — p1-independent-protocol-review
+- Current engineering task: `TASK-260712-176b74` — p1-independent-protocol-review
+  (development; technical self-audit active, distinct-reviewer signoff open)
+- Next engineering task: `TASK-260712-1uz0za` — p1-independent-realtime-audio-review
 - Most recently accepted: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Current branch: `task/task-260712-e1ie4x-platform-declarations-localized-copy`
+- Current branch: `task/task-260712-176b74-p1-independent-protocol-review`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -981,6 +981,29 @@ schema before completing the existing signed-probe install checks. Actual WACK
 UI, installed permission prompts and physical hardware remain unclaimed in
 `EPIC-260714-th54l3`. Progress is 68/205 overall and 68/186 engineering; PR
 #67 tracking and merge remain before the independent protocol review starts.
+
+Tracking head `0b5f0ad` passed all four hosted jobs in run `29398828754`; PR
+#67 landed at merge `aa86926103688473cc1d99185f627e277095f5a0`. Strict
+execution started `TASK-260712-176b74` from synchronized `main` on branch
+`task/task-260712-176b74-p1-independent-protocol-review`. The technical audit
+will execute inline under the requested no-subagent rule. Because this same
+execution chain authored some reviewed protocol and scheduler changes, the
+distinct non-implementing-reviewer criterion is not silently claimed: technical
+self-audit and any fixes may complete, but independent signoff remains open
+unless a genuinely separate reviewer is authorized.
+
+The self-audit found `P1-PROTO-001` (HIGH): Swift rejected a mismatched envelope
+major while coordinator and Windows Go runtime paths accepted it. The corrective
+patch now rejects the frame before payload dispatch on both mirrored Go codecs,
+rejects pre-auth registration before credential lookup, closes established
+coordinator sockets, reconnects Windows and makes the Swift runtime reconnect
+decision explicit. Focused tests, coordinator and Windows race suites, 35 Swift
+protocol/clip/clock tests and exact predecessor transmission rollback pass.
+The reproducible review packet is
+`docs/analysis/p1-independent-protocol-technical-audit.md`. No other critical or
+high technical finding remains, but the task is not accepted: the explicitly
+required non-implementing reviewer signoff is still open, so strict execution
+cannot advance to `TASK-260712-1uz0za`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

@@ -258,6 +258,11 @@ func (c *WSClient) readLoop(conn *websocket.Conn) {
 			c.log.Warn("bad frame", "err", err)
 			continue
 		}
+		if env.V != protocol.Version {
+			c.log.Warn("protocol version mismatch; reconnecting", "got", env.V,
+				"want", protocol.Version)
+			return
+		}
 		if !protocol.KnownType(env.Type) {
 			c.log.Warn("unknown message type ignored", "type", env.Type) // spec 8.6
 			continue

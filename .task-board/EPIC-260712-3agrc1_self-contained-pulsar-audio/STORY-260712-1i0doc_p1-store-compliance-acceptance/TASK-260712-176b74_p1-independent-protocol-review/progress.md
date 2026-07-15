@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-review
 
 ## Created
 2026-07-12T16:14:30Z
 
 ## Last Update
-2026-07-12T16:16:18Z
+2026-07-15T08:08:05Z
 
 ## Blocked By
 - TASK-260712-2qc27p
@@ -21,13 +21,15 @@ backlog
 
 ## Checklist
 - [ ] Confirm reviewer did not implement the reviewed protocol or scheduler tasks
-- [ ] Diff all three codecs, golden fixtures and mixed-version state transitions
-- [ ] Require fixes and re-review for all critical and high findings
+- [x] Diff all three codecs, golden fixtures and mixed-version state transitions
+- [x] Require fixes and re-review for all critical and high findings
 
 ## Notes
+2026-07-15 strict kickoff from synchronized main merge aa869261 after accepted platform declarations. Review code is frozen at this base while the protocol audit re-derives codecs, fixtures, mixed-version transitions, clocks, idempotency and legacy races. Because the same inline execution chain implemented some reviewed protocol/scheduler work and the user requires no subagents, codex-inline-review can perform a rigorous self-audit and fixes but cannot honestly satisfy the distinct non-implementing-reviewer criterion. Checklist item 1 and final independent acceptance remain open unless a genuinely separate reviewer is authorized; no independence waiver is inferred.
+2026-07-15 technical self-audit completed on frozen base aa869261. P1-PROTO-001 HIGH found: coordinator and Windows Go accepted mismatched envelope major while Swift rejected it. Corrective patch now rejects before payload dispatch, rejects pre-auth registration before credential lookup, disconnects established coordinator sockets and reconnects both desktop clients. Focused tests, coordinator/Windows race suites, 35 Swift protocol/clip/clock tests and exact predecessor rollback pass. Outcome resource attached. Checklist items 2-3 are complete; item 1 and task acceptance remain open for a genuinely non-implementing reviewer.
 
 ## Precondition Resources
 - [p1-root-review-amendments.md](file://TASK-260712-176b74/p1-root-review-amendments.md) — Mandatory root review rules and Phase 1 risk seams
 
 ## Outcome Resources
-(none)
+- [p1-independent-protocol-technical-audit.md](file://TASK-260712-176b74/p1-independent-protocol-technical-audit.md) — Reproducible 39-message protocol audit, HIGH fix and independent-signoff boundary

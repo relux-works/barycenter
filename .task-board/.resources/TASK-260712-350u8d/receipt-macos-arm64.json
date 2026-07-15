@@ -1,0 +1,61 @@
+{
+  "bundleIdentifier": "live.barycenter.PulsarMacNativeCodecProbe",
+  "claimClass": "repository-engineering-prototype",
+  "codesignCDHash": "346e77e2c5c796f6fb3fa2bea4ac0df488555319",
+  "codesignRuntimeFlag": "0x10002(adhoc,runtime)",
+  "contract": "p2-macos-native-streaming-decoder-probe.v1",
+  "entitlements": {
+    "com.apple.security.app-sandbox": true
+  },
+  "evidenceSha256": "fea03e7cdb765b8d9d3bfa164bf148030e787a1bb0d44a9fc2670fad8d53555c",
+  "executableBytes": 222944,
+  "executableSha256": "e529ddb7fc3360ee2e39e5c990740457012c439faca6d997a4cb3180d880ffb4",
+  "hardenedRuntime": true,
+  "manualEvidence": "EPIC-260714-th54l3",
+  "notarization": "not-proven",
+  "productionSignature": "not-proven",
+  "runner": {
+    "architecture": "arm64",
+    "os": "macOS-15.7.7-arm64-arm-64bit-Mach-O",
+    "realHardwareClaim": false
+  },
+  "schemaVersion": 1,
+  "sealedResources": [
+    {
+      "bytes": 2144,
+      "name": "macos-native-probe-v1.json",
+      "sha256": "4249671764ccf16856e160486bf6c24e55e47d2319fd5b654aaaa1898eb232af"
+    },
+    {
+      "bytes": 289197,
+      "name": "mp3_cbr_12s.mp3",
+      "sha256": "bcc68fd551cf39bbfc4df81601b2968e8704d61161ff0912f46f0f03d0d0b6f0"
+    },
+    {
+      "bytes": 52437,
+      "name": "mp3_vbr_12s.mp3",
+      "sha256": "9b6cb30493e80eb80c28284a30ea401e6c1393287cf916c6acd8e125420b5934"
+    },
+    {
+      "bytes": 243538,
+      "name": "aac_m4a_12s.m4a",
+      "sha256": "4a9d09ab5e799b3c17eaca416fb473e6e290766f1ea413dc4f9ae5066b6d4851"
+    },
+    {
+      "bytes": 311830,
+      "name": "aac_adts_12s.aac",
+      "sha256": "5f4b33b02475a99bdf99c7ca9833a5147de938deb32a18962e55f362319c3ff1"
+    },
+    {
+      "bytes": 194010,
+      "name": "opus_ogg_cbr_12s.ogg",
+      "sha256": "c975e2a86593577daffa3a85d5540ec12968662b2cf6d2b23a56cad05f3c7bc0"
+    },
+    {
+      "bytes": 229812,
+      "name": "opus_ogg_vbr_12s.ogg",
+      "sha256": "e4a3cf994c3adbfe13ae46393c122040c67369f7784fdc1827a34acb43c08741"
+    }
+  ],
+  "signature": "ad-hoc-engineering"
+}

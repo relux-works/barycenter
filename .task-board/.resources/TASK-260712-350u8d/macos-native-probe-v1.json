@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-macos-native-streaming-decoder-probe.v1",
+  "candidateId": "macos-avfoundation-resource-loader-v1",
+  "minimumMacOS": "14.0",
+  "claimClass": "repository-engineering-prototype",
+  "manualEpic": "EPIC-260714-th54l3",
+  "package": {
+    "bundleIdentifier": "live.barycenter.PulsarMacNativeCodecProbe",
+    "appSandbox": true,
+    "hardenedRuntime": true,
+    "networkClient": false,
+    "networkServer": false,
+    "audioOutput": false,
+    "adHocSignatureAllowedForEngineering": true,
+    "productionSignatureProven": false,
+    "notarizationProven": false
+  },
+  "streamBoundary": {
+    "implementation": "AVAssetResourceLoaderDelegate",
+    "source": "sealed immutable fixture supplied through the frozen cache adapter interface",
+    "maximumUnderlyingReadBytes": 65536,
+    "maximumPreparedReadBytes": 1048576,
+    "decoderOwnsNetwork": false,
+    "renderCallbackUsed": false,
+    "fullFileBeforeFirstSampleRejectsCandidate": true
+  },
+  "fixtures": [
+    {"id": "mp3_cbr_12s", "file": "mp3_cbr_12s.mp3", "codec": "mp3", "container": "mp3"},
+    {"id": "mp3_vbr_12s", "file": "mp3_vbr_12s.mp3", "codec": "mp3", "container": "mp3"},
+    {"id": "aac_m4a_12s", "file": "aac_m4a_12s.m4a", "codec": "aac-lc", "container": "m4a"},
+    {"id": "aac_adts_12s", "file": "aac_adts_12s.aac", "codec": "aac-lc", "container": "adts"},
+    {"id": "opus_ogg_cbr_12s", "file": "opus_ogg_cbr_12s.ogg", "codec": "opus", "container": "ogg"},
+    {"id": "opus_ogg_vbr_12s", "file": "opus_ogg_vbr_12s.ogg", "codec": "opus", "container": "ogg"}
+  ],
+  "requiredLifecycle": [
+    "scheduled-start",
+    "pause-without-read",
+    "generation-safe-seek",
+    "resume",
+    "decoder-drain",
+    "cooperative-cancel"
+  ],
+  "engineeringGates": {
+    "trackStartMS": 5000,
+    "seekToSampleMS": 3000,
+    "scheduledSkewMS": 100,
+    "peakRSSMiB": 200,
+    "allFormatsMustDecodeForShippingCandidate": true
+  },
+  "acceptance": {
+    "passOrExactReject": true,
+    "unsupportedFormatsMustNameErrorDomainAndCode": true,
+    "physicalHardwareClaim": false,
+    "audibleOutputClaim": false,
+    "supportedOSMatrixClaim": false
+  }
+}

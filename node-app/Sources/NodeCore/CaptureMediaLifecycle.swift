@@ -403,7 +403,16 @@ public final class CaptureMediaStore: @unchecked Sendable {
             missingComponents.append(ancestor.lastPathComponent)
             ancestor.deleteLastPathComponent()
         }
-        var result = ancestor.resolvingSymlinksInPath()
+        let resolvedAncestor: URL
+        if let pointer = realpath(ancestor.path, nil) {
+            defer { free(pointer) }
+            resolvedAncestor = URL(
+                fileURLWithPath: String(cString: pointer),
+                isDirectory: true)
+        } else {
+            resolvedAncestor = ancestor
+        }
+        var result = resolvedAncestor
         for component in missingComponents.reversed() {
             result.appendPathComponent(component, isDirectory: true)
         }

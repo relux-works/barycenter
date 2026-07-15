@@ -4,19 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 55 accepted, 150 remain.
-- Routed inventory: 186 engineering tasks (55 accepted, 131 remain) and 19
+- Combined inventory: 205 original tasks; 57 accepted, 148 remain.
+- Routed inventory: 186 engineering tasks (57 accepted, 129 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3lg0ht` — macos-self-test-file-intake
-  (accepted engineering head; tracking/merge pending)
-- Next engineering task: `TASK-260712-ut6akw` — macos-hotkey-menubar-recording
-- Most recently accepted: `TASK-260712-3lg0ht` — macos-self-test-file-intake
-- Current branch: `task/task-260712-3lg0ht-macos-self-test-file-intake`
+- Current engineering task: `TASK-260712-ut6akw` — macos-hotkey-menubar-recording
+  (accepted; tracking CI and merge remain)
+- Next engineering task: `TASK-260712-25at8b` — windows-self-test-file-intake
+- Most recently accepted: `TASK-260712-ut6akw` — macos-hotkey-menubar-recording
+- Current branch: `task/task-260712-ut6akw-macos-hotkey-menubar-recording`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -26,8 +26,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 56 / 205 tasks (approximately 27.3%); 149 remain
-- Engineering progress: 56 / 186 tasks (approximately 30.1%); 130 remain
+- Accepted overall: 57 / 205 tasks (approximately 27.8%); 148 remain
+- Engineering progress: 57 / 186 tasks (approximately 30.6%); 129 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -685,6 +685,32 @@ jobs. No real microphone, audible route or Finder observation is claimed;
 those remain in `EPIC-260714-th54l3`. Progress is 56/205 overall and 56/186
 engineering. PR #55 tracking and merge remain before strict execution starts
 `TASK-260712-ut6akw`.
+
+Tracking head `1b45941cd7372f7f311bfb7829f4ae5c111eab5b` passed all four hosted
+jobs in run `29382420204`; PR #55 landed at merge
+`3f9cbdbf86ca55fb87f1c6933535c517d3a7a516`. Strict execution started
+`TASK-260712-ut6akw` from that synchronized `main` on branch
+`task/task-260712-ut6akw-macos-hotkey-menubar-recording`.
+
+Checkpoint 2026-07-15: `TASK-260712-ut6akw` is accepted at exact engineering
+head `188c30d6bb899a77c23bb415602b99b62b9990f2`. The macOS shortcut controller
+uses exclusive `RegisterEventHotKey` registrations for a bounded set of
+modifier-bearing Space/R presets and exposes explicit registered, conflict,
+unavailable, suspended and inactive states without a global event monitor,
+event tap or Accessibility entitlement. Generation fencing makes late callbacks
+inert; reconfiguration, sleep, session inactivity, wake, quit and repeated
+teardown own at most one hook. Focused Escape stays local to the SwiftUI window,
+while an active hidden recording exposes an explicit status-menu Cancel action;
+window and menu recording remain independent fallbacks. Validated persistence,
+EN/RU projection, API source guards and lifecycle behavior are covered by the
+test suite. Local 202 Swift tests, release build, app packaging, cue/plist,
+strict codesign and entitlement checks passed. GitHub Actions run `29383052378`
+passed all four jobs, including 202 hosted Swift tests, coordinator checks,
+Windows cross-build and signed MSIX package/install/cleanup. No physical key,
+real conflict, hidden-window, sleep/lock or packaged-sandbox observation is
+claimed; those remain in `EPIC-260714-th54l3`. Progress is 57/205 overall and
+57/186 engineering. PR #56 tracking and merge remain before strict execution
+starts `TASK-260712-25at8b`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -1345,7 +1371,10 @@ Story: `STORY-260712-2e36uz` — P1 Main UI, local self-test and capture.
   engineering head `50b872d`; all four hosted jobs in run `29382291652` green;
   real microphone, audible route and Finder picker/drop evidence remain manual;
   PR #55)
-- [ ] `TASK-260712-ut6akw` — macos-hotkey-menubar-recording
+- [x] `TASK-260712-ut6akw` — macos-hotkey-menubar-recording (accepted on exact
+  engineering head `188c30d`; all four hosted jobs in run `29383052378` green,
+  including 202 Swift tests and signed MSIX packaging; real shortcut/conflict,
+  hidden-window and lifecycle observations remain manual; PR #56)
 - [ ] `TASK-260712-25at8b` — windows-self-test-file-intake
 - [ ] `TASK-260712-c7dmv8` — windows-hotkey-tray-recording
 - [ ] `TASK-260712-1s6h6t` — macos-local-capture-self-test

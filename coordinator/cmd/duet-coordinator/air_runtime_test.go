@@ -165,6 +165,41 @@ func TestAirRuntimeLeaveStopsOnlyCallerThenParksBelowTwoMembers(t *testing.T) {
 	}
 }
 
+func TestAirControlCommandAcknowledgesResolverReconciliation(t *testing.T) {
+	l, _ := newTestLoop(t)
+	airID, peer, third := createActiveTestAir(t, l)
+	runtime := l.stateFor(1)
+	if len(runtime.orbits) != 3 {
+		t.Fatalf("initial runtime orbits=%v", runtime.orbits)
+	}
+	stop := make(chan struct{})
+	nodeEvents := make(chan hub.Event)
+	go l.run(stop, nodeEvents)
+	t.Cleanup(func() {
+		close(stop)
+		<-l.stopped
+	})
+
+	if err := l.st.DeactivateAir(third, airID, 300); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.airControlChanged(); err != nil {
+		t.Fatal(err)
+	}
+	if got := l.airs[airID]; got == nil || len(got.orbits) != 2 {
+		t.Fatalf("acknowledged runtime=%+v", got)
+	}
+	if err := l.st.DeactivateAir(peer, airID, 310); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.airControlChanged(); err != nil {
+		t.Fatal(err)
+	}
+	if l.airs[airID] != nil {
+		t.Fatalf("acknowledged parked runtime=%+v", l.airs[airID])
+	}
+}
+
 func TestAirRuntimeJoinCatchesCurrentTrackButNeverOldVoiceOverlay(t *testing.T) {
 	l, fake := newTestLoop(t)
 	airID, _, third := createActiveTestAir(t, l)

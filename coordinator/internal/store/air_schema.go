@@ -108,6 +108,23 @@ CREATE TABLE IF NOT EXISTS air_audit_events (
 CREATE INDEX IF NOT EXISTS air_audit_events_air_created
   ON air_audit_events(air_id, created_at, id);
 
+-- Air mutation retries are scoped to the authenticated actor. Only request
+-- and key digests plus the non-secret response projection are durable. Invite
+-- codes are deterministically derived from a coordinator HMAC key and are
+-- therefore never written here in plaintext.
+CREATE TABLE IF NOT EXISTS air_mutation_results (
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  idempotency_key_hash TEXT NOT NULL
+    CHECK(length(idempotency_key_hash) = 64
+      AND idempotency_key_hash NOT GLOB '*[^0-9a-f]*'),
+  operation TEXT NOT NULL,
+  request_hash TEXT NOT NULL
+    CHECK(length(request_hash) = 64 AND request_hash NOT GLOB '*[^0-9a-f]*'),
+  response_json TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY(actor_id, idempotency_key_hash)
+);
+
 CREATE TABLE IF NOT EXISTS air_legacy_link_mappings (
   link_id INTEGER PRIMARY KEY CHECK(link_id > 0),
   air_id TEXT NOT NULL UNIQUE REFERENCES airs(public_id),

@@ -337,6 +337,7 @@ func main() {
 		onboarding.transmissionPresence = transmissionPresenceSnapshotterForHub(h)
 		onboarding.transmissionAccepted = l.transmissionAccepted
 		onboarding.transmissionCancelled = l.transmissionCancelled
+		onboarding.airRuntimeChanged = l.airControlChanged
 		onboarding.mediaLifecycle = mediaLifecycle
 		onboarding.mediaLifecycleInitErr = mediaLifecycleInitErr
 		if mediaLifecycleInitErr == nil && onboarding.mediaDownloadInitErr == nil {

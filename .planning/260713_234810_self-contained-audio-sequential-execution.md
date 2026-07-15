@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 85 accepted, 120 remain.
-- Routed inventory: 186 engineering tasks (85 accepted, 101 remain) and 19
+- Combined inventory: 205 original tasks; 86 accepted, 119 remain.
+- Routed inventory: 186 engineering tasks (86 accepted, 100 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
-- Next engineering task: `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
-- Most recently accepted: `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
-- Current branch: `tracking/task-260712-298tyq-acceptance`
+- Current engineering task: `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path
+- Next engineering task: `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path
+- Most recently accepted: `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
+- Current branch: `tracking/task-260712-350u8d-acceptance`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 85 / 205 tasks (approximately 41.5%); 120 remain
-- Engineering progress: 85 / 186 tasks (approximately 45.7%); 101 remain
+- Accepted overall: 86 / 205 tasks (approximately 42.0%); 119 remain
+- Engineering progress: 86 / 186 tasks (approximately 46.2%); 100 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1413,6 +1413,28 @@ ingest canonicalizes supported input to AAC/M4A and later manual evidence is
 accepted. Progress is 85/205 overall and 85/186 engineering; strict execution
 advances to `TASK-260712-350u8d`.
 
+Checkpoint 2026-07-15 (accepted): `TASK-260712-350u8d` proves and rejects the
+native macOS AVFoundation candidate on native code head `c1ec5c0` and final
+engineering head `fb4fe00`, merged by PR #112 as `bbd3f85`. The hardened-
+runtime app is ad-hoc signed with exactly the App Sandbox entitlement and no
+network entitlement. Its custom `AVAssetResourceLoaderDelegate` is the sole
+fixture reader, clamps underlying reads to 65,536 bytes and records complete
+range, lifecycle, timing and memory evidence without audio output or a render
+callback. Local repository acceptance passed 12/12. Dedicated run
+`29449314111` passed hosted ARM64 and x86_64 macOS 15.7.7 jobs: both decoded all
+six exact MP3, AAC and Ogg/Opus fixtures; worst seek-to-PCM was 14 ms and 21 ms,
+and peak RSS was 28,065,792 and 20,623,360 bytes respectively. Both
+architectures nevertheless requested at least the complete source before first
+PCM, and cold MP3 CBR scheduled skew was 213 ms ARM64 and 466 ms Intel against
+the 100 ms gate. The native candidate is therefore rejected for hidden full-
+file preparation and lifecycle timing rather than selected for shipping. Final
+standard CI run `29449425341` passed all four jobs. Exact executable, sealed-
+resource, entitlement and evidence hashes are attached to the board. Developer
+ID signing, notarization, physical hardware, audible routes and supported OS
+matrix remain explicitly unclaimed in manual epic `EPIC-260714-th54l3`.
+Progress is 86/205 overall and 86/186 engineering; strict execution advances
+to `TASK-260712-3vkcki`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2200,7 +2222,7 @@ Story: `STORY-260712-3l1r1u` — P2 Codec and streaming player spike.
   merge `594495b`)
 - [x] `TASK-260712-1canzv` — probe-bundled-signed-decoder-path
 - [x] `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
-- [ ] `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
+- [x] `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
 - [ ] `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path
 - [ ] `TASK-260712-ibuaxj` — run-comparative-streaming-evidence-matrix
 - [ ] `TASK-260712-2eympi` — publish-codec-player-adr-and-handoff

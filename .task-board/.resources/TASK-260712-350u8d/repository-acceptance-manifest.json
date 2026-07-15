@@ -1,0 +1,246 @@
+{
+  "artifacts": [
+    {
+      "bytes": 119,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "b17b0c430e12e354ea2c9e1b47c5c44154cd214642fad8693537d51e0b20ad81"
+    },
+    {
+      "bytes": 0,
+      "path": "02-coordinator-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 1880,
+      "path": "03-coordinator-tests.log",
+      "sha256": "92b77e3a72466d29932c53b6dd95e37c047e9f070db44ee698359060f1bc9fb0"
+    },
+    {
+      "bytes": 68,
+      "path": "04-moderation-contract.log",
+      "sha256": "461fdcf0892fae2772307ccb9b42b9e908a64612d72feda14a0b64b25b257c1f"
+    },
+    {
+      "bytes": 57,
+      "path": "05-previous-head-rollback.log",
+      "sha256": "012b7ae6a69bc6d57353fd0c42650f9289c8d88f3eb3d6778897ff4e3734bc58"
+    },
+    {
+      "bytes": 0,
+      "path": "06-windows-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 212,
+      "path": "07-windows-tests.log",
+      "sha256": "3e7f2ec3d48226e90b059307d4d2dad9e4f49492f2b90470e671299a334771e8"
+    },
+    {
+      "bytes": 212,
+      "path": "08-windows-race.log",
+      "sha256": "3e7f2ec3d48226e90b059307d4d2dad9e4f49492f2b90470e671299a334771e8"
+    },
+    {
+      "bytes": 0,
+      "path": "09-windows-cross-vet-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "10-windows-cross-build-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "11-windows-cross-build-arm64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 48677,
+      "path": "12-swift-tests.log",
+      "sha256": "74eb0dc567160cf758593f3987852ec91ddbf05830dd26893f7e53d826ef266c"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/codec_spike/test_codec_spike.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "02-coordinator-vet.log",
+      "name": "coordinator-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "03-coordinator-tests.log",
+      "name": "coordinator-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "run",
+        "./cmd/moderation-ops-check"
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "04-moderation-contract.log",
+      "name": "moderation-contract"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-tags",
+        "previoushead",
+        "-count=1",
+        "./internal/store",
+        "-run",
+        "^(TestR8ExactPreviousHEAD(AuthorityRoundTrip|TwoGenerationProjectionComposition|ConfigBootstrapContract)|TestMediaIngestExactPreviousHeadRollback|TestMediaUploadExactPreviousHeadRollback|TestMediaProcessingExactPreviousHeadRollback|TestMediaLifecycleExactPreviousHeadRollback|TestMediaIntegrationExactPreviousHeadRollback|TestTransmissionStoreExactPreviousHeadRollback|TestModerationExactPreviousHeadRollback|TestAirExactPreviousCoordinatorLegacyServicePreservesPhase2Rows)$"
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "05-previous-head-rollback.log",
+      "name": "previous-head-rollback"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "06-windows-vet.log",
+      "name": "windows-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "07-windows-tests.log",
+      "name": "windows-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "08-windows-race.log",
+      "name": "windows-race"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "09-windows-cross-vet-amd64.log",
+      "name": "windows-cross-vet-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "10-windows-cross-build-amd64.log",
+      "name": "windows-cross-build-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "11-windows-cross-build-arm64.log",
+      "name": "windows-cross-build-arm64"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "test"
+      ],
+      "cwd": "node-app",
+      "exitCode": 0,
+      "log": "12-swift-tests.log",
+      "name": "swift-tests"
+    }
+  ],
+  "finishedAt": "2026-07-15T20:41:18Z",
+  "git": {
+    "dirty": true,
+    "endDirty": true,
+    "endDirtyPaths": [
+      "M .planning/260713_234810_self-contained-audio-sequential-execution.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-3l1r1u_p2-codec-player-spike/TASK-260712-350u8d_probe-macos-native-streaming-decoder/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-3l1r1u_p2-codec-player-spike/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/progress.md",
+      " M scripts/codec_spike/test_codec_spike.py",
+      "?? .github/workflows/macos-native-codec-probe.yml",
+      "?? acceptance/codec-spike/macos-native-probe-v1.json",
+      "?? docs/analysis/p2-macos-native-streaming-decoder-probe.md",
+      "?? scripts/codec_spike/build_macos_native_probe.sh",
+      "?? scripts/codec_spike/macos-native/",
+      "?? scripts/codec_spike/validate_macos_native_probe.py"
+    ],
+    "head": "c1842e2d9d7268ee9c369433307e40765df76132",
+    "startDirty": true
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-15T20:40:20Z",
+  "status": "pass",
+  "suite": "all",
+  "toolchains": {
+    "apple": {
+      "developerDir": "/Applications/Xcode.app/Contents/Developer",
+      "swiftVersion": "6.2.3",
+      "xcodeBuild": "17C52",
+      "xcodeVersion": "26.2"
+    },
+    "go": "go version go1.25.12 darwin/amd64"
+  }
+}

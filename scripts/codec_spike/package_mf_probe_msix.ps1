@@ -142,10 +142,17 @@ try {
     $Activation = & (Join-Path $PSScriptRoot "activate_mf_probe.ps1") `
         -ApplicationUserModelId $Aumid -EvidencePath $EvidencePath -SoakSeconds $SoakSeconds
     $Evidence = Get-Content $EvidencePath -Raw | ConvertFrom-Json
-    if ($Activation.ExitCode -ne 0 -or -not $Evidence.passed -or -not $Evidence.tokenIsAppContainer -or
-        $Evidence.renderCallbackUsed -or $Evidence.decoderOwnsNetwork -or
-        $Evidence.maximumPreparedReadBytes -gt 1048576 -or $Evidence.peakRSSBytes -gt 209715200) {
-        throw "packaged Media Foundation evidence failed the frozen hosted gates"
+    Write-Host "MF_PROBE_EVIDENCE $($Evidence | ConvertTo-Json -Depth 12 -Compress)"
+    $GateFailures = @()
+    if ($Activation.ExitCode -ne 0) { $GateFailures += "exitCode=$($Activation.ExitCode)" }
+    if (-not $Evidence.passed) { $GateFailures += "evidence.passed=false" }
+    if (-not $Evidence.tokenIsAppContainer) { $GateFailures += "tokenIsAppContainer=false" }
+    if ($Evidence.renderCallbackUsed) { $GateFailures += "renderCallbackUsed=true" }
+    if ($Evidence.decoderOwnsNetwork) { $GateFailures += "decoderOwnsNetwork=true" }
+    if ($Evidence.maximumPreparedReadBytes -gt 1048576) { $GateFailures += "prepared read ceiling exceeded" }
+    if ($Evidence.peakRSSBytes -gt 209715200) { $GateFailures += "peak RSS exceeded" }
+    if ($GateFailures.Count -ne 0) {
+        throw "packaged Media Foundation evidence failed: $($GateFailures -join ', ')"
     }
     if (@($Evidence.fixtures).Count -ne 6 -or @($Evidence.fixtures | Where-Object { -not $_.passed }).Count -ne 0) {
         throw "exact six-fixture Media Foundation evidence is incomplete"

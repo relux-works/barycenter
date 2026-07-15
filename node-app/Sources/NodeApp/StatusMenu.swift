@@ -59,6 +59,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
         for (title, selector, key) in [
             (copy.text(.create), #selector(createOrbit), "1"),
             (copy.text(.join), #selector(joinOrbit), "2"),
+            (copy.text(.airs), #selector(showAirs), "4"),
         ] {
             let item = NSMenuItem(title: title, action: selector, keyEquivalent: key)
             item.target = self
@@ -113,6 +114,12 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
             keyEquivalent: "2")
         join.target = self
         menu.addItem(join)
+        let airs = NSMenuItem(
+            title: copy.text(.airs),
+            action: #selector(showAirs),
+            keyEquivalent: "4")
+        airs.target = self
+        menu.addItem(airs)
         let local = NSMenuItem(
             title: copy.text(.tryLocally),
             action: #selector(showSelfTest),
@@ -164,6 +171,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
             menu.addItem(disabled(link))
             if !connectionIdentity.isEmpty {
                 menu.addItem(disabled(connectionIdentity))
+            }
+            if let currentAir = shellModel?.snapshot.airs.current {
+                menu.addItem(disabled(localized(en: "Active Air: ", ru: "Активный эфир: ") + currentAir.title))
+            } else if shellModel?.snapshot.airs.saved.isEmpty == false {
+                menu.addItem(disabled(localized(en: "No active Air", ru: "Нет активного эфира")))
             }
             let mode = st.mode == "shared"
                 ? localized(en: "Shared air", ru: "периастрон — общий эфир")
@@ -319,6 +331,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
 
     @objc private func joinOrbit() {
         shellActions.joinOrbit()
+    }
+
+    @objc private func showAirs() {
+        shellModel?.selectedSection = .airs
+        showMainWindowAction?()
     }
 
     @objc private func showSelfTest() {

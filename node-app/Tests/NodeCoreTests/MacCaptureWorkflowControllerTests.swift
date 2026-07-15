@@ -97,6 +97,14 @@ struct MacCaptureWorkflowControllerTests {
         #expect(identity.contains("acknowledgeRecoveryBackup"))
         #expect(identity.range(of: "onCredentialsActivated()", options: .backwards)!.lowerBound >
                 identity.range(of: "acknowledgeRecoveryBackup")!.lowerBound)
+
+        let air = try String(contentsOf: repositoryRoot.appendingPathComponent(
+            "node-app/Sources/NodeApp/MacAirAppComposition.swift"), encoding: .utf8)
+        #expect(air.contains("AirAppServicing"))
+        #expect(air.contains("MacAirAppComposition"))
+        for forbidden in ["PhaseOneDraftOutbox", "PhaseOneAppClient", "target", "inbox"] {
+            #expect(!air.localizedCaseInsensitiveContains(forbidden))
+        }
     }
 
     private func makeFixture() throws -> WorkflowFixture {

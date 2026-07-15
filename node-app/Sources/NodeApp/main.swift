@@ -274,6 +274,7 @@ final class CoreRuntime {
 var runtime: CoreRuntime?
 @MainActor var macCaptureComposition: MacCaptureAppComposition?
 @MainActor var macPhaseOneComposition: MacPhaseOneAppComposition?
+@MainActor var macAirComposition: MacAirAppComposition?
 @MainActor var macIdentityComposition: MacIdentityAppComposition?
 
 final class LocalCaptureAudioRuntime {
@@ -344,6 +345,7 @@ func startCore(with config: NodeConfig) {
         startShellRefresh(identity: connectionIdentity(config))
         startMacCaptureComposition(audio: rt.engine, log: rt.log)
         startMacPhaseOneComposition(log: rt.log)
+        startMacAirComposition(log: rt.log)
         mainWindow.show()
     } catch let err as ConfigError {
         failConfig(err.description)
@@ -495,7 +497,20 @@ func configureShell() {
         },
         submitCreateOrbit: { macIdentityComposition?.create(title: $0) },
         submitJoinOrbit: { macIdentityComposition?.join(code: $0) },
-        exportRecovery: { macIdentityComposition?.exportRecovery() }
+        exportRecovery: { macIdentityComposition?.exportRecovery() },
+        refreshAirs: { macAirComposition?.refresh(force: true) },
+        createAir: { macAirComposition?.create(title: $0) },
+        consumeAirInvite: { macAirComposition?.consumeInvite(code: $0) },
+        confirmAirJoin: { macAirComposition?.confirmJoin(airID: $0, activate: $1) },
+        declineAirJoin: { macAirComposition?.declineJoin(airID: $0) },
+        issueAirInvite: { macAirComposition?.issueInvite(airID: $0, role: $1) },
+        withdrawAirInvite: { macAirComposition?.withdrawInvite() },
+        hideAirInvite: { macAirComposition?.hideInvite() },
+        activateAir: { macAirComposition?.activate(airID: $0) },
+        deactivateAir: { macAirComposition?.deactivate(airID: $0) },
+        leaveAir: { macAirComposition?.leave(airID: $0) },
+        dissolveAir: { macAirComposition?.dissolve(airID: $0) },
+        replaceAirPolicy: { macAirComposition?.replacePolicy(airID: $0, policy: $1) }
     )
     mainWindow = PulsarMainWindowController(model: shellModel, actions: shellActions)
     statusMenu = StatusMenuController()
@@ -565,6 +580,21 @@ func startMacPhaseOneComposition(log: Logger) {
 }
 
 @MainActor
+func startMacAirComposition(log: Logger) {
+    do {
+        guard let bundle = try CredentialsStore.loadBundle(besideConfig: configPath) else {
+            return
+        }
+        let composition = try MacAirAppComposition(bundle: bundle, model: shellModel)
+        macAirComposition = composition
+        composition.start()
+    } catch {
+        log.error("Air app data unavailable", ["reason": "initialization_failed"])
+        shellModel.updateAirState(failure: .some("credential_unavailable"))
+    }
+}
+
+@MainActor
 func startAccountlessMacCapture(config: NodeConfig) {
     materializeSupportTree(config)
     do {
@@ -581,6 +611,8 @@ func startAccountlessMacCapture(config: NodeConfig) {
 
 @MainActor
 func stopMacCaptureComposition() {
+    macAirComposition?.shutdown()
+    macAirComposition = nil
     macPhaseOneComposition?.shutdown()
     macPhaseOneComposition = nil
     macCaptureComposition?.shutdown()
@@ -628,6 +660,7 @@ func refreshShell(identity: String) {
         dndMode: dnd,
         volume: status.volume)
     macPhaseOneComposition?.refresh()
+    macAirComposition?.refresh()
 }
 
 func shortShellURI(_ uri: String) -> String {

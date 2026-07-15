@@ -14,6 +14,7 @@ public enum PulsarShellLocale: String, CaseIterable, Identifiable, Sendable {
 
 public enum PulsarShellSection: String, CaseIterable, Identifiable, Sendable {
     case home
+    case airs
     case create
     case join
     case tryLocally
@@ -288,6 +289,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
     public var phaseOneActionOutcome: String?
     public var phaseOneFailure: String?
     public var identityOperation: PulsarIdentityOperationState
+    public var airs: PulsarAirState
     public var dndMode: PulsarDNDMode
     public var recording: PulsarRecordingState
     public var recordingAvailable: Bool
@@ -315,6 +317,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         phaseOneActionOutcome: String? = nil,
         phaseOneFailure: String? = nil,
         identityOperation: PulsarIdentityOperationState = .idle,
+        airs: PulsarAirState = .init(),
         dndMode: PulsarDNDMode = .allowAll,
         recording: PulsarRecordingState = .unavailable,
         recordingAvailable: Bool = false,
@@ -341,6 +344,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         self.phaseOneActionOutcome = phaseOneActionOutcome
         self.phaseOneFailure = phaseOneFailure
         self.identityOperation = identityOperation
+        self.airs = airs
         self.dndMode = dndMode
         self.recording = recording
         self.recordingAvailable = recordingAvailable
@@ -423,6 +427,26 @@ public final class PulsarShellModel {
         snapshot.identityOperation = state
     }
 
+    public func setAirState(_ state: PulsarAirState) {
+        snapshot.airs = state
+    }
+
+    public func updateAirState(
+        saved: [PulsarAirItem]? = nil,
+        pendingJoin: PulsarPendingAirJoin?? = nil,
+        inviteSecret: PulsarAirInviteSecret?? = nil,
+        busy: Bool? = nil,
+        outcome: String?? = nil,
+        failure: String?? = nil
+    ) {
+        if let saved { snapshot.airs.saved = saved }
+        if let pendingJoin { snapshot.airs.pendingJoin = pendingJoin }
+        if let inviteSecret { snapshot.airs.inviteSecret = inviteSecret }
+        if let busy { snapshot.airs.busy = busy }
+        if let outcome { snapshot.airs.outcome = outcome }
+        if let failure { snapshot.airs.failure = failure }
+    }
+
     public func setRecording(_ state: PulsarRecordingState, available: Bool) {
         snapshot.recording = state
         snapshot.recordingAvailable = available
@@ -499,6 +523,19 @@ public final class PulsarShellActions {
     private let onSubmitCreateOrbit: (String) -> Void
     private let onSubmitJoinOrbit: (String) -> Void
     private let onExportRecovery: () -> Void
+    private let onRefreshAirs: () -> Void
+    private let onCreateAir: (String) -> Void
+    private let onConsumeAirInvite: (String) -> Void
+    private let onConfirmAirJoin: (String, Bool) -> Void
+    private let onDeclineAirJoin: (String) -> Void
+    private let onIssueAirInvite: (String, PulsarAirRole) -> Void
+    private let onWithdrawAirInvite: () -> Void
+    private let onHideAirInvite: () -> Void
+    private let onActivateAir: (String) -> Void
+    private let onDeactivateAir: (String) -> Void
+    private let onLeaveAir: (String) -> Void
+    private let onDissolveAir: (String) -> Void
+    private let onReplaceAirPolicy: (String, PulsarAirPolicy) -> Void
 
     public init(
         createOrbit: @escaping @MainActor () -> Void = {},
@@ -522,7 +559,20 @@ public final class PulsarShellActions {
         historyAction: @escaping @MainActor (String, PulsarHistoryActionRequest) -> Void = { _, _ in },
         submitCreateOrbit: @escaping @MainActor (String) -> Void = { _ in },
         submitJoinOrbit: @escaping @MainActor (String) -> Void = { _ in },
-        exportRecovery: @escaping @MainActor () -> Void = {}
+        exportRecovery: @escaping @MainActor () -> Void = {},
+        refreshAirs: @escaping @MainActor () -> Void = {},
+        createAir: @escaping @MainActor (String) -> Void = { _ in },
+        consumeAirInvite: @escaping @MainActor (String) -> Void = { _ in },
+        confirmAirJoin: @escaping @MainActor (String, Bool) -> Void = { _, _ in },
+        declineAirJoin: @escaping @MainActor (String) -> Void = { _ in },
+        issueAirInvite: @escaping @MainActor (String, PulsarAirRole) -> Void = { _, _ in },
+        withdrawAirInvite: @escaping @MainActor () -> Void = {},
+        hideAirInvite: @escaping @MainActor () -> Void = {},
+        activateAir: @escaping @MainActor (String) -> Void = { _ in },
+        deactivateAir: @escaping @MainActor (String) -> Void = { _ in },
+        leaveAir: @escaping @MainActor (String) -> Void = { _ in },
+        dissolveAir: @escaping @MainActor (String) -> Void = { _ in },
+        replaceAirPolicy: @escaping @MainActor (String, PulsarAirPolicy) -> Void = { _, _ in }
     ) {
         self.onCreateOrbit = createOrbit
         self.onJoinOrbit = joinOrbit
@@ -546,6 +596,19 @@ public final class PulsarShellActions {
         self.onSubmitCreateOrbit = submitCreateOrbit
         self.onSubmitJoinOrbit = submitJoinOrbit
         self.onExportRecovery = exportRecovery
+        self.onRefreshAirs = refreshAirs
+        self.onCreateAir = createAir
+        self.onConsumeAirInvite = consumeAirInvite
+        self.onConfirmAirJoin = confirmAirJoin
+        self.onDeclineAirJoin = declineAirJoin
+        self.onIssueAirInvite = issueAirInvite
+        self.onWithdrawAirInvite = withdrawAirInvite
+        self.onHideAirInvite = hideAirInvite
+        self.onActivateAir = activateAir
+        self.onDeactivateAir = deactivateAir
+        self.onLeaveAir = leaveAir
+        self.onDissolveAir = dissolveAir
+        self.onReplaceAirPolicy = replaceAirPolicy
     }
 
     public func createOrbit() { onCreateOrbit() }
@@ -581,10 +644,29 @@ public final class PulsarShellActions {
     public func submitCreateOrbit(title: String) { onSubmitCreateOrbit(title) }
     public func submitJoinOrbit(code: String) { onSubmitJoinOrbit(code) }
     public func exportRecovery() { onExportRecovery() }
+    public func refreshAirs() { onRefreshAirs() }
+    public func createAir(title: String) { onCreateAir(title) }
+    public func consumeAirInvite(code: String) { onConsumeAirInvite(code) }
+    public func confirmAirJoin(_ airID: String, activate: Bool) {
+        onConfirmAirJoin(airID, activate)
+    }
+    public func declineAirJoin(_ airID: String) { onDeclineAirJoin(airID) }
+    public func issueAirInvite(_ airID: String, role: PulsarAirRole) {
+        onIssueAirInvite(airID, role)
+    }
+    public func withdrawAirInvite() { onWithdrawAirInvite() }
+    public func hideAirInvite() { onHideAirInvite() }
+    public func activateAir(_ airID: String) { onActivateAir(airID) }
+    public func deactivateAir(_ airID: String) { onDeactivateAir(airID) }
+    public func leaveAir(_ airID: String) { onLeaveAir(airID) }
+    public func dissolveAir(_ airID: String) { onDissolveAir(airID) }
+    public func replaceAirPolicy(_ airID: String, policy: PulsarAirPolicy) {
+        onReplaceAirPolicy(airID, policy)
+    }
 }
 
 public enum PulsarShellText: String, CaseIterable, Sendable {
-    case appName, home, create, join, tryLocally, history, settings
+    case appName, home, airs, create, join, tryLocally, history, settings
     case openMainWindow, primaryActions, status, presence, routing, nowPlaying
     case localControls, noHistory, noRoute, silence, volume, dnd, recording
     case startRecording, stopRecording, recordingUnavailable, selfTestUnavailable
@@ -625,6 +707,7 @@ public struct PulsarShellCopy: Sendable {
     public func title(for section: PulsarShellSection) -> String {
         switch section {
         case .home: text(.home)
+        case .airs: text(.airs)
         case .create: text(.create)
         case .join: text(.join)
         case .tryLocally: text(.tryLocally)
@@ -792,7 +875,7 @@ public struct PulsarShellCopy: Sendable {
     }
 
     private static let en: [PulsarShellText: String] = [
-        .appName: "Pulsar", .home: "Home", .create: "Create", .join: "Join",
+        .appName: "Pulsar", .home: "Home", .airs: "Airs", .create: "Create", .join: "Join",
         .tryLocally: "Try locally", .history: "History", .settings: "Settings",
         .openMainWindow: "Open Pulsar", .primaryActions: "Primary actions",
         .status: "Status", .presence: "Presence", .routing: "Routing",
@@ -863,7 +946,7 @@ public struct PulsarShellCopy: Sendable {
     ]
 
     private static let ru: [PulsarShellText: String] = [
-        .appName: "Пульсар", .home: "Главная", .create: "Создать", .join: "Присоединиться",
+        .appName: "Пульсар", .home: "Главная", .airs: "Эфиры", .create: "Создать", .join: "Присоединиться",
         .tryLocally: "Попробовать локально", .history: "История", .settings: "Настройки",
         .openMainWindow: "Открыть Пульсар", .primaryActions: "Основные действия",
         .status: "Статус", .presence: "Присутствие", .routing: "Маршрут звука",

@@ -15,7 +15,7 @@
 - Current engineering task: `TASK-260712-1vdlkw` — audit-codec-licenses-and-distribution-constraints
 - Next engineering task: `TASK-260712-1vdlkw` — audit-codec-licenses-and-distribution-constraints
 - Most recently accepted: `TASK-260712-dqdoqj` — prototype-stream-variants-range-cache-contract
-- Current branch: `main` (accepted stream range/cache checkpoint)
+- Current branch: `task/task-260712-1vdlkw-audit-codec-licenses-distribution`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -1350,6 +1350,26 @@ passed 8/8 repeatedly and repository acceptance passed 12/12. Hosted run
 hardware result is claimed. Progress is 82/205 overall and 82/186 engineering;
 strict execution advances to `TASK-260712-1vdlkw`.
 
+Checkpoint 2026-07-15 (accepted): `TASK-260712-1vdlkw` freezes the exact
+codec license, patent, supply-chain and distribution audit on engineering
+commit `3fc2409`. Seven exact components and all three frozen candidates carry
+source/version, commit, Go sums, source and license hashes, runtime-transitive,
+notice, vulnerability, packaging and legal dispositions dated 2026-07-15.
+`pure-go-composite-v1` is rejected: its exact AAC module is GPL-2.0-only,
+identifies itself as a FAAD2 port, and its origin was unavailable at audit
+time. Native OS codecs and the minimal shared FFmpeg 8.1.2 candidate are only
+`shippable-with-obligations`: AAC counsel approval, exact corresponding source
+and notices, complete runtime SBOM, zero known unpatched findings, immutable
+signed package members, macOS notarization, retained sandbox and no runtime
+code download. A fail-closed validator and tamper test enforce the matrix;
+codec tests passed 9/9 and repository acceptance passed 12/12. Hosted run
+`29437923424` attempt 1 was cancelled after an isolated packaged-runner hang;
+attempt 2 passed all four jobs in 1m47s, 1m47s, 2m19s and 2m41s. PR #106
+landed at merge `594495b`. No legal advice, patent clearance, decoder, Store,
+audible or hardware result is claimed. Progress is 83/205 overall and 83/186
+engineering; 122 overall and 103 engineering tasks remain. Strict execution
+advances to `TASK-260712-1canzv`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2131,7 +2151,10 @@ Story: `STORY-260712-3l1r1u` — P2 Codec and streaming player spike.
   (accepted on engineering commit `733b5c6`; codec/stream tests 8/8 and
   repository acceptance 12/12, hosted run `29436698927` 4/4, PR #104 merge
   `f6dd5c2`)
-- [ ] `TASK-260712-1vdlkw` — audit-codec-licenses-and-distribution-constraints
+- [x] `TASK-260712-1vdlkw` — audit-codec-licenses-and-distribution-constraints
+  (accepted on engineering commit `3fc2409`; codec tests 9/9 and repository
+  acceptance 12/12, hosted run `29437923424` attempt 2 passed 4/4, PR #106
+  merge `594495b`)
 - [ ] `TASK-260712-1canzv` — probe-bundled-signed-decoder-path
 - [ ] `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
 - [ ] `TASK-260712-350u8d` — probe-macos-native-streaming-decoder

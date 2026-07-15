@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "state": "manual-required",
+  "rules": {
+    "format": "png",
+    "minimum_width": 1366,
+    "minimum_height": 768,
+    "maximum_bytes": 52428800,
+    "maximum_per_locale": 10
+  },
+  "screenshots": [
+    {"locale": "en-US", "order": 1, "scene": "main-window", "path": "docs/store/phase1/screenshots/en-US/01-main-window.png", "caption": "Pulsar home shows connection, private route, playback and recording status without requiring a conventional account.", "status": "manual-required", "sha256": ""},
+    {"locale": "en-US", "order": 2, "scene": "try-locally", "path": "docs/store/phase1/screenshots/en-US/02-try-locally.png", "caption": "Try locally verifies the built-in cue or a selected audio file without uploading it.", "status": "manual-required", "sha256": ""},
+    {"locale": "en-US", "order": 3, "scene": "active-recording", "path": "docs/store/phase1/screenshots/en-US/03-active-recording.png", "caption": "An explicit recording session shows microphone state, duration, level and Stop controls.", "status": "manual-required", "sha256": ""},
+    {"locale": "en-US", "order": 4, "scene": "routing", "path": "docs/store/phase1/screenshots/en-US/04-routing.png", "caption": "A short clip is ready for This Pulsar with an explicit delivery mode and send action.", "status": "manual-required", "sha256": ""},
+    {"locale": "en-US", "order": 5, "scene": "played-history", "path": "docs/store/phase1/screenshots/en-US/05-played-history.png", "caption": "Played history shows the clip, route, terminal receipt and currently authorized actions.", "status": "manual-required", "sha256": ""},
+    {"locale": "en-US", "order": 6, "scene": "settings-moderation", "path": "docs/store/phase1/screenshots/en-US/06-settings-moderation.png", "caption": "Settings and History expose Do Not Disturb, policy links, reporting and sender blocking.", "status": "manual-required", "sha256": ""},
+    {"locale": "ru-RU", "order": 1, "scene": "main-window", "path": "docs/store/phase1/screenshots/ru-RU/01-main-window.png", "caption": "Главная страница Pulsar показывает подключение, приватный маршрут, воспроизведение и запись без обычного аккаунта.", "status": "manual-required", "sha256": ""},
+    {"locale": "ru-RU", "order": 2, "scene": "try-locally", "path": "docs/store/phase1/screenshots/ru-RU/02-try-locally.png", "caption": "Локальная проверка воспроизводит встроенный сигнал или выбранный аудиофайл без загрузки на сервер.", "status": "manual-required", "sha256": ""},
+    {"locale": "ru-RU", "order": 3, "scene": "active-recording", "path": "docs/store/phase1/screenshots/ru-RU/03-active-recording.png", "caption": "Явная запись показывает состояние микрофона, длительность, уровень и кнопку остановки.", "status": "manual-required", "sha256": ""},
+    {"locale": "ru-RU", "order": 4, "scene": "routing", "path": "docs/store/phase1/screenshots/ru-RU/04-routing.png", "caption": "Короткий клип готов к отправке на этот Пульсар с явно выбранным режимом доставки.", "status": "manual-required", "sha256": ""},
+    {"locale": "ru-RU", "order": 5, "scene": "played-history", "path": "docs/store/phase1/screenshots/ru-RU/05-played-history.png", "caption": "История показывает воспроизведённый клип, маршрут, итоговое подтверждение и разрешённые действия.", "status": "manual-required", "sha256": ""},
+    {"locale": "ru-RU", "order": 6, "scene": "settings-moderation", "path": "docs/store/phase1/screenshots/ru-RU/06-settings-moderation.png", "caption": "Настройки и история открывают режим «Не беспокоить», правила, жалобу и блокировку отправителя.", "status": "manual-required", "sha256": ""}
+  ]
+}

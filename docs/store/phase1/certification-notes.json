@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "state": "requires-exact-build-freeze",
+  "product_id": "9P26FDCWV1GC",
+  "package_identity": "ReluxWorksLLC.PulsarBarycenter",
+  "coordinator_origin": "https://barycenter.relux.works",
+  "build": {
+    "git_commit": "",
+    "package_sha256": "",
+    "version": ""
+  },
+  "availability_owner": "Ivan Oparin",
+  "notes": "Product 9P26FDCWV1GC, package ReluxWorksLLC.PulsarBarycenter. Exact build before submission: {{VERSION}}, git {{GIT_COMMIT}}, MSIX SHA-256 {{PACKAGE_SHA256}}. Required server: https://barycenter.relux.works; availability owner Ivan Oparin. Primary A1 path: (1) launch Pulsar; (2) choose Try locally and play the built-in cue; (3) choose Create, then Create a Barycenter; (4) press Record, accept the expected Windows microphone prompt, record and stop a short clip (if denied, choose a short audio file instead); (5) select This Pulsar and send with Overlay or After current; (6) open History and inspect the played receipt, then the available report/block/delete controls. No Spotify account, Telegram account or demo credentials are required. Spotify and Telegram are optional. 10.3.1: the primary path has no conventional login and the six steps above expose every required feature. 10.1.1.3: the EN/RU descriptions match this build and each locale has six real exact-build screenshots of distinct primary functions; onboarding is not used as primary proof.",
+  "finding_responses": {
+    "10.3.1": "Accountless reviewer path, functional coordinator, expected microphone prompt and file fallback are documented; no external integration or demo credentials are required.",
+    "10.1.1.3": "Localized copy describes only shipped Phase 1 behavior and the manual pack requires six distinct exact-build feature screenshots per locale."
+  }
+}

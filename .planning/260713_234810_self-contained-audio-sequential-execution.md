@@ -16,7 +16,7 @@
   (starting after the security engineering handoff)
 - Next engineering task: `TASK-260712-38lssj` — p1-root-integration-review
 - Most recently accepted: `TASK-260712-e1ie4x` — platform-declarations-localized-copy
-- Current branch: `tracking/task-260712-wy05n6-security-review`
+- Current branch: `task/task-260712-2s4e9p-store-listing-iarc-assets`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -1074,6 +1074,14 @@ run `29404910264` passed all four jobs; PR #74 landed at merge
 owner task `TASK-260715-10ksxz`; the original review remains `to-review` and
 does not increase accepted counts. Strict engineering advances to
 `TASK-260712-2s4e9p`.
+
+Tracking head `866d000` passed all four hosted jobs in run `29405188885`; PR
+#75 landed the external security-signoff ledger at merge `6664ffd`. Strict
+execution started `TASK-260712-2s4e9p` from synchronized `main`. Repository
+work covers exact versioned EN/RU listing inputs, IARC/certification answers,
+asset manifests and validation. Actual localized screenshots, WACK execution
+and Partner Center mutation remain manual/external evidence and cannot be
+self-claimed from this engineering environment.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human

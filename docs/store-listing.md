@@ -1,74 +1,50 @@
-# Historical Microsoft Store listing draft (Pulsar)
+# Microsoft Store listing source (Pulsar Phase 1)
 
-> **Do not submit this draft.** It describes the earlier Spotify-first product
-> and is retained only as history. The self-contained product policy sources
-> are in [`docs/legal`](legal/) and the current listing/evidence owners are
-> recorded in
-> [`store-policy-baseline-2026-07-14.md`](analysis/store-policy-baseline-2026-07-14.md).
-> `TASK-260712-2s4e9p` must replace this listing and its screenshots before a
-> Store submission.
+This is the current self-contained Phase 1 listing handoff for Product ID
+`9P26FDCWV1GC`. The old Spotify-first draft has been retired. Exact copy-paste
+fields live in the versioned package below:
 
-For Partner Center submission (goal v2.1 F6). The Store overwrites the MSIX
-Identity/Publisher with the reserved app identity on submission.
+- [`listing-en-US.json`](store/phase1/listing-en-US.json)
+- [`listing-ru-RU.json`](store/phase1/listing-ru-RU.json)
+- [`certification-notes.json`](store/phase1/certification-notes.json)
+- [`iarc-answer-profile.json`](store/phase1/iarc-answer-profile.json)
+- [`screenshots.json`](store/phase1/screenshots.json)
+- [`partner-center-package.json`](store/phase1/partner-center-package.json)
 
-- **Category:** Music
-- **App name:** Pulsar
-- **Price:** Free
+The Store category is `Music`, the price is `Free`, and the listing languages
+are `en-US` and `ru-RU`. The primary product is private short-audio recording,
+routing and history. Spotify and Telegram are optional integrations, never a
+prerequisite or the first listing claim. Phase 1 coordinator processing and
+the absence of end-to-end encryption are explicit limitations.
 
-## Short description (EN)
+The EN short description is:
 
-One music for two homes — or more. Pick a Pulsar speaker in Spotify and play:
-the same track starts in sync at every connected home. Telegram adds pairing,
-queues and voice notes between songs. Bring a Premium Spotify account per home.
+> Record or choose short audio, route it inside a private Barycenter, and
+> review delivery history. Accountless setup and local self-test are built in;
+> Spotify and Telegram are optional.
 
-## Short description (RU)
+The RU short description is:
 
-Одна музыка на несколько домов. Выбери колонку Пульсар в Spotify и включи
-трек — он синхронно заиграет у всех подключённых домов. В Telegram остаются
-подключение, очередь и голосовые между песнями. Свой Spotify Premium в каждом доме.
+> Записывайте или выбирайте короткое аудио, направляйте его в приватном
+> Барицентре и смотрите историю доставки. Настройка без аккаунта и локальная
+> проверка встроены; Spotify и Telegram необязательны.
 
-## Feature bullets
+The JSON files are authoritative because the validator applies the current
+Partner Center character/count limits, approved locale URLs and shipped-claim
+evidence. Validate the engineering package with:
 
-- Synchronized broadcast across homes (periastron), precise to a fraction of
-  a second.
-- Start together playback directly from Spotify on either Pulsar; no track
-  link needs to be sent to the bot.
-- Voice notes slotted between tracks, privately or to everyone.
-- Approaches: link two barycenters into one shared air, part anytime.
-- Zero configuration — a code from the bot pairs the app; no files, no setup.
-- Verifiable builds: every release carries SLSA provenance attestation.
+```sh
+cd coordinator
+GOTOOLCHAIN=go1.25.12 go run ./cmd/store-listing-check
+```
 
-## Privacy
+The submission gate is deliberately fail-closed:
 
-The old “collects no personal data” statement is withdrawn. The self-contained
-product processes accountless identifiers, targeted audio and metadata,
-delivery state and optional Telegram/Spotify integration data. Phase 1 audio is
-readable by the coordinator and is not E2EE. The source Privacy Policy is
-[`docs/legal/en/privacy.md`](legal/en/privacy.md); its canonical publication URL
-is https://barycenter.live/legal/privacy. The submission-ready EN/RU link source
-is [`docs/compliance/store-public-links.json`](compliance/store-public-links.json),
-but this historical listing remains non-submittable and the live hash gate must
-still pass before certification.
+```sh
+GOTOOLCHAIN=go1.25.12 go run ./cmd/store-listing-check --require-ready
+```
 
-## Support
-
-Site & guide: https://barycenter.live/guide
-Support: https://barycenter.live/legal/support
-Source: https://github.com/relux-works/barycenter
-
-## Screenshot requirements (cert rejection 2026-07-09, policy 10.1.1.3)
-
-The Russian listing's screenshots showed only the onboarding/code window and
-failed certification as "splash/login only". Every listing language needs
->=1366x768 images of the product IN USE, e.g.:
-
-1. Tray menu open: connection line, playing track, periastron mode.
-2. Spotify device picker with "Pulsar A" selected — the phone-sees-speaker
-   moment.
-3. The Telegram bot chat: queue, /now, a voice message between tracks — the
-   primary control surface.
-4. The onboarding window at most as a trailing shot, never the only one.
-
-Fix procedure: a failed submission becomes editable in Partner Center — swap
-the images in RU and EN listings there and resubmit the same package. CLI
-submissions clone the listing, so the fix persists automatically afterwards.
+It will fail until the exact MSIX is frozen, twelve real localized screenshots
+and their hashes exist, WACK evidence has been reviewed, Partner Center has
+generated the IARC result, and Ivan Oparin records `proceed`. No repository or
+CI result is represented as those manual/external observations.

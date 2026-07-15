@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "task_id": "TASK-260712-2s4e9p",
+  "state": "engineering-ready-manual-hold",
+  "product": {
+    "id": "9P26FDCWV1GC",
+    "name": "Pulsar",
+    "package_identity": "ReluxWorksLLC.PulsarBarycenter",
+    "category": "Music",
+    "price": "Free",
+    "minimum_age": 13,
+    "coordinator_origin": "https://barycenter.relux.works"
+  },
+  "approved_links_path": "docs/compliance/store-public-links.json",
+  "listing_files": {
+    "en-US": "docs/store/phase1/listing-en-US.json",
+    "ru-RU": "docs/store/phase1/listing-ru-RU.json"
+  },
+  "screenshot_manifest": "docs/store/phase1/screenshots.json",
+  "iarc_profile": "docs/store/phase1/iarc-answer-profile.json",
+  "certification_notes": "docs/store/phase1/certification-notes.json",
+  "wack": {
+    "state": "manual-required",
+    "runner": "scripts/acceptance/run_wack.ps1",
+    "manifest_path": ""
+  },
+  "submission": {
+    "state": "hold",
+    "authority": "Ivan Oparin"
+  },
+  "sources": [
+    {
+      "id": "store-policies-7.19",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/store-policies",
+      "retrieved_at": "2026-07-15"
+    },
+    {
+      "id": "msix-listing",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/add-and-edit-store-listing-info",
+      "retrieved_at": "2026-07-15"
+    },
+    {
+      "id": "msix-images",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/screenshots-and-images",
+      "retrieved_at": "2026-07-15"
+    },
+    {
+      "id": "msix-additional-information",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/add-additional-information",
+      "retrieved_at": "2026-07-15"
+    },
+    {
+      "id": "msix-age-ratings",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/age-ratings",
+      "retrieved_at": "2026-07-15"
+    },
+    {
+      "id": "msix-certification-notes",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/manage-submission-options",
+      "retrieved_at": "2026-07-15"
+    },
+    {
+      "id": "iarc",
+      "url": "https://www.globalratings.com/about.aspx",
+      "retrieved_at": "2026-07-15"
+    }
+  ]
+}

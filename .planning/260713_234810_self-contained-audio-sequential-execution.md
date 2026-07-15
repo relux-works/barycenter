@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 87 accepted, 118 remain.
-- Routed inventory: 186 engineering tasks (87 accepted, 99 remain) and 19
+- Combined inventory: 205 original tasks; 88 accepted, 117 remain.
+- Routed inventory: 186 engineering tasks (88 accepted, 98 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-ibuaxj` — run-comparative-streaming-evidence-matrix
-- Next engineering task: `TASK-260712-ibuaxj` — run-comparative-streaming-evidence-matrix
-- Most recently accepted: `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path
-- Current branch: `tracking/task-260712-3vkcki-acceptance`
+- Current engineering task: `TASK-260712-2eympi` — publish-codec-player-adr-and-handoff
+- Next engineering task: `TASK-260712-2eympi` — publish-codec-player-adr-and-handoff
+- Most recently accepted: `TASK-260712-ibuaxj` — run-comparative-streaming-evidence-matrix
+- Current branch: `tracking/task-260712-ibuaxj-acceptance`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 87 / 205 tasks (approximately 42.4%); 118 remain
-- Engineering progress: 87 / 186 tasks (approximately 46.8%); 99 remain
+- Accepted overall: 88 / 205 tasks (approximately 42.9%); 117 remain
+- Engineering progress: 88 / 186 tasks (approximately 47.3%); 98 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1460,6 +1460,27 @@ unclaimed in `EPIC-260714-th54l3`. The production candidate is rejected on
 license, seek and manual-evidence gates. Progress is 87/205 overall and 87/186
 engineering; strict execution advances to `TASK-260712-ibuaxj`.
 
+Checkpoint 2026-07-15 (accepted): `TASK-260712-ibuaxj` publishes a generated,
+fail-closed comparison on engineering head `094e96f`, merged by PR #116 as
+`10db015`. The contract consumes pinned bundled, Media Foundation, native
+macOS and pure-Go artifacts with their repository paths and SHA-256 values,
+then expands three complete Windows/macOS combinations across
+`windows_windows`, `windows_macos` and `macos_macos`. Each combination retains
+six independent format rows and twelve hard gates; score averaging is
+structurally forbidden. No combination is selected. Bundled FFmpeg decodes all
+smoke formats but lacks end-to-end range, 30-sample/two-hour and production
+release proof. The native combination retains exact Windows Ogg/Opus failure
+`0xC00D36C4` and native macOS full-source preparation. Pure Go retains absent
+acceptable AAC, full-scan MP3 seek and missing Ogg random seek. Deterministic
+range/cache faults are labeled substrate-only rather than candidate evidence.
+Physical pairing/timing/RSS rows remain explicit `not-run` gates in manual epic
+`EPIC-260714-th54l3`. Contract tests passed 16/16; hosted CI run `29451972760`
+passed all four jobs. Local full acceptance is not mislabeled green because the
+installed FFmpeg lacked the `libvorbis` encoder required by two pre-existing
+media tests; the hosted coordinator installed the required package and passed.
+Progress is 88/205 overall and 88/186 engineering; strict execution advances
+to `TASK-260712-2eympi`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2249,7 +2270,7 @@ Story: `STORY-260712-3l1r1u` — P2 Codec and streaming player spike.
 - [x] `TASK-260712-298tyq` — probe-media-foundation-appcontainer-path
 - [x] `TASK-260712-350u8d` — probe-macos-native-streaming-decoder
 - [x] `TASK-260712-3vkcki` — probe-pure-go-streaming-decoder-path
-- [ ] `TASK-260712-ibuaxj` — run-comparative-streaming-evidence-matrix
+- [x] `TASK-260712-ibuaxj` — run-comparative-streaming-evidence-matrix
 - [ ] `TASK-260712-2eympi` — publish-codec-player-adr-and-handoff
 
 ## 11. P2 explicit targets, inbox and transport parity

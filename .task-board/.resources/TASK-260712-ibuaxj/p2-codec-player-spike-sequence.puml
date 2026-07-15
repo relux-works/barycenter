@@ -5,30 +5,29 @@ autonumber
 actor Researcher
 participant "Fixture corpus" as Fixtures
 participant "Range harness\nstream_variants" as Harness
-participant "Candidate adapter" as Candidate
+participant "Bundled candidate" as Bundled
+participant "MF + native macOS" as Native
+participant "Pure-Go candidate" as PureGo
 participant "Current node scheduler\nready/resume_at" as Scheduler
 participant "Metrics collector" as Metrics
+participant "Manual hardware epic" as Manual
 
 Researcher -> Fixtures: Select 2h MP3/AAC/Opus case
 Researcher -> Harness: Publish variant + auth token
-Candidate -> Harness: GET bytes with Range
-Harness --> Candidate: Partial content chunks
-Candidate -> Candidate: Incremental decode into bounded buffer
-Candidate -> Scheduler: ready when decoder + buffer threshold hold
-Scheduler -> Candidate: resume_at(T_coord)
-Candidate -> Metrics: Record first-audio time, RSS, bytes fetched
+Bundled -> Metrics: Import signed package, decode, lifecycle\nand hostile-input receipts
+Native -> Metrics: Import AppContainer and sandbox receipts
+PureGo -> Metrics: Import CGo-free decode, seek, ring\nand race receipts
+Harness -> Metrics: Import deterministic range/cache fault proof
 
-Researcher -> Candidate: pause
-Researcher -> Candidate: seek(position)
-Candidate -> Harness: More range reads for seek
-Researcher -> Candidate: resume
-Candidate -> Metrics: Record seek-to-audio, post-seek RSS, and skew
+Metrics -> Metrics: Verify source SHA-256 and raw failure pointers
+Metrics -> Metrics: Expand Windows-Windows, Windows-macOS\nand macOS-macOS without score averaging
 
-alt Candidate passes
-  Candidate -> Metrics: Emit comparable artifact bundle
-else Candidate fails
-  Candidate -> Metrics: Emit rejected-option evidence with exact failure mode
+alt One complete combination passes every hard gate
+  Metrics --> Researcher: Permit production selection
+else Any format/gate/pairing fails or is not run
+  Metrics --> Researcher: Reject production selection\nwith exact blockers
+  Metrics -> Manual: Route physical 30-sample and two-hour rows
 end
 
-Metrics --> Researcher: Side-by-side evidence for ADR
+Metrics --> Researcher: Reproducible fail-closed matrix for ADR
 @enduml

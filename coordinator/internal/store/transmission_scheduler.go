@@ -1295,8 +1295,8 @@ func (s *Store) TransmissionTargetForReceipt(
 	}
 	target, err := scanTransmissionTarget(s.db.QueryRow(
 		`SELECT tt.transmission_id, tt.orbit_id, tt.actor_id, tt.slot,
-tt.binding_paired_at, tt.online_at_acceptance, tt.media_clip_capable,
-tt.overlay_capable, tt.interrupt_capable, tt.interrupt_resume_ready,
+tt.binding_paired_at, tt.capability_set_hash, tt.resolved_at_ms, tt.online_at_acceptance,
+tt.media_clip_capable, tt.overlay_capable, tt.interrupt_capable, tt.interrupt_resume_ready,
 tt.status, tt.reason_code, tt.generation, tt.revision, tt.ready_at,
 tt.scheduled_at, tt.started_at, tt.ended_at, tt.last_receipt_at, tt.updated_at
 FROM transmission_targets tt

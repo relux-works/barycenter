@@ -97,6 +97,9 @@ WHERE issued_by_actor_id = ?`, now, actorID); err != nil {
 WHERE issuer_actor_id = ?`, now, actorID); err != nil {
 		return ModerationDisableResult{}, err
 	}
+	if err := revokeTransmissionInboxByActorTx(tx, actorID, now); err != nil {
+		return ModerationDisableResult{}, err
+	}
 	if err := s.checkpoint("moderation_disable_actor_before_commit"); err != nil {
 		return ModerationDisableResult{}, err
 	}
@@ -143,6 +146,9 @@ WHERE orbit_id = ?`, now, orbitID); err != nil {
 		return ModerationDisableResult{}, err
 	}
 	if _, err := tx.Exec(`UPDATE telegram_link_codes SET invalidated_at = COALESCE(invalidated_at, ?) WHERE orbit_id = ?`, now, orbitID); err != nil {
+		return ModerationDisableResult{}, err
+	}
+	if err := revokeTransmissionInboxByOrbitTx(tx, orbitID, now); err != nil {
 		return ModerationDisableResult{}, err
 	}
 	if err := s.checkpoint("moderation_disable_orbit_before_commit"); err != nil {

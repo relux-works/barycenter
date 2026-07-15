@@ -85,6 +85,9 @@ func NewMediaID(t time.Time) string { return "m_" + New(t) }
 // NewTransmissionID returns "tr_<ULID>".
 func NewTransmissionID(t time.Time) string { return "tr_" + New(t) }
 
+// NewInboxID returns "ib_<ULID>".
+func NewInboxID(t time.Time) string { return "ib_" + New(t) }
+
 // NewUploadSessionID returns "up_<ULID>".
 func NewUploadSessionID(t time.Time) string { return "up_" + New(t) }
 

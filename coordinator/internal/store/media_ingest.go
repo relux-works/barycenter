@@ -1697,10 +1697,15 @@ WHERE media_id = ? AND kind = 'publish' AND state = 'pending'`, now, now, mediaI
 	}
 	if target == MediaStatusDeleted || target == MediaStatusExpired {
 		reason := MediaCancellationDeleted
+		inboxReason := TransmissionReasonMediaDeleted
 		if target == MediaStatusExpired {
 			reason = MediaCancellationExpired
+			inboxReason = TransmissionReasonMediaExpired
 		}
 		if err := scheduleMediaDeliveryCancellationTx(tx, mediaID, newRevision, reason, now); err != nil {
+			return MediaItem{}, err
+		}
+		if err := revokeTransmissionInboxByMediaTx(tx, mediaID, inboxReason, now); err != nil {
 			return MediaItem{}, err
 		}
 	}

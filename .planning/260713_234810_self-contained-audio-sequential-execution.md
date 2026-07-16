@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 130 accepted, 75 remain.
-- Routed inventory: 186 engineering tasks (130 accepted, 56 remain) and 19
+- Combined inventory: 205 original tasks; 131 accepted, 74 remain.
+- Routed inventory: 186 engineering tasks (131 accepted, 55 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3sj8ox` — automation-surface-safety-contract
-- Next engineering task: `TASK-260712-hb5xz2` — saved-cue-media-lifecycle
-- Most recently accepted: `TASK-260712-2jbo5i` — windows-live-ptt-node-integration
-- Current branch: `chore/track-task-260712-2jbo5i`
+- Current engineering task: `TASK-260712-hb5xz2` — saved-cue-media-lifecycle
+- Next engineering task: `TASK-260712-3sv87k` — automation-schema-lineage-foundation
+- Most recently accepted: `TASK-260712-3sj8ox` — automation-surface-safety-contract
+- Current branch: `tracking/task-260712-3sj8ox-automation-surface-safety-contract`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 130 / 205 tasks (63.4%); 75 remain
-- Engineering progress: 130 / 186 tasks (approximately 69.9%); 56 remain
+- Accepted overall: 131 / 205 tasks (63.9%); 74 remain
+- Engineering progress: 131 / 186 tasks (approximately 70.4%); 55 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2525,6 +2525,29 @@ audible or physical-hardware result is claimed. Those checks stay manual in
 `TASK-260712-1rzqh9`. Progress is 130/205 overall and 130/186 engineering.
 Strict execution advances to `TASK-260712-3sj8ox`.
 
+Checkpoint 2026-07-16 (accepted automation safety contract):
+`TASK-260712-3sj8ox` resolves the deferred surface decision in favor of the
+coordinator's authenticated HTTPS `POST /v1/automation/triggers`; v1 adds no
+loopback listener, webhook, callback URL or server-side fetch. Automation is
+limited to durable ready `audio_clip` cues and hash-pinned builtins, uses only
+overlay delivery, and explicitly rejects microphone/voice, tracks, live PTT,
+arbitrary media and silent fallback. The contract freezes least-privilege
+one-time scoped principals, immutable cue/target scope, `own_barycenter`, exact
+bound-Air and allowlisted explicit audiences, no `this_pulsar` DND exception,
+block/DND/quiet-hour precedence, IANA timezone plus DST/no-catch-up occurrence
+identity, rate/concurrency caps, revoke/disable races, audit attribution and
+fail-closed `automation_cue_v1` mixed-version behavior. Executable Go constants,
+pure admission ordering and document guards keep the contract production-dark.
+Coordinator vet/full tests and automation race x10 passed; Windows full tests
+passed after one unrelated transient capture-workflow failure was repeated
+successfully 20 times, and the clean exact-head acceptance suite passed 12/12
+with `manualEvidence=not-run`. Hosted run `29533919029` passed all four jobs.
+PR #203 landed exact code head `c9b8e55` at merge
+`4d2fa559b5ceb818ff239e36495c53bc5f841b30`. Real scheduled playback,
+packaged controls, local-volume and physical DST/disable evidence remain in
+`EPIC-260714-th54l3`. Progress is 131/205 overall and 131/186 engineering.
+Strict execution advances to `TASK-260712-hb5xz2`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -3165,7 +3188,11 @@ executed before soundboard automation because it is on the epic critical path.
 
 Story: `STORY-260712-326wd5` — P3 Soundboard and safe automation.
 
-- [ ] `TASK-260712-3sj8ox` — automation-surface-safety-contract
+- [x] `TASK-260712-3sj8ox` — automation-surface-safety-contract (accepted on
+  exact code head `c9b8e55`; executable cue/audience/admission guards,
+  coordinator vet/full tests, focused race x10, clean acceptance 12/12 and
+  hosted run `29533919029` 4/4 passed; PR #203 merge `4d2fa55`. HTTPS scoped
+  API is frozen but production-dark; real-app automation evidence stays manual)
 - [ ] `TASK-260712-hb5xz2` — saved-cue-media-lifecycle
 - [ ] `TASK-260712-3sv87k` — automation-schema-lineage-foundation
 - [ ] `TASK-260712-1kk8bd` — cue-schedule-token-control-apis

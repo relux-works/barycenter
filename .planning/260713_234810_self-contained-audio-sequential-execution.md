@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 112 accepted, 93 remain.
-- Routed inventory: 186 engineering tasks (112 accepted, 74 remain) and 19
+- Combined inventory: 205 original tasks; 113 accepted, 92 remain.
+- Routed inventory: 186 engineering tasks (113 accepted, 73 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2ubzyf` — streamed-track-rollout-handoff
-- Next engineering task: `TASK-260712-2ubzyf` — streamed-track-rollout-handoff
-- Most recently accepted: `TASK-260712-2psvhu` — macos-stream-track-ui
-- Current branch: `task/task-260712-2ubzyf-streamed-track-rollout-handoff`
+- Current engineering task: `TASK-260712-14rxuk` — phase2-gate-matrix-evidence-contract
+- Next engineering task: `TASK-260712-14rxuk` — phase2-gate-matrix-evidence-contract
+- Most recently accepted: `TASK-260712-2ubzyf` — streamed-track-rollout-handoff
+- Current branch: `task/task-260712-14rxuk-phase2-gate-matrix-evidence-contract`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 112 / 205 tasks (approximately 54.6%); 93 remain
-- Engineering progress: 112 / 186 tasks (approximately 60.2%); 74 remain
+- Accepted overall: 113 / 205 tasks (approximately 55.1%); 92 remain
+- Engineering progress: 113 / 186 tasks (approximately 60.8%); 73 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2183,6 +2183,23 @@ real Narrator, packaged MSIX, one-hour audible playback and hardware remain
 manual in `TASK-260712-1fpb9q`. Progress is 111/205 overall and 111/186
 engineering; strict execution advances to `TASK-260712-2psvhu`.
 
+Checkpoint 2026-07-16 (accepted): `TASK-260712-2ubzyf` landed on exact
+engineering head `220ad213b612a6da343eb4f8f1fc3c02ca3c2005` through PR #166,
+merge `76d054d8ef8e8195ef3cfad32fcfbe01f4354b53`. The canonical human and
+machine-readable handoff freezes the candidate-only variant matrix, bounded
+cache/transport/quota values, exact operator metrics, mixed-version policy,
+revocation and additive drain-before-rollback order. The accepted codec/player
+no-go remains authoritative: current artifacts can dark-deploy stages 1-4 but
+cannot advertise or activate `stream_track_v1`; stages 5-8 require a reviewed
+replacement ADR, explicit registries and additive policy-schema revision.
+Contract tests passed 49/49. Hosted run `29494894143` attempt 2 passed all four
+jobs after an initial dependency-download failure and Windows TempDir cleanup
+flake (coordinator 2m16s, node-core 1m51s, pulsar-win 1m48s, signed packaged
+probe 2m28s). Real app, hardware, audible, production-shaped rollback and beta
+evidence remains manual and unclaimed in `EPIC-260714-th54l3`. Progress is
+113/205 overall and 113/186 engineering; strict execution advances to
+`TASK-260712-14rxuk`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -2711,7 +2728,12 @@ Story: `STORY-260712-2ori1t` — P2 Streamed user audio tracks.
   packaged-app, one-hour audible/rebuffer and hardware evidence remain manual)
 - ↪ manual `TASK-260712-1fpb9q` — streamed-track-regression-evidence →
   `EPIC-260714-th54l3`
-- [ ] `TASK-260712-2ubzyf` — streamed-track-rollout-handoff
+- [x] `TASK-260712-2ubzyf` — streamed-track-rollout-handoff
+  (accepted on engineering head `220ad21`; no-go-aware variant/cache/quota,
+  dark rollout, metrics, mixed-version, revocation and additive rollback
+  contracts passed 49 contract tests and hosted run `29494894143` attempt 2
+  4/4; PR #166 merge `76d054d`; activation stays blocked before replacement
+  ADR and all real-app/hardware/rollback/beta evidence remains manual)
 
 ## 13. P2 engineering integration and rollout readiness
 

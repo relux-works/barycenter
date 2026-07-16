@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 131 accepted, 74 remain.
-- Routed inventory: 186 engineering tasks (131 accepted, 55 remain) and 19
+- Combined inventory: 205 original tasks; 132 accepted, 73 remain.
+- Routed inventory: 186 engineering tasks (132 accepted, 54 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-hb5xz2` — saved-cue-media-lifecycle
-- Next engineering task: `TASK-260712-3sv87k` — automation-schema-lineage-foundation
-- Most recently accepted: `TASK-260712-3sj8ox` — automation-surface-safety-contract
-- Current branch: `tracking/task-260712-3sj8ox-automation-surface-safety-contract`
+- Current engineering task: `TASK-260712-3sv87k` — automation-schema-lineage-foundation
+- Next engineering task: `TASK-260712-1kk8bd` — cue-schedule-token-control-apis
+- Most recently accepted: `TASK-260712-hb5xz2` — saved-cue-media-lifecycle
+- Current branch: `tracking/task-260712-hb5xz2-saved-cue-media-lifecycle`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -2548,6 +2548,23 @@ packaged controls, local-volume and physical DST/disable evidence remain in
 `EPIC-260714-th54l3`. Progress is 131/205 overall and 131/186 engineering.
 Strict execution advances to `TASK-260712-hb5xz2`.
 
+Checkpoint 2026-07-16 (accepted saved-cue media lifecycle):
+`TASK-260712-hb5xz2` adds owner-scoped, generation-safe durable references to
+same-orbit canonical ready app `audio_clip` media and the exact hash-pinned
+recording builtin. Active rows are explicit retention pins; derived COUNT/SUM
+accounting enforces 64-cue, 50 MiB orbit and 10 MiB/60-second item bounds
+without crash-prone counters. Replace, delete and canonical media/actor/orbit
+disable transactions write exact-generation `cancel`, `fade_stop` and
+`resume_once` revocations, while startup reconciliation fails stale authority
+or corrupt sources closed. Focused lifecycle tests passed ten repeats and race
+three repeats; clean exact-head acceptance passed 12/12 with
+`manualEvidence=not-run`, and hosted run `29536161963` passed all four jobs.
+PR #205 landed exact code head `8ccd770` at merge
+`ae1812f3a5b6dff20c696a0ef19342a3c38ba83e`. No HTTP route, scheduler,
+desktop composition or automation capability was enabled; real-app and
+hardware evidence remains in `EPIC-260714-th54l3`. Progress is 132/205 overall
+and 132/186 engineering. Strict execution advances to `TASK-260712-3sv87k`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -3193,7 +3210,12 @@ Story: `STORY-260712-326wd5` — P3 Soundboard and safe automation.
   coordinator vet/full tests, focused race x10, clean acceptance 12/12 and
   hosted run `29533919029` 4/4 passed; PR #203 merge `4d2fa55`. HTTPS scoped
   API is frozen but production-dark; real-app automation evidence stays manual)
-- [ ] `TASK-260712-hb5xz2` — saved-cue-media-lifecycle
+- [x] `TASK-260712-hb5xz2` — saved-cue-media-lifecycle (accepted on exact code
+  head `8ccd770`; owner-scoped canonical media pins, derived count/byte quotas,
+  generation-safe revoke actions and startup reconciliation; focused tests x10,
+  race x3, clean acceptance 12/12 and hosted run `29536161963` 4/4 passed; PR
+  #205 merge `ae1812f3`. Automation remains production-dark and manual app/
+  hardware evidence remains deferred)
 - [ ] `TASK-260712-3sv87k` — automation-schema-lineage-foundation
 - [ ] `TASK-260712-1kk8bd` — cue-schedule-token-control-apis
 - [ ] `TASK-260712-1eva0y` — automation-runtime-revoke-ratelimits

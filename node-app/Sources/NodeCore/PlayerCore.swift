@@ -366,12 +366,16 @@ public final class PlayerCore: MacInterruptControlling {
             case .streamLoad, .streamResumeAt, .streamSeek, .streamPause, .streamCancel:
                 self.log.warn("rejecting unadvertised stream_track_v1 command",
                               ["type": head.type])
+            case .livePTTStart, .livePTTEnd, .livePTTCancel:
+                self.log.warn("rejecting unadvertised live_ptt_v1 command",
+                              ["type": head.type])
             case .welcome, .pong, .register, .state, .ready, .started, .ended,
                  .voiceStarted, .voiceEnded, .waitEnded, .error, .ping, .externalPlayback,
                  .setProvider, .userPause, .userResume, .mediaReady,
                  .mediaStarted, .mediaEnded, .mediaFailed, .mediaCancelled, .setDND,
                  .streamReady, .streamStarted, .streamProgress, .streamRebuffer,
-                 .streamFailed, .streamEnded, .streamCancelled:
+                 .streamFailed, .streamEnded, .streamCancelled, .livePTTAccept,
+                 .livePTTReject, .livePTTFailed, .livePTTReceipt, .livePTTState:
                 self.log.debug("ignoring non-command", ["type": head.type])
             }
         }

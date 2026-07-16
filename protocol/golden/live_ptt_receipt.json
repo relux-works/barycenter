@@ -1,0 +1,1 @@
+{"v":1,"id":"msg_01ARZ3NDEKTSV4RRFFQ69G5FAV","ts":1770000001000,"type":"live_ptt_receipt","payload":{"session_id":"00112233445566778899aabbccddeeff","generation":7,"event_sequence":3,"state":"audible_started","last_sequence":4,"observed_at_coord_ms":1770000001000}}

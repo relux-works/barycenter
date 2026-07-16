@@ -29,6 +29,7 @@ const (
 
 const (
 	CapabilityInterruptResume  = "interrupt_resume_v1"
+	CapabilityLivePTT          = LivePTTCapability
 	CapabilityMediaClip        = "media_clip_v1"
 	CapabilityOverlayMix       = "overlay_mix_v1"
 	CapabilitySeamlessAdoption = "seamless_adoption_v1"
@@ -108,6 +109,16 @@ const (
 	TypeStreamSeek     = "stream_seek"
 	TypeStreamPause    = "stream_pause"
 	TypeStreamCancel   = "stream_cancel"
+	// live_ptt_v1 signalling is bidirectional; direction is constrained by the
+	// session state machine rather than by distinct envelope names.
+	TypeLivePTTStart   = "live_ptt_start"
+	TypeLivePTTAccept  = "live_ptt_accept"
+	TypeLivePTTReject  = "live_ptt_reject"
+	TypeLivePTTEnd     = "live_ptt_end"
+	TypeLivePTTCancel  = "live_ptt_cancel"
+	TypeLivePTTFailed  = "live_ptt_failed"
+	TypeLivePTTReceipt = "live_ptt_receipt"
+	TypeLivePTTState   = "live_ptt_state"
 )
 
 // Node -> coordinator message types.

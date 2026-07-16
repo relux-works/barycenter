@@ -29,7 +29,7 @@ private func isMessageID(_ value: String) -> Bool {
 }
 
 @Suite struct ProtocolContractTests {
-    static let expectedTypeCount = 51
+    static let expectedTypeCount = 59
 
     @Test func goldenDirComplete() throws {
         let files = try FileManager.default.contentsOfDirectory(at: goldenDir(), includingPropertiesForKeys: nil)
@@ -118,6 +118,7 @@ private func isMessageID(_ value: String) -> Bool {
     @Test func capabilityListsAreCanonicalAndAdditive() {
         let capabilities = [
             interruptResumeCapability,
+            livePTTCapability,
             mediaClipCapability,
             overlayMixCapability,
             seamlessAdoptionCapability,

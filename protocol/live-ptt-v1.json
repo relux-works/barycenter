@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "contract": "live-ptt-wire.v1",
+  "capability": "live_ptt_v1",
+  "protocolMajor": 1,
+  "productionMode": "disabled_pending_runtime_and_physical_c2_evidence",
+  "signals": ["live_ptt_start","live_ptt_accept","live_ptt_reject","live_ptt_end","live_ptt_cancel","live_ptt_failed","live_ptt_receipt","live_ptt_state"],
+  "identity": {"sessionId":"random_128_bit_lowercase_hex","generation":"strictly_monotonic_per_playback_domain","sequenceStartsAt":1,"duplicate":"no_side_effect","older":"discard_stale"},
+  "binary": {"magic":"BP","version":1,"headerBytes":40,"maxPayloadBytes":400,"byteOrder":"big_endian","codecProfile":"opus-1.6.1-48k-mono-20ms-24k-cvbr-c5-fec2","frameMS":20,"maxGapFrames":8,"gapAction":"fec_then_plc","retransmit":false},
+  "authority": {"capture":"local_user_input_only","remoteMicStart":false,"oneActiveSpeakerPerDomain":true},
+  "targets": {"frozenAtStart":true,"lateJoin":"never_auto_join","max":64,"dndBlockPolicy":"checked_before_accept_and_continuously"},
+  "lifecycle": {"acceptTimeoutMS":1500,"drainTimeoutMS":600,"maxDurationMS":300000,"persistMedia":false,"resumeAfterReconnect":false,"resumeAfterRestart":false},
+  "mixedVersion": {"policies":["require_all","supported_only_with_receipts"],"unsupportedIsTerminalAndVisible":true,"automaticClipFallback":false,"phase1ToggleClipMayBeOfferedSeparately":true},
+  "compatibility": {"additiveTypesOnly":true,"legacyClipAndTrackUnchanged":true,"advertiseBeforeRuntimeReady":false}
+}

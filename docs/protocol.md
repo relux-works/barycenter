@@ -2,6 +2,11 @@
 
 Normative source: spec ch. 8 (`docs/spec.md` v1.2). Golden files: `protocol/golden/*.json`, one per message type; contract tests on both sides decode -> re-encode -> compare against them (spec 8.7). Any protocol change lands together with the golden change in the same commit (goal invariant 5).
 
+The additive, generation-safe `live_ptt_v1` signalling catalog, bounded binary
+frame, mixed-version behavior and non-resume rules are frozen in the
+[P3 live PTT wire contract](analysis/p3-live-ptt-wire-contract.md). Its
+capability remains unadvertised until the later runtime and platform gates pass.
+
 The exact additive phase-one clip-transmission, DND and presence payloads are
 frozen in [`docs/analysis/p1-transmission-contract-v1.md`](analysis/p1-transmission-contract-v1.md)
 and shipped in the canonical Go codec plus the Windows and Swift mirrors. The

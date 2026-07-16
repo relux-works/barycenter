@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-streamed-track-rollout-handoff.v1",
+  "task": "TASK-260712-2ubzyf",
+  "scope": "repository-engineering-handoff",
+  "executionStatus": "documented-not-executed",
+  "sourceContracts": [
+    "p2-codec-player-adr-handoff.v1",
+    "p2-stream-track-wire.v1",
+    "p2-targets-inbox-rollout-handoff.v1",
+    "pulsar.air-lifecycle-policy.v1",
+    "p2-content-policy-consent.v1"
+  ],
+  "productionActivation": {
+    "featureFlag": "streamed_tracks",
+    "featureFlagImplementation": "absent-until-reviewed-replacement-adr-and-schema-revision",
+    "currentValue": false,
+    "activationAllowedNow": false,
+    "currentMaximumRolloutStage": 4,
+    "selectedProfile": null,
+    "productionDecoderRegistry": [],
+    "wireCapabilityAdvertised": false,
+    "blockedBy": "p2-codec-player-adr-handoff.v1",
+    "futureAuthority": "coordinator-owned per-orbit allowlist; caller visibility is never authority"
+  },
+  "variantMatrix": {
+    "selectedProductionVariant": null,
+    "originalUploadIsDecoderInput": false,
+    "serverPinnedProfileOnly": true,
+    "candidatePairsForSchemaAndTestsOnly": [
+      {"codec": "mp3", "container": "mp3", "mime": "audio/mpeg"},
+      {"codec": "aac-lc", "container": "m4a-faststart", "mime": "audio/mp4"},
+      {"codec": "aac-lc", "container": "adts", "mime": "audio/aac"},
+      {"codec": "opus", "container": "ogg", "mime": "audio/ogg"}
+    ],
+    "storageKey": "stream/v1/{sha256}",
+    "immutableAfterPublish": true,
+    "readyRequired": true,
+    "revokedIsTerminal": true
+  },
+  "bounds": {
+    "maximumInputBytes": 524288000,
+    "maximumDurationMS": 7200000,
+    "maximumChunkBytes": 1048576,
+    "maximumNetworkReadBytes": 1048576,
+    "installationCacheBytes": 536870912,
+    "perVariantCacheBytes": 67108864,
+    "pinnedCacheBytes": 134217728,
+    "decoderRingBytes": 1048576,
+    "seekPointSpacingMS": 10000,
+    "minimumBufferedMS": 2000,
+    "trackStartP95MS": 5000,
+    "seekToAudioP95MS": 3000,
+    "startSkewP95MS": 100,
+    "processingAndEgressLeaseStaleMS": 1800000,
+    "reconciliationIntervalMS": 300000
+  },
+  "quotaDefaults": {
+    "actor": {
+      "uploadStarts24h": 100,
+      "inputBytes24h": 5368709120,
+      "canonicalBytes": 10737418240,
+      "temporaryProcessingBytes": 2147483648,
+      "concurrentJobs": 2,
+      "retainedTrackBytes": 21474836480,
+      "egressBytes24h": 107374182400
+    },
+    "orbit": {
+      "uploadStarts24h": 500,
+      "inputBytes24h": 26843545600,
+      "canonicalBytes": 53687091200,
+      "temporaryProcessingBytes": 8589934592,
+      "concurrentJobs": 8,
+      "retainedTrackBytes": 107374182400,
+      "egressBytes24h": 536870912000
+    },
+    "onePlaybackReservationMaximumVariantMultiplier": 2,
+    "betaCalibrationOwner": "TASK-260712-2pnc5a",
+    "override": "revision-conditional audited operator decision; lowering blocks new work and never interrupts admitted playback"
+  },
+  "rollout": [
+    {
+      "sequence": 1,
+      "id": "freeze-backup-and-record",
+      "required": ["record exact coordinator and client artifacts", "record accepted ADR and policy hashes", "take SQLite-safe backup", "retain tested predecessor artifact"],
+      "activationAllowed": false
+    },
+    {
+      "sequence": 2,
+      "id": "coordinator-additive-schema-dark",
+      "required": ["deploy coordinator first", "install additive stream and accounting tables", "retain production policy disabled with empty profile", "keep queue and replace entry points withdrawn"],
+      "activationAllowed": false
+    },
+    {
+      "sequence": 3,
+      "id": "reconcile-and-observe-dark",
+      "required": ["complete integrity and foreign-key checks", "run five-minute lease reconciliation", "verify public health redaction and authenticated operator view", "verify exact predecessor preservation"],
+      "activationAllowed": false
+    },
+    {
+      "sequence": 4,
+      "id": "clients-and-adapters-dark",
+      "required": ["deploy candidate-neutral Windows and macOS cache/player seams", "deploy shared UI and Telegram projections", "advertise no stream_track_v1 capability", "keep unsupported state visible with no fallback"],
+      "activationAllowed": false
+    },
+    {
+      "sequence": 5,
+      "id": "replacement-adr-and-runtime-gate",
+      "required": ["accept a reviewed replacement codec/player ADR", "add explicit production encoder and decoder registries", "revise the policy schema without weakening additive rollback", "pass signed packaged cross-platform release obligations"],
+      "activationAllowed": false,
+      "blockedByCurrentNoGo": true
+    },
+    {
+      "sequence": 6,
+      "id": "internal-orbit-enable",
+      "required": ["set one coordinator-owned internal-orbit allowlist entry", "select one reviewed server profile", "require exact reconnected node capabilities", "monitor operator accounting and generation-bound failures"],
+      "activationAllowed": false,
+      "manualEvidenceRequired": true
+    },
+    {
+      "sequence": 7,
+      "id": "bounded-orbit-expansion",
+      "required": ["expand only after telemetry review", "preserve sender-selected mixed-version policy", "keep report, delete and disable revocation live", "retain immediate flag-off and drain path"],
+      "activationAllowed": false,
+      "manualEvidenceRequired": true
+    },
+    {
+      "sequence": 8,
+      "id": "store-and-public-promotion",
+      "required": ["complete real packaged platform matrix", "complete production-shaped rollback rehearsal", "complete seven-day beta quota calibration", "accept Phase 2 promotion packet"],
+      "activationAllowed": false,
+      "manualEvidenceRequired": true
+    }
+  ],
+  "mixedVersion": {
+    "senderSelectedPolicies": ["require_all", "supported_only_with_receipts"],
+    "requireAll": "reject before queue when any frozen target lacks stream_track_v1",
+    "supportedOnlyWithReceipts": "queue only capable frozen targets and create terminal unsupported receipts for the rest",
+    "clipFallbackAllowed": false,
+    "spotifyFallbackAllowed": false,
+    "broadcastFallbackAllowed": false,
+    "lateAutoplayAfterUpgradeAllowed": false,
+    "unknownCapability": "visible unsupported",
+    "capabilityReconnect": "replace the advertised set; affects only a new sender decision and snapshot"
+  },
+  "revocation": {
+    "plainReport": "reporter-local hide and no-refill only; does not revoke another accepted target",
+    "senderDelete": "deny every future open, cancel matching work through generation-bound paths, tombstone pinned cache and remove unpinned cache",
+    "moderatorDelete": "same global future-open and cache revocation as sender delete with audited authority",
+    "variantRevoke": "terminal uniform 404 for every future open and no refill",
+    "ownerActorOrOrbitDisable": "uniform 404 for every future open and no refill",
+    "alreadyOpenBoundedRead": "may finish at most the current verified 1 MiB chunk; grants no later open"
+  },
+  "observability": {
+    "publicHealthFields": ["ready", "saturated", "last_reconciled_at"],
+    "operatorView": "GET /v1/moderation/stream-accounting",
+    "operatorPolicy": "POST /v1/moderation/stream-accounting/policies",
+    "operatorAudit": "GET /v1/moderation/stream-accounting/policies/audit",
+    "exactMetrics": ["processing_crash_releases", "egress_crash_releases", "upload_starts_24h", "input_bytes_24h", "canonical_bytes", "retained_storage_bytes", "temp_processing_bytes", "temp_processing_reserved_bytes", "concurrent_jobs", "range_requests_24h", "actual_egress_bytes_24h", "active_egress_reserved_bytes", "quota_rejections_24h", "saturated_scopes_24h"],
+    "promotionBlockers": ["ready is false", "saturated is true without an approved capacity decision", "unexplained crash-release growth", "unreconciled quota or egress mismatch"]
+  },
+  "rollback": {
+    "flagOffFirst": true,
+    "withdrawFirst": ["new streamed-track upload exposure", "queue", "replace", "replay as streamed track", "new Telegram track callback"],
+    "readsAndSafetyMutationsRemain": ["history and receipts", "delete", "report", "block", "audited moderation disable", "generation-bound cancel"],
+    "drain": "finish or canonically cancel active generations and wait for bounded acknowledgements; never edit queue, target or accounting rows manually",
+    "stopWriterBeforeArtifactChange": true,
+    "downMigrationAllowed": false,
+    "manualSQLLifecycleMutationAllowed": false,
+    "preserveTables": ["stream_track_metadata", "stream_variants", "stream_variant_policy", "stream_processing_jobs", "stream_egress_sessions", "stream_egress_events", "stream_quota_policies", "stream_quota_policy_audit", "stream_playback_domains", "stream_queue_items", "transmission_targets", "transmission_inbox_items", "content_policy_acceptances", "moderation_reports"],
+    "testedPredecessorRevision": "06a06c099ed5b4f37f5e2dd3648772ffd041dfd9",
+    "rollForward": "keep callers withdrawn, redeploy current coordinator, reconcile additive state, verify ACL/accounting/generations, then repeat the ordered gates"
+  },
+  "downstream": [
+    {"task": "TASK-260712-14rxuk", "consume": "map each automated and manual gate without converting this handoff into execution evidence"},
+    {"task": "TASK-260712-qi81vf", "consume": "use the existing accounting authorities and exact metric inventory; do not create parallel counters"},
+    {"task": "TASK-260712-1kfnpu", "consume": "review no-go preservation, additive rollback, target ACL and residual manual boundary"},
+    {"task": "TASK-260712-2bdi4a", "consume": "execute the real one-hour cross-platform B1 matrix after a replacement ADR"},
+    {"task": "TASK-260712-3qybi2", "consume": "execute production-shaped flag-off, drain, predecessor rollback and roll-forward"},
+    {"task": "TASK-260712-3u5cdn", "consume": "execute real mixed-fleet rights, report, delete and disable revocation"},
+    {"task": "TASK-260712-2pnc5a", "consume": "calibrate defaults from a seven-day beta without rewriting historical accounting"},
+    {"task": "TASK-260712-3a0cf9", "consume": "keep promotion blocked until all engineering reviews and manual gates are explicit"}
+  ],
+  "evidence": [
+    {"path": "acceptance/codec-spike/player-handoff-v1.json", "symbol": "\"production\": \"no-go\""},
+    {"path": "coordinator/internal/store/stream_track_schema.go", "symbol": "CHECK(production_selection_enabled = 0 AND selected_profile = '')"},
+    {"path": "coordinator/internal/store/media_ingest_previous_head_test.go", "symbol": "TestMediaIngestExactPreviousHeadRollback"},
+    {"path": "coordinator/internal/store/stream_accounting.go", "symbol": "type StreamAccountingSnapshot struct"},
+    {"path": "coordinator/cmd/duet-coordinator/stream_accounting_http.go", "symbol": "addStreamAccountingHealth"},
+    {"path": "coordinator/cmd/duet-coordinator/media_download_test.go", "symbol": "TestStreamVariantHTTP"},
+    {"path": "coordinator/internal/session/stream_flow_test.go", "symbol": "TestStreamMainProgram"},
+    {"path": "protocol/stream-track-v1.json", "symbol": "\"productionMode\": \"disabled-by-p2-codec-player-adr-handoff.v1\""},
+    {"path": "node-app/Sources/NodeCore/MacStreamTrackCache.swift", "symbol": "maximumChunkBytes"},
+    {"path": "pulsar-win/stream_cache.go", "symbol": "windowsStreamMaximumChunkBytes"},
+    {"path": "docs/analysis/p2-targets-inbox-rollout-handoff.md", "symbol": "## Drain-before-rollback and roll-forward"},
+    {"path": "docs/analysis/p2-air-lifecycle-regression-rehearsal.md", "symbol": "## Explicit downstream gaps"}
+  ],
+  "manualBoundary": [
+    {"task": "TASK-260712-1fpb9q", "epic": "EPIC-260714-th54l3", "status": "manual-required"},
+    {"task": "TASK-260712-21kz3b", "epic": "EPIC-260714-th54l3", "status": "manual-required"},
+    {"task": "TASK-260712-2bdi4a", "epic": "EPIC-260714-th54l3", "status": "manual-required"},
+    {"task": "TASK-260712-3qybi2", "epic": "EPIC-260714-th54l3", "status": "manual-required"},
+    {"task": "TASK-260712-3u5cdn", "epic": "EPIC-260714-th54l3", "status": "manual-required"},
+    {"task": "TASK-260712-2pnc5a", "epic": "EPIC-260714-th54l3", "status": "manual-required"}
+  ]
+}

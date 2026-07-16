@@ -36,9 +36,11 @@ type WSClient struct {
 	clock    *ClockSync
 
 	// Set by the owner before Start.
-	OnMessage     func(env protocol.Envelope, payload any)
-	OnConnected   func()
-	StateProvider func() protocol.StatePayload
+	OnMessage      func(env protocol.Envelope, payload any)
+	OnLivePTTFrame func(frame protocol.LivePTTBinaryFrame)
+	OnDisconnected func()
+	OnConnected    func()
+	StateProvider  func() protocol.StatePayload
 
 	// Intervals are variables so tests can shrink them.
 	PingInterval      time.Duration // spec 8.5: every 10 s
@@ -46,12 +48,22 @@ type WSClient struct {
 	MinBackoff        time.Duration
 	MaxBackoff        time.Duration
 
-	mu      sync.Mutex
-	conn    *websocket.Conn
-	backoff time.Duration
-	stopped bool
-	healthy bool // welcome exchanged and link up (tray status)
-	stop    chan struct{}
+	mu               sync.Mutex
+	conn             *websocket.Conn
+	backoff          time.Duration
+	stopped          bool
+	healthy          bool // welcome exchanged and link up (tray status)
+	stop             chan struct{}
+	liveSend         chan livePTTSend
+	liveSlots        chan struct{}
+	liveControlSlots chan struct{}
+}
+
+type livePTTSend struct {
+	conn        *websocket.Conn
+	messageType int
+	data        []byte
+	control     bool
 }
 
 func NewWSClient(url string, identity Identity, log *slog.Logger) *WSClient {
@@ -76,6 +88,9 @@ func NewWSClient(url string, identity Identity, log *slog.Logger) *WSClient {
 		MinBackoff:        time.Second,
 		MaxBackoff:        60 * time.Second,
 		stop:              make(chan struct{}),
+		liveSend:          make(chan livePTTSend, 24),
+		liveSlots:         make(chan struct{}, 8),
+		liveControlSlots:  make(chan struct{}, 16),
 	}
 }
 
@@ -85,6 +100,7 @@ func (c *WSClient) Start() {
 	c.mu.Lock()
 	c.backoff = c.MinBackoff
 	c.mu.Unlock()
+	go c.liveWriter()
 	go c.run()
 }
 
@@ -144,6 +160,111 @@ func (c *WSClient) Send(msgType string, payload any) {
 	}
 }
 
+// TrySendLivePTTFrame is a non-blocking, connection-bound binary seam. The
+// production app does not advertise live_ptt_v1, so it fails closed there.
+// Even a future enabled composition can hold at most eight queued/in-flight
+// frames and cannot leak an old connection's frame after reconnect.
+func (c *WSClient) TrySendLivePTTFrame(frame protocol.LivePTTBinaryFrame) bool {
+	data, err := protocol.EncodeLivePTTBinaryFrame(frame)
+	if err != nil || !containsCapability(c.identity.Capabilities, protocol.CapabilityLivePTT) {
+		return false
+	}
+	c.mu.Lock()
+	conn, ready := c.conn, c.conn != nil && c.healthy && !c.stopped
+	c.mu.Unlock()
+	if !ready {
+		return false
+	}
+	select {
+	case c.liveSlots <- struct{}{}:
+	default:
+		return false
+	}
+	item := livePTTSend{conn: conn, messageType: websocket.BinaryMessage, data: data}
+	select {
+	case c.liveSend <- item:
+		return true
+	default:
+		<-c.liveSlots
+		return false
+	}
+}
+
+// TrySendLivePTTControl puts validated live signalling on the same FIFO as
+// binary frames. A terminal control therefore cannot overtake an already
+// accepted final frame. Sixteen control slots are separate from the exact
+// eight-frame binary bound.
+func (c *WSClient) TrySendLivePTTControl(msgType string, payload any) bool {
+	if !windowsLiveControlType(msgType) || !containsCapability(c.identity.Capabilities, protocol.CapabilityLivePTT) {
+		return false
+	}
+	envelope, err := protocol.NewEnvelope(newMessageID(time.Now()), nowMS(), msgType, payload)
+	if err != nil {
+		return false
+	}
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		return false
+	}
+	c.mu.Lock()
+	conn, ready := c.conn, c.conn != nil && c.healthy && !c.stopped
+	c.mu.Unlock()
+	if !ready {
+		return false
+	}
+	select {
+	case c.liveControlSlots <- struct{}{}:
+	default:
+		return false
+	}
+	item := livePTTSend{conn: conn, messageType: websocket.TextMessage, data: data, control: true}
+	select {
+	case c.liveSend <- item:
+		return true
+	default:
+		<-c.liveControlSlots
+		return false
+	}
+}
+
+func windowsLiveControlType(msgType string) bool {
+	switch msgType {
+	case protocol.TypeLivePTTStart, protocol.TypeLivePTTAccept, protocol.TypeLivePTTReject,
+		protocol.TypeLivePTTEnd, protocol.TypeLivePTTCancel, protocol.TypeLivePTTFailed,
+		protocol.TypeLivePTTReceipt:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *WSClient) liveWriter() {
+	for {
+		select {
+		case <-c.stop:
+			return
+		case item := <-c.liveSend:
+			c.mu.Lock()
+			valid := c.conn == item.conn && c.healthy && !c.stopped
+			var err error
+			if valid {
+				item.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				err = item.conn.WriteMessage(item.messageType, item.data)
+			}
+			c.mu.Unlock()
+			if item.control {
+				<-c.liveControlSlots
+			} else {
+				<-c.liveSlots
+			}
+			if err != nil {
+				c.log.Warn("live binary send failed", "err", err)
+				_ = item.conn.Close()
+			}
+		}
+	}
+}
+
 func (c *WSClient) run() {
 	for {
 		select {
@@ -191,9 +312,13 @@ func (c *WSClient) run() {
 		c.mu.Lock()
 		if c.conn == conn {
 			c.conn = nil
+			c.healthy = false
 		}
 		c.mu.Unlock()
 		conn.Close()
+		if c.OnDisconnected != nil {
+			c.OnDisconnected()
+		}
 
 		if !c.sleepBackoff() {
 			return
@@ -242,7 +367,7 @@ func (c *WSClient) timers(done <-chan struct{}) {
 
 func (c *WSClient) readLoop(conn *websocket.Conn) {
 	for {
-		_, raw, err := conn.ReadMessage()
+		messageType, raw, err := conn.ReadMessage()
 		if err != nil {
 			select {
 			case <-c.stop:
@@ -252,6 +377,10 @@ func (c *WSClient) readLoop(conn *websocket.Conn) {
 			return
 		}
 		t4 := nowMS()
+		if messageType == websocket.BinaryMessage {
+			c.handleLivePTTBinary(raw)
+			continue
+		}
 
 		var env protocol.Envelope
 		if err := json.Unmarshal(raw, &env); err != nil {
@@ -284,6 +413,23 @@ func (c *WSClient) readLoop(conn *websocket.Conn) {
 			c.OnMessage(env, payload)
 		}
 	}
+}
+
+func (c *WSClient) handleLivePTTBinary(raw []byte) {
+	c.mu.Lock()
+	ready := c.healthy && containsCapability(c.identity.Capabilities, protocol.CapabilityLivePTT)
+	handler := c.OnLivePTTFrame
+	c.mu.Unlock()
+	if !ready || handler == nil {
+		c.log.Debug("unadvertised live binary ignored")
+		return
+	}
+	frame, err := protocol.DecodeLivePTTBinaryFrame(raw)
+	if err != nil {
+		c.log.Warn("malformed live binary ignored", "err", err)
+		return
+	}
+	handler(frame)
 }
 
 // sleepBackoff waits the current backoff (doubling it, capped at MaxBackoff)

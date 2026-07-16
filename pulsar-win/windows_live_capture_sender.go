@@ -145,6 +145,7 @@ func (r *windowsLiveCaptureRuntime) terminal() (WindowsLiveCaptureStopReason, ui
 // provide every frozen encoder control.
 type WindowsLiveCaptureSender struct {
 	mu               sync.Mutex
+	eventMu          sync.RWMutex
 	backend          WindowsMicrophoneBackend
 	encoder          WindowsLiveOpusEncoder
 	coordinatorNowMS func() int64
@@ -164,6 +165,15 @@ type WindowsLiveCaptureSender struct {
 	streamActive     bool
 	encodedFrames    uint64
 	encodedBytes     uint64
+}
+
+func (s *WindowsLiveCaptureSender) SetEventHandler(handler func(WindowsLiveCaptureEvent)) {
+	if s == nil {
+		return
+	}
+	s.eventMu.Lock()
+	s.onEvent = handler
+	s.eventMu.Unlock()
 }
 
 func NewWindowsLiveCaptureSender(
@@ -709,8 +719,11 @@ func (s *WindowsLiveCaptureSender) watchdogWorker(runtime *windowsLiveCaptureRun
 }
 
 func (s *WindowsLiveCaptureSender) emit(event WindowsLiveCaptureEvent) {
-	if s.onEvent != nil {
-		s.onEvent(event)
+	s.eventMu.RLock()
+	handler := s.onEvent
+	s.eventMu.RUnlock()
+	if handler != nil {
+		handler(event)
 	}
 }
 

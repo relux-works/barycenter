@@ -19,6 +19,7 @@ var (
 	ErrTransmissionDeliveryKindMismatch    = errors.New("transmission delivery and media kind mismatch")
 	ErrTransmissionOverlayDurationExceeded = errors.New("transmission overlay duration exceeded")
 	ErrTransmissionUnsupportedTargets      = errors.New("transmission targets do not support the requested delivery")
+	ErrTransmissionReplayDepthExceeded     = errors.New("transmission replay depth exceeded")
 )
 
 const (
@@ -103,6 +104,10 @@ type CreateResolvedTransmissionParams struct {
 	Availability       []TransmissionTargetAvailability
 	Confirmation       *ConfirmTransmissionFallback
 	ChallengeTokenHash string
+	// ReplayInboxID is set only by the authorized inbox replay service. It
+	// permits the exact current target to reuse sender-owned media and seals
+	// lineage in the same transaction as the new transmission acceptance.
+	ReplayInboxID string
 }
 
 type TransmissionAlternative struct {
@@ -246,6 +251,12 @@ func validResolvedTransmissionParams(params CreateResolvedTransmissionParams) bo
 		!transmissionDigestPattern.MatchString(params.RequestHash) ||
 		!mediaItemIDPattern.MatchString(params.MediaID) || params.AcceptedAt <= 0 ||
 		!validTransmissionDelivery(params.RequestedDelivery) {
+		return false
+	}
+	if params.ReplayInboxID != "" &&
+		(!transmissionInboxIDPattern.MatchString(params.ReplayInboxID) ||
+			params.AudienceKind != TransmissionAudienceThisPulsar ||
+			params.OriginKind != TransmissionOriginFile || !params.IncludeOrigin) {
 		return false
 	}
 	if params.PolicyAt != 0 && params.PolicyAt < params.AcceptedAt {
@@ -432,8 +443,27 @@ func resolveTransmissionMediaTx(
 	ctx ActorContext,
 	params CreateResolvedTransmissionParams,
 ) (MediaItem, error) {
-	mediaItem, err := scanMediaItem(tx.QueryRow(`SELECT `+mediaItemColumns+`
-FROM media_items WHERE id = ? AND owner_orbit_id = ?`, params.MediaID, ctx.OrbitID))
+	query := `SELECT ` + mediaItemColumns + ` FROM media_items WHERE id = ? AND owner_orbit_id = ?`
+	args := []any{params.MediaID, ctx.OrbitID}
+	if params.ReplayInboxID != "" {
+		pairedAt, err := currentInboxBindingTx(tx, ctx)
+		if err != nil {
+			return MediaItem{}, ErrTransmissionMediaNotFound
+		}
+		inbox, err := loadAuthorizedInboxItemTx(
+			tx, ctx, pairedAt, params.ReplayInboxID, params.AcceptedAt,
+		)
+		if err != nil || inbox.Availability != TransmissionInboxAvailable ||
+			inbox.MediaID != params.MediaID {
+			return MediaItem{}, ErrTransmissionMediaNotFound
+		}
+		if inbox.ReplayDepth >= 8 {
+			return MediaItem{}, ErrTransmissionReplayDepthExceeded
+		}
+		query = `SELECT ` + mediaItemColumns + ` FROM media_items WHERE id = ?`
+		args = []any{params.MediaID}
+	}
+	mediaItem, err := scanMediaItem(tx.QueryRow(query, args...))
 	if errors.Is(err, sql.ErrNoRows) {
 		return MediaItem{}, ErrTransmissionMediaNotFound
 	}
@@ -1145,6 +1175,16 @@ func (s *Store) createResolvedTransmissionTx(
 			ctx.ActorID, ctx.OrbitID, "air.policy.authorize."+string(acceptedAuthorization.Operation),
 			airPolicyValue(*policyContext, acceptedAuthorization.Operation), creation.Transmission.ID,
 			"ok", params.AcceptedAt); err != nil {
+			return ResolvedTransmissionCreation{}, err
+		}
+	}
+	if params.ReplayInboxID != "" {
+		if err := commitTransmissionReplayLineageTx(
+			tx, params.ReplayInboxID, creation.Transmission.ID, params.AcceptedAt,
+		); err != nil {
+			if errors.Is(err, ErrTransmissionInboxConflict) {
+				return ResolvedTransmissionCreation{}, ErrTransmissionMediaNotFound
+			}
 			return ResolvedTransmissionCreation{}, err
 		}
 	}

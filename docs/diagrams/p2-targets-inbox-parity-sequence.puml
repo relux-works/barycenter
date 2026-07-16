@@ -59,9 +59,13 @@ txsvc -> db : revoke fetch first + cancel active work
 == Later ==
 
 c -> adapter : open inbox and select replay
-adapter -> txsvc : replay missed item\n(local or targeted)
-txsvc -> db : verify media not deleted / actor not disabled\nitem not expired
-txsvc -> db : create new transmission + target snapshot\nretain bounded replay lineage
+adapter -> txsvc : GET opaque inbox page\n(no autoplay or queue side effect)
+txsvc -> db : credential + binding-bound cursor\nfrozen upper key / exact target only
+txsvc --> adapter : ib_ + hi_ handles, safe labels\nand one exact receipt
+c -> adapter : explicit replay action
+adapter -> txsvc : POST ib_/replays + idempotency key
+txsvc -> db : verify media not deleted / actor not disabled\nitem not expired / current content policy
+txsvc -> db : create new transmission + target snapshot\nconsume item + retain bounded lineage
 txsvc -> runtime : deliver only from explicit replay action
 
 @enduml

@@ -23,14 +23,14 @@ package "Coordinator" {
 }
 
 database "Store\nmedia_items\ntransmissions\ntransmission_targets\ntarget reference digests\nreports\nairs / air_members" as db
-database "Inbox Projection\ntransmission_inbox_items\ntransmission_replay_lineage\ninbox cursor digests" as inboxdb
+database "Inbox Projection\ntransmission_inbox_items\ntransmission_replay_lineage\ninbox + receipt cursor digests" as inboxdb
 component "Air Membership and Presence\n(active Air, capabilities, DND)" as air
 component "Windows/macOS Pulsars" as nodes
 
 ui --> ingest : upload / record / select media
 ui --> targetrefs : list authorized opaque trf_ capabilities
 ui --> txsvc : create transmission\nreplay / delete / cancel
-ui --> inboxsvc : history / inbox / receipts
+ui --> inboxsvc : GET history / inbox / receipts\nexplicit dismiss / replay only
 ui --> rights : accept policy / report / mute
 
 tg --> ingest : voice / audio / document
@@ -47,7 +47,7 @@ resolver --> targetrefs : resolve opaque selector\n404 for forged/stale/cross-sc
 txsvc --> capabilities : fail whole create with\n422 unsupported_targets
 txsvc --> runtime : schedule clip or main-program action
 txsvc --> db : persist transmission\nsnapshot / expiry
-inboxsvc --> inboxdb : exact-binding keyset reads\nand opaque cursor state
+inboxsvc --> inboxdb : exact-binding keyset reads\nopaque bounded cursor state\nidempotent dismiss / replay lineage
 runtime --> db : update exact target receipt
 runtime --> inboxdb : same transaction creates\none eligible target item
 runtime --> nodes : prepare / play / queue / replace
@@ -65,7 +65,9 @@ no Air-membership edge. Replacement bindings and later
 members cannot inherit historical media or inbox rows.
 Eligible terminal receipts are exactly-once by a unique
 target tuple; replay lineage never rewrites the receipt.
-HTTP presentation and action routes remain downstream.
+HTTP returns ib_/hi_/ir_ capabilities and safe labels;
+raw media, transmission, actor, orbit, slot, and binding
+identifiers never cross the inbox/receipt read boundary.
 end note
 
 note bottom of txsvc

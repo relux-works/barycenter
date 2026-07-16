@@ -14,7 +14,6 @@ import (
 const errorHistoryActionUnavailable = "history_action_unavailable"
 
 type historyMediaJSON struct {
-	MediaID          string `json:"media_id"`
 	Kind             string `json:"kind"`
 	Title            string `json:"title"`
 	DurationMS       *int64 `json:"duration_ms,omitempty"`
@@ -24,7 +23,6 @@ type historyMediaJSON struct {
 type historySenderJSON struct {
 	ActorRef       string `json:"actor_ref"`
 	DisplayName    string `json:"display_name"`
-	SourceOrbitID  int64  `json:"source_orbit_id"`
 	SourceOrbitRef string `json:"source_orbit_ref"`
 }
 
@@ -51,7 +49,7 @@ type historyListItemJSON struct {
 }
 
 func historyMedia(item store.HistoryQueryItem, now int64) historyMediaJSON {
-	media := historyMediaJSON{MediaID: item.Media.ID, Kind: string(item.Media.Kind), Title: item.Media.Title}
+	media := historyMediaJSON{Kind: string(item.Media.Kind), Title: item.Media.Title}
 	if item.Media.Status != store.MediaStatusProcessing {
 		duration := item.Media.DurationMS
 		media.DurationMS = &duration
@@ -149,7 +147,7 @@ func (api *onboardingAPI) historySender(actor actorRequest, item store.HistoryQu
 		return nil, err
 	}
 	return &historySenderJSON{ActorRef: actorRef.PublicID, DisplayName: item.SourceActorName,
-		SourceOrbitID: item.SourceOrbitID, SourceOrbitRef: orbitRef.PublicID}, nil
+		SourceOrbitRef: orbitRef.PublicID}, nil
 }
 
 func (api *onboardingAPI) historyListResponse(actor actorRequest, item store.HistoryQueryItem, now int64) (historyListItemJSON, error) {
@@ -241,7 +239,6 @@ type historyDetailJSON struct {
 	HistoryItemID     string                            `json:"history_item_id"`
 	ItemKind          string                            `json:"item_kind"`
 	Direction         store.HistoryDirection            `json:"direction"`
-	TransmissionID    string                            `json:"transmission_id,omitempty"`
 	OccurredAt        string                            `json:"occurred_at"`
 	AcceptedAt        string                            `json:"accepted_at,omitempty"`
 	ExpiresAt         string                            `json:"expires_at,omitempty"`
@@ -254,7 +251,6 @@ type historyDetailJSON struct {
 	Status            string                            `json:"status"`
 	ReasonCode        string                            `json:"reason_code,omitempty"`
 	TargetCounts      *transmissionTargetCountsResponse `json:"target_counts,omitempty"`
-	Targets           *[]transmissionTargetResponse     `json:"targets,omitempty"`
 	Actions           []string                          `json:"actions"`
 }
 
@@ -262,6 +258,10 @@ func (api *onboardingAPI) historyItem(w http.ResponseWriter, r *http.Request) {
 	id, action, validPath := parseHistoryItemPath(r.URL.Path)
 	if !validPath {
 		apiError(w, http.StatusNotFound, errorHistoryNotFound, 0)
+		return
+	}
+	if action == "receipts" {
+		api.historyReceipts(w, r, id)
 		return
 	}
 	if action != "" {
@@ -295,24 +295,26 @@ func (api *onboardingAPI) historyItem(w http.ResponseWriter, r *http.Request) {
 		Audience: base.Audience, RequestedDelivery: base.RequestedDelivery, EffectiveDelivery: base.EffectiveDelivery,
 		DowngradeReason: base.DowngradeReason, Status: base.Status, ReasonCode: base.ReasonCode, Actions: base.Actions}
 	if item.Transmission != nil {
-		result.TransmissionID = item.Transmission.ID
 		result.AcceptedAt = coordTime(item.Transmission.AcceptedAt)
 		result.ExpiresAt = coordTime(item.Transmission.ExpiresAt)
 		counts := targetCountsResponse(item.TargetStatusCounts)
 		result.TargetCounts = &counts
-		targets := historyTargetResponses(item)
-		result.Targets = &targets
 	}
 	writeJSON(w, http.StatusOK, result)
 }
 
 func parseHistoryItemPath(path string) (historyItemID, action string, ok bool) {
 	parts := strings.Split(strings.TrimPrefix(path, "/v1/history/"), "/")
-	if len(parts) != 1 && (len(parts) != 3 || parts[1] != "actions") {
+	if len(parts) != 1 &&
+		(len(parts) != 2 || parts[1] != "receipts") &&
+		(len(parts) != 3 || parts[1] != "actions") {
 		return "", "", false
 	}
 	if len(parts[0]) != 29 || !strings.HasPrefix(parts[0], "hi_") {
 		return "", "", false
+	}
+	if len(parts) == 2 {
+		return parts[0], "receipts", true
 	}
 	if len(parts) == 3 {
 		return parts[0], parts[2], parts[2] != ""
@@ -385,12 +387,12 @@ func (api *onboardingAPI) historyAction(w http.ResponseWriter, r *http.Request, 
 			apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
 			return
 		}
-		item, err := service.Delete(actor, historyItemID, now)
+		_, err := service.Delete(actor, historyItemID, now)
 		if api.historyActionError(w, "delete history media", err) {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"history_item_id": historyItemID, "media_id": item.ID, "deleted": true,
+			"history_item_id": historyItemID, "deleted": true,
 		})
 	case "report":
 		var request struct {
@@ -412,6 +414,7 @@ func (api *onboardingAPI) historyAction(w http.ResponseWriter, r *http.Request, 
 			status = http.StatusOK
 		}
 		response := reporterModerationView(created.Report)
+		delete(response, "media_id")
 		response["history_item_id"] = historyItemID
 		response["reused"] = created.Reused
 		writeJSON(w, status, response)
@@ -585,7 +588,7 @@ func (api *onboardingAPI) historyActionError(w http.ResponseWriter, operation st
 func (api *onboardingAPI) historyError(w http.ResponseWriter, operation string, err error) {
 	switch {
 	case errors.Is(err, store.ErrHistoryCursorInvalid):
-		apiError(w, http.StatusBadRequest, errorHistoryCursorInvalid, 0)
+		apiError(w, http.StatusGone, errorCursorExpired, 0)
 	case errors.Is(err, store.ErrTransmissionNotFound):
 		apiError(w, http.StatusNotFound, errorHistoryNotFound, 0)
 	case errors.Is(err, store.ErrTransmissionInvalid):

@@ -46,7 +46,9 @@ const (
 	errorBlockSubjectNotFound    = "block_subject_not_found"
 	errorBlockNotFound           = "block_not_found"
 	errorHistoryNotFound         = "history_not_found"
-	errorHistoryCursorInvalid    = "history_cursor_invalid"
+	errorCursorExpired           = "cursor_expired"
+	errorInboxNotFound           = "inbox_not_found"
+	errorReplayDepthExceeded     = "replay_depth_exceeded"
 	errorContentPolicyAcceptance = "content_policy_acceptance_required"
 	errorAirNotFound             = "air_not_found"
 	errorAirMembershipNotFound   = "membership_not_found"
@@ -125,7 +127,9 @@ func apiError(w http.ResponseWriter, status int, code string, retry time.Duratio
 		errorBlockSubjectNotFound:    "The blocking subject is unavailable.",
 		errorBlockNotFound:           "The block was not found.",
 		errorHistoryNotFound:         "The history item was not found.",
-		errorHistoryCursorInvalid:    "The history cursor is invalid or expired.",
+		errorCursorExpired:           "The pagination cursor is invalid or expired.",
+		errorInboxNotFound:           "The inbox item was not found.",
+		errorReplayDepthExceeded:     "The replay depth limit has been reached.",
 		errorContentPolicyAcceptance: "Accept the current content policy before this action.",
 		errorAirNotFound:             "The Air was not found.",
 		errorAirMembershipNotFound:   "The Air membership was not found.",
@@ -409,6 +413,8 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/blocks/", api.secure(api.withControl(api.blockItem)))
 	mux.HandleFunc("/v1/history", api.secure(api.withActor(api.history)))
 	mux.HandleFunc("/v1/history/", api.secure(api.withActor(api.historyItem)))
+	mux.HandleFunc("/v1/inbox", api.secure(api.withControl(api.inbox)))
+	mux.HandleFunc("/v1/inbox/", api.secure(api.withControl(api.inboxItem)))
 	mux.HandleFunc("/v1/reports", api.secure(api.withControl(api.moderationReports)))
 	mux.HandleFunc("/v1/reports/", api.secure(api.withControl(api.moderationReportItem)))
 	mux.HandleFunc("/v1/moderation/reports", api.secure(api.withModerationOperator(api.moderationQueue)))

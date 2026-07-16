@@ -48,7 +48,7 @@ func TestHistoryHTTPMediaPaginationValidationAndRedaction(t *testing.T) {
 	now := time.Date(2026, 7, 14, 15, 0, 0, 0, time.UTC)
 	harness.api.transmissionNow = func() time.Time { return now }
 	_ = createHistoryHTTPMedia(t, harness, owner, now.Add(-2*time.Second).UnixMilli())
-	latest := createHistoryHTTPMedia(t, harness, owner, now.Add(-time.Second).UnixMilli())
+	_ = createHistoryHTTPMedia(t, harness, owner, now.Add(-time.Second).UnixMilli())
 
 	page := apiRequest(harness.mux, http.MethodGet, "/v1/history?limit=1", "", owner.ControlToken)
 	if page.Code != http.StatusOK || page.Header().Get("Cache-Control") != "no-store" {
@@ -64,9 +64,12 @@ func TestHistoryHTTPMediaPaginationValidationAndRedaction(t *testing.T) {
 	}
 	item := items[0].(map[string]any)
 	media := item["media"].(map[string]any)
-	if item["item_kind"] != "media" || item["direction"] != "sent" || item["status"] != "processing" ||
-		media["media_id"] != latest.ID || item["history_item_id"] == "" {
+	if item["item_kind"] != "media" || item["direction"] != "sent" ||
+		item["status"] != "processing" || item["history_item_id"] == "" {
 		t.Fatalf("history item=%v", item)
+	}
+	if _, exists := media["media_id"]; exists {
+		t.Fatalf("history exposed raw media id: %v", media)
 	}
 	if _, exists := media["duration_ms"]; exists {
 		t.Fatalf("processing media exposed duration: %v", media)
@@ -84,7 +87,8 @@ func TestHistoryHTTPMediaPaginationValidationAndRedaction(t *testing.T) {
 	}
 	for _, forbidden := range []string{
 		"actor_id", "control_token", "node_token", "credential", "binding_paired_at",
-		"media_url", "storage_key", "hostname", "process_name", "microphone",
+		"media_id", "transmission_id", "orbit_id", "slot", "media_url",
+		"storage_key", "hostname", "process_name", "microphone",
 	} {
 		if strings.Contains(page.Body.String(), forbidden) {
 			t.Fatalf("history leaked %q: %s", forbidden, page.Body.String())
@@ -93,7 +97,7 @@ func TestHistoryHTTPMediaPaginationValidationAndRedaction(t *testing.T) {
 
 	invalidCursor := apiRequest(harness.mux, http.MethodGet,
 		"/v1/history?view=sent&limit=1&cursor="+cursor, "", owner.ControlToken)
-	assertTransmissionError(t, invalidCursor, http.StatusBadRequest, errorHistoryCursorInvalid)
+	assertTransmissionError(t, invalidCursor, http.StatusGone, errorCursorExpired)
 	for _, path := range []string{
 		"/v1/history?unknown=1",
 		"/v1/history?limit=1&limit=1",
@@ -131,8 +135,6 @@ func TestHistoryHTTPTransmissionListAndDetail(t *testing.T) {
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create=%d %s", created.Code, created.Body.String())
 	}
-	transmissionID := decodeObject(t, created)["transmission_id"].(string)
-
 	listed := apiRequest(harness.mux, http.MethodGet, "/v1/history?view=sent", "", owner.ControlToken)
 	if listed.Code != http.StatusOK {
 		t.Fatalf("list=%d %s", listed.Code, listed.Body.String())
@@ -148,8 +150,11 @@ func TestHistoryHTTPTransmissionListAndDetail(t *testing.T) {
 	}
 	sender := item["sender"].(map[string]any)
 	if !strings.HasPrefix(sender["actor_ref"].(string), "ar_") ||
-		!strings.HasPrefix(sender["source_orbit_ref"].(string), "or_") || sender["source_orbit_id"] != float64(owner.OrbitID) {
+		!strings.HasPrefix(sender["source_orbit_ref"].(string), "or_") {
 		t.Fatalf("sender=%v", sender)
+	}
+	if _, exists := sender["source_orbit_id"]; exists {
+		t.Fatalf("sender exposed raw orbit id: %v", sender)
 	}
 	counts := item["target_counts"].(map[string]any)
 	if counts["played"] != float64(0) || counts["other"] != float64(1) {
@@ -172,9 +177,14 @@ func TestHistoryHTTPTransmissionListAndDetail(t *testing.T) {
 		t.Fatalf("detail=%d %s", detail.Code, detail.Body.String())
 	}
 	detailBody := decodeObject(t, detail)
-	if detailBody["transmission_id"] != transmissionID || detailBody["accepted_at"] == "" ||
-		detailBody["expires_at"] == "" || len(detailBody["targets"].([]any)) != 1 {
+	if detailBody["accepted_at"] == "" || detailBody["expires_at"] == "" {
 		t.Fatalf("detail=%v", detailBody)
+	}
+	if _, exists := detailBody["transmission_id"]; exists {
+		t.Fatalf("detail exposed raw transmission id: %v", detailBody)
+	}
+	if _, exists := detailBody["targets"]; exists {
+		t.Fatalf("detail exposed raw target rows instead of receipt page: %v", detailBody)
 	}
 	detailSender := detailBody["sender"].(map[string]any)
 	if detailSender["actor_ref"] != sender["actor_ref"] || detailSender["source_orbit_ref"] != sender["source_orbit_ref"] {
@@ -191,7 +201,7 @@ func TestHistoryHTTPTransmissionListAndDetail(t *testing.T) {
 	}
 	queryOnDetail := apiRequest(harness.mux, http.MethodGet, "/v1/history/"+historyID+"?x=1", "", owner.ControlToken)
 	assertTransmissionError(t, queryOnDetail, http.StatusBadRequest, errorInvalidRequest)
-	for _, forbidden := range []string{"actor_id", "binding_paired_at", "generation", "connection", "media_url", "storage_key"} {
+	for _, forbidden := range []string{"actor_id", "orbit_id", "slot", "media_id", "transmission_id", "binding_paired_at", "generation", "connection", "media_url", "storage_key"} {
 		if strings.Contains(detail.Body.String(), forbidden) {
 			t.Fatalf("detail leaked %q: %s", forbidden, detail.Body.String())
 		}
@@ -334,8 +344,11 @@ func TestHistoryHTTPReportAndBlockShareCanonicalOwnerServices(t *testing.T) {
 		t.Fatalf("report=%d %s", report.Code, report.Body.String())
 	}
 	reportBody := decodeObject(t, report)
-	if reportBody["media_id"] != fixture.media.ID || reportBody["history_item_id"] != historyID || reportBody["reused"] != false {
+	if reportBody["history_item_id"] != historyID || reportBody["reused"] != false {
 		t.Fatalf("report body=%v", reportBody)
+	}
+	if _, exists := reportBody["media_id"]; exists {
+		t.Fatalf("history report exposed raw media id: %v", reportBody)
 	}
 	repeatedReport := historyActionRequest(fixture.harness.mux, reportPath,
 		`{"reason":"spam","details":"ignored on exact duplicate"}`,

@@ -113,7 +113,7 @@ func (api *onboardingAPI) contentPolicyAcceptance(w http.ResponseWriter, r *http
 			Locale        string `json:"locale"`
 			TermsAccepted bool   `json:"terms_accepted"`
 		}
-		if !decodeBoundedJSON(w, r, 1024, &request) || !request.TermsAccepted {
+		if !decodeStrictJSON(w, r, 1024, &request) || !request.TermsAccepted {
 			apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
 			return
 		}

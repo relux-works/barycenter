@@ -184,7 +184,13 @@ FROM transmission_inbox_cursors WHERE token_hash = ?`, hashToken(token)).Scan(
 		&actorID, &authorizationHash, &storedPairedAt, &storedView, &storedLimit,
 		&upperAt, &upperID, &lastAt, &lastID, &expiresAt,
 	)
-	if err != nil || actorID != ctx.ActorID || storedPairedAt != pairedAt ||
+	if errors.Is(err, sql.ErrNoRows) {
+		return TransmissionInboxPageKey{}, TransmissionInboxPageKey{}, ErrInboxCursorExpired
+	}
+	if err != nil {
+		return TransmissionInboxPageKey{}, TransmissionInboxPageKey{}, err
+	}
+	if actorID != ctx.ActorID || storedPairedAt != pairedAt ||
 		authorizationHash != inboxAuthorizationHash(ctx, identity, pairedAt) ||
 		storedView != view || storedLimit != limit || expiresAt <= now {
 		return TransmissionInboxPageKey{}, TransmissionInboxPageKey{}, ErrInboxCursorExpired
@@ -532,7 +538,13 @@ FROM transmission_receipt_cursors WHERE token_hash = ?`, hashToken(token)).Scan(
 		&key.orbitID, &key.actorID, &slot, &key.bindingPairedAt, &expiresAt,
 	)
 	key.slot = slot
-	if err != nil || actorID != ctx.ActorID || authorizationHash != historyAuthorizationHash(ctx, identity) ||
+	if errors.Is(err, sql.ErrNoRows) {
+		return receiptCursorKey{}, ErrReceiptCursorExpired
+	}
+	if err != nil {
+		return receiptCursorKey{}, err
+	}
+	if actorID != ctx.ActorID || authorizationHash != historyAuthorizationHash(ctx, identity) ||
 		storedHistoryID != historyItemID || storedLimit != limit || expiresAt <= now {
 		return receiptCursorKey{}, ErrReceiptCursorExpired
 	}

@@ -117,6 +117,20 @@ func TestContentPolicyHTTPDisplayAcceptRevokeAndServerTime(t *testing.T) {
 	if missing.Code != http.StatusPreconditionRequired {
 		t.Fatalf("missing acceptance status=%d body=%s", missing.Code, missing.Body.String())
 	}
+	ambiguous := contentPolicyRequest(harness.mux, http.MethodPut,
+		"/v1/content-policy/acceptance",
+		`{"version":"1.0","policy_hash":"`+store.CurrentContentPolicyHash+
+			`","locale":"en","terms_accepted":false,"terms_accepted":true}`,
+		control)
+	if ambiguous.Code != http.StatusBadRequest {
+		t.Fatalf("duplicate consent status=%d body=%s", ambiguous.Code, ambiguous.Body.String())
+	}
+	stillMissing := contentPolicyRequest(harness.mux, http.MethodGet,
+		"/v1/content-policy/acceptance", "", control)
+	if stillMissing.Code != http.StatusPreconditionRequired {
+		t.Fatalf("duplicate consent created grant status=%d body=%s",
+			stillMissing.Code, stillMissing.Body.String())
+	}
 	grant := acceptContentPolicyHTTP(t, harness, control, "en")
 	if !grant.Current || !grant.TermsAccepted || grant.Revision != 1 ||
 		grant.AcceptedAt != frozen.Format(time.RFC3339) {

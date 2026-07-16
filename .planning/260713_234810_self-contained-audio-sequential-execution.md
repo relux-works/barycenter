@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 128 accepted, 77 remain.
-- Routed inventory: 186 engineering tasks (128 accepted, 58 remain) and 19
+- Combined inventory: 205 original tasks; 129 accepted, 76 remain.
+- Routed inventory: 186 engineering tasks (129 accepted, 57 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2kj9kj` — macos-live-ptt-node-integration
-- Next engineering task: `TASK-260712-2jbo5i` — windows-live-ptt-node-integration
-- Most recently accepted: `TASK-260712-ezdhpf` — windows-live-capture-sender
-- Current branch: `chore/track-task-260712-ezdhpf`
+- Current engineering task: `TASK-260712-2jbo5i` — windows-live-ptt-node-integration
+- Next engineering task: `TASK-260712-3sj8ox` — automation-surface-safety-contract
+- Most recently accepted: `TASK-260712-2kj9kj` — macos-live-ptt-node-integration
+- Current branch: `chore/track-task-260712-2kj9kj`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 128 / 205 tasks (62.4%); 77 remain
-- Engineering progress: 128 / 186 tasks (approximately 68.8%); 58 remain
+- Accepted overall: 129 / 205 tasks (62.9%); 76 remain
+- Engineering progress: 129 / 186 tasks (approximately 69.4%); 57 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2482,6 +2482,28 @@ stress remains explicitly unpassed here and manual in `TASK-260712-1rzqh9`.
 Progress is 128/205 overall and 128/186 engineering. Strict execution advances
 to `TASK-260712-2kj9kj`.
 
+Checkpoint 2026-07-16 (accepted production-dark macOS live PTT node):
+`TASK-260712-2kj9kj` composes the generation-bound macOS sender, bounded jitter
+receiver/mixer and frozen signalling behind injected authoritative target and
+incoming DND/policy decisions. Capture begins only after a matching validated
+accept, stale or concurrent directions fail closed, and button/menu/shortcut
+hold seams fall back to the existing clip path when release-capable input is
+not proven. The coordinator client now exposes an authenticated,
+capability-gated binary `BP` seam with eight sends in flight, while shipping
+registration and app construction deliberately remain absent. Release, Stop,
+remote terminal state, sleep, lock, disconnect, permission recheck, rollback
+and quit converge on generation-safe sender/receiver cleanup. Exact terminal
+vocabulary is aligned with the Go contract and validated before send. Focused
+Swift coverage passed 24/24, the full package passed 280/280, and clean
+repository acceptance passed 12/12. A TSan-instrumented build completed, but
+the host rejected the Xcode sanitizer dylib signature at runtime; no race-free
+sanitizer claim is made. Hosted run `29529995520` passed all four jobs. PR #199
+landed exact code head `e7472b2` at merge
+`f33f1fbb8330ce946e5ecf748f7a522d2ba32d81`. No global key-down/up,
+Accessibility request, audible or real-hardware result is claimed; those stay
+manual in `TASK-260712-1rzqh9`. Progress is 129/205 overall and 129/186
+engineering. Strict execution advances to `TASK-260712-2jbo5i`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -3105,7 +3127,11 @@ executed before soundboard automation because it is on the epic critical path.
   Windows amd64/arm64 cross-builds, clean acceptance 12/12 and hosted run
   `29527709243` 4/4 passed; PR #197 merge `6d569e3`. The sender is bounded and
   production-dark; signed Windows 10/11 hardware stress remains manual)
-- [ ] `TASK-260712-2kj9kj` — macos-live-ptt-node-integration
+- [x] `TASK-260712-2kj9kj` — macos-live-ptt-node-integration (accepted on exact
+  code head `e7472b2`; focused live tests 24/24, full Swift 280/280, clean
+  acceptance 12/12 and hosted run `29529995520` 4/4 passed; PR #199 merge
+  `f33f1fb`. Capability and app composition remain dark, and global hold/audio
+  hardware evidence remains manual)
 - [ ] `TASK-260712-2jbo5i` — windows-live-ptt-node-integration
 - ↪ manual `TASK-260712-1rzqh9` — live-ptt-regression-evidence →
   `EPIC-260714-th54l3`

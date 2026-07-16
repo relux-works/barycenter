@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-16T05:58:12Z
+2026-07-16T06:22:23Z
 
 ## Blocked By
 - STORY-260712-3l1r1u
@@ -42,6 +42,9 @@ Root decomposition review completed. Added missing shared plus Windows/macOS lon
 2026-07-16 strict checkpoint: TASK-260712-31rkpe accepted on exact head ea2d6d4 through PR #144, merge 0b9fc7d, after hosted run 29473326227 passed 4/4. All three codecs share 51 goldens and generation/timing/mixed-version invariants; production stream_track_v1 advertisement remains disabled. Strict story execution advances to TASK-260712-2ogntd.
 2026-07-16 strict progress: TASK-260712-2ogntd started inline from tracking PR #145 merge 188b503 after hosted run 29473524803 passed 4/4. Auditing and implementing storage, processing, retained-byte and actual-egress counters, deterministic quota boundaries, reconciliation and privacy-safe operator surfaces without enabling production streamed playback.
 2026-07-16 strict checkpoint: TASK-260712-2ogntd accepted on exact head 00a2697 through PR #146, merge 15ebd3d, after hosted run 29475162175 passed 4/4. Authoritative actor/orbit storage, processing and actual-egress projections, deterministic admission/reconciliation and authenticated audited operator surfaces are green; production streamed playback remains disabled. Strict story execution advances to TASK-260712-285pag.
+2026-07-16 strict progress: TASK-260712-285pag started inline from tracking PR #147 merge 6e53606 after hosted run 29475408660 passed 4/4. Implementing secure audio_track intake, limits, probe/metadata, cleanup and test-only candidate pipeline while preserving the accepted production codec no-go and clip/Telegram behavior.
+2026-07-16 strict checkpoint: TASK-260712-285pag accepted on exact head 7b30755 through PR #148, merge 4749a76, after hosted run 29476335634 passed 4/4. Consent-gated bounded track intake now preserves probed metadata and processing accounting, returns the codec ADR's stable no-go and publishes no variant or generated WAV. Strict story execution advances to TASK-260712-3lf8r0.
+2026-07-16 strict progress: TASK-260712-3lf8r0 started inline from merge 4749a76 after hosted run 29476335634 passed 4/4. Implementing target-snapshot-authorized range/conditional transport, revocation and bounded actual-egress accounting without enabling production playback.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-2ori1t/spec-entry.md) — Authoritative specification entry point

@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-16T05:58:12Z
+2026-07-16T06:22:23Z
 
 ## Blocked By
 - STORY-260712-sskhip
@@ -37,6 +37,9 @@ User mandate 2026-07-12: do not accept agent code without scrupulous root review
 2026-07-16 strict sequential checkpoint: 102/186 engineering tasks accepted (54.8%) and 102/205 combined tasks accepted (49.8%). TASK-260712-31rkpe landed through PR #144 at merge 0b9fc7d after hosted run 29473326227 passed 4/4. Generation-safe Go/Swift/Windows stream payloads, 51 shared goldens, timing barriers, stale-event rejection and explicit mixed-version policy are accepted; production stream_track_v1 remains unadvertised and no real-app or hardware result is claimed. Strict engineering execution advances to TASK-260712-2ogntd.
 2026-07-16 strict sequential start: TASK-260712-2ogntd began inline from tracking PR #145 merge 188b503 after hosted run 29473524803 passed 4/4. Counts remain 102/186 engineering and 102/205 combined until privacy-safe storage, processing and actual-egress accounting plus deterministic quota enforcement are accepted; production traffic and real-app evidence remain unclaimed.
 2026-07-16 strict sequential checkpoint: 103/186 engineering tasks accepted (55.4%) and 103/205 combined tasks accepted (50.2%). TASK-260712-2ogntd landed through PR #146 at merge 15ebd3d after hosted run 29475162175 passed 4/4. Per-actor/per-orbit upload, retained storage, processing, range and actual-egress accounting, deterministic quotas, crash reconciliation and authenticated audited operator views are accepted; no production traffic, real-app or hardware result is claimed. Strict engineering execution advances to TASK-260712-285pag.
+2026-07-16 strict sequential start: TASK-260712-285pag began inline from tracking PR #147 merge 6e53606 after hosted run 29475408660 passed 4/4. Counts remain 103/186 engineering and 103/205 combined until secure long-file intake and the no-go-compliant candidate/stable-failure pipeline are accepted; production encoder/player enablement and hands-on playback remain unclaimed.
+2026-07-16 strict sequential checkpoint: 104/186 engineering tasks accepted (55.9%) and 104/205 combined tasks accepted (50.7%). TASK-260712-285pag landed through PR #148 at merge 4749a76 after hosted run 29476335634 passed 4/4. Consent-gated 500 MiB/two-hour track intake, constrained metadata probing, processing accounting, stable codec no-go replay and zero-variant/zero-WAV cleanup are accepted; production codec/player and hands-on playback remain unclaimed. Strict engineering execution advances to TASK-260712-3lf8r0.
+2026-07-16 strict sequential start: TASK-260712-3lf8r0 began inline from merge 4749a76 after hosted run 29476335634 passed 4/4. Counts remain 104/186 engineering and 104/205 combined until authenticated range, conditional response, revocation and bounded-egress behavior are accepted; production playback and real-app evidence remain unclaimed.
 
 ## Precondition Resources
 (none)

@@ -228,13 +228,55 @@ private final class LockedClock: @unchecked Sendable {
             #expect((1...400).contains(count))
         }
     }
+
+    @Test func everyEmittedTerminalControlSatisfiesTheFrozenWireContract() async throws {
+        let fixtures = [LiveCaptureFixture(), LiveCaptureFixture(), LiveCaptureFixture()]
+        let actions: [(LiveCaptureFixture, UInt64) -> Void] = [
+            { fixture, generation in fixture.sender.localHoldEnded(generation: generation) },
+            { fixture, _ in fixture.sender.localStop() },
+            { fixture, _ in fixture.sender.handleSystemSleep() },
+        ]
+        for (fixture, action) in zip(fixtures, actions) {
+            let generation = try #require(fixture.sender.localHoldBegan(
+                source: .button, holdCapabilityAvailable: true, selectedDeviceID: nil))
+            try await fixture.sender.acceptStart(
+                senderStart(), localGeneration: generation, authorized: true)
+            fixture.backend.emit([Float](repeating: 0.1, count: 960))
+            action(fixture, generation)
+            _ = fixture.sender.snapshot()
+            let controls = fixture.box.lock.withLock { fixture.box.controls }
+            let terminal = try #require(controls.last)
+            #expect((try? LivePTTValidation.validate(terminal)) != nil)
+        }
+
+        let denied = LiveCaptureFixture()
+        denied.permission.value = .denied
+        let generation = try #require(denied.sender.localHoldBegan(
+            source: .button, holdCapabilityAvailable: true, selectedDeviceID: nil))
+        await #expect(throws: MacCaptureEngineError.permissionDenied) {
+            try await denied.sender.acceptStart(
+                senderStart(), localGeneration: generation, authorized: true)
+        }
+        let failure = try #require(denied.box.lock.withLock { denied.box.controls.last })
+        #expect((try? LivePTTValidation.validate(failure)) != nil)
+    }
 }
 
 private func endReason(in box: LiveCaptureBox) -> MacLiveCaptureStopReason? {
     let value = box.lock.withLock { box.controls }.compactMap { message -> String? in
         if case .livePTTEnd(let payload) = message { return payload.reason }
         if case .livePTTCancel(let payload) = message { return payload.reason }
+        if case .livePTTFailed(let payload) = message { return payload.code }
         return nil
     }.last
-    return value.flatMap(MacLiveCaptureStopReason.init(rawValue:))
+    switch value {
+    case "release": return MacLiveCaptureStopReason.released
+    case "sleep": return MacLiveCaptureStopReason.systemSleep
+    case "lock": return MacLiveCaptureStopReason.sessionLocked
+    case "disconnect": return MacLiveCaptureStopReason.disconnected
+    case "quit": return MacLiveCaptureStopReason.appQuit
+    case "timeout": return MacLiveCaptureStopReason.maximumDuration
+    case "user_cancel": return MacLiveCaptureStopReason.localStop
+    default: return value.flatMap(MacLiveCaptureStopReason.init(rawValue:))
+    }
 }

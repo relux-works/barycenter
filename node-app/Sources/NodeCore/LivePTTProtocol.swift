@@ -15,7 +15,7 @@ public enum LivePTTConstants {
     public static let captureAuthority = "local_user_input_only"
 }
 
-public struct LivePTTStartPayload: Codable, Equatable {
+public struct LivePTTStartPayload: Codable, Equatable, Sendable {
     public var sessionId: String; public var generation: Int64
     public var senderActorId: Int64; public var senderOrbitId: Int64; public var senderNodeId: String
     public var targetSnapshot: String; public var targetSha256: String; public var targetCount: Int
@@ -36,39 +36,39 @@ public struct LivePTTStartPayload: Codable, Equatable {
     }
 }
 
-public struct LivePTTAcceptPayload: Codable, Equatable {
+public struct LivePTTAcceptPayload: Codable, Equatable, Sendable {
     public var sessionId: String; public var generation: Int64; public var eventSequence: Int64
     public var acceptedAtCoordMs: Int64; public var liveEdgeSequence: UInt32; public var bufferFrames: Int
     enum CodingKeys: String, CodingKey { case sessionId = "session_id", generation, eventSequence = "event_sequence", acceptedAtCoordMs = "accepted_at_coord_ms", liveEdgeSequence = "live_edge_sequence", bufferFrames = "buffer_frames" }
 }
-public struct LivePTTRejectPayload: Codable, Equatable {
+public struct LivePTTRejectPayload: Codable, Equatable, Sendable {
     public var sessionId: String; public var generation: Int64; public var eventSequence: Int64; public var code: String; public var rejectedAtCoordMs: Int64
     enum CodingKeys: String, CodingKey { case sessionId = "session_id", generation, eventSequence = "event_sequence", code, rejectedAtCoordMs = "rejected_at_coord_ms" }
 }
-public struct LivePTTEndPayload: Codable, Equatable {
+public struct LivePTTEndPayload: Codable, Equatable, Sendable {
     public var sessionId: String; public var generation: Int64; public var commandSequence: Int64; public var lastSequence: UInt32; public var endedAtCoordMs: Int64; public var drainDeadlineCoordMs: Int64; public var reason: String
     enum CodingKeys: String, CodingKey { case sessionId = "session_id", generation, commandSequence = "command_sequence", lastSequence = "last_sequence", endedAtCoordMs = "ended_at_coord_ms", drainDeadlineCoordMs = "drain_deadline_coord_ms", reason }
 }
-public struct LivePTTCancelPayload: Codable, Equatable {
+public struct LivePTTCancelPayload: Codable, Equatable, Sendable {
     public var sessionId: String; public var generation: Int64; public var commandSequence: Int64; public var cancelledAtCoordMs: Int64; public var reason: String; public var discardBuffered: Bool
     enum CodingKeys: String, CodingKey { case sessionId = "session_id", generation, commandSequence = "command_sequence", cancelledAtCoordMs = "cancelled_at_coord_ms", reason, discardBuffered = "discard_buffered" }
 }
-public struct LivePTTFailedPayload: Codable, Equatable {
+public struct LivePTTFailedPayload: Codable, Equatable, Sendable {
     public var sessionId: String; public var generation: Int64; public var eventSequence: Int64; public var stage: String; public var code: String; public var failedAtCoordMs: Int64
     enum CodingKeys: String, CodingKey { case sessionId = "session_id", generation, eventSequence = "event_sequence", stage, code, failedAtCoordMs = "failed_at_coord_ms" }
 }
-public struct LivePTTReceiptPayload: Codable, Equatable {
+public struct LivePTTReceiptPayload: Codable, Equatable, Sendable {
     public var sessionId: String; public var generation: Int64; public var eventSequence: Int64; public var state: String; public var lastSequence: UInt32?; public var observedAtCoordMs: Int64
     enum CodingKeys: String, CodingKey { case sessionId = "session_id", generation, eventSequence = "event_sequence", state, lastSequence = "last_sequence", observedAtCoordMs = "observed_at_coord_ms" }
 }
-public struct LivePTTStatePayload: Codable, Equatable {
+public struct LivePTTStatePayload: Codable, Equatable, Sendable {
     public var revision: Int64; public var phase: String; public var activeSessionId: String?; public var generation: Int64?; public var speakerActorId: Int64?; public var lastSequence: UInt32?; public var generatedAtCoordMs: Int64
     enum CodingKeys: String, CodingKey { case revision, phase, activeSessionId = "active_session_id", generation, speakerActorId = "speaker_actor_id", lastSequence = "last_sequence", generatedAtCoordMs = "generated_at_coord_ms" }
 }
 
 public enum LivePTTFrameDecision: String, Equatable { case apply, duplicate, stale, invalid }
 
-public struct LivePTTBinaryFrame: Equatable {
+public struct LivePTTBinaryFrame: Equatable, Sendable {
     public static let startFlag: UInt8 = 1, endFlag: UInt8 = 2, fecFlag: UInt8 = 4
     public var flags: UInt8; public var sessionId: [UInt8]; public var sequence: UInt32
     public var captureMonotonicUs: UInt64; public var payload: Data
@@ -105,6 +105,7 @@ public struct LivePTTBinaryFrame: Equatable {
 public enum LivePTTProtocolError: Error { case invalidFrame, invalidPayload }
 
 public enum LivePTTValidation {
+    private static let tokenCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
     private static func common(_ session: String, _ generation: Int64) -> Bool {
         session.count == 32 && session != String(repeating: "0", count: 32) && generation > 0 &&
         session.allSatisfy { "0123456789abcdef".contains($0) }
@@ -113,7 +114,12 @@ public enum LivePTTValidation {
         switch message {
         case .livePTTStart(let p):
             guard common(p.sessionId, p.generation), p.senderActorId > 0, p.senderOrbitId > 0,
-                  !p.senderNodeId.isEmpty, p.targetSnapshot.hasPrefix("lts1."), p.targetSha256.count == 64,
+                  !p.senderNodeId.isEmpty, p.senderNodeId.count <= 64,
+                  p.senderNodeId.allSatisfy({ Self.tokenCharacters.contains($0) }),
+                  p.targetSnapshot.hasPrefix("lts1."), p.targetSnapshot.count <= 128,
+                  p.targetSnapshot.allSatisfy({ Self.tokenCharacters.contains($0) }),
+                  p.targetSha256.count == 64,
+                  p.targetSha256.allSatisfy({ "0123456789abcdef".contains($0) }),
                   (1...64).contains(p.targetCount), ["personal","barycenter","air"].contains(p.playbackDomain),
                   p.playbackDomainId > 0, p.codecProfile == LivePTTConstants.codecProfile,
                   p.frameMs == 20, p.maxPayloadBytes == 400, p.jitterBufferMs == 60,
@@ -127,11 +133,23 @@ public enum LivePTTValidation {
         case .livePTTReject(let p):
             guard common(p.sessionId,p.generation), p.eventSequence == 1, ["blocked","busy","dnd","expired","policy","unauthorized","unsupported"].contains(p.code), p.rejectedAtCoordMs > 0 else { throw LivePTTProtocolError.invalidPayload }
         case .livePTTEnd(let p):
-            guard common(p.sessionId,p.generation), p.commandSequence > 0, p.lastSequence > 0, p.endedAtCoordMs > 0, p.drainDeadlineCoordMs - p.endedAtCoordMs == 600 else { throw LivePTTProtocolError.invalidPayload }
+            guard common(p.sessionId,p.generation), p.commandSequence > 0,
+                  p.lastSequence > 0, p.endedAtCoordMs > 0,
+                  p.drainDeadlineCoordMs - p.endedAtCoordMs == 600,
+                  ["release","lost_release","lock","sleep","permission_revoked","device_lost","disconnect","quit"].contains(p.reason)
+            else { throw LivePTTProtocolError.invalidPayload }
         case .livePTTCancel(let p):
-            guard common(p.sessionId,p.generation), p.commandSequence > 0, p.cancelledAtCoordMs > 0, p.discardBuffered else { throw LivePTTProtocolError.invalidPayload }
+            guard common(p.sessionId,p.generation), p.commandSequence > 0,
+                  p.cancelledAtCoordMs > 0, p.discardBuffered,
+                  ["backpressure","coordinator_restart","generation_replaced","lost_release","policy_changed","sender_disconnect","target_revoked","timeout","user_cancel"].contains(p.reason)
+            else { throw LivePTTProtocolError.invalidPayload }
         case .livePTTFailed(let p):
-            guard common(p.sessionId,p.generation), p.eventSequence > 0, !p.stage.isEmpty, !p.code.isEmpty, p.failedAtCoordMs > 0 else { throw LivePTTProtocolError.invalidPayload }
+            guard common(p.sessionId,p.generation), p.eventSequence > 0,
+                  ["capture","decode","frame","jitter","policy","relay","render","transport"].contains(p.stage),
+                  !p.code.isEmpty, p.code.count <= 64,
+                  p.code.allSatisfy({ "abcdefghijklmnopqrstuvwxyz0123456789_".contains($0) }),
+                  p.failedAtCoordMs > 0
+            else { throw LivePTTProtocolError.invalidPayload }
         case .livePTTReceipt(let p):
             guard common(p.sessionId,p.generation), p.eventSequence > 0, ["accepted","audible_started","cancelled","ended","failed","rejected","unsupported"].contains(p.state), p.observedAtCoordMs > 0 else { throw LivePTTProtocolError.invalidPayload }
         case .livePTTState(let p):

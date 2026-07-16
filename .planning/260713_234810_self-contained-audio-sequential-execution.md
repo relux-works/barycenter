@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 129 accepted, 76 remain.
-- Routed inventory: 186 engineering tasks (129 accepted, 57 remain) and 19
+- Combined inventory: 205 original tasks; 130 accepted, 75 remain.
+- Routed inventory: 186 engineering tasks (130 accepted, 56 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2jbo5i` — windows-live-ptt-node-integration
-- Next engineering task: `TASK-260712-3sj8ox` — automation-surface-safety-contract
-- Most recently accepted: `TASK-260712-2kj9kj` — macos-live-ptt-node-integration
-- Current branch: `chore/track-task-260712-2kj9kj`
+- Current engineering task: `TASK-260712-3sj8ox` — automation-surface-safety-contract
+- Next engineering task: `TASK-260712-hb5xz2` — saved-cue-media-lifecycle
+- Most recently accepted: `TASK-260712-2jbo5i` — windows-live-ptt-node-integration
+- Current branch: `chore/track-task-260712-2jbo5i`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 129 / 205 tasks (62.9%); 76 remain
-- Engineering progress: 129 / 186 tasks (approximately 69.4%); 57 remain
+- Accepted overall: 130 / 205 tasks (63.4%); 75 remain
+- Engineering progress: 130 / 186 tasks (approximately 69.9%); 56 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2504,6 +2504,27 @@ Accessibility request, audible or real-hardware result is claimed; those stay
 manual in `TASK-260712-1rzqh9`. Progress is 129/205 overall and 129/186
 engineering. Strict execution advances to `TASK-260712-2jbo5i`.
 
+Checkpoint 2026-07-16 (accepted production-dark Windows live PTT node):
+`TASK-260712-2jbo5i` composes the generation-bound Windows sender, bounded
+jitter receiver/mixer and frozen signalling behind injected authoritative
+target and incoming DND/policy decisions. Atomic direction claims prevent a
+racing local hold and incoming start from opening capture and playback
+together. The WebSocket client now uses one connection-bound FIFO for validated
+live controls and binary frames: eight binary and 16 control slots are bounded,
+Start/frame/End order is preserved, malformed or unadvertised traffic fails
+closed and items from an old socket are discarded after reconnect. Shipping
+registration and app construction remain absent. Release, Stop, remote
+terminal state, lock, suspend, permission/device loss, disconnect, rollback
+and quit converge on generation-safe cleanup. Focused live coverage passed ten
+repeated runs, full Go vet/test/race and Windows amd64/arm64 CGO-free
+cross-builds passed, and clean repository acceptance passed 12/12. Hosted run
+`29532276399` passed all four jobs. PR #201 landed exact code head `100e447` at
+merge `b4fb6f7abdf0f4f669b123afb9f3a136a0161efb`. `RegisterHotKey` remains a
+toggle-only `WM_HOTKEY`; no AppContainer global key-down/up, `SetWindowsHookEx`,
+audible or physical-hardware result is claimed. Those checks stay manual in
+`TASK-260712-1rzqh9`. Progress is 130/205 overall and 130/186 engineering.
+Strict execution advances to `TASK-260712-3sj8ox`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -3132,7 +3153,11 @@ executed before soundboard automation because it is on the epic critical path.
   acceptance 12/12 and hosted run `29529995520` 4/4 passed; PR #199 merge
   `f33f1fb`. Capability and app composition remain dark, and global hold/audio
   hardware evidence remains manual)
-- [ ] `TASK-260712-2jbo5i` — windows-live-ptt-node-integration
+- [x] `TASK-260712-2jbo5i` — windows-live-ptt-node-integration (accepted on
+  exact code head `100e447`; ten repeated focused runs, full Go vet/test/race,
+  amd64/arm64 Windows cross-builds, clean acceptance 12/12 and hosted run
+  `29532276399` 4/4 passed; PR #201 merge `b4fb6f7`. Capability/composition stay
+  dark, and AppContainer hold/audio hardware evidence remains manual)
 - ↪ manual `TASK-260712-1rzqh9` — live-ptt-regression-evidence →
   `EPIC-260714-th54l3`
 

@@ -18,7 +18,10 @@ var (
 	ErrStreamProductionSelectionLocked = errors.New("production stream variant selection is disabled by codec ADR")
 )
 
-var streamSHA256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var (
+	streamSHA256Pattern  = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	streamVariantPattern = regexp.MustCompile(`^sv_[0-9A-HJKMNP-TV-Z]{26}$`)
+)
 
 type StreamTrackMetadata struct {
 	MediaID, OriginalFilename, OriginalMIME, OriginalContainer, OriginalCodec string
@@ -69,6 +72,139 @@ type CreateStreamVariantParams struct {
 
 type StreamByteRange struct {
 	Start, End, SeekTimeMS int64
+}
+
+// WithAuthorizedStreamVariantDownload consumes a target decision supplied by
+// the configured snapshot reader. Production uses the persisted form below;
+// this seam preserves the existing injectable ACL boundary for deterministic
+// media-service and HTTP tests.
+func (s *Store) WithAuthorizedStreamVariantDownload(
+	expected ActorContext,
+	bearer, mediaID, variantID string,
+	targetSnapshot bool,
+	now int64,
+	authorized func(StreamVariant) error,
+) (StreamVariant, error) {
+	if authorized == nil {
+		return StreamVariant{}, ErrStreamTrackInvalid
+	}
+	return s.authorizeStreamVariantDownload(
+		expected, bearer, mediaID, variantID, targetSnapshot, nil, now, authorized,
+	)
+}
+
+// WithAuthorizedPersistedStreamVariantDownload rechecks the immutable target,
+// current credential binding, local report/block state, media and variant in
+// the same transaction that acquires the file descriptor.
+func (s *Store) WithAuthorizedPersistedStreamVariantDownload(
+	expected ActorContext,
+	bearer string,
+	target MediaTargetIdentity,
+	variantID string,
+	now int64,
+	authorized func(StreamVariant) error,
+) (StreamVariant, error) {
+	if authorized == nil {
+		return StreamVariant{}, ErrStreamTrackInvalid
+	}
+	return s.authorizeStreamVariantDownload(
+		expected, bearer, target.MediaID, variantID, true, &target, now, authorized,
+	)
+}
+
+func (s *Store) authorizeStreamVariantDownload(
+	expected ActorContext,
+	bearer, mediaID, variantID string,
+	targetSnapshot bool,
+	trg *MediaTargetIdentity,
+	now int64,
+	authorized func(StreamVariant) error,
+) (StreamVariant, error) {
+	if !s.selfServiceOnboarding {
+		return StreamVariant{}, ErrSelfServiceOnboardingDisabled
+	}
+	if expected.ActorID <= 0 || expected.OrbitID <= 0 ||
+		!lowerHexTokenPattern.MatchString(bearer) {
+		return StreamVariant{}, ErrUnauthorized
+	}
+	if !mediaItemIDPattern.MatchString(mediaID) || !streamVariantPattern.MatchString(variantID) ||
+		now <= 0 {
+		return StreamVariant{}, ErrStreamTrackNotFound
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return StreamVariant{}, err
+	}
+	defer tx.Rollback()
+	ctx, err := resolveActorContext(tx, Identity{Kind: IdentityBearer, Token: bearer})
+	if err != nil {
+		return StreamVariant{}, err
+	}
+	if ctx != expected {
+		return StreamVariant{}, ErrUnauthorized
+	}
+	// Stream bytes are node-only and never inherit the generic owner/control
+	// bypass. Every successful open must be present in an immutable accepted
+	// target snapshot for this exact installation generation.
+	if !ctx.Capabilities.Has(CapabilityNode) || ctx.Capabilities.Has(CapabilityControl) ||
+		ctx.Slot == "" {
+		return StreamVariant{}, ErrStreamTrackNotFound
+	}
+	if trg != nil {
+		if trg.MediaID != mediaID || trg.OrbitID != ctx.OrbitID ||
+			trg.ActorID != ctx.ActorID || trg.Slot != ctx.Slot {
+			return StreamVariant{}, ErrStreamTrackNotFound
+		}
+		allowed, err := allowsMediaDownloadRow(tx.QueryRow(
+			mediaTargetACLQuery, mediaID, ctx.OrbitID, ctx.ActorID, ctx.Slot,
+		))
+		if err != nil {
+			return StreamVariant{}, err
+		}
+		if !allowed {
+			return StreamVariant{}, ErrStreamTrackNotFound
+		}
+	} else if !targetSnapshot {
+		return StreamVariant{}, ErrStreamTrackNotFound
+	}
+	var kind MediaKind
+	var status MediaItemStatus
+	var expiresAt int64
+	err = tx.QueryRow(`SELECT kind, status, expires_at
+FROM media_items media
+WHERE id = ?
+  AND EXISTS (SELECT 1 FROM orbits WHERE id = media.owner_orbit_id AND status = 'active')
+  AND EXISTS (SELECT 1 FROM actors WHERE id = media.actor_id AND revoked_at IS NULL)`,
+		mediaID).Scan(&kind, &status, &expiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return StreamVariant{}, ErrStreamTrackNotFound
+	}
+	if err != nil {
+		return StreamVariant{}, err
+	}
+	if kind != MediaKindAudioTrack || status != MediaStatusReady || expiresAt <= now {
+		return StreamVariant{}, ErrStreamTrackNotFound
+	}
+	variant, err := scanStreamVariant(tx.QueryRow(
+		`SELECT `+streamVariantColumns+` FROM stream_variants
+WHERE id = ? AND media_id = ? AND purpose = 'canonical' AND status = 'ready'`,
+		variantID, mediaID,
+	))
+	if errors.Is(err, sql.ErrNoRows) {
+		return StreamVariant{}, ErrStreamTrackNotFound
+	}
+	if err != nil {
+		return StreamVariant{}, err
+	}
+	if authorized != nil {
+		if err := authorized(variant); err != nil {
+			return StreamVariant{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return StreamVariant{}, err
+	}
+	return variant, nil
 }
 
 type StreamPlaybackDomain struct {

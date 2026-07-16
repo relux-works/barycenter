@@ -2,15 +2,88 @@ package media
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"relux.works/duet/coordinator/internal/store"
 )
+
+func readyStreamDownloadFixture(
+	t *testing.T,
+	harness *submitHarness,
+	payload []byte,
+) (store.MediaItem, store.StreamVariant) {
+	t.Helper()
+	now := harness.nextMS()
+	item, err := harness.store.CreateMediaItem(store.CreateMediaItemParams{
+		OwnerOrbitID: harness.credentials.OrbitID, ActorID: harness.credentials.ActorID,
+		Kind: store.MediaKindAudioTrack, Source: store.MediaSourceApp, Title: "range-track.mp3",
+		CreatedAt: now, ExpiresAt: now + int64((7*24*time.Hour)/time.Millisecond),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := fmt.Sprintf("%x", sha256.Sum256(payload))
+	if _, err := harness.store.CreateStreamTrackMetadata(store.CreateStreamTrackMetadataParams{
+		MediaID: item.ID, OriginalFilename: "range-track.mp3", OriginalMIME: "audio/mpeg",
+		OriginalContainer: "mp3", OriginalCodec: "mp3", OriginalSizeBytes: int64(len(payload)),
+		OriginalSHA256: digest, OriginalDurationMS: 1000, OriginalSampleRateHz: 48000,
+		OriginalChannels: 2, CreatedAt: harness.nextMS(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	publication, err := harness.store.StageMediaPublication(item.ID, item.Revision, harness.nextMS())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ready, err := harness.store.CompleteMediaPublication(
+		publication.ID, publication.Revision,
+		store.MediaPublication{
+			MIME: "audio/mpeg", Codec: "mp3", DurationMS: 1000,
+			SizeBytes: int64(len(payload)), SHA256: digest,
+			LoudnessJSON: `{"input_i":"-14","input_tp":"-1","output_i":"-14","output_tp":"-1"}`,
+		}, harness.nextMS(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	variant, err := harness.store.CreateStagedStreamVariant(store.CreateStreamVariantParams{
+		MediaID: ready.ID, Purpose: "canonical", Profile: "test-mp3-cbr-v1",
+		Codec: "mp3", Container: "mp3", MIME: "audio/mpeg", RateMode: "cbr",
+		BitrateBPS: 128000, SampleRateHz: 48000, Channels: 2, DurationMS: 1000,
+		SizeBytes: int64(len(payload)), SHA256: digest, ETag: store.CreateStrongStreamETag(digest),
+		StorageKey: "stream/v1/" + digest, ChunkSizeBytes: int64(len(payload)),
+		Chunks: []store.StreamChunk{{
+			Index: 0, Start: 0, End: int64(len(payload) - 1), Bytes: int64(len(payload)), SHA256: digest,
+		}},
+		SeekMap: []store.StreamSeekPoint{{TimeMS: 0, Offset: 0}}, CreatedAt: harness.nextMS(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	variant, err = harness.store.PublishStreamVariant(variant.ID, variant.Revision, harness.nextMS())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, ok := StreamVariantPath(filepath.Join(harness.mediaDir, "stream"), variant.StorageKey)
+	if !ok {
+		t.Fatal("invalid stream test path")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return ready, variant
+}
 
 type recordingTargetSnapshotReader struct {
 	mu     sync.Mutex
@@ -485,5 +558,120 @@ func TestDownloadServiceRefusesCanonicalSymlink(t *testing.T) {
 	}
 	if bytes, err := os.ReadFile(outside); err != nil || string(bytes) != string(original) {
 		t.Fatalf("outside bytes changed=%d err=%v", len(bytes), err)
+	}
+}
+
+func TestDownloadServiceStreamVariantRequiresExactTargetAndRevocation(t *testing.T) {
+	harness := newSubmitHarness(t)
+	payload := []byte("immutable-private-stream-variant")
+	ready, variant := readyStreamDownloadFixture(t, harness, payload)
+	target, err := harness.store.CreateSelfServiceOrbit("Stream range target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nontarget, err := harness.store.CreateSelfServiceOrbit("Stream range nontarget")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := NewDownloadService(harness.store, harness.mediaDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.now = func() time.Time { return time.UnixMilli(harness.nextMS()) }
+	reader := &recordingTargetSnapshotReader{grants: make(map[store.MediaTargetIdentity]bool)}
+	service.SetTargetSnapshotReader(reader)
+	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader.grant(store.MediaTargetIdentity{
+		MediaID: ready.ID, OrbitID: targetContext.OrbitID,
+		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
+	})
+	download, err := service.OpenAuthorizedStreamVariant(
+		context.Background(), targetContext, target.NodeToken, ready.ID, variant.ID,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, credentials := range map[string]struct {
+		token string
+	}{
+		"owner control":   {harness.credentials.ControlToken},
+		"target control":  {target.ControlToken},
+		"non-target node": {nontarget.NodeToken},
+	} {
+		ctx, err := harness.store.ResolveTokenActorContext(credentials.token)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.OpenAuthorizedStreamVariant(
+			context.Background(), ctx, credentials.token, ready.ID, variant.ID,
+		); !errors.Is(err, store.ErrStreamTrackNotFound) {
+			t.Fatalf("%s stream error=%v", name, err)
+		}
+	}
+	if _, err := harness.store.RevokeStreamVariant(
+		variant.ID, variant.Revision, harness.nextMS(),
+	); err != nil {
+		t.Fatal(err)
+	}
+	// A descriptor acquired before revocation may finish this bounded read; it
+	// grants no new open and cannot refill after the ready state is revoked.
+	got, err := io.ReadAll(download.File)
+	download.File.Close()
+	if err != nil || string(got) != string(payload) || download.Variant.ID != variant.ID {
+		t.Fatalf("pre-revoke stream bytes=%q variant=%+v err=%v", got, download.Variant, err)
+	}
+	if _, err := service.OpenAuthorizedStreamVariant(
+		context.Background(), targetContext, target.NodeToken, ready.ID, variant.ID,
+	); !errors.Is(err, store.ErrStreamTrackNotFound) {
+		t.Fatalf("revoked stream error=%v", err)
+	}
+}
+
+func TestDownloadServiceRefusesStreamVariantSymlink(t *testing.T) {
+	harness := newSubmitHarness(t)
+	payload := []byte("stream-symlink-must-not-escape")
+	ready, variant := readyStreamDownloadFixture(t, harness, payload)
+	path, ok := StreamVariantPath(filepath.Join(harness.mediaDir, "stream"), variant.StorageKey)
+	if !ok {
+		t.Fatal("invalid stream variant path")
+	}
+	outside := harness.mediaDir + "-stream-outside"
+	if err := os.WriteFile(outside, payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, path); err != nil {
+		t.Fatal(err)
+	}
+	target, err := harness.store.CreateSelfServiceOrbit("Stream symlink target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := NewDownloadService(harness.store, harness.mediaDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := &recordingTargetSnapshotReader{grants: make(map[store.MediaTargetIdentity]bool)}
+	reader.grant(store.MediaTargetIdentity{
+		MediaID: ready.ID, OrbitID: targetContext.OrbitID,
+		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
+	})
+	service.SetTargetSnapshotReader(reader)
+	if _, err := service.OpenAuthorizedStreamVariant(
+		context.Background(), targetContext, target.NodeToken, ready.ID, variant.ID,
+	); err == nil || errors.Is(err, store.ErrStreamTrackNotFound) {
+		t.Fatalf("stream symlink error=%v", err)
+	}
+	if bytes, err := os.ReadFile(outside); err != nil || string(bytes) != string(payload) {
+		t.Fatalf("outside stream bytes changed=%d err=%v", len(bytes), err)
 	}
 }

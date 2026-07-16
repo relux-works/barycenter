@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +29,11 @@ type MediaDownload struct {
 	File *os.File
 }
 
+type StreamVariantDownload struct {
+	Variant store.StreamVariant
+	File    *os.File
+}
+
 type ModerationEvidenceDownload struct {
 	Evidence store.ModerationEvidence
 	File     *os.File
@@ -35,6 +42,7 @@ type ModerationEvidenceDownload struct {
 type DownloadService struct {
 	store        *store.Store
 	canonicalDir string
+	streamDir    string
 	now          func() time.Time
 
 	targetsMu sync.RWMutex
@@ -56,14 +64,18 @@ func NewDownloadService(st *store.Store, mediaDir string) (*DownloadService, err
 	if st == nil || mediaDir == "" {
 		return nil, errors.New("invalid media download configuration")
 	}
-	canonicalDir := filepath.Join(mediaDir, "canonical")
-	if err := os.MkdirAll(canonicalDir, 0o700); err != nil {
-		return nil, errors.New("initialize media download storage")
+	canonicalDir, streamDir := filepath.Join(mediaDir, "canonical"), filepath.Join(mediaDir, "stream")
+	for _, directory := range []string{canonicalDir, streamDir} {
+		if err := os.MkdirAll(directory, 0o700); err != nil {
+			return nil, errors.New("initialize media download storage")
+		}
+		if err := os.Chmod(directory, 0o700); err != nil {
+			return nil, errors.New("secure media download storage")
+		}
 	}
-	if err := os.Chmod(canonicalDir, 0o700); err != nil {
-		return nil, errors.New("secure media download storage")
-	}
-	return &DownloadService{store: st, canonicalDir: canonicalDir, now: time.Now}, nil
+	return &DownloadService{
+		store: st, canonicalDir: canonicalDir, streamDir: streamDir, now: time.Now,
+	}, nil
 }
 
 // SetTargetSnapshotReader is the forward-only handoff to transmission
@@ -191,6 +203,85 @@ func (service *DownloadService) OpenAuthorized(
 	return MediaDownload{Item: confirmed, File: file}, nil
 }
 
+func (service *DownloadService) OpenAuthorizedStreamVariant(
+	ctx context.Context,
+	principal store.ActorContext,
+	bearer, mediaID, variantID string,
+) (StreamVariantDownload, error) {
+	if ctx == nil {
+		return StreamVariantDownload{}, errors.New("nil stream download context")
+	}
+	if !principal.Capabilities.Has(store.CapabilityNode) ||
+		principal.Capabilities.Has(store.CapabilityControl) {
+		return StreamVariantDownload{}, store.ErrStreamTrackNotFound
+	}
+	service.targetsMu.RLock()
+	reader, persistedTargets := service.targets, service.persistedTargets
+	service.targetsMu.RUnlock()
+	target := store.MediaTargetIdentity{
+		MediaID: mediaID, OrbitID: principal.OrbitID,
+		ActorID: principal.ActorID, Slot: principal.Slot,
+	}
+	targetAuthorized := false
+	if reader != nil {
+		var err error
+		targetAuthorized, err = reader.AllowsMediaDownload(ctx, target)
+		if err != nil {
+			return StreamVariantDownload{}, errors.New("query stream target snapshot")
+		}
+	}
+
+	var file *os.File
+	authorizedOpen := func(variant store.StreamVariant) error {
+		lock := canonicalStorageLock(variant.StorageKey)
+		lock.Lock()
+		defer lock.Unlock()
+		path, ok := StreamVariantPath(service.streamDir, variant.StorageKey)
+		if !ok {
+			return errors.New("invalid stream variant storage identity")
+		}
+		before, err := os.Lstat(path)
+		if err != nil || !before.Mode().IsRegular() || before.Size() != variant.SizeBytes {
+			return errors.New("inspect stream variant storage")
+		}
+		opened, err := os.Open(path)
+		if err != nil {
+			return errors.New("open stream variant storage")
+		}
+		after, err := opened.Stat()
+		if err != nil || !after.Mode().IsRegular() || !os.SameFile(before, after) ||
+			after.Size() != variant.SizeBytes {
+			opened.Close()
+			return errors.New("verify stream variant storage")
+		}
+		file = opened
+		return nil
+	}
+	var variant store.StreamVariant
+	var err error
+	if persistedTargets && targetAuthorized {
+		variant, err = service.store.WithAuthorizedPersistedStreamVariantDownload(
+			principal, bearer, target, variantID,
+			service.now().UnixMilli(), authorizedOpen,
+		)
+	} else {
+		variant, err = service.store.WithAuthorizedStreamVariantDownload(
+			principal, bearer, mediaID, variantID, targetAuthorized,
+			service.now().UnixMilli(), authorizedOpen,
+		)
+	}
+	if err != nil {
+		if file != nil {
+			file.Close()
+		}
+		return StreamVariantDownload{}, err
+	}
+	if file == nil {
+		return StreamVariantDownload{}, errors.New("stream variant descriptor not acquired")
+	}
+	return StreamVariantDownload{Variant: variant, File: file}, nil
+}
+
 // OpenModerationEvidence is a separate operator-only read path. Store
 // authorization commits the append-only access audit before filesystem bytes
 // are opened, and the evidence snapshot expires independently of user ACLs.
@@ -239,4 +330,13 @@ func (service *DownloadService) OpenModerationEvidence(
 		return ModerationEvidenceDownload{}, errors.New("rewind moderation evidence storage")
 	}
 	return ModerationEvidenceDownload{Evidence: evidence, File: file}, nil
+}
+
+var streamStorageKeyPattern = regexp.MustCompile(`^stream/v1/[0-9a-f]{64}$`)
+
+func StreamVariantPath(streamDir, storageKey string) (string, bool) {
+	if streamDir == "" || !streamStorageKeyPattern.MatchString(storageKey) {
+		return "", false
+	}
+	return filepath.Join(streamDir, strings.TrimPrefix(storageKey, "stream/v1/")+".bin"), true
 }

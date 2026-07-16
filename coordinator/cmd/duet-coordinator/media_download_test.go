@@ -81,6 +81,428 @@ func readyDownloadHTTPMedia(
 	return ready
 }
 
+func readyHTTPStreamVariant(
+	t *testing.T,
+	harness onboardingHarness,
+	credentials store.OnboardingCredentials,
+	payload []byte,
+) (store.MediaItem, store.StreamVariant) {
+	t.Helper()
+	now := time.Now().UnixMilli()
+	item, err := harness.store.CreateMediaItem(store.CreateMediaItemParams{
+		OwnerOrbitID: credentials.OrbitID, ActorID: credentials.ActorID,
+		Kind: store.MediaKindAudioTrack, Source: store.MediaSourceApp,
+		Title: "private-range-track.mp3", CreatedAt: now,
+		ExpiresAt: now + int64((7*24*time.Hour)/time.Millisecond),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := fmt.Sprintf("%x", sha256.Sum256(payload))
+	chunkSize := int64(len(payload))
+	if chunkSize > maxStreamRangeBytes {
+		chunkSize = maxStreamRangeBytes
+	}
+	chunks := make([]store.StreamChunk, 0, (int64(len(payload))+chunkSize-1)/chunkSize)
+	for start := int64(0); start < int64(len(payload)); start += chunkSize {
+		end := start + chunkSize
+		if end > int64(len(payload)) {
+			end = int64(len(payload))
+		}
+		chunkDigest := fmt.Sprintf("%x", sha256.Sum256(payload[start:end]))
+		chunks = append(chunks, store.StreamChunk{
+			Index: len(chunks), Start: start, End: end - 1,
+			Bytes: end - start, SHA256: chunkDigest,
+		})
+	}
+	if _, err := harness.store.CreateStreamTrackMetadata(store.CreateStreamTrackMetadataParams{
+		MediaID: item.ID, OriginalFilename: "private-range-track.mp3",
+		OriginalMIME: "audio/mpeg", OriginalContainer: "mp3", OriginalCodec: "mp3",
+		OriginalSizeBytes: int64(len(payload)), OriginalSHA256: digest,
+		OriginalDurationMS: 1000, OriginalSampleRateHz: 48000, OriginalChannels: 2,
+		CreatedAt: now + 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	publication, err := harness.store.StageMediaPublication(item.ID, item.Revision, now+2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ready, err := harness.store.CompleteMediaPublication(
+		publication.ID, publication.Revision,
+		store.MediaPublication{
+			MIME: "audio/mpeg", Codec: "mp3", DurationMS: 1000,
+			SizeBytes: int64(len(payload)), SHA256: digest,
+			LoudnessJSON: `{"input_i":"-14","input_tp":"-1","output_i":"-14","output_tp":"-1"}`,
+		}, now+3,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	variant, err := harness.store.CreateStagedStreamVariant(store.CreateStreamVariantParams{
+		MediaID: ready.ID, Purpose: "canonical", Profile: "http-range-test-v1",
+		Codec: "mp3", Container: "mp3", MIME: "audio/mpeg", RateMode: "cbr",
+		BitrateBPS: 128000, SampleRateHz: 48000, Channels: 2, DurationMS: 1000,
+		SizeBytes: int64(len(payload)), SHA256: digest, ETag: store.CreateStrongStreamETag(digest),
+		StorageKey: "stream/v1/" + digest, ChunkSizeBytes: chunkSize,
+		Chunks:  chunks,
+		SeekMap: []store.StreamSeekPoint{{TimeMS: 0, Offset: 0}}, CreatedAt: now + 4,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	variant, err = harness.store.PublishStreamVariant(variant.ID, variant.Revision, now+5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, ok := media.StreamVariantPath(
+		filepath.Join(harness.api.config.MediaDir, "stream"), variant.StorageKey,
+	)
+	if !ok {
+		t.Fatal("invalid HTTP stream path")
+	}
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return ready, variant
+}
+
+func streamVariantRequest(
+	handler http.Handler,
+	method, path, bearer string,
+	headers map[string]string,
+) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, nil)
+	req.RemoteAddr = "127.0.0.1:34567"
+	req.Header.Set("Authorization", "Bearer "+bearer)
+	for name, value := range headers {
+		req.Header.Set(name, value)
+	}
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	return recorder
+}
+
+func TestStreamVariantHTTPRangesConditionalsEgressAndRevocation(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	source, err := harness.store.CreateSelfServiceOrbit("HTTP stream source")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := harness.store.CreateSelfServiceOrbit("HTTP stream target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := harness.store.CreateSelfServiceOrbit("HTTP stream foreign")
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte("0123456789-private-stream-range-payload")
+	ready, variant := readyHTTPStreamVariant(t, harness, source, payload)
+	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := &httpTargetSnapshotReader{grants: map[store.MediaTargetIdentity]bool{{
+		MediaID: ready.ID, OrbitID: targetContext.OrbitID,
+		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
+	}: true}}
+	harness.api.mediaDownload.SetTargetSnapshotReader(reader)
+	path := "/v1/media/" + ready.ID + "/variants/" + variant.ID
+
+	full := streamVariantRequest(harness.mux, http.MethodGet, path, target.NodeToken, nil)
+	if full.Code != http.StatusOK || full.Body.String() != string(payload) {
+		t.Fatalf("full status=%d body=%q", full.Code, full.Body.String())
+	}
+	for name, want := range map[string]string{
+		"Accept-Ranges": "bytes", "Cache-Control": "private, no-store",
+		"Content-Type": "audio/mpeg", "Content-Length": fmt.Sprint(len(payload)),
+		"ETag": variant.ETag, "X-Content-SHA256": variant.SHA256,
+		"X-Content-Type-Options": "nosniff",
+		"Vary":                   "Authorization, X-Codec-Spike-Target",
+	} {
+		if got := full.Header().Get(name); got != want {
+			t.Fatalf("full header %s=%q want=%q", name, got, want)
+		}
+	}
+	partial := streamVariantRequest(harness.mux, http.MethodGet, path, target.NodeToken,
+		map[string]string{"Range": "bytes=5-10"})
+	if partial.Code != http.StatusPartialContent || partial.Body.String() != string(payload[5:11]) ||
+		partial.Header().Get("Content-Range") != fmt.Sprintf("bytes 5-10/%d", len(payload)) {
+		t.Fatalf("partial status=%d headers=%v body=%q", partial.Code, partial.Header(), partial.Body.String())
+	}
+	ifRangeMatched := streamVariantRequest(harness.mux, http.MethodGet, path, target.NodeToken,
+		map[string]string{"Range": "bytes=5-10", "If-Range": variant.ETag})
+	if ifRangeMatched.Code != http.StatusPartialContent ||
+		ifRangeMatched.Body.String() != string(payload[5:11]) {
+		t.Fatalf("matching if-range status=%d body=%q", ifRangeMatched.Code, ifRangeMatched.Body.String())
+	}
+	ifRange := streamVariantRequest(harness.mux, http.MethodGet, path, target.NodeToken,
+		map[string]string{"Range": "bytes=5-10", "If-Range": `"sha256-stale"`})
+	if ifRange.Code != http.StatusOK || ifRange.Body.String() != string(payload) ||
+		ifRange.Header().Get("Content-Range") != "" {
+		t.Fatalf("if-range status=%d headers=%v body=%q", ifRange.Code, ifRange.Header(), ifRange.Body.String())
+	}
+	head := streamVariantRequest(harness.mux, http.MethodHead, path, target.NodeToken,
+		map[string]string{"Range": "bytes=-7"})
+	if head.Code != http.StatusPartialContent || head.Body.Len() != 0 ||
+		head.Header().Get("Content-Length") != "7" {
+		t.Fatalf("head status=%d headers=%v body=%q", head.Code, head.Header(), head.Body.String())
+	}
+	openEnded := streamVariantRequest(harness.mux, http.MethodGet, path, target.NodeToken,
+		map[string]string{"Range": fmt.Sprintf("bytes=%d-", len(payload)-4)})
+	if openEnded.Code != http.StatusPartialContent ||
+		openEnded.Body.String() != string(payload[len(payload)-4:]) {
+		t.Fatalf("open-ended status=%d body=%q", openEnded.Code, openEnded.Body.String())
+	}
+	notModified := streamVariantRequest(harness.mux, http.MethodGet, path, target.NodeToken,
+		map[string]string{"If-None-Match": variant.ETag})
+	if notModified.Code != http.StatusNotModified || notModified.Body.Len() != 0 {
+		t.Fatalf("not-modified status=%d body=%q", notModified.Code, notModified.Body.String())
+	}
+	repeatedConditionalRequest := httptest.NewRequest(http.MethodGet, path, nil)
+	repeatedConditionalRequest.RemoteAddr = "127.0.0.1:34567"
+	repeatedConditionalRequest.Header.Set("Authorization", "Bearer "+target.NodeToken)
+	repeatedConditionalRequest.Header.Add("If-None-Match", `"sha256-stale"`)
+	repeatedConditionalRequest.Header.Add("If-None-Match", variant.ETag)
+	repeatedConditional := httptest.NewRecorder()
+	harness.mux.ServeHTTP(repeatedConditional, repeatedConditionalRequest)
+	if repeatedConditional.Code != http.StatusNotModified || repeatedConditional.Body.Len() != 0 {
+		t.Fatalf("repeated conditional status=%d body=%q", repeatedConditional.Code, repeatedConditional.Body.String())
+	}
+	unsatisfied := streamVariantRequest(harness.mux, http.MethodGet, path, target.NodeToken,
+		map[string]string{"Range": "bytes=999-"})
+	if unsatisfied.Code != http.StatusRequestedRangeNotSatisfiable ||
+		unsatisfied.Header().Get("Content-Range") != fmt.Sprintf("bytes */%d", len(payload)) ||
+		unsatisfied.Body.Len() != 0 {
+		t.Fatalf("416 status=%d headers=%v body=%q", unsatisfied.Code, unsatisfied.Header(), unsatisfied.Body.String())
+	}
+	multiple := streamVariantRequest(harness.mux, http.MethodGet, path, target.NodeToken,
+		map[string]string{"Range": "bytes=0-1,4-5"})
+	if multiple.Code != http.StatusRequestedRangeNotSatisfiable || multiple.Body.Len() != 0 {
+		t.Fatalf("multiple range status=%d body=%q", multiple.Code, multiple.Body.String())
+	}
+	repeatedRangeRequest := httptest.NewRequest(http.MethodGet, path, nil)
+	repeatedRangeRequest.RemoteAddr = "127.0.0.1:34567"
+	repeatedRangeRequest.Header.Set("Authorization", "Bearer "+target.NodeToken)
+	repeatedRangeRequest.Header.Add("Range", "bytes=0-1")
+	repeatedRangeRequest.Header.Add("Range", "bytes=4-5")
+	repeatedRange := httptest.NewRecorder()
+	harness.mux.ServeHTTP(repeatedRange, repeatedRangeRequest)
+	if repeatedRange.Code != http.StatusRequestedRangeNotSatisfiable || repeatedRange.Body.Len() != 0 {
+		t.Fatalf("repeated range status=%d body=%q", repeatedRange.Code, repeatedRange.Body.String())
+	}
+	largePayload := make([]byte, maxStreamRangeBytes+1)
+	largeReady, largeVariant := readyHTTPStreamVariant(t, harness, source, largePayload)
+	reader.grants[store.MediaTargetIdentity{
+		MediaID: largeReady.ID, OrbitID: targetContext.OrbitID,
+		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
+	}] = true
+	largeRange := streamVariantRequest(
+		harness.mux, http.MethodGet,
+		"/v1/media/"+largeReady.ID+"/variants/"+largeVariant.ID,
+		target.NodeToken,
+		map[string]string{"Range": fmt.Sprintf("bytes=0-%d", maxStreamRangeBytes)},
+	)
+	if largeRange.Code != http.StatusRequestedRangeNotSatisfiable || largeRange.Body.Len() != 0 {
+		t.Fatalf("oversized range status=%d body_bytes=%d", largeRange.Code, largeRange.Body.Len())
+	}
+	unknown := streamVariantRequest(harness.mux, http.MethodGet,
+		"/v1/media/"+ready.ID+"/variants/sv_00000000000000000000000000", target.NodeToken, nil)
+	for name, token := range map[string]string{
+		"foreign node": foreign.NodeToken, "owner control": source.ControlToken,
+		"target control": target.ControlToken,
+	} {
+		denied := streamVariantRequest(harness.mux, http.MethodGet, path, token, nil)
+		if denied.Code != http.StatusNotFound || denied.Body.String() != unknown.Body.String() {
+			t.Fatalf("%s status=%d body=%q unknown=%q", name, denied.Code, denied.Body.String(), unknown.Body.String())
+		}
+	}
+	usage, err := harness.store.GetStreamAccountingUsage("actor", source.ActorID, time.Now().UnixMilli())
+	wantActual := int64(len(payload) + 6 + 6 + len(payload) + 4)
+	if err != nil || usage.ActualEgressBytes24h != wantActual || usage.RangeRequests24h != 5 ||
+		usage.ActiveEgressReservedBytes != 0 {
+		t.Fatalf("stream HTTP usage=%+v want_actual=%d err=%v", usage, wantActual, err)
+	}
+	if _, err := harness.store.RevokeStreamVariant(variant.ID, variant.Revision, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	revoked := streamVariantRequest(harness.mux, http.MethodGet, path, target.NodeToken, nil)
+	if revoked.Code != http.StatusNotFound || revoked.Body.String() != unknown.Body.String() {
+		t.Fatalf("revoked status=%d body=%q", revoked.Code, revoked.Body.String())
+	}
+	deletable, deleteVariant := readyHTTPStreamVariant(
+		t, harness, source, []byte("separate-delete-revocation-track"),
+	)
+	reader.grants[store.MediaTargetIdentity{
+		MediaID: deletable.ID, OrbitID: targetContext.OrbitID,
+		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
+	}] = true
+	deletePath := "/v1/media/" + deletable.ID + "/variants/" + deleteVariant.ID
+	if _, err := harness.store.DeleteMediaItem(deletable.ID, deletable.Revision, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	deleted := streamVariantRequest(harness.mux, http.MethodGet, deletePath, target.NodeToken, nil)
+	if deleted.Code != http.StatusNotFound || deleted.Body.String() != unknown.Body.String() {
+		t.Fatalf("deleted status=%d body=%q", deleted.Code, deleted.Body.String())
+	}
+	moderated, moderatedVariant := readyHTTPStreamVariant(
+		t, harness, source, []byte("separate-moderation-delete-track"),
+	)
+	reader.grants[store.MediaTargetIdentity{
+		MediaID: moderated.ID, OrbitID: targetContext.OrbitID,
+		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
+	}] = true
+	moderatedPath := "/v1/media/" + moderated.ID + "/variants/" + moderatedVariant.ID
+	if _, err := harness.store.DeleteMediaForModeration(moderated.ID, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	moderatorDeleted := streamVariantRequest(
+		harness.mux, http.MethodGet, moderatedPath, target.NodeToken, nil,
+	)
+	if moderatorDeleted.Code != http.StatusNotFound ||
+		moderatorDeleted.Body.String() != unknown.Body.String() {
+		t.Fatalf("moderator deleted status=%d body=%q", moderatorDeleted.Code, moderatorDeleted.Body.String())
+	}
+	disabled, disabledVariant := readyHTTPStreamVariant(
+		t, harness, source, []byte("separate-owner-disable-track"),
+	)
+	reader.grants[store.MediaTargetIdentity{
+		MediaID: disabled.ID, OrbitID: targetContext.OrbitID,
+		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
+	}] = true
+	disabledPath := "/v1/media/" + disabled.ID + "/variants/" + disabledVariant.ID
+	if _, err := harness.store.DisableActorForModeration(source.ActorID, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	disabledOwner := streamVariantRequest(
+		harness.mux, http.MethodGet, disabledPath, target.NodeToken, nil,
+	)
+	if disabledOwner.Code != http.StatusNotFound || disabledOwner.Body.String() != unknown.Body.String() {
+		t.Fatalf("disabled owner status=%d body=%q", disabledOwner.Code, disabledOwner.Body.String())
+	}
+}
+
+func TestStreamVariantHTTPQuotaFailsBeforeBytes(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	source, err := harness.store.CreateSelfServiceOrbit("HTTP stream quota source")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := harness.store.CreateSelfServiceOrbit("HTTP stream quota target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ready, variant := readyHTTPStreamVariant(t, harness, source, []byte("quota-track-payload"))
+	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	harness.api.mediaDownload.SetTargetSnapshotReader(&httpTargetSnapshotReader{
+		grants: map[store.MediaTargetIdentity]bool{{
+			MediaID: ready.ID, OrbitID: targetContext.OrbitID,
+			ActorID: targetContext.ActorID, Slot: targetContext.Slot,
+		}: true},
+	})
+	now := time.Now().UnixMilli()
+	operator, err := harness.store.ProvisionModerationOperator(
+		"Stream quota test", store.ModerationOperatorCapabilities{Decide: true}, now,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	usage, err := harness.store.GetStreamAccountingUsage("actor", source.ActorID, now+1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := usage.Policy
+	policy.ScopeID = source.ActorID
+	policy.MaxEgressBytes24h = 1
+	if _, err := harness.store.SetStreamQuotaPolicy(
+		operator.Operator.ID, operator.Token, policy, 0, "http_range_quota_test", now+2,
+	); err != nil {
+		t.Fatal(err)
+	}
+	response := streamVariantRequest(
+		harness.mux, http.MethodGet,
+		"/v1/media/"+ready.ID+"/variants/"+variant.ID,
+		target.NodeToken, map[string]string{"Range": "bytes=0-3"},
+	)
+	if response.Code != http.StatusTooManyRequests ||
+		!strings.Contains(response.Body.String(), errorUploadQuota) {
+		t.Fatalf("quota response status=%d body=%q", response.Code, response.Body.String())
+	}
+	usage, err = harness.store.GetStreamAccountingUsage("actor", source.ActorID, now+3)
+	if err != nil || usage.ActualEgressBytes24h != 0 || usage.RangeRequests24h != 0 {
+		t.Fatalf("quota usage=%+v err=%v", usage, err)
+	}
+}
+
+func TestStreamVariantHTTPTinyRangesConsumeRequestFloor(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	source, err := harness.store.CreateSelfServiceOrbit("HTTP tiny range source")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := harness.store.CreateSelfServiceOrbit("HTTP tiny range target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ready, variant := readyHTTPStreamVariant(t, harness, source, []byte("tiny-range-floor-payload"))
+	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	harness.api.mediaDownload.SetTargetSnapshotReader(&httpTargetSnapshotReader{
+		grants: map[store.MediaTargetIdentity]bool{{
+			MediaID: ready.ID, OrbitID: targetContext.OrbitID,
+			ActorID: targetContext.ActorID, Slot: targetContext.Slot,
+		}: true},
+	})
+	now := time.Now().UnixMilli()
+	operator, err := harness.store.ProvisionModerationOperator(
+		"Tiny range quota test", store.ModerationOperatorCapabilities{Decide: true}, now,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	usage, err := harness.store.GetStreamAccountingUsage("actor", source.ActorID, now+1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := usage.Policy
+	policy.ScopeID = source.ActorID
+	policy.MaxEgressBytes24h = 2 * store.StreamRangeRequestChargeBytes
+	if _, err := harness.store.SetStreamQuotaPolicy(
+		operator.Operator.ID, operator.Token, policy, 0, "http_tiny_range_floor", now+2,
+	); err != nil {
+		t.Fatal(err)
+	}
+	path := "/v1/media/" + ready.ID + "/variants/" + variant.ID
+	for index := 0; index < 2; index++ {
+		response := streamVariantRequest(
+			harness.mux, http.MethodGet, path, target.NodeToken,
+			map[string]string{"Range": "bytes=0-0"},
+		)
+		if response.Code != http.StatusPartialContent || response.Body.String() != "t" {
+			t.Fatalf("tiny range %d status=%d body=%q", index, response.Code, response.Body.String())
+		}
+	}
+	rejected := streamVariantRequest(
+		harness.mux, http.MethodGet, path, target.NodeToken,
+		map[string]string{"Range": "bytes=0-0"},
+	)
+	if rejected.Code != http.StatusTooManyRequests ||
+		!strings.Contains(rejected.Body.String(), errorUploadQuota) {
+		t.Fatalf("tiny range rejection status=%d body=%q", rejected.Code, rejected.Body.String())
+	}
+	usage, err = harness.store.GetStreamAccountingUsage("actor", source.ActorID, now+3)
+	if err != nil || usage.ActualEgressBytes24h != 2 || usage.RangeRequests24h != 2 ||
+		usage.ActiveEgressReservedBytes != 0 {
+		t.Fatalf("tiny range usage=%+v err=%v", usage, err)
+	}
+}
+
 func TestMediaDownloadHTTPEnforcesOwnerAndExactTargetACL(t *testing.T) {
 	harness := newOnboardingHarness(t)
 	owner, err := harness.store.CreateSelfServiceOrbit("HTTP download owner")

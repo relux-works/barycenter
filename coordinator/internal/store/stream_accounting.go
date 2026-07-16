@@ -13,7 +13,13 @@ import (
 	"relux.works/duet/coordinator/internal/ulid"
 )
 
-const StreamAccountingDefaultStaleAfter = 30 * time.Minute
+const (
+	StreamAccountingDefaultStaleAfter = 30 * time.Minute
+	// StreamRangeRequestChargeBytes is the quota-admission floor for one
+	// completed response. Actual egress remains exact; the floor prevents a
+	// large number of tiny sequential ranges from bypassing the daily budget.
+	StreamRangeRequestChargeBytes = int64(1 << 20)
+)
 
 var (
 	ErrStreamAccountingInvalid  = errors.New("stream accounting input is invalid")
@@ -308,7 +314,15 @@ func streamQuotaFailure(usage StreamAccountingUsage, dimension StreamQuotaDimens
 	case StreamQuotaRetainedBytes:
 		return usage.RetainedStorageBytes+delta > usage.Policy.MaxRetainedBytes
 	case StreamQuotaEgressBytes:
-		return usage.ActualEgressBytes24h+usage.ActiveEgressReservedBytes+delta > usage.Policy.MaxEgressBytes24h
+		limit := usage.Policy.MaxEgressBytes24h
+		if usage.RangeRequests24h > limit/StreamRangeRequestChargeBytes {
+			return true
+		}
+		charged := usage.RangeRequests24h * StreamRangeRequestChargeBytes
+		if usage.ActualEgressBytes24h > charged {
+			charged = usage.ActualEgressBytes24h
+		}
+		return charged+usage.ActiveEgressReservedBytes+delta > limit
 	default:
 		return true
 	}

@@ -10,7 +10,7 @@ import (
 func TestRenderBoundaryHasNoBlockingOrDynamicOperations(t *testing.T) {
 	t.Parallel()
 	checks := map[string][]string{
-		"engine.go": {"Render", "renderMusic", "mixOverlay", "mixInterrupt", "applyOverlayLimiter"},
+		"engine.go": {"Render", "renderMusic", "mixOverlay", "mixInterrupt", "mixLive", "applyOverlayLimiter"},
 		"gain.go":   {"ApplyMusicRamp", "Amplitude"},
 	}
 	for filename, functions := range checks {

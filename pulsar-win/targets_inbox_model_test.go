@@ -82,6 +82,13 @@ func TestTargetsInboxCommandsRequireLatestServerCapabilities(t *testing.T) {
 		{Kind: TargetsInboxMuteSender, ObjectID: hi},
 		{Kind: TargetsInboxMuteSender, ObjectID: ib},
 	}
+	initialReceipts := cloneTargetsInboxSnapshot(fixture)
+	initialReceipts.History[0].ReceiptPage = TargetsInboxReceiptPage{}
+	model.Replace(initialReceipts, now)
+	if _, ok := model.BuildCommand(TargetsInboxCommand{Kind: TargetsInboxLoadMoreReceipts, ObjectID: hi}); !ok {
+		t.Fatal("initial explicit receipt load rejected")
+	}
+	model.Replace(fixture, now)
 	for _, request := range valid {
 		if _, ok := model.BuildCommand(request); !ok {
 			t.Errorf("valid command rejected: %s", request.Kind)

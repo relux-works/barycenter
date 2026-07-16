@@ -132,6 +132,7 @@ func (c *WindowsPhaseOneComposition) ApplyShellSnapshot(shell *ShellSnapshot) {
 			DowngradeReason: draft.DowngradeReason, Status: draft.Status,
 			FailureCode: draft.FailureCode, LocalBytesRetained: draft.LocalBytesRetained,
 			FallbackConfirmationAvailable: draft.FallbackConfirmationAvailable,
+			ExplicitTargetCount:           draft.ExplicitTargetCount,
 		})
 	}
 	for _, item := range state.History {
@@ -208,6 +209,16 @@ func (c *WindowsPhaseOneComposition) SelectNextReportReason() {
 }
 
 func (c *WindowsPhaseOneComposition) SendSelectedDraft() {
+	c.mu.RLock()
+	state := c.state
+	c.mu.RUnlock()
+	c.SendSelectedDraftIntent(state.SelectedRoute, nil, state.SelectedRoute == PhaseOneThisPulsar, state.SelectedDelivery)
+}
+
+func (c *WindowsPhaseOneComposition) SendSelectedDraftIntent(audience PhaseOneRoute, references []string, includeOrigin bool, delivery PhaseOneDelivery) {
+	if audience != TargetsInboxExplicitAudience && !validPhaseOneRoute(audience) || !validPhaseOneDelivery(delivery) {
+		return
+	}
 	if !c.beginMutation() {
 		return
 	}
@@ -226,10 +237,14 @@ func (c *WindowsPhaseOneComposition) SendSelectedDraft() {
 			c.endMutation(phaseOneFailureCodeOrEmpty(err))
 			return
 		}
-		if state.Drafts[state.SelectedDraft].FallbackConfirmationAvailable {
+		if state.Drafts[state.SelectedDraft].ExplicitTargetCount > 0 {
+			_, err = c.outbox.RetryExplicit(c.ctx, draftID, true)
+		} else if audience == TargetsInboxExplicitAudience {
+			_, err = c.outbox.SendExplicit(c.ctx, draftID, references, includeOrigin, delivery, originKind, true)
+		} else if state.Drafts[state.SelectedDraft].FallbackConfirmationAvailable {
 			_, err = c.outbox.ConfirmFallback(c.ctx, draftID, PhaseOneAfterCurrent, originKind)
 		} else {
-			_, err = c.outbox.Send(c.ctx, draftID, state.SelectedRoute, state.SelectedDelivery, originKind, true)
+			_, err = c.outbox.Send(c.ctx, draftID, audience, delivery, originKind, true)
 		}
 		c.refreshDrafts()
 		c.endMutation(phaseOneFailureCodeOrEmpty(err))

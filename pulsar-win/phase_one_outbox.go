@@ -34,6 +34,7 @@ type PhaseOneDraftSnapshot struct {
 	FailureCode                   string
 	LocalBytesRetained            bool
 	FallbackConfirmationAvailable bool
+	ExplicitTargetCount           int
 }
 
 var (
@@ -52,6 +53,8 @@ type phaseOneDraftRecord struct {
 	TransmissionKey    string             `json:"transmission_key"`
 	State              PhaseOneDraftState `json:"state"`
 	Route              PhaseOneRoute      `json:"route,omitempty"`
+	ExplicitTargets    []string           `json:"explicit_target_references,omitempty"`
+	IncludeOrigin      *bool              `json:"include_origin,omitempty"`
 	RequestedDelivery  PhaseOneDelivery   `json:"requested_delivery,omitempty"`
 	MediaID            string             `json:"media_id,omitempty"`
 	TransmissionID     string             `json:"transmission_id,omitempty"`
@@ -80,6 +83,10 @@ type PhaseOneDraftOutbox struct {
 	handles    map[string]CaptureMediaHandle
 	active     map[string]bool
 	challenges map[string]PhaseOneFallbackConfirmation
+}
+
+type phaseOneExplicitTransmitter interface {
+	TransmitExplicit(context.Context, string, []string, bool, PhaseOneDelivery, PhaseOneOriginKind, string) (PhaseOneTransmissionReceipt, error)
 }
 
 func NewPhaseOneDraftOutbox(service PhaseOneAppService, store *CaptureMediaStore, statePath string, recoveredDrafts []CaptureMediaHandle) (*PhaseOneDraftOutbox, error) {
@@ -171,13 +178,41 @@ func (o *PhaseOneDraftOutbox) Snapshots() []PhaseOneDraftSnapshot {
 }
 
 func (o *PhaseOneDraftOutbox) Send(ctx context.Context, draftID string, route PhaseOneRoute, delivery PhaseOneDelivery, originKind PhaseOneOriginKind, rightsAcknowledged bool) (PhaseOneDraftSnapshot, error) {
-	if o == nil || !validPhaseOneRoute(route) || !validPhaseOneDelivery(delivery) ||
-		(originKind != PhaseOneMicrophone && originKind != PhaseOneFile) {
+	return o.sendResolved(ctx, draftID, route, nil, route == PhaseOneThisPulsar, delivery, originKind, rightsAcknowledged)
+}
+
+func (o *PhaseOneDraftOutbox) SendExplicit(ctx context.Context, draftID string, references []string, includeOrigin bool, delivery PhaseOneDelivery, originKind PhaseOneOriginKind, rightsAcknowledged bool) (PhaseOneDraftSnapshot, error) {
+	canonical := append([]string(nil), references...)
+	sort.Strings(canonical)
+	return o.sendResolved(ctx, draftID, "", canonical, includeOrigin, delivery, originKind, rightsAcknowledged)
+}
+
+func (o *PhaseOneDraftOutbox) RetryExplicit(ctx context.Context, draftID string, rightsAcknowledged bool) (PhaseOneDraftSnapshot, error) {
+	if o == nil {
 		return PhaseOneDraftSnapshot{}, ErrPhaseOneInvalidDraft
 	}
 	o.mu.Lock()
 	record, ok := o.records[draftID]
-	if !ok || record.Route != "" && record.Route != route || record.RequestedDelivery != "" && record.RequestedDelivery != delivery {
+	o.mu.Unlock()
+	if !ok || len(record.ExplicitTargets) == 0 || record.IncludeOrigin == nil || record.RequestedDelivery == "" {
+		return PhaseOneDraftSnapshot{}, ErrPhaseOneInvalidDraft
+	}
+	return o.sendResolved(ctx, draftID, "", record.ExplicitTargets, *record.IncludeOrigin,
+		record.RequestedDelivery, record.OriginKind, rightsAcknowledged)
+}
+
+func (o *PhaseOneDraftOutbox) sendResolved(ctx context.Context, draftID string, route PhaseOneRoute, references []string, includeOrigin bool, delivery PhaseOneDelivery, originKind PhaseOneOriginKind, rightsAcknowledged bool) (PhaseOneDraftSnapshot, error) {
+	explicit := len(references) > 0
+	if o == nil || !validPhaseOneDelivery(delivery) || (originKind != PhaseOneMicrophone && originKind != PhaseOneFile) ||
+		(explicit == validPhaseOneRoute(route)) || explicit && !validExplicitTargetSet(references) {
+		return PhaseOneDraftSnapshot{}, ErrPhaseOneInvalidDraft
+	}
+	o.mu.Lock()
+	record, ok := o.records[draftID]
+	if !ok || record.OriginKind != originKind || record.RequestedDelivery != "" && record.RequestedDelivery != delivery ||
+		explicit && (record.Route != "" || len(record.ExplicitTargets) > 0 && !sameStrings(record.ExplicitTargets, references) ||
+			record.IncludeOrigin != nil && *record.IncludeOrigin != includeOrigin) ||
+		!explicit && (len(record.ExplicitTargets) > 0 || record.Route != "" && record.Route != route) {
 		o.mu.Unlock()
 		return PhaseOneDraftSnapshot{}, ErrPhaseOneInvalidDraft
 	}
@@ -185,12 +220,13 @@ func (o *PhaseOneDraftOutbox) Send(ctx context.Context, draftID string, route Ph
 		o.mu.Unlock()
 		return PhaseOneDraftSnapshot{}, ErrPhaseOneDraftBusy
 	}
-	if record.OriginKind != originKind {
-		o.mu.Unlock()
-		return PhaseOneDraftSnapshot{}, ErrPhaseOneInvalidDraft
-	}
 	o.active[draftID] = true
 	record.Route, record.RequestedDelivery, record.FailureCode = route, delivery, ""
+	if explicit {
+		record.ExplicitTargets = append([]string(nil), references...)
+		frozenInclude := includeOrigin
+		record.IncludeOrigin = &frozenInclude
+	}
 	o.records[draftID] = record
 	if err := o.persistLocked(); err != nil {
 		delete(o.active, draftID)
@@ -278,9 +314,21 @@ func (o *PhaseOneDraftOutbox) Send(ctx context.Context, draftID string, route Ph
 		return PhaseOneDraftSnapshot{}, err
 	}
 	o.mu.Unlock()
-	receipt, err := o.service.Transmit(ctx, record.MediaID, route, delivery, record.OriginKind, record.TransmissionKey, nil)
+	var receipt PhaseOneTransmissionReceipt
+	var err error
+	if explicit {
+		transmitter, ok := o.service.(phaseOneExplicitTransmitter)
+		if !ok {
+			return o.fail(draftID, record, "explicit_targets_unavailable", ErrPhaseOneInvalidDraft)
+		}
+		receipt, err = transmitter.TransmitExplicit(ctx, record.MediaID, references, includeOrigin, delivery, record.OriginKind, record.TransmissionKey)
+	} else {
+		receipt, err = o.service.Transmit(ctx, record.MediaID, route, delivery, record.OriginKind, record.TransmissionKey, nil)
+	}
 	if err != nil {
-		o.rememberChallenge(draftID, err)
+		if !explicit {
+			o.rememberChallenge(draftID, err)
+		}
 		return o.fail(draftID, record, phaseOneFailureCode(err), err)
 	}
 	record.TransmissionID, record.EffectiveDelivery = receipt.TransmissionID, receipt.EffectiveDelivery
@@ -291,6 +339,30 @@ func (o *PhaseOneDraftOutbox) Send(ctx context.Context, draftID string, route Ph
 	snapshot := snapshotPhaseOneDraft(record)
 	o.mu.Unlock()
 	return snapshot, err
+}
+
+func validExplicitTargetSet(references []string) bool {
+	if len(references) < 1 || len(references) > 64 {
+		return false
+	}
+	for index, reference := range references {
+		if !targetReferencePattern.MatchString(reference) || index > 0 && references[index-1] >= reference {
+			return false
+		}
+	}
+	return true
+}
+
+func sameStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func (o *PhaseOneDraftOutbox) ConfirmFallback(ctx context.Context, draftID string, fallbackDelivery PhaseOneDelivery, originKind PhaseOneOriginKind) (PhaseOneDraftSnapshot, error) {
@@ -430,6 +502,7 @@ func snapshotPhaseOneDraft(record phaseOneDraftRecord) PhaseOneDraftSnapshot {
 		RequestedDelivery: record.RequestedDelivery, EffectiveDelivery: record.EffectiveDelivery,
 		DowngradeReason: record.DowngradeReason, Status: record.Status,
 		FailureCode: record.FailureCode, LocalBytesRetained: record.LocalBytesRetained,
+		ExplicitTargetCount: len(record.ExplicitTargets),
 	}
 }
 
@@ -493,6 +566,13 @@ func validPhaseOneDraftRecord(record phaseOneDraftRecord) bool {
 	}
 	if record.Route != "" && !validPhaseOneRoute(record.Route) || record.RequestedDelivery != "" && !validPhaseOneDelivery(record.RequestedDelivery) ||
 		record.EffectiveDelivery != "" && !validPhaseOneDelivery(record.EffectiveDelivery) {
+		return false
+	}
+	if len(record.ExplicitTargets) > 0 {
+		if record.Route != "" || record.IncludeOrigin == nil || !validExplicitTargetSet(record.ExplicitTargets) {
+			return false
+		}
+	} else if record.IncludeOrigin != nil {
 		return false
 	}
 	switch record.State {

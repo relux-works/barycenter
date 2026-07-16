@@ -23,12 +23,13 @@ const (
 	ShellJoin       ShellSection = "join"
 	ShellTryLocally ShellSection = "try_locally"
 	ShellHistory    ShellSection = "history"
+	ShellInbox      ShellSection = "inbox"
 	ShellAirs       ShellSection = "airs"
 	ShellSettings   ShellSection = "settings"
 )
 
 var shellSections = []ShellSection{
-	ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellAirs, ShellSettings,
+	ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellInbox, ShellAirs, ShellSettings,
 }
 
 type ShellConnection string
@@ -79,6 +80,7 @@ type ShellPhaseOneDraft struct {
 	FailureCode                   string
 	LocalBytesRetained            bool
 	FallbackConfirmationAvailable bool
+	ExplicitTargetCount           int
 }
 
 type ShellPhaseOneHistoryItem struct {
@@ -125,57 +127,66 @@ type ShellPendingAirJoin struct {
 }
 
 type ShellSnapshot struct {
-	Connection               ShellConnection
-	ConnectionDetail         string
-	Identity                 string
-	PresenceOnline           int
-	PresenceTotal            int
-	PresenceReady            int
-	PresenceAvailable        bool
-	RouteName                string
-	NowPlaying               string
-	PlaybackState            string
-	HistoryCount             int
-	DND                      ShellDND
-	Recording                ShellRecording
-	RecordingAvailable       bool
-	RecordingShortcut        WindowsRecordingShortcutStatus
-	RecordingShortcutKey     WindowsRecordingShortcut
-	SelfTestAvailable        bool
-	SelfTestPhase            WindowsLocalSelfTestPhase
-	SelfTestMeter            float32
-	LocalDraftAvailable      bool
-	LocalDraftName           string
-	RecordingDraftAvailable  bool
-	LocalFailure             string
-	CaptureInputs            []WindowsCaptureInput
-	SelectedCaptureInput     int
-	AudioOutputs             []WindowsAudioOutput
-	SelectedAudioOutput      int
-	Volume                   int
-	IdentityOperation        ShellIdentityOperation
-	IdentityFailure          string
-	RecoveryExportRequired   bool
-	PhaseOneDrafts           []ShellPhaseOneDraft
-	SelectedPhaseOneDraft    int
-	SelectedPhaseOneRoute    PhaseOneRoute
-	SelectedPhaseOneDelivery PhaseOneDelivery
-	PhaseOneHistory          []ShellPhaseOneHistoryItem
-	SelectedHistoryItem      int
-	SelectedReportReason     PhaseOneModerationReason
-	PhaseOneActionOutcome    string
-	PhaseOneFailure          string
-	Airs                     []ShellAirItem
-	SelectedAir              int
-	PendingAirJoin           *ShellPendingAirJoin
-	AirInviteAvailable       bool
-	AirInviteExpires         time.Time
-	AirInviteRole            AirRole
-	AirAvailable             bool
-	AirBusy                  bool
-	AirConfirmAction         string
-	AirOutcome               string
-	AirFailure               string
+	Connection                ShellConnection
+	ConnectionDetail          string
+	Identity                  string
+	PresenceOnline            int
+	PresenceTotal             int
+	PresenceReady             int
+	PresenceAvailable         bool
+	RouteName                 string
+	NowPlaying                string
+	PlaybackState             string
+	HistoryCount              int
+	DND                       ShellDND
+	Recording                 ShellRecording
+	RecordingAvailable        bool
+	RecordingShortcut         WindowsRecordingShortcutStatus
+	RecordingShortcutKey      WindowsRecordingShortcut
+	SelfTestAvailable         bool
+	SelfTestPhase             WindowsLocalSelfTestPhase
+	SelfTestMeter             float32
+	LocalDraftAvailable       bool
+	LocalDraftName            string
+	RecordingDraftAvailable   bool
+	LocalFailure              string
+	CaptureInputs             []WindowsCaptureInput
+	SelectedCaptureInput      int
+	AudioOutputs              []WindowsAudioOutput
+	SelectedAudioOutput       int
+	Volume                    int
+	IdentityOperation         ShellIdentityOperation
+	IdentityFailure           string
+	RecoveryExportRequired    bool
+	PhaseOneDrafts            []ShellPhaseOneDraft
+	SelectedPhaseOneDraft     int
+	SelectedPhaseOneRoute     PhaseOneRoute
+	SelectedPhaseOneDelivery  PhaseOneDelivery
+	PhaseOneHistory           []ShellPhaseOneHistoryItem
+	SelectedHistoryItem       int
+	SelectedReportReason      PhaseOneModerationReason
+	PhaseOneActionOutcome     string
+	PhaseOneFailure           string
+	TargetsInbox              TargetsInboxSnapshot
+	SelectedTarget            int
+	SelectedInbox             int
+	SelectedTargetsHistory    int
+	TargetsInboxDelivery      PhaseOneDelivery
+	TargetsInboxReason        PhaseOneModerationReason
+	TargetsInboxActionOutcome string
+	TargetsInboxFailure       string
+	TargetsInboxBusy          bool
+	Airs                      []ShellAirItem
+	SelectedAir               int
+	PendingAirJoin            *ShellPendingAirJoin
+	AirInviteAvailable        bool
+	AirInviteExpires          time.Time
+	AirInviteRole             AirRole
+	AirAvailable              bool
+	AirBusy                   bool
+	AirConfirmAction          string
+	AirOutcome                string
+	AirFailure                string
 }
 
 func (s ShellSnapshot) normalized() ShellSnapshot {
@@ -251,6 +262,21 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 	if !validPhaseOneModerationReason(s.SelectedReportReason) {
 		s.SelectedReportReason = PhaseOneReportSpam
 	}
+	if s.SelectedTarget < 0 || s.SelectedTarget >= len(s.TargetsInbox.Targets) {
+		s.SelectedTarget = 0
+	}
+	if s.SelectedInbox < 0 || s.SelectedInbox >= len(s.TargetsInbox.Inbox) {
+		s.SelectedInbox = 0
+	}
+	if s.SelectedTargetsHistory < 0 || s.SelectedTargetsHistory >= len(s.TargetsInbox.History) {
+		s.SelectedTargetsHistory = 0
+	}
+	if !validPhaseOneDelivery(s.TargetsInboxDelivery) {
+		s.TargetsInboxDelivery = PhaseOneOverlay
+	}
+	if !validPhaseOneModerationReason(s.TargetsInboxReason) {
+		s.TargetsInboxReason = PhaseOneReportSpam
+	}
 	if s.SelectedAir < 0 || s.SelectedAir >= len(s.Airs) {
 		s.SelectedAir = 0
 	}
@@ -261,47 +287,67 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 }
 
 type ShellActions struct {
-	Create                     func(string)
-	Join                       func(string)
-	SaveRecovery               func(string)
-	TryLocally                 func()
-	PlayBuiltinCue             func()
-	ChooseLocalFile            func()
-	ChooseOutgoingFile         func()
-	AcceptDroppedFile          func(WindowsBrokeredAudioFile)
-	DeleteLocalDraft           func()
-	SelectNextInput            func()
-	SelectNextOutput           func()
-	ToggleRecording            func()
-	CancelRecording            func()
-	SetDND                     func(ShellDND)
-	SendSelectedDraft          func()
-	DeleteSelectedDraft        func()
-	SelectNextPhaseOneDraft    func()
-	SelectNextPhaseOneRoute    func()
-	SelectNextPhaseOneDelivery func()
-	SelectNextHistoryItem      func()
-	SelectNextReportReason     func()
-	DeleteSelectedHistoryItem  func()
-	ReportSelectedHistoryItem  func(string)
-	ReplaySelectedHistoryItem  func()
-	BlockSelectedHistoryActor  func()
-	SelectNextAir              func()
-	CreateAir                  func(string)
-	ConsumeAirInvite           func(string)
-	ConfirmAirJoin             func(bool)
-	DeclineAirJoin             func()
-	SelectNextAirInviteRole    func()
-	IssueAirInvite             func()
-	CopyAirInvite              func()
-	HideAirInvite              func()
-	WithdrawAirInvite          func()
-	RequestAirActivation       func()
-	RequestAirLeave            func()
-	RequestAirDissolve         func()
-	CycleAirPolicy             func()
-	ConfirmAirDisruptive       func()
-	CancelAirDisruptive        func()
+	Create                       func(string)
+	Join                         func(string)
+	SaveRecovery                 func(string)
+	TryLocally                   func()
+	PlayBuiltinCue               func()
+	ChooseLocalFile              func()
+	ChooseOutgoingFile           func()
+	AcceptDroppedFile            func(WindowsBrokeredAudioFile)
+	DeleteLocalDraft             func()
+	SelectNextInput              func()
+	SelectNextOutput             func()
+	ToggleRecording              func()
+	CancelRecording              func()
+	SetDND                       func(ShellDND)
+	SendSelectedDraft            func()
+	DeleteSelectedDraft          func()
+	SelectNextPhaseOneDraft      func()
+	SelectNextPhaseOneRoute      func()
+	SelectNextPhaseOneDelivery   func()
+	SelectNextHistoryItem        func()
+	SelectNextReportReason       func()
+	DeleteSelectedHistoryItem    func()
+	ReportSelectedHistoryItem    func(string)
+	ReplaySelectedHistoryItem    func()
+	BlockSelectedHistoryActor    func()
+	RefreshTargetsInbox          func()
+	SelectNextTargetAudience     func()
+	SelectNextTarget             func()
+	ToggleSelectedTarget         func()
+	ToggleTargetIncludeOrigin    func()
+	SelectNextTargetsDelivery    func()
+	SendTargetsDraft             func()
+	SelectNextInboxItem          func()
+	ReplaySelectedInbox          func()
+	DismissSelectedInbox         func()
+	ReportSelectedInbox          func(string)
+	MuteSelectedInbox            func()
+	LoadMoreInbox                func()
+	SelectNextTargetsHistory     func()
+	DeleteSelectedTargetsHistory func()
+	ReportSelectedTargetsHistory func(string)
+	MuteSelectedTargetsHistory   func()
+	LoadMoreTargetsHistory       func()
+	LoadMoreTargetReceipts       func()
+	SelectNextTargetsReason      func()
+	SelectNextAir                func()
+	CreateAir                    func(string)
+	ConsumeAirInvite             func(string)
+	ConfirmAirJoin               func(bool)
+	DeclineAirJoin               func()
+	SelectNextAirInviteRole      func()
+	IssueAirInvite               func()
+	CopyAirInvite                func()
+	HideAirInvite                func()
+	WithdrawAirInvite            func()
+	RequestAirActivation         func()
+	RequestAirLeave              func()
+	RequestAirDissolve           func()
+	CycleAirPolicy               func()
+	ConfirmAirDisruptive         func()
+	CancelAirDisruptive          func()
 }
 
 type WindowsShell struct {
@@ -366,6 +412,7 @@ const (
 	txtJoin                 shellText = "join"
 	txtTry                  shellText = "try"
 	txtHistory              shellText = "history"
+	txtInbox                shellText = "inbox"
 	txtAirs                 shellText = "airs"
 	txtSettings             shellText = "settings"
 	txtOpen                 shellText = "open"
@@ -435,7 +482,7 @@ const (
 )
 
 var shellTextKeys = []shellText{
-	txtApp, txtHome, txtCreate, txtJoin, txtTry, txtHistory, txtAirs, txtSettings, txtOpen,
+	txtApp, txtHome, txtCreate, txtJoin, txtTry, txtHistory, txtInbox, txtAirs, txtSettings, txtOpen,
 	txtPrimary, txtStatus, txtPresence, txtRouting, txtNowPlaying, txtLocalControls,
 	txtNoHistory, txtNoRoute, txtSilence, txtVolume, txtDND, txtRecording,
 	txtStartRecording, txtStopRecording, txtCancelRecording, txtRecordingUnavailable, txtSelfTestUnavailable,
@@ -470,7 +517,7 @@ func (c ShellCopy) Text(key shellText) string {
 func (c ShellCopy) Section(section ShellSection) string {
 	return c.Text(map[ShellSection]shellText{
 		ShellHome: txtHome, ShellCreate: txtCreate, ShellJoin: txtJoin,
-		ShellTryLocally: txtTry, ShellHistory: txtHistory, ShellAirs: txtAirs, ShellSettings: txtSettings,
+		ShellTryLocally: txtTry, ShellHistory: txtHistory, ShellInbox: txtInbox, ShellAirs: txtAirs, ShellSettings: txtSettings,
 	}[section])
 }
 
@@ -569,6 +616,8 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 			body += "\r\n\r\n[!] " + c.PhaseOneActionMessage(snapshot.PhaseOneFailure)
 		}
 		return body
+	case ShellInbox:
+		return c.TargetsInboxProjection(snapshot)
 	case ShellAirs:
 		return c.AirProjection(snapshot)
 	case ShellSettings:
@@ -630,6 +679,13 @@ func (c ShellCopy) Draft(snapshot ShellSnapshot) string {
 	}
 	if draft.FailureCode != "" {
 		line += "\r\n[!] " + draft.FailureCode
+	}
+	if draft.ExplicitTargetCount > 0 {
+		if c.locale == ShellRussian {
+			line += fmt.Sprintf("\r\nТочный повтор: %d получателей", draft.ExplicitTargetCount)
+		} else {
+			line += fmt.Sprintf("\r\nExact retry: %d recipients", draft.ExplicitTargetCount)
+		}
 	}
 	return line
 }
@@ -695,6 +751,7 @@ func (c ShellCopy) PhaseOneActionMessage(code string) string {
 		"sender_blocked":          "Sender blocked. New deliveries from this sender are stopped.",
 		"sender_already_blocked":  "Sender was already blocked.",
 		"replay_accepted":         "Replay accepted.", "replay_already_accepted": "Replay was already accepted.",
+		"inbox_dismissed":            "Inbox item dismissed.",
 		"action_not_allowed":         "This action is not available for the selected item.",
 		"history_action_unavailable": "The item changed and this action is no longer available.",
 		"coordinator_unavailable":    "Cannot reach the coordinator. Check the connection and try again.",
@@ -710,6 +767,7 @@ func (c ShellCopy) PhaseOneActionMessage(code string) string {
 		"sender_blocked":          "Отправитель заблокирован. Новые доставки от него остановлены.",
 		"sender_already_blocked":  "Отправитель уже был заблокирован.",
 		"replay_accepted":         "Повтор принят.", "replay_already_accepted": "Повтор уже был принят.",
+		"inbox_dismissed":            "Входящий материал убран.",
 		"action_not_allowed":         "Это действие недоступно для выбранного материала.",
 		"history_action_unavailable": "Материал изменился, и действие больше недоступно.",
 		"coordinator_unavailable":    "Нет связи с координатором. Проверьте подключение и повторите попытку.",
@@ -728,6 +786,98 @@ func (c ShellCopy) PhaseOneActionMessage(code string) string {
 		return message
 	}
 	return "The action failed. Try again."
+}
+
+func (c ShellCopy) TargetsInboxProjection(snapshot ShellSnapshot) string {
+	projection := snapshot.TargetsInbox
+	state := projection.StateLabel.Text(c.locale)
+	if strings.TrimSpace(state) == "" {
+		state = targetsStateLabel(projection.State).Text(c.locale)
+	}
+	audience := "—"
+	for _, choice := range projection.AvailableAudiences {
+		if choice.Kind == projection.SelectedAudience {
+			audience = choice.Label.Text(c.locale)
+			break
+		}
+	}
+	policy := projection.ContentPolicyState
+	track := projection.TargetedTrackPolicy
+	if c.locale == ShellRussian {
+		if policy == "current" {
+			policy = "принята текущая версия"
+		} else if policy == "required" {
+			policy = "требуется принятие"
+		} else {
+			policy = "требует обновления"
+		}
+		if track == "unsupported" {
+			track = "очередь/замена недоступны до поддержки потоковых треков"
+		}
+	} else {
+		if policy == "current" {
+			policy = "current version accepted"
+		} else if policy == "required" {
+			policy = "acceptance required"
+		} else {
+			policy = "update required"
+		}
+		if track == "unsupported" {
+			track = "queue/replace unavailable until streamed tracks are supported"
+		}
+	}
+	var body string
+	if c.locale == ShellRussian {
+		body = "Состояние: " + state + "\r\nПолучатели: " + audience + fmt.Sprintf(" · выбрано %d", len(projection.SelectedReferences)) +
+			" · origin " + map[bool]string{true: "включён", false: "не включён"}[projection.IncludeOrigin] + "\r\nПолитика: " + policy + " · " + track
+	} else {
+		body = "State: " + state + "\r\nAudience: " + audience + fmt.Sprintf(" · %d selected", len(projection.SelectedReferences)) +
+			" · origin " + map[bool]string{true: "included", false: "not included"}[projection.IncludeOrigin] + "\r\nPolicy: " + policy + " · " + track
+	}
+	if len(projection.Targets) > 0 {
+		target := projection.Targets[snapshot.SelectedTarget]
+		selected := targetIsSelected(projection, target.Reference)
+		if c.locale == ShellRussian {
+			body += fmt.Sprintf("\r\n\r\nПолучатель %d/%d: %s · %s · %s", snapshot.SelectedTarget+1, len(projection.Targets), target.Label.Text(c.locale), target.CapabilityState, map[bool]string{true: "выбран", false: "не выбран"}[selected])
+		} else {
+			body += fmt.Sprintf("\r\n\r\nTarget %d/%d: %s · %s · %s", snapshot.SelectedTarget+1, len(projection.Targets), target.Label.Text(c.locale), target.CapabilityState, map[bool]string{true: "selected", false: "not selected"}[selected])
+		}
+		body += "\r\n" + strings.Join(target.Capabilities, ", ")
+	}
+	if len(projection.Inbox) > 0 {
+		item := projection.Inbox[snapshot.SelectedInbox]
+		if c.locale == ShellRussian {
+			body += fmt.Sprintf("\r\n\r\nВходящие %d/%d: %s · %s\r\n%s · %s · %s · %s", snapshot.SelectedInbox+1, len(projection.Inbox), item.Title, item.Availability, item.Sender.Text(c.locale), item.Source.Text(c.locale), item.EffectiveDelivery.Text(c.locale), item.Receipt.Text(c.locale))
+		} else {
+			body += fmt.Sprintf("\r\n\r\nInbox %d/%d: %s · %s\r\n%s · %s · %s · %s", snapshot.SelectedInbox+1, len(projection.Inbox), item.Title, item.Availability, item.Sender.Text(c.locale), item.Source.Text(c.locale), item.EffectiveDelivery.Text(c.locale), item.Receipt.Text(c.locale))
+		}
+	}
+	if len(projection.History) > 0 {
+		item := projection.History[snapshot.SelectedTargetsHistory]
+		if c.locale == ShellRussian {
+			body += fmt.Sprintf("\r\n\r\nИстория %d/%d: %s · %s · проиграно %d · прочее %d", snapshot.SelectedTargetsHistory+1, len(projection.History), item.Title, item.Status.Text(c.locale), item.Played, item.Other)
+		} else {
+			body += fmt.Sprintf("\r\n\r\nHistory %d/%d: %s · %s · played %d · other %d", snapshot.SelectedTargetsHistory+1, len(projection.History), item.Title, item.Status.Text(c.locale), item.Played, item.Other)
+		}
+		for _, receipt := range item.ReceiptPage.Items {
+			body += "\r\n• " + receipt.TargetLabel + ": " + receipt.Status.Text(c.locale)
+		}
+	}
+	if snapshot.TargetsInboxBusy {
+		if c.locale == ShellRussian {
+			body += "\r\n\r\n[~] Выполняется действие…"
+		} else {
+			body += "\r\n\r\n[~] Action in progress…"
+		}
+	}
+	if snapshot.TargetsInboxActionOutcome != "" {
+		body += "\r\n\r\n[+] " + c.PhaseOneActionMessage(snapshot.TargetsInboxActionOutcome)
+	}
+	if snapshot.TargetsInboxFailure != "" {
+		body += "\r\n\r\n[!] " + c.PhaseOneActionMessage(snapshot.TargetsInboxFailure)
+	}
+	body += "\r\n\r\n" + c.Draft(snapshot)
+	return body
 }
 
 func (c ShellCopy) AirProjection(snapshot ShellSnapshot) string {
@@ -995,7 +1145,7 @@ func shellPrimaryAction(section ShellSection) shellText {
 
 func shellActionEnabled(snapshot ShellSnapshot, action ShellSection) bool {
 	switch action {
-	case ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellAirs, ShellSettings, ShellHome:
+	case ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellInbox, ShellAirs, ShellSettings, ShellHome:
 		return true
 	default:
 		return false
@@ -1056,6 +1206,29 @@ type AirControlLayout struct {
 	Invite                         [5]ShellRect
 	Pending                        [4]ShellRect
 	Confirm, Cancel                ShellRect
+}
+
+type TargetsInboxControlLayout struct{ Rect [21]ShellRect }
+
+func (layout TargetsInboxControlLayout) Rects() []ShellRect { return layout.Rect[:] }
+
+func layoutWindowsTargetsInboxControls(content ShellRect, bodyBottom, dpi int) TargetsInboxControlLayout {
+	gap, height := dip(8, dpi), dip(40, dpi)
+	columnWidth := (content.Width - gap*3) / 4
+	cell := func(column, row int) ShellRect {
+		return ShellRect{X: content.X + column*(columnWidth+gap), Y: bodyBottom + gap + row*(height+gap), Width: columnWidth, Height: height}
+	}
+	var result TargetsInboxControlLayout
+	for index := 0; index < 18; index++ {
+		result.Rect[index] = cell(index%4, index/4)
+	}
+	result.Rect[18] = cell(2, 4)
+	result.Rect[18].Width = columnWidth*2 + gap
+	result.Rect[19] = cell(0, 5)
+	result.Rect[19].Width = columnWidth*2 + gap
+	result.Rect[20] = cell(2, 5)
+	result.Rect[20].Width = columnWidth*2 + gap
+	return result
 }
 
 func (l AirControlLayout) Rects() []ShellRect {
@@ -1144,8 +1317,10 @@ var shellShortcuts = []ShellShortcut{
 	{Key: "1", Control: true, Section: ShellCreate, Command: "section"},
 	{Key: "2", Control: true, Section: ShellJoin, Command: "section"},
 	{Key: "3", Control: true, Section: ShellAirs, Command: "section"},
+	{Key: "4", Control: true, Section: ShellInbox, Command: "section"},
 	{Key: "T", Control: true, Shift: true, Section: ShellTryLocally, Command: "section"},
 	{Key: "R", Control: true, Shift: true, Command: "record"},
+	{Key: "R", Control: true, Command: "refresh_targets_inbox"},
 	{Key: "D", Control: true, Shift: true, Command: "dnd"},
 	{Key: ",", Control: true, Section: ShellSettings, Command: "section"},
 }
@@ -1164,7 +1339,7 @@ func catalogMissing(locale ShellLocale) []string {
 var shellCatalog = map[ShellLocale]map[shellText]string{
 	ShellEnglish: {
 		txtApp: "Pulsar", txtHome: "Home", txtCreate: "Create", txtJoin: "Join", txtTry: "Try locally",
-		txtHistory: "History", txtAirs: "Airs", txtSettings: "Settings", txtOpen: "Open Pulsar", txtPrimary: "Primary actions",
+		txtHistory: "History", txtInbox: "Inbox & targets", txtAirs: "Airs", txtSettings: "Settings", txtOpen: "Open Pulsar", txtPrimary: "Primary actions",
 		txtStatus: "Status", txtPresence: "Presence", txtRouting: "Routing", txtNowPlaying: "Now playing",
 		txtLocalControls: "Local controls", txtNoHistory: "No recent activity", txtNoRoute: "No output route",
 		txtSilence: "Nothing is playing", txtVolume: "Volume", txtDND: "Do Not Disturb", txtRecording: "Recording",
@@ -1196,7 +1371,7 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 	},
 	ShellRussian: {
 		txtApp: "Пульсар", txtHome: "Главная", txtCreate: "Создать", txtJoin: "Присоединиться", txtTry: "Попробовать локально",
-		txtHistory: "История", txtAirs: "Эфиры", txtSettings: "Настройки", txtOpen: "Открыть Пульсар", txtPrimary: "Основные действия",
+		txtHistory: "История", txtInbox: "Входящие и получатели", txtAirs: "Эфиры", txtSettings: "Настройки", txtOpen: "Открыть Пульсар", txtPrimary: "Основные действия",
 		txtStatus: "Статус", txtPresence: "Присутствие", txtRouting: "Маршрут звука", txtNowPlaying: "Сейчас играет",
 		txtLocalControls: "Локальные настройки", txtNoHistory: "Недавних событий нет", txtNoRoute: "Выход звука не выбран",
 		txtSilence: "Сейчас ничего не играет", txtVolume: "Громкость", txtDND: "Не беспокоить", txtRecording: "Запись",

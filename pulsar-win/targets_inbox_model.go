@@ -346,7 +346,8 @@ func (model *TargetsInboxModel) BuildCommand(request TargetsInboxCommand) (Targe
 	case TargetsInboxLoadMoreReceipts:
 		for _, item := range snapshot.History {
 			if item.ID == request.ObjectID && historyCapabilityPattern.MatchString(item.ID) &&
-				request.Cursor == item.ReceiptPage.NextCursor && receiptCursorPattern.MatchString(request.Cursor) {
+				(request.Cursor == "" && len(item.ReceiptPage.Items) == 0 ||
+					request.Cursor == item.ReceiptPage.NextCursor && receiptCursorPattern.MatchString(request.Cursor)) {
 				return request, true
 			}
 		}

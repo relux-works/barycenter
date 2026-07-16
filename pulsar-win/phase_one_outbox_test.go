@@ -34,6 +34,8 @@ type phaseOneFakeService struct {
 	policyRequired      bool
 	policyDisplays      int
 	policyAccepts       int
+	explicitReferences  [][]string
+	explicitOrigins     []bool
 }
 
 func (s *phaseOneFakeService) Upload(_ context.Context, path, _ string, key string, rightsAcknowledged bool) (PhaseOneUploadConfirmation, error) {
@@ -98,6 +100,20 @@ func (s *phaseOneFakeService) Transmit(_ context.Context, _ string, _ PhaseOneRo
 		TransmissionID: "tr_" + strings.Repeat("B", 26), RequestedDelivery: delivery,
 		EffectiveDelivery: PhaseOneAfterCurrent, DowngradeReason: "mandatory_target_missing_overlay_capability", Status: "accepted",
 	}, nil
+}
+
+func (s *phaseOneFakeService) TransmitExplicit(_ context.Context, _ string, references []string, includeOrigin bool, delivery PhaseOneDelivery, originKind PhaseOneOriginKind, key string) (PhaseOneTransmissionReceipt, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.transmissionKeys = append(s.transmissionKeys, key)
+	s.origins = append(s.origins, originKind)
+	s.explicitReferences = append(s.explicitReferences, append([]string(nil), references...))
+	s.explicitOrigins = append(s.explicitOrigins, includeOrigin)
+	if s.failTransmissions > 0 {
+		s.failTransmissions--
+		return PhaseOneTransmissionReceipt{}, &PhaseOneClientError{Kind: PhaseOneTransport}
+	}
+	return PhaseOneTransmissionReceipt{TransmissionID: "tr_" + strings.Repeat("B", 26), RequestedDelivery: delivery, EffectiveDelivery: delivery, Status: "accepted"}, nil
 }
 
 func (s *phaseOneFakeService) DeleteMedia(_ context.Context, id string) error {
@@ -219,6 +235,51 @@ func TestPhaseOneOutboxRestartRetryIsIdempotentAndFrozen(t *testing.T) {
 	defer service.mu.Unlock()
 	if len(service.uploadKeys) != 1 || len(service.transmissionKeys) != 2 || service.transmissionKeys[0] != service.transmissionKeys[1] {
 		t.Fatalf("uploads=%v transmissions=%v", service.uploadKeys, service.transmissionKeys)
+	}
+}
+
+func TestPhaseOneOutboxExplicitRestartRetryKeepsExactOpaqueAudience(t *testing.T) {
+	root := t.TempDir()
+	store := NewCaptureMediaStore(filepath.Join(root, "capture-media"))
+	store.newID = func() (string, error) { return strings.Repeat("7", 32), nil }
+	draft, err := store.ImportUserDraft(bytes.NewReader(phaseOneCueBytes(t)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := &phaseOneFakeService{failTransmissions: 1}
+	statePath := filepath.Join(root, "phase-one", "outbox.json")
+	outbox, err := NewPhaseOneDraftOutbox(service, store, statePath, []CaptureMediaHandle{draft})
+	if err != nil {
+		t.Fatal(err)
+	}
+	references := []string{"trf_" + strings.Repeat("B", 43), "trf_" + strings.Repeat("A", 43)}
+	failed, err := outbox.SendExplicit(context.Background(), draft.ID, references, true, PhaseOneOverlay, PhaseOneMicrophone, true)
+	if err == nil || failed.State != PhaseOneDraftRetryableFailure || failed.ExplicitTargetCount != 2 {
+		t.Fatalf("failed=%+v err=%v", failed, err)
+	}
+	restartedStore := NewCaptureMediaStore(filepath.Join(root, "capture-media"))
+	recovery, err := restartedStore.Recover()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restarted, err := NewPhaseOneDraftOutbox(service, restartedStore, statePath, recovery.RetainedDrafts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := restarted.RetryExplicit(context.Background(), draft.ID, true)
+	if err != nil || accepted.State != PhaseOneDraftAccepted || accepted.ExplicitTargetCount != 2 {
+		t.Fatalf("accepted=%+v err=%v", accepted, err)
+	}
+	if _, err := restarted.SendExplicit(context.Background(), draft.ID, []string{"trf_" + strings.Repeat("C", 43)}, true, PhaseOneOverlay, PhaseOneMicrophone, true); !errors.Is(err, ErrPhaseOneInvalidDraft) {
+		t.Fatalf("changed explicit audience err=%v", err)
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	if len(service.uploadKeys) != 1 || len(service.transmissionKeys) != 2 || service.transmissionKeys[0] != service.transmissionKeys[1] ||
+		len(service.explicitReferences) != 2 || strings.Join(service.explicitReferences[0], ",") != strings.Join(service.explicitReferences[1], ",") ||
+		strings.Join(service.explicitReferences[0], ",") != strings.Join([]string{"trf_" + strings.Repeat("A", 43), "trf_" + strings.Repeat("B", 43)}, ",") ||
+		!service.explicitOrigins[0] || !service.explicitOrigins[1] {
+		t.Fatalf("upload=%v keys=%v refs=%v include=%v", service.uploadKeys, service.transmissionKeys, service.explicitReferences, service.explicitOrigins)
 	}
 }
 

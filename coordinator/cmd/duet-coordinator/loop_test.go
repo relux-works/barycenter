@@ -708,6 +708,7 @@ func TestTelegramAudioAndDocumentHintsReachCommonIngestWithoutTrust(t *testing.T
 					Kind: test.kind, TGFileID: "opaque-telegram-file",
 					FileName: "untrusted.exe", MIMEType: "application/octet-stream",
 					Duration: 999, SizeBytes: 99 << 20, Broadcast: true,
+					RightsAcknowledged: true,
 				},
 			})
 			accepted := takeTelegramAcceptance(t, adapter)
@@ -735,6 +736,7 @@ func TestTelegramMediaGroupIsHonestlyRejectedBeforeIngest(t *testing.T) {
 		FromUserID: 111, FromName: "Alice", Reply: replies.fn,
 		Attachment: &bot.AttachmentEvent{
 			Kind: bot.AttachmentAudio, TGFileID: "opaque-telegram-file", MediaGroupID: "group-hint",
+			RightsAcknowledged: true,
 		},
 	})
 	if got := replies.last(t); got != bot.AttachmentFailureText(bot.AttachmentGroupUnsupported) {

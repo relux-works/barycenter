@@ -577,6 +577,36 @@ CREATE TABLE IF NOT EXISTS telegram_inline_callbacks (
 CREATE INDEX IF NOT EXISTS telegram_inline_callbacks_route
   ON telegram_inline_callbacks(media_id, media_generation, expires_at);
 
+-- Phase 2 routing values live in an additive companion so the immediately
+-- preceding binary can still open the database. The parent callback uses the
+-- formerly unsupported choose_own_barycenter action as a fail-closed marker;
+-- an old binary therefore cannot reinterpret queue/replace or an explicit
+-- target as a Phase 1 broadcast after rollback.
+CREATE TABLE IF NOT EXISTS telegram_inline_callback_routes_v2 (
+  token_hash TEXT PRIMARY KEY REFERENCES telegram_inline_callbacks(token_hash) ON DELETE CASCADE CHECK(
+    length(token_hash) = 64 AND token_hash NOT GLOB '*[^0-9a-f]*'
+  ),
+  requested_delivery TEXT NOT NULL CHECK(requested_delivery IN (
+    'overlay', 'interrupt', 'after_current', 'queue', 'replace'
+  )),
+  audience TEXT NOT NULL CHECK(audience IN ('own_barycenter', 'current_air', 'explicit')),
+  target_reference TEXT NOT NULL DEFAULT '' CHECK(
+    (audience = 'explicit' AND length(target_reference) = 47
+      AND substr(target_reference, 1, 4) = 'trf_')
+    OR (audience <> 'explicit' AND target_reference = '')
+  ),
+  include_origin INTEGER NOT NULL CHECK(include_origin IN (0, 1)),
+  confirmation_delivery TEXT NOT NULL DEFAULT '' CHECK(confirmation_delivery IN ('', 'overlay', 'after_current')),
+  confirmation_token_hash TEXT NOT NULL DEFAULT '' CHECK(
+    confirmation_token_hash = '' OR
+    (length(confirmation_token_hash) = 64
+      AND confirmation_token_hash NOT GLOB '*[^0-9a-f]*')
+  ),
+  CHECK((confirmation_delivery = '' AND confirmation_token_hash = '') OR
+    (requested_delivery = 'interrupt' AND confirmation_delivery <> ''
+      AND confirmation_token_hash <> ''))
+);
+
 CREATE TABLE IF NOT EXISTS telegram_inline_callback_queries (
   query_hash TEXT PRIMARY KEY CHECK(
     length(query_hash) = 64 AND query_hash NOT GLOB '*[^0-9a-f]*'

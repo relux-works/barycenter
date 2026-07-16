@@ -2142,6 +2142,10 @@ func (l *loop) handleTelegramAttachment(o *orbitState, ev bot.Event) {
 		return
 	}
 	attachment := ev.Attachment
+	if !attachment.RightsAcknowledged {
+		ev.Reply("Перед загрузкой подтвердите права на этот файл: отправьте его снова с подписью `rights` или `права`. Можно добавить `лично` либо `всем`/`all` в той же подписи. Подтверждение не доказывает владение и не заменяет необходимые права и согласия.")
+		return
+	}
 	if attachment.MediaGroupID != "" {
 		ev.Reply(bot.AttachmentFailureText(bot.AttachmentGroupUnsupported))
 		return

@@ -82,14 +82,21 @@ type RegisterTelegramInlineRouteResult struct {
 }
 
 type MintTelegramInlineCallbackParams struct {
-	TelegramUserID        int64
-	MediaID               string
-	MediaGeneration       int64
-	ChatID                int64
-	MessageID             int64
-	Action                TelegramInlineAction
-	Delivery              TransmissionDelivery
-	Audience              TransmissionAudienceKind
+	TelegramUserID  int64
+	MediaID         string
+	MediaGeneration int64
+	ChatID          int64
+	MessageID       int64
+	Action          TelegramInlineAction
+	Delivery        TransmissionDelivery
+	Audience        TransmissionAudienceKind
+	// RouteV2 binds Phase 2 values in the additive fail-closed companion.
+	// TargetReference is an opaque capability issued by the common target
+	// service; numeric target identities are never accepted here.
+	RouteV2               bool
+	TargetReference       string
+	IncludeOrigin         bool
+	ConfirmationDelivery  TransmissionDelivery
 	ConfirmationTokenHash string
 	Now                   int64
 }
@@ -115,6 +122,9 @@ type ApplyTelegramInlineCallbackResult struct {
 	MediaID               string
 	MediaGeneration       int64
 	Audience              TransmissionAudienceKind
+	RouteV2               bool
+	TargetReference       string
+	IncludeOrigin         bool
 }
 
 type telegramInlineBinding struct {
@@ -130,6 +140,10 @@ type telegramInlineBinding struct {
 	Delivery              TransmissionDelivery
 	Audience              TransmissionAudienceKind
 	ConfirmationTokenHash string
+	RouteV2               bool
+	TargetReference       string
+	IncludeOrigin         bool
+	ConfirmationDelivery  TransmissionDelivery
 	ExpiresAt             int64
 	ConsumedAt            int64
 	Outcome               TelegramCallbackOutcome
@@ -298,6 +312,32 @@ func (s *Store) RegisterTelegramInlineRoute(
 }
 
 func validTelegramCallbackChoice(params MintTelegramInlineCallbackParams) bool {
+	if params.RouteV2 {
+		if params.Audience != TransmissionAudienceOwnBarycenter &&
+			params.Audience != TransmissionAudienceCurrentAir &&
+			params.Audience != TransmissionAudienceExplicit {
+			return false
+		}
+		if params.Audience == TransmissionAudienceExplicit {
+			if !transmissionTargetReferencePattern.MatchString(params.TargetReference) {
+				return false
+			}
+		} else if params.TargetReference != "" {
+			return false
+		}
+		switch params.Delivery {
+		case TransmissionDeliveryOverlay, TransmissionDeliveryInterrupt,
+			TransmissionDeliveryAfterCurrent, TransmissionDelivery("queue"),
+			TransmissionDelivery("replace"):
+		default:
+			return false
+		}
+		return (params.ConfirmationTokenHash == "" && params.ConfirmationDelivery == "") ||
+			(params.Delivery == TransmissionDeliveryInterrupt &&
+				(params.ConfirmationDelivery == TransmissionDeliveryOverlay ||
+					params.ConfirmationDelivery == TransmissionDeliveryAfterCurrent) &&
+				transmissionDigestPattern.MatchString(params.ConfirmationTokenHash))
+	}
 	switch params.Action {
 	case TelegramChooseOverlay:
 		return params.Delivery == TransmissionDeliveryOverlay
@@ -323,7 +363,7 @@ func (s *Store) MintTelegramInlineCallback(
 ) (string, error) {
 	if params.TelegramUserID <= 0 || !mediaItemIDPattern.MatchString(params.MediaID) ||
 		params.MediaGeneration <= 0 || params.MessageID <= 0 || params.Now <= 0 ||
-		(params.Audience != TransmissionAudienceOwnBarycenter &&
+		(!params.RouteV2 && params.Audience != TransmissionAudienceOwnBarycenter &&
 			params.Audience != TransmissionAudienceCurrentAir &&
 			params.Action != TelegramDismiss) || !validTelegramCallbackChoice(params) {
 		return "", ErrTransmissionInvalid
@@ -360,6 +400,12 @@ func (s *Store) MintTelegramInlineCallback(
 		return "", errors.New("invalid Telegram callback token")
 	}
 	tokenHash := telegramKeyedDigest(key, "token", token)
+	parentAction, parentDelivery, parentAudience := params.Action, params.Delivery, params.Audience
+	if params.RouteV2 {
+		// An old binary recognizes the schema value but deliberately has no
+		// executable choice for it, so rollback fails closed.
+		parentAction, parentDelivery, parentAudience = TelegramChooseOwn, "", TransmissionAudienceOwnBarycenter
+	}
 	if _, err := tx.Exec(`INSERT INTO telegram_inline_callbacks(
   token_hash, media_id, media_generation, actor_id, orbit_id, authorization,
   chat_id, message_id, original_update_id, action, delivery, audience,
@@ -367,9 +413,19 @@ func (s *Store) MintTelegramInlineCallback(
 ) VALUES(?, ?, ?, ?, ?, 'initiator_only', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		tokenHash, route.MediaID, route.MediaGeneration, route.SourceActorID,
 		route.SourceOrbitID, params.ChatID, params.MessageID, route.OriginalUpdateID,
-		params.Action, params.Delivery, params.Audience, params.ConfirmationTokenHash,
+		parentAction, parentDelivery, parentAudience, params.ConfirmationTokenHash,
 		params.Now, params.Now+telegramCallbackTTL.Milliseconds()); err != nil {
 		return "", err
+	}
+	if params.RouteV2 {
+		if _, err := tx.Exec(`INSERT INTO telegram_inline_callback_routes_v2(
+  token_hash, requested_delivery, audience, target_reference, include_origin,
+  confirmation_delivery, confirmation_token_hash
+) VALUES(?, ?, ?, ?, ?, ?, ?)`, tokenHash, params.Delivery, params.Audience,
+			params.TargetReference, params.IncludeOrigin, params.ConfirmationDelivery,
+			params.ConfirmationTokenHash); err != nil {
+			return "", err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return "", err
@@ -385,6 +441,32 @@ func scanTelegramInlineBinding(row sqlScanner) (telegramInlineBinding, error) {
 		&binding.Audience, &binding.ConfirmationTokenHash, &binding.ExpiresAt,
 		&binding.ConsumedAt, &binding.Outcome)
 	return binding, err
+}
+
+func loadTelegramInlineBindingTx(tx *sql.Tx, tokenHash string) (telegramInlineBinding, error) {
+	binding, err := scanTelegramInlineBinding(tx.QueryRow(`SELECT
+media_id, media_generation, actor_id, orbit_id, authorization, chat_id,
+message_id, original_update_id, action, delivery, audience,
+confirmation_token_hash, expires_at, consumed_at, outcome
+FROM telegram_inline_callbacks WHERE token_hash = ?`, tokenHash))
+	if err != nil {
+		return binding, err
+	}
+	var includeOrigin bool
+	err = tx.QueryRow(`SELECT requested_delivery, audience, target_reference,
+include_origin, confirmation_delivery, confirmation_token_hash
+FROM telegram_inline_callback_routes_v2 WHERE token_hash = ?`, tokenHash).Scan(
+		&binding.Delivery, &binding.Audience, &binding.TargetReference,
+		&includeOrigin, &binding.ConfirmationDelivery, &binding.ConfirmationTokenHash,
+	)
+	if err == nil {
+		binding.RouteV2, binding.IncludeOrigin = true, includeOrigin
+		return binding, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return binding, err
+	}
+	return binding, nil
 }
 
 func cacheTelegramCallbackQueryTx(
@@ -481,20 +563,52 @@ WHERE transmission_id = ? AND orbit_id = ? AND actor_id = ? AND slot = ?
 		DisarmTargets: disarm}, nil
 }
 
-func callbackChoice(binding telegramInlineBinding) (TransmissionDelivery, TransmissionAudienceKind, *ConfirmTransmissionFallback, bool) {
+func callbackChoice(binding telegramInlineBinding) (
+	TransmissionDelivery,
+	TransmissionAudienceKind,
+	[]TransmissionAudienceSelector,
+	bool,
+	*ConfirmTransmissionFallback,
+	bool,
+) {
 	audience := binding.Audience
-	if audience != TransmissionAudienceOwnBarycenter && audience != TransmissionAudienceCurrentAir {
-		return "", "", nil, false
+	if audience != TransmissionAudienceOwnBarycenter &&
+		audience != TransmissionAudienceCurrentAir &&
+		audience != TransmissionAudienceExplicit {
+		return "", "", nil, false, nil, false
+	}
+	var selectors []TransmissionAudienceSelector
+	if audience == TransmissionAudienceExplicit {
+		if !binding.RouteV2 || !transmissionTargetReferencePattern.MatchString(binding.TargetReference) {
+			return "", "", nil, false, nil, false
+		}
+		selectors = []TransmissionAudienceSelector{{Reference: binding.TargetReference}}
+	}
+	if binding.RouteV2 {
+		var confirmation *ConfirmTransmissionFallback
+		if binding.ConfirmationTokenHash != "" {
+			if binding.Delivery != TransmissionDeliveryInterrupt ||
+				(binding.ConfirmationDelivery != TransmissionDeliveryOverlay &&
+					binding.ConfirmationDelivery != TransmissionDeliveryAfterCurrent) {
+				return "", "", nil, false, nil, false
+			}
+			confirmation = &ConfirmTransmissionFallback{
+				TokenHash: binding.ConfirmationTokenHash,
+				Delivery:  binding.ConfirmationDelivery,
+			}
+		}
+		return binding.Delivery, audience, selectors, binding.IncludeOrigin,
+			confirmation, true
 	}
 	switch binding.Action {
 	case TelegramChooseOverlay, TelegramChooseInterrupt, TelegramChooseAfterCurrent:
-		return binding.Delivery, audience, nil, true
+		return binding.Delivery, audience, nil, true, nil, true
 	case TelegramConfirmOverlay, TelegramConfirmAfter:
-		return TransmissionDeliveryInterrupt, audience, &ConfirmTransmissionFallback{
+		return TransmissionDeliveryInterrupt, audience, nil, true, &ConfirmTransmissionFallback{
 			TokenHash: binding.ConfirmationTokenHash, Delivery: binding.Delivery,
 		}, transmissionDigestPattern.MatchString(binding.ConfirmationTokenHash)
 	default:
-		return "", "", nil, false
+		return "", "", nil, false, nil, false
 	}
 }
 
@@ -538,12 +652,8 @@ outcome, clear_keyboard FROM telegram_inline_callback_queries WHERE query_hash =
 			result.Outcome, result.ClearKeyboard, result.Replay = outcome, clear, true
 			if outcome == TelegramCallbackRequiresConfirmation &&
 				telegramCallbackPattern.MatchString(params.Token) {
-				binding, bindingErr := scanTelegramInlineBinding(tx.QueryRow(`SELECT
-media_id, media_generation, actor_id, orbit_id, authorization, chat_id,
-message_id, original_update_id, action, delivery, audience,
-confirmation_token_hash, expires_at, consumed_at, outcome
-FROM telegram_inline_callbacks WHERE token_hash = ?`,
-					telegramKeyedDigest(key, "token", params.Token)))
+				binding, bindingErr := loadTelegramInlineBindingTx(tx,
+					telegramKeyedDigest(key, "token", params.Token))
 				if bindingErr == nil &&
 					transmissionDigestPattern.MatchString(binding.ConfirmationTokenHash) {
 					var expiresAt int64
@@ -554,6 +664,9 @@ FROM transmission_fallback_confirmations WHERE token_hash = ?`,
 						binding.ConfirmationTokenHash).Scan(&expiresAt, &overlay, &after); challengeErr == nil {
 						result.MediaID, result.MediaGeneration = binding.MediaID, binding.MediaGeneration
 						result.Audience = binding.Audience
+						result.RouteV2 = binding.RouteV2
+						result.TargetReference = binding.TargetReference
+						result.IncludeOrigin = binding.IncludeOrigin
 						result.ConfirmationTokenHash = binding.ConfirmationTokenHash
 						result.Challenge = &TransmissionChallenge{
 							ExpiresAt: expiresAt,
@@ -579,12 +692,8 @@ FROM transmission_fallback_confirmations WHERE token_hash = ?`,
 		_ = tx.Commit()
 		return result, nil
 	}
-	binding, err := scanTelegramInlineBinding(tx.QueryRow(`SELECT
-media_id, media_generation, actor_id, orbit_id, authorization, chat_id,
-message_id, original_update_id, action, delivery, audience,
-confirmation_token_hash, expires_at, consumed_at, outcome
-FROM telegram_inline_callbacks WHERE token_hash = ?`,
-		telegramKeyedDigest(key, "token", params.Token)))
+	binding, err := loadTelegramInlineBindingTx(tx,
+		telegramKeyedDigest(key, "token", params.Token))
 	if errors.Is(err, sql.ErrNoRows) {
 		_ = cacheTelegramCallbackQueryTx(tx, key, params, ctx, result.Outcome, false)
 		_ = tx.Commit()
@@ -650,7 +759,7 @@ WHERE token_hash = ?`, params.Now, result.Outcome,
 		}
 		return result, nil
 	}
-	delivery, audience, confirmation, ok := callbackChoice(binding)
+	delivery, audience, selectors, includeOrigin, confirmation, ok := callbackChoice(binding)
 	if !ok {
 		result.Outcome, result.ClearKeyboard = TelegramCallbackUnsupported, true
 		_ = cacheTelegramCallbackQueryTx(tx, key, params, ctx, result.Outcome, true)
@@ -658,6 +767,9 @@ WHERE token_hash = ?`, params.Now, result.Outcome,
 		return result, nil
 	}
 	result.Audience = audience
+	result.RouteV2 = binding.RouteV2
+	result.TargetReference = binding.TargetReference
+	result.IncludeOrigin = includeOrigin
 	if route.DefaultTransmissionID != "" {
 		defaultCreation, loadErr := loadTransmissionCreationTx(tx, route.DefaultTransmissionID)
 		if loadErr != nil || !senderCancellationAllowed(defaultCreation.Transmission, defaultCreation.Targets) {
@@ -668,15 +780,17 @@ WHERE token_hash = ?`, params.Now, result.Outcome,
 		}
 	}
 	idempotency := telegramRoutingDigest("choice", route.MediaID,
-		strconv.FormatInt(route.MediaGeneration, 10), string(delivery), string(audience))
+		strconv.FormatInt(route.MediaGeneration, 10), string(delivery), string(audience),
+		binding.TargetReference, strconv.FormatBool(includeOrigin))
 	requestHash := telegramRoutingDigest("choice-request", route.MediaID,
-		string(delivery), string(audience))
+		string(delivery), string(audience), binding.TargetReference,
+		strconv.FormatBool(includeOrigin))
 	create := CreateResolvedTransmissionParams{
 		ExpectedActorID:    ctx.ActorID,
 		Identity:           Identity{Kind: IdentityTelegram, TelegramUserID: params.TelegramUserID},
 		IdempotencyKeyHash: idempotency, RequestHash: requestHash,
-		MediaID: route.MediaID, AudienceKind: audience,
-		OriginKind: TransmissionOriginTelegram, IncludeOrigin: true,
+		MediaID: route.MediaID, AudienceKind: audience, Selectors: selectors,
+		OriginKind: TransmissionOriginTelegram, IncludeOrigin: includeOrigin,
 		RequestedDelivery: delivery, AcceptedAt: params.Now,
 		Availability: params.Availability, Confirmation: confirmation,
 	}

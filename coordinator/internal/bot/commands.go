@@ -357,12 +357,43 @@ const helpText = `<b>Барицентр</b> — общая музыка на д�
 
 // IsPersonalCaption: the "лично" caption on a voice message (spec 9.1).
 func IsPersonalCaption(caption string) bool {
-	return strings.EqualFold(strings.TrimSpace(caption), "лично")
+	return strings.EqualFold(routingCaptionWithoutRights(caption), "лично")
 }
 
 // IsBroadcastCaption: the "всем" caption forces a broadcast voice insert
 // over the orbit's personal-by-default setting (design §5).
 func IsBroadcastCaption(caption string) bool {
-	c := strings.TrimSpace(caption)
+	c := routingCaptionWithoutRights(caption)
 	return strings.EqualFold(c, "всем") || strings.EqualFold(c, "all")
+}
+
+// IsRightsAcknowledgementCaption is the Telegram per-upload equivalent of
+// rights_acknowledged=true on the app upload API. It is deliberately explicit
+// and can be combined with the legacy routing words in one caption.
+func IsRightsAcknowledgementCaption(caption string) bool {
+	return captionHasToken(caption, "rights", "права")
+}
+
+func captionHasToken(caption string, values ...string) bool {
+	for _, field := range strings.Fields(strings.ToLower(strings.TrimSpace(caption))) {
+		field = strings.Trim(field, ",.;:!/?#")
+		for _, value := range values {
+			if field == value {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func routingCaptionWithoutRights(caption string) string {
+	var routing []string
+	for _, field := range strings.Fields(strings.TrimSpace(caption)) {
+		clean := strings.Trim(field, ",.;:!/?#")
+		if strings.EqualFold(clean, "rights") || strings.EqualFold(clean, "права") {
+			continue
+		}
+		routing = append(routing, clean)
+	}
+	return strings.Join(routing, " ")
 }

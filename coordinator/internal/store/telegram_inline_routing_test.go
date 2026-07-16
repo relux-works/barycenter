@@ -175,6 +175,177 @@ func TestTelegramInlineFileClipHasNoDefaultUntilExplicitChoice(t *testing.T) {
 	}
 }
 
+func TestTelegramExplicitTargetCallbackUsesCommonOpaqueReferenceAndOriginPolicy(t *testing.T) {
+	st, owner, telegramUserID := telegramRoutingFixture(t)
+	now := time.Now().UnixMilli()
+	registered, availability := registerTelegramVoiceRoute(
+		t, st, owner, telegramUserID, now, true,
+	)
+	actor, err := st.ResolveTelegramActorContext(telegramUserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	options, err := st.ListTransmissionTargetReferencesForIdentity(
+		actor.ActorID,
+		Identity{Kind: IdentityTelegram, TelegramUserID: telegramUserID},
+		now+12,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reference string
+	for _, option := range options {
+		if option.Kind == TransmissionSelectorBarycenter && option.OrbitID == owner.OrbitID {
+			reference = option.Reference
+			break
+		}
+	}
+	if !transmissionTargetReferencePattern.MatchString(reference) {
+		t.Fatalf("missing opaque Barycenter option: %+v", options)
+	}
+	token, err := st.MintTelegramInlineCallback(MintTelegramInlineCallbackParams{
+		TelegramUserID: telegramUserID, MediaID: registered.Route.MediaID,
+		MediaGeneration: registered.Route.MediaGeneration, ChatID: 7001, MessageID: 8001,
+		Action: TelegramChooseOwn, Delivery: TransmissionDeliveryAfterCurrent,
+		Audience: TransmissionAudienceExplicit, RouteV2: true,
+		TargetReference: reference, IncludeOrigin: false, Now: now + 13,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := applyTelegramChoice(
+		t, st, telegramUserID, "explicit-choice", token, availability, now+14,
+	)
+	if result.Outcome != TelegramCallbackApplied || result.Creation == nil ||
+		result.Creation.Transmission.AudienceKind != TransmissionAudienceExplicit ||
+		result.Creation.Transmission.IncludeOrigin || len(result.Creation.Targets) != 1 {
+		t.Fatalf("explicit callback result=%+v", result)
+	}
+	var parentAction, parentDelivery string
+	var storedReference string
+	if err := st.db.QueryRow(`SELECT c.action, c.delivery, v.target_reference
+FROM telegram_inline_callbacks c JOIN telegram_inline_callback_routes_v2 v
+  ON v.token_hash = c.token_hash
+WHERE c.media_id = ? AND v.target_reference <> ''`, registered.Route.MediaID).Scan(
+		&parentAction, &parentDelivery, &storedReference,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if parentAction != string(TelegramChooseOwn) || parentDelivery != "" ||
+		storedReference != reference || strings.Contains(token, reference) {
+		t.Fatalf("rollback envelope action=%q delivery=%q reference=%q token=%q",
+			parentAction, parentDelivery, storedReference, token)
+	}
+}
+
+func TestTelegramExplicitTargetReferenceIsActorBound(t *testing.T) {
+	st, owner, telegramUserID := telegramRoutingFixture(t)
+	now := time.Now().UnixMilli()
+	registered, availability := registerTelegramVoiceRoute(t, st, owner, telegramUserID, now, true)
+	actor, err := st.ResolveTelegramActorContext(telegramUserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	options, err := st.ListTransmissionTargetReferencesForIdentity(actor.ActorID,
+		Identity{Kind: IdentityTelegram, TelegramUserID: telegramUserID}, now+10)
+	if err != nil || len(options) == 0 {
+		t.Fatalf("options=%+v err=%v", options, err)
+	}
+	const foreignTelegramID = int64(7600713)
+	if err := st.AddMember(owner.OrbitID, foreignTelegramID, "companion"); err != nil {
+		t.Fatal(err)
+	}
+	foreignMedia, _ := readyTelegramRoutingMedia(t, st, owner.OrbitID, foreignTelegramID, now+20)
+	foreignRoute, err := st.RegisterTelegramInlineRoute(RegisterTelegramInlineRouteParams{
+		TelegramUserID: foreignTelegramID, MediaID: foreignMedia.ID,
+		OriginalUpdateID: now + 20, AttachmentKind: "audio", AcceptedAt: now + 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := st.MintTelegramInlineCallback(MintTelegramInlineCallbackParams{
+		TelegramUserID: foreignTelegramID, MediaID: foreignRoute.Route.MediaID,
+		MediaGeneration: foreignRoute.Route.MediaGeneration, ChatID: 7001, MessageID: 8001,
+		Action: TelegramChooseOwn, Delivery: TransmissionDeliveryAfterCurrent,
+		Audience: TransmissionAudienceExplicit, RouteV2: true,
+		TargetReference: options[0].Reference, IncludeOrigin: true, Now: now + 30,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = st.ApplyTelegramInlineCallback(ApplyTelegramInlineCallbackParams{
+		TelegramUserID: foreignTelegramID, QueryID: "foreign-reference", Token: token,
+		ChatID: 7001, MessageID: 8001, Now: now + 31,
+		Availability: []TransmissionTargetAvailability{availability},
+	})
+	if !errors.Is(err, ErrTransmissionAudienceNotFound) {
+		t.Fatalf("foreign actor target reference err=%v registered=%+v", err, registered)
+	}
+}
+
+func TestTelegramTargetedTrackQueueFailsClosedWhileProductionPolicyIsUnsupported(t *testing.T) {
+	st, owner, telegramUserID := telegramRoutingFixture(t)
+	now := time.Now().UnixMilli()
+	actor, err := st.ResolveTelegramActorContext(telegramUserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	track, err := st.CreateMediaItem(CreateMediaItemParams{
+		OwnerOrbitID: owner.OrbitID, ActorID: actor.ActorID,
+		Kind: MediaKindAudioTrack, Source: MediaSourceTelegram, Title: "Telegram track",
+		CreatedAt: now, ExpiresAt: now + 7*24*time.Hour.Milliseconds(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	publication, err := st.StageMediaPublication(track.ID, track.Revision, now+1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	track, err = st.CompleteMediaPublication(publication.ID, publication.Revision,
+		MediaPublication{MIME: "audio/mpeg", Codec: "mp3", DurationMS: 240_000,
+			SizeBytes: 4_096, SHA256: strings.Repeat("b", 64), LoudnessJSON: `{}`}, now+2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registered, err := st.RegisterTelegramInlineRoute(RegisterTelegramInlineRouteParams{
+		TelegramUserID: telegramUserID, MediaID: track.ID, OriginalUpdateID: now,
+		AttachmentKind: "audio", AcceptedAt: now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	options, err := st.ListTransmissionTargetReferencesForIdentity(actor.ActorID,
+		Identity{Kind: IdentityTelegram, TelegramUserID: telegramUserID}, now+3)
+	if err != nil || len(options) == 0 {
+		t.Fatalf("options=%+v err=%v", options, err)
+	}
+	token, err := st.MintTelegramInlineCallback(MintTelegramInlineCallbackParams{
+		TelegramUserID: telegramUserID, MediaID: track.ID,
+		MediaGeneration: registered.Route.MediaGeneration, ChatID: 7001, MessageID: 8001,
+		Action: TelegramChooseOwn, Delivery: TransmissionDelivery("queue"),
+		Audience: TransmissionAudienceExplicit, RouteV2: true,
+		TargetReference: options[0].Reference, IncludeOrigin: true, Now: now + 4,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	availability := fullTransmissionAvailability(owner, now+2)
+	_, err = st.ApplyTelegramInlineCallback(ApplyTelegramInlineCallbackParams{
+		TelegramUserID: telegramUserID, QueryID: "track-mixed", Token: token,
+		ChatID: 7001, MessageID: 8001, Now: now + 5,
+		Availability: []TransmissionTargetAvailability{availability},
+	})
+	if !errors.Is(err, ErrTransmissionDeliveryKindMismatch) {
+		t.Fatalf("targeted track policy err=%v", err)
+	}
+	var transmissions int
+	if err := st.db.QueryRow(`SELECT COUNT(*) FROM transmissions WHERE media_id = ?`, track.ID).
+		Scan(&transmissions); err != nil || transmissions != 0 {
+		t.Fatalf("mixed capability created transmissions=%d err=%v", transmissions, err)
+	}
+}
+
 func TestTelegramInlineStartWinsWithoutReplacement(t *testing.T) {
 	st, owner, telegramUserID := telegramRoutingFixture(t)
 	now := time.Now().UnixMilli()

@@ -55,6 +55,8 @@ var templates = map[string]textPair{
 	"delivery.overlay":                           {"Overlay", "Поверх эфира"},
 	"delivery.interrupt":                         {"Interrupt and resume", "Прервать и продолжить"},
 	"delivery.after_current":                     {"After current", "После текущего"},
+	"delivery.queue":                             {"Queue track", "Поставить трек в очередь"},
+	"delivery.replace":                           {"Replace current track", "Заменить текущий трек"},
 	"delivery.unknown":                           {"Delivery unavailable", "Способ доставки недоступен"},
 	"confirmation.interrupt_required":            {"Interrupt is unavailable for every recipient. Choose a fallback.", "Прерывание недоступно для всех получателей. Выберите замену."},
 	"confirmation.choose_overlay":                {"Play as overlay", "Воспроизвести поверх"},
@@ -261,6 +263,10 @@ func DeliveryLabel(delivery store.TransmissionDelivery) Label {
 		return label("delivery.interrupt")
 	case store.TransmissionDeliveryAfterCurrent:
 		return label("delivery.after_current")
+	case store.TransmissionDelivery("queue"):
+		return label("delivery.queue")
+	case store.TransmissionDelivery("replace"):
+		return label("delivery.replace")
 	default:
 		return label("delivery.unknown")
 	}

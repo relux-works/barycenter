@@ -1,5 +1,7 @@
 # P3 live codec and transport spike
 
+Implementation evidence: [Windows live capture sender](p3-windows-live-capture-sender.md).
+
 Task: `TASK-260712-lo7a68`
 
 Decision date: 2026-07-16

@@ -170,4 +170,32 @@ struct PulsarTargetsInboxModelTests {
         #expect(main.contains("actions.sendTargetedDraft"))
         #expect(main.contains("draft.explicitTargetCount"))
     }
+
+    @Test("macOS consumes the shared B5-B7 parity regression fixture")
+    func parityRegressionFixture() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+        let data = try Data(contentsOf:
+            root.appendingPathComponent("acceptance/targets-inbox-parity-regressions-v1.json"))
+        let evidence = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(evidence["contract"] as? String == "p2-targets-inbox-parity-regressions.v1")
+        #expect(evidence["scope"] as? String == "repository-automated-only")
+        let fixture = try #require(evidence["sharedSurfaceFixture"] as? [String: Any])
+        #expect(fixture["surfaceStates"] as? [String] ==
+            PulsarTargetsInboxSurfaceState.allCases.map(\.rawValue))
+        #expect(fixture["audiences"] as? [String] ==
+            ["this_pulsar", "own_barycenter", "current_air", "explicit"])
+        #expect(fixture["commands"] as? [String] == [
+            "refresh", "set_audience", "select_targets", "set_include_origin",
+            "load_more_inbox", "load_more_history", "load_more_receipts", "replay_inbox",
+            "dismiss_inbox", "delete_history", "report_inbox", "report_history", "mute_sender",
+        ])
+        #expect(fixture["canonicalOutcomes"] as? [String] == [
+            "replay_accepted", "inbox_dismissed", "media_deleted", "report_received", "sender_blocked",
+        ])
+        #expect(fixture["targetedTrackPolicy"] as? String == "unsupported")
+        #expect(fixture["manualReplayRequired"] as? Bool == true)
+        #expect(fixture["lateAutoplayAllowed"] as? Bool == false)
+    }
 }

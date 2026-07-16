@@ -3,7 +3,6 @@ package main
 import (
 	"math"
 	"runtime"
-	"sync/atomic"
 	"testing"
 	"time"
 	"unsafe"
@@ -23,7 +22,7 @@ func TestWindowsRuns100SequentialOverlaysWithoutGrowthOrDeadlock(t *testing.T) {
 	dst := make([]float32, framesPerRun*channels)
 	main := make([]float32, len(dst))
 	clip := []float32{0.2, 0.2}
-	var ended atomic.Int64
+	ended := make(chan struct{}, 1)
 
 	runtime.GC()
 	var before runtime.MemStats
@@ -36,7 +35,7 @@ func TestWindowsRuns100SequentialOverlaysWithoutGrowthOrDeadlock(t *testing.T) {
 			clip,
 			overlayPlan(now, 1),
 			func(int64) {},
-			func(int64) { ended.Add(1) },
+			func(int64) { ended <- struct{}{} },
 		); err != nil {
 			t.Fatalf("iteration %d arm: %v", iteration, err)
 		}
@@ -46,14 +45,12 @@ func TestWindowsRuns100SequentialOverlaysWithoutGrowthOrDeadlock(t *testing.T) {
 		if engine.OverlayActive() || ring.Fill() != 0 {
 			t.Fatalf("iteration %d leaked active graph or ring tail", iteration)
 		}
+		select {
+		case <-ended:
+		case <-time.After(time.Second):
+			t.Fatalf("iteration %d terminal callback missing", iteration)
+		}
 		now = now.Add(time.Duration(framesPerRun) * time.Second / sampleRate)
-	}
-	deadline := time.Now().Add(time.Second)
-	for ended.Load() != overlays && time.Now().Before(deadline) {
-		runtime.Gosched()
-	}
-	if ended.Load() != overlays {
-		t.Fatalf("terminal callbacks=%d want=%d", ended.Load(), overlays)
 	}
 	runtime.GC()
 	var after runtime.MemStats

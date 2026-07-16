@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-targets-inbox-parity-regressions.v1",
+  "sourceContract": "p2-targets-inbox-parity.v1",
+  "scope": "repository-automated-only",
+  "requiredInvariants": [
+    "non_target_known_id_is_not_found",
+    "non_target_ui_and_inbox_are_empty",
+    "explicit_n_target_dedup_before_origin_filter",
+    "no_broadcast_or_transitive_fallback",
+    "frozen_audience_does_not_expand_to_new_members",
+    "forged_stale_or_cross_actor_selectors_fail_closed",
+    "cursor_isolation_and_insert_stability",
+    "one_inbox_item_per_eligible_target_receipt",
+    "ttl_and_binding_replacement_remove_replay_authority",
+    "reads_and_reconnect_never_autoplay_or_autoqueue",
+    "phase1_clip_is_explicitly_supported",
+    "phase1_track_is_explicitly_unsupported",
+    "mixed_version_create_is_atomic",
+    "current_consent_and_per_upload_rights_are_required",
+    "report_is_local_until_reviewed_authority_acts",
+    "delete_or_disable_revokes_fetch_and_replay",
+    "telegram_callbacks_are_opaque_bound_expiring_and_replay_safe",
+    "additive_migration_and_previous_binary_rollback_are_preserved",
+    "windows_macos_and_telegram_consume_one_fixture"
+  ],
+  "sharedSurfaceFixture": {
+    "surfaceStates": ["loading", "ready", "stale", "offline", "coordinator_error"],
+    "audiences": ["this_pulsar", "own_barycenter", "current_air", "explicit"],
+    "commands": [
+      "refresh",
+      "set_audience",
+      "select_targets",
+      "set_include_origin",
+      "load_more_inbox",
+      "load_more_history",
+      "load_more_receipts",
+      "replay_inbox",
+      "dismiss_inbox",
+      "delete_history",
+      "report_inbox",
+      "report_history",
+      "mute_sender"
+    ],
+    "canonicalOutcomes": [
+      "replay_accepted",
+      "inbox_dismissed",
+      "media_deleted",
+      "report_received",
+      "sender_blocked"
+    ],
+    "targetedTrackPolicy": "unsupported",
+    "manualReplayRequired": true,
+    "lateAutoplayAllowed": false,
+    "opaquePrefixesNeverRendered": ["trf_", "ib_", "hi_", "ic_", "hc_", "rc_"]
+  },
+  "gates": {
+    "B5": {
+      "claim": "repository adversarial evidence only",
+      "evidence": ["b5_explicit_acl", "b5_frozen_audience", "pagination_and_inbox"],
+      "manualTask": "TASK-260712-3u5cdn"
+    },
+    "B6": {
+      "claim": "capability and presentation policy only; streamed-track runtime is downstream",
+      "evidence": ["mixed_version_atomicity", "shared_surface_fixture"],
+      "manualTask": "TASK-260712-3u5cdn"
+    },
+    "B7": {
+      "claim": "repository rights and revocation boundaries only",
+      "evidence": ["content_policy_gate", "moderation_revocation", "telegram_callback_security"],
+      "manualTask": "TASK-260712-3u5cdn"
+    }
+  },
+  "evidence": [
+    {
+      "id": "b5_explicit_acl",
+      "invariants": [
+        "non_target_known_id_is_not_found",
+        "non_target_ui_and_inbox_are_empty",
+        "explicit_n_target_dedup_before_origin_filter",
+        "no_broadcast_or_transitive_fallback",
+        "forged_stale_or_cross_actor_selectors_fail_closed"
+      ],
+      "anchors": [
+        {"path": "coordinator/internal/store/targets_inbox_parity_regression_test.go", "symbol": "TestTargetsInboxB5ExplicitACLAndFrozenAudienceRegression"},
+        {"path": "coordinator/cmd/duet-coordinator/media_download_test.go", "symbol": "TestMediaDownloadHTTPEnforcesOwnerAndExactTargetACL"},
+        {"path": "coordinator/internal/store/transmission_target_references_test.go", "symbol": "TestTransmissionTargetReferencesAreOpaqueCredentialBoundAndGenerationSafe"}
+      ]
+    },
+    {
+      "id": "b5_frozen_audience",
+      "invariants": [
+        "frozen_audience_does_not_expand_to_new_members",
+        "ttl_and_binding_replacement_remove_replay_authority",
+        "reads_and_reconnect_never_autoplay_or_autoqueue"
+      ],
+      "anchors": [
+        {"path": "coordinator/internal/store/targets_inbox_parity_regression_test.go", "symbol": "TestTargetsInboxB5ExplicitACLAndFrozenAudienceRegression"},
+        {"path": "coordinator/internal/store/transmission_inbox_test.go", "symbol": "TestTransmissionInboxCurrentBindingFailureIsNonexistent"},
+        {"path": "coordinator/internal/store/transmission_scheduler_test.go", "symbol": "TestTransmissionSchedulerPartialReadinessAndNoLateAutoplay"}
+      ]
+    },
+    {
+      "id": "pagination_and_inbox",
+      "invariants": [
+        "cursor_isolation_and_insert_stability",
+        "one_inbox_item_per_eligible_target_receipt"
+      ],
+      "anchors": [
+        {"path": "coordinator/internal/store/inbox_query_test.go", "symbol": "TestAuthorizedInboxPaginationIsolationDismissAndReplay"},
+        {"path": "coordinator/internal/store/transmission_inbox_test.go", "symbol": "TestTransmissionInboxEligibleReceiptIsAtomicExactAndIdempotent"}
+      ]
+    },
+    {
+      "id": "mixed_version_atomicity",
+      "invariants": [
+        "phase1_clip_is_explicitly_supported",
+        "phase1_track_is_explicitly_unsupported",
+        "mixed_version_create_is_atomic"
+      ],
+      "anchors": [
+        {"path": "coordinator/internal/store/transmission_target_references_test.go", "symbol": "TestCommonExplicitCapabilityPolicyCoversClipAndTrack"},
+        {"path": "coordinator/internal/store/transmission_target_references_test.go", "symbol": "TestExplicitTargetsFailAtomicallyWithOpaqueSortedCapabilityDetails"},
+        {"path": "coordinator/cmd/duet-coordinator/transmission_http_test.go", "symbol": "TestTransmissionHTTPUsesOpaqueTargetsAndFailsClosedOnMixedVersions"}
+      ]
+    },
+    {
+      "id": "content_policy_gate",
+      "invariants": ["current_consent_and_per_upload_rights_are_required"],
+      "anchors": [
+        {"path": "coordinator/internal/store/content_policy_test.go", "symbol": "TestContentPolicyMaterialChangeAndRateLimitFailClosed"},
+        {"path": "coordinator/cmd/duet-coordinator/content_policy_http_test.go", "symbol": "TestContentPolicyHTTPRequiresGrantAndPerUploadRightsAcknowledgement"},
+        {"path": "coordinator/cmd/duet-coordinator/content_policy_telegram_test.go", "symbol": "TestTelegramContentPolicyDisplayAcceptAndAttachmentGate"}
+      ]
+    },
+    {
+      "id": "moderation_revocation",
+      "invariants": [
+        "report_is_local_until_reviewed_authority_acts",
+        "delete_or_disable_revokes_fetch_and_replay"
+      ],
+      "anchors": [
+        {"path": "coordinator/internal/store/moderation_test.go", "symbol": "TestModerationReportProtectsOnlyReporterFetchInboxReplayAndFutureDelivery"},
+        {"path": "coordinator/internal/store/moderation_test.go", "symbol": "TestModerationDecisionIsCrashResumableIdempotentAndEnforced"},
+        {"path": "coordinator/internal/store/transmission_inbox_test.go", "symbol": "TestTransmissionInboxIneligibleReceiptsAndCanonicalRevocation"}
+      ]
+    },
+    {
+      "id": "telegram_callback_security",
+      "invariants": ["telegram_callbacks_are_opaque_bound_expiring_and_replay_safe"],
+      "anchors": [
+        {"path": "coordinator/internal/store/telegram_history_callbacks_test.go", "symbol": "TestTelegramHistoryCallbackBindsActorChatMessageAndExpiry"},
+        {"path": "coordinator/internal/store/telegram_history_callbacks_test.go", "symbol": "TestTelegramHistoryCallbackFinalizationIsReplaySafe"},
+        {"path": "coordinator/cmd/duet-coordinator/telegram_history_test.go", "symbol": "TestTelegramHistoryReportAndBlockUseCanonicalServices"}
+      ]
+    },
+    {
+      "id": "migration_rollback",
+      "invariants": ["additive_migration_and_previous_binary_rollback_are_preserved"],
+      "anchors": [
+        {"path": "coordinator/internal/store/transmission_inbox_test.go", "symbol": "TestTransmissionInboxAdditiveUpgradeBackfillsSnapshotAndReceipt"},
+        {"path": "coordinator/internal/store/transmission_previous_head_test.go", "symbol": "TestTransmissionStoreExactPreviousHeadRollback"}
+      ]
+    },
+    {
+      "id": "shared_surface_fixture",
+      "invariants": ["windows_macos_and_telegram_consume_one_fixture"],
+      "anchors": [
+        {"path": "pulsar-win/targets_inbox_model_test.go", "symbol": "TestTargetsInboxParityRegressionFixture"},
+        {"path": "node-app/Tests/NodeAppUITests/PulsarTargetsInboxModelTests.swift", "symbol": "parityRegressionFixture"},
+        {"path": "coordinator/cmd/duet-coordinator/telegram_parity_regression_test.go", "symbol": "TestTelegramTargetsInboxParityRegressionFixture"}
+      ]
+    }
+  ],
+  "manualEvidence": [
+    {
+      "task": "TASK-260712-3u5cdn",
+      "status": "manual-required",
+      "epic": "EPIC-260714-th54l3",
+      "claims": [
+        "real packaged Windows and macOS UI traversal",
+        "Narrator and VoiceOver",
+        "audible no-autoplay and exact replay",
+        "real mixed Phase 1 and Phase 2 fleet",
+        "Pulsar and Telegram parity on physical installations",
+        "authorized delete or disable followed by real network fetch denial"
+      ]
+    }
+  ]
+}

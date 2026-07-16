@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-developer
 
 ## Created
 2026-07-12T16:13:27Z
 
 ## Last Update
-2026-07-12T16:30:34Z
+2026-07-16T07:04:00Z
 
 ## Blocked By
 - TASK-260712-1n5fks
@@ -44,6 +44,7 @@ backlog
 - [ ] Define rebuffer, join catch-up, leave and ring-drained ended behavior
 
 ## Notes
+2026-07-16 strict-sequence start from synchronized main merge cf3a33a after TASK-260712-3lf8r0 exact head 52bf876 and hosted run 29478459982 passed 4/4. Implementing provider-neutral streamed-track coordinator queue/replace, buffer-ready scheduling, audible progress, seek/rebuffer generations and restart restoration inline outside task-board spawn workflow. Production codec/player selection remains no-go, so deterministic candidate-neutral state machines may land but no production capability or hands-on playback will be claimed.
 
 ## Precondition Resources
 - [p2-streamed-track-components.puml](file://TASK-260712-2h6snp/p2-streamed-track-components.puml) — Coordinator component boundaries for streamed-track orchestration

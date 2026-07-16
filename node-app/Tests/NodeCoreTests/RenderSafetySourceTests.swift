@@ -158,3 +158,34 @@ func livePTTJitterSourceSafety() throws {
         #expect(!source.contains(token), "live jitter path contains persistence token \(token)")
     }
 }
+
+@Test("macOS live capture callback is bounded and has no transport or persistence work")
+func livePTTCaptureSourceSafety() throws {
+    let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    let sourceURL = testsDirectory
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("Sources/NodeCore/MacLiveCaptureSender.swift")
+    let source = try String(contentsOf: sourceURL, encoding: .utf8)
+    let begin = try #require(
+        source.range(of: "// BEGIN LIVE CAPTURE CALLBACK")?.upperBound)
+    let end = try #require(source.range(
+        of: "// END LIVE CAPTURE CALLBACK", range: begin..<source.endIndex)?.lowerBound)
+    let callback = String(source[begin..<end])
+    for token in [
+        "encoder.encode", "trySendFrame", "sendControl", "URLSession", "FileHandle",
+        "FileManager", "Data(", ".write(to:", ".sync", ".wait(", "lock.lock"
+    ] {
+        #expect(!callback.contains(token), "live capture callback contains \(token)")
+    }
+    #expect(callback.contains("mailbox.offer(samples)"))
+    #expect(source.contains("MacLiveSampleMailbox(capacity: 3_840)"))
+    #expect(source.contains("private static let sendQueueLimit = 8"))
+    #expect(source.contains("private static let frameSamples = 960"))
+    for token in [
+        "URLSession", "FileHandle", "FileManager", "UserDefaults", ".write(to:",
+        "media_items", "transmissions"
+    ] {
+        #expect(!source.contains(token), "live capture path contains persistence token \(token)")
+    }
+}

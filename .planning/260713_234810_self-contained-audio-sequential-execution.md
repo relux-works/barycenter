@@ -15,7 +15,7 @@
 - Current engineering task: `TASK-260712-2sicfs` — p2-independent-air-migration-review
 - Next engineering task: `TASK-260712-2sicfs` — p2-independent-air-migration-review
 - Most recently accepted: `TASK-260712-28mn7w` — p2-independent-stream-performance-review
-- Current branch: `task/task-260712-28mn7w-p2-independent-stream-performance-review`
+- Current branch: `chore/resume-after-stream-performance-review`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -2254,6 +2254,23 @@ runtime download and dark-only; it is not legal advice or production
 authorization. Progress is 115/205 overall and 115/186 engineering. Strict
 reversible execution advances to `TASK-260712-28mn7w` while production playback
 and Phase 2 promotion remain fail-closed.
+
+Checkpoint 2026-07-16 (accepted fail-closed technical review):
+`TASK-260712-28mn7w` landed on exact engineering head
+`2b519658390168f6d7b5cffb1b6097cd2e47d077` through PR #173, merge
+`8db5c54a745cfc8acbe7975fbe6999b838ffc5d1`. The review fixed the hosted
+Windows shutdown High by joining decoder/cache cleanup in `Close`; the new
+deterministic regression and former cleanup-flake path passed 100 repetitions.
+Full Windows and relevant coordinator suites passed under race detection, six
+macOS candidate-player tests and 38 stream contracts passed, and hosted run
+`29499587834` passed all four jobs on its first attempt (coordinator 2m53s,
+node-core 1m20s, pulsar-win 2m08s, signed packaged probe 4m24s). Production
+remains blocked by the bounded whole-object integrity gap, physical p95/RSS/
+one-hour/two-hour matrix and independent review. Those gates are routed to
+`TASK-260716-tlxe3s`, manual tasks `TASK-260712-1fpb9q` and
+`TASK-260712-2bdi4a`, and independent approval `TASK-260716-3voo6j` owned by
+Ivan Oparin. Progress is 116/205 overall and 116/186 engineering. Strict
+reversible execution advances to `TASK-260712-2sicfs`.
 
 ## Operating contract
 

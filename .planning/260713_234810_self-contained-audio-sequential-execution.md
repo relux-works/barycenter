@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 113 accepted, 92 remain.
-- Routed inventory: 186 engineering tasks (113 accepted, 73 remain) and 19
+- Combined inventory: 205 original tasks; 114 accepted, 91 remain.
+- Routed inventory: 186 engineering tasks (114 accepted, 72 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-14rxuk` — phase2-gate-matrix-evidence-contract
-- Next engineering task: `TASK-260712-14rxuk` — phase2-gate-matrix-evidence-contract
-- Most recently accepted: `TASK-260712-2ubzyf` — streamed-track-rollout-handoff
-- Current branch: `task/task-260712-14rxuk-phase2-gate-matrix-evidence-contract`
+- Current engineering task: `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
+- Next engineering task: `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
+- Most recently accepted: `TASK-260712-14rxuk` — phase2-gate-matrix-evidence-contract
+- Current branch: `task/task-260712-2g3fkt-p2-independent-codec-supply-review`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 113 / 205 tasks (approximately 55.1%); 92 remain
-- Engineering progress: 113 / 186 tasks (approximately 60.8%); 73 remain
+- Accepted overall: 114 / 205 tasks (approximately 55.6%); 91 remain
+- Engineering progress: 114 / 186 tasks (approximately 61.3%); 72 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2200,6 +2200,23 @@ evidence remains manual and unclaimed in `EPIC-260714-th54l3`. Progress is
 113/205 overall and 113/186 engineering; strict execution advances to
 `TASK-260712-14rxuk`.
 
+Checkpoint 2026-07-16 (accepted): `TASK-260712-14rxuk` landed on exact
+engineering head `12c300c` through PR #168, merge
+`d3db8c9f367bc5de2fd40bd047050100ddcc1825`. The shared
+`p2-gate-matrix-evidence.v1` contract freezes all B1-B7, sections 17-18, 20.5
+and 20.6 gates, exact source hashes, 3+30 timing samples, monotonic clocks,
+Windows-Windows/Windows-macOS/macOS-macOS pairings, 3x5 real and 8x20
+synthetic Air shapes, fixture locks, provenance, artifact naming, privacy
+denylist and critical-incident/beta reset rules. Contract and campaign
+validators fail closed on threshold, source, claim-class, package, clock,
+sanitization and artifact-hash drift. Sixty contract tests and the Air
+regression harness passed; hosted run `29496295085` passed all four jobs
+(coordinator 2m26s, node-core 1m28s, pulsar-win 1m28s, signed packaged probe
+2m46s). No manual result is claimed: codec/player no-go, hardware, participants,
+production credentials, rollback and seven-day beta remain explicit blockers
+in `EPIC-260714-th54l3`. Progress is 114/205 overall and 114/186 engineering;
+strict execution advances to `TASK-260712-2g3fkt`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -2741,7 +2758,12 @@ Story: `STORY-260712-1qfbiw` — P2 engineering integration and rollout
 readiness. The engineering handoff packet is the stop before P3 development;
 manual promotion remains separate.
 
-- [ ] `TASK-260712-14rxuk` — phase2-gate-matrix-evidence-contract
+- [x] `TASK-260712-14rxuk` — phase2-gate-matrix-evidence-contract
+  (accepted on engineering head `12c300c`; 17-gate contract freezes source
+  hashes, 3+30 samples, monotonic clocks, platform/topology roster, fixture
+  locks, artifacts, privacy and beta reset rules; 60 contract tests, Air
+  regression and hosted run `29496295085` 4/4 passed; PR #168 merge `d3db8c9`;
+  all six real-app/hardware/rollback/beta tasks stay manual and unclaimed)
 - [ ] `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
 - [ ] `TASK-260712-28mn7w` — p2-independent-stream-performance-review
 - [ ] `TASK-260712-2sicfs` — p2-independent-air-migration-review

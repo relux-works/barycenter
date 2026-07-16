@@ -48,6 +48,14 @@ var payloadFactory = map[string]func() any{
 	TypeStreamFailed:     func() any { return &StreamFailedPayload{} },
 	TypeStreamEnded:      func() any { return &StreamEndedPayload{} },
 	TypeStreamCancelled:  func() any { return &StreamCancelledPayload{} },
+	TypeLivePTTStart:     func() any { return &LivePTTStartPayload{} },
+	TypeLivePTTAccept:    func() any { return &LivePTTAcceptPayload{} },
+	TypeLivePTTReject:    func() any { return &LivePTTRejectPayload{} },
+	TypeLivePTTEnd:       func() any { return &LivePTTEndPayload{} },
+	TypeLivePTTCancel:    func() any { return &LivePTTCancelPayload{} },
+	TypeLivePTTFailed:    func() any { return &LivePTTFailedPayload{} },
+	TypeLivePTTReceipt:   func() any { return &LivePTTReceiptPayload{} },
+	TypeLivePTTState:     func() any { return &LivePTTStatePayload{} },
 	TypeState:            func() any { return &StatePayload{} },
 	TypeReady:            func() any { return &ReadyPayload{} },
 	TypeStarted:          func() any { return &StartedPayload{} },
@@ -96,6 +104,9 @@ func decode(env Envelope, strict bool) (any, error) {
 	}
 	if err := dec.Decode(target); err != nil {
 		return nil, fmt.Errorf("decode %s payload: %w", env.Type, err)
+	}
+	if err := validateLivePTTPayload(target); err != nil {
+		return nil, fmt.Errorf("validate %s payload: %w", env.Type, err)
 	}
 	return target, nil
 }

@@ -6,6 +6,7 @@ import Foundation
 
 public enum ProtocolCapabilities {
     public static let interruptResume = "interrupt_resume_v1"
+    public static let livePTT = LivePTTConstants.capability
     public static let mediaClip = "media_clip_v1"
     public static let overlayMix = "overlay_mix_v1"
     public static let seamlessAdoption = "seamless_adoption_v1"
@@ -33,6 +34,7 @@ public enum ProtocolCapabilities {
 
 // Source-compatible names used by existing and upcoming client hooks.
 public let interruptResumeCapability = ProtocolCapabilities.interruptResume
+public let livePTTCapability = ProtocolCapabilities.livePTT
 public let mediaClipCapability = ProtocolCapabilities.mediaClip
 public let overlayMixCapability = ProtocolCapabilities.overlayMix
 public let seamlessAdoptionCapability = ProtocolCapabilities.seamlessAdoption
@@ -758,6 +760,14 @@ public enum Message {
     case streamFailed(StreamFailedPayload)
     case streamEnded(StreamEndedPayload)
     case streamCancelled(StreamCancelledPayload)
+    case livePTTStart(LivePTTStartPayload)
+    case livePTTAccept(LivePTTAcceptPayload)
+    case livePTTReject(LivePTTRejectPayload)
+    case livePTTEnd(LivePTTEndPayload)
+    case livePTTCancel(LivePTTCancelPayload)
+    case livePTTFailed(LivePTTFailedPayload)
+    case livePTTReceipt(LivePTTReceiptPayload)
+    case livePTTState(LivePTTStatePayload)
     case state(StatePayload)
     case ready(ReadyPayload)
     case started(StartedPayload)
@@ -812,6 +822,14 @@ public enum Message {
         case .streamFailed: return "stream_failed"
         case .streamEnded: return "stream_ended"
         case .streamCancelled: return "stream_cancelled"
+        case .livePTTStart: return "live_ptt_start"
+        case .livePTTAccept: return "live_ptt_accept"
+        case .livePTTReject: return "live_ptt_reject"
+        case .livePTTEnd: return "live_ptt_end"
+        case .livePTTCancel: return "live_ptt_cancel"
+        case .livePTTFailed: return "live_ptt_failed"
+        case .livePTTReceipt: return "live_ptt_receipt"
+        case .livePTTState: return "live_ptt_state"
         case .state: return "state"
         case .ready: return "ready"
         case .started: return "started"
@@ -891,6 +909,14 @@ public enum ProtocolCodec {
         case "stream_failed": message = .streamFailed(try p(StreamFailedPayload.self))
         case "stream_ended": message = .streamEnded(try p(StreamEndedPayload.self))
         case "stream_cancelled": message = .streamCancelled(try p(StreamCancelledPayload.self))
+        case "live_ptt_start": message = .livePTTStart(try p(LivePTTStartPayload.self))
+        case "live_ptt_accept": message = .livePTTAccept(try p(LivePTTAcceptPayload.self))
+        case "live_ptt_reject": message = .livePTTReject(try p(LivePTTRejectPayload.self))
+        case "live_ptt_end": message = .livePTTEnd(try p(LivePTTEndPayload.self))
+        case "live_ptt_cancel": message = .livePTTCancel(try p(LivePTTCancelPayload.self))
+        case "live_ptt_failed": message = .livePTTFailed(try p(LivePTTFailedPayload.self))
+        case "live_ptt_receipt": message = .livePTTReceipt(try p(LivePTTReceiptPayload.self))
+        case "live_ptt_state": message = .livePTTState(try p(LivePTTStatePayload.self))
         case "state": message = .state(try p(StatePayload.self))
         case "ready": message = .ready(try p(ReadyPayload.self))
         case "started": message = .started(try p(StartedPayload.self))
@@ -906,6 +932,7 @@ public enum ProtocolCodec {
         case "set_provider": message = .setProvider(try p(SetProviderPayload.self))
         default: throw ProtocolError.unknownType(head.type)
         }
+        try LivePTTValidation.validate(message)
         return (head, message)
     }
 
@@ -954,6 +981,14 @@ public enum ProtocolCodec {
         case .streamFailed(let p): return try w(p)
         case .streamEnded(let p): return try w(p)
         case .streamCancelled(let p): return try w(p)
+        case .livePTTStart(let p): return try w(p)
+        case .livePTTAccept(let p): return try w(p)
+        case .livePTTReject(let p): return try w(p)
+        case .livePTTEnd(let p): return try w(p)
+        case .livePTTCancel(let p): return try w(p)
+        case .livePTTFailed(let p): return try w(p)
+        case .livePTTReceipt(let p): return try w(p)
+        case .livePTTState(let p): return try w(p)
         case .state(let p): return try w(p)
         case .ready(let p): return try w(p)
         case .started(let p): return try w(p)

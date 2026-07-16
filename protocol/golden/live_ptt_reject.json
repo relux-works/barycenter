@@ -1,0 +1,1 @@
+{"v":1,"id":"msg_01ARZ3NDEKTSV4RRFFQ69G5FAV","ts":1770000000100,"type":"live_ptt_reject","payload":{"session_id":"00112233445566778899aabbccddeeff","generation":7,"event_sequence":1,"code":"unsupported","rejected_at_coord_ms":1770000000100}}

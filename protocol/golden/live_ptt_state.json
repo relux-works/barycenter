@@ -1,0 +1,1 @@
+{"v":1,"id":"msg_01ARZ3NDEKTSV4RRFFQ69G5FAV","ts":1770000001000,"type":"live_ptt_state","payload":{"revision":9,"phase":"receiving","active_session_id":"00112233445566778899aabbccddeeff","generation":7,"speaker_actor_id":11,"last_sequence":4,"generated_at_coord_ms":1770000001000}}

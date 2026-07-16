@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "contract": "live-ptt-binary.v1",
+  "validFrames": [
+    {"name":"start","hex":"4250010500112233445566778899aabbccddeeff0000000100000000000f42400003140101010000f8fffe","sequence":1,"captureMonotonicUS":1000000,"flags":5},
+    {"name":"middle","hex":"4250010400112233445566778899aabbccddeeff0000000200000000000f90600003140101010000f8fffd","sequence":2,"captureMonotonicUS":1020000,"flags":4},
+    {"name":"end","hex":"4250010600112233445566778899aabbccddeeff0000000300000000000fde800003140101010000f8fffc","sequence":3,"captureMonotonicUS":1040000,"flags":6}
+  ],
+  "invalidMutations": [
+    {"name":"truncated","operation":"truncate","value":39},
+    {"name":"oversized","operation":"append","value":398},
+    {"name":"wrong_version","operation":"set_byte","offset":2,"value":2},
+    {"name":"unknown_flag","operation":"set_byte","offset":3,"value":132},
+    {"name":"wrong_profile","operation":"set_byte","offset":34,"value":10},
+    {"name":"reserved_nonzero","operation":"set_byte","offset":39,"value":1},
+    {"name":"zero_sequence","operation":"set_u32be","offset":20,"value":0},
+    {"name":"length_mismatch","operation":"set_u16be","offset":32,"value":4}
+  ]
+}

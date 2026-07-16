@@ -150,7 +150,7 @@ func TestMirrorMatchesCoordinatorSource(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	wireDir := filepath.Dir(thisFile)
 
-	for _, name := range []string{"protocol.go", "codec.go"} {
+	for _, name := range []string{"protocol.go", "codec.go", "live_ptt.go"} {
 		src, err := os.ReadFile(filepath.Join(srcDir, name))
 		if err != nil {
 			t.Fatalf("read coordinator source %s: %v", name, err)

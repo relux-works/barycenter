@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 94 accepted, 111 remain.
-- Routed inventory: 186 engineering tasks (94 accepted, 92 remain) and 19
+- Combined inventory: 205 original tasks; 95 accepted, 110 remain.
+- Routed inventory: 186 engineering tasks (95 accepted, 91 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2zoy4u` — rights-report-disable-enforcement
-- Next engineering task: `TASK-260712-2zoy4u` — rights-report-disable-enforcement
-- Most recently accepted: `TASK-260712-2j5fkr` — inbox-history-api-pagination
-- Current branch: `tracking/task-260712-2j5fkr-inbox-history-api-pagination`
+- Current engineering task: `TASK-260712-2vipy3` — pulsar-inbox-history-ui
+- Next engineering task: `TASK-260712-2vipy3` — pulsar-inbox-history-ui
+- Most recently accepted: `TASK-260712-2zoy4u` — rights-report-disable-enforcement
+- Current branch: `tracking/task-260712-2zoy4u-rights-report-disable-enforcement`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 94 / 205 tasks (approximately 45.9%); 111 remain
-- Engineering progress: 94 / 186 tasks (approximately 50.5%); 92 remain
+- Accepted overall: 95 / 205 tasks (approximately 46.3%); 110 remain
+- Engineering progress: 95 / 186 tasks (approximately 51.1%); 91 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1560,6 +1560,24 @@ passed coordinator, Swift, Windows and packaged-probe jobs. No real-hardware
 claim is made. Progress is 92/205 overall and 92/186 engineering; strict
 execution advances to `TASK-260712-2ctf3x`.
 
+Checkpoint 2026-07-16 (accepted): `TASK-260712-2zoy4u` keeps report, block,
+delete and disable enforcement on the canonical Phase 1 stores and services.
+Creating or reusing a report atomically makes the media unavailable only to
+the reporting actor across inbox, replay, direct descriptor/range access and
+future target resolution; late receipt/backfill follows the same terminal
+state. Scheduler cancellation is scoped to that media and reporter, so shared
+Telegram evidence targets, the owner and unrelated recipients remain
+unaffected, while sender-facing receipts redact the internal report reason.
+Canonical delete and disable retain their existing global terminal behavior,
+and current content-policy consent remains the upload/send gate. Local
+contract, acceptance, affected Go, vet, targeted race, previous-head, Swift
+and Windows suites passed. Hosted run `29462753677` passed all four jobs on
+exact engineering head `36f51e0`; PR #130 landed at merge `fd6a5df`. The two
+local OGG/Vorbis fixture cases remain a host-ffmpeg limitation and passed in
+the authoritative hosted coordinator job. No real-app or hardware result is
+claimed. Progress is 95/205 overall and 95/186 engineering; strict execution
+advances to `TASK-260712-2vipy3`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2372,7 +2390,11 @@ Story: `STORY-260712-ob1tx2` — P2 Explicit targets, inbox and transport parity
   idempotent replay; local targeted, race, previous-head, Swift and Windows
   acceptance passed, hosted run `29461136915` passed 4/4, PR #128 merge
   `dbd6baa`)
-- [ ] `TASK-260712-2zoy4u` — rights-report-disable-enforcement
+- [x] `TASK-260712-2zoy4u` — rights-report-disable-enforcement
+  (accepted on engineering head `36f51e0`; canonical reporter-local
+  revocation covers inbox, replay, direct fetch and future delivery without
+  global report-driven censorship; hosted run `29462753677` passed 4/4,
+  PR #130 merge `fd6a5df`)
 - [ ] `TASK-260712-2vipy3` — pulsar-inbox-history-ui
 - [ ] `TASK-260712-2nto40` — macos-p2-targets-inbox-ui
 - [ ] `TASK-260712-cuplon` — windows-p2-targets-inbox-ui

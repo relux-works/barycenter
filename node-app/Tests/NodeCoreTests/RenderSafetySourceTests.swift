@@ -83,3 +83,27 @@ func playerStateSnapshotSafety() throws {
     #expect(source.contains("private var playback = Playback.stopped"))
     #expect(source.contains("private var outputLatencyOffsetMs: Int"))
 }
+
+@Test("macOS streamed-track candidate render seam is fixed-storage only")
+func streamTrackRenderSourceSafety() throws {
+    let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    let sourceURL = testsDirectory
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("Sources/NodeCore/MacStreamTrackPlayer.swift")
+    let source = try String(contentsOf: sourceURL, encoding: .utf8)
+    let begin = try #require(source.range(of: "public func readPCM")?.lowerBound)
+    let end = try #require(source.range(
+        of: "\n    fileprivate var currentEpoch", range: begin..<source.endIndex)?.lowerBound)
+    let render = String(source[begin..<end])
+    let forbidden = [
+        "queue.", ".sync", ".async", ".wait(", "NSLock", "Task {", "await ",
+        "Data(", "URLSession", "FileHandle", ".allocate(", "sleep(", "usleep("
+    ]
+    for token in forbidden {
+        #expect(!render.contains(token), "stream render seam contains forbidden token \(token)")
+    }
+    #expect(render.contains("ring.read"))
+    #expect(render.contains("RenderAtomic") == false,
+            "render uses preallocated atomic fields rather than constructing storage")
+}

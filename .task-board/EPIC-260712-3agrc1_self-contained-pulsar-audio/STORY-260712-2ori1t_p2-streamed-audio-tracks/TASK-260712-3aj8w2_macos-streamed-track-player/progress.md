@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-developer
 
 ## Created
 2026-07-12T16:13:27Z
 
 ## Last Update
-2026-07-12T16:30:33Z
+2026-07-16T09:07:16Z
 
 ## Blocked By
 - TASK-260712-285pag
@@ -32,6 +32,7 @@ backlog
 - [ ] Purge revoked cache and keep all fetch, disk, decode and locks off the render callback
 
 ## Notes
+2026-07-16 strict-sequence start from synchronized main merge 0cb18b9 after TASK-260712-1q2kwa exact head c6e9a68 and hosted run 29485664677 passed 4/4. Implementing the macOS streamed-track candidate player inline outside task-board spawn workflow; production capability advertisement and real-device timing, RSS, long-playback and audible evidence remain deferred to the manual testing epic.
 
 ## Precondition Resources
 - [p2-streamed-track-components.puml](file://TASK-260712-3aj8w2/p2-streamed-track-components.puml) — macOS cache, decoder and player boundaries for streamed tracks

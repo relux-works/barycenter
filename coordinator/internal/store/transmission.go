@@ -129,6 +129,9 @@ const (
 	TransmissionReasonSenderBlocked           TransmissionReason = "sender_blocked"
 	TransmissionReasonReported                TransmissionReason = "reported"
 	TransmissionReasonCoordinatorRestarted    TransmissionReason = "coordinator_restarted"
+	TransmissionReasonAutomationDisabled      TransmissionReason = "automation_disabled"
+	TransmissionReasonPrincipalRevoked        TransmissionReason = "principal_revoked"
+	TransmissionReasonScheduleDisabled        TransmissionReason = "schedule_disabled"
 	TransmissionReasonDeliveryExpired         TransmissionReason = "delivery_expired"
 )
 
@@ -410,7 +413,10 @@ func isCancellationReason(reason TransmissionReason) bool {
 		TransmissionReasonApproachLeft, TransmissionReasonApproachApart,
 		TransmissionReasonTargetRevoked, TransmissionReasonDNDEnabled,
 		TransmissionReasonSenderBlocked, TransmissionReasonReported,
-		TransmissionReasonCoordinatorRestarted:
+		TransmissionReasonCoordinatorRestarted,
+		TransmissionReasonAutomationDisabled,
+		TransmissionReasonPrincipalRevoked,
+		TransmissionReasonScheduleDisabled:
 		return true
 	default:
 		return false
@@ -949,7 +955,9 @@ func validTransmissionCause(reason TransmissionReason) bool {
 	case TransmissionReasonSenderCancelled, TransmissionReasonMediaDeleted,
 		TransmissionReasonMediaExpired, TransmissionReasonModerationDisabled,
 		TransmissionReasonApproachLeft, TransmissionReasonApproachApart,
-		TransmissionReasonCoordinatorRestarted, TransmissionReasonDeliveryExpired:
+		TransmissionReasonCoordinatorRestarted, TransmissionReasonDeliveryExpired,
+		TransmissionReasonAutomationDisabled, TransmissionReasonPrincipalRevoked,
+		TransmissionReasonScheduleDisabled:
 		return true
 	default:
 		return false

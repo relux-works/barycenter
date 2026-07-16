@@ -1390,7 +1390,10 @@ func cancellationReasonForScheduler(reason TransmissionReason) bool {
 		TransmissionReasonApproachApart, TransmissionReasonTargetRevoked,
 		TransmissionReasonDNDEnabled, TransmissionReasonSenderBlocked,
 		TransmissionReasonReported,
-		TransmissionReasonCoordinatorRestarted:
+		TransmissionReasonCoordinatorRestarted,
+		TransmissionReasonAutomationDisabled,
+		TransmissionReasonPrincipalRevoked,
+		TransmissionReasonScheduleDisabled:
 		return true
 	default:
 		return false

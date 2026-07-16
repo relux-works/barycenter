@@ -42,10 +42,10 @@ Contract --> ControlAPI : approved contract
 Contract --> Runtime : safety rules
 ControlAPI --> DB : persist cues,\nschedules, principals
 Media --> DB : honor active cue pin;\nrevoke terminal source
-Runtime --> DB : claim schedules,\nrecord executions
+Runtime --> DB : bounded attempt reservation,\ncurrent-minute claims and executions
 Runtime --> Tx : create or cancel\ncue transmissions
 Tx --> History : receipts and status
-Runtime --> History : audit, revoke,\nrate-limit results
+Runtime --> History : stable attempt/outcome seam\nfor the next history task
 
 Identity --> ControlAPI : actor context,\nrevocation baseline
 Presence --> Runtime : DND and block checks

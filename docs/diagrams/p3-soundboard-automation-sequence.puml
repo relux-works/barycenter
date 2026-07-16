@@ -20,25 +20,25 @@ Store --> Control: resource projection\nsecret only on first issue response
 Control --> Actor: no-store response
 
 note over Control,Runtime
-  Scoped trigger is a generic 404 until the downstream
-  runtime service is explicitly composed.
+  The runtime is composed. Feature/emergency disable
+  still collapses the scoped route to a generic 404.
 end note
 
 == Trigger ==
 Actor -> Surface: fire cue hotkey\nor scoped API trigger
 Surface -> Runtime: request(trigger, cue, audience, delivery)
 Runtime -> Store: load cue, principal,\nschedule and revoke state
-Runtime -> Store: atomically claim occurrence\nor principal idempotency key
-Store --> Runtime: one immutable execution\nor exact committed replay
-Runtime -> Policy: validate scope, DND,\nquiet hours, Air policy,\nrate limits
+Runtime -> Store: reserve bounded attempt; recheck\nfeature, credential, idempotency,\nrate/concurrency, scope and quiet hours
+Runtime -> Policy: resolve current target/Air generation;\napply block, report, DND, presence\nand overlay capability
 
 alt Rejected
   Policy --> Runtime: denied(reason)
-  Runtime -> History: audit denied event\nwith attribution
+  Runtime -> Store: commit exact denial\nfor the reserved attempt
   Runtime --> Surface: reject(reason)
 else Accepted
   Policy --> Runtime: allowed(target snapshot)
-  Runtime -> Tx: create transmission\nfrom cue trigger
+  Runtime -> Store: atomically persist target snapshot,\ntransmission and accepted execution
+  Store -> Tx: ordinary transmission scheduler work
   Tx -> Targets: prepare / schedule / play
   Targets --> Tx: receipts and outcomes
   Tx -> History: status, receipts,\nattribution
@@ -48,9 +48,8 @@ end
 == Fast disable or revoke ==
 Actor -> Surface: revoke token\nor disable schedule
 Surface -> Runtime: revoke(principal)\nor disable(schedule)
-Runtime -> Store: mark revoked/disabled
-Runtime -> Store: query nonterminal executions\nby principal/schedule/feature/cue lineage
-Runtime -> History: immutable audit entry
+Runtime -> Store: mark revoked/disabled, then reconcile\nlinked nonterminal executions
+Store -> Tx: cancel_media with principal_revoked,\nschedule_disabled or automation_disabled
 
 alt Later trigger arrives
   Surface -> Runtime: request(...)

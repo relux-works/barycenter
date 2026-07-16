@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-live-opus-local-benchmark.v1",
+  "claimBoundary": "single-host engineering evidence; not Windows, signed-package, real-app, listening, or physical-network acceptance",
+  "host": {
+    "system": "Darwin",
+    "release": "24.6.0",
+    "machine": "x86_64",
+    "python": "3.9.6",
+    "compiler": "Apple clang version 17.0.0 (clang-1700.6.3.2)",
+    "opusPrefix": "/usr/local/opt/opus",
+    "libraryPathResolved": "/usr/local/Cellar/opus/1.6.1/lib/libopus.0.dylib",
+    "librarySha256": "37052f9d1727c7b175709c26d915f2fa7e38d7024df33387fd10e46c657aafc9",
+    "pkgConfigSha256": "e793049c50ffe82270f4917c95311e845b8f1dbb678de2571b37899bc973aa14"
+  },
+  "sourceSha256": "72d9d9a11f53c5d60a604c28e2fde0201740967346118f10f5d831a94d68f25f",
+  "profiles": [
+    {
+      "schemaVersion": 1,
+      "libraryVersion": "libopus 1.6.1",
+      "frameMs": 10,
+      "frames": 12000,
+      "audioSeconds": 120.0,
+      "sampleRateHz": 48000,
+      "channels": 1,
+      "targetBitrateBps": 24000,
+      "constrainedVbr": true,
+      "complexity": 5,
+      "dtx": false,
+      "inbandFec": true,
+      "expectedLossPercent": 2,
+      "maxPacketBytes": 400,
+      "averageBitrateBps": 22428.267,
+      "packetBytes": {
+        "p50": 29,
+        "p95": 35,
+        "max": 40
+      },
+      "cpu": {
+        "encodeMeanUs": 89.038,
+        "decodeMeanUs": 18.773,
+        "realtimeFactor": 0.010781
+      },
+      "stateBytes": {
+        "encoder": 31668,
+        "decoder": 18468,
+        "workingBuffers": 50320
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "libraryVersion": "libopus 1.6.1",
+      "frameMs": 20,
+      "frames": 12000,
+      "audioSeconds": 240.0,
+      "sampleRateHz": 48000,
+      "channels": 1,
+      "targetBitrateBps": 24000,
+      "constrainedVbr": true,
+      "complexity": 5,
+      "dtx": false,
+      "inbandFec": true,
+      "expectedLossPercent": 2,
+      "maxPacketBytes": 400,
+      "averageBitrateBps": 22675.267,
+      "packetBytes": {
+        "p50": 57,
+        "p95": 70,
+        "max": 77
+      },
+      "cpu": {
+        "encodeMeanUs": 169.701,
+        "decodeMeanUs": 34.631,
+        "realtimeFactor": 0.010217
+      },
+      "stateBytes": {
+        "encoder": 31668,
+        "decoder": 18468,
+        "workingBuffers": 52240
+      }
+    }
+  ]
+}

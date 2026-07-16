@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-live-transport-budget-model.v1",
+  "claimBoundary": "deterministic budget/backpressure model only; not real network, hardware, package, audio-quality, or production evidence",
+  "assumptions": {
+    "sampleRateHz": 48000,
+    "channels": 1,
+    "codec": "libopus 1.6.1 engineering candidate",
+    "bitrateBps": 24000,
+    "jitterBufferMs": 60,
+    "relayProcessingMs": 4,
+    "pathModel": "independent 45-90 ms one-way base plus bounded jitter, 1.2 percent 90-220 ms spikes, and 2 percent loss per leg",
+    "wssLossRule": "TCP retransmits and later bytes wait behind the missing segment",
+    "datagramLossRule": "no retransmit; one immediately preceding frame may use Opus in-band FEC, otherwise PLC"
+  },
+  "profiles": [
+    {
+      "frameMs": 10,
+      "transport": "wss-tcp",
+      "frames": 20000,
+      "seed": 11839438,
+      "injectedLossPercentPerLeg": 2.0,
+      "latencyMs": {
+        "p50": 323.721,
+        "p95": 499.689,
+        "p99": 581.25,
+        "max": 713.634
+      },
+      "network": {
+        "uplinkLossEvents": 385,
+        "downlinkLossEvents": 366,
+        "tcpHolEvents": 751,
+        "applicationDelivered": 20000,
+        "fecRecovered": 0,
+        "plcConcealed": 0,
+        "arrivalReorders": 0
+      },
+      "budgetModelPass": true,
+      "intelligibilityClaim": false
+    },
+    {
+      "frameMs": 10,
+      "transport": "quic-datagram",
+      "frames": 20000,
+      "seed": 11839438,
+      "injectedLossPercentPerLeg": 2.0,
+      "latencyMs": {
+        "p50": 238.238,
+        "p95": 277.915,
+        "p99": 395.908,
+        "max": 584.095
+      },
+      "network": {
+        "uplinkLossEvents": 366,
+        "downlinkLossEvents": 362,
+        "tcpHolEvents": 0,
+        "applicationDelivered": 19272,
+        "fecRecovered": 701,
+        "plcConcealed": 27,
+        "arrivalReorders": 7167
+      },
+      "budgetModelPass": true,
+      "intelligibilityClaim": false
+    },
+    {
+      "frameMs": 20,
+      "transport": "wss-tcp",
+      "frames": 20000,
+      "seed": 11839438,
+      "injectedLossPercentPerLeg": 2.0,
+      "latencyMs": {
+        "p50": 272.266,
+        "p95": 458.432,
+        "p99": 534.549,
+        "max": 699.367
+      },
+      "network": {
+        "uplinkLossEvents": 376,
+        "downlinkLossEvents": 387,
+        "tcpHolEvents": 763,
+        "applicationDelivered": 20000,
+        "fecRecovered": 0,
+        "plcConcealed": 0,
+        "arrivalReorders": 0
+      },
+      "budgetModelPass": true,
+      "intelligibilityClaim": false
+    },
+    {
+      "frameMs": 20,
+      "transport": "quic-datagram",
+      "frames": 20000,
+      "seed": 11839438,
+      "injectedLossPercentPerLeg": 2.0,
+      "latencyMs": {
+        "p50": 248.896,
+        "p95": 289.769,
+        "p99": 413.045,
+        "max": 517.411
+      },
+      "network": {
+        "uplinkLossEvents": 411,
+        "downlinkLossEvents": 363,
+        "tcpHolEvents": 0,
+        "applicationDelivered": 19226,
+        "fecRecovered": 735,
+        "plcConcealed": 39,
+        "arrivalReorders": 5081
+      },
+      "budgetModelPass": true,
+      "intelligibilityClaim": false
+    }
+  ],
+  "slowRecipient": {
+    "policy": "per-recipient bounded queue; drop oldest unsent live frame; never block another recipient",
+    "capacityFrames": 8,
+    "capacityMs": 160,
+    "fastRecipient": {
+      "served": 1999,
+      "droppedOldest": 0,
+      "maxDepth": 1,
+      "remaining": 1
+    },
+    "slowRecipient": {
+      "served": 334,
+      "droppedOldest": 1658,
+      "maxDepth": 8,
+      "remaining": 8
+    },
+    "isolated": true
+  }
+}

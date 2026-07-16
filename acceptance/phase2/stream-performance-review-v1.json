@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-stream-performance-technical-review.v1",
+  "task": "TASK-260712-28mn7w",
+  "reviewedAt": "2026-07-16",
+  "reviewedBaseCommit": "f1041ae6a340e7368cf87a1fd8f90fa2cd4203b3",
+  "reviewer": {
+    "id": "codex-inline-reviewer",
+    "independenceRequired": true,
+    "independenceSatisfied": false,
+    "reason": "the same root execution session implemented earlier streamed-track tasks",
+    "independentApprovalTask": "TASK-260716-3voo6j",
+    "independentApprover": "Ivan Oparin",
+    "approvalStatus": "required"
+  },
+  "decision": {
+    "result": "engineering-review-complete-production-blocked",
+    "repositoryPreflightPassed": true,
+    "productionPlaybackAllowed": false,
+    "phase2PromotionAllowed": false,
+    "manualPerformanceClaim": false,
+    "nextEngineeringTaskMayStart": true,
+    "continuationAuthority": "owner instruction permits reversible strict-sequence engineering while external and manual gates remain fail-closed"
+  },
+  "thresholds": {
+    "trackStartP95MS": 5000,
+    "seekToAudioP95MS": 3000,
+    "scheduledSkewP95MS": 100,
+    "peakRSSMiB": 200,
+    "durationRSSGrowthMiB": 16,
+    "durationRSSSlopeMiBPerHour": 1,
+    "maximumDurationMS": 7200000,
+    "minimumMeasuredSamples": 30,
+    "warmupsPerTimedGroup": 3,
+    "requiredPairings": ["windows_windows", "windows_macos", "macos_macos"]
+  },
+  "sourceAnchors": [
+    {
+      "path": "acceptance/codec-spike/rubric-v1.json",
+      "sha256": "8701ddc6307e289817b020f07aa56b74203e472894b65ec84e4f61d5c9f6a4d2"
+    },
+    {
+      "path": "acceptance/codec-spike/stream-contract-v1.json",
+      "sha256": "98cf82be24407a8605054fc1d8ad61cc533edc3e6fd490f21fea5ebc9d53e687"
+    },
+    {
+      "path": "acceptance/streamed-track-rollout-handoff-v1.json",
+      "sha256": "6d2450b122e56d053a6d4c503bf72b28ff5460827f69addcfb37d7588ba3c380"
+    },
+    {
+      "path": "acceptance/phase2/gate-matrix-v1.json",
+      "sha256": "85f120bd7376b853f3f3ad88988979dc9d4ebc241f9304aa3fde47a6a2d80297"
+    },
+    {
+      "path": "coordinator/internal/session/stream_flow.go",
+      "sha256": "fe2b0b4ed64d0a1f0f23d779add1bf1bea4f9542171d8c7316fb20a44648b0c7"
+    },
+    {
+      "path": "coordinator/internal/store/stream_accounting.go",
+      "sha256": "deff714aad019a7cb4300d2df3cd5f7f4f5bb1ea936bebdedc22add0be9ba7f7"
+    },
+    {
+      "path": "pulsar-win/stream_player.go",
+      "sha256": "4bcdf25b0cd5ada64cc84d672eb1983102cd96521748561a25b68fe4d238ba1c"
+    },
+    {
+      "path": "pulsar-win/stream_cache.go",
+      "sha256": "cd8bc144f54e7029adf92edae7fcce6bedcfe907900adfb0dc1ea4ce24b16a08"
+    },
+    {
+      "path": "node-app/Sources/NodeCore/MacStreamTrackPlayer.swift",
+      "sha256": "f20e0ea80b87dc3be51855f64c9a0ebb8694a37881ffbf4b775e4772fb853ce6"
+    },
+    {
+      "path": "node-app/Sources/NodeCore/MacStreamTrackCache.swift",
+      "sha256": "e420b1f1373109d1604fd40fd55525a7bf4cca6bdfa9538ee6ba1717748f99f6"
+    }
+  ],
+  "reruns": [
+    {
+      "id": "windows-close-and-clock-stress",
+      "command": "go test ./... -run 'TestWindowsStreamCandidate(CloseJoinsDecoderCleanup|ClockFailureDoesNotConsumeGenerationCommand)$' -count=100",
+      "status": "pass",
+      "claim": "100 repetitions prove Close joins delayed decoder cleanup and preserve the formerly flaky clock-failure path"
+    },
+    {
+      "id": "windows-full-race",
+      "command": "cd pulsar-win && go test -race ./...",
+      "status": "pass",
+      "claim": "all Windows candidate cache, player, wire and probe tests pass under the Go race detector"
+    },
+    {
+      "id": "coordinator-stream-accounting-race",
+      "command": "cd coordinator && go test -race ./internal/session ./internal/store ./internal/protocol ./internal/presentation",
+      "status": "pass",
+      "claim": "generation barriers, Air catch-up and leave, drained end, range/accounting reconciliation and UI projections pass under the Go race detector"
+    },
+    {
+      "id": "macos-stream-player",
+      "command": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter MacStreamTrackPlayerTests",
+      "status": "pass",
+      "claim": "six macOS candidate cache/player tests pass, including lifecycle drain, seek generation, rebuffer, range bounds, revocation and production separation"
+    },
+    {
+      "id": "stream-contracts",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v scripts/codec_spike/test_codec_spike.py scripts/acceptance/test_streamed_track_rollout.py scripts/acceptance/test_phase2_gate_matrix.py",
+      "status": "pass",
+      "claim": "38 fail-closed contract tests pass without representing synthetic results as physical performance evidence"
+    },
+    {
+      "id": "hosted-windows-packaged-probe",
+      "command": "GitHub Actions run 29497999354, packaged-probe rerun job 87620208950",
+      "status": "pass-after-related-fix",
+      "claim": "the hosted packaged probe passed after the initial TempDir cleanup failure exposed P2-PERF-001"
+    }
+  ],
+  "findings": [
+    {
+      "id": "P2-PERF-001",
+      "severity": "high",
+      "status": "fixed-re-reviewed",
+      "area": "windows-worker-lifecycle",
+      "finding": "Windows Close cancelled the decoder but returned while decoder or cache cleanup could still be running, producing repeated packaged Windows TempDir cleanup failures",
+      "fix": "Close now joins the serialized decoder/cache worker after cancellation and after closing the event stop channel",
+      "reReview": "a deterministic delayed-cancellation test and the former clock-failure test passed 100 repetitions; the full Windows suite passed under the race detector"
+    },
+    {
+      "id": "P2-PERF-002",
+      "severity": "high",
+      "status": "open-production-blocking",
+      "area": "bounded-long-track-integrity",
+      "finding": "the Windows candidate requires all chunks to coexist for whole-object verification although one variant is capped at 64 MiB, while the macOS candidate has no equivalent bounded whole-object completion proof",
+      "requiredClosure": "the exact selected production decoder and cache design must prove chunk-before-decode integrity plus a bounded whole-object strategy for every allowed file up to two hours without full download or duration-proportional storage",
+      "ownerTask": "TASK-260716-tlxe3s"
+    },
+    {
+      "id": "P2-PERF-003",
+      "severity": "high",
+      "status": "open-manual-blocking",
+      "area": "physical-performance-evidence",
+      "finding": "no accepted signed packaged physical matrix proves one-hour and two-hour all-pairing timing, RSS, network-fault, audible drain and profiler gates",
+      "requiredClosure": "execute the frozen matrix on recorded Windows and macOS hardware and retain all failures in the nearest-rank groups",
+      "ownerTasks": ["TASK-260712-1fpb9q", "TASK-260712-2bdi4a"],
+      "manualEpic": "EPIC-260714-th54l3"
+    },
+    {
+      "id": "P2-PERF-004",
+      "severity": "high",
+      "status": "open-external-review",
+      "area": "review-independence",
+      "finding": "the inline root execution session is not independent from the streamed-track implementation",
+      "requiredClosure": "an implementation-independent reviewer must inspect the exact candidate commit, rerun representative checks, review the physical evidence and sign only after every critical and high finding is closed",
+      "ownerTask": "TASK-260716-3voo6j"
+    }
+  ],
+  "automatedEvidenceBoundary": {
+    "proved": [
+      "bounded candidate ring and cache constants",
+      "generation and readiness rejection semantics",
+      "drained-ended and rebuffer state transitions",
+      "range authorization, revocation and quota accounting invariants",
+      "render-source exclusion of network, disk, decode, allocation, waits and blocking locks",
+      "production capability and decoder registry remain disabled"
+    ],
+    "notProved": [
+      "audible track-start, seek or scheduled-skew percentiles",
+      "process-tree RSS or duration slope on packaged applications",
+      "one-hour or two-hour playback on real hardware",
+      "Windows-Windows, Windows-macOS or macOS-macOS audible pairing",
+      "production signing, notarization, physical network faults or profiler traces"
+    ]
+  },
+  "manualEpic": "EPIC-260714-th54l3",
+  "productionBlockers": ["P2-PERF-002", "P2-PERF-003", "P2-PERF-004"],
+  "nextEngineeringTask": "TASK-260712-2sicfs"
+}

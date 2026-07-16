@@ -1,6 +1,7 @@
 // Code mirrored from coordinator/internal/protocol — keep in sync via golden tests.
 // Do not edit below this header: golden_test.go verifies both the wire contract
 // (round-trip of every golden file) and byte-equality with the coordinator source.
+//
 package protocol
 
 import (
@@ -29,6 +30,11 @@ var payloadFactory = map[string]func() any{
 	TypePlayMediaAt:      func() any { return &PlayMediaAtPayload{} },
 	TypeCancelMedia:      func() any { return &CancelMediaPayload{} },
 	TypePresenceUpdate:   func() any { return &PresenceUpdatePayload{} },
+	TypeStreamLoad:       func() any { return &StreamLoadPayload{} },
+	TypeStreamResumeAt:   func() any { return &StreamResumeAtPayload{} },
+	TypeStreamSeek:       func() any { return &StreamSeekPayload{} },
+	TypeStreamPause:      func() any { return &StreamPausePayload{} },
+	TypeStreamCancel:     func() any { return &StreamCancelPayload{} },
 	TypeRegister:         func() any { return &RegisterPayload{} },
 	TypeMediaReady:       func() any { return &MediaReadyPayload{} },
 	TypeMediaStarted:     func() any { return &MediaStartedPayload{} },
@@ -36,6 +42,13 @@ var payloadFactory = map[string]func() any{
 	TypeMediaFailed:      func() any { return &MediaFailedPayload{} },
 	TypeMediaCancelled:   func() any { return &MediaCancelledPayload{} },
 	TypeSetDND:           func() any { return &SetDNDPayload{} },
+	TypeStreamReady:      func() any { return &StreamReadyPayload{} },
+	TypeStreamStarted:    func() any { return &StreamStartedPayload{} },
+	TypeStreamProgress:   func() any { return &StreamProgressPayload{} },
+	TypeStreamRebuffer:   func() any { return &StreamRebufferPayload{} },
+	TypeStreamFailed:     func() any { return &StreamFailedPayload{} },
+	TypeStreamEnded:      func() any { return &StreamEndedPayload{} },
+	TypeStreamCancelled:  func() any { return &StreamCancelledPayload{} },
 	TypeState:            func() any { return &StatePayload{} },
 	TypeReady:            func() any { return &ReadyPayload{} },
 	TypeStarted:          func() any { return &StartedPayload{} },

@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-stream-track-wire.v1",
+  "capability": "stream_track_v1",
+  "productionMode": "disabled-by-p2-codec-player-adr-handoff.v1",
+  "productionDecoderRegistrationAllowed": false,
+  "commands": [
+    "stream_load",
+    "stream_resume_at",
+    "stream_seek",
+    "stream_pause",
+    "stream_cancel"
+  ],
+  "events": [
+    "stream_ready",
+    "stream_started",
+    "stream_progress",
+    "stream_rebuffer",
+    "stream_failed",
+    "stream_ended",
+    "stream_cancelled"
+  ],
+  "timing": {
+    "minimumBufferedMS": 2000,
+    "loadReadyTimeoutMS": 5000,
+    "seekReadyTimeoutMS": 3000,
+    "startDeadlineMS": 5000,
+    "clock": "coordinator_ms"
+  },
+  "ordering": {
+    "identity": ["stream_id", "playback_generation", "seek_generation"],
+    "loadStartsPlaybackGeneration": true,
+    "loadSeekGeneration": 0,
+    "seekIncrementsExactlyOne": true,
+    "commandSequenceStartsAt": 1,
+    "eventSequenceStartsAt": 1,
+    "sequenceGapsAllowed": false,
+    "duplicateDecision": "no_side_effect",
+    "olderGenerationDecision": "discard",
+    "terminalClosesOnlyExactGeneration": true,
+    "readyBeforeResumeRequired": true,
+    "readyBelowBufferBarrierAllowed": false,
+    "rebufferRequiresNewReadyAndResume": true
+  },
+  "variant": {
+    "selection": "server_pinned_profile_only",
+    "manifest": "opaque_server_issued",
+    "manifestGrantsAccess": false,
+    "manifestCredentialsAllowed": false,
+    "urlCredentialsAllowed": false,
+    "requiredIntegrity": ["variant_etag", "variant_sha256", "variant_size_bytes"],
+    "clientCodecNegotiationAllowed": false,
+    "originalUploadDecoderInputAllowed": false
+  },
+  "mixedVersion": {
+    "senderSelectedPolicies": ["require_all", "supported_only_with_receipts"],
+    "requireAll": "reject_before_queue_if_any_frozen_target_lacks_stream_track_v1",
+    "supportedOnlyWithReceipts": "queue_supported_targets_and_create_terminal_unsupported_receipts_for_others",
+    "clipFallbackAllowed": false,
+    "lateAutoplayAfterUpgradeAllowed": false,
+    "unsupportedIsVisible": true,
+    "supportedTargetsBlockedByUnsupportedTargets": false
+  },
+  "compatibility": {
+    "protocolMajor": 1,
+    "additiveTypesOnly": true,
+    "legacyGoldensUnchanged": true,
+    "advertiseBeforePlayerImplementationAllowed": false
+  }
+}

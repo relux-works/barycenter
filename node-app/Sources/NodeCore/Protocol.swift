@@ -9,6 +9,7 @@ public enum ProtocolCapabilities {
     public static let mediaClip = "media_clip_v1"
     public static let overlayMix = "overlay_mix_v1"
     public static let seamlessAdoption = "seamless_adoption_v1"
+    public static let streamTrack = "stream_track_v1"
 
     /// Register capabilities are non-empty printable ASCII strings in strict
     /// byte order. Unknown names remain valid so additive features survive a
@@ -35,9 +36,16 @@ public let interruptResumeCapability = ProtocolCapabilities.interruptResume
 public let mediaClipCapability = ProtocolCapabilities.mediaClip
 public let overlayMixCapability = ProtocolCapabilities.overlayMix
 public let seamlessAdoptionCapability = ProtocolCapabilities.seamlessAdoption
+public let streamTrackCapability = ProtocolCapabilities.streamTrack
 
 public enum ProtocolConstants {
     public static let version = 1
+    public static let streamMinimumBufferedMs: Int64 = 2000
+    public static let streamLoadReadyTimeoutMs: Int64 = 5000
+    public static let streamSeekReadyTimeoutMs: Int64 = 3000
+    public static let streamStartDeadlineMs: Int64 = 5000
+    public static let streamMixedVersionRequireAll = "require_all"
+    public static let streamMixedVersionSupportedOnlyWithReceipts = "supported_only_with_receipts"
 }
 
 // MARK: - Envelope
@@ -290,6 +298,88 @@ public struct PresenceUpdatePayload: Codable, Equatable {
     }
 }
 
+public struct StreamLoadPayload: Codable, Equatable {
+    public var streamId: String
+    public var playbackGeneration: Int64
+    public var seekGeneration: Int64
+    public var commandSequence: Int64
+    public var mediaId: String
+    public var variantManifest: String
+    public var variantUrl: String
+    public var variantEtag: String
+    public var variantSha256: String
+    public var variantSizeBytes: Int64
+    public var startPositionMs: Int64
+    public var minimumBufferedMs: Int64
+    public var readyDeadlineCoordMs: Int64
+    public var mixedVersionPolicy: String
+    enum CodingKeys: String, CodingKey {
+        case streamId = "stream_id", playbackGeneration = "playback_generation",
+             seekGeneration = "seek_generation", commandSequence = "command_sequence",
+             mediaId = "media_id", variantManifest = "variant_manifest",
+             variantUrl = "variant_url", variantEtag = "variant_etag",
+             variantSha256 = "variant_sha256", variantSizeBytes = "variant_size_bytes",
+             startPositionMs = "start_position_ms", minimumBufferedMs = "minimum_buffered_ms",
+             readyDeadlineCoordMs = "ready_deadline_coord_ms",
+             mixedVersionPolicy = "mixed_version_policy"
+    }
+}
+
+public struct StreamResumeAtPayload: Codable, Equatable {
+    public var streamId: String
+    public var playbackGeneration: Int64
+    public var seekGeneration: Int64
+    public var commandSequence: Int64
+    public var tCoordMs: Int64
+    public var startDeadlineCoordMs: Int64
+    enum CodingKeys: String, CodingKey {
+        case streamId = "stream_id", playbackGeneration = "playback_generation",
+             seekGeneration = "seek_generation", commandSequence = "command_sequence",
+             tCoordMs = "t_coord_ms", startDeadlineCoordMs = "start_deadline_coord_ms"
+    }
+}
+
+public struct StreamSeekPayload: Codable, Equatable {
+    public var streamId: String
+    public var playbackGeneration: Int64
+    public var seekGeneration: Int64
+    public var commandSequence: Int64
+    public var positionMs: Int64
+    public var minimumBufferedMs: Int64
+    public var readyDeadlineCoordMs: Int64
+    enum CodingKeys: String, CodingKey {
+        case streamId = "stream_id", playbackGeneration = "playback_generation",
+             seekGeneration = "seek_generation", commandSequence = "command_sequence",
+             positionMs = "position_ms", minimumBufferedMs = "minimum_buffered_ms",
+             readyDeadlineCoordMs = "ready_deadline_coord_ms"
+    }
+}
+
+public struct StreamPausePayload: Codable, Equatable {
+    public var streamId: String
+    public var playbackGeneration: Int64
+    public var seekGeneration: Int64
+    public var commandSequence: Int64
+    public var fadeMs: Int64
+    enum CodingKeys: String, CodingKey {
+        case streamId = "stream_id", playbackGeneration = "playback_generation",
+             seekGeneration = "seek_generation", commandSequence = "command_sequence",
+             fadeMs = "fade_ms"
+    }
+}
+
+public struct StreamCancelPayload: Codable, Equatable {
+    public var streamId: String
+    public var playbackGeneration: Int64
+    public var seekGeneration: Int64
+    public var commandSequence: Int64
+    public var reason: String
+    enum CodingKeys: String, CodingKey {
+        case streamId = "stream_id", playbackGeneration = "playback_generation",
+             seekGeneration = "seek_generation", commandSequence = "command_sequence", reason
+    }
+}
+
 // MARK: - Payloads: node -> coordinator
 
 public struct RegisterPayload: Codable, Equatable {
@@ -371,6 +461,94 @@ public struct SetDNDPayload: Codable, Equatable {
     public var mutedUntilCoordMs: Int64?
     enum CodingKeys: String, CodingKey {
         case revision, mode, mutedUntilCoordMs = "muted_until_coord_ms"
+    }
+}
+
+public struct StreamReadyPayload: Codable, Equatable {
+    public var streamId: String
+    public var playbackGeneration: Int64
+    public var seekGeneration: Int64
+    public var eventSequence: Int64
+    public var audiblePositionMs: Int64
+    public var bufferedDurationMs: Int64
+    enum CodingKeys: String, CodingKey {
+        case streamId = "stream_id", playbackGeneration = "playback_generation",
+             seekGeneration = "seek_generation", eventSequence = "event_sequence",
+             audiblePositionMs = "audible_position_ms", bufferedDurationMs = "buffered_duration_ms"
+    }
+}
+
+public struct StreamStartedPayload: Codable, Equatable {
+    public var streamId: String
+    public var playbackGeneration: Int64
+    public var seekGeneration: Int64
+    public var eventSequence: Int64
+    public var audiblePositionMs: Int64
+    public var tFirstSampleCoordMs: Int64
+    enum CodingKeys: String, CodingKey {
+        case streamId = "stream_id", playbackGeneration = "playback_generation",
+             seekGeneration = "seek_generation", eventSequence = "event_sequence",
+             audiblePositionMs = "audible_position_ms",
+             tFirstSampleCoordMs = "t_first_sample_coord_ms"
+    }
+}
+
+public struct StreamProgressPayload: Codable, Equatable {
+    public var streamId: String
+    public var playbackGeneration: Int64
+    public var seekGeneration: Int64
+    public var eventSequence: Int64
+    public var audiblePositionMs: Int64
+    public var bufferedDurationMs: Int64
+    enum CodingKeys: String, CodingKey {
+        case streamId = "stream_id", playbackGeneration = "playback_generation",
+             seekGeneration = "seek_generation", eventSequence = "event_sequence",
+             audiblePositionMs = "audible_position_ms", bufferedDurationMs = "buffered_duration_ms"
+    }
+}
+
+public typealias StreamRebufferPayload = StreamProgressPayload
+
+public struct StreamFailedPayload: Codable, Equatable {
+    public var streamId: String
+    public var playbackGeneration: Int64
+    public var seekGeneration: Int64
+    public var eventSequence: Int64
+    public var stage: String
+    public var code: String
+    enum CodingKeys: String, CodingKey {
+        case streamId = "stream_id", playbackGeneration = "playback_generation",
+             seekGeneration = "seek_generation", eventSequence = "event_sequence", stage, code
+    }
+}
+
+public struct StreamEndedPayload: Codable, Equatable {
+    public var streamId: String
+    public var playbackGeneration: Int64
+    public var seekGeneration: Int64
+    public var eventSequence: Int64
+    public var audiblePositionMs: Int64
+    public var tLastSampleCoordMs: Int64
+    public var reason: String
+    enum CodingKeys: String, CodingKey {
+        case streamId = "stream_id", playbackGeneration = "playback_generation",
+             seekGeneration = "seek_generation", eventSequence = "event_sequence",
+             audiblePositionMs = "audible_position_ms",
+             tLastSampleCoordMs = "t_last_sample_coord_ms", reason
+    }
+}
+
+public struct StreamCancelledPayload: Codable, Equatable {
+    public var streamId: String
+    public var playbackGeneration: Int64
+    public var seekGeneration: Int64
+    public var eventSequence: Int64
+    public var audiblePositionMs: Int64
+    public var reason: String
+    enum CodingKeys: String, CodingKey {
+        case streamId = "stream_id", playbackGeneration = "playback_generation",
+             seekGeneration = "seek_generation", eventSequence = "event_sequence",
+             audiblePositionMs = "audible_position_ms", reason
     }
 }
 
@@ -561,6 +739,11 @@ public enum Message {
     case playMediaAt(PlayMediaAtPayload)
     case cancelMedia(CancelMediaPayload)
     case presenceUpdate(PresenceUpdatePayload)
+    case streamLoad(StreamLoadPayload)
+    case streamResumeAt(StreamResumeAtPayload)
+    case streamSeek(StreamSeekPayload)
+    case streamPause(StreamPausePayload)
+    case streamCancel(StreamCancelPayload)
     case register(RegisterPayload)
     case mediaReady(MediaReadyPayload)
     case mediaStarted(MediaStartedPayload)
@@ -568,6 +751,13 @@ public enum Message {
     case mediaFailed(MediaFailedPayload)
     case mediaCancelled(MediaCancelledPayload)
     case setDND(SetDNDPayload)
+    case streamReady(StreamReadyPayload)
+    case streamStarted(StreamStartedPayload)
+    case streamProgress(StreamProgressPayload)
+    case streamRebuffer(StreamRebufferPayload)
+    case streamFailed(StreamFailedPayload)
+    case streamEnded(StreamEndedPayload)
+    case streamCancelled(StreamCancelledPayload)
     case state(StatePayload)
     case ready(ReadyPayload)
     case started(StartedPayload)
@@ -603,6 +793,11 @@ public enum Message {
         case .playMediaAt: return "play_media_at"
         case .cancelMedia: return "cancel_media"
         case .presenceUpdate: return "presence_update"
+        case .streamLoad: return "stream_load"
+        case .streamResumeAt: return "stream_resume_at"
+        case .streamSeek: return "stream_seek"
+        case .streamPause: return "stream_pause"
+        case .streamCancel: return "stream_cancel"
         case .register: return "register"
         case .mediaReady: return "media_ready"
         case .mediaStarted: return "media_started"
@@ -610,6 +805,13 @@ public enum Message {
         case .mediaFailed: return "media_failed"
         case .mediaCancelled: return "media_cancelled"
         case .setDND: return "set_dnd"
+        case .streamReady: return "stream_ready"
+        case .streamStarted: return "stream_started"
+        case .streamProgress: return "stream_progress"
+        case .streamRebuffer: return "stream_rebuffer"
+        case .streamFailed: return "stream_failed"
+        case .streamEnded: return "stream_ended"
+        case .streamCancelled: return "stream_cancelled"
         case .state: return "state"
         case .ready: return "ready"
         case .started: return "started"
@@ -670,6 +872,11 @@ public enum ProtocolCodec {
         case "play_media_at": message = .playMediaAt(try p(PlayMediaAtPayload.self))
         case "cancel_media": message = .cancelMedia(try p(CancelMediaPayload.self))
         case "presence_update": message = .presenceUpdate(try p(PresenceUpdatePayload.self))
+        case "stream_load": message = .streamLoad(try p(StreamLoadPayload.self))
+        case "stream_resume_at": message = .streamResumeAt(try p(StreamResumeAtPayload.self))
+        case "stream_seek": message = .streamSeek(try p(StreamSeekPayload.self))
+        case "stream_pause": message = .streamPause(try p(StreamPausePayload.self))
+        case "stream_cancel": message = .streamCancel(try p(StreamCancelPayload.self))
         case "register": message = .register(try p(RegisterPayload.self))
         case "media_ready": message = .mediaReady(try p(MediaReadyPayload.self))
         case "media_started": message = .mediaStarted(try p(MediaStartedPayload.self))
@@ -677,6 +884,13 @@ public enum ProtocolCodec {
         case "media_failed": message = .mediaFailed(try p(MediaFailedPayload.self))
         case "media_cancelled": message = .mediaCancelled(try p(MediaCancelledPayload.self))
         case "set_dnd": message = .setDND(try p(SetDNDPayload.self))
+        case "stream_ready": message = .streamReady(try p(StreamReadyPayload.self))
+        case "stream_started": message = .streamStarted(try p(StreamStartedPayload.self))
+        case "stream_progress": message = .streamProgress(try p(StreamProgressPayload.self))
+        case "stream_rebuffer": message = .streamRebuffer(try p(StreamRebufferPayload.self))
+        case "stream_failed": message = .streamFailed(try p(StreamFailedPayload.self))
+        case "stream_ended": message = .streamEnded(try p(StreamEndedPayload.self))
+        case "stream_cancelled": message = .streamCancelled(try p(StreamCancelledPayload.self))
         case "state": message = .state(try p(StatePayload.self))
         case "ready": message = .ready(try p(ReadyPayload.self))
         case "started": message = .started(try p(StartedPayload.self))
@@ -721,6 +935,11 @@ public enum ProtocolCodec {
         case .playMediaAt(let p): return try w(p)
         case .cancelMedia(let p): return try w(p)
         case .presenceUpdate(let p): return try w(p)
+        case .streamLoad(let p): return try w(p)
+        case .streamResumeAt(let p): return try w(p)
+        case .streamSeek(let p): return try w(p)
+        case .streamPause(let p): return try w(p)
+        case .streamCancel(let p): return try w(p)
         case .register(let p): return try w(p)
         case .mediaReady(let p): return try w(p)
         case .mediaStarted(let p): return try w(p)
@@ -728,6 +947,13 @@ public enum ProtocolCodec {
         case .mediaFailed(let p): return try w(p)
         case .mediaCancelled(let p): return try w(p)
         case .setDND(let p): return try w(p)
+        case .streamReady(let p): return try w(p)
+        case .streamStarted(let p): return try w(p)
+        case .streamProgress(let p): return try w(p)
+        case .streamRebuffer(let p): return try w(p)
+        case .streamFailed(let p): return try w(p)
+        case .streamEnded(let p): return try w(p)
+        case .streamCancelled(let p): return try w(p)
         case .state(let p): return try w(p)
         case .ready(let p): return try w(p)
         case .started(let p): return try w(p)
@@ -742,5 +968,154 @@ public enum ProtocolCodec {
         case .userPause(let p): return try w(p)
         case .userResume(let p): return try w(p)
         }
+    }
+}
+
+public enum StreamGenerationDecision: String, Equatable {
+    case apply, duplicate, stale, invalid
+}
+
+public enum StreamEventKind: String {
+    case ready, started, progress, rebuffer, failed, ended, cancelled
+}
+
+/// Mirrors the coordinator/Windows ordering gate. It is intentionally a pure
+/// state machine and does not register a decoder or advertise stream_track_v1.
+public struct StreamGenerationGuard: Equatable {
+    public private(set) var playbackGeneration: Int64 = 0
+    public private(set) var seekGeneration: Int64 = 0
+    public private(set) var commandSequence: Int64 = 0
+    public private(set) var eventSequence: Int64 = 0
+    public private(set) var commandKind = ""
+    public private(set) var eventKind: StreamEventKind?
+    public private(set) var phase = ""
+
+    public init() {}
+
+    public mutating func acceptLoad(playback: Int64, seek: Int64,
+                                    command: Int64) -> StreamGenerationDecision {
+        guard playback > 0, seek == 0, command == 1 else { return .invalid }
+        if playback < playbackGeneration { return .stale }
+        if playback == playbackGeneration {
+            return seek == seekGeneration && command == commandSequence && commandKind == "load"
+                ? .duplicate : .stale
+        }
+        playbackGeneration = playback
+        seekGeneration = 0
+        commandSequence = command
+        eventSequence = 0
+        commandKind = "load"
+        eventKind = nil
+        phase = "loading"
+        return .apply
+    }
+
+    public mutating func acceptCommand(playback: Int64, seek: Int64, command: Int64,
+                                       kind: String) -> StreamGenerationDecision {
+        guard playback == playbackGeneration, seek == seekGeneration else { return .stale }
+        if command <= commandSequence {
+            if command == commandSequence { return kind == commandKind ? .duplicate : .invalid }
+            return .stale
+        }
+        guard command == commandSequence + 1, phase != "terminal" else { return .invalid }
+        switch kind {
+        case "resume":
+            guard phase == "ready" || phase == "paused_ready" else { return .invalid }
+            phase = "ready"
+        case "pause":
+            if phase == "started" { phase = "paused_ready" }
+            else if phase == "rebuffering" { phase = "paused_loading" }
+            else { return .invalid }
+        case "cancel": break
+        default: return .invalid
+        }
+        commandSequence = command
+        commandKind = kind
+        return .apply
+    }
+
+    public mutating func acceptSeek(playback: Int64, seek: Int64,
+                                    command: Int64) -> StreamGenerationDecision {
+        guard playback == playbackGeneration else { return .stale }
+        if seek <= seekGeneration {
+            return seek == seekGeneration && command == commandSequence && commandKind == "seek"
+                ? .duplicate : .stale
+        }
+        guard seek == seekGeneration + 1, command == commandSequence + 1,
+              phase != "terminal" else { return .invalid }
+        seekGeneration = seek
+        commandSequence = command
+        eventSequence = 0
+        commandKind = "seek"
+        eventKind = nil
+        phase = "loading"
+        return .apply
+    }
+
+    public mutating func acceptEvent(playback: Int64, seek: Int64, event: Int64,
+                                     kind: StreamEventKind) -> StreamGenerationDecision {
+        guard playback == playbackGeneration, seek == seekGeneration else { return .stale }
+        if event <= eventSequence {
+            if event == eventSequence { return kind == eventKind ? .duplicate : .invalid }
+            return .stale
+        }
+        guard event == eventSequence + 1, phase != "terminal" else { return .invalid }
+        switch kind {
+        case .ready:
+            guard phase == "loading" || phase == "rebuffering" || phase == "paused_loading"
+                else { return .invalid }
+            phase = phase == "paused_loading" ? "paused_ready" : "ready"
+        case .started:
+            guard phase == "ready" else { return .invalid }
+            phase = "started"
+        case .progress:
+            guard phase == "started" else { return .invalid }
+        case .rebuffer:
+            guard phase == "started" else { return .invalid }
+            phase = "rebuffering"
+        case .failed, .ended, .cancelled: phase = "terminal"
+        }
+        eventSequence = event
+        eventKind = kind
+        return .apply
+    }
+
+    public mutating func acceptReady(playback: Int64, seek: Int64, event: Int64,
+                                     buffered: Int64, minimum: Int64) -> StreamGenerationDecision {
+        guard minimum == ProtocolConstants.streamMinimumBufferedMs,
+              buffered >= minimum else { return .invalid }
+        return acceptEvent(playback: playback, seek: seek, event: event, kind: .ready)
+    }
+}
+
+public enum StreamContract {
+    public static func validate(load: StreamLoadPayload) -> Bool {
+        let lowerHex = Set("0123456789abcdef")
+        guard !load.streamId.isEmpty, !load.mediaId.isEmpty,
+              load.playbackGeneration > 0, load.seekGeneration == 0,
+              load.commandSequence == 1, load.variantManifest.hasPrefix("svm1."),
+              load.variantManifest.utf8.count <= 512,
+              load.variantManifest.utf8.allSatisfy({ byte in
+                  (byte >= 0x30 && byte <= 0x39) || (byte >= 0x41 && byte <= 0x5a) ||
+                  (byte >= 0x61 && byte <= 0x7a) || byte == 0x2e || byte == 0x5f || byte == 0x2d
+              }), load.variantSizeBytes > 0,
+              load.startPositionMs >= 0,
+              load.minimumBufferedMs == ProtocolConstants.streamMinimumBufferedMs,
+              load.readyDeadlineCoordMs > 0,
+              load.variantSha256.count == 64,
+              load.variantSha256.allSatisfy({ lowerHex.contains($0) }),
+              load.variantEtag == "\"sha256-\(load.variantSha256)\"",
+              load.variantUrl.hasPrefix("/v1/media/\(load.mediaId)/variants/"),
+              !load.variantUrl.contains("://"),
+              !load.variantUrl.contains("?"), !load.variantUrl.contains("#"),
+              !load.variantUrl.contains("@") else { return false }
+        return load.mixedVersionPolicy == ProtocolConstants.streamMixedVersionRequireAll ||
+            load.mixedVersionPolicy == ProtocolConstants.streamMixedVersionSupportedOnlyWithReceipts
+    }
+
+    public static func validate(ready: StreamReadyPayload) -> Bool {
+        !ready.streamId.isEmpty && ready.playbackGeneration > 0 && ready.seekGeneration >= 0 &&
+            ready.eventSequence > 0 && ready.audiblePositionMs >= 0 &&
+            ready.bufferedDurationMs >= ProtocolConstants.streamMinimumBufferedMs
     }
 }

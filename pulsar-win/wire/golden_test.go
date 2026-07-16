@@ -252,6 +252,7 @@ func TestCapabilitySetContract(t *testing.T) {
 		CapabilityMediaClip,
 		CapabilityOverlayMix,
 		CapabilitySeamlessAdoption,
+		CapabilityStreamTrack,
 		"unknown_future_v2",
 	}
 	set, err := ParseCapabilitySet(valid)
@@ -271,6 +272,38 @@ func TestCapabilitySetContract(t *testing.T) {
 		if _, err := ParseCapabilitySet(values); err == nil {
 			t.Fatalf("accepted invalid capabilities %q", values)
 		}
+	}
+}
+
+func TestStreamGenerationGuardMirrorsCoordinatorOrdering(t *testing.T) {
+	var guard StreamGenerationGuard
+	if guard.AcceptLoad(3, 0, 1) != StreamGenerationApply ||
+		guard.AcceptEvent(3, 0, 1, StreamEventStarted) != StreamGenerationInvalid ||
+		guard.AcceptReady(3, 0, 1, 2000, StreamMinimumBufferedMS) != StreamGenerationApply ||
+		guard.AcceptCommand(3, 0, 2, "resume") != StreamGenerationApply ||
+		guard.AcceptEvent(3, 0, 2, StreamEventStarted) != StreamGenerationApply ||
+		guard.AcceptSeek(3, 1, 3) != StreamGenerationApply ||
+		guard.AcceptEvent(3, 0, 3, StreamEventEnded) != StreamGenerationStale ||
+		guard.AcceptReady(3, 1, 1, 1999, StreamMinimumBufferedMS) != StreamGenerationInvalid {
+		t.Fatalf("unexpected guard state=%+v", guard)
+	}
+}
+
+func TestStreamLoadValidationMirrorRejectsCredentialURL(t *testing.T) {
+	digest := strings.Repeat("b", 64)
+	payload := StreamLoadPayload{
+		StreamID: "sq_x", PlaybackGeneration: 1, CommandSequence: 1, MediaID: "m_x",
+		VariantManifest: "svm1.opaque", VariantURL: "/v1/media/m_x/variants/sv_x",
+		VariantETag: `"sha256-` + digest + `"`, VariantSHA256: digest, VariantSizeBytes: 1,
+		MinimumBufferedMS: StreamMinimumBufferedMS, ReadyDeadlineCoordMS: 5000,
+		MixedVersionPolicy: StreamMixedVersionSupportedOnlyWithReceipts,
+	}
+	if err := ValidateStreamLoadPayload(payload); err != nil {
+		t.Fatal(err)
+	}
+	payload.VariantURL = "https://token@example/v1/media/m_x/variants/sv_x"
+	if err := ValidateStreamLoadPayload(payload); err == nil {
+		t.Fatal("accepted credential-bearing absolute variant URL")
 	}
 }
 

@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "id": "msg_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "ts": 1770000004000,
+  "type": "stream_progress",
+  "payload": {
+    "stream_id": "sq_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "playback_generation": 7,
+    "seek_generation": 0,
+    "event_sequence": 3,
+    "audible_position_ms": 1900,
+    "buffered_duration_ms": 3100
+  }
+}

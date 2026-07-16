@@ -29,7 +29,7 @@ private func isMessageID(_ value: String) -> Bool {
 }
 
 @Suite struct ProtocolContractTests {
-    static let expectedTypeCount = 39
+    static let expectedTypeCount = 51
 
     @Test func goldenDirComplete() throws {
         let files = try FileManager.default.contentsOfDirectory(at: goldenDir(), includingPropertiesForKeys: nil)
@@ -121,6 +121,7 @@ private func isMessageID(_ value: String) -> Bool {
             mediaClipCapability,
             overlayMixCapability,
             seamlessAdoptionCapability,
+            streamTrackCapability,
             "unknown_future_v2"
         ]
         #expect(ProtocolCapabilities.areCanonical(capabilities))
@@ -128,6 +129,80 @@ private func isMessageID(_ value: String) -> Bool {
         #expect(!ProtocolCapabilities.areCanonical([overlayMixCapability, mediaClipCapability]))
         #expect(!ProtocolCapabilities.areCanonical(["media clip"]))
         #expect(!ProtocolCapabilities.areCanonical(["média_clip_v1"]))
+    }
+
+    @Test func streamGenerationGuardRejectsStaleReorderedAndEarlyStart() {
+        var guardState = StreamGenerationGuard()
+        #expect(guardState.acceptLoad(playback: 7, seek: 0, command: 1) == .apply)
+        #expect(guardState.acceptLoad(playback: 7, seek: 0, command: 1) == .duplicate)
+        #expect(guardState.acceptEvent(playback: 7, seek: 0, event: 1, kind: .started) == .invalid)
+        #expect(guardState.acceptReady(playback: 7, seek: 0, event: 1,
+                                      buffered: 1999, minimum: 2000) == .invalid)
+        #expect(guardState.acceptReady(playback: 7, seek: 0, event: 1,
+                                      buffered: 2500, minimum: 2000) == .apply)
+        #expect(guardState.acceptCommand(playback: 7, seek: 0, command: 2,
+                                         kind: "resume") == .apply)
+        #expect(guardState.acceptEvent(playback: 7, seek: 0, event: 2,
+                                      kind: .started) == .apply)
+        #expect(guardState.acceptSeek(playback: 7, seek: 1, command: 3) == .apply)
+        #expect(guardState.acceptEvent(playback: 7, seek: 0, event: 3,
+                                      kind: .ended) == .stale)
+        #expect(guardState.acceptReady(playback: 7, seek: 1, event: 1,
+                                      buffered: 2000, minimum: 2000) == .apply)
+        #expect(guardState.acceptCommand(playback: 7, seek: 1, command: 4,
+                                         kind: "resume") == .apply)
+        #expect(guardState.acceptEvent(playback: 7, seek: 1, event: 2,
+                                      kind: .started) == .apply)
+        #expect(guardState.acceptEvent(playback: 7, seek: 1, event: 4,
+                                      kind: .progress) == .invalid)
+        #expect(guardState.acceptEvent(playback: 7, seek: 1, event: 3,
+                                      kind: .ended) == .apply)
+        #expect(guardState.acceptLoad(playback: 8, seek: 0, command: 1) == .apply)
+        #expect(guardState.acceptEvent(playback: 7, seek: 1, event: 4,
+                                      kind: .ended) == .stale)
+
+        var pausedDuringRebuffer = StreamGenerationGuard()
+        _ = pausedDuringRebuffer.acceptLoad(playback: 1, seek: 0, command: 1)
+        _ = pausedDuringRebuffer.acceptReady(playback: 1, seek: 0, event: 1,
+                                             buffered: 2000, minimum: 2000)
+        _ = pausedDuringRebuffer.acceptCommand(playback: 1, seek: 0, command: 2,
+                                                kind: "resume")
+        _ = pausedDuringRebuffer.acceptEvent(playback: 1, seek: 0, event: 2,
+                                             kind: .started)
+        _ = pausedDuringRebuffer.acceptEvent(playback: 1, seek: 0, event: 3,
+                                             kind: .rebuffer)
+        #expect(pausedDuringRebuffer.acceptCommand(playback: 1, seek: 0, command: 3,
+                                                   kind: "pause") == .apply)
+        #expect(pausedDuringRebuffer.acceptCommand(playback: 1, seek: 0, command: 4,
+                                                   kind: "resume") == .invalid)
+        #expect(pausedDuringRebuffer.acceptReady(playback: 1, seek: 0, event: 4,
+                                                 buffered: 2000, minimum: 2000) == .apply)
+        #expect(pausedDuringRebuffer.acceptCommand(playback: 1, seek: 0, command: 4,
+                                                   kind: "resume") == .apply)
+    }
+
+    @Test func streamLoadAndReadyValidationFailsClosed() throws {
+        let loadData = try Data(contentsOf: goldenDir().appendingPathComponent("stream_load.json"))
+        let (_, loadMessage) = try ProtocolCodec.decode(loadData)
+        guard case .streamLoad(let decodedLoad) = loadMessage else {
+            Issue.record("stream_load golden decoded as wrong type")
+            return
+        }
+        var load = decodedLoad
+        #expect(StreamContract.validate(load: load))
+        load.variantUrl = "https://token@example/v1/media/\(load.mediaId)/variants/sv_x"
+        #expect(!StreamContract.validate(load: load))
+
+        let readyData = try Data(contentsOf: goldenDir().appendingPathComponent("stream_ready.json"))
+        let (_, readyMessage) = try ProtocolCodec.decode(readyData)
+        guard case .streamReady(let decodedReady) = readyMessage else {
+            Issue.record("stream_ready golden decoded as wrong type")
+            return
+        }
+        var ready = decodedReady
+        #expect(StreamContract.validate(ready: ready))
+        ready.bufferedDurationMs = 1999
+        #expect(!StreamContract.validate(ready: ready))
     }
 
     @Test func legacyVoiceMessagesRemainCompatible() throws {

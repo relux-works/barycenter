@@ -363,10 +363,15 @@ public final class PlayerCore: MacInterruptControlling {
             case .cancelMedia(let p): self.mediaClips?.cancel(p)
             case .presenceUpdate(let p):
                 _ = self.presenceStore?.acceptPresence(p)
+            case .streamLoad, .streamResumeAt, .streamSeek, .streamPause, .streamCancel:
+                self.log.warn("rejecting unadvertised stream_track_v1 command",
+                              ["type": head.type])
             case .welcome, .pong, .register, .state, .ready, .started, .ended,
                  .voiceStarted, .voiceEnded, .waitEnded, .error, .ping, .externalPlayback,
                  .setProvider, .userPause, .userResume, .mediaReady,
-                 .mediaStarted, .mediaEnded, .mediaFailed, .mediaCancelled, .setDND:
+                 .mediaStarted, .mediaEnded, .mediaFailed, .mediaCancelled, .setDND,
+                 .streamReady, .streamStarted, .streamProgress, .streamRebuffer,
+                 .streamFailed, .streamEnded, .streamCancelled:
                 self.log.debug("ignoring non-command", ["type": head.type])
             }
         }

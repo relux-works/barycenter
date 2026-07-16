@@ -185,6 +185,7 @@ func TestCapabilitySetContract(t *testing.T) {
 		CapabilityMediaClip,
 		CapabilityOverlayMix,
 		CapabilitySeamlessAdoption,
+		CapabilityStreamTrack,
 		"unknown_future_v2",
 	}
 	set, err := ParseCapabilitySet(valid)
@@ -215,6 +216,133 @@ func TestCapabilitySetContract(t *testing.T) {
 				t.Fatalf("accepted invalid capabilities %q", tc.values)
 			}
 		})
+	}
+}
+
+func TestStreamGenerationGuardRejectsStaleReorderedAndEarlyStart(t *testing.T) {
+	var guard StreamGenerationGuard
+	if got := guard.AcceptLoad(7, 0, 1); got != StreamGenerationApply {
+		t.Fatalf("load=%s", got)
+	}
+	if got := guard.AcceptLoad(7, 0, 1); got != StreamGenerationDuplicate {
+		t.Fatalf("duplicate load=%s", got)
+	}
+	if got := guard.AcceptEvent(7, 0, 1, StreamEventStarted); got != StreamGenerationInvalid {
+		t.Fatalf("started before buffer barrier=%s", got)
+	}
+	if got := guard.AcceptReady(7, 0, 1, 1999, StreamMinimumBufferedMS); got != StreamGenerationInvalid {
+		t.Fatalf("short buffer ready=%s", got)
+	}
+	if got := guard.AcceptReady(7, 0, 1, 2500, StreamMinimumBufferedMS); got != StreamGenerationApply {
+		t.Fatalf("ready=%s", got)
+	}
+	if got := guard.AcceptCommand(7, 0, 2, "resume"); got != StreamGenerationApply {
+		t.Fatalf("resume=%s", got)
+	}
+	if got := guard.AcceptEvent(7, 0, 2, StreamEventStarted); got != StreamGenerationApply {
+		t.Fatalf("started=%s", got)
+	}
+	if got := guard.AcceptEvent(7, 0, 4, StreamEventProgress); got != StreamGenerationInvalid {
+		t.Fatalf("event gap=%s", got)
+	}
+	if got := guard.AcceptEvent(7, 0, 3, StreamEventProgress); got != StreamGenerationApply {
+		t.Fatalf("progress=%s", got)
+	}
+	if got := guard.AcceptSeek(7, 1, 3); got != StreamGenerationApply {
+		t.Fatalf("seek=%s", got)
+	}
+	if got := guard.AcceptEvent(7, 0, 4, StreamEventEnded); got != StreamGenerationStale {
+		t.Fatalf("pre-seek ended=%s", got)
+	}
+	if got := guard.AcceptReady(7, 1, 1, 2000, StreamMinimumBufferedMS); got != StreamGenerationApply {
+		t.Fatalf("seek ready=%s", got)
+	}
+	if got := guard.AcceptCommand(7, 1, 4, "resume"); got != StreamGenerationApply {
+		t.Fatalf("seek resume=%s", got)
+	}
+	if got := guard.AcceptEvent(7, 1, 2, StreamEventStarted); got != StreamGenerationApply {
+		t.Fatalf("seek started=%s", got)
+	}
+	if got := guard.AcceptCommand(7, 1, 5, "pause"); got != StreamGenerationApply {
+		t.Fatalf("pause=%s", got)
+	}
+	if got := guard.AcceptCommand(7, 1, 5, "pause"); got != StreamGenerationDuplicate {
+		t.Fatalf("duplicate pause=%s", got)
+	}
+	if got := guard.AcceptCommand(7, 1, 5, "cancel"); got != StreamGenerationInvalid {
+		t.Fatalf("different command reused sequence=%s", got)
+	}
+	if got := guard.AcceptCommand(7, 1, 6, "resume"); got != StreamGenerationApply {
+		t.Fatalf("paused resume=%s", got)
+	}
+	if got := guard.AcceptEvent(7, 1, 3, StreamEventStarted); got != StreamGenerationApply {
+		t.Fatalf("resumed started=%s", got)
+	}
+	if got := guard.AcceptCommand(7, 1, 7, "cancel"); got != StreamGenerationApply {
+		t.Fatalf("cancel=%s", got)
+	}
+	if got := guard.AcceptEvent(7, 1, 4, StreamEventCancelled); got != StreamGenerationApply {
+		t.Fatalf("cancelled=%s", got)
+	}
+	if got := guard.AcceptLoad(8, 0, 1); got != StreamGenerationApply {
+		t.Fatalf("replacement load=%s", got)
+	}
+	if got := guard.AcceptEvent(7, 1, 4, StreamEventEnded); got != StreamGenerationStale {
+		t.Fatalf("late terminal from replaced generation=%s", got)
+	}
+
+	var pausedDuringRebuffer StreamGenerationGuard
+	pausedDuringRebuffer.AcceptLoad(1, 0, 1)
+	pausedDuringRebuffer.AcceptReady(1, 0, 1, 2000, StreamMinimumBufferedMS)
+	pausedDuringRebuffer.AcceptCommand(1, 0, 2, "resume")
+	pausedDuringRebuffer.AcceptEvent(1, 0, 2, StreamEventStarted)
+	pausedDuringRebuffer.AcceptEvent(1, 0, 3, StreamEventRebuffer)
+	if got := pausedDuringRebuffer.AcceptCommand(1, 0, 3, "pause"); got != StreamGenerationApply {
+		t.Fatalf("pause during rebuffer=%s", got)
+	}
+	if got := pausedDuringRebuffer.AcceptCommand(1, 0, 4, "resume"); got != StreamGenerationInvalid {
+		t.Fatalf("resume bypassed rebuffer barrier=%s", got)
+	}
+	if got := pausedDuringRebuffer.AcceptReady(1, 0, 4, 2000, StreamMinimumBufferedMS); got != StreamGenerationApply {
+		t.Fatalf("paused rebuffer ready=%s", got)
+	}
+	if got := pausedDuringRebuffer.AcceptCommand(1, 0, 4, "resume"); got != StreamGenerationApply {
+		t.Fatalf("resume after paused rebuffer barrier=%s", got)
+	}
+}
+
+func TestStreamLoadAndReadyValidationFailsClosed(t *testing.T) {
+	digest := strings.Repeat("b", 64)
+	load := StreamLoadPayload{
+		StreamID: "sq_x", PlaybackGeneration: 1, SeekGeneration: 0, CommandSequence: 1,
+		MediaID: "m_x", VariantManifest: "svm1.opaque",
+		VariantURL: "/v1/media/m_x/variants/sv_x", VariantETag: `"sha256-` + digest + `"`,
+		VariantSHA256: digest, VariantSizeBytes: 1, MinimumBufferedMS: StreamMinimumBufferedMS,
+		ReadyDeadlineCoordMS: 5000, MixedVersionPolicy: StreamMixedVersionSupportedOnlyWithReceipts,
+	}
+	if err := ValidateStreamLoadPayload(load); err != nil {
+		t.Fatal(err)
+	}
+	for _, mutate := range []func(*StreamLoadPayload){
+		func(p *StreamLoadPayload) { p.VariantURL = "https://token@example/v1/media/m_x/variants/sv_x" },
+		func(p *StreamLoadPayload) { p.VariantManifest = "svm1.bad token" },
+		func(p *StreamLoadPayload) { p.VariantETag = `"sha256-wrong"` },
+		func(p *StreamLoadPayload) { p.MixedVersionPolicy = "clip_fallback" },
+		func(p *StreamLoadPayload) { p.MinimumBufferedMS = 1 },
+	} {
+		candidate := load
+		mutate(&candidate)
+		if err := ValidateStreamLoadPayload(candidate); err == nil {
+			t.Fatalf("accepted unsafe stream_load=%+v", candidate)
+		}
+	}
+	ready := StreamReadyPayload{StreamID: "sq_x", PlaybackGeneration: 1, EventSequence: 1, BufferedDurationMS: 2000}
+	if err := ValidateStreamReadyPayload(ready); err != nil {
+		t.Fatal(err)
+	}
+	ready.BufferedDurationMS = 1999
+	if err := ValidateStreamReadyPayload(ready); err == nil {
+		t.Fatal("accepted ready below buffer barrier")
 	}
 }
 

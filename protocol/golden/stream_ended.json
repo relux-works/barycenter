@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "msg_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "ts": 1770000100000,
+  "type": "stream_ended",
+  "payload": {
+    "stream_id": "sq_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "playback_generation": 7,
+    "seek_generation": 1,
+    "event_sequence": 4,
+    "audible_position_ms": 120000,
+    "t_last_sample_coord_ms": 1770000099990,
+    "reason": "eof"
+  }
+}

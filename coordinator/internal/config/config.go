@@ -68,6 +68,9 @@ type Config struct {
 	// Additive tables are migrated regardless so rollout and rollback can be
 	// performed without destructive schema changes.
 	SelfServiceOnboarding bool `yaml:"self_service_onboarding"`
+	// LivePTT is env-only so the pinned predecessor can decode the same YAML.
+	// Default off keeps the new wire catalog dark until platform runtimes pass.
+	LivePTT bool `yaml:"-"`
 	// TrustedProxy: the listener sits behind a TLS-terminating reverse proxy
 	// (prod), so per-IP limits must key on the proxy-appended forwarding
 	// headers instead of RemoteAddr — which is the proxy itself for every
@@ -158,6 +161,9 @@ func applyEnv(c *Config) {
 	}
 	if v := os.Getenv("DUET_SELF_SERVICE_ONBOARDING"); v != "" {
 		c.SelfServiceOnboarding = v == "1"
+	}
+	if v := os.Getenv("DUET_LIVE_PTT"); v != "" {
+		c.LivePTT = v == "1"
 	}
 	// DUET_TRUSTED_PROXY=1 keys rate limits on forwarding headers (M3);
 	// same 1/other/unset semantics as DUET_PROVIDERS.

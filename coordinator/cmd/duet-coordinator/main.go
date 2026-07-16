@@ -322,6 +322,7 @@ func main() {
 				onboarding.mediaLifecycleInitErr == nil && onboarding.mediaDownloadInitErr == nil
 		}
 		addStreamAccountingHealth(body, st, time.Now().UnixMilli(), processorReady, storageReady)
+		addLivePTTHealth(body, l.livePTT, cfg.LivePTT)
 		if onboarding != nil {
 			if onboarding.mediaSubmitter == nil || onboarding.mediaSubmitterInitErr != nil {
 				body["status"] = "degraded"

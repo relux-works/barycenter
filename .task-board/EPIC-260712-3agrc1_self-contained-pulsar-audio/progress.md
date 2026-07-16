@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-16T04:15:44Z
+2026-07-16T04:42:12Z
 
 ## Blocked By
 - STORY-260712-sskhip
@@ -31,6 +31,8 @@ User mandate 2026-07-12: do not accept agent code without scrupulous root review
 2026-07-16 strict sequential checkpoint: 99/186 engineering tasks accepted (53.2%) and 99/205 combined tasks accepted (48.3%). TASK-260712-1vklop landed through PR #138 at merge 029346c after hosted run 29470131117 passed 4/4 and the local all-suite manifest passed all 12 commands. Strict engineering execution advances to TASK-260712-20cuna; the separate manual epic remains 0/19 and no real-app, hardware, accessibility-reader, audible or mixed-fleet result is claimed.
 2026-07-16 strict sequential start: TASK-260712-20cuna began inline from tracking PR #139 merge 9ee893e after hosted run 29470338566 passed 4/4. Counts remain 99/186 engineering and 99/205 combined until the rollout handoff is accepted.
 2026-07-16 strict sequential checkpoint: 100/186 engineering tasks accepted (53.8%) and 100/205 combined tasks accepted (48.8%). TASK-260712-20cuna landed through PR #140 at merge e51c937 after hosted run 29470807661 passed 4/4; STORY-260712-ob1tx2 is complete. Strict engineering execution advances to TASK-260712-1n5fks; the separate manual epic remains 0/19 and both B5-B7 real-app acceptance and production-shaped rollout rehearsal remain unclaimed.
+2026-07-16 strict sequential start: TASK-260712-1n5fks began inline from tracking PR #141 merge b7bc2b4 after hosted run 29471003186 passed 4/4. Counts remain 100/186 engineering and 100/205 combined until the candidate-neutral schema foundation is accepted; the codec/player production no-go remains in force.
+2026-07-16 strict sequential checkpoint: 101/186 engineering tasks accepted (54.3%) and 101/205 combined tasks accepted (49.3%). TASK-260712-1n5fks landed through PR #142 at merge 5478006 after hosted run 29471845396 passed 4/4. Additive streamed-track schema, pinned variant/seek behavior, restart state and exact previous-binary rollback are accepted; production codec/player remains no-go and no real-app or hardware result is claimed. Strict engineering execution advances to TASK-260712-31rkpe.
 
 ## Precondition Resources
 (none)

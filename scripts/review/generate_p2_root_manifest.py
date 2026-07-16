@@ -57,14 +57,18 @@ def section(markdown: str, heading: str) -> str:
     return match.group(1).strip() if match else ""
 
 
-def task_card(task_id: str) -> dict[str, str]:
-    matches = sorted(ROOT.glob(f".task-board/**/{task_id}_*/README.md"))
+def task_card(task_id: str, candidate: str) -> dict[str, str]:
+    matches = sorted(
+        path
+        for path in git("ls-tree", "-r", "--name-only", candidate, ".task-board").splitlines()
+        if path.endswith("/README.md") and f"/{task_id}_" in path
+    )
     if len(matches) != 1:
         raise RuntimeError(f"expected one task card for {task_id}, found {len(matches)}")
     readme = matches[0]
-    progress = readme.with_name("progress.md")
-    body = readme.read_text(encoding="utf-8")
-    progress_body = progress.read_text(encoding="utf-8")
+    progress = str(Path(readme).with_name("progress.md"))
+    body = git("show", f"{candidate}:{readme}")
+    progress_body = git("show", f"{candidate}:{progress}")
     acceptance = section(body, "Acceptance Criteria")
     if not acceptance:
         raise RuntimeError(f"missing acceptance criteria for {task_id}")
@@ -73,7 +77,7 @@ def task_card(task_id: str) -> dict[str, str]:
         "status_at_review": section(progress_body, "Status"),
         "acceptance_criteria": acceptance,
         "acceptance_criteria_sha256": sha256(acceptance),
-        "card": str(readme.relative_to(ROOT)),
+        "card": readme,
     }
 
 
@@ -212,7 +216,7 @@ def main() -> None:
 
     tasks = {
         task_id: {
-            **task_card(task_id),
+            **task_card(task_id, candidate),
             "gates": gates[task_id],
             "first_parent_commits": task_commits[task_id],
         }

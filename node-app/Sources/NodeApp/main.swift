@@ -274,6 +274,7 @@ final class CoreRuntime {
 var runtime: CoreRuntime?
 @MainActor var macCaptureComposition: MacCaptureAppComposition?
 @MainActor var macPhaseOneComposition: MacPhaseOneAppComposition?
+@MainActor var macTargetsInboxComposition: MacTargetsInboxAppComposition?
 @MainActor var macAirComposition: MacAirAppComposition?
 @MainActor var macIdentityComposition: MacIdentityAppComposition?
 
@@ -298,6 +299,8 @@ final class LocalCaptureAudioRuntime {
 @MainActor var shellConfiguredRoute: String?
 @MainActor var shellModel: PulsarShellModel!
 @MainActor var shellActions: PulsarShellActions!
+@MainActor var targetsInboxModel: PulsarTargetsInboxModel!
+@MainActor var targetsInboxActions: PulsarTargetsInboxActions!
 @MainActor var mainWindow: PulsarMainWindowController!
 @MainActor var statusMenu: StatusMenuController!
 let onboarding = OnboardingWindowController()
@@ -345,6 +348,7 @@ func startCore(with config: NodeConfig) {
         startShellRefresh(identity: connectionIdentity(config))
         startMacCaptureComposition(audio: rt.engine, log: rt.log)
         startMacPhaseOneComposition(log: rt.log)
+        startMacTargetsInboxComposition(log: rt.log)
         startMacAirComposition(log: rt.log)
         mainWindow.show()
     } catch let err as ConfigError {
@@ -458,6 +462,10 @@ func bootstrap() {
 func configureShell() {
     guard shellModel == nil else { return }
     shellModel = PulsarShellModel()
+    targetsInboxModel = PulsarTargetsInboxModel()
+    targetsInboxActions = PulsarTargetsInboxActions { command in
+        macTargetsInboxComposition?.perform(command)
+    }
     shellActions = PulsarShellActions(
         createOrbit: { showShellSection(.create) },
         joinOrbit: { showShellSection(.join) },
@@ -492,6 +500,23 @@ func configureShell() {
                 draftID: id, route: route, delivery: delivery,
                 rightsAcknowledged: rightsAcknowledged)
         },
+        sendTargetedDraft: { id, delivery, rightsAcknowledged in
+            if shellModel.snapshot.outgoingDrafts.first(where: { $0.id == id })?
+                .explicitTargetCount != nil {
+                macPhaseOneComposition?.retryExplicit(
+                    draftID: id, rightsAcknowledged: rightsAcknowledged)
+                return
+            }
+            guard targetsInboxModel.snapshot.state == .ready,
+                  targetsInboxModel.snapshot.selectedAudience == .explicit,
+                  targetsInboxModel.setAudienceCommand(.explicit) != nil else { return }
+            macPhaseOneComposition?.sendExplicit(
+                draftID: id,
+                targetReferences: targetsInboxModel.snapshot.selectedReferences,
+                includeOrigin: targetsInboxModel.snapshot.includeOrigin,
+                delivery: delivery,
+                rightsAcknowledged: rightsAcknowledged)
+        },
         deleteOutgoingDraft: { id in macPhaseOneComposition?.delete(draftID: id) },
         refreshPhaseOneData: { macPhaseOneComposition?.refresh(force: true) },
         historyAction: { id, request in
@@ -514,8 +539,13 @@ func configureShell() {
         dissolveAir: { macAirComposition?.dissolve(airID: $0) },
         replaceAirPolicy: { macAirComposition?.replacePolicy(airID: $0, policy: $1) }
     )
-    mainWindow = PulsarMainWindowController(model: shellModel, actions: shellActions)
+    mainWindow = PulsarMainWindowController(
+        model: shellModel,
+        actions: shellActions,
+        targetsInboxModel: targetsInboxModel,
+        targetsInboxActions: targetsInboxActions)
     statusMenu = StatusMenuController()
+    statusMenu.targetsInboxModel = targetsInboxModel
     startMacIdentityComposition()
 }
 
@@ -582,6 +612,25 @@ func startMacPhaseOneComposition(log: Logger) {
 }
 
 @MainActor
+func startMacTargetsInboxComposition(log: Logger) {
+    do {
+        guard let bundle = try CredentialsStore.loadBundle(besideConfig: configPath) else { return }
+        let composition = try MacTargetsInboxAppComposition(
+            bundle: bundle, shellModel: shellModel, model: targetsInboxModel)
+        macTargetsInboxComposition = composition
+        composition.start()
+    } catch {
+        log.error("phase two targets/inbox unavailable", ["reason": "initialization_failed"])
+        var snapshot = targetsInboxModel.snapshot
+        snapshot.state = .coordinatorError
+        snapshot.stateLabel = .init(
+            key: "surface.coordinator_error",
+            en: "Coordinator unavailable", ru: "Координатор недоступен")
+        targetsInboxModel.replace(snapshot)
+    }
+}
+
+@MainActor
 func startMacAirComposition(log: Logger) {
     do {
         guard let bundle = try CredentialsStore.loadBundle(besideConfig: configPath) else {
@@ -617,6 +666,9 @@ func stopMacCaptureComposition() {
     macAirComposition = nil
     macPhaseOneComposition?.shutdown()
     macPhaseOneComposition = nil
+    macTargetsInboxComposition?.shutdown()
+    macTargetsInboxComposition = nil
+    targetsInboxModel?.replace(.init())
     macCaptureComposition?.shutdown()
     macCaptureComposition = nil
     localCaptureAudioRuntime?.stop()
@@ -662,6 +714,7 @@ func refreshShell(identity: String) {
         dndMode: dnd,
         volume: status.volume)
     macPhaseOneComposition?.refresh()
+    macTargetsInboxComposition?.refresh()
     macAirComposition?.refresh()
 }
 

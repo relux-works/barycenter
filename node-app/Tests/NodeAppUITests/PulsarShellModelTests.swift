@@ -94,7 +94,9 @@ struct PulsarShellModelTests {
     func navigationSurvivesConnectionChanges() {
         let model = PulsarShellModel(locale: .en)
         #expect(model.snapshot.connection == .unpaired)
-        #expect(PulsarShellSection.allCases == [.home, .airs, .create, .join, .tryLocally, .history, .settings])
+        #expect(PulsarShellSection.allCases == [
+            .home, .airs, .inbox, .create, .join, .tryLocally, .history, .settings,
+        ])
 
         model.selectedSection = .tryLocally
         model.updateConnection(.degraded("coordinator unavailable"), identity: "example · home")

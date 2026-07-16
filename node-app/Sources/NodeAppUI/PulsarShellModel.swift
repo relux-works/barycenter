@@ -15,6 +15,7 @@ public enum PulsarShellLocale: String, CaseIterable, Identifiable, Sendable {
 public enum PulsarShellSection: String, CaseIterable, Identifiable, Sendable {
     case home
     case airs
+    case inbox
     case create
     case join
     case tryLocally
@@ -211,6 +212,7 @@ public struct PulsarOutgoingDraft: Equatable, Identifiable, Sendable {
     public let status: String?
     public let failureCode: String?
     public let localBytesRetained: Bool
+    public let explicitTargetCount: Int?
 
     public init(
         id: String,
@@ -222,7 +224,8 @@ public struct PulsarOutgoingDraft: Equatable, Identifiable, Sendable {
         downgradeReason: String? = nil,
         status: String? = nil,
         failureCode: String? = nil,
-        localBytesRetained: Bool = true
+        localBytesRetained: Bool = true,
+        explicitTargetCount: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -234,6 +237,7 @@ public struct PulsarOutgoingDraft: Equatable, Identifiable, Sendable {
         self.status = status
         self.failureCode = failureCode
         self.localBytesRetained = localBytesRetained
+        self.explicitTargetCount = explicitTargetCount
     }
 }
 
@@ -517,6 +521,7 @@ public final class PulsarShellActions {
     private let onDeleteLocalDraft: () -> Void
     private let onCloseSelfTest: () -> Void
     private let onSendDraft: (String, PulsarRouteTarget, PulsarDeliveryMode, Bool) -> Void
+    private let onSendTargetedDraft: (String, PulsarDeliveryMode, Bool) -> Void
     private let onDeleteOutgoingDraft: (String) -> Void
     private let onRefreshPhaseOneData: () -> Void
     private let onHistoryAction: (String, PulsarHistoryActionRequest) -> Void
@@ -554,6 +559,7 @@ public final class PulsarShellActions {
         deleteLocalDraft: @escaping @MainActor () -> Void = {},
         closeSelfTest: @escaping @MainActor () -> Void = {},
         sendDraft: @escaping @MainActor (String, PulsarRouteTarget, PulsarDeliveryMode, Bool) -> Void = { _, _, _, _ in },
+        sendTargetedDraft: @escaping @MainActor (String, PulsarDeliveryMode, Bool) -> Void = { _, _, _ in },
         deleteOutgoingDraft: @escaping @MainActor (String) -> Void = { _ in },
         refreshPhaseOneData: @escaping @MainActor () -> Void = {},
         historyAction: @escaping @MainActor (String, PulsarHistoryActionRequest) -> Void = { _, _ in },
@@ -590,6 +596,7 @@ public final class PulsarShellActions {
         self.onDeleteLocalDraft = deleteLocalDraft
         self.onCloseSelfTest = closeSelfTest
         self.onSendDraft = sendDraft
+        self.onSendTargetedDraft = sendTargetedDraft
         self.onDeleteOutgoingDraft = deleteOutgoingDraft
         self.onRefreshPhaseOneData = refreshPhaseOneData
         self.onHistoryAction = historyAction
@@ -634,6 +641,11 @@ public final class PulsarShellActions {
         delivery: PulsarDeliveryMode,
         rightsAcknowledged: Bool
     ) { onSendDraft(id, route, delivery, rightsAcknowledged) }
+    public func sendTargetedDraft(
+        _ id: String,
+        delivery: PulsarDeliveryMode,
+        rightsAcknowledged: Bool
+    ) { onSendTargetedDraft(id, delivery, rightsAcknowledged) }
     public func deleteOutgoingDraft(_ id: String) { onDeleteOutgoingDraft(id) }
     public func refreshPhaseOneData() { onRefreshPhaseOneData() }
     public func performHistoryAction(_ id: String, action: PulsarHistoryAction) {
@@ -667,7 +679,7 @@ public final class PulsarShellActions {
 }
 
 public enum PulsarShellText: String, CaseIterable, Sendable {
-    case appName, home, airs, create, join, tryLocally, history, settings
+    case appName, home, airs, inbox, create, join, tryLocally, history, settings
     case openMainWindow, primaryActions, status, presence, routing, nowPlaying
     case localControls, noHistory, noRoute, silence, volume, dnd, recording
     case startRecording, stopRecording, recordingUnavailable, selfTestUnavailable
@@ -686,6 +698,7 @@ public enum PulsarShellText: String, CaseIterable, Sendable {
     case recordingIdle, recordingActive, recordingProcessing, recordingFailed
     case unpairedHelp, degradedHelp, recordingHelp, quit
     case outgoingDrafts, routeTarget, deliveryMode, uploadRightsConfirm, send, retry, refresh
+    case selectedRecipients, sendSelectedRecipients
     case thisPulsar, ownBarycenter, currentAir, overlay, interrupt, afterCurrent
     case requestedDelivery, effectiveDelivery, coordinatorFailure, blockSender, replay, deleteHistory
     case report, reportReason, reportDetails, submitReport, cancel, confirmDelete, confirmBlock
@@ -709,6 +722,7 @@ public struct PulsarShellCopy: Sendable {
         switch section {
         case .home: text(.home)
         case .airs: text(.airs)
+        case .inbox: text(.inbox)
         case .create: text(.create)
         case .join: text(.join)
         case .tryLocally: text(.tryLocally)
@@ -876,7 +890,8 @@ public struct PulsarShellCopy: Sendable {
     }
 
     private static let en: [PulsarShellText: String] = [
-        .appName: "Pulsar", .home: "Home", .airs: "Airs", .create: "Create", .join: "Join",
+        .appName: "Pulsar", .home: "Home", .airs: "Airs", .inbox: "Inbox & targets",
+        .create: "Create", .join: "Join",
         .tryLocally: "Try locally", .history: "History", .settings: "Settings",
         .openMainWindow: "Open Pulsar", .primaryActions: "Primary actions",
         .status: "Status", .presence: "Presence", .routing: "Routing",
@@ -927,6 +942,7 @@ public struct PulsarShellCopy: Sendable {
         .recordingHelp: "Recording is active. The Stop control remains available in this window and the menu bar.",
         .quit: "Quit Pulsar",
         .outgoingDrafts: "Ready to send", .routeTarget: "Send to",
+        .selectedRecipients: "Selected recipients", .sendSelectedRecipients: "Send to selected recipients",
         .uploadRightsConfirm: "I created this content or have the rights, permissions, and recording consents to send it to every selected recipient.",
         .deliveryMode: "Delivery", .send: "Send", .retry: "Retry", .refresh: "Refresh",
         .thisPulsar: "This Pulsar", .ownBarycenter: "My Barycenter",
@@ -948,7 +964,8 @@ public struct PulsarShellCopy: Sendable {
     ]
 
     private static let ru: [PulsarShellText: String] = [
-        .appName: "Пульсар", .home: "Главная", .airs: "Эфиры", .create: "Создать", .join: "Присоединиться",
+        .appName: "Пульсар", .home: "Главная", .airs: "Эфиры", .inbox: "Входящие и адресаты",
+        .create: "Создать", .join: "Присоединиться",
         .tryLocally: "Попробовать локально", .history: "История", .settings: "Настройки",
         .openMainWindow: "Открыть Пульсар", .primaryActions: "Основные действия",
         .status: "Статус", .presence: "Присутствие", .routing: "Маршрут звука",
@@ -999,6 +1016,7 @@ public struct PulsarShellCopy: Sendable {
         .recordingHelp: "Запись активна. Кнопка остановки остаётся доступна в этом окне и в строке меню.",
         .quit: "Выйти из Пульсара",
         .outgoingDrafts: "Готово к отправке", .routeTarget: "Отправить в",
+        .selectedRecipients: "Выбранные адресаты", .sendSelectedRecipients: "Отправить выбранным адресатам",
         .uploadRightsConfirm: "Я создал(а) этот материал либо имею права, разрешения и согласия на запись, чтобы отправить его каждому выбранному получателю.",
         .deliveryMode: "Доставка", .send: "Отправить", .retry: "Повторить", .refresh: "Обновить",
         .thisPulsar: "Этот Пульсар", .ownBarycenter: "Мой Барицентр",

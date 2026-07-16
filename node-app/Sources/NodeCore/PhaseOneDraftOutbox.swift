@@ -20,6 +20,7 @@ public struct PhaseOneDraftSnapshot: Equatable, Sendable {
   public let status: String?
   public let failureCode: String?
   public let localBytesRetained: Bool
+  public let explicitTargetCount: Int?
 
   public init(
     draftID: String,
@@ -31,7 +32,8 @@ public struct PhaseOneDraftSnapshot: Equatable, Sendable {
     downgradeReason: String?,
     status: String?,
     failureCode: String?,
-    localBytesRetained: Bool
+    localBytesRetained: Bool,
+    explicitTargetCount: Int? = nil
   ) {
     self.draftID = draftID
     self.title = title
@@ -43,6 +45,7 @@ public struct PhaseOneDraftSnapshot: Equatable, Sendable {
     self.status = status
     self.failureCode = failureCode
     self.localBytesRetained = localBytesRetained
+    self.explicitTargetCount = explicitTargetCount
   }
 }
 
@@ -68,6 +71,8 @@ public actor PhaseOneDraftOutbox {
     var state: PhaseOneDraftState
     var route: PhaseOneRoute?
     var requestedDelivery: PhaseOneDelivery?
+    var explicitTargetReferences: [String]?
+    var includeOrigin: Bool?
     var mediaID: String?
     var transmissionID: String?
     var effectiveDelivery: PhaseOneDelivery?
@@ -151,15 +156,70 @@ public actor PhaseOneDraftOutbox {
     originKind: PhaseOneOriginKind = .microphone,
     rightsAcknowledged: Bool
   ) async throws -> PhaseOneDraftSnapshot {
+    try await sendResolved(
+      draftID: draftID, route: route, targetReferences: nil, includeOrigin: route == .thisPulsar,
+      delivery: delivery, originKind: originKind, rightsAcknowledged: rightsAcknowledged)
+  }
+
+  public func sendExplicit(
+    draftID: String,
+    targetReferences: [String],
+    includeOrigin: Bool,
+    delivery: PhaseOneDelivery,
+    originKind: PhaseOneOriginKind = .microphone,
+    rightsAcknowledged: Bool
+  ) async throws -> PhaseOneDraftSnapshot {
+    try await sendResolved(
+      draftID: draftID, route: nil, targetReferences: targetReferences.sorted(),
+      includeOrigin: includeOrigin, delivery: delivery, originKind: originKind,
+      rightsAcknowledged: rightsAcknowledged)
+  }
+
+  public func retryExplicit(
+    draftID: String,
+    rightsAcknowledged: Bool
+  ) async throws -> PhaseOneDraftSnapshot {
+    guard let record = records[draftID],
+      let targetReferences = record.explicitTargetReferences,
+      let includeOrigin = record.includeOrigin,
+      let delivery = record.requestedDelivery
+    else { throw PhaseOneDraftOutboxError.invalidDraft }
+    return try await sendResolved(
+      draftID: draftID, route: nil, targetReferences: targetReferences,
+      includeOrigin: includeOrigin, delivery: delivery, originKind: .microphone,
+      rightsAcknowledged: rightsAcknowledged)
+  }
+
+  private func sendResolved(
+    draftID: String,
+    route: PhaseOneRoute?,
+    targetReferences: [String]?,
+    includeOrigin: Bool,
+    delivery: PhaseOneDelivery,
+    originKind: PhaseOneOriginKind,
+    rightsAcknowledged: Bool
+  ) async throws -> PhaseOneDraftSnapshot {
     guard var record = records[draftID] else { throw PhaseOneDraftOutboxError.invalidDraft }
     guard !activeDraftIDs.contains(draftID) else { throw PhaseOneDraftOutboxError.busy }
-    if let frozenRoute = record.route, frozenRoute != route {
-      throw PhaseOneDraftOutboxError.invalidDraft
+    if let targetReferences {
+      guard (1...64).contains(targetReferences.count),
+        Set(targetReferences).count == targetReferences.count,
+        targetReferences.allSatisfy(Self.validTargetReference),
+        record.route == nil,
+        record.explicitTargetReferences == nil || record.explicitTargetReferences == targetReferences,
+        record.includeOrigin == nil || record.includeOrigin == includeOrigin
+      else { throw PhaseOneDraftOutboxError.invalidDraft }
+    } else {
+      guard let route, record.explicitTargetReferences == nil,
+        record.route == nil || record.route == route
+      else { throw PhaseOneDraftOutboxError.invalidDraft }
     }
     if let frozenDelivery = record.requestedDelivery, frozenDelivery != delivery {
       throw PhaseOneDraftOutboxError.invalidDraft
     }
     record.route = route
+    record.explicitTargetReferences = targetReferences
+    record.includeOrigin = targetReferences == nil ? nil : includeOrigin
     record.requestedDelivery = delivery
     record.failureCode = nil
     records[draftID] = record
@@ -210,12 +270,25 @@ public actor PhaseOneDraftOutbox {
       record.status = "requesting_acceptance"
       records[draftID] = record
       try persist()
-      let receipt = try await service.transmit(
-        mediaID: mediaID,
-        route: route,
-        delivery: delivery,
-        originKind: originKind,
-        idempotencyKey: record.transmissionKey)
+      let receipt: PhaseOneTransmissionReceipt
+      if let targetReferences {
+        receipt = try await service.transmitExplicit(
+          mediaID: mediaID,
+          targetReferences: targetReferences,
+          includeOrigin: includeOrigin,
+          delivery: delivery,
+          originKind: originKind,
+          idempotencyKey: record.transmissionKey)
+      } else if let route {
+        receipt = try await service.transmit(
+          mediaID: mediaID,
+          route: route,
+          delivery: delivery,
+          originKind: originKind,
+          idempotencyKey: record.transmissionKey)
+      } else {
+        throw PhaseOneDraftOutboxError.invalidDraft
+      }
       record.transmissionID = receipt.transmissionID
       record.effectiveDelivery = receipt.effectiveDelivery
       record.downgradeReason = receipt.downgradeReason
@@ -322,6 +395,24 @@ public actor PhaseOneDraftOutbox {
       && (value.mediaID.map { validPublicID($0, prefix: "m_") } ?? true)
       && (value.transmissionID.map { validPublicID($0, prefix: "tr_") } ?? true)
       && (value.transmissionID == nil || value.mediaID != nil)
+      && validExplicitIntent(value)
+  }
+
+  private static func validExplicitIntent(_ value: Record) -> Bool {
+    guard let references = value.explicitTargetReferences else {
+      return value.includeOrigin == nil
+    }
+    return value.route == nil && value.includeOrigin != nil && (1...64).contains(references.count)
+      && Set(references).count == references.count && references.allSatisfy(validTargetReference)
+  }
+
+  private static func validTargetReference(_ value: String) -> Bool {
+    guard value.hasPrefix("trf_") else { return false }
+    let suffix = value.dropFirst(4)
+    return suffix.utf8.count == 43 && suffix.unicodeScalars.allSatisfy {
+      CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+        .contains($0)
+    }
   }
 
   private static func validPublicID(_ value: String, prefix: String) -> Bool {
@@ -341,6 +432,8 @@ public actor PhaseOneDraftOutbox {
       state: .retained,
       route: nil,
       requestedDelivery: nil,
+      explicitTargetReferences: nil,
+      includeOrigin: nil,
       mediaID: nil,
       transmissionID: nil,
       effectiveDelivery: nil,
@@ -361,7 +454,8 @@ public actor PhaseOneDraftOutbox {
       downgradeReason: value.downgradeReason,
       status: value.status,
       failureCode: value.failureCode,
-      localBytesRetained: value.localBytesRetained)
+      localBytesRetained: value.localBytesRetained,
+      explicitTargetCount: value.explicitTargetReferences?.count)
   }
 
   private static func failureCode(_ error: PhaseOneDraftOutboxError) -> String {

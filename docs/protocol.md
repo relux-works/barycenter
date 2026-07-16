@@ -45,6 +45,8 @@ and its executable
 contract. Native macOS and Windows views consume this model in their later
 platform tasks; this contract itself does not claim those views or hardware
 evidence.
+The native boundary is documented in
+[macOS targets/inbox UI and command composition](analysis/p2-macos-targets-inbox-ui.md).
 
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 

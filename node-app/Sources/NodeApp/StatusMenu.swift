@@ -24,6 +24,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
     var rePairAction: (() -> Void)?
     var shellModel: PulsarShellModel?
     var shellActions = PulsarShellActions()
+    var targetsInboxModel: PulsarTargetsInboxModel?
     var showMainWindowAction: (() -> Void)?
 
     func install() {
@@ -59,6 +60,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
         for (title, selector, key) in [
             (copy.text(.create), #selector(createOrbit), "1"),
             (copy.text(.join), #selector(joinOrbit), "2"),
+            (copy.text(.inbox), #selector(showInbox), "3"),
             (copy.text(.airs), #selector(showAirs), "4"),
         ] {
             let item = NSMenuItem(title: title, action: selector, keyEquivalent: key)
@@ -114,6 +116,15 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
             keyEquivalent: "2")
         join.target = self
         menu.addItem(join)
+        let inboxCount = targetsInboxModel?.snapshot.inbox.filter {
+            $0.availability == "available"
+        }.count ?? 0
+        let inbox = NSMenuItem(
+            title: inboxCount == 0 ? copy.text(.inbox) : "\(copy.text(.inbox)) (\(inboxCount))",
+            action: #selector(showInbox),
+            keyEquivalent: "3")
+        inbox.target = self
+        menu.addItem(inbox)
         let airs = NSMenuItem(
             title: copy.text(.airs),
             action: #selector(showAirs),
@@ -335,6 +346,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
 
     @objc private func showAirs() {
         shellModel?.selectedSection = .airs
+        showMainWindowAction?()
+    }
+
+    @objc private func showInbox() {
+        shellModel?.selectedSection = .inbox
         showMainWindowAction?()
     }
 

@@ -4,11 +4,20 @@ import UniformTypeIdentifiers
 
 public struct PulsarMainView: View {
     @Bindable private var model: PulsarShellModel
+    @Bindable private var targetsInboxModel: PulsarTargetsInboxModel
     private let actions: PulsarShellActions
+    private let targetsInboxActions: PulsarTargetsInboxActions
 
-    public init(model: PulsarShellModel, actions: PulsarShellActions) {
+    public init(
+        model: PulsarShellModel,
+        actions: PulsarShellActions,
+        targetsInboxModel: PulsarTargetsInboxModel,
+        targetsInboxActions: PulsarTargetsInboxActions
+    ) {
         self.model = model
         self.actions = actions
+        self.targetsInboxModel = targetsInboxModel
+        self.targetsInboxActions = targetsInboxActions
     }
 
     public var body: some View {
@@ -16,7 +25,10 @@ public struct PulsarMainView: View {
             PulsarSidebar(model: model)
                 .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 280)
         } detail: {
-            PulsarDetail(model: model, actions: actions)
+            PulsarDetail(
+                model: model, actions: actions,
+                targetsInboxModel: targetsInboxModel,
+                targetsInboxActions: targetsInboxActions)
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {
@@ -58,6 +70,7 @@ private struct PulsarSidebar: View {
         switch section {
         case .home: "house"
         case .airs: "person.3.sequence"
+        case .inbox: "tray.full"
         case .create: "plus.circle"
         case .join: "person.2"
         case .tryLocally: "waveform.circle"
@@ -70,13 +83,21 @@ private struct PulsarSidebar: View {
 private struct PulsarDetail: View {
     let model: PulsarShellModel
     let actions: PulsarShellActions
+    let targetsInboxModel: PulsarTargetsInboxModel
+    let targetsInboxActions: PulsarTargetsInboxActions
 
     var body: some View {
         switch model.selectedSection {
         case .home:
-            PulsarHomeView(model: model, actions: actions)
+            PulsarHomeView(
+                model: model, actions: actions, targetsInboxModel: targetsInboxModel)
         case .airs:
             PulsarAirManagementView(model: model, actions: actions)
+        case .inbox:
+            PulsarTargetsInboxView(
+                shellModel: model,
+                model: targetsInboxModel,
+                actions: targetsInboxActions)
         case .create:
             PulsarIdentityFlowView(
                 mode: .create,
@@ -146,6 +167,7 @@ private struct PulsarToolbar: ToolbarContent {
 private struct PulsarHomeView: View {
     let model: PulsarShellModel
     let actions: PulsarShellActions
+    let targetsInboxModel: PulsarTargetsInboxModel
 
     var body: some View {
         let copy = PulsarShellCopy(locale: model.locale)
@@ -179,7 +201,8 @@ private struct PulsarHomeView: View {
                     )
                 }
                 PulsarLocalControls(model: model, actions: actions)
-                PulsarOutgoingDraftsView(model: model, actions: actions)
+                PulsarOutgoingDraftsView(
+                    model: model, actions: actions, targetsInboxModel: targetsInboxModel)
                 PulsarHistoryPreview(model: model)
             }
             .padding(24)
@@ -542,6 +565,7 @@ private struct PulsarHistoryRow: View {
 private struct PulsarOutgoingDraftsView: View {
     let model: PulsarShellModel
     let actions: PulsarShellActions
+    let targetsInboxModel: PulsarTargetsInboxModel
 
     var body: some View {
         let copy = PulsarShellCopy(locale: model.locale)
@@ -561,7 +585,8 @@ private struct PulsarOutgoingDraftsView: View {
             }
             ForEach(model.snapshot.outgoingDrafts) { draft in
                 PulsarOutgoingDraftRow(
-                    draft: draft, copy: copy, actions: actions)
+                    draft: draft, copy: copy, actions: actions,
+                    targetsInboxModel: targetsInboxModel)
             }
         }
     }
@@ -571,6 +596,7 @@ private struct PulsarOutgoingDraftRow: View {
     let draft: PulsarOutgoingDraft
     let copy: PulsarShellCopy
     let actions: PulsarShellActions
+    let targetsInboxModel: PulsarTargetsInboxModel
     @State private var route: PulsarRouteTarget = .ownBarycenter
     @State private var delivery: PulsarDeliveryMode = .overlay
     @State private var rightsAcknowledged = false
@@ -590,13 +616,20 @@ private struct PulsarOutgoingDraftRow: View {
                     Text(copy.routeLabel(value)).tag(value)
                 }
             }
-            .disabled(draft.route != nil)
+            .disabled(draft.route != nil || draft.explicitTargetCount != nil)
             Picker(copy.text(.deliveryMode), selection: $delivery) {
                 ForEach(PulsarDeliveryMode.allCases) { value in
                     Text(copy.deliveryLabel(value)).tag(value)
                 }
             }
             .disabled(draft.requestedDelivery != nil)
+            if let count = draft.explicitTargetCount {
+                LabeledContent(copy.text(.selectedRecipients), value: String(count))
+            } else if targetedSendAvailable {
+                LabeledContent(
+                    copy.text(.selectedRecipients),
+                    value: String(targetsInboxModel.snapshot.selectedReferences.count))
+            }
             if let requested = draft.requestedDelivery {
                 LabeledContent(copy.text(.requestedDelivery), value: copy.deliveryLabel(requested))
             }
@@ -619,7 +652,21 @@ private struct PulsarOutgoingDraftRow: View {
                         rightsAcknowledged: rightsAcknowledged)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!rightsAcknowledged || [.uploading, .transmitting, .accepted].contains(draft.state))
+                .disabled(
+                    draft.explicitTargetCount != nil || !rightsAcknowledged
+                        || [.uploading, .transmitting, .accepted].contains(draft.state))
+                if targetedSendAvailable || draft.explicitTargetCount != nil {
+                    Button(copy.text(.sendSelectedRecipients)) {
+                        actions.sendTargetedDraft(
+                            draft.id,
+                            delivery: draft.requestedDelivery ?? delivery,
+                            rightsAcknowledged: rightsAcknowledged)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(
+                        !rightsAcknowledged
+                            || [.uploading, .transmitting, .accepted].contains(draft.state))
+                }
                 Button(copy.text(.deleteDraft), role: .destructive) {
                     actions.deleteOutgoingDraft(draft.id)
                 }
@@ -642,6 +689,13 @@ private struct PulsarOutgoingDraftRow: View {
         case .accepted: "checkmark.circle.fill"
         case .retryableFailure: "exclamationmark.triangle"
         }
+    }
+
+    private var targetedSendAvailable: Bool {
+        draft.route == nil && draft.explicitTargetCount == nil
+            && targetsInboxModel.snapshot.state == .ready
+            && targetsInboxModel.snapshot.selectedAudience == .explicit
+            && !targetsInboxModel.snapshot.selectedReferences.isEmpty
     }
 }
 
@@ -928,11 +982,20 @@ private struct PulsarSettingsView: View {
 public final class PulsarMainWindowController: NSObject, NSWindowDelegate {
     private let model: PulsarShellModel
     private let actions: PulsarShellActions
+    private let targetsInboxModel: PulsarTargetsInboxModel
+    private let targetsInboxActions: PulsarTargetsInboxActions
     private var window: NSWindow?
 
-    public init(model: PulsarShellModel, actions: PulsarShellActions) {
+    public init(
+        model: PulsarShellModel,
+        actions: PulsarShellActions,
+        targetsInboxModel: PulsarTargetsInboxModel,
+        targetsInboxActions: PulsarTargetsInboxActions
+    ) {
         self.model = model
         self.actions = actions
+        self.targetsInboxModel = targetsInboxModel
+        self.targetsInboxActions = targetsInboxActions
     }
 
     public func show(section: PulsarShellSection = .home) {
@@ -943,7 +1006,11 @@ public final class PulsarMainWindowController: NSObject, NSWindowDelegate {
     }
 
     private func makeWindow() -> NSWindow {
-        let root = PulsarMainView(model: model, actions: actions)
+        let root = PulsarMainView(
+            model: model,
+            actions: actions,
+            targetsInboxModel: targetsInboxModel,
+            targetsInboxActions: targetsInboxActions)
         let hosting = NSHostingController(rootView: root)
         let target = NSWindow(contentViewController: hosting)
         target.title = "Pulsar"

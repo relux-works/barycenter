@@ -209,6 +209,14 @@ public protocol PhaseOneAppServicing: Sendable {
     originKind: PhaseOneOriginKind,
     idempotencyKey: String
   ) async throws -> PhaseOneTransmissionReceipt
+  func transmitExplicit(
+    mediaID: String,
+    targetReferences: [String],
+    includeOrigin: Bool,
+    delivery: PhaseOneDelivery,
+    originKind: PhaseOneOriginKind,
+    idempotencyKey: String
+  ) async throws -> PhaseOneTransmissionReceipt
 
   func deleteMedia(_ mediaID: String) async throws
   func presence() async throws -> [PhaseOnePresenceNode]
@@ -229,6 +237,19 @@ public protocol PhaseOneAppServicing: Sendable {
     delivery: PhaseOneDelivery,
     idempotencyKey: String
   ) async throws -> PhaseOneTransmissionReceipt
+}
+
+public extension PhaseOneAppServicing {
+  func transmitExplicit(
+    mediaID: String,
+    targetReferences: [String],
+    includeOrigin: Bool,
+    delivery: PhaseOneDelivery,
+    originKind: PhaseOneOriginKind,
+    idempotencyKey: String
+  ) async throws -> PhaseOneTransmissionReceipt {
+    throw PhaseOneClientError.invalidRequest
+  }
 }
 
 /// Authenticated HTTP binding for the frozen Phase 1 media, transmission,
@@ -401,6 +422,48 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
         includeOrigin: route == .thisPulsar),
       success: [200, 201]
     )
+    let value: TransmissionResponse = try decode(response.data)
+    guard Self.validTransmissionID(value.transmissionID), value.mediaID == mediaID,
+      let requested = PhaseOneDelivery(rawValue: value.requestedDelivery),
+      let effective = PhaseOneDelivery(rawValue: value.effectiveDelivery),
+      !value.status.isEmpty
+    else { throw PhaseOneClientError.invalidResponse }
+    return PhaseOneTransmissionReceipt(
+      transmissionID: value.transmissionID,
+      requestedDelivery: requested,
+      effectiveDelivery: effective,
+      downgradeReason: value.downgradeReason,
+      status: value.status,
+      reused: value.reused ?? false)
+  }
+
+  public func transmitExplicit(
+    mediaID: String,
+    targetReferences: [String],
+    includeOrigin: Bool,
+    delivery: PhaseOneDelivery,
+    originKind: PhaseOneOriginKind,
+    idempotencyKey: String
+  ) async throws -> PhaseOneTransmissionReceipt {
+    guard Self.validMediaID(mediaID), Self.validIdempotencyKey(idempotencyKey),
+      (1...64).contains(targetReferences.count),
+      Set(targetReferences).count == targetReferences.count,
+      targetReferences.allSatisfy(Self.validTargetReference)
+    else { throw PhaseOneClientError.invalidRequest }
+    let response = try await request(
+      method: "POST",
+      path: "/v1/transmissions",
+      bearer: controlToken,
+      headers: ["Idempotency-Key": idempotencyKey],
+      jsonBody: ExplicitTransmissionCreateBody(
+        mediaID: mediaID,
+        audience: .init(
+          kind: "explicit",
+          targets: targetReferences.sorted().map { .init(reference: $0) }),
+        delivery: delivery.rawValue,
+        originKind: originKind.rawValue,
+        includeOrigin: includeOrigin),
+      success: [200, 201])
     let value: TransmissionResponse = try decode(response.data)
     guard Self.validTransmissionID(value.transmissionID), value.mediaID == mediaID,
       let requested = PhaseOneDelivery(rawValue: value.requestedDelivery),
@@ -811,6 +874,15 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
       CharacterSet(charactersIn: "0123456789ABCDEFGHJKMNPQRSTVWXYZ").contains($0)
     }
   }
+
+  private static func validTargetReference(_ value: String) -> Bool {
+    guard value.hasPrefix("trf_") else { return false }
+    let suffix = value.dropFirst(4)
+    return suffix.utf8.count == 43 && suffix.unicodeScalars.allSatisfy {
+      CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+        .contains($0)
+    }
+  }
 }
 
 private struct EmptyBody: Encodable {}
@@ -920,6 +992,26 @@ private struct UploadSessionResponse: Decodable {
 
 private struct TransmissionCreateBody: Encodable {
   struct Audience: Encodable { let kind: String }
+  let mediaID: String
+  let audience: Audience
+  let delivery: String
+  let originKind: String
+  let includeOrigin: Bool
+
+  enum CodingKeys: String, CodingKey {
+    case mediaID = "media_id"
+    case audience, delivery
+    case originKind = "origin_kind"
+    case includeOrigin = "include_origin"
+  }
+}
+
+private struct ExplicitTransmissionCreateBody: Encodable {
+  struct Audience: Encodable {
+    struct Target: Encodable { let reference: String }
+    let kind: String
+    let targets: [Target]
+  }
   let mediaID: String
   let audience: Audience
   let delivery: String

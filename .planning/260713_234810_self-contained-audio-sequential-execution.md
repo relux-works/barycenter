@@ -15,7 +15,13 @@
 - Current engineering task: `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
 - Next engineering task: `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
 - Most recently accepted: `TASK-260712-14rxuk` — phase2-gate-matrix-evidence-contract
-- Current branch: `task/task-260712-2g3fkt-p2-independent-codec-supply-review`
+- Current branch: `chore/task-260712-2g3fkt-blocked-tracking`
+- Current strict blocker: the engineering review for `TASK-260712-2g3fkt`
+  landed through PR #170 at merge `affa66ab830696e38e923f217a3b43dd5e95b581`,
+  but it correctly returned `BLOCK PHASE 2`. No codec combination is accepted;
+  six High findings, qualified AAC/LGPL counsel disposition and an
+  implementation-independent review of an exact replacement candidate remain
+  open. The task is not accepted and the next row has not started.
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -2217,6 +2223,23 @@ production credentials, rollback and seven-day beta remain explicit blockers
 in `EPIC-260714-th54l3`. Progress is 114/205 overall and 114/186 engineering;
 strict execution advances to `TASK-260712-2g3fkt`.
 
+Checkpoint 2026-07-16 (blocked, not accepted): the source-linked engineering
+review for `TASK-260712-2g3fkt` landed on exact head `87f5851` through PR #170,
+merge `affa66ab830696e38e923f217a3b43dd5e95b581`. It pins the rubric, license
+audit, comparative matrix and player handoff; reruns eight validators, 19
+codec tests, pure-Go and macOS native probe builds, Go module verification,
+race tests and current called-symbol vulnerability scanning; and adds a
+fail-closed machine-readable review validator with five negative tests. Hosted
+run `29497274813` passed all four jobs (coordinator 2m18s, node-core 1m11s,
+pulsar-win 1m53s, packaged probe 2m38s). The outcome is intentionally not an
+independent acceptance: the same root session implemented earlier codec work.
+No exact Windows-plus-macOS combination passes every hard gate, six High
+findings remain open, production playback is forbidden and legal/hardware
+claims remain unmade. The board task is `blocked`; checklist items for reviewer
+independence and High-finding fix/re-review remain open. Progress therefore
+stays 114/205 overall and 114/186 engineering, and strict execution does not
+advance to `TASK-260712-28mn7w`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -2765,6 +2788,10 @@ manual promotion remains separate.
   regression and hosted run `29496295085` 4/4 passed; PR #168 merge `d3db8c9`;
   all six real-app/hardware/rollback/beta tasks stay manual and unclaimed)
 - [ ] `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
+  (blocked review landed on head `87f5851` through PR #170, merge `affa66a`;
+  hosted run `29497274813` 4/4 passed, but no codec combination is accepted,
+  six High findings and independent approval remain open, so this row is not
+  complete and strict execution cannot advance)
 - [ ] `TASK-260712-28mn7w` — p2-independent-stream-performance-review
 - [ ] `TASK-260712-2sicfs` — p2-independent-air-migration-review
 - [ ] `TASK-260712-n11rg6` — p2-independent-target-security-review

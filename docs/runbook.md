@@ -1,5 +1,8 @@
 # duet Runbook
 
+Phase 2 readiness, quota, Air, target/inbox and sanitized evidence queries are
+documented in [Phase 2 observability and quota evidence](phase2-observability-runbook.md).
+
 > **CRITICAL — pending credential rotation (owner: Ivan).** Rotate the
 > Telegram bot token (BotFather) and the Spotify client secret (Spotify
 > Developer Dashboard) as routine hygiene after the 2026-07-10 CI log

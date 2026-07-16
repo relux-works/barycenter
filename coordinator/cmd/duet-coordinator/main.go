@@ -314,7 +314,14 @@ func main() {
 			body["media_processing"] = map[string]string{"status": "unavailable"}
 		}
 		addMediaLifecycleHealth(body, mediaLifecycle, mediaLifecycleInitErr)
-		addStreamAccountingHealth(body, st, time.Now().UnixMilli())
+		processorReady := mediaSubmitterInitErr == nil
+		storageReady := mediaLifecycleInitErr == nil
+		if onboarding != nil {
+			processorReady = onboarding.mediaSubmitter != nil && onboarding.mediaSubmitterInitErr == nil
+			storageReady = onboarding.mediaUploadInitErr == nil &&
+				onboarding.mediaLifecycleInitErr == nil && onboarding.mediaDownloadInitErr == nil
+		}
+		addStreamAccountingHealth(body, st, time.Now().UnixMilli(), processorReady, storageReady)
 		if onboarding != nil {
 			if onboarding.mediaSubmitter == nil || onboarding.mediaSubmitterInitErr != nil {
 				body["status"] = "degraded"

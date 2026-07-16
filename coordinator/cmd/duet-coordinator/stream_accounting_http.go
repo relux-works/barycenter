@@ -15,26 +15,69 @@ type streamAccountingHealthView struct {
 	LastReconciledAt int64 `json:"last_reconciled_at"`
 }
 
+type phase2HealthView struct {
+	Ready                 bool   `json:"ready"`
+	StreamedTracksEnabled bool   `json:"streamed_tracks_enabled"`
+	AirRoomsEnabled       bool   `json:"air_rooms_enabled"`
+	AirAuthorityState     string `json:"air_authority_state"`
+}
+
+func applyPhase2RuntimeReadiness(
+	readiness *store.Phase2Readiness,
+	mediaProcessorReady, streamStorageReady bool,
+) {
+	if readiness.MediaProcessorRequired {
+		readiness.MediaProcessorReady = mediaProcessorReady
+	} else {
+		readiness.MediaProcessorReady = true
+	}
+	if readiness.StreamStorageRequired {
+		readiness.StreamStorageReady = streamStorageReady
+	} else {
+		readiness.StreamStorageReady = true
+	}
+	readiness.Ready =
+		(!readiness.StreamAccountingRequired || readiness.StreamAccountingReady) &&
+			readiness.MediaProcessorReady && readiness.StreamStorageReady &&
+			readiness.AirRuntimeReady
+}
+
 // addStreamAccountingHealth deliberately exposes only readiness and a coarse
 // saturation bit on the public health route. Exact storage, egress and scope
 // usage remain behind the authenticated operator surface.
-func addStreamAccountingHealth(body map[string]any, st *store.Store, now int64) {
+func addStreamAccountingHealth(body map[string]any, st *store.Store, now int64, runtimeReady ...bool) {
 	if st == nil {
 		body["status"] = "degraded"
 		body["stream_accounting"] = map[string]string{"status": "unavailable"}
+		body["phase2"] = map[string]string{"status": "unavailable"}
 		return
 	}
-	snapshot, err := st.StreamAccountingSnapshot(now)
+	view, err := st.Phase2HealthSnapshot(now)
 	if err != nil {
 		body["status"] = "degraded"
 		body["stream_accounting"] = map[string]string{"status": "unavailable"}
+		body["phase2"] = map[string]string{"status": "unavailable"}
 		return
 	}
-	body["stream_accounting"] = streamAccountingHealthView{
-		Ready: snapshot.Ready, Saturated: snapshot.Saturated,
-		LastReconciledAt: snapshot.LastReconciledAt,
+	processorReady, storageReady := false, false
+	if len(runtimeReady) > 0 {
+		processorReady = runtimeReady[0]
 	}
-	if !snapshot.Ready {
+	if len(runtimeReady) > 1 {
+		storageReady = runtimeReady[1]
+	}
+	applyPhase2RuntimeReadiness(&view.Readiness, processorReady, storageReady)
+	body["stream_accounting"] = streamAccountingHealthView{
+		Ready: view.Accounting.Ready, Saturated: view.Accounting.Saturated,
+		LastReconciledAt: view.Accounting.LastReconciledAt,
+	}
+	body["phase2"] = phase2HealthView{
+		Ready:                 view.Readiness.Ready,
+		StreamedTracksEnabled: view.Features.StreamedTracks.Enabled,
+		AirRoomsEnabled:       view.Features.AirRooms.Enabled,
+		AirAuthorityState:     view.Features.AirRooms.State,
+	}
+	if !view.Readiness.Ready {
 		body["status"] = "degraded"
 	}
 }
@@ -94,6 +137,41 @@ func (api *onboardingAPI) streamAccountingOperatorView(w http.ResponseWriter, r 
 		}
 		return
 	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+func (api *onboardingAPI) phase2ObservabilityOperatorView(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet || r.ContentLength != 0 || len(r.TransferEncoding) != 0 ||
+		r.URL.RawQuery != "" {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	operator, ok := requireStreamAccountingCapability(w, r, false)
+	if !ok {
+		return
+	}
+	view, err := api.store.GetAuthorizedPhase2Observability(
+		operator.Context.ID, operator.Bearer, time.Now().UnixMilli(),
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrUnauthorized):
+			apiError(w, http.StatusUnauthorized, errorUnauthorized, 0)
+		case errors.Is(err, store.ErrModerationForbidden):
+			apiError(w, http.StatusForbidden, errorModerationForbidden, 0)
+		case errors.Is(err, store.ErrStreamAccountingInvalid):
+			apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		default:
+			api.internalError(w, "read Phase 2 observability view", err)
+		}
+		return
+	}
+	applyPhase2RuntimeReadiness(
+		&view.Readiness,
+		api.mediaSubmitter != nil && api.mediaSubmitterInitErr == nil,
+		api.mediaUploadInitErr == nil && api.mediaLifecycleInitErr == nil &&
+			api.mediaDownloadInitErr == nil,
+	)
 	writeJSON(w, http.StatusOK, view)
 }
 

@@ -124,6 +124,7 @@ class AcceptanceHarnessTests(unittest.TestCase):
         self.assertIn("scripts/acceptance/test_stream_performance_review.py", command.argv)
         self.assertIn("scripts/acceptance/test_air_migration_review.py", command.argv)
         self.assertIn("scripts/acceptance/test_target_security_review.py", command.argv)
+        self.assertIn("scripts/acceptance/test_phase2_observability.py", command.argv)
 
     def test_wack_runner_fails_closed_on_noninteractive_execution(self):
         source = (harness.ROOT / "scripts/acceptance/run_wack.ps1").read_text(encoding="utf-8")

@@ -122,3 +122,6 @@ in `EPIC-260714-th54l3 — manual-real-app-hardware-testing` owns the physical
 Windows-Windows, Windows-macOS and macOS-macOS two-home matrix, 2% impairment,
 100-cycle lifecycle run and calibrated p50/p95 evidence. Until that task and the
 three package/security blockers pass, production live PTT stays unavailable.
+
+The macOS receiver implementation and its explicit system-decoder/FEC boundary
+are documented in [p3-macos-live-jitter-receiver.md](p3-macos-live-jitter-receiver.md).

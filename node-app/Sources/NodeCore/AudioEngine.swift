@@ -1,6 +1,7 @@
 // Production audio graph (spec 6.3):
 //   FIFO -> interruptible reader thread (backpressure, no drops) -> SPSC ring
 //   -> AVAudioSourceNode "music" (with fade/duck gain) \
+//   48 kHz mono live ring -> AVAudioSourceNode "live"   \
 //   AVAudioPlayerNode "overlay" + legacy inserts       -> program mixer
 //   -> post-mix limiter -> final mainMixer volume -> output
 //
@@ -17,6 +18,7 @@ public final class AudioEngine {
 
     private let engine = AVAudioEngine()
     private let ring: RingBuffer
+    private let liveRing = RingBuffer(capacityFloats: 48_000 * 320 / 1_000)
     private let insertPlayer = AVAudioPlayerNode()
     private let overlayPlayer = AVAudioPlayerNode()
     private let programMixer = AVAudioMixerNode()
@@ -27,6 +29,7 @@ public final class AudioEngine {
         componentFlags: 0,
         componentFlagsMask: 0))
     private var srcNode: AVAudioSourceNode!
+    private var liveNode: AVAudioSourceNode!
     private let fifoPath: String
     private let log: Logger
 
@@ -58,6 +61,23 @@ public final class AudioEngine {
     private var gainTarget: Float = 1
     private var gainRampTotal: Int = 0 // frames; 0 = snap
     private var gainRampDone: Int = 0
+
+    // Live PTT uses its own fixed SPSC ring and render-owned gain ramp. The
+    // decoder is the only producer; this source callback is the only consumer.
+    private let liveActive = RenderAtomicInt64()
+    private let liveRouteGeneration = RenderAtomicInt64()
+    private let liveGainCommandGeneration = RenderAtomicInt64()
+    private let liveGainCommandProducerLock = NSLock()
+    private let liveGainTargetBits = RenderAtomicInt64(Int64(Float(0).bitPattern))
+    private let liveGainRampFrames = RenderAtomicInt64()
+    private var liveGainSeenGeneration: Int64 = 0
+    private var liveGainCurrent: Float = 0
+    private var liveGainStart: Float = 0
+    private var liveGainTarget: Float = 0
+    private var liveGainRampTotal: Int = 0
+    private var liveGainRampDone: Int = 0
+    private let liveUnderrunCounter = RenderAtomicInt64()
+    private let liveControlQueue = DispatchQueue(label: "duet.live-audio-control")
 
     // Underruns (spec 6.3/6.5) — read by heartbeat.
     private let underrunCounter = RenderAtomicInt64()
@@ -180,7 +200,80 @@ public final class AudioEngine {
         }
         // END RENDER CALLBACK
 
+        let liveFormat = AVAudioFormat(
+            standardFormatWithSampleRate: 48_000, channels: 1)!
+        var liveScratch = [Float](repeating: 0, count: 8_192)
+        // BEGIN LIVE RENDER CALLBACK (checked by RenderSafetySourceTests)
+        liveNode = AVAudioSourceNode(format: liveFormat) {
+            [weak self] _, _, frameCount, abl -> OSStatus in
+            guard let self else { return noErr }
+            let buffers = UnsafeMutableAudioBufferListPointer(abl)
+            let need = Int(frameCount)
+            guard need <= liveScratch.count else { return kAudio_ParamError }
+
+            let commandGeneration = self.liveGainCommandGeneration.load()
+            if commandGeneration != self.liveGainSeenGeneration {
+                self.liveGainSeenGeneration = commandGeneration
+                self.liveGainStart = self.liveGainCurrent
+                self.liveGainTarget = Float(bitPattern: UInt32(
+                    truncatingIfNeeded: self.liveGainTargetBits.load()))
+                self.liveGainRampTotal = Int(self.liveGainRampFrames.load())
+                self.liveGainRampDone = 0
+                if self.liveGainRampTotal == 0 {
+                    self.liveGainCurrent = self.liveGainTarget
+                }
+            }
+
+            let got: Int
+            if self.liveActive.load() != 0 {
+                got = liveScratch.withUnsafeMutableBufferPointer {
+                    self.liveRing.read(into: $0.baseAddress!, count: need)
+                }
+                if got < need { self.liveUnderrunCounter.add(1) }
+            } else {
+                _ = liveScratch.withUnsafeMutableBufferPointer {
+                    self.liveRing.read(into: $0.baseAddress!, count: 0)
+                }
+                got = 0
+            }
+            if got < need {
+                for index in got..<need { liveScratch[index] = 0 }
+            }
+
+            var done = self.liveGainRampDone
+            var gain = self.liveGainCurrent
+            for frame in 0..<need {
+                if self.liveGainRampTotal > 0 && done < self.liveGainRampTotal {
+                    let position = Float(done) / Float(self.liveGainRampTotal)
+                    let curve = 0.5 * (1 - cosf(.pi * position))
+                    gain = self.liveGainStart
+                        + (self.liveGainTarget - self.liveGainStart) * curve
+                    done += 1
+                } else {
+                    gain = self.liveGainTarget
+                }
+                liveScratch[frame] *= gain
+            }
+            self.liveGainRampDone = done
+            if self.liveGainRampTotal > 0 && done >= self.liveGainRampTotal {
+                self.liveGainRampTotal = 0
+            }
+            self.liveGainCurrent = gain
+            for index in buffers.indices {
+                guard let data = buffers[index].mData else { continue }
+                liveScratch.withUnsafeBufferPointer { scratch in
+                    data.assumingMemoryBound(to: Float.self).update(
+                        from: scratch.baseAddress!, count: need)
+                }
+                buffers[index].mDataByteSize = UInt32(
+                    need * MemoryLayout<Float>.size)
+            }
+            return noErr
+        }
+        // END LIVE RENDER CALLBACK
+
         engine.attach(srcNode)
+        engine.attach(liveNode)
         engine.attach(insertPlayer)
         engine.attach(overlayPlayer)
         engine.attach(programMixer)
@@ -193,6 +286,7 @@ public final class AudioEngine {
         setLimiterParameter(kDynamicsProcessorParam_ReleaseTime, value: 0.05)
         setLimiterParameter(kDynamicsProcessorParam_OverallGain, value: 0)
         engine.connect(srcNode, to: programMixer, format: fmt)
+        engine.connect(liveNode, to: programMixer, format: liveFormat)
         engine.connect(insertPlayer, to: programMixer, format: nil)
         engine.connect(overlayPlayer, to: programMixer, format: nil)
         engine.connect(programMixer, to: limiter, format: nil)
@@ -366,6 +460,54 @@ public final class AudioEngine {
 
     func setOverlayGain(_ gain: Float) {
         overlayPlayer.volume = min(max(gain, 0), 1)
+    }
+
+    // MARK: Live PTT source branch
+
+    var livePCMCapacityFrames: Int { liveRing.capacity }
+    var livePCMBufferedFrames: Int { liveRing.fill }
+    var livePCMUnderrunCallbacks: Int64 { liveUnderrunCounter.load() }
+
+    func prepareLivePCM() -> Int64 {
+        let generation = liveRouteGeneration.add(1)
+        liveRing.clear()
+        liveActive.store(0)
+        publishLiveGain(0, fadeMs: 0)
+        setMusicGain(Float(pow(10, -12.0 / 20.0)), fadeMs: 60)
+        return generation
+    }
+
+    func activateLivePCM(generation: Int64) {
+        guard liveRouteGeneration.load() == generation else { return }
+        publishLiveGain(1, fadeMs: 5)
+        liveActive.store(1)
+    }
+
+    func writeLivePCM(
+        generation: Int64, samples: UnsafePointer<Float>, count: Int
+    ) -> Int {
+        guard liveRouteGeneration.load() == generation, count > 0 else { return 0 }
+        return liveRing.write(samples, count: count)
+    }
+
+    func stopLivePCM(generation: Int64, discard: Bool) {
+        guard liveRouteGeneration.load() == generation else { return }
+        publishLiveGain(0, fadeMs: 8)
+        liveControlQueue.asyncAfter(deadline: .now() + .milliseconds(12)) { [weak self] in
+            guard let self, self.liveRouteGeneration.load() == generation else { return }
+            if discard || self.liveRing.fill > 0 { self.liveRing.clear() }
+            self.liveActive.store(0)
+            self.setMusicGain(1, fadeMs: 160)
+        }
+    }
+
+    private func publishLiveGain(_ target: Float, fadeMs: Int64) {
+        let clamped = min(max(target, 0), 1)
+        liveGainCommandProducerLock.withLock {
+            liveGainTargetBits.store(Int64(clamped.bitPattern))
+            liveGainRampFrames.store(fadeMs <= 0 ? 0 : max(1, fadeMs * 48))
+            liveGainCommandGeneration.store(liveGainCommandGeneration.load() + 1)
+        }
     }
 
     private func setLimiterParameter(_ parameter: AudioUnitParameterID, value: AudioUnitParameterValue) {

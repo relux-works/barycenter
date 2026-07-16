@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-developer
 
 ## Created
 2026-07-12T16:13:27Z
 
 ## Last Update
-2026-07-12T16:30:33Z
+2026-07-16T07:43:03Z
 
 ## Blocked By
 - TASK-260712-285pag
@@ -32,6 +32,7 @@ backlog
 - [ ] Purge revoked cache and keep all fetch, disk, decode and locks off the render callback
 
 ## Notes
+2026-07-16 strict-sequence start from synchronized main merge d427f82 after TASK-260712-2h6snp exact head 020c9e9 and hosted run 29480661409 passed 4/4. Implementing the Windows streamed-track player best-effort in deterministic code and unit/integration tests while preserving the accepted codec/player no-go: no production capability advertisement, real-device timing, one-hour playback, RSS or signed-hardware evidence will be claimed here; those remain in the manual testing epic.
 
 ## Precondition Resources
 - [p2-streamed-track-components.puml](file://TASK-260712-17w78q/p2-streamed-track-components.puml) — Windows cache, decoder and player boundaries for streamed tracks

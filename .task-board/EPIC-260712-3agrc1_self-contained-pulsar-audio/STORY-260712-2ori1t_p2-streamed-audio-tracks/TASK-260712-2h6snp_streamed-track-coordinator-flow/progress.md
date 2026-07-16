@@ -1,5 +1,5 @@
 ## Status
-development
+done
 
 ## Assigned To
 codex-inline-developer
@@ -8,7 +8,7 @@ codex-inline-developer
 2026-07-12T16:13:27Z
 
 ## Last Update
-2026-07-16T07:04:00Z
+2026-07-16T07:43:03Z
 
 ## Blocked By
 - TASK-260712-1n5fks
@@ -35,20 +35,22 @@ codex-inline-developer
 - TASK-260712-wt2n7m
 
 ## Checklist
-- [ ] Extend main-program element and session state for uploaded track sources
-- [ ] Integrate queue and replace acceptance, progress and ended bookkeeping
-- [ ] Drive buffer-ready scheduling and seek-reload flows from the coordinator
-- [ ] Persist and restore track position and progress across pause and restart
-- [ ] Preserve clip, overlay, interrupt and Spotify compatibility in FSM and loop tests
-- [ ] Use a provider-neutral main-program adapter and persist audible rather than decoded-ahead position
-- [ ] Define rebuffer, join catch-up, leave and ring-drained ended behavior
+- [x] Extend main-program element and session state for uploaded track sources
+- [x] Integrate queue and replace acceptance, progress and ended bookkeeping
+- [x] Drive buffer-ready scheduling and seek-reload flows from the coordinator
+- [x] Persist and restore track position and progress across pause and restart
+- [x] Preserve clip, overlay, interrupt and Spotify compatibility in FSM and loop tests
+- [x] Use a provider-neutral main-program adapter and persist audible rather than decoded-ahead position
+- [x] Define rebuffer, join catch-up, leave and ring-drained ended behavior
 
 ## Notes
 2026-07-16 strict-sequence start from synchronized main merge cf3a33a after TASK-260712-3lf8r0 exact head 52bf876 and hosted run 29478459982 passed 4/4. Implementing provider-neutral streamed-track coordinator queue/replace, buffer-ready scheduling, audible progress, seek/rebuffer generations and restart restoration inline outside task-board spawn workflow. Production codec/player selection remains no-go, so deterministic candidate-neutral state machines may land but no production capability or hands-on playback will be claimed.
+2026-07-16 accepted on exact engineering head 020c9e979e69c25029a7e2c7bfa5e29b7aa9f9a9 through PR #152, merge d427f822947789c6a2f82c0e89f485988d6d9e0f, after hosted run 29480661409 passed coordinator, node-core, pulsar-win and signed packaged-probe. Candidate-neutral queue/replace and provider-neutral main-source persistence, synchronized generation barriers, audible progress, rebuffer/restart, Air join/leave and ring-drained completion are accepted. FIFO bypass, idle replace, zero-target resume, late join and terminal-failure edge cases fail closed. Production stream_track_v1 stays locked by the codec/player no-go and real-app playback remains manual.
 
 ## Precondition Resources
 - [p2-streamed-track-components.puml](file://TASK-260712-2h6snp/p2-streamed-track-components.puml) — Coordinator component boundaries for streamed-track orchestration
 - [p2-streamed-track-sequence.puml](file://TASK-260712-2h6snp/p2-streamed-track-sequence.puml) — Buffered-start and seek flow for coordinator orchestration
 
 ## Outcome Resources
-(none)
+- [P2 streamed-track coordinator flow](../../../../docs/analysis/p2-streamed-track-coordinator-flow.md) — Candidate-neutral FSM, durable transitions, Air lifecycle and no-go boundary
+- [PR #152](https://github.com/relux-works/barycenter/pull/152) — Accepted engineering implementation and hosted CI provenance

@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-16T04:42:12Z
+2026-07-16T05:16:21Z
 
 ## Blocked By
 - STORY-260712-sskhip
@@ -33,6 +33,8 @@ User mandate 2026-07-12: do not accept agent code without scrupulous root review
 2026-07-16 strict sequential checkpoint: 100/186 engineering tasks accepted (53.8%) and 100/205 combined tasks accepted (48.8%). TASK-260712-20cuna landed through PR #140 at merge e51c937 after hosted run 29470807661 passed 4/4; STORY-260712-ob1tx2 is complete. Strict engineering execution advances to TASK-260712-1n5fks; the separate manual epic remains 0/19 and both B5-B7 real-app acceptance and production-shaped rollout rehearsal remain unclaimed.
 2026-07-16 strict sequential start: TASK-260712-1n5fks began inline from tracking PR #141 merge b7bc2b4 after hosted run 29471003186 passed 4/4. Counts remain 100/186 engineering and 100/205 combined until the candidate-neutral schema foundation is accepted; the codec/player production no-go remains in force.
 2026-07-16 strict sequential checkpoint: 101/186 engineering tasks accepted (54.3%) and 101/205 combined tasks accepted (49.3%). TASK-260712-1n5fks landed through PR #142 at merge 5478006 after hosted run 29471845396 passed 4/4. Additive streamed-track schema, pinned variant/seek behavior, restart state and exact previous-binary rollback are accepted; production codec/player remains no-go and no real-app or hardware result is claimed. Strict engineering execution advances to TASK-260712-31rkpe.
+2026-07-16 strict sequential start: TASK-260712-31rkpe began inline from tracking PR #143 merge d26cb26 after hosted run 29472071694 passed 4/4. Counts remain 101/186 engineering and 101/205 combined until the candidate-neutral generation-safe wire contract is accepted; the production codec/player no-go remains in force.
+2026-07-16 strict sequential checkpoint: 102/186 engineering tasks accepted (54.8%) and 102/205 combined tasks accepted (49.8%). TASK-260712-31rkpe landed through PR #144 at merge 0b9fc7d after hosted run 29473326227 passed 4/4. Generation-safe Go/Swift/Windows stream payloads, 51 shared goldens, timing barriers, stale-event rejection and explicit mixed-version policy are accepted; production stream_track_v1 remains unadvertised and no real-app or hardware result is claimed. Strict engineering execution advances to TASK-260712-2ogntd.
 
 ## Precondition Resources
 (none)

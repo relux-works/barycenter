@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-gate-result.v1",
+  "gateContract": "p2-gate-matrix-evidence.v1",
+  "gateContractSha256": "",
+  "campaignId": "",
+  "gateId": "",
+  "claimClass": "manual-final",
+  "status": "not-run",
+  "startedAt": "",
+  "finishedAt": "",
+  "operator": "",
+  "provenance": {
+    "rootGitCommit": "",
+    "coordinatorSha256": "",
+    "windowsMSIXSha256": "",
+    "macOSAppSha256": "",
+    "configurationSha256": "",
+    "fixtureLockSha256": ""
+  },
+  "environment": {
+    "pairingOrTopology": "",
+    "nodes": [],
+    "clockSyncSource": "",
+    "clockOffsetBeforeMS": null,
+    "clockOffsetAfterMS": null,
+    "networkProfile": ""
+  },
+  "samples": [],
+  "artifacts": [],
+  "sanitizationReportSha256": "",
+  "blockers": [],
+  "notes": ""
+}

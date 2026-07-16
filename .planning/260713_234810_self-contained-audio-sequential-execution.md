@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 120 accepted, 85 remain.
-- Routed inventory: 186 engineering tasks (120 accepted, 66 remain) and 19
+- Combined inventory: 205 original tasks; 121 accepted, 84 remain.
+- Routed inventory: 186 engineering tasks (121 accepted, 65 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3a0cf9` — phase2-engineering-handoff-packet
-- Next engineering task: `TASK-260712-lo7a68` — live-codec-transport-spike
-- Most recently accepted: `TASK-260712-1kfnpu` — p2-root-integration-review
-- Current branch: `chore/resume-after-p2-root-review`
+- Current engineering task: `TASK-260712-lo7a68` — live-codec-transport-spike
+- Next engineering task: `TASK-260712-3qviqc` — live-ptt-wire-contract-codec-policy
+- Most recently accepted: `TASK-260712-3a0cf9` — phase2-engineering-handoff-packet
+- Current branch: `chore/resume-after-phase2-handoff`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 120 / 205 tasks (approximately 58.5%); 85 remain
-- Engineering progress: 120 / 186 tasks (approximately 64.5%); 66 remain
+- Accepted overall: 121 / 205 tasks (approximately 59.0%); 84 remain
+- Engineering progress: 121 / 186 tasks (approximately 65.1%); 65 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2347,6 +2347,24 @@ packaged probe 2m45s, coordinator 3m02s). PR #181 landed commits `5f2f7e9` and
 Progress is 120/205 overall and 120/186 engineering. Strict reversible
 execution advances to `TASK-260712-3a0cf9`.
 
+Checkpoint 2026-07-16 (accepted Phase 2 engineering handoff):
+`TASK-260712-3a0cf9` published a single reproducible Phase 2 index on exact
+baseline `cfb6fa3801742e1150ca22d95452093efe2c037d`. It source-pins 27
+contracts, reviews, runbooks, authorities and tools; maps B1-B7, 20.5,
+section 18 and 20.6; records quota defaults, feature authority, rollback
+ownership, all six Phase 2 manual tasks and four external approvals. Production
+build/package/config/database/fixture hashes remain null, codec remains no-go,
+13 High production gates remain open and rollout remains capped at dark stage
+4. Clean local acceptance passed all 12 stages with 93 contract tests; the
+synthetic Air 8x20 rehearsal had zero failures or duplicate commands. Hosted
+run `29511154644` passed all four jobs on its first attempt (pulsar-win 1m57s,
+node-core 2m01s, coordinator 2m18s, signed packaged probe 2m29s). PR #183
+landed exact head `fa03a479388ffd41031637b521d8de0eb71f89e9` at merge
+`b02538f201cdfe40fd4bbfb5150842fd96754861`. This opens reversible P3
+engineering only. Progress is 121/205 overall and 121/186 engineering. Manual
+`TASK-260712-9wivva` stays deferred; strict engineering advances to
+`TASK-260712-lo7a68`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -2917,7 +2935,12 @@ manual promotion remains separate.
 - ↪ manual `TASK-260712-3qybi2` — phase2-rollout-migration-rollback
 - ↪ manual `TASK-260712-3u5cdn` — phase2-b5-b7-rights-mixed-fleet
 - ↪ manual `TASK-260712-2pnc5a` — phase2-beta-quota-calibration
-- [ ] `TASK-260712-3a0cf9` — phase2-engineering-handoff-packet
+- [x] `TASK-260712-3a0cf9` — phase2-engineering-handoff-packet (accepted exact
+  head `fa03a47`; 27-anchor B1-B7/20.5/18/20.6 evidence index, flags, quotas,
+  rollback and pending manual/external gates frozen; production hashes null,
+  codec no-go and rollout stage 4 preserved; clean 12-stage local acceptance,
+  93 contract tests and hosted run `29511154644` 4/4 passed; PR #183 merge
+  `b02538f`)
 
 ## 14. P3 near-live push-to-talk
 

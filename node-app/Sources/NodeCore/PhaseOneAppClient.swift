@@ -258,6 +258,7 @@ public extension PhaseOneAppServicing {
 /// status from a request that did not receive a successful coordinator reply.
 public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable {
   private static let maximumResponseBytes = 64 * 1_024
+  public static let streamTrackChunkBytes = 4 * 1_024 * 1_024
 
   private let origin: CoordinatorOrigin
   private let controlToken: String
@@ -342,6 +343,83 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
       completion.status == "completed"
     else { throw PhaseOneClientError.invalidResponse }
     return PhaseOneUploadConfirmation(mediaID: completion.mediaID, reused: session.reused ?? false)
+  }
+
+  /// Resumable long-track upload. Unlike the Phase 1 clip adapter above this
+  /// method never maps or slices the whole file: each request owns at most one
+  /// 4 MiB Data value and resumes from the coordinator's durable offset.
+  public func uploadTrack(
+    fileURL: URL,
+    title: String,
+    idempotencyKey: String,
+    rightsAcknowledged: Bool,
+    progress: @escaping @Sendable (Int64, Int64) -> Void = { _, _ in }
+  ) async throws -> PhaseOneUploadConfirmation {
+    let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard Self.validIdempotencyKey(idempotencyKey), !cleanTitle.isEmpty,
+      cleanTitle.utf8.count <= 512, fileURL.isFileURL,
+      let values = try? fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]),
+      values.isRegularFile == true, let rawSize = values.fileSize,
+      rightsAcknowledged
+    else { throw PhaseOneClientError.invalidRequest }
+    let size = Int64(rawSize)
+    guard size > 0, size <= MacStreamTrackDraftStore.maximumFileBytes else {
+      throw PhaseOneClientError.invalidRequest
+    }
+    let create = try await request(
+      method: "POST", path: "/v1/media/uploads", bearer: controlToken,
+      headers: ["Idempotency-Key": idempotencyKey],
+      jsonBody: UploadCreateBody(
+        kind: "audio_track", title: cleanTitle, sizeBytes: size,
+        rightsAcknowledged: rightsAcknowledged), success: [200, 201])
+    var session: UploadSessionResponse = try decode(create.data)
+    guard Self.validUploadID(session.uploadID), Self.validMediaID(session.mediaID),
+      session.uploadLength == size, session.uploadOffset >= 0,
+      session.uploadOffset <= session.uploadLength
+    else { throw PhaseOneClientError.invalidResponse }
+    progress(session.uploadOffset, session.uploadLength)
+    let reused = session.reused ?? false
+    if session.status == "completed", session.uploadOffset == session.uploadLength {
+      return PhaseOneUploadConfirmation(mediaID: session.mediaID, reused: reused)
+    }
+    guard session.status == "open", CredentialSyntax.lowerHexToken(session.uploadToken) else {
+      throw PhaseOneClientError.invalidResponse
+    }
+    let uploadToken = session.uploadToken
+    let handle: FileHandle
+    do {
+      handle = try FileHandle(forReadingFrom: fileURL)
+      try handle.seek(toOffset: UInt64(session.uploadOffset))
+    } catch { throw PhaseOneClientError.invalidRequest }
+    defer { try? handle.close() }
+    while session.uploadOffset < session.uploadLength {
+      try Task.checkCancellation()
+      let count = min(
+        Self.streamTrackChunkBytes,
+        Int(session.uploadLength - session.uploadOffset))
+      let chunk: Data
+      do { chunk = try handle.read(upToCount: count) ?? Data() }
+      catch { throw PhaseOneClientError.invalidRequest }
+      guard chunk.count == count else { throw PhaseOneClientError.invalidRequest }
+      let response = try await request(
+        method: "PUT", path: "/v1/media/uploads/\(session.uploadID)", bearer: uploadToken,
+        headers: [
+          "Upload-Offset": String(session.uploadOffset),
+          "Content-Type": "application/octet-stream",
+        ], rawBody: chunk, timeoutInterval: 15 * 60, success: [200])
+      let next: UploadSessionResponse = try decode(response.data)
+      let nextOffset = session.uploadOffset + Int64(count)
+      guard next.uploadID == session.uploadID, next.mediaID == session.mediaID,
+        next.uploadLength == session.uploadLength, next.uploadOffset == nextOffset,
+        (nextOffset < next.uploadLength && next.status == "open")
+          || (nextOffset == next.uploadLength && next.status == "completed")
+      else { throw PhaseOneClientError.invalidResponse }
+      session = next
+      progress(session.uploadOffset, session.uploadLength)
+    }
+    guard session.status == "completed" else { throw PhaseOneClientError.invalidResponse }
+    return PhaseOneUploadConfirmation(
+      mediaID: session.mediaID, reused: reused)
   }
 
   public func contentPolicy(locale: ContentPolicyLocale) async throws -> ContentPolicyManifest {
@@ -681,6 +759,7 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
     rawBody: Data? = nil,
     allowQuery: Bool = false,
     requiresJSONResponse: Bool = true,
+    timeoutInterval: TimeInterval = 30,
     success: Set<Int>
   ) async throws -> HTTPTransportResponse {
     let url: URL?
@@ -699,7 +778,8 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
       throw PhaseOneClientError.invalidRequest
     }
     var request = URLRequest(
-      url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 30)
+      url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+      timeoutInterval: timeoutInterval)
     request.httpMethod = method
     request.httpBody = rawBody
     request.setValue("application/json", forHTTPHeaderField: "Accept")

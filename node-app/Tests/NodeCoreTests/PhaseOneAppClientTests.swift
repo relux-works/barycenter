@@ -282,6 +282,81 @@ struct PhaseOneAppClientTests {
     #expect(offline.requests().count == 1)
   }
 
+  @Test("Long tracks require rights and resume in bounded authenticated chunks")
+  func resumableLongTrackUpload() async throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("phase-one-track-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let file = root.appendingPathComponent("long-track.mp3")
+    FileManager.default.createFile(atPath: file.path, contents: nil)
+    let writer = try FileHandle(forWritingTo: file)
+    let resumedOffset = Int64(PhaseOneAppClient.streamTrackChunkBytes)
+    let total = resumedOffset * 2 + 17
+    try writer.truncate(atOffset: UInt64(total))
+    try writer.close()
+
+    let uploadID = "up_" + String(repeating: "A", count: 26)
+    let mediaID = "m_" + String(repeating: "B", count: 26)
+    let index = PhaseOneRequestIndex()
+    let progress = TrackProgressRecorder()
+    let transport = ScriptedTransport { request, maximum in
+      #expect(maximum == 64 * 1_024)
+      switch index.next() {
+      case 0:
+        #expect(request.httpMethod == "POST")
+        #expect(request.url?.path == "/v1/media/uploads")
+        #expect(request.value(forHTTPHeaderField: "Idempotency-Key") == "track:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        let object = try #require(
+          JSONSerialization.jsonObject(with: request.httpBody!) as? [String: Any])
+        #expect(object["kind"] as? String == "audio_track")
+        #expect(object["size_bytes"] as? Int == Int(total))
+        #expect(object["rights_acknowledged"] as? Bool == true)
+        return testHTTPResponse(
+          request: request, status: 200,
+          json: #"{"upload_id":"\#(uploadID)","media_id":"\#(mediaID)","upload_token":"\#(testNodeToken)","upload_offset":\#(resumedOffset),"upload_length":\#(total),"status":"open","reused":true}"#)
+      case 1:
+        #expect(request.httpMethod == "PUT")
+        #expect(request.url?.path == "/v1/media/uploads/\(uploadID)")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer \(testNodeToken)")
+        #expect(request.value(forHTTPHeaderField: "Upload-Offset") == String(resumedOffset))
+        #expect(request.httpBody?.count == PhaseOneAppClient.streamTrackChunkBytes)
+        #expect(request.timeoutInterval == 15 * 60)
+        let offset = resumedOffset + Int64(PhaseOneAppClient.streamTrackChunkBytes)
+        return testHTTPResponse(
+          request: request, status: 200,
+          json: #"{"upload_id":"\#(uploadID)","media_id":"\#(mediaID)","upload_offset":\#(offset),"upload_length":\#(total),"status":"open"}"#)
+      case 2:
+        let offset = resumedOffset + Int64(PhaseOneAppClient.streamTrackChunkBytes)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer \(testNodeToken)")
+        #expect(request.value(forHTTPHeaderField: "Upload-Offset") == String(offset))
+        #expect(request.httpBody?.count == 17)
+        return testHTTPResponse(
+          request: request, status: 200,
+          json: #"{"upload_id":"\#(uploadID)","media_id":"\#(mediaID)","upload_offset":\#(total),"upload_length":\#(total),"status":"completed"}"#)
+      default:
+        Issue.record("unexpected long-track request")
+        return testHTTPResponse(request: request, status: 500, json: "{}")
+      }
+    }
+    let client = try PhaseOneAppClient(bundle: credentialBundle(), transport: transport)
+
+    await #expect(throws: PhaseOneClientError.invalidRequest) {
+      _ = try await client.uploadTrack(
+        fileURL: file, title: "Long track",
+        idempotencyKey: "track:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        rightsAcknowledged: false)
+    }
+    let receipt = try await client.uploadTrack(
+      fileURL: file, title: "Long track",
+      idempotencyKey: "track:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      rightsAcknowledged: true,
+      progress: { progress.append(offset: $0, length: $1) })
+    #expect(receipt == .init(mediaID: mediaID, reused: true))
+    #expect(progress.values() == [resumedOffset, resumedOffset * 2, total])
+    #expect(transport.requests().count == 3)
+  }
+
   private func credentialBundle() throws -> CredentialBundle {
     CredentialBundle(
       coordinatorOrigin: try CoordinatorOrigin("https://coord.example"),
@@ -308,4 +383,18 @@ private final class PhaseOneRequestIndex: @unchecked Sendable {
       return value
     }
   }
+}
+
+private final class TrackProgressRecorder: @unchecked Sendable {
+  private let lock = NSLock()
+  private var offsets: [Int64] = []
+
+  func append(offset: Int64, length: Int64) {
+    lock.withLock {
+      #expect(offset >= 0 && offset <= length)
+      offsets.append(offset)
+    }
+  }
+
+  func values() -> [Int64] { lock.withLock { offsets } }
 }

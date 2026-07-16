@@ -45,6 +45,8 @@ txsvc --> b : 404 / forbidden-equivalent
 c -> adapter : report exact received item
 adapter -> txsvc : common history report action
 txsvc -> db : reporter-local unavailable + evidence
+txsvc -> db : deny this reporter's future fetch / replay / target evaluation
+txsvc -> runtime : disarm only reporting actor targets\n(no evidence-target / peer cancellation)
 note right of db
   Report alone does not quarantine,
   delete, disable, or cancel peers.
@@ -55,6 +57,12 @@ end note
 sender -> adapter : delete owned media
 adapter -> txsvc : existing authorized media delete
 txsvc -> db : revoke fetch first + cancel active work
+
+alt moderator deletes media or disables source actor / orbit
+  txsvc -> db : canonical terminal decision + sanitized audit
+  txsvc -> runtime : revoke future work and disarm affected targets
+  db --> c : later open / refill / inbox replay = nonexistence
+end
 
 == Later ==
 

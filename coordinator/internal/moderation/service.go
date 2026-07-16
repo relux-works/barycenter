@@ -59,8 +59,27 @@ func (service *Service) CreateReportForIdentity(
 	identity store.Identity,
 	params store.CreateModerationReportParams,
 ) (store.ModerationReportCreation, error) {
-	params.CreatedAt = service.now().UnixMilli()
-	return service.store.CreateModerationReportForIdentity(expectedActorID, identity, params)
+	now := service.now().UnixMilli()
+	params.CreatedAt = now
+	created, err := service.store.CreateModerationReportForIdentity(
+		expectedActorID, identity, params,
+	)
+	if err != nil {
+		return store.ModerationReportCreation{}, err
+	}
+	report := created.Report
+	// A Telegram report can use a shared Barycenter receipt whose evidence
+	// target belongs to another actor. Key cancellation to the reporting actor,
+	// never to that evidence target, so the local protection cannot censor a
+	// companion's playback.
+	results, err := service.store.CancelTransmissionsForMediaToActor(
+		report.MediaID, report.ReporterActorID, store.TransmissionReasonReported, now,
+	)
+	if err != nil {
+		return store.ModerationReportCreation{}, err
+	}
+	service.notifyCancellations(results)
+	return created, nil
 }
 
 func (service *Service) BlockReportedSender(

@@ -127,6 +127,7 @@ const (
 	TransmissionReasonTargetRevoked           TransmissionReason = "target_revoked"
 	TransmissionReasonDNDEnabled              TransmissionReason = "dnd_enabled"
 	TransmissionReasonSenderBlocked           TransmissionReason = "sender_blocked"
+	TransmissionReasonReported                TransmissionReason = "reported"
 	TransmissionReasonCoordinatorRestarted    TransmissionReason = "coordinator_restarted"
 	TransmissionReasonDeliveryExpired         TransmissionReason = "delivery_expired"
 )
@@ -373,7 +374,8 @@ func validTransmissionTargetReason(status TransmissionTargetStatus, reason Trans
 	case TransmissionTargetMissedNotReady:
 		return reason == TransmissionReasonPrepareDeadline
 	case TransmissionTargetBlocked:
-		return reason == TransmissionReasonActorBlocked || reason == TransmissionReasonOrbitBlocked
+		return reason == TransmissionReasonActorBlocked || reason == TransmissionReasonOrbitBlocked ||
+			reason == TransmissionReasonReported
 	case TransmissionTargetFailed:
 		return isFailureReason(reason)
 	case TransmissionTargetCancelled:
@@ -407,7 +409,8 @@ func isCancellationReason(reason TransmissionReason) bool {
 		TransmissionReasonMediaExpired, TransmissionReasonModerationDisabled,
 		TransmissionReasonApproachLeft, TransmissionReasonApproachApart,
 		TransmissionReasonTargetRevoked, TransmissionReasonDNDEnabled,
-		TransmissionReasonSenderBlocked, TransmissionReasonCoordinatorRestarted:
+		TransmissionReasonSenderBlocked, TransmissionReasonReported,
+		TransmissionReasonCoordinatorRestarted:
 		return true
 	default:
 		return false
@@ -1246,6 +1249,10 @@ WHERE tr.media_id = ? AND tt.orbit_id = ? AND tt.actor_id = ? AND tt.slot = ?
         OR (b.owner_scope = 'actor' AND b.owner_actor_id = tt.actor_id))
       AND ((b.blocked_kind = 'actor' AND b.blocked_actor_id = tr.source_actor_id)
         OR (b.blocked_kind = 'orbit' AND b.blocked_orbit_id = tr.source_orbit_id))
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM moderation_reports mr
+    WHERE mr.reporter_actor_id = tt.actor_id AND mr.media_id = tr.media_id
   )`
 
 func allowsMediaDownloadRow(row *sql.Row) (bool, error) {

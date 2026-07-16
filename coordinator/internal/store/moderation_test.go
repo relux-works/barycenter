@@ -103,6 +103,208 @@ func TestModerationReportUsesPersistedForeignTargetAndIsPrivacySafe(t *testing.T
 	}
 }
 
+func TestModerationReportProtectsOnlyReporterFetchInboxReplayAndFutureDelivery(t *testing.T) {
+	st, source := newMediaIngestTestStore(t)
+	reporter, err := st.CreateSelfServiceOrbit("Report-local recipient")
+	if err != nil {
+		t.Fatal(err)
+	}
+	companion := addTransmissionInstallation(t, st, source, "companion")
+	now := time.Now().UnixMilli()
+	media := readyLifecycleMedia(
+		t, st, source, now,
+		now+int64((45*24*time.Hour)/time.Millisecond),
+	)
+	created, err := st.CreateTransmission(transmissionParams(
+		media, source, now+3,
+		transmissionTarget(reporter, true),
+		transmissionTarget(companion, true),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inboxByActor := make(map[int64]string)
+	for index, target := range created.Targets {
+		transition, err := st.TransitionTransmissionTarget(TransitionTransmissionTargetParams{
+			TransmissionID: target.TransmissionID,
+			OrbitID:        target.OrbitID, ActorID: target.ActorID, Slot: target.Slot,
+			ExpectedRevision: target.Revision, Generation: target.Generation,
+			Status: TransmissionTargetFailed, ReasonCode: TransmissionReasonConnectionLost,
+			OccurredAt: now + 4 + int64(index),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		inbox, err := scanTransmissionInboxItem(st.db.QueryRow(
+			`SELECT `+transmissionInboxColumns+` FROM transmission_inbox_items
+WHERE transmission_id = ? AND actor_id = ?`, transition.Transmission.ID, target.ActorID,
+		))
+		if err != nil {
+			t.Fatal(err)
+		}
+		inboxByActor[target.ActorID] = inbox.ID
+	}
+
+	if allowed, err := st.AllowsMediaDownload(context.Background(), MediaTargetIdentity{
+		MediaID: media.ID, OrbitID: reporter.OrbitID,
+		ActorID: reporter.ActorID, Slot: reporter.Slot,
+	}); err != nil || !allowed {
+		t.Fatalf("reporter pre-report ACL allowed=%v err=%v", allowed, err)
+	}
+	if _, err := st.CreateModerationReport(
+		reporter.ActorID, reporter.ControlToken,
+		CreateModerationReportParams{
+			MediaID: media.ID, Reason: ModerationReasonHarassment,
+			Details: "local protection", CreatedAt: now + 10,
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	reporterInbox, err := st.GetTransmissionInboxItem(inboxByActor[reporter.ActorID])
+	if err != nil || reporterInbox == nil ||
+		reporterInbox.Availability != TransmissionInboxUnavailable ||
+		reporterInbox.RevocationReason != TransmissionReasonReported ||
+		reporterInbox.RevokedAt != now+10 {
+		t.Fatalf("reporter inbox=%+v err=%v", reporterInbox, err)
+	}
+	companionInbox, err := st.GetTransmissionInboxItem(inboxByActor[companion.ActorID])
+	if err != nil || companionInbox == nil ||
+		companionInbox.Availability != TransmissionInboxAvailable {
+		t.Fatalf("unrelated inbox=%+v err=%v", companionInbox, err)
+	}
+	if _, err := st.CreateAuthorizedInboxReplay(CreateAuthorizedInboxReplayParams{
+		ExpectedActorID:    reporter.ActorID,
+		Identity:           Identity{Kind: IdentityBearer, Token: reporter.ControlToken},
+		InboxID:            inboxByActor[reporter.ActorID],
+		IdempotencyKeyHash: strings.Repeat("a", 64),
+		RequestHash:        strings.Repeat("b", 64),
+		RequestedDelivery:  TransmissionDeliveryOverlay,
+		AcceptedAt:         now + 11,
+	}); !errors.Is(err, ErrTransmissionInboxNotFound) {
+		t.Fatalf("reported inbox replay error=%v", err)
+	}
+	if allowed, err := st.AllowsMediaDownload(context.Background(), MediaTargetIdentity{
+		MediaID: media.ID, OrbitID: reporter.OrbitID,
+		ActorID: reporter.ActorID, Slot: reporter.Slot,
+	}); err != nil || allowed {
+		t.Fatalf("reporter post-report ACL allowed=%v err=%v", allowed, err)
+	}
+	if allowed, err := st.AllowsMediaDownload(context.Background(), MediaTargetIdentity{
+		MediaID: media.ID, OrbitID: companion.OrbitID,
+		ActorID: companion.ActorID, Slot: companion.Slot,
+	}); err != nil || !allowed {
+		t.Fatalf("unrelated post-report ACL allowed=%v err=%v", allowed, err)
+	}
+	lateReceiptTransmission, err := st.CreateTransmission(transmissionParams(
+		media, source, now+12, transmissionTarget(reporter, true),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lateTarget := lateReceiptTransmission.Targets[0]
+	if _, err := st.TransitionTransmissionTarget(TransitionTransmissionTargetParams{
+		TransmissionID: lateTarget.TransmissionID,
+		OrbitID:        lateTarget.OrbitID, ActorID: lateTarget.ActorID, Slot: lateTarget.Slot,
+		ExpectedRevision: lateTarget.Revision, Generation: lateTarget.Generation,
+		Status: TransmissionTargetFailed, ReasonCode: TransmissionReasonConnectionLost,
+		OccurredAt: now + 13,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	lateInbox, err := scanTransmissionInboxItem(st.db.QueryRow(
+		`SELECT `+transmissionInboxColumns+` FROM transmission_inbox_items
+WHERE transmission_id = ?`, lateReceiptTransmission.Transmission.ID,
+	))
+	if err != nil || lateInbox.Availability != TransmissionInboxUnavailable ||
+		lateInbox.RevocationReason != TransmissionReasonReported {
+		t.Fatalf("post-report receipt inbox=%+v err=%v", lateInbox, err)
+	}
+
+	activateTransmissionApproach(t, st, source, reporter)
+	params := resolvedTransmissionParams(source, media, now+20)
+	params.Availability = []TransmissionTargetAvailability{
+		fullTransmissionAvailability(source, params.AcceptedAt),
+		fullTransmissionAvailability(companion, params.AcceptedAt),
+		fullTransmissionAvailability(reporter, params.AcceptedAt),
+	}
+	future, err := st.CreateResolvedTransmission(params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statuses := make(map[int64]TransmissionTarget)
+	for _, target := range future.Creation.Targets {
+		statuses[target.ActorID] = target
+	}
+	if target := statuses[reporter.ActorID]; target.Status != TransmissionTargetBlocked || target.ReasonCode != TransmissionReasonReported {
+		t.Fatalf("reported target=%+v", target)
+	}
+	for _, actorID := range []int64{source.ActorID, companion.ActorID} {
+		if target := statuses[actorID]; target.Status != TransmissionTargetAccepted {
+			t.Fatalf("unrelated target actor=%d target=%+v", actorID, target)
+		}
+	}
+	current, err := st.GetMediaItem(media.ID)
+	if err != nil || current == nil || current.Status != MediaStatusReady {
+		t.Fatalf("report globally changed media=%+v err=%v", current, err)
+	}
+}
+
+func TestModerationReportRollbackDoesNotHideInbox(t *testing.T) {
+	st, source := newMediaIngestTestStore(t)
+	reporter, err := st.CreateSelfServiceOrbit("Report rollback recipient")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	media := readyLifecycleMedia(
+		t, st, source, now,
+		now+int64((45*24*time.Hour)/time.Millisecond),
+	)
+	created, err := st.CreateTransmission(transmissionParams(
+		media, source, now+3, transmissionTarget(reporter, true),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	transitionTargetToInboxReceipt(
+		t, st, created, TransmissionTargetFailed,
+		TransmissionReasonConnectionLost, now+4,
+	)
+	inbox, err := scanTransmissionInboxItem(st.db.QueryRow(
+		`SELECT `+transmissionInboxColumns+` FROM transmission_inbox_items
+WHERE transmission_id = ?`, created.Transmission.ID,
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	injected := errors.New("report transaction interrupted")
+	st.testCheckpoint = func(name string) error {
+		if name == "moderation_report_create_before_commit" {
+			return injected
+		}
+		return nil
+	}
+	if _, err := st.CreateModerationReport(
+		reporter.ActorID, reporter.ControlToken,
+		CreateModerationReportParams{
+			MediaID: media.ID, Reason: ModerationReasonHarassment,
+			CreatedAt: now + 5,
+		},
+	); !errors.Is(err, injected) {
+		t.Fatalf("report rollback error=%v", err)
+	}
+	current, err := st.GetTransmissionInboxItem(inbox.ID)
+	if err != nil || current == nil || current.Availability != TransmissionInboxAvailable {
+		t.Fatalf("rolled-back report hid inbox=%+v err=%v", current, err)
+	}
+	var reports int
+	if err := st.db.QueryRow(`SELECT COUNT(*) FROM moderation_reports
+WHERE reporter_actor_id = ? AND media_id = ?`, reporter.ActorID, media.ID).Scan(&reports); err != nil || reports != 0 {
+		t.Fatalf("rolled-back reports=%d err=%v", reports, err)
+	}
+}
+
 func TestModerationOperatorDomainsCapabilitiesEvidenceAuditAndRevocation(t *testing.T) {
 	fixture := newModerationFixture(t)
 	report := createFixtureReport(t, fixture)

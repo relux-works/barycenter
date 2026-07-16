@@ -601,7 +601,8 @@ WHERE a.id = ? AND o.id = ?`, target.ActorID, target.OrbitID).Scan(&actorName, &
 		}
 		page.Items = append(page.Items, AuthorizedHistoryReceipt{
 			Target: target, DisplayLabel: actorName + " · " + orbitName,
-			RevealReason: item.RevealBlockedReason || target.Status != TransmissionTargetBlocked,
+			RevealReason: target.ReasonCode != TransmissionReasonReported &&
+				(item.RevealBlockedReason || target.Status != TransmissionTargetBlocked),
 		})
 	}
 	if hasMore && len(visibleTargets) > 0 {

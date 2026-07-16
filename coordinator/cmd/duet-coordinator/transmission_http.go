@@ -698,9 +698,11 @@ func targetResponses(targets []store.TransmissionTarget) []transmissionTargetRes
 			OrbitID: target.OrbitID, Slot: target.Slot,
 			Status: string(target.Status), ReasonCode: string(target.ReasonCode),
 		}
-		if target.Status == store.TransmissionTargetBlocked {
+		if target.Status == store.TransmissionTargetBlocked ||
+			target.ReasonCode == store.TransmissionReasonReported {
 			// Reveal only that delivery was blocked, never which actor- or
-			// orbit-scoped rule produced the decision.
+			// orbit-scoped rule produced the decision. A local report-driven
+			// cancellation likewise never identifies its reporter to a sender.
 			response.ReasonCode = ""
 		}
 		if target.ReadyAt != 0 {

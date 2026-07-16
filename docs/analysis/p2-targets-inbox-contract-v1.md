@@ -101,6 +101,12 @@ reporter's exact current target evidence. Its immediate effect is local only:
 hide/unavailable, deny replay and stop that reporter's target playback; the
 reporter may also use the existing block actions.
 
+The canonical target ACL keys this local effect by reporting actor and media.
+Matching inbox rows become `unavailable/reported`, a later delivery to the
+reporting actor is snapshotted as `blocked/reported`, and scheduler cancellation
+matches only that media and reporting actor. A Telegram report based on another
+actor's shared Barycenter receipt never cancels the evidence target.
+
 A report alone never deletes media, cancels unrelated targets, disables the
 sender or Air, grants operator authority or triggers a count-based global
 quarantine. This prevents reports from becoming an unreviewed global denial of

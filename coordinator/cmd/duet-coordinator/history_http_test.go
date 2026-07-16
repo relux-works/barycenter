@@ -350,6 +350,11 @@ func TestHistoryHTTPReportAndBlockShareCanonicalOwnerServices(t *testing.T) {
 	if _, exists := reportBody["media_id"]; exists {
 		t.Fatalf("history report exposed raw media id: %v", reportBody)
 	}
+	senderReceipts := apiRequest(fixture.harness.mux, http.MethodGet,
+		"/v1/history/"+historyID+"/receipts", "", fixture.source.ControlToken)
+	if senderReceipts.Code != http.StatusOK || strings.Contains(senderReceipts.Body.String(), "reported") {
+		t.Fatalf("sender learned report outcome=%d %s", senderReceipts.Code, senderReceipts.Body.String())
+	}
 	repeatedReport := historyActionRequest(fixture.harness.mux, reportPath,
 		`{"reason":"spam","details":"ignored on exact duplicate"}`,
 		fixture.reporter.ControlToken, "")

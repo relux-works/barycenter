@@ -390,6 +390,11 @@ func (s *Store) CreateModerationReportForIdentity(
 WHERE reporter_actor_id = ? AND media_id = ?`, ctx.ActorID, params.MediaID,
 	))
 	if err == nil {
+		if err := revokeTransmissionInboxByReportTx(
+			tx, ctx.ActorID, params.MediaID, params.CreatedAt,
+		); err != nil {
+			return ModerationReportCreation{}, err
+		}
 		if err := tx.Commit(); err != nil {
 			return ModerationReportCreation{}, err
 		}
@@ -517,6 +522,11 @@ LIMIT 1`,
 	if _, err := tx.Exec(`INSERT INTO moderation_audit_events(
   report_id, actor_id, event_type, created_at
 ) VALUES(?, ?, 'report.created', ?)`, report.ID, ctx.ActorID, params.CreatedAt); err != nil {
+		return ModerationReportCreation{}, err
+	}
+	if err := revokeTransmissionInboxByReportTx(
+		tx, ctx.ActorID, params.MediaID, params.CreatedAt,
+	); err != nil {
 		return ModerationReportCreation{}, err
 	}
 	if err := s.checkpoint("moderation_report_create_before_commit"); err != nil {

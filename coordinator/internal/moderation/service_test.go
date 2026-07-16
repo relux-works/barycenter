@@ -107,12 +107,20 @@ func newServiceFixture(t *testing.T) *serviceFixture {
 		RequestedDelivery: store.TransmissionDeliveryOverlay,
 		EffectiveDelivery: store.TransmissionDeliveryOverlay,
 		AcceptedAt:        now + 3,
-		Targets: []store.CreateTransmissionTarget{{
-			OrbitID: reporter.OrbitID, ActorID: reporter.ActorID,
-			Slot: reporter.Slot, OnlineAtAcceptance: true,
-			MediaClipCapable: true, OverlayCapable: true,
-			InterruptCapable: true, InterruptResumeReady: true,
-		}},
+		Targets: []store.CreateTransmissionTarget{
+			{
+				OrbitID: reporter.OrbitID, ActorID: reporter.ActorID,
+				Slot: reporter.Slot, OnlineAtAcceptance: true,
+				MediaClipCapable: true, OverlayCapable: true,
+				InterruptCapable: true, InterruptResumeReady: true,
+			},
+			{
+				OrbitID: source.OrbitID, ActorID: source.ActorID,
+				Slot: source.Slot, OnlineAtAcceptance: true,
+				MediaClipCapable: true, OverlayCapable: true,
+				InterruptCapable: true, InterruptResumeReady: true,
+			},
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -215,6 +223,52 @@ func TestServiceEvidenceBlockAndDeleteUseCanonicalServices(t *testing.T) {
 		store.ModerationActionDeleteMedia,
 	); err != nil {
 		t.Fatalf("delete decision replay=%v", err)
+	}
+}
+
+func TestServiceReportDisarmsOnlyReporterAndRetryIsIdempotent(t *testing.T) {
+	fixture := newServiceFixture(t)
+	created, err := fixture.service.CreateReport(
+		fixture.reporter.ActorID, fixture.reporter.ControlToken,
+		store.CreateModerationReportParams{
+			MediaID: fixture.media.ID, Reason: store.ModerationReasonHarassment,
+		},
+	)
+	if err != nil || !created.Reused || created.Report.ID != fixture.report.ID {
+		t.Fatalf("report retry=%+v err=%v", created, err)
+	}
+	targets, err := fixture.store.TransmissionTargets(fixture.report.TransmissionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byActor := make(map[int64]store.TransmissionTarget)
+	for _, target := range targets {
+		byActor[target.ActorID] = target
+	}
+	if target := byActor[fixture.reporter.ActorID]; target.Status != store.TransmissionTargetCancelled ||
+		target.ReasonCode != store.TransmissionReasonReported {
+		t.Fatalf("reporter target=%+v", target)
+	}
+	if target := byActor[fixture.source.ActorID]; target.Status != store.TransmissionTargetAccepted {
+		t.Fatalf("source target was censored=%+v", target)
+	}
+	if len(fixture.notified) != 1 || !fixture.notified[0].Changed {
+		t.Fatalf("report cancellation notifications=%+v", fixture.notified)
+	}
+	if _, err := fixture.service.CreateReport(
+		fixture.reporter.ActorID, fixture.reporter.ControlToken,
+		store.CreateModerationReportParams{
+			MediaID: fixture.media.ID, Reason: store.ModerationReasonSpam,
+		},
+	); err != nil {
+		t.Fatalf("second report retry=%v", err)
+	}
+	if len(fixture.notified) != 1 {
+		t.Fatalf("idempotent retry emitted new cancellation=%+v", fixture.notified)
+	}
+	item, err := fixture.store.GetMediaItem(fixture.media.ID)
+	if err != nil || item == nil || item.Status != store.MediaStatusReady {
+		t.Fatalf("report changed global media=%+v err=%v", item, err)
 	}
 }
 

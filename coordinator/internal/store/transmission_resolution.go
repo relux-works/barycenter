@@ -746,6 +746,20 @@ WHERE revoked_at = 0 AND owner_orbit_id = ?
 	return TransmissionBlockDecision{}, nil
 }
 
+// transmissionReportDecisionTx is deliberately recipient-local. A report
+// protects only the actor who submitted it from another delivery of the same
+// media; it cannot quarantine content or affect another target.
+func transmissionReportDecisionTx(
+	tx *sql.Tx,
+	recipientActorID int64,
+	mediaID string,
+) (bool, error) {
+	var reports int
+	err := tx.QueryRow(`SELECT COUNT(*) FROM moderation_reports
+WHERE reporter_actor_id = ? AND media_id = ?`, recipientActorID, mediaID).Scan(&reports)
+	return reports > 0, err
+}
+
 func effectiveDNDTx(
 	tx *sql.Tx,
 	target resolvedTransmissionTarget,
@@ -851,6 +865,10 @@ func evaluateTransmissionTargetsTx(
 		if err != nil {
 			return nil, false, false, nil, err
 		}
+		reported, err := transmissionReportDecisionTx(tx, identity.ActorID, mediaItem.ID)
+		if err != nil {
+			return nil, false, false, nil, err
+		}
 		localThisPulsar := params.AudienceKind == TransmissionAudienceThisPulsar &&
 			identity.OrbitID == ctx.OrbitID && identity.ActorID == ctx.ActorID &&
 			identity.Slot == ctx.Slot
@@ -862,6 +880,9 @@ func evaluateTransmissionTargetsTx(
 			(dnd.Mode == DNDMutedUntil ||
 				(dnd.Mode == DNDMessagesOnly && mediaItem.Kind == MediaKindBuiltinCue))
 		switch {
+		case reported:
+			target.Status = TransmissionTargetBlocked
+			target.ReasonCode = TransmissionReasonReported
 		case block.Blocked:
 			target.Status = TransmissionTargetBlocked
 			target.ReasonCode = block.Reason

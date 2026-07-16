@@ -178,6 +178,18 @@ def validate(contract: dict[str, Any]) -> None:
         "delete media", "cancel unrelated targets", "disable sender",
         "disable orbit", "grant moderator authority",
     }, "anti-denial-of-service report boundary changed")
+    local_enforcement = moderation.get("reporterLocalEnforcement", {})
+    require(local_enforcement.get("inboxTerminalState") == "unavailable/reported",
+            "reported inbox is not terminally revoked")
+    require(local_enforcement.get("futureTargetState") == "blocked/reported",
+            "future reported-media target is not blocked")
+    require(local_enforcement.get("schedulerScope") ==
+            "reported media plus reporting actor only",
+            "report cancellation scope widened")
+    require(local_enforcement.get("sharedTelegramEvidenceTargetCancelled") is False,
+            "shared Telegram report can cancel an evidence target")
+    require(local_enforcement.get("alreadyOpenedDescriptor").startswith("may finish"),
+            "already-open report behavior changed")
     quarantine = moderation.get("quarantine", {})
     require(quarantine.get("authority").startswith("moderation operator decision"), "quarantine lacks operator authority")
     require(quarantine.get("reportCountThresholdAllowed") is False, "report-count quarantine enabled")

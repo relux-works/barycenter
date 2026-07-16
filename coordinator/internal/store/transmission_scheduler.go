@@ -1389,6 +1389,7 @@ func cancellationReasonForScheduler(reason TransmissionReason) bool {
 		TransmissionReasonModerationDisabled, TransmissionReasonApproachLeft,
 		TransmissionReasonApproachApart, TransmissionReasonTargetRevoked,
 		TransmissionReasonDNDEnabled, TransmissionReasonSenderBlocked,
+		TransmissionReasonReported,
 		TransmissionReasonCoordinatorRestarted:
 		return true
 	default:
@@ -1677,6 +1678,34 @@ ORDER BY t.accepted_at, t.id`, sourceActorID, recipientOrbitID,
 		func(target TransmissionTarget) bool {
 			return target.OrbitID == recipientOrbitID &&
 				target.ActorID == recipientActorID && target.Slot == recipientSlot
+		},
+	)
+}
+
+// CancelTransmissionsForMediaToActor is the report-local scheduler seam. It
+// disarms only the reported media for the reporting actor; evidence targets
+// owned by a companion and every other recipient keep their independent state.
+func (s *Store) CancelTransmissionsForMediaToActor(
+	mediaID string,
+	recipientActorID int64,
+	reason TransmissionReason,
+	now int64,
+) ([]CancelTransmissionResult, error) {
+	if !mediaItemIDPattern.MatchString(mediaID) || recipientActorID <= 0 {
+		return nil, ErrTransmissionInvalid
+	}
+	ids, err := schedulerTransmissionIDs(s, `SELECT t.id
+FROM transmissions t
+JOIN transmission_targets tt ON tt.transmission_id = t.id
+WHERE t.media_id = ? AND tt.actor_id = ? AND t.completed_at = 0
+ORDER BY t.accepted_at, t.id`, mediaID, recipientActorID)
+	if err != nil {
+		return nil, err
+	}
+	return cancelSchedulerWork(
+		s, ids, reason, now, false,
+		func(target TransmissionTarget) bool {
+			return target.ActorID == recipientActorID
 		},
 	)
 }

@@ -278,6 +278,96 @@ func TestDownloadServiceRechecksPersistedTargetBlockInsideDescriptorTransaction(
 	download.File.Close()
 }
 
+func TestDownloadServiceRechecksReporterLocalRevocationBeforeDescriptorOpen(t *testing.T) {
+	harness := newSubmitHarness(t)
+	ready := readyLifecycleFixture(t, harness, "download-report-race-0001")
+	target, err := harness.store.CreateSelfServiceOrbit("Persisted report race target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	acceptedAt := harness.nextMS()
+	created, err := harness.store.CreateTransmission(store.CreateTransmissionParams{
+		MediaID: ready.ID, SourceOrbitID: harness.credentials.OrbitID,
+		SourceActorID: harness.credentials.ActorID, SourceSlot: harness.credentials.Slot,
+		PlaybackDomainKind: store.PlaybackDomainOrbit,
+		PlaybackDomainID:   harness.credentials.OrbitID,
+		AudienceKind:       store.TransmissionAudienceExplicit,
+		OriginKind:         store.TransmissionOriginFile, IncludeOrigin: false,
+		RequestedDelivery: store.TransmissionDeliveryOverlay,
+		EffectiveDelivery: store.TransmissionDeliveryOverlay,
+		AcceptedAt:        acceptedAt,
+		Targets: []store.CreateTransmissionTarget{{
+			OrbitID: target.OrbitID, ActorID: target.ActorID, Slot: target.Slot,
+			OnlineAtAcceptance: true, MediaClipCapable: true, OverlayCapable: true,
+			InterruptCapable: true, InterruptResumeReady: true,
+		}},
+	})
+	if err != nil || created.Transmission.MediaID != ready.ID {
+		t.Fatalf("create report target=%+v err=%v", created, err)
+	}
+	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := NewDownloadService(harness.store, harness.mediaDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.now = func() time.Time { return time.UnixMilli(harness.nextMS()) }
+	service.SetTargetSnapshotReader(harness.store)
+	authorized := make(chan struct{})
+	release := make(chan struct{})
+	service.testAfterAuthorization = func() {
+		close(authorized)
+		<-release
+	}
+	result := make(chan error, 1)
+	go func() {
+		download, err := service.OpenAuthorized(
+			context.Background(), targetContext, target.NodeToken, ready.ID,
+		)
+		if err == nil {
+			download.File.Close()
+		}
+		result <- err
+	}()
+	select {
+	case <-authorized:
+	case <-time.After(5 * time.Second):
+		t.Fatal("persisted download did not reach report race boundary")
+	}
+	if _, err := harness.store.CreateModerationReport(
+		target.ActorID, target.ControlToken,
+		store.CreateModerationReportParams{
+			MediaID: ready.ID, Reason: store.ModerationReasonHarassment,
+			CreatedAt: harness.nextMS(),
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	close(release)
+	select {
+	case err := <-result:
+		if !errors.Is(err, store.ErrMediaNotFound) {
+			t.Fatalf("report/open race error=%v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("persisted report/open race did not finish")
+	}
+	service.testAfterAuthorization = nil
+	owner, err := harness.store.ResolveTokenActorContext(harness.credentials.ControlToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerDownload, err := service.OpenAuthorized(
+		context.Background(), owner, harness.credentials.ControlToken, ready.ID,
+	)
+	if err != nil {
+		t.Fatalf("report globally revoked owner: %v", err)
+	}
+	ownerDownload.File.Close()
+}
+
 func TestDownloadServicePinsAuthorizationUntilDescriptorOpen(t *testing.T) {
 	harness := newSubmitHarness(t)
 	ready := readyLifecycleFixture(t, harness, "download-open-revocation-0001")

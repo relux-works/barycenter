@@ -165,6 +165,11 @@ WHERE tr.id = ?`, target.ActorID, target.OrbitID, target.TransmissionID).Scan(
 	if err != nil {
 		return nil, err
 	}
+	var reported int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM moderation_reports
+WHERE reporter_actor_id = ? AND media_id = ?`, target.ActorID, mediaID).Scan(&reported); err != nil {
+		return nil, err
+	}
 	expiresAt := occurredAt + int64(DefaultTransmissionInboxTTL/time.Millisecond)
 	if mediaExpiresAt < expiresAt {
 		expiresAt = mediaExpiresAt
@@ -197,6 +202,10 @@ WHERE tr.id = ?`, target.ActorID, target.OrbitID, target.TransmissionID).Scan(
 			revokedAt = targetActorRevokedAt.Int64
 		}
 		revocationReason = TransmissionReasonModerationDisabled
+	} else if reported > 0 {
+		availability = TransmissionInboxUnavailable
+		revokedAt = occurredAt
+		revocationReason = TransmissionReasonReported
 	}
 	updatedAt := occurredAt
 	if revokedAt > updatedAt {
@@ -487,6 +496,20 @@ SET availability = 'unavailable', revoked_at = ?, revocation_reason = ?,
     revision = revision + 1, updated_at = ?
 WHERE media_id = ? AND availability <> 'unavailable'`,
 		now, reason, now, mediaID)
+	return err
+}
+
+func revokeTransmissionInboxByReportTx(
+	tx *sql.Tx,
+	reporterActorID int64,
+	mediaID string,
+	now int64,
+) error {
+	_, err := tx.Exec(`UPDATE transmission_inbox_items
+SET availability = 'unavailable', revoked_at = ?, revocation_reason = 'reported',
+    revision = revision + 1, updated_at = ?
+WHERE actor_id = ? AND media_id = ? AND availability <> 'unavailable'`,
+		now, now, reporterActorID, mediaID)
 	return err
 }
 

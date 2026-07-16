@@ -51,7 +51,7 @@ inboxsvc --> inboxdb : exact-binding keyset reads\nopaque bounded cursor state\n
 runtime --> db : update exact target receipt
 runtime --> inboxdb : same transaction creates\none eligible target item
 runtime --> nodes : prepare / play / queue / replace
-acl --> db : authorize by target snapshot\nand disable / delete state
+acl --> db : authorize by target snapshot\nand report / block / disable / delete state
 nodes --> acl : authenticated media fetch
 rights --> db : versioned grants + audit\nreports / delete / disable
 rights --> inboxdb : project canonical\nrevocation state

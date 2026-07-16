@@ -349,6 +349,14 @@
       "stop reporter target playback",
       "optional existing actor or orbit block"
     ],
+    "reporterLocalEnforcement": {
+      "fetchPredicate": "canonical moderation_reports lookup keyed by reporter_actor_id plus media_id",
+      "inboxTerminalState": "unavailable/reported",
+      "futureTargetState": "blocked/reported",
+      "schedulerScope": "reported media plus reporting actor only",
+      "sharedTelegramEvidenceTargetCancelled": false,
+      "alreadyOpenedDescriptor": "may finish; grants no later open or refill"
+    },
     "reportDoesNot": [
       "delete media",
       "cancel unrelated targets",

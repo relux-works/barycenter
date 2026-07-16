@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-16T04:42:12Z
+2026-07-16T05:16:21Z
 
 ## Blocked By
 - STORY-260712-3l1r1u
@@ -38,6 +38,8 @@ agent spawned: codex (pid=77521, exit=0)
 Root decomposition review completed. Added missing shared plus Windows/macOS long-track UI tasks and enforceable storage/processing/egress accounting. Tightened exact ADR dependencies, non-speech variant processing, authenticated conditional ranges, anti-DoS report semantics, seek generations, provider-neutral main program, audible progress and drained ended, Air catch-up or leave, cache revocation, 5 s or 3 s or 100 ms or 200 MiB hard gates, all platform pairings and max-duration or network-fault evidence. Linked codec, Air, targets, consent, moderation and platform tasks; board validates.
 2026-07-16 strict progress: TASK-260712-1n5fks started inline from tracking PR #141 merge b7bc2b4 after hosted run 29471003186 passed 4/4. Implementing only candidate-neutral schema, integrity/seek metadata and restart-safe queue/progress persistence permitted by the accepted production no-go ADR.
 2026-07-16 strict checkpoint: TASK-260712-1n5fks accepted on exact head b64a671 through PR #142, merge 5478006, after hosted run 29471845396 passed 4/4. Candidate-neutral persistence and exact previous-binary rollback are green; production codec/player remains no-go. Strict story execution advances to TASK-260712-31rkpe.
+2026-07-16 strict progress: TASK-260712-31rkpe started inline from tracking PR #143 merge d26cb26 after hosted run 29472071694 passed 4/4. Implementing shared/Go/Swift/Windows wire payloads, generation semantics and mixed-version policy without enabling production codecs or claiming real-app playback.
+2026-07-16 strict checkpoint: TASK-260712-31rkpe accepted on exact head ea2d6d4 through PR #144, merge 0b9fc7d, after hosted run 29473326227 passed 4/4. All three codecs share 51 goldens and generation/timing/mixed-version invariants; production stream_track_v1 advertisement remains disabled. Strict story execution advances to TASK-260712-2ogntd.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-2ori1t/spec-entry.md) — Authoritative specification entry point

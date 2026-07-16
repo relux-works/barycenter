@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-16T08:19:07Z
+2026-07-16T09:07:16Z
 
 ## Blocked By
 - STORY-260712-sskhip
@@ -46,6 +46,8 @@ User mandate 2026-07-12: do not accept agent code without scrupulous root review
 2026-07-16 strict sequential start: TASK-260712-17w78q began inline from merge d427f82 after hosted run 29480661409 passed 4/4. Counts remain 106/186 engineering and 106/205 combined until bounded Windows cache/player and deterministic lifecycle coverage are accepted; production capability advertisement and manual hardware/performance evidence remain deferred.
 2026-07-16 strict sequential checkpoint: 107/186 engineering tasks accepted (57.5%) and 107/205 combined tasks accepted (52.2%). TASK-260712-17w78q landed through PR #154 at merge feabd2e after hosted run 29482823224 passed 4/4. Authenticated bounded range caching, integrity/ETag/revocation fences, candidate decoder/ring and generation-safe streamed lifecycle are accepted; production stream capability remains disabled and real Windows timing/RSS/audio evidence remains manual. Strict engineering execution advances to TASK-260712-1q2kwa.
 2026-07-16 strict sequential start: TASK-260712-1q2kwa began inline from merge feabd2e after hosted run 29482823224 passed 4/4. Counts remain 107/186 engineering and 107/205 combined until the shared localized draft, processing, targeting and playback UI model is accepted; production codec/player and real-app evidence remain unclaimed.
+2026-07-16 strict sequential checkpoint: 108/186 engineering tasks accepted (58.1%) and 108/205 combined tasks accepted (52.7%). TASK-260712-1q2kwa landed through PR #156 at merge 0cb18b9 after hosted run 29485664677 passed 4/4. Shared RU/EN durable draft, distinct progress, exact target/policy/action and generation-safe player UI model is accepted; production decoder and real-app evidence remain unclaimed. Strict engineering execution advances to TASK-260712-3aj8w2.
+2026-07-16 strict sequential start: TASK-260712-3aj8w2 began inline from merge 0cb18b9. Counts remain 108/186 engineering and 108/205 combined until the macOS streamed-track candidate player is accepted; real-app/hardware evidence remains deferred and unclaimed.
 
 ## Precondition Resources
 (none)

@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-16T08:19:07Z
+2026-07-16T09:07:16Z
 
 ## Blocked By
 - STORY-260712-3l1r1u
@@ -51,6 +51,8 @@ Root decomposition review completed. Added missing shared plus Windows/macOS lon
 2026-07-16 strict progress: TASK-260712-17w78q started inline from merge d427f82 after hosted run 29480661409 passed 4/4. Implementing bounded Windows range cache, incremental candidate decoder/ring integration and generation-safe load/seek/pause/resume/ended behavior in code and deterministic tests without enabling the production capability or claiming real-hardware performance.
 2026-07-16 strict checkpoint: TASK-260712-17w78q accepted on exact head a7bfeb7 through PR #154, merge feabd2e, after hosted run 29482823224 passed 4/4. Authenticated opaque range caching, fixed disk/PCM bounds, integrity and durable revoke handling, exact-generation lifecycle and drained completion are green; production stream_track_v1 remains disabled and hands-on Windows performance is unclaimed. Strict story execution advances to TASK-260712-1q2kwa.
 2026-07-16 strict progress: TASK-260712-1q2kwa started inline from merge feabd2e after hosted run 29482823224 passed 4/4. Implementing the shared RU/EN long-track draft, processing, canonical target, queue/replace and generation-safe playback presentation model without enabling production decoding or claiming real-app behavior.
+2026-07-16 strict checkpoint: TASK-260712-1q2kwa accepted on exact head c6e9a68 through PR #156, merge 0cb18b9, after hosted run 29485664677 passed 4/4. One RU/EN portable model now owns durable long-file draft, server processing, canonical Air/explicit selection and generation-safe playback controls across macOS and Windows; production decode and real-app evidence remain deferred. Strict story execution advances to TASK-260712-3aj8w2.
+2026-07-16 strict progress: TASK-260712-3aj8w2 started inline from merge 0cb18b9. Counts remain 108/186 engineering and 108/205 combined until bounded macOS cache/decoder/player lifecycle and deterministic regression evidence are accepted.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-2ori1t/spec-entry.md) — Authoritative specification entry point

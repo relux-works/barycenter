@@ -74,6 +74,50 @@ func TestMediaIngestExactPreviousHeadRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	streamMedia, streamMetadata := createStreamTrackFixture(t, current, keep, now+10)
+	streamVariant, err := current.CreateStagedStreamVariant(
+		streamVariantParams(streamMedia.ID, "previous-head", now+12),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamVariant, err = current.PublishStreamVariant(streamVariant.ID, streamVariant.Revision, now+13)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamDomain, err := current.EnsureStreamPlaybackDomain("orbit", "previous-head", now+14)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamDomain, err = current.PinStreamMainProgramSource(
+		streamDomain.ID, "legacy_session", "orbit-session", streamDomain.Revision, now+15,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamQueueItem, err := current.EnqueueStreamTrack(
+		streamDomain.ID, streamMedia.ID, "previous-head", streamDomain.Revision, now+16,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamDomain, err = current.LoadStreamPlaybackDomainByTarget("orbit", "previous-head")
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamDomain, err = current.ActivateStreamQueueItem(
+		streamDomain.ID, streamQueueItem.ID, streamDomain.Revision, now+17,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamDomain, err = current.RecordStreamAudibleProgress(
+		streamDomain.ID, streamDomain.Revision, streamDomain.PlaybackGeneration,
+		streamDomain.SeekGeneration, 707, "playing", now+18,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	dissolveItem, err := current.CreateMediaItem(mediaItemParams(dissolve, now+3))
 	if err != nil {
 		t.Fatal(err)
@@ -146,6 +190,21 @@ func TestMediaIngestExactPreviousHeadRollback(t *testing.T) {
 	if err != nil || keepUploadAfter == nil || keepUploadAfter.ReceivedSizeBytes != keepUploadSession.ReceivedSizeBytes ||
 		keepUploadAfter.Revision != keepUploadSession.Revision {
 		t.Fatalf("generic upload after rollback=%+v err=%v", keepUploadAfter, err)
+	}
+	streamMetadataAfter, err := current.GetStreamTrackMetadata(streamMedia.ID)
+	if err != nil || streamMetadataAfter.OriginalSHA256 != streamMetadata.OriginalSHA256 {
+		t.Fatalf("stream metadata after rollback=%+v err=%v", streamMetadataAfter, err)
+	}
+	streamVariantAfter, err := current.GetReadyStreamVariantForProfile(streamMedia.ID, "previous-head")
+	if err != nil || streamVariantAfter.ID != streamVariant.ID || streamVariantAfter.Revision != streamVariant.Revision {
+		t.Fatalf("stream variant after rollback=%+v err=%v", streamVariantAfter, err)
+	}
+	streamDomainAfter, err := current.LoadStreamPlaybackDomainByTarget("orbit", "previous-head")
+	if err != nil || streamDomainAfter.CurrentQueueItemID != streamQueueItem.ID ||
+		streamDomainAfter.AudiblePositionMS != 707 || streamDomainAfter.PlaybackGeneration != 1 ||
+		streamDomainAfter.SeekGeneration != 0 || len(streamDomainAfter.Queue) != 1 ||
+		streamDomainAfter.MainProgramKind != "legacy_session" || streamDomainAfter.MainProgramRef != "orbit-session" {
+		t.Fatalf("stream playback after rollback=%+v err=%v", streamDomainAfter, err)
 	}
 	dissolvedAfter, err := current.GetMediaItem(dissolveReady.ID)
 	if err != nil || dissolvedAfter == nil || dissolvedAfter.Status != MediaStatusDeleted || dissolvedAfter.StorageKey != "" {

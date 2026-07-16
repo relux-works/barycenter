@@ -1,0 +1,1 @@
+Canonical deliverable: docs/product-pulsar-audio.md. Research audit trail: .research/pulsar-audio-market-search-log.md. The brief defines Pulsar Audio as private ambient social audio between homes, distinguishes baseline/engineering/planned/deferred/hypothesis statuses, and evaluates official plus OSS provider routes.

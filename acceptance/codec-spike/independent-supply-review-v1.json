@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-independent-codec-supply-review.v1",
+  "task": "TASK-260712-2g3fkt",
+  "reviewedAt": "2026-07-16",
+  "reviewedBaseCommit": "496c07272e4a5406b44be8709fa84c9b5932cdda",
+  "reviewer": {
+    "id": "codex-inline-reviewer",
+    "independenceRequired": true,
+    "independenceSatisfied": false,
+    "reason": "the same root execution session implemented earlier codec-spike tasks",
+    "independentApprover": "Ivan Oparin",
+    "approvalStatus": "required"
+  },
+  "decision": {
+    "result": "block-phase2",
+    "acceptedCombination": null,
+    "productionPlaybackAllowed": false,
+    "phase2ProductionBlocked": true,
+    "reason": "no exact Windows-plus-macOS combination passes every hard gate and independent approval is not satisfied",
+    "legalAdvice": false
+  },
+  "inputs": [
+    {
+      "path": "acceptance/codec-spike/rubric-v1.json",
+      "sha256": "8701ddc6307e289817b020f07aa56b74203e472894b65ec84e4f61d5c9f6a4d2"
+    },
+    {
+      "path": "acceptance/codec-spike/license-audit-v1.json",
+      "sha256": "d86767ed6fb885d983b99ff1f287bff24fb77e3fe5497a9f43f8f6ca318b7684"
+    },
+    {
+      "path": "acceptance/codec-spike/comparative-matrix-v1.json",
+      "sha256": "cd548f5fa1f22c4636f1b9ce187b752f911baee1f4090d5a7cb437fecfc58c97"
+    },
+    {
+      "path": "acceptance/codec-spike/player-handoff-v1.json",
+      "sha256": "7f122576f6841c38ff4f9e308e0cf5d0d7f761827d086784b0e34d7cd14ce273"
+    }
+  ],
+  "authoritativeSources": [
+    {
+      "id": "ffmpeg-legal",
+      "url": "https://ffmpeg.org/legal.html",
+      "retrievedAt": "2026-07-16",
+      "disposition": "minimal shared builds remain conditional on exact LGPL configuration, dynamic linking, notices, corresponding source and relinking terms"
+    },
+    {
+      "id": "ffmpeg-security",
+      "url": "https://ffmpeg.org/security.html",
+      "retrievedAt": "2026-07-16",
+      "disposition": "8.1.2 includes listed security fixes; release-time binary SBOM and advisory scanning remain mandatory"
+    },
+    {
+      "id": "microsoft-codecs",
+      "url": "https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/supported-codecs",
+      "retrievedAt": "2026-07-16",
+      "disposition": "the published inbox table supports AAC-LC and MP3 but does not establish the required Ogg/Opus path; runtime probing remains required"
+    },
+    {
+      "id": "apple-code-signing",
+      "url": "https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac",
+      "retrievedAt": "2026-07-16",
+      "disposition": "nested distributed code must be signed as part of the release artifact"
+    },
+    {
+      "id": "apple-notarization",
+      "url": "https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution",
+      "retrievedAt": "2026-07-16",
+      "disposition": "the final hardened release artifact requires distribution signing and notarization evidence"
+    },
+    {
+      "id": "apple-review",
+      "url": "https://developer.apple.com/app-store/review/guidelines/",
+      "retrievedAt": "2026-07-16",
+      "disposition": "the application must remain self-contained and may not download executable decoder code"
+    },
+    {
+      "id": "aac-pool",
+      "url": "https://www.via-la.com/licensing-programs/aac/",
+      "retrievedAt": "2026-07-16",
+      "disposition": "AAC patent-pool applicability exists and must be resolved by qualified counsel for the exact product and markets"
+    },
+    {
+      "id": "opus-license",
+      "url": "https://opus-codec.org/license/",
+      "retrievedAt": "2026-07-16",
+      "disposition": "published software and patent grants do not remove the existing third-party-IP legal review gate"
+    },
+    {
+      "id": "go-vuln-db",
+      "url": "https://vuln.go.dev/",
+      "retrievedAt": "2026-07-16",
+      "disposition": "the current pure-Go probe called-symbol scan is clean, but the rejected candidate and non-Go FFmpeg release binary still require separate disposition"
+    }
+  ],
+  "reruns": [
+    {
+      "id": "codec-contract-validators",
+      "command": "python3 scripts/codec_spike/validate_contract.py && python3 scripts/codec_spike/stream_contract.py --validate && python3 scripts/codec_spike/validate_license_audit.py && python3 scripts/codec_spike/validate_mf_probe.py && python3 scripts/codec_spike/validate_macos_native_probe.py && python3 scripts/codec_spike/validate_pure_go_probe.py && python3 scripts/codec_spike/validate_comparative_matrix.py && python3 scripts/codec_spike/validate_player_handoff.py",
+      "status": "pass",
+      "claim": "eight fail-closed repository contracts validate the frozen no-go state"
+    },
+    {
+      "id": "codec-contract-tests",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v scripts/codec_spike/test_codec_spike.py",
+      "status": "pass",
+      "claim": "19 tests pass, including deterministic hostile mutations, range faults and false-selection rejection"
+    },
+    {
+      "id": "pure-go-rebuild",
+      "command": "bash scripts/codec_spike/run_pure_go_probe.sh .temp/review-2g3fkt/purego",
+      "status": "expected-rejection",
+      "claim": "darwin amd64 execution plus darwin arm64 and Windows amd64/arm64 cross-builds preserve rejected-license-seek-and-manual-evidence-gates",
+      "evidenceSha256": "42e4b26e7338c5de6da0af9770a3882d8e8a1c094a26f96664b4854d422cc565"
+    },
+    {
+      "id": "macos-native-rebuild",
+      "command": "bash scripts/codec_spike/build_macos_native_probe.sh .temp/review-2g3fkt/macos",
+      "status": "expected-rejection",
+      "claim": "ad-hoc sandboxed engineering build remains rejected for full-file and lifecycle gates; it is neither a production signature nor notarization proof",
+      "evidenceSha256": "000385ce618a5cd8f6ad3d0922c0e0550b9637030526f7ec21a63d9c7e5af83c"
+    },
+    {
+      "id": "pure-go-vulnerability-scan",
+      "command": "cd scripts/codec_spike/purego_probe && go run golang.org/x/vuln/cmd/govulncheck@latest ./...",
+      "status": "pass-called-symbols-only",
+      "claim": "zero called vulnerabilities; three imported-package and 22 required-module findings are not called and do not convert the rejected candidate into an accepted release"
+    }
+  ],
+  "findings": [
+    {
+      "id": "P2-CODEC-SUPPLY-001",
+      "severity": "high",
+      "status": "open-blocking",
+      "area": "hard-gate-selection",
+      "finding": "none of the three exact combinations passes all required formats, streaming, lifecycle, package and license gates",
+      "requiredClosure": "publish a replacement ADR and immutable matrix selecting one exact Windows-plus-macOS combination only after every hard gate passes without averaging",
+      "owner": "Ivan Oparin"
+    },
+    {
+      "id": "P2-CODEC-SUPPLY-002",
+      "severity": "high",
+      "status": "open-blocking",
+      "area": "review-independence",
+      "finding": "the current root execution session is not independent from earlier codec-spike implementation",
+      "requiredClosure": "an implementation-independent reviewer must inspect the replacement evidence, rerun representative gates and sign the exact reviewed commit",
+      "owner": "Ivan Oparin"
+    },
+    {
+      "id": "P2-CODEC-SUPPLY-003",
+      "severity": "high",
+      "status": "open-blocking",
+      "area": "release-supply-chain",
+      "finding": "no selected candidate has a complete runtime SBOM, exact reproducible release receipt, all-architecture production signatures, macOS notarization, corresponding-source publication and release-time vulnerability closure",
+      "requiredClosure": "attach all release obligations to the exact selected binaries and prove zero known unpatched vulnerabilities before root review",
+      "owner": "Ivan Oparin"
+    },
+    {
+      "id": "P2-CODEC-SUPPLY-004",
+      "severity": "high",
+      "status": "open-blocking",
+      "area": "legal",
+      "finding": "AAC distribution and hosted conversion applicability plus final LGPL mechanics have no qualified-counsel approval",
+      "requiredClosure": "record counsel approval or a redesigned codec/container plan that removes the unresolved obligations",
+      "owner": "Ivan Oparin"
+    },
+    {
+      "id": "P2-CODEC-SUPPLY-005",
+      "severity": "high",
+      "status": "open-blocking",
+      "area": "native-decoder",
+      "finding": "the native combination rejects required Windows Ogg/Opus inputs and the macOS engineering probe consumes the full source before first PCM",
+      "requiredClosure": "provide an exact native replacement that passes every required format and bounded streaming/lifecycle gate on both platforms",
+      "owner": "Ivan Oparin"
+    },
+    {
+      "id": "P2-CODEC-SUPPLY-006",
+      "severity": "high",
+      "status": "open-blocking",
+      "area": "pure-go-decoder",
+      "finding": "the pure-Go combination lacks an acceptable AAC decoder and fails mandatory MP3/Ogg random-seek lifecycle behavior",
+      "requiredClosure": "replace the exact rejected dependency set and rerun license, provenance, hostile-input, seek and release gates",
+      "owner": "Ivan Oparin"
+    }
+  ],
+  "reopenRequirements": [
+    "select-one-exact-combination-that-passes-every-hard-gate",
+    "preserve-raw-failures-and-prohibit-score-averaging",
+    "resolve-all-critical-and-high-findings-and-re-review-them",
+    "obtain-qualified-aac-and-lgpl-legal-disposition",
+    "publish-exact-runtime-sbom-source-build-and-signing-receipts",
+    "prove-signed-msix-all-architectures-and-signed-notarized-macos-arm64",
+    "prove-sandbox-no-runtime-download-and-hostile-input-containment",
+    "obtain-independent-review-of-the-exact-candidate-commit"
+  ],
+  "manualEvidence": "EPIC-260714-th54l3",
+  "nextTaskMayStart": false
+}

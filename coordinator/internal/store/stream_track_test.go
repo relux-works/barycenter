@@ -1,7 +1,9 @@
 package store
 
 import (
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -323,6 +325,163 @@ func TestStreamPlaybackQueueSeekGenerationAndRestart(t *testing.T) {
 		restored.PlaybackGeneration != 1 || restored.SeekGeneration != 1 || len(restored.Queue) != 1 ||
 		restored.MainProgramKind != "spotify" || restored.MainProgramRef != "spotify:track:resume" {
 		t.Fatalf("restored=%+v err=%v", restored, err)
+	}
+}
+
+func TestStreamPlaybackQueueReplaceRebufferCompletionAndRestartFence(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "stream-flow.db")
+	st, err := OpenWithOptions(path, Options{SelfServiceOnboarding: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentials, err := st.CreateSelfServiceOrbit("Stream coordinator flow")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	createReady := func(label string, at int64) (MediaItem, StreamVariant) {
+		media, _ := createStreamTrackFixture(t, st, credentials, at)
+		params := streamVariantParams(media.ID, label, at+1)
+		digest := fmt.Sprintf("%x", sha256.Sum256([]byte(label)))
+		params.SHA256 = digest
+		params.ETag = CreateStrongStreamETag(digest)
+		params.StorageKey = "stream/v1/" + digest
+		variant, err := st.CreateStagedStreamVariant(params)
+		if err != nil {
+			t.Fatal(err)
+		}
+		variant, err = st.PublishStreamVariant(variant.ID, variant.Revision, at+2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return media, variant
+	}
+	firstMedia, firstVariant := createReady("flow-first", now)
+	secondMedia, secondVariant := createReady("flow-second", now+10)
+	fourthMedia, fourthVariant := createReady("flow-fourth", now+20)
+	replacementMedia, replacementVariant := createReady("flow-replacement", now+30)
+	domain, err := st.EnsureStreamPlaybackDomain("air", "air-flow", now+40)
+	if err != nil {
+		t.Fatal(err)
+	}
+	domain, err = st.PinStreamMainProgramSource(
+		domain.ID, "spotify", "spotify:track:parked", domain.Revision, now+41,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var first, second, fourth StreamQueueItem
+	for index, input := range []struct {
+		media   MediaItem
+		variant StreamVariant
+		out     *StreamQueueItem
+	}{{firstMedia, firstVariant, &first}, {secondMedia, secondVariant, &second}, {fourthMedia, fourthVariant, &fourth}} {
+		*input.out, err = st.EnqueueStreamTrack(
+			domain.ID, input.media.ID, input.variant.Profile, domain.Revision, now+42+int64(index),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		domain, err = st.LoadStreamPlaybackDomainByTarget("air", "air-flow")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := st.ActivateStreamQueueItem(
+		domain.ID, second.ID, domain.Revision, now+49,
+	); !errors.Is(err, ErrStreamTrackConflict) {
+		t.Fatalf("out-of-order activation error=%v", err)
+	}
+	domain, err = st.ActivateNextStreamQueueItem(domain.ID, domain.Revision, now+50)
+	if err != nil || domain.CurrentQueueItemID != first.ID || domain.PlaybackGeneration != 1 {
+		t.Fatalf("first activation=%+v err=%v", domain, err)
+	}
+	if _, err := st.ActivateStreamQueueItem(
+		domain.ID, second.ID, domain.Revision, now+51,
+	); !errors.Is(err, ErrStreamTrackConflict) {
+		t.Fatalf("parallel activation error=%v", err)
+	}
+	domain, err = st.RecordStreamAudibleProgress(
+		domain.ID, domain.Revision, 1, 0, 1000, "playing", now+52,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	domain, err = st.RebufferStreamPlayback(
+		domain.ID, domain.Revision, 1, 0, 1200, now+53,
+	)
+	if err != nil || domain.State != "buffering" || domain.AudiblePositionMS != 1200 {
+		t.Fatalf("rebuffer=%+v err=%v", domain, err)
+	}
+	domain, err = st.RestartStreamPlayback(domain.ID, domain.Revision, 1, now+54)
+	if err != nil || domain.PlaybackGeneration != 2 || domain.SeekGeneration != 0 ||
+		domain.AudiblePositionMS != 1200 {
+		t.Fatalf("restart=%+v err=%v", domain, err)
+	}
+	if _, err := st.CompleteStreamPlayback(
+		domain.ID, domain.Revision, 1, 0, "played", now+55,
+	); !errors.Is(err, ErrStreamTrackConflict) {
+		t.Fatalf("stale completion error=%v", err)
+	}
+	domain, err = st.SeekStreamPlayback(domain.ID, domain.Revision, 2, 500, now+56)
+	if err != nil || domain.SeekGeneration != 1 || domain.AudiblePositionMS != 500 {
+		t.Fatalf("post-restart seek=%+v err=%v", domain, err)
+	}
+	domain, err = st.RecordStreamAudibleProgress(
+		domain.ID, domain.Revision, 2, 1, 700, "playing", now+57,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	domain, err = st.CompleteStreamPlayback(
+		domain.ID, domain.Revision, 2, 1, "played", now+58,
+	)
+	if err != nil || domain.State != "idle" || domain.SourceKind != "none" ||
+		domain.CurrentQueueItemID != "" || domain.MainProgramRef != "spotify:track:parked" {
+		t.Fatalf("first completion=%+v err=%v", domain, err)
+	}
+	if _, err := st.ReplaceStreamTrack(
+		domain.ID, replacementMedia.ID, replacementVariant.Profile, domain.Revision, now+59,
+	); !errors.Is(err, ErrStreamTrackConflict) {
+		t.Fatalf("idle replacement error=%v", err)
+	}
+	domain, err = st.ActivateNextStreamQueueItem(domain.ID, domain.Revision, now+59)
+	if err != nil || domain.CurrentQueueItemID != second.ID || domain.PlaybackGeneration != 3 {
+		t.Fatalf("second activation=%+v err=%v", domain, err)
+	}
+	domain, err = st.ReplaceStreamTrack(
+		domain.ID, replacementMedia.ID, replacementVariant.Profile, domain.Revision, now+60,
+	)
+	if err != nil || domain.PlaybackGeneration != 4 || domain.CurrentQueueItemID == second.ID {
+		t.Fatalf("replacement=%+v err=%v", domain, err)
+	}
+	var states = make(map[string]string)
+	for _, item := range domain.Queue {
+		states[item.ID] = item.State
+	}
+	if states[first.ID] != "played" || states[second.ID] != "cancelled" ||
+		states[fourth.ID] != "queued" || states[domain.CurrentQueueItemID] != "active" {
+		t.Fatalf("replacement queue states=%v", states)
+	}
+	domain, err = st.RecordStreamAudibleProgress(
+		domain.ID, domain.Revision, 4, 0, 4000, "paused", now+61,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	st, err = OpenWithOptions(path, Options{SelfServiceOnboarding: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	restored, err := st.LoadStreamPlaybackDomainByTarget("air", "air-flow")
+	if err != nil || restored.CurrentQueueItemID != domain.CurrentQueueItemID ||
+		restored.PlaybackGeneration != 4 || restored.AudiblePositionMS != 4000 ||
+		restored.State != "paused" || restored.MainProgramRef != "spotify:track:parked" {
+		t.Fatalf("restored replacement=%+v err=%v", restored, err)
 	}
 }
 

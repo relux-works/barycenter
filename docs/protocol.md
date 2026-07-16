@@ -47,7 +47,9 @@ contract itself does not claim hands-on hardware evidence. The native
 boundaries are documented in the
 [macOS targets/inbox UI and command composition](analysis/p2-macos-targets-inbox-ui.md)
 and [Windows targets/inbox UI and command composition](analysis/p2-windows-targets-inbox-ui.md)
-handoffs.
+handoffs. The repository-automated B5-B7 coverage and its explicit manual-test
+boundary are recorded in the
+[targets/inbox parity regression evidence](analysis/p2-targets-inbox-parity-regression-evidence.md).
 
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 

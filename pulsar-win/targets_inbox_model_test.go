@@ -155,3 +155,58 @@ func TestTargetsInboxContractMatchesPortableEnums(t *testing.T) {
 		t.Fatal("contract permits late autoplay")
 	}
 }
+
+func TestTargetsInboxParityRegressionFixture(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "acceptance", "targets-inbox-parity-regressions-v1.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence struct {
+		Contract string `json:"contract"`
+		Scope    string `json:"scope"`
+		Fixture  struct {
+			SurfaceStates       []string `json:"surfaceStates"`
+			Audiences           []string `json:"audiences"`
+			Commands            []string `json:"commands"`
+			CanonicalOutcomes   []string `json:"canonicalOutcomes"`
+			TargetedTrackPolicy string   `json:"targetedTrackPolicy"`
+			ManualReplay        bool     `json:"manualReplayRequired"`
+			LateAutoplay        bool     `json:"lateAutoplayAllowed"`
+		} `json:"sharedSurfaceFixture"`
+	}
+	if err := json.Unmarshal(raw, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	wantStates := []string{
+		string(TargetsInboxLoading), string(TargetsInboxReady), string(TargetsInboxStale),
+		string(TargetsInboxOffline), string(TargetsInboxCoordinatorError),
+	}
+	wantAudiences := []string{
+		string(PhaseOneThisPulsar), string(PhaseOneOwnBarycenter),
+		string(PhaseOneCurrentAir), string(TargetsInboxExplicitAudience),
+	}
+	wantCommands := []string{
+		string(TargetsInboxRefresh), string(TargetsInboxSetAudience),
+		string(TargetsInboxSelectTargets), string(TargetsInboxSetIncludeOrigin),
+		string(TargetsInboxLoadMoreInbox), string(TargetsInboxLoadMoreHistory),
+		string(TargetsInboxLoadMoreReceipts), string(TargetsInboxReplayInbox),
+		string(TargetsInboxDismissInbox), string(TargetsInboxDeleteHistory),
+		string(TargetsInboxReportInbox), string(TargetsInboxReportHistory),
+		string(TargetsInboxMuteSender),
+	}
+	if evidence.Contract != "p2-targets-inbox-parity-regressions.v1" ||
+		evidence.Scope != "repository-automated-only" ||
+		strings.Join(evidence.Fixture.SurfaceStates, ",") != strings.Join(wantStates, ",") ||
+		strings.Join(evidence.Fixture.Audiences, ",") != strings.Join(wantAudiences, ",") ||
+		strings.Join(evidence.Fixture.Commands, ",") != strings.Join(wantCommands, ",") ||
+		evidence.Fixture.TargetedTrackPolicy != "unsupported" ||
+		!evidence.Fixture.ManualReplay || evidence.Fixture.LateAutoplay {
+		t.Fatalf("Windows parity fixture diverged: %+v", evidence)
+	}
+	wantOutcomes := []string{
+		"replay_accepted", "inbox_dismissed", "media_deleted", "report_received", "sender_blocked",
+	}
+	if strings.Join(evidence.Fixture.CanonicalOutcomes, ",") != strings.Join(wantOutcomes, ",") {
+		t.Fatalf("Windows outcome fixture=%v", evidence.Fixture.CanonicalOutcomes)
+	}
+}

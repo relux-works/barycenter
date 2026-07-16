@@ -1,6 +1,10 @@
 package main
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"relux.works/duet/coordinator/internal/presentation"
@@ -60,5 +64,53 @@ func TestTelegramRoutingChoicesMatchSharedPairwisePresentation(t *testing.T) {
 	pairwise := presentation.AudienceLabel(store.TransmissionAudienceCurrentAir, "Orion")
 	if pairwise.EN != "Current Air with «Orion»" || pairwise.RU != "Текущий эфир с «Orion»" {
 		t.Fatalf("pairwise label=%+v", pairwise)
+	}
+}
+
+func TestTelegramTargetsInboxParityRegressionFixture(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "acceptance",
+		"targets-inbox-parity-regressions-v1.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence struct {
+		Contract string `json:"contract"`
+		Scope    string `json:"scope"`
+		Fixture  struct {
+			CanonicalOutcomes   []string `json:"canonicalOutcomes"`
+			TargetedTrackPolicy string   `json:"targetedTrackPolicy"`
+			ManualReplay        bool     `json:"manualReplayRequired"`
+			LateAutoplay        bool     `json:"lateAutoplayAllowed"`
+			OpaquePrefixes      []string `json:"opaquePrefixesNeverRendered"`
+		} `json:"sharedSurfaceFixture"`
+	}
+	if err := json.Unmarshal(raw, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	wantOutcomes := []string{
+		"replay_accepted", "inbox_dismissed", "media_deleted", "report_received", "sender_blocked",
+	}
+	if evidence.Contract != "p2-targets-inbox-parity-regressions.v1" ||
+		evidence.Scope != "repository-automated-only" ||
+		strings.Join(evidence.Fixture.CanonicalOutcomes, ",") != strings.Join(wantOutcomes, ",") ||
+		evidence.Fixture.TargetedTrackPolicy != "unsupported" ||
+		!evidence.Fixture.ManualReplay || evidence.Fixture.LateAutoplay {
+		t.Fatalf("Telegram parity fixture diverged: %+v", evidence)
+	}
+	for _, outcome := range []string{
+		"replay_accepted", "media_deleted", "report_received", "sender_blocked",
+	} {
+		label := presentation.HistoryActionOutcomeLabel(outcome)
+		if label.Key != "history.outcome."+outcome || label.EN == "" || label.RU == "" {
+			t.Fatalf("Telegram outcome %q is not canonical: %+v", outcome, label)
+		}
+	}
+	for _, prefix := range evidence.Fixture.OpaquePrefixes {
+		for _, outcome := range evidence.Fixture.CanonicalOutcomes {
+			label := presentation.HistoryActionOutcomeLabel(outcome)
+			if strings.Contains(label.EN, prefix) || strings.Contains(label.RU, prefix) {
+				t.Fatalf("Telegram label leaked opaque prefix %q: %+v", prefix, label)
+			}
+		}
 	}
 }

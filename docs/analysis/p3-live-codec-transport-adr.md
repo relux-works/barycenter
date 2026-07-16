@@ -136,3 +136,6 @@ explicit hold-input/manual-evidence boundary are documented in
 The bounded Windows jitter/mixer runtime and its deliberately empty production
 decoder registration are documented in
 [p3-windows-live-jitter-receiver.md](p3-windows-live-jitter-receiver.md).
+The production-dark Windows node state machine, bounded websocket binary seam
+and explicit AppContainer hold/manual-evidence boundary are documented in
+[p3-windows-live-ptt-node-integration.md](p3-windows-live-ptt-node-integration.md).

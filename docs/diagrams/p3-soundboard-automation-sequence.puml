@@ -16,6 +16,8 @@ participant "Desktop Targets" as Targets
 Actor -> Surface: fire cue hotkey\nor scoped API trigger
 Surface -> Runtime: request(trigger, cue, audience, delivery)
 Runtime -> Store: load cue, principal,\nschedule and revoke state
+Runtime -> Store: atomically claim occurrence\nor principal idempotency key
+Store --> Runtime: one immutable execution\nor exact committed replay
 Runtime -> Policy: validate scope, DND,\nquiet hours, Air policy,\nrate limits
 
 alt Rejected
@@ -35,6 +37,7 @@ end
 Actor -> Surface: revoke token\nor disable schedule
 Surface -> Runtime: revoke(principal)\nor disable(schedule)
 Runtime -> Store: mark revoked/disabled
+Runtime -> Store: query nonterminal executions\nby principal/schedule/feature/cue lineage
 Runtime -> History: immutable audit entry
 
 alt Later trigger arrives

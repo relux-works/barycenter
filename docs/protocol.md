@@ -18,6 +18,10 @@ The implemented owner-scoped media pin, quota, generation and canonical
 revocation behavior is documented in the
 [P3 saved-cue lifecycle](analysis/p3-saved-cue-media-lifecycle.md); it likewise
 adds no public automation route or capability.
+The additive feature, schedule, scoped-principal, at-most-once execution and
+lease/retry persistence is defined by the
+[P3 automation schema foundation](analysis/p3-automation-schema-lineage-foundation.md).
+It is repository-only and remains production-dark.
 
 The exact additive phase-one clip-transmission, DND and presence payloads are
 frozen in [`docs/analysis/p1-transmission-contract-v1.md`](analysis/p1-transmission-contract-v1.md)

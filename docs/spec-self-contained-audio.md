@@ -1369,6 +1369,8 @@ disable используют общие media services; обычный cleanup c
 молча ломать soundboard. Реализованные lifecycle, generation и reconciliation
 правила описаны в
 [`docs/analysis/p3-saved-cue-media-lifecycle.md`](analysis/p3-saved-cue-media-lifecycle.md).
+Additive schedule, principal, occurrence/idempotency и lease lineage описаны в
+[`docs/analysis/p3-automation-schema-lineage-foundation.md`](analysis/p3-automation-schema-lineage-foundation.md).
 Scheduler хранит IANA timezone, имеет явные DST и
 no-catch-up semantics, атомарно claim-ит execution и не создаёт дубль после
 restart или clock jump. Token показывается один раз, хранится только как hash и

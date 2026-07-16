@@ -31,6 +31,7 @@ PREVIOUS_HEAD_PATTERN = (
     "TestMediaUploadExactPreviousHeadRollback|TestMediaProcessingExactPreviousHeadRollback|"
     "TestMediaLifecycleExactPreviousHeadRollback|TestMediaIntegrationExactPreviousHeadRollback|"
     "TestTransmissionStoreExactPreviousHeadRollback|TestModerationExactPreviousHeadRollback|"
+    "TestAutomationExactPreviousHeadRollback|"
     "TestAirExactPreviousCoordinatorLegacyServicePreservesPhase2Rows)$"
 )
 

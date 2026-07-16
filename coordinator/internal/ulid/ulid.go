@@ -91,6 +91,15 @@ func NewInboxID(t time.Time) string { return "ib_" + New(t) }
 // NewSavedCueID returns "cq_<ULID>".
 func NewSavedCueID(t time.Time) string { return "cq_" + New(t) }
 
+// NewAutomationScheduleID returns "sch_<ULID>".
+func NewAutomationScheduleID(t time.Time) string { return "sch_" + New(t) }
+
+// NewAutomationPrincipalID returns "ap_<ULID>".
+func NewAutomationPrincipalID(t time.Time) string { return "ap_" + New(t) }
+
+// NewAutomationExecutionID returns "ax_<ULID>".
+func NewAutomationExecutionID(t time.Time) string { return "ax_" + New(t) }
+
 // NewUploadSessionID returns "up_<ULID>".
 func NewUploadSessionID(t time.Time) string { return "up_" + New(t) }
 

@@ -17,6 +17,7 @@ package "Coordinator" {
   component "Audience Resolver\nAir / Own / Explicit -> exact snapshot" as resolver
   component "Mixed-version Capability Policy\nClip + future track requirements" as capabilities
   component "Inbox and Receipt Query Service\nHistory / Pagination / Aggregates" as inboxsvc
+  component "Shared Pulsar Presentation\nEN/RU labels / freshness / command capabilities" as presentation
   component "Rights and Policy Service\nVersion/hash display / accept / revoke\nper-upload rights reminder / report / disable" as rights
   component "Media ACL Authorizer\nGET /media + revoke fetch" as acl
   component "Delivery Runtime\nClip scheduler + track queue policy" as runtime
@@ -31,6 +32,7 @@ ui --> ingest : upload / record / select media
 ui --> targetrefs : list authorized opaque trf_ capabilities
 ui --> txsvc : create transmission\nreplay / delete / cancel
 ui --> inboxsvc : GET history / inbox / receipts\nexplicit dismiss / replay only
+ui --> presentation : render one model\nbuild commands only from ready capabilities
 ui --> rights : accept policy / report / mute
 
 tg --> ingest : voice / audio / document
@@ -48,6 +50,9 @@ txsvc --> capabilities : fail whole create with\n422 unsupported_targets
 txsvc --> runtime : schedule clip or main-program action
 txsvc --> db : persist transmission\nsnapshot / expiry
 inboxsvc --> inboxdb : exact-binding keyset reads\nopaque bounded cursor state\nidempotent dismiss / replay lineage
+targetrefs --> presentation : opaque choices + expiry\nadvisory capability state
+inboxsvc --> presentation : inbox/history/receipt enums\nserver-authorized actions
+rights --> presentation : current/required/stale\ncontent-policy state
 runtime --> db : update exact target receipt
 runtime --> inboxdb : same transaction creates\none eligible target item
 runtime --> nodes : prepare / play / queue / replace
@@ -68,6 +73,15 @@ target tuple; replay lineage never rewrites the receipt.
 HTTP returns ib_/hi_/ir_ capabilities and safe labels;
 raw media, transmission, actor, orbit, slot, and binding
 identifiers never cross the inbox/receipt read boundary.
+end note
+
+note right of presentation
+Windows and macOS select EN or RU from the same labels.
+Loading, stale, offline and coordinator-error snapshots retain
+readable rows but authorize no mutation or pagination command.
+There is no late-autoplay command: every inbox replay is explicit.
+Opaque references, object capabilities and cursors are redacted
+from labels, descriptions and debug output.
 end note
 
 note bottom of txsvc

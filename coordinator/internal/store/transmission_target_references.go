@@ -40,9 +40,14 @@ type IssuePersonalTransmissionTargetsParams struct {
 // target picker. Label is presentation-only; Reference is the sole value a
 // create request may return to the coordinator.
 type TransmissionTargetReferenceOption struct {
-	Reference string
-	Kind      TransmissionAudienceSelectorKind
-	Label     string
+	Reference   string
+	Kind        TransmissionAudienceSelectorKind
+	Label       string
+	OrbitID     int64
+	OrbitTitle  string
+	Slot        string
+	TargetSlots []string
+	ExpiresAt   int64
 }
 
 type storedTransmissionTargetReference struct {
@@ -345,8 +350,12 @@ func (s *Store) ListTransmissionTargetReferences(
 		}
 		options = append(options, TransmissionTargetReferenceOption{
 			Reference: barycenterRef, Kind: TransmissionSelectorBarycenter,
-			Label: "Barycenter: " + orbit.title,
+			Label: "Barycenter: " + orbit.title, OrbitID: orbit.id,
+			OrbitTitle: orbit.title, ExpiresAt: now + transmissionTargetReferenceTTL.Milliseconds(),
 		})
+		for _, target := range targets {
+			options[len(options)-1].TargetSlots = append(options[len(options)-1].TargetSlots, target.Slot)
+		}
 		for _, target := range targets {
 			pulsarRef, err := mintTransmissionTargetReferenceTx(tx, ctx, proof,
 				storedTransmissionTargetReference{
@@ -359,7 +368,10 @@ func (s *Store) ListTransmissionTargetReferences(
 			}
 			options = append(options, TransmissionTargetReferenceOption{
 				Reference: pulsarRef, Kind: TransmissionSelectorPulsar,
-				Label: fmt.Sprintf("%s · Pulsar %s", orbit.title, strings.ToUpper(target.Slot)),
+				Label:   fmt.Sprintf("%s · Pulsar %s", orbit.title, strings.ToUpper(target.Slot)),
+				OrbitID: orbit.id, OrbitTitle: orbit.title, Slot: target.Slot,
+				TargetSlots: []string{target.Slot},
+				ExpiresAt:   now + transmissionTargetReferenceTTL.Milliseconds(),
 			})
 		}
 	}

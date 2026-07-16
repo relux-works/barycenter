@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"relux.works/duet/coordinator/internal/presentation"
 	"relux.works/duet/coordinator/internal/store"
 )
 
@@ -30,19 +31,20 @@ type inboxReceiptJSON struct {
 }
 
 type inboxItemJSON struct {
-	ID                string           `json:"id"`
-	HistoryItemID     string           `json:"history_item_id"`
-	Revision          int64            `json:"revision"`
-	Media             inboxMediaJSON   `json:"media"`
-	Sender            inboxSenderJSON  `json:"sender"`
-	RequestedDelivery string           `json:"requested_delivery"`
-	EffectiveDelivery string           `json:"effective_delivery"`
-	Availability      string           `json:"availability"`
-	Receipt           inboxReceiptJSON `json:"receipt"`
-	ReplayDepth       int              `json:"replay_depth"`
-	CreatedAt         string           `json:"created_at"`
-	ExpiresAt         string           `json:"expires_at"`
-	Actions           []string         `json:"actions"`
+	ID                string                             `json:"id"`
+	HistoryItemID     string                             `json:"history_item_id"`
+	Revision          int64                              `json:"revision"`
+	Media             inboxMediaJSON                     `json:"media"`
+	Sender            inboxSenderJSON                    `json:"sender"`
+	RequestedDelivery string                             `json:"requested_delivery"`
+	EffectiveDelivery string                             `json:"effective_delivery"`
+	Availability      string                             `json:"availability"`
+	Receipt           inboxReceiptJSON                   `json:"receipt"`
+	ReplayDepth       int                                `json:"replay_depth"`
+	CreatedAt         string                             `json:"created_at"`
+	ExpiresAt         string                             `json:"expires_at"`
+	Actions           []string                           `json:"actions"`
+	Presentation      presentation.InboxItemPresentation `json:"presentation"`
 }
 
 func inboxItemResponse(item store.AuthorizedTransmissionInboxItem) inboxItemJSON {
@@ -65,7 +67,7 @@ func inboxItemResponse(item store.AuthorizedTransmissionInboxItem) inboxItemJSON
 	if item.CanUnblock {
 		actions = append(actions, "unblock")
 	}
-	return inboxItemJSON{
+	result := inboxItemJSON{
 		ID: item.Item.ID, HistoryItemID: item.HistoryItemID,
 		Revision: item.Item.Revision,
 		Media: inboxMediaJSON{Kind: string(item.Item.MediaKind), Title: item.MediaTitle,
@@ -79,6 +81,12 @@ func inboxItemResponse(item store.AuthorizedTransmissionInboxItem) inboxItemJSON
 		CreatedAt: coordTime(item.Item.CreatedAt), ExpiresAt: coordTime(item.Item.ExpiresAt),
 		Actions: actions,
 	}
+	result.Presentation = presentation.PresentInboxItem(
+		item.SourceName, item.SourceOrbitName, item.Item.RequestedDelivery,
+		item.Item.EffectiveDelivery, string(item.Item.Availability),
+		string(item.Item.MissedStatus), item.Item.MissedReason, actions,
+	)
+	return result
 }
 
 func parseBoundedPageQuery(r *http.Request, defaultLimit int, allowed map[string]bool) (int, string, string, bool) {
@@ -332,20 +340,24 @@ func (api *onboardingAPI) inboxError(w http.ResponseWriter, operation string, er
 }
 
 type historyReceiptJSON struct {
-	TargetLabel string `json:"target_label"`
-	Status      string `json:"status"`
-	ReasonCode  string `json:"reason_code,omitempty"`
-	ReadyAt     string `json:"ready_at,omitempty"`
-	ScheduledAt string `json:"scheduled_at,omitempty"`
-	StartedAt   string `json:"started_at,omitempty"`
-	EndedAt     string `json:"ended_at,omitempty"`
+	TargetLabel  string                                  `json:"target_label"`
+	Status       string                                  `json:"status"`
+	ReasonCode   string                                  `json:"reason_code,omitempty"`
+	ReadyAt      string                                  `json:"ready_at,omitempty"`
+	ScheduledAt  string                                  `json:"scheduled_at,omitempty"`
+	StartedAt    string                                  `json:"started_at,omitempty"`
+	EndedAt      string                                  `json:"ended_at,omitempty"`
+	Presentation presentation.HistoryReceiptPresentation `json:"presentation"`
 }
 
 func historyReceiptResponse(item store.AuthorizedHistoryReceipt) historyReceiptJSON {
 	value := historyReceiptJSON{TargetLabel: item.DisplayLabel, Status: string(item.Target.Status)}
+	reason := store.TransmissionReason("")
 	if item.RevealReason {
 		value.ReasonCode = string(item.Target.ReasonCode)
+		reason = item.Target.ReasonCode
 	}
+	value.Presentation = presentation.PresentHistoryReceipt(string(item.Target.Status), reason)
 	if item.Target.ReadyAt > 0 {
 		value.ReadyAt = coordTime(item.Target.ReadyAt)
 	}

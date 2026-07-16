@@ -37,6 +37,15 @@ surface is frozen in the
 Its executable enum, route, default and invariant summary is
 [`protocol/air-lifecycle-policy-v1.json`](../protocol/air-lifecycle-policy-v1.json).
 
+The shared Phase 2 Pulsar explicit-target, inbox, history, receipt-pagination
+and fail-closed command model is defined by the
+[Pulsar targets/inbox presentation model](analysis/p2-pulsar-targets-inbox-presentation-model.md)
+and its executable
+[`pulsar.targets-inbox-presentation.v1`](../protocol/pulsar-targets-inbox-presentation-v1.json)
+contract. Native macOS and Windows views consume this model in their later
+platform tasks; this contract itself does not claim those views or hardware
+evidence.
+
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 
 ## Envelope

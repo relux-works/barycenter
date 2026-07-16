@@ -10,12 +10,14 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"relux.works/duet/coordinator/internal/hub"
+	"relux.works/duet/coordinator/internal/presentation"
 	"relux.works/duet/coordinator/internal/protocol"
 	"relux.works/duet/coordinator/internal/store"
 )
@@ -454,7 +456,10 @@ func canonicalTransmissionHash(
 }
 
 func (api *onboardingAPI) transmissionAvailability() []store.TransmissionTargetAvailability {
-	snapshot := api.transmissionPresence()
+	snapshot := map[transmissionPresenceKey]transmissionPresenceState{}
+	if api.transmissionPresence != nil {
+		snapshot = api.transmissionPresence()
+	}
 	result := make([]store.TransmissionTargetAvailability, 0, len(snapshot))
 	for key, state := range snapshot {
 		result = append(result, store.TransmissionTargetAvailability{
@@ -473,14 +478,70 @@ func (api *onboardingAPI) transmissionAvailability() []store.TransmissionTargetA
 }
 
 type transmissionTargetReferenceJSON struct {
-	Reference string `json:"reference"`
-	Kind      string `json:"kind"`
-	Label     string `json:"label"`
+	Reference       string                                `json:"reference"`
+	Kind            string                                `json:"kind"`
+	Label           string                                `json:"label"`
+	CapabilityState string                                `json:"capability_state"`
+	Capabilities    []string                              `json:"capabilities"`
+	ExpiresAt       string                                `json:"expires_at"`
+	Presentation    presentation.TargetChoicePresentation `json:"presentation"`
 }
 
 type transmissionTargetReferencesJSON struct {
 	Contract string                            `json:"contract"`
 	Targets  []transmissionTargetReferenceJSON `json:"targets"`
+}
+
+func targetReferenceCapabilities(
+	option store.TransmissionTargetReferenceOption,
+	snapshot map[transmissionPresenceKey]transmissionPresenceState,
+) (string, []string) {
+	if len(option.TargetSlots) == 0 {
+		return "unknown", []string{}
+	}
+	connected := 0
+	var intersection map[string]bool
+	for _, slot := range option.TargetSlots {
+		state, ok := snapshot[transmissionPresenceKey{OrbitID: option.OrbitID, Slot: slot}]
+		if !ok || !state.Connected {
+			continue
+		}
+		connected++
+		current := make(map[string]bool, len(state.Capabilities))
+		for _, capability := range state.Capabilities {
+			current[capability] = true
+		}
+		if state.MediaClipCapable {
+			current[string(protocol.CapabilityMediaClip)] = true
+		}
+		if state.OverlayCapable {
+			current[string(protocol.CapabilityOverlayMix)] = true
+		}
+		if state.InterruptCapable && state.InterruptResumeReady {
+			current[string(protocol.CapabilityInterruptResume)] = true
+		}
+		if intersection == nil {
+			intersection = current
+			continue
+		}
+		for capability := range intersection {
+			if !current[capability] {
+				delete(intersection, capability)
+			}
+		}
+	}
+	if connected == 0 {
+		return "unknown", []string{}
+	}
+	capabilities := make([]string, 0, len(intersection))
+	for capability := range intersection {
+		capabilities = append(capabilities, capability)
+	}
+	sort.Strings(capabilities)
+	if connected == len(option.TargetSlots) {
+		return "known", capabilities
+	}
+	return "mixed", capabilities
 }
 
 func (api *onboardingAPI) transmissionTargetReferences(w http.ResponseWriter, r *http.Request) {
@@ -500,9 +561,23 @@ func (api *onboardingAPI) transmissionTargetReferences(w http.ResponseWriter, r 
 		Contract: "p2-targets-inbox-parity.v1",
 		Targets:  make([]transmissionTargetReferenceJSON, 0, len(options)),
 	}
+	snapshot := map[transmissionPresenceKey]transmissionPresenceState{}
+	if api.transmissionPresence != nil {
+		snapshot = api.transmissionPresence()
+	}
 	for _, option := range options {
+		capabilityState, capabilities := targetReferenceCapabilities(option, snapshot)
+		multipleSlots := len(option.TargetSlots) > 1
+		metadata := presentation.TargetMetadata{OrbitTitle: option.OrbitTitle}
+		if option.Kind == store.TransmissionSelectorPulsar {
+			metadata.Slot = option.Slot
+			metadata.MultipleSlots = multipleSlots
+		}
 		response.Targets = append(response.Targets, transmissionTargetReferenceJSON{
 			Reference: option.Reference, Kind: string(option.Kind), Label: option.Label,
+			CapabilityState: capabilityState, Capabilities: capabilities,
+			ExpiresAt:    coordTime(option.ExpiresAt),
+			Presentation: presentation.PresentTargetChoice(metadata, capabilityState, capabilities),
 		})
 	}
 	writeJSON(w, http.StatusOK, response)

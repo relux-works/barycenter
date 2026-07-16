@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"relux.works/duet/coordinator/internal/historyactions"
+	"relux.works/duet/coordinator/internal/presentation"
 	"relux.works/duet/coordinator/internal/store"
 )
 
@@ -32,20 +33,21 @@ type historyCountsJSON struct {
 }
 
 type historyListItemJSON struct {
-	HistoryItemID     string                        `json:"history_item_id"`
-	ItemKind          string                        `json:"item_kind"`
-	Direction         store.HistoryDirection        `json:"direction"`
-	OccurredAt        string                        `json:"occurred_at"`
-	Media             historyMediaJSON              `json:"media"`
-	Sender            *historySenderJSON            `json:"sender,omitempty"`
-	Audience          *transmissionAudienceResponse `json:"audience,omitempty"`
-	RequestedDelivery string                        `json:"requested_delivery,omitempty"`
-	EffectiveDelivery string                        `json:"effective_delivery,omitempty"`
-	DowngradeReason   string                        `json:"downgrade_reason,omitempty"`
-	Status            string                        `json:"status"`
-	ReasonCode        string                        `json:"reason_code,omitempty"`
-	TargetCounts      *historyCountsJSON            `json:"target_counts,omitempty"`
-	Actions           []string                      `json:"actions"`
+	HistoryItemID     string                               `json:"history_item_id"`
+	ItemKind          string                               `json:"item_kind"`
+	Direction         store.HistoryDirection               `json:"direction"`
+	OccurredAt        string                               `json:"occurred_at"`
+	Media             historyMediaJSON                     `json:"media"`
+	Sender            *historySenderJSON                   `json:"sender,omitempty"`
+	Audience          *transmissionAudienceResponse        `json:"audience,omitempty"`
+	RequestedDelivery string                               `json:"requested_delivery,omitempty"`
+	EffectiveDelivery string                               `json:"effective_delivery,omitempty"`
+	DowngradeReason   string                               `json:"downgrade_reason,omitempty"`
+	Status            string                               `json:"status"`
+	ReasonCode        string                               `json:"reason_code,omitempty"`
+	TargetCounts      *historyCountsJSON                   `json:"target_counts,omitempty"`
+	Actions           []string                             `json:"actions"`
+	Presentation      presentation.HistoryItemPresentation `json:"presentation"`
 }
 
 func historyMedia(item store.HistoryQueryItem, now int64) historyMediaJSON {
@@ -156,6 +158,10 @@ func (api *onboardingAPI) historyListResponse(actor actorRequest, item store.His
 		Actions: historyActions(item)}
 	if item.Transmission == nil {
 		result.Status, result.ReasonCode = historyMediaState(item.Media)
+		result.Presentation = presentation.PresentHistoryItem(
+			item.Direction, "", "", "", "", result.Status,
+			store.TransmissionReason(result.ReasonCode), result.Actions,
+		)
 		return result, nil
 	}
 	sender, err := api.historySender(actor, item, now)
@@ -170,6 +176,11 @@ func (api *onboardingAPI) historyListResponse(actor actorRequest, item store.His
 	result.Status, result.ReasonCode = historyTransmissionState(item)
 	played := item.TargetStatusCounts[store.TransmissionTargetPlayed]
 	result.TargetCounts = &historyCountsJSON{Played: played, Other: item.TargetCount - played}
+	result.Presentation = presentation.PresentHistoryItem(
+		item.Direction, item.SourceActorName, item.SourceOrbitName,
+		result.RequestedDelivery, result.EffectiveDelivery, result.Status,
+		store.TransmissionReason(result.ReasonCode), result.Actions,
+	)
 	return result, nil
 }
 
@@ -235,23 +246,24 @@ func (api *onboardingAPI) history(w http.ResponseWriter, r *http.Request) {
 }
 
 type historyDetailJSON struct {
-	Contract          string                            `json:"contract"`
-	HistoryItemID     string                            `json:"history_item_id"`
-	ItemKind          string                            `json:"item_kind"`
-	Direction         store.HistoryDirection            `json:"direction"`
-	OccurredAt        string                            `json:"occurred_at"`
-	AcceptedAt        string                            `json:"accepted_at,omitempty"`
-	ExpiresAt         string                            `json:"expires_at,omitempty"`
-	Media             historyMediaJSON                  `json:"media"`
-	Sender            *historySenderJSON                `json:"sender,omitempty"`
-	Audience          *transmissionAudienceResponse     `json:"audience,omitempty"`
-	RequestedDelivery string                            `json:"requested_delivery,omitempty"`
-	EffectiveDelivery string                            `json:"effective_delivery,omitempty"`
-	DowngradeReason   string                            `json:"downgrade_reason,omitempty"`
-	Status            string                            `json:"status"`
-	ReasonCode        string                            `json:"reason_code,omitempty"`
-	TargetCounts      *transmissionTargetCountsResponse `json:"target_counts,omitempty"`
-	Actions           []string                          `json:"actions"`
+	Contract          string                               `json:"contract"`
+	HistoryItemID     string                               `json:"history_item_id"`
+	ItemKind          string                               `json:"item_kind"`
+	Direction         store.HistoryDirection               `json:"direction"`
+	OccurredAt        string                               `json:"occurred_at"`
+	AcceptedAt        string                               `json:"accepted_at,omitempty"`
+	ExpiresAt         string                               `json:"expires_at,omitempty"`
+	Media             historyMediaJSON                     `json:"media"`
+	Sender            *historySenderJSON                   `json:"sender,omitempty"`
+	Audience          *transmissionAudienceResponse        `json:"audience,omitempty"`
+	RequestedDelivery string                               `json:"requested_delivery,omitempty"`
+	EffectiveDelivery string                               `json:"effective_delivery,omitempty"`
+	DowngradeReason   string                               `json:"downgrade_reason,omitempty"`
+	Status            string                               `json:"status"`
+	ReasonCode        string                               `json:"reason_code,omitempty"`
+	TargetCounts      *transmissionTargetCountsResponse    `json:"target_counts,omitempty"`
+	Actions           []string                             `json:"actions"`
+	Presentation      presentation.HistoryItemPresentation `json:"presentation"`
 }
 
 func (api *onboardingAPI) historyItem(w http.ResponseWriter, r *http.Request) {
@@ -294,6 +306,7 @@ func (api *onboardingAPI) historyItem(w http.ResponseWriter, r *http.Request) {
 		Direction: item.Direction, OccurredAt: base.OccurredAt, Media: base.Media, Sender: base.Sender,
 		Audience: base.Audience, RequestedDelivery: base.RequestedDelivery, EffectiveDelivery: base.EffectiveDelivery,
 		DowngradeReason: base.DowngradeReason, Status: base.Status, ReasonCode: base.ReasonCode, Actions: base.Actions}
+	result.Presentation = base.Presentation
 	if item.Transmission != nil {
 		result.AcceptedAt = coordTime(item.Transmission.AcceptedAt)
 		result.ExpiresAt = coordTime(item.Transmission.ExpiresAt)

@@ -481,6 +481,10 @@ func TestTransmissionHTTPUsesOpaqueTargetsAndFailsClosedOnMixedVersions(t *testi
 	var companionReference string
 	for _, raw := range listBody["targets"].([]any) {
 		option := raw.(map[string]any)
+		if option["expires_at"] == "" || option["capability_state"] == "" ||
+			option["presentation"].(map[string]any)["label"].(map[string]any)["key"] == "" {
+			t.Fatalf("target presentation=%v", option)
+		}
 		if option["kind"] == "pulsar" && strings.HasSuffix(option["label"].(string), "Pulsar B") {
 			companionReference = option["reference"].(string)
 		}

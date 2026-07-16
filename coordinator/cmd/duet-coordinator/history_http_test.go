@@ -335,6 +335,12 @@ func TestHistoryHTTPReportAndBlockShareCanonicalOwnerServices(t *testing.T) {
 	if !containsJSONValue(actions, "report") || !containsJSONValue(actions, "block_actor") {
 		t.Fatalf("actions=%v", actions)
 	}
+	presented := item["presentation"].(map[string]any)
+	if presented["direction"].(map[string]any)["key"] != "history.direction.received" ||
+		presented["sender"].(map[string]any)["key"] == "" ||
+		len(presented["actions"].([]any)) != len(actions) {
+		t.Fatalf("history presentation=%v", presented)
+	}
 
 	reportPath := "/v1/history/" + historyID + "/actions/report"
 	report := historyActionRequest(fixture.harness.mux, reportPath,

@@ -72,14 +72,16 @@ struct MacStreamTrackDraftStoreTests {
     let clientSource = try String(
       contentsOf: repositoryRoot.appendingPathComponent(
         "node-app/Sources/NodeCore/PhaseOneAppClient.swift"))
-    let intake = try #require(
+    let intakeTail = try #require(
       storeSource.split(separator: "public func importFile", maxSplits: 1).last
     )
-    .split(separator: "public func load", maxSplits: 1).first.map(String.init)
-    let upload = try #require(
+    let intake = String(try #require(
+      intakeTail.split(separator: "public func load", maxSplits: 1).first))
+    let uploadTail = try #require(
       clientSource.split(separator: "public func uploadTrack", maxSplits: 1).last
     )
-    .split(separator: "public func contentPolicy", maxSplits: 1).first.map(String.init)
+    let upload = String(try #require(
+      uploadTail.split(separator: "public func contentPolicy", maxSplits: 1).first))
 
     #expect(intake.contains("FileHandle"))
     #expect(intake.contains("copyChunkBytes"))

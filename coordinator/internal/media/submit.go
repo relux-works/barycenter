@@ -130,6 +130,10 @@ func (service *SubmitService) SubmitUpload(ctx context.Context, uploadSessionID 
 		})
 		return *item, nil
 	}
+	if session.Status == store.UploadStatusFailed && item.Status == store.MediaStatusFailed &&
+		item.FailureCode != "" {
+		return *item, processingError(item.FailureCode, nil)
+	}
 	if session.Status != store.UploadStatusFinalizing || item.Status != store.MediaStatusProcessing ||
 		session.ReceivedSizeBytes != session.DeclaredSizeBytes {
 		return store.MediaItem{}, processingError("media_upload_state_invalid", nil)
@@ -179,8 +183,12 @@ func (service *SubmitService) SubmitMedia(ctx context.Context, submission Submis
 		return *item, nil
 	}
 	if item.Status != store.MediaStatusProcessing ||
-		(item.Kind != store.MediaKindVoiceClip && item.Kind != store.MediaKindAudioClip) {
+		(item.Kind != store.MediaKindVoiceClip && item.Kind != store.MediaKindAudioClip &&
+			item.Kind != store.MediaKindAudioTrack) {
 		return store.MediaItem{}, processingError("media_state_invalid", nil)
+	}
+	if item.Kind == store.MediaKindAudioTrack {
+		return service.submitAudioTrack(ctx, *item, submission)
 	}
 
 	workDir, err := os.MkdirTemp(service.processingDir, item.ID+"-")
@@ -253,6 +261,100 @@ func (service *SubmitService) SubmitMedia(ctx context.Context, submission Submis
 	}
 	service.cleanupSource(submission)
 	return ready, nil
+}
+
+func (service *SubmitService) submitAudioTrack(
+	ctx context.Context,
+	item store.MediaItem,
+	submission Submission,
+) (store.MediaItem, error) {
+	workDir, err := os.MkdirTemp(service.processingDir, item.ID+"-track-")
+	if err != nil {
+		return store.MediaItem{}, errors.New("create audio track work directory")
+	}
+	defer os.RemoveAll(workDir)
+	if err := os.Chmod(workDir, 0o700); err != nil {
+		return store.MediaItem{}, errors.New("secure audio track work directory")
+	}
+	privateInput := filepath.Join(workDir, "input.bin")
+	if err := copySubmissionInput(
+		submission.SourcePath, privateInput, submission.ExpectedSize, MaxTrackBytes,
+	); err != nil {
+		return service.failProcessing(item, err)
+	}
+	if err := service.acquireWorker(ctx); err != nil {
+		return store.MediaItem{}, err
+	}
+	probed, err := func() (TrackProbe, error) {
+		defer service.releaseWorker()
+		return service.processor.ProbeTrack(ctx, privateInput)
+	}()
+	if err != nil {
+		return service.failProcessing(item, err)
+	}
+
+	filename := strings.TrimSpace(item.Title)
+	if filename == "" {
+		filename = "upload.bin"
+	}
+	metadata, err := service.store.GetStreamTrackMetadata(item.ID)
+	if errors.Is(err, store.ErrStreamTrackNotFound) {
+		metadata, err = service.store.CreateStreamTrackMetadata(store.CreateStreamTrackMetadataParams{
+			MediaID: item.ID, OriginalFilename: filename, OriginalMIME: probed.MIME,
+			OriginalContainer: probed.Container, OriginalCodec: probed.Codec,
+			OriginalSizeBytes: probed.SizeBytes, OriginalSHA256: probed.SHA256,
+			OriginalDurationMS:   probed.DurationMS,
+			OriginalSampleRateHz: int64(probed.SampleRate),
+			OriginalChannels:     int64(probed.Channels), CreatedAt: service.now().UnixMilli(),
+		})
+	}
+	if err != nil {
+		if errors.Is(err, store.ErrStreamQuotaExceeded) {
+			return service.failProcessing(item, processingError("media_quota_exceeded", err))
+		}
+		return store.MediaItem{}, errors.New("persist audio track metadata")
+	}
+	if metadata.OriginalSizeBytes != probed.SizeBytes || metadata.OriginalSHA256 != probed.SHA256 ||
+		metadata.OriginalContainer != probed.Container || metadata.OriginalCodec != probed.Codec ||
+		(metadata.OriginalDurationMS != 0 && metadata.OriginalDurationMS != probed.DurationMS) {
+		return service.failProcessing(item, processingError("media_input_identity_mismatch", nil))
+	}
+
+	job, err := service.store.BeginStreamProcessing(store.BeginStreamProcessingParams{
+		MediaID: item.ID, IdempotencyKey: "audio-track-pipeline-v1:" + item.ID,
+		TempReservedBytes: submission.ExpectedSize, CreatedAt: service.now().UnixMilli(),
+	})
+	if err != nil {
+		if errors.Is(err, store.ErrStreamQuotaExceeded) {
+			return service.failProcessing(item, processingError("media_quota_exceeded", err))
+		}
+		return store.MediaItem{}, errors.New("reserve audio track processing")
+	}
+	if job.State == "active" {
+		job, err = service.store.RecordStreamProcessingTemp(
+			job.ID, job.Revision, submission.ExpectedSize, service.now().UnixMilli(),
+		)
+		if err != nil {
+			return store.MediaItem{}, errors.New("record audio track processing temp bytes")
+		}
+	}
+
+	// The accepted codec handoff has no production implementation and the
+	// persisted policy has no runtime bypass. A valid source therefore ends in
+	// one stable, retry-safe failure until a reviewed replacement ADR changes
+	// both the policy and this encoder registry.
+	_, selectionErr := service.store.SelectProductionStreamVariant(item.ID)
+	if !errors.Is(selectionErr, store.ErrStreamProductionSelectionLocked) {
+		return store.MediaItem{}, errors.New("verify production stream variant policy")
+	}
+	if job.State == "active" {
+		if _, err := service.store.CompleteStreamProcessing(
+			job.ID, job.Revision, "processor_failed", service.now().UnixMilli(),
+		); err != nil {
+			return store.MediaItem{}, errors.New("complete blocked audio track processing")
+		}
+	}
+	return service.failProcessing(item, processingError("codec_profile_unavailable", selectionErr))
 }
 
 func (service *SubmitService) publishAndComplete(

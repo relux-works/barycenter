@@ -213,7 +213,8 @@ func (api *onboardingAPI) createMediaUpload(w http.ResponseWriter, r *http.Reque
 		RightsAcknowledged bool   `json:"rights_acknowledged"`
 	}
 	if !decodeBoundedJSON(w, r, 1024, &req) ||
-		(req.Kind != string(store.MediaKindVoiceClip) && req.Kind != string(store.MediaKindAudioClip)) ||
+		(req.Kind != string(store.MediaKindVoiceClip) && req.Kind != string(store.MediaKindAudioClip) &&
+			req.Kind != string(store.MediaKindAudioTrack)) ||
 		req.SizeBytes <= 0 || len(req.Title) > 512 || !utf8.ValidString(req.Title) {
 		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
 		return
@@ -228,6 +229,10 @@ func (api *onboardingAPI) createMediaUpload(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	actor := r.Context().Value(actorRequestKey{}).(actorRequest)
+	uploadQuota := api.mediaUploadQuota
+	if req.Kind == string(store.MediaKindAudioTrack) {
+		uploadQuota.MaxItemBytes = media.MaxTrackBytes
+	}
 	creation, err := api.store.CreateAuthorizedMediaUpload(
 		actor.Context.ActorID, actor.Bearer,
 		store.CreateMediaUploadParams{
@@ -242,7 +247,7 @@ func (api *onboardingAPI) createMediaUpload(w http.ResponseWriter, r *http.Reque
 			SessionExpiresAt:  now.Add(mediaUploadSessionLifetime).UnixMilli(),
 			IdempotencyKey:    idempotencyKey,
 		},
-		api.mediaUploadQuota,
+		uploadQuota,
 	)
 	if api.mediaUploadCreationError(w, err) {
 		return

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -104,6 +105,48 @@ func (harness *submitHarness) createFinalizingUpload(
 	return creation
 }
 
+func (harness *submitHarness) createFinalizingTrackUpload(
+	t *testing.T,
+	idempotencyKey string,
+	raw []byte,
+) store.MediaUploadCreation {
+	t.Helper()
+	now := harness.nextMS()
+	creation, err := harness.store.CreateMediaUpload(store.CreateMediaUploadParams{
+		Media: store.CreateMediaItemParams{
+			OwnerOrbitID: harness.credentials.OrbitID,
+			ActorID:      harness.credentials.ActorID,
+			Kind:         store.MediaKindAudioTrack,
+			Source:       store.MediaSourceApp,
+			Title:        "long-track.wav",
+			CreatedAt:    now,
+			ExpiresAt:    now + int64((7*24*time.Hour)/time.Millisecond),
+		},
+		DeclaredSizeBytes: int64(len(raw)),
+		SessionExpiresAt:  now + int64(time.Hour/time.Millisecond),
+		IdempotencyKey:    idempotencyKey,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	advanced, err := harness.store.AdvanceMediaUpload(
+		creation.Session.ID, 0, int64(len(raw)), harness.nextMS(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := harness.store.BeginMediaUploadFinalization(
+		creation.Session.ID, advanced.Revision, harness.nextMS(),
+	); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(harness.service.uploadDir, creation.Session.ID+".part")
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return creation
+}
+
 func (harness *submitHarness) createGenericItem(
 	t *testing.T,
 	credentials store.OnboardingCredentials,
@@ -169,6 +212,184 @@ func TestSubmitUploadPublishesCanonicalMetadataCleansSourceAndReplays(t *testing
 	}
 	if got := len(harness.runner.commandSnapshot()); got != commandsBeforeRetry || got != 3 {
 		t.Fatalf("retry worker commands=%d before=%d", got, commandsBeforeRetry)
+	}
+}
+
+func TestSubmitAudioTrackPersistsBoundedProbeAndFailsClosedWithoutProductionCodec(t *testing.T) {
+	harness := newSubmitHarness(t)
+	harness.runner.probeDuration = "7200.000"
+	raw := testWAVBytes(100)
+	creation := harness.createFinalizingTrackUpload(
+		t, "audio-track-no-go-replay-0001", raw,
+	)
+	sourcePath := filepath.Join(harness.service.uploadDir, creation.Session.ID+".part")
+
+	failed, err := harness.service.SubmitUpload(context.Background(), creation.Session.ID)
+	assertProcessingCode(t, err, "codec_profile_unavailable")
+	if failed.Status != store.MediaStatusFailed || failed.FailureCode != "codec_profile_unavailable" ||
+		failed.StorageKey != "" || failed.PublishedAt != 0 {
+		t.Fatalf("failed track=%+v", failed)
+	}
+	metadata, err := harness.store.GetStreamTrackMetadata(creation.Media.ID)
+	if err != nil || metadata.OriginalFilename != "long-track.wav" ||
+		metadata.OriginalMIME != "audio/wav" || metadata.OriginalContainer != "wav" ||
+		metadata.OriginalCodec != "pcm_s16le" || metadata.OriginalDurationMS != MaxTrackDurationMS ||
+		metadata.OriginalSampleRateHz != 44100 || metadata.OriginalChannels != 2 ||
+		metadata.OriginalSizeBytes != int64(len(raw)) || len(metadata.OriginalSHA256) != 64 {
+		t.Fatalf("track metadata=%+v err=%v", metadata, err)
+	}
+	variants, err := harness.store.ListStreamVariants(creation.Media.ID)
+	if err != nil || len(variants) != 0 {
+		t.Fatalf("production no-go variants=%+v err=%v", variants, err)
+	}
+	commands := harness.runner.commandSnapshot()
+	if len(commands) != 1 || !contains(commands[0].Tool, "ffprobe") ||
+		contains(strings.Join(commands[0].Args, " "), "loudnorm") ||
+		contains(strings.Join(commands[0].Args, " "), "pcm_s16le") {
+		t.Fatalf("track worker commands=%+v", commands)
+	}
+	canonical, readErr := os.ReadDir(harness.service.canonicalDir)
+	processing, processingErr := os.ReadDir(harness.service.processingDir)
+	if readErr != nil || processingErr != nil || len(canonical) != 0 || len(processing) != 0 {
+		t.Fatalf("track artifacts canonical=%v processing=%v read=%v/%v", canonical, processing, readErr, processingErr)
+	}
+	if _, statErr := os.Stat(sourcePath); statErr != nil {
+		t.Fatalf("failed source was not retained for normal cleanup: %v", statErr)
+	}
+
+	commandsBeforeReplay := len(commands)
+	replayed, replayErr := harness.service.SubmitUpload(context.Background(), creation.Session.ID)
+	assertProcessingCode(t, replayErr, "codec_profile_unavailable")
+	if replayed != failed || len(harness.runner.commandSnapshot()) != commandsBeforeReplay {
+		t.Fatalf("failed replay=%+v err=%v", replayed, replayErr)
+	}
+}
+
+func TestSubmitAudioTrackRejectsOverTwoHoursAndNeverUsesSpeechPipeline(t *testing.T) {
+	harness := newSubmitHarness(t)
+	harness.runner.probeDuration = "7200.001"
+	creation := harness.createFinalizingTrackUpload(
+		t, "audio-track-duration-bound-0001", testWAVBytes(10),
+	)
+	_, err := harness.service.SubmitUpload(context.Background(), creation.Session.ID)
+	assertProcessingCode(t, err, "media_duration_exceeded")
+	if _, err := harness.store.GetStreamTrackMetadata(creation.Media.ID); !errors.Is(err, store.ErrStreamTrackNotFound) {
+		t.Fatalf("invalid track metadata error=%v", err)
+	}
+	commands := harness.runner.commandSnapshot()
+	if len(commands) != 1 || contains(strings.Join(commands[0].Args, " "), "loudnorm") {
+		t.Fatalf("invalid track commands=%+v", commands)
+	}
+}
+
+func TestSubmitAudioTrackWorkerCrashPublishesNothingAndReplayIsStable(t *testing.T) {
+	harness := newSubmitHarness(t)
+	harness.runner.probeError = errors.New("private hostile parser crash")
+	creation := harness.createFinalizingTrackUpload(
+		t, "audio-track-worker-crash-0001", testWAVBytes(10),
+	)
+	_, err := harness.service.SubmitUpload(context.Background(), creation.Session.ID)
+	assertProcessingCode(t, err, "ffprobe_failed")
+	if contains(err.Error(), "private") {
+		t.Fatalf("worker detail escaped: %v", err)
+	}
+	if _, err := harness.store.GetStreamTrackMetadata(creation.Media.ID); !errors.Is(err, store.ErrStreamTrackNotFound) {
+		t.Fatalf("crashed track metadata error=%v", err)
+	}
+	variants, err := harness.store.ListStreamVariants(creation.Media.ID)
+	if err != nil || len(variants) != 0 {
+		t.Fatalf("crashed track variants=%+v err=%v", variants, err)
+	}
+	commandsBeforeReplay := len(harness.runner.commandSnapshot())
+	_, replayErr := harness.service.SubmitUpload(context.Background(), creation.Session.ID)
+	assertProcessingCode(t, replayErr, "ffprobe_failed")
+	if len(harness.runner.commandSnapshot()) != commandsBeforeReplay {
+		t.Fatal("failed track replay invoked worker")
+	}
+}
+
+func TestSubmitAudioTrackRejectsSparseOver500MiBBeforeWorker(t *testing.T) {
+	harness := newSubmitHarness(t)
+	now := harness.nextMS()
+	item, err := harness.store.CreateMediaItem(store.CreateMediaItemParams{
+		OwnerOrbitID: harness.credentials.OrbitID, ActorID: harness.credentials.ActorID,
+		Kind: store.MediaKindAudioTrack, Source: store.MediaSourceApp, Title: "oversized.wav",
+		CreatedAt: now, ExpiresAt: now + int64((7*24*time.Hour)/time.Millisecond),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "oversized-track.bin")
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oversized := MaxTrackBytes + 1
+	if err := file.Truncate(oversized); err != nil {
+		file.Close()
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	_, err = harness.service.SubmitMedia(context.Background(), Submission{
+		MediaID: item.ID, SourcePath: path, ExpectedSize: oversized,
+	})
+	assertProcessingCode(t, err, "media_input_oversized")
+	if len(harness.runner.commandSnapshot()) != 0 {
+		t.Fatal("oversized track invoked worker")
+	}
+	if entries, readErr := os.ReadDir(harness.service.processingDir); readErr != nil || len(entries) != 0 {
+		t.Fatalf("oversized track temp entries=%v err=%v", entries, readErr)
+	}
+}
+
+func TestSubmitAudioTrackDeleteDuringProbePublishesNoPartialState(t *testing.T) {
+	harness := newSubmitHarness(t)
+	harness.runner.probeBlock = true
+	creation := harness.createFinalizingTrackUpload(
+		t, "audio-track-delete-race-0001", testWAVBytes(10),
+	)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		_, err := harness.service.SubmitUpload(ctx, creation.Session.ID)
+		result <- err
+	}()
+
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	timeout := time.After(time.Second)
+	for len(harness.runner.commandSnapshot()) == 0 {
+		select {
+		case <-ticker.C:
+		case <-timeout:
+			t.Fatal("track probe did not start")
+		}
+	}
+	deleted, err := harness.store.DeleteMediaItem(
+		creation.Media.ID, creation.Media.Revision, harness.nextMS(),
+	)
+	if err != nil || deleted.Status != store.MediaStatusDeleted {
+		t.Fatalf("delete race item=%+v err=%v", deleted, err)
+	}
+	cancel()
+	if err := <-result; err == nil {
+		t.Fatal("deleted track submission unexpectedly succeeded")
+	}
+	if _, err := harness.store.GetStreamTrackMetadata(creation.Media.ID); !errors.Is(err, store.ErrStreamTrackNotFound) {
+		t.Fatalf("deleted track metadata error=%v", err)
+	}
+	variants, err := harness.store.ListStreamVariants(creation.Media.ID)
+	if err != nil || len(variants) != 0 {
+		t.Fatalf("deleted track variants=%+v err=%v", variants, err)
+	}
+	if canonical, err := os.ReadDir(harness.service.canonicalDir); err != nil || len(canonical) != 0 {
+		t.Fatalf("deleted track canonical=%v err=%v", canonical, err)
+	}
+	if processing, err := os.ReadDir(harness.service.processingDir); err != nil || len(processing) != 0 {
+		t.Fatalf("deleted track processing=%v err=%v", processing, err)
 	}
 }
 

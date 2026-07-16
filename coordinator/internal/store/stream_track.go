@@ -22,13 +22,15 @@ var streamSHA256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 type StreamTrackMetadata struct {
 	MediaID, OriginalFilename, OriginalMIME, OriginalContainer, OriginalCodec string
-	OriginalSizeBytes, Revision, CreatedAt, UpdatedAt                         int64
+	OriginalSizeBytes, OriginalDurationMS, OriginalSampleRateHz               int64
+	OriginalChannels, Revision, CreatedAt, UpdatedAt                          int64
 	OriginalSHA256                                                            string
 }
 
 type CreateStreamTrackMetadataParams struct {
 	MediaID, OriginalFilename, OriginalMIME, OriginalContainer, OriginalCodec string
-	OriginalSizeBytes, CreatedAt                                              int64
+	OriginalSizeBytes, OriginalDurationMS, OriginalSampleRateHz               int64
+	OriginalChannels, CreatedAt                                               int64
 	OriginalSHA256                                                            string
 }
 
@@ -90,11 +92,19 @@ status, revision, created_at, updated_at, published_at, revoked_at`
 func CreateStrongStreamETag(sha256 string) string { return `"sha256-` + sha256 + `"` }
 
 func validateStreamTrackMetadata(params CreateStreamTrackMetadataParams) error {
+	legacyShape := params.OriginalDurationMS == 0 && params.OriginalSampleRateHz == 0 &&
+		params.OriginalChannels == 0
+	probedShape := params.OriginalDurationMS > 0 && params.OriginalSampleRateHz > 0 &&
+		params.OriginalChannels > 0
 	if params.MediaID == "" || params.OriginalFilename == "" || len(params.OriginalFilename) > 512 ||
 		params.OriginalMIME == "" || len(params.OriginalMIME) > 128 ||
 		params.OriginalContainer == "" || len(params.OriginalContainer) > 64 ||
 		params.OriginalCodec == "" || len(params.OriginalCodec) > 64 ||
 		params.OriginalSizeBytes <= 0 || params.CreatedAt <= 0 ||
+		params.OriginalDurationMS < 0 || params.OriginalDurationMS > 7200000 ||
+		params.OriginalSampleRateHz < 0 || params.OriginalSampleRateHz > 384000 ||
+		params.OriginalChannels < 0 || params.OriginalChannels > 8 ||
+		(!legacyShape && !probedShape) ||
 		!streamSHA256Pattern.MatchString(params.OriginalSHA256) {
 		return ErrStreamTrackInvalid
 	}
@@ -138,10 +148,12 @@ func (s *Store) CreateStreamTrackMetadata(params CreateStreamTrackMetadataParams
 	}
 	_, err = tx.Exec(`INSERT INTO stream_track_metadata(
 media_id, original_filename, original_mime, original_container, original_codec,
-original_size_bytes, original_sha256, revision, created_at, updated_at
-) VALUES(?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`, params.MediaID, params.OriginalFilename,
+original_size_bytes, original_sha256, original_duration_ms, original_sample_rate_hz,
+original_channels, revision, created_at, updated_at
+) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`, params.MediaID, params.OriginalFilename,
 		params.OriginalMIME, params.OriginalContainer, params.OriginalCodec,
-		params.OriginalSizeBytes, params.OriginalSHA256, params.CreatedAt, params.CreatedAt)
+		params.OriginalSizeBytes, params.OriginalSHA256, params.OriginalDurationMS,
+		params.OriginalSampleRateHz, params.OriginalChannels, params.CreatedAt, params.CreatedAt)
 	if err != nil {
 		return StreamTrackMetadata{}, err
 	}
@@ -154,10 +166,12 @@ original_size_bytes, original_sha256, revision, created_at, updated_at
 func (s *Store) GetStreamTrackMetadata(mediaID string) (StreamTrackMetadata, error) {
 	var out StreamTrackMetadata
 	err := s.db.QueryRow(`SELECT media_id, original_filename, original_mime, original_container,
-original_codec, original_size_bytes, original_sha256, revision, created_at, updated_at
+original_codec, original_size_bytes, original_sha256, original_duration_ms,
+original_sample_rate_hz, original_channels, revision, created_at, updated_at
 FROM stream_track_metadata WHERE media_id = ?`, mediaID).Scan(&out.MediaID, &out.OriginalFilename,
 		&out.OriginalMIME, &out.OriginalContainer, &out.OriginalCodec, &out.OriginalSizeBytes,
-		&out.OriginalSHA256, &out.Revision, &out.CreatedAt, &out.UpdatedAt)
+		&out.OriginalSHA256, &out.OriginalDurationMS, &out.OriginalSampleRateHz,
+		&out.OriginalChannels, &out.Revision, &out.CreatedAt, &out.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return StreamTrackMetadata{}, ErrStreamTrackNotFound
 	}

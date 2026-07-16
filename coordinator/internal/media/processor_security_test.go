@@ -247,6 +247,38 @@ func TestProcessorCanonicalizesWithFixedNetworkDisabledResourceCappedCommands(t 
 	}
 }
 
+func TestTrackProbeUsesOneNetworkDisabledResourceCappedCommandAndNoSpeechChain(t *testing.T) {
+	runner := newFakeCommandRunner()
+	runner.probeDuration = "3600.000"
+	limits := DefaultLimits()
+	processor := newProcessorForTest(runner, limits)
+	input := writeTestInput(t, testWAVBytes(100))
+	result, err := processor.ProbeTrack(context.Background(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.DurationMS != 3_600_000 || result.SizeBytes <= 0 || len(result.SHA256) != 64 ||
+		result.Container != "wav" || result.Codec != "pcm_s16le" || result.MIME != "audio/wav" {
+		t.Fatalf("track probe=%+v", result)
+	}
+	commands := runner.commandSnapshot()
+	if len(commands) != 1 {
+		t.Fatalf("track commands=%d want one probe", len(commands))
+	}
+	command := commands[0]
+	joined := strings.Join(command.Args, " ")
+	if command.Tool != "/tools/ffprobe" ||
+		argumentAfter(command.Args, "-protocol_whitelist") != "file" ||
+		argumentAfter(command.Args, "-protocol_blacklist") != disabledProtocols ||
+		argumentAfter(command.Args, "-threads") != "1" ||
+		command.CPUSeconds != limits.WorkerCPUSeconds ||
+		command.MemoryBytes != limits.WorkerMemoryBytes || command.OpenFiles != limits.WorkerOpenFiles ||
+		strings.Contains(joined, "loudnorm") || strings.Contains(joined, "acompressor") ||
+		strings.Contains(joined, "highpass") || strings.Contains(joined, "pcm_s16le") {
+		t.Fatalf("unsafe track probe command=%+v", command)
+	}
+}
+
 func TestSignatureProbeRejectsUnsupportedTruncatedAndPolyglotBeforeWorker(t *testing.T) {
 	tests := []struct {
 		name string

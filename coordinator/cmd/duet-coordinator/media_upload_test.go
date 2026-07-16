@@ -111,6 +111,55 @@ func createMediaUploadRequest(handler http.Handler, bearer, idempotencyKey strin
 	return recorder
 }
 
+func createAudioTrackUploadRequest(handler http.Handler, bearer, idempotencyKey string, size int64) *httptest.ResponseRecorder {
+	body := fmt.Sprintf(`{"kind":"audio_track","title":"Long track.wav","size_bytes":%d,"rights_acknowledged":true}`, size)
+	req := httptest.NewRequest(http.MethodPost, "/v1/media/uploads", strings.NewReader(body))
+	req.RemoteAddr = "127.0.0.1:34567"
+	req.Header.Set("Authorization", "Bearer "+bearer)
+	req.Header.Set("Idempotency-Key", idempotencyKey)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	return recorder
+}
+
+func TestMediaUploadHTTPAudioTrackUsesLongInputGateAndCurrentConsent(t *testing.T) {
+	withoutConsent := newOnboardingHarness(t)
+	unaccepted := createViaAPIWithoutContentPolicy(t, withoutConsent)
+	denied := createAudioTrackUploadRequest(
+		withoutConsent.mux, unaccepted["control_token"].(string),
+		"audio-track-consent-required-0001", media.MaxTrackBytes,
+	)
+	if denied.Code != http.StatusPreconditionRequired {
+		t.Fatalf("unaccepted track status=%d body=%s", denied.Code, denied.Body.String())
+	}
+
+	harness := newOnboardingHarness(t)
+	identity := createViaAPI(t, harness)
+	control := identity["control_token"].(string)
+	accepted := createAudioTrackUploadRequest(
+		harness.mux, control, "audio-track-max-item-accepted-0001", media.MaxTrackBytes,
+	)
+	if accepted.Code != http.StatusCreated {
+		t.Fatalf("max track status=%d body=%s", accepted.Code, accepted.Body.String())
+	}
+	response := decodeMediaUpload(t, accepted)
+	item, err := harness.store.GetMediaItem(response.MediaID)
+	if err != nil || item == nil || item.Kind != store.MediaKindAudioTrack ||
+		item.Status != store.MediaStatusProcessing {
+		t.Fatalf("created track=%+v err=%v", item, err)
+	}
+
+	oversizedHarness := newOnboardingHarness(t)
+	oversizedIdentity := createViaAPI(t, oversizedHarness)
+	oversized := createAudioTrackUploadRequest(
+		oversizedHarness.mux, oversizedIdentity["control_token"].(string),
+		"audio-track-max-item-rejected-0001", media.MaxTrackBytes+1,
+	)
+	if oversized.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized track status=%d body=%s", oversized.Code, oversized.Body.String())
+	}
+}
+
 func decodeMediaUpload(t *testing.T, recorder *httptest.ResponseRecorder) mediaUploadResponse {
 	t.Helper()
 	var response mediaUploadResponse

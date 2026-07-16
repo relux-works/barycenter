@@ -20,9 +20,11 @@ import (
 )
 
 const (
-	MaxClipBytes      = int64(50 << 20)
-	MaxClipDurationMS = int64(180_000)
-	MaxCanonicalBytes = int64(34 << 20)
+	MaxClipBytes       = int64(50 << 20)
+	MaxClipDurationMS  = int64(180_000)
+	MaxCanonicalBytes  = int64(34 << 20)
+	MaxTrackBytes      = int64(500 << 20)
+	MaxTrackDurationMS = int64(7_200_000)
 )
 
 type Preset string
@@ -79,6 +81,22 @@ type Result struct {
 	SHA256       string
 	InputSHA256  string
 	InputFormat  Format
+}
+
+// TrackProbe is the complete candidate-neutral result of validating a long
+// audio upload. It deliberately contains no output profile: the accepted
+// codec ADR has an empty production registry, so probing cannot imply that a
+// production variant can be generated or played.
+type TrackProbe struct {
+	DurationMS int64
+	SizeBytes  int64
+	SHA256     string
+	Format     Format
+	Container  string
+	Codec      string
+	MIME       string
+	SampleRate int
+	Channels   int
 }
 
 // ProcessingError contains only a stable sanitized failure code. Underlying
@@ -235,6 +253,46 @@ func (p *Processor) Process(ctx context.Context, inputPath, outputPath string, p
 		WAVPath: outputPath, DurationMS: canonicalProbe.DurationMS,
 		LoudnormJSON: loudness, SizeBytes: canonicalSize, SHA256: canonicalHash,
 		InputSHA256: inputHash, InputFormat: format,
+	}, nil
+}
+
+// ProbeTrack validates a long user-audio source without decoding it to PCM or
+// applying the Phase 1 speech filter chain. Container probing runs through the
+// same network-disabled, resource-capped worker boundary as clip probing.
+func (p *Processor) ProbeTrack(ctx context.Context, inputPath string) (TrackProbe, error) {
+	if ctx == nil {
+		return TrackProbe{}, processingError("media_request_invalid", nil)
+	}
+	info, err := os.Stat(inputPath)
+	if err != nil || !info.Mode().IsRegular() {
+		return TrackProbe{}, processingError("media_input_unavailable", err)
+	}
+	if info.Size() <= 0 || info.Size() > MaxTrackBytes {
+		return TrackProbe{}, processingError("media_input_oversized", nil)
+	}
+	format, err := detectTrackFormat(inputPath)
+	if err != nil {
+		return TrackProbe{}, err
+	}
+	inputHash, size, err := hashFile(inputPath, MaxTrackBytes)
+	if err != nil {
+		return TrackProbe{}, processingError("media_input_unreadable", err)
+	}
+	probe, err := p.probe(ctx, inputPath, format, size)
+	if err != nil {
+		return TrackProbe{}, err
+	}
+	if err := validateInputProbe(probe, format, MaxTrackDurationMS); err != nil {
+		return TrackProbe{}, err
+	}
+	container, mime := trackContainerMIME(format)
+	if container == "" || mime == "" {
+		return TrackProbe{}, processingError("media_codec_unsupported", nil)
+	}
+	return TrackProbe{
+		DurationMS: probe.DurationMS, SizeBytes: size, SHA256: inputHash,
+		Format: format, Container: container, Codec: probe.CodecName, MIME: mime,
+		SampleRate: probe.SampleRate, Channels: probe.Channels,
 	}, nil
 }
 
@@ -451,6 +509,61 @@ func detectFormat(path string, size int64) (Format, error) {
 		return FormatFLAC, nil
 	default:
 		return "", processingError("media_signature_unsupported", nil)
+	}
+}
+
+// detectTrackFormat intentionally reads only a fixed prefix. The constrained
+// ffprobe worker owns complete container parsing for large hostile inputs;
+// coordinator memory and CPU therefore do not scale with attacker-controlled
+// frame/page counts before the worker limits apply.
+func detectTrackFormat(path string) (Format, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", processingError("media_input_unreadable", err)
+	}
+	defer file.Close()
+	header := make([]byte, 64)
+	n, err := io.ReadFull(file, header)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return "", processingError("media_input_unreadable", err)
+	}
+	header = header[:n]
+	switch {
+	case len(header) >= 12 && string(header[:4]) == "RIFF" && string(header[8:12]) == "WAVE":
+		return FormatWAV, nil
+	case len(header) >= 3 && string(header[:3]) == "ID3":
+		return FormatMP3, nil
+	case len(header) >= 2 && header[0] == 0xff && header[1]&0xe0 == 0xe0 && header[1]&0x06 != 0:
+		return FormatMP3, nil
+	case len(header) >= 12 && string(header[4:8]) == "ftyp":
+		return FormatM4A, nil
+	case len(header) >= 2 && header[0] == 0xff && header[1]&0xf6 == 0xf0:
+		return FormatAAC, nil
+	case len(header) >= 4 && string(header[:4]) == "OggS":
+		return FormatOGG, nil
+	case len(header) >= 4 && string(header[:4]) == "fLaC":
+		return FormatFLAC, nil
+	default:
+		return "", processingError("media_signature_unsupported", nil)
+	}
+}
+
+func trackContainerMIME(format Format) (string, string) {
+	switch format {
+	case FormatWAV:
+		return "wav", "audio/wav"
+	case FormatMP3:
+		return "mp3", "audio/mpeg"
+	case FormatM4A:
+		return "m4a", "audio/mp4"
+	case FormatAAC:
+		return "adts", "audio/aac"
+	case FormatOGG:
+		return "ogg", "audio/ogg"
+	case FormatFLAC:
+		return "flac", "audio/flac"
+	default:
+		return "", ""
 	}
 }
 

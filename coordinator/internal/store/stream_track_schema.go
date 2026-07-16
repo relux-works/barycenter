@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS stream_track_metadata (
   original_sha256 TEXT NOT NULL CHECK(
     length(original_sha256) = 64 AND original_sha256 NOT GLOB '*[^0-9a-f]*'
   ),
+  original_duration_ms INTEGER NOT NULL DEFAULT 0 CHECK(original_duration_ms BETWEEN 0 AND 7200000),
+  original_sample_rate_hz INTEGER NOT NULL DEFAULT 0 CHECK(original_sample_rate_hz BETWEEN 0 AND 384000),
+  original_channels INTEGER NOT NULL DEFAULT 0 CHECK(original_channels BETWEEN 0 AND 8),
   revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
   created_at INTEGER NOT NULL CHECK(created_at > 0),
   updated_at INTEGER NOT NULL CHECK(updated_at >= created_at)
@@ -135,6 +138,28 @@ func (s *Store) initStreamTrackSchema() error {
 	defer tx.Rollback()
 	if _, err := tx.Exec(streamTrackSchema); err != nil {
 		return err
+	}
+	// The long-audio intake pipeline follows the candidate-neutral schema in a
+	// rolling deployment. Defaults keep metadata written by the exact previous
+	// coordinator readable after rollback and distinguish legacy rows that did
+	// not yet persist probed stream shape.
+	for _, column := range []struct {
+		name string
+		ddl  string
+	}{
+		{"original_duration_ms", `ALTER TABLE stream_track_metadata ADD COLUMN original_duration_ms INTEGER NOT NULL DEFAULT 0 CHECK(original_duration_ms BETWEEN 0 AND 7200000)`},
+		{"original_sample_rate_hz", `ALTER TABLE stream_track_metadata ADD COLUMN original_sample_rate_hz INTEGER NOT NULL DEFAULT 0 CHECK(original_sample_rate_hz BETWEEN 0 AND 384000)`},
+		{"original_channels", `ALTER TABLE stream_track_metadata ADD COLUMN original_channels INTEGER NOT NULL DEFAULT 0 CHECK(original_channels BETWEEN 0 AND 8)`},
+	} {
+		exists, err := txColumnExists(tx, "stream_track_metadata", column.name)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			if _, err := tx.Exec(column.ddl); err != nil {
+				return err
+			}
+		}
 	}
 	if err := foreignKeyCheck(tx); err != nil {
 		return err

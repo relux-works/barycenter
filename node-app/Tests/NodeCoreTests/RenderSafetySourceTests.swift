@@ -107,3 +107,54 @@ func streamTrackRenderSourceSafety() throws {
     #expect(render.contains("RenderAtomic") == false,
             "render uses preallocated atomic fields rather than constructing storage")
 }
+
+@Test("macOS live source callback is fixed-storage and shares the post-mix limiter")
+func livePTTRenderSourceSafety() throws {
+    let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    let sourceURL = testsDirectory
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("Sources/NodeCore/AudioEngine.swift")
+    let source = try String(contentsOf: sourceURL, encoding: .utf8)
+    let begin = try #require(
+        source.range(of: "// BEGIN LIVE RENDER CALLBACK")?.upperBound)
+    let end = try #require(source.range(
+        of: "// END LIVE RENDER CALLBACK",
+        range: begin..<source.endIndex)?.lowerBound)
+    let callback = String(source[begin..<end])
+    let forbidden = [
+        "queue.", ".sync", ".async", ".wait(", "NSLock", "Task {", "await ",
+        "Data(", "URLSession", "FileHandle", ".allocate(", "AVAudioConverter",
+        "sleep(", "usleep(", "open("
+    ]
+    for token in forbidden {
+        #expect(!callback.contains(token), "live render callback contains \(token)")
+    }
+    #expect(callback.contains("self.liveRing.read"))
+    #expect(source.contains("engine.connect(liveNode, to: programMixer"))
+    #expect(source.contains("engine.connect(programMixer, to: limiter"))
+    #expect(source.contains("engine.connect(limiter, to: engine.mainMixerNode"))
+    #expect(source.contains("setMusicGain(Float(pow(10, -12.0 / 20.0)), fadeMs: 60)"))
+    #expect(source.contains("self.setMusicGain(1, fadeMs: 160)"))
+}
+
+@Test("macOS live jitter path is bounded and has no audio persistence client")
+func livePTTJitterSourceSafety() throws {
+    let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    let sourceURL = testsDirectory
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("Sources/NodeCore/MacLiveJitterReceiver.swift")
+    let source = try String(contentsOf: sourceURL, encoding: .utf8)
+    #expect(source.contains(
+        "private static let packetWindow = Int(LivePTTConstants.maxGapFrames) + 1"))
+    #expect(source.contains("private static let frameSamples = 960"))
+    #expect(source.contains("private static let maxConsecutiveConcealments = 8"))
+    #expect(source.contains("UnsafeMutablePointer<Float>.allocate"))
+    for token in [
+        "URLSession", "FileHandle", "FileManager", "UserDefaults", ".write(to:",
+        "media_items", "transmissions"
+    ] {
+        #expect(!source.contains(token), "live jitter path contains persistence token \(token)")
+    }
+}

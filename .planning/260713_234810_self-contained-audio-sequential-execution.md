@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 100 accepted, 105 remain.
-- Routed inventory: 186 engineering tasks (100 accepted, 86 remain) and 19
+- Combined inventory: 205 original tasks; 101 accepted, 104 remain.
+- Routed inventory: 186 engineering tasks (101 accepted, 85 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1n5fks` — stream-track-schema-variants
-- Next engineering task: `TASK-260712-1n5fks` — stream-track-schema-variants
-- Most recently accepted: `TASK-260712-20cuna` — targets-inbox-rollout-handoff
-- Current branch: `tracking/task-260712-20cuna-acceptance`
+- Current engineering task: `TASK-260712-31rkpe` — stream-track-wire-contract
+- Next engineering task: `TASK-260712-31rkpe` — stream-track-wire-contract
+- Most recently accepted: `TASK-260712-1n5fks` — stream-track-schema-variants
+- Current branch: `tracking/task-260712-1n5fks-acceptance`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 100 / 205 tasks (approximately 48.8%); 105 remain
-- Engineering progress: 100 / 186 tasks (approximately 53.8%); 86 remain
+- Accepted overall: 101 / 205 tasks (approximately 49.3%); 104 remain
+- Engineering progress: 101 / 186 tasks (approximately 54.3%); 85 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1664,6 +1664,21 @@ tests; hosted run `29470807661` passed all four jobs. PR #140 landed at merge
 100/186 engineering; `STORY-260712-ob1tx2` is complete and strict execution
 advances to `TASK-260712-1n5fks`.
 
+Checkpoint 2026-07-16: `TASK-260712-1n5fks` is accepted on exact engineering
+head `b64a671d2356dad7d021905a61f498e9cd94ac18`. The additive model persists
+original audio-track metadata, immutable candidate variants, strong whole and
+chunk integrity, pinned canonical profiles, chunk-aligned seek maps,
+main-program resume pointers, queue state, audible progress and playback/seek
+generations without changing Phase 1 media, transmission, inbox, history,
+Spotify or legacy session authority. Worker publication/revocation and
+playback updates are revision-conditional; production codec selection remains
+fail-closed under `p2-codec-player-adr-handoff.v1`. Store vet/full tests, 41
+contract tests and exact previous-binary rollback passed locally; hosted run
+`29471845396` passed all four jobs. PR #142 landed at merge `54780069`. No
+production decoder, real-app playback or hardware result is claimed. Progress
+is 101/205 overall and 101/186 engineering; strict execution advances to
+`TASK-260712-31rkpe`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2513,7 +2528,11 @@ Story: `STORY-260712-ob1tx2` — P2 Explicit targets, inbox and transport parity
 
 Story: `STORY-260712-2ori1t` — P2 Streamed user audio tracks.
 
-- [ ] `TASK-260712-1n5fks` — stream-track-schema-variants
+- [x] `TASK-260712-1n5fks` — stream-track-schema-variants
+  (accepted on engineering head `b64a671`; additive candidate-neutral variant,
+  seek, queue/progress and rollback-safe persistence passed store/full rollback
+  coverage and hosted run `29471845396` 4/4; PR #142 merge `5478006`;
+  production codec/player remains no-go and hands-on playback stays manual)
 - [ ] `TASK-260712-31rkpe` — stream-track-wire-contract
 - [ ] `TASK-260712-2ogntd` — stream-storage-egress-accounting
 - [ ] `TASK-260712-285pag` — audio-track-variant-pipeline

@@ -120,6 +120,7 @@ class AcceptanceHarnessTests(unittest.TestCase):
         self.assertEqual(command.name, "acceptance-contract-tests")
         self.assertEqual(command.env, {"PYTHONDONTWRITEBYTECODE": "1"})
         self.assertIn("scripts/codec_spike/test_codec_spike.py", command.argv)
+        self.assertIn("scripts/codec_spike/test_independent_supply_review.py", command.argv)
 
     def test_wack_runner_fails_closed_on_noninteractive_execution(self):
         source = (harness.ROOT / "scripts/acceptance/run_wack.ps1").read_text(encoding="utf-8")

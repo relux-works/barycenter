@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-air-migration-concurrency-technical-review.v1",
+  "task": "TASK-260712-2sicfs",
+  "reviewedAt": "2026-07-16",
+  "reviewedBaseCommit": "090be8c68b74319c6ca50e063c78d61d2ae16064",
+  "reviewer": {
+    "id": "codex-inline-reviewer",
+    "independenceRequired": true,
+    "independenceSatisfied": false,
+    "reason": "the same root execution session reviewed and changed the Air control plane",
+    "independentApprovalTask": "TASK-260716-19g4gd",
+    "independentApprover": "Ivan Oparin",
+    "approvalStatus": "required"
+  },
+  "decision": {
+    "result": "engineering-review-complete-production-blocked",
+    "repositoryPreflightPassed": true,
+    "productionAirAllowed": false,
+    "phase2PromotionAllowed": false,
+    "manualMigrationClaim": false,
+    "nextEngineeringTaskMayStart": true,
+    "continuationAuthority": "owner instruction permits reversible strict-sequence engineering while external and manual gates remain fail-closed"
+  },
+  "frozenContract": {
+    "barycentersPerAir": 8,
+    "onlinePulsarsPerActiveAir": 20,
+    "inviteEntropyBits": 256,
+    "inviteTTLSeconds": 900,
+    "inviteConsumeFailuresPerActorOrIPPerMinute": 5,
+    "authorityModes": [
+      "links_authoritative",
+      "airs_shadow",
+      "airs_authoritative",
+      "rollback_hold"
+    ],
+    "savedMembershipSeparateFromActivePointer": true,
+    "parkedAirRetainedAndLazy": true,
+    "linksAndAirsSimultaneouslyAuthoritative": false
+  },
+  "sourceAnchors": [
+    {
+      "path": "protocol/air-lifecycle-policy-v1.json",
+      "sha256": "d85d111a14107a8519701398465a2486937e628000859a508b9ffb5c02c5a3b2"
+    },
+    {
+      "path": "coordinator/internal/store/air_schema.go",
+      "sha256": "fdb79c4e0ff4ed29eb9926430ba9ac2e9e719d77f13ffad6715eecd29919e485"
+    },
+    {
+      "path": "coordinator/internal/store/air.go",
+      "sha256": "5d65f51b7a48e3d75c00138d0d2d3acf4d5c81372d7cbfa2e9c3d05246536cdb"
+    },
+    {
+      "path": "coordinator/internal/store/air_control.go",
+      "sha256": "21807b359cb9a02e1900fe7f00a38a8a292f9320428c1b89152e0fec65843c42"
+    },
+    {
+      "path": "coordinator/internal/store/air_approach_alias.go",
+      "sha256": "9a550efb30ac499305f0d55329bbced97f44552b30d019421ca8a04b4697f1ef"
+    },
+    {
+      "path": "coordinator/cmd/duet-coordinator/loop.go",
+      "sha256": "d1bcc3ff803de205b5b4a28aacf6b557a857346db601ba8e5433c5bdc59d761d"
+    },
+    {
+      "path": "coordinator/cmd/duet-coordinator/air_runtime_control.go",
+      "sha256": "b7df24b366196ceede17ec40926c5108938a16f1e977bf21be340238d9085ccf"
+    },
+    {
+      "path": "coordinator/cmd/duet-coordinator/air_http.go",
+      "sha256": "b5d3284f9fa97af3d36273b2ed5ce1275aa7a98e7f9bea45ad806a1fbbacce5d"
+    },
+    {
+      "path": "coordinator/cmd/duet-coordinator/onboarding.go",
+      "sha256": "f0bc841432daacb53128cb8b23ca6f7745395f6febc612e212849daa3a00b042"
+    },
+    {
+      "path": "coordinator/cmd/duet-coordinator/telegram_air.go",
+      "sha256": "10a5b69446b637c24c827b4796c895187816e5618ad4ba8abb4febf2ffc62e5e"
+    },
+    {
+      "path": "scripts/acceptance/run_air_regression.py",
+      "sha256": "f89473561a4b0e4128207992a6b1a4a8ee78969d10a16ecdfb8a8dc374fb2436"
+    },
+    {
+      "path": "acceptance/phase2/gate-matrix-v1.json",
+      "sha256": "85f120bd7376b853f3f3ad88988979dc9d4ebc241f9304aa3fde47a6a2d80297"
+    }
+  ],
+  "reruns": [
+    {
+      "id": "air-regression-rehearsal",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 scripts/acceptance/run_air_regression.py --output .temp/acceptance/task-260712-2sicfs-air-regression.json",
+      "status": "pass",
+      "claim": "the deterministic 8-barycenter and 20-Pulsar rehearsal reports one Air runtime, no legacy group and no duplicate load"
+    },
+    {
+      "id": "air-store-runtime-alias-telegram-race",
+      "command": "cd coordinator && go test -race -count=1 ./internal/store ./cmd/duet-coordinator -run '^(TestAir|TestAuthorizedAir|TestMigratedApproachAlias|TestActiveLinkBackfill|TestConcurrentAir|TestUnsafeAirRollback|TestConflictingLegacyLinks|TestTelegramAir|TestApproach)'",
+      "status": "pass",
+      "claim": "Air schema, store, runtime, alias, HTTP and Telegram lifecycle tests pass under the Go race detector"
+    },
+    {
+      "id": "exact-previous-coordinator",
+      "command": "cd coordinator && go test -tags previoushead -count=1 ./internal/store -run '^TestAirExactPreviousCoordinatorLegacyServicePreservesPhase2Rows$'",
+      "status": "pass",
+      "claim": "the exact pinned predecessor mutates legacy links while preserving additive Phase 2 rows for safe current-binary recovery"
+    },
+    {
+      "id": "transactional-winner-stress",
+      "command": "cd coordinator && go test -count=100 ./internal/store -run '^(TestConcurrentAirLifecycleChangesHaveOneTransactionalWinner|TestAuthorizedAirConcurrentConsumeAndCapacity)$'",
+      "status": "pass",
+      "claim": "100 repetitions retain one lifecycle winner, single-use consume and capacity enforcement"
+    },
+    {
+      "id": "invite-pre-admission-race-and-stress",
+      "command": "cd coordinator && go test -race -count=1 ./cmd/duet-coordinator -run '^(TestAirHTTPRejectsLooseShapesAndRateLimitsUnavailableInvites|TestAttemptLimiterCountsRejectedAttemptsAndConcurrentBoundary|TestAttemptLimiterReleasesExactSuccessfulReservation)$' && go test -count=100 ./cmd/duet-coordinator -run '^(TestAirHTTPRejectsLooseShapesAndRateLimitsUnavailableInvites|TestAttemptLimiterReleasesExactSuccessfulReservation)$'",
+      "status": "pass-after-fix",
+      "claim": "invite failure admission is enforced before mutation, exact successful reservations are released, and the valid-after-limit bypass remains closed"
+    }
+  ],
+  "findings": [
+    {
+      "id": "P2-AIR-001",
+      "severity": "high",
+      "status": "fixed-re-reviewed",
+      "area": "invite-consume-rate-limit",
+      "finding": "the HTTP limiter ran only after the store consume, so a valid request after five failures could mutate and consume the invite before the handler returned any rate-limit decision",
+      "fix": "actor and source-IP attempts now reserve before store work; unavailable attempts retain their reservations and successful or non-guess failures release their exact reservations",
+      "reReview": "a valid sixth request is rejected without consuming the invite, then succeeds with the same idempotency key after a fresh limiter; targeted race tests and 100 repetitions pass"
+    },
+    {
+      "id": "P2-AIR-002",
+      "severity": "medium",
+      "status": "fixed-re-reviewed",
+      "area": "invite-store-error-classification",
+      "finding": "invite row validation inspected zero-value fields before returning a non-ErrNoRows scan error and could mask an operational database error as invite_unavailable",
+      "fix": "the store now classifies ErrNoRows, then propagates every other scan error, then evaluates status and expiry",
+      "reReview": "the Air store and HTTP suites pass under the race detector and unavailable invite responses remain uniform"
+    },
+    {
+      "id": "P2-AIR-003",
+      "severity": "high",
+      "status": "open-manual-blocking",
+      "area": "production-shaped-upgrade-rollback-and-hardware",
+      "finding": "repository automation does not prove signed real-app Air audio, mixed-fleet cutover, previous-binary rollback, physical join/leave, resource thresholds or absence of dual delivery on real hardware",
+      "requiredClosure": "execute the frozen Air scale and rollout/rollback matrices against immutable builds, retain hashes and raw sanitized evidence, and record every failure",
+      "ownerTasks": [
+        "TASK-260712-21kz3b",
+        "TASK-260712-3qybi2"
+      ],
+      "manualEpic": "EPIC-260714-th54l3"
+    },
+    {
+      "id": "P2-AIR-004",
+      "severity": "high",
+      "status": "open-external-review",
+      "area": "review-independence",
+      "finding": "the inline root execution session changed the reviewed Air implementation and therefore cannot satisfy the independent-review requirement",
+      "requiredClosure": "an implementation-independent reviewer must inspect the exact candidate commit, rerun representative checks, review physical evidence and sign only after all Critical and High findings close",
+      "ownerTask": "TASK-260716-19g4gd"
+    }
+  ],
+  "automatedEvidenceBoundary": {
+    "proved": [
+      "additive deterministic link backfill and explicit authority generations",
+      "one transactional winner for concurrent lifecycle and invite consume operations",
+      "single-use hashed invite state with pre-admission actor and source-IP limiting",
+      "exact current-member peer union without saved-membership transitivity",
+      "generation and revision fencing of asynchronous runtime completion",
+      "lazy parked state, current-main-only join catch-up and caller-scoped leave",
+      "previous-binary preservation of additive rows and fail-closed rollback_hold",
+      "Telegram aliases reuse authoritative Air lifecycle mutations without dual legacy runtime"
+    ],
+    "notProved": [
+      "audible signed-application behavior on physical Windows or macOS hardware",
+      "production database backup, deploy, quiesce and operator rollback execution",
+      "mixed-version network partitions, process crashes or host restarts in production topology",
+      "physical 8-barycenter and 20-Pulsar resource and latency thresholds",
+      "implementation-independent acceptance of the exact candidate commit"
+    ]
+  },
+  "manualEpic": "EPIC-260714-th54l3",
+  "productionBlockers": [
+    "P2-AIR-003",
+    "P2-AIR-004"
+  ],
+  "nextEngineeringTask": "TASK-260712-n11rg6"
+}

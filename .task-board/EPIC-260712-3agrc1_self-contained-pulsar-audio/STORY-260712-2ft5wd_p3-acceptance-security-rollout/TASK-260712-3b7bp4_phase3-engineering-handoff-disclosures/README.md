@@ -1,7 +1,7 @@
 # Assemble the Phase 3 engineering handoff and disclosures
 
 ## Description
-Assemble the final engineering packet from reviewed code, deterministic evidence and disclosure sources while preserving manual acceptance as pending.
+Assemble the final non-E2EE Phase 3 engineering packet from reviewed live PTT, capture DSP, soundboard and automation code, deterministic evidence and disclosure sources while preserving E2EE and manual acceptance as pending separate epics.
 
 ## Scope
 Index implementation and review hashes, deterministic C1-C7 fixtures, privacy and moderation deltas, Store and IARC draft copy, recovery limitations, flags, rollback commands and every deferred manual task in EPIC-260714-th54l3. Provide engineering-ready or engineering-hold recommendations per capability without production promotion.

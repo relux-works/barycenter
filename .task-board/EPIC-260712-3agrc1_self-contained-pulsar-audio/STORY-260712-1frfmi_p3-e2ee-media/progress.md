@@ -8,7 +8,7 @@ backlog
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-12T17:11:24Z
+2026-07-16T00:19:25Z
 
 ## Blocked By
 - STORY-260712-1qfbiw
@@ -17,6 +17,7 @@ backlog
 
 ## Blocks
 - STORY-260712-2ft5wd
+- STORY-260716-1qp4gp
 
 ## Checklist
 - [x] Read the authoritative specification sections and inspect the current implementation before decomposing
@@ -35,6 +36,8 @@ Reviewed docs/spec-self-contained-audio.md sections 6.1, 8, 11.1-11.4, 12-15.5, 
 agent completed: [analyst] solution-architect (codex) (exit=0)
 agent spawned: codex (pid=88661, exit=0)
 Root rejected the initial server-rotation and two-monolithic-client decomposition. The reviewed graph adds audited crypto and container spikes, an independent pre-implementation design review, client-owned group commits, an opaque router, separate per-platform key state send playback live-PTT and UX tasks, explicit irrecoverable key-loss and report-boundary semantics. No E2EE claim or implementation is accepted yet.
+Owner direction 2026-07-16: split E2EE at the independent design-audit boundary. Seventeen post-audit implementation and implementation-review tasks moved to EPIC-260716-3qsztl / STORY-260716-1qp4gp. This story now owns five pre-implementation gate tasks only.
+2026-07-16 correction to the E2EE split: TASK-260712-aniuyy moved to EPIC-260716-3qsztl as requested. This story now owns four audit-preparation tasks only and completes when the reproducible audit packet is ready; it does not wait for an external reviewer.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-1frfmi/spec-entry.md) — Authoritative specification entry point

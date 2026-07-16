@@ -1,10 +1,10 @@
-# P3 End-to-end encrypted media
+# P3 E2EE audit-ready design packet
 
 ## Description
-Threat-model and implement reviewed group media encryption with rotation, recovery and report evidence.
+Prepare the complete E2EE threat model, spikes, protocol contract and reproducible review packet without performing the independent audit or any implementation.
 
 ## Scope
-Produce a threat model and reviewed group-key protocol for Orbit/Air media, local encode/normalize, ciphertext routing/storage, join/leave/revoke rotation, recovery and multi-device transfer, history grants, metadata disclosure and voluntary decrypted report evidence.
+Own four preparatory tasks only: threat model and honest claims, audited group-cryptography and library spike, protected-media container and local-preparation spike, and frozen protocol and key-lifecycle contract. Hand the exact hashes, vectors, residual risks and no-go findings to EPIC-260716-3qsztl Independent E2EE design audit and deferred implementation.
 
 ## Acceptance Criteria
-C4-C6 pass after external security review closes all critical/high findings. Removed members cannot decrypt new media, new members lack history without grant, coordinator storage/traffic cannot decode test content, report evidence is explicit and voluntary, keys stay in secure storage, and E2EE claims remain feature-gated until all proof exists.
+The four preparatory tasks produce a coherent audit-ready packet with exact library and container decisions, protocol state machines, cross-platform vectors and honest product claims. No schema, cryptographic state, routing or E2EE client implementation starts here, and independent audit acceptance is not required to finish this story.

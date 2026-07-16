@@ -168,6 +168,7 @@ def suite_commands(suite: str, go_env: dict[str, str] | None, apple_env: dict[st
                 "python3", "-m", "unittest",
                 "scripts/acceptance/test_acceptance.py",
                 "scripts/acceptance/test_targets_inbox_parity.py",
+                "scripts/acceptance/test_targets_inbox_rollout.py",
                 "scripts/codec_spike/test_codec_spike.py",
             ),
             {"PYTHONDONTWRITEBYTECODE": "1"},

@@ -61,6 +61,16 @@ and its executable [`p2-stream-track-wire.v1`](../protocol/stream-track-v1.json)
 contract. Landing these codecs does not advertise `stream_track_v1` in a
 production node.
 
+The shared long-file draft, processing, target-selection and playback control
+surface is defined by the
+[P2 streamed-track UI model](analysis/p2-stream-track-ui-model.md) and its
+executable
+[`pulsar.stream-track-ui-model.v1`](../protocol/pulsar-stream-track-ui-model-v1.json)
+contract. It keeps upload, server processing and audible playback progress
+distinct, retains unsent drafts through outages, consumes coordinator-owned
+RU/EN labels and fences optimistic controls by playback and seek generation.
+Native streamed-track views remain deferred to their platform tasks.
+
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 
 ## Envelope

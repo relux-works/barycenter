@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 133 accepted, 72 remain.
-- Routed inventory: 186 engineering tasks (133 accepted, 53 remain) and 19
+- Combined inventory: 205 original tasks; 134 accepted, 71 remain.
+- Routed inventory: 186 engineering tasks (134 accepted, 52 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1kk8bd` — cue-schedule-token-control-apis
-- Next engineering task: `TASK-260712-1eva0y` — automation-runtime-revoke-ratelimits
-- Most recently accepted: `TASK-260712-3sv87k` — automation-schema-lineage-foundation
-- Current branch: `tracking/task-260712-3sv87k-automation-schema-lineage-foundation`
+- Current engineering task: `TASK-260712-1eva0y` — automation-runtime-revoke-ratelimits
+- Next engineering task: `TASK-260712-11e4e3` — automation-history-audit-disable
+- Most recently accepted: `TASK-260712-1kk8bd` — cue-schedule-token-control-apis
+- Current branch: `tracking/task-260712-1kk8bd-cue-schedule-token-control-apis`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -2582,6 +2582,24 @@ was enabled; real-app and hardware evidence remains in `EPIC-260714-th54l3`.
 Progress is 133/205 overall and 133/186 engineering. Strict execution advances
 to `TASK-260712-1kk8bd`.
 
+Checkpoint 2026-07-17 (accepted cue, schedule and scoped-principal controls):
+`TASK-260712-1kk8bd` adds same-orbit saved-cue CRUD/order, full feature and
+schedule controls, and immutable scoped-principal issue/list/revoke APIs. Every
+writer reauthorizes the current primary and commits route-bound idempotency
+digests plus sanitized replay state atomically. IANA/quiet policy validation,
+CAS, canonical generation-fenced target digests, disarmed schedule creation,
+one-time 256-bit secrets and immediate revoke fail closed; raw target
+capabilities and secret material do not enter replay rows or logs. The scoped
+trigger remains a generic production `404` until the downstream runtime is
+composed. Focused tests passed ten repeats and race three repeats; full Go
+vet/tests/build and exact previous-head rollback passed. Clean exact-head
+acceptance passed 12/12 with `manualEvidence=not-run`; hosted run
+`29541407173` passed all four jobs. PR #209 landed exact code head `5722332` at
+merge `59fa34dde5ae6a515e786b15bce5a468380d46ed`. No scheduler, transmission
+dispatch, client composition, real-app or hardware result is claimed. Progress
+is 134/205 overall and 134/186 engineering. Strict execution advances to
+`TASK-260712-1eva0y`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -3239,7 +3257,12 @@ Story: `STORY-260712-326wd5` — P3 Soundboard and safe automation.
   head rollback; focused tests x10, race x3, clean acceptance 12/12 and hosted
   run `29538458103` 4/4 passed; PR #207 merge `4cd9a30`. Runtime/API/client and
   real-app or hardware evidence remain deferred)
-- [ ] `TASK-260712-1kk8bd` — cue-schedule-token-control-apis
+- [x] `TASK-260712-1kk8bd` — cue-schedule-token-control-apis (accepted on exact
+  code head `5722332`; same-orbit cue/schedule/feature/scoped-principal control,
+  route-bound idempotency, canonical target digests and one-time secrets;
+  focused x10, race x3, clean acceptance 12/12 and hosted run `29541407173`
+  4/4 passed; PR #209 merge `59fa34d`. Runtime and real-app evidence remain
+  downstream/manual)
 - [ ] `TASK-260712-1eva0y` — automation-runtime-revoke-ratelimits
 - [ ] `TASK-260712-11e4e3` — automation-history-audit-disable
 - [ ] `TASK-260712-1yw7fo` — windows-soundboard-hotkeys-schedules

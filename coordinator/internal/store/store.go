@@ -147,6 +147,10 @@ func openWithOptionsAndCheckpoint(path string, opts Options, checkpoint func(str
 		db.Close()
 		return nil, fmt.Errorf("store: init media ingest schema: %w", err)
 	}
+	if err := s.initStreamTrackSchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init stream track schema: %w", err)
+	}
 	if err := s.initTransmissionSchema(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: init transmission schema: %w", err)

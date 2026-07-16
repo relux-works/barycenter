@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-16T02:35:40Z
+2026-07-16T03:26:42Z
 
 ## Blocked By
 - STORY-260712-1i0doc
@@ -45,6 +45,7 @@ agent completed: [analyst] solution-architect (codex) (exit=0)
 agent spawned: codex (pid=77519, exit=0)
 Root decomposition review completed. Recast Phase 2 as an extension of Phase 1 target snapshots, history, secure callbacks and moderation; added versioned content-policy consent and separate Windows/macOS UI tasks. Tightened opaque authorized target selectors, targeted-track semantics blocker, one inbox item per eligible missed target, TTL/replay lineage, new-member isolation, stable pagination, zero autoplay, canonical rights revocation and mixed-version visibility. Remaining Air and stream task links will be added after those decompositions finish.
 2026-07-16 strict progress: macOS targets/inbox task TASK-260712-2nto40 accepted through code PR #134 merge 22f7175 after hosted run 29466777419 passed 4/4. Story remains in development and advances strictly to TASK-260712-cuplon; no hands-on app/hardware evidence is claimed.
+2026-07-16 strict progress: Windows targets/inbox task TASK-260712-cuplon accepted through code PR #136 merge 15f675e after hosted run 29468731725 passed 4/4. Deterministic Win32 keyboard/accessibility-source and high-DPI coverage is accepted; hands-on Narrator, packaged-app and physical-hardware evidence remains unclaimed in EPIC-260714-th54l3. Story advances strictly to TASK-260712-1vklop.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-ob1tx2/spec-entry.md) — Authoritative specification entry point

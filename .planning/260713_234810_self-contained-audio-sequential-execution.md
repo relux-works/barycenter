@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 97 accepted, 108 remain.
-- Routed inventory: 186 engineering tasks (97 accepted, 89 remain) and 19
+- Combined inventory: 205 original tasks; 98 accepted, 107 remain.
+- Routed inventory: 186 engineering tasks (98 accepted, 88 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-cuplon` — windows-p2-targets-inbox-ui
-- Next engineering task: `TASK-260712-cuplon` — windows-p2-targets-inbox-ui
-- Most recently accepted: `TASK-260712-2nto40` — macos-p2-targets-inbox-ui
-- Current branch: `tracking/task-260712-2nto40-macos-p2-targets-inbox-ui`
+- Current engineering task: `TASK-260712-1vklop` — targets-inbox-parity-regressions
+- Next engineering task: `TASK-260712-1vklop` — targets-inbox-parity-regressions
+- Most recently accepted: `TASK-260712-cuplon` — windows-p2-targets-inbox-ui
+- Current branch: `tracking/task-260712-cuplon-acceptance`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 97 / 205 tasks (approximately 47.3%); 108 remain
-- Engineering progress: 97 / 186 tasks (approximately 52.2%); 89 remain
+- Accepted overall: 98 / 205 tasks (approximately 47.8%); 107 remain
+- Engineering progress: 98 / 186 tasks (approximately 52.7%); 88 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1611,6 +1611,25 @@ four jobs; PR #134 landed at merge `22f7175`. No hands-on VoiceOver, packaged
 app, audible playback or physical-hardware result is claimed; those remain in
 `EPIC-260714-th54l3`. Progress is 97/205 overall and 97/186 engineering; strict
 execution advances to `TASK-260712-cuplon`.
+Tracking head `171e60e` then passed all four hosted jobs in run `29467019035`;
+PR #135 landed at merge `986cf0d`.
+
+Checkpoint 2026-07-16: `TASK-260712-cuplon` is accepted on exact engineering
+head `0b4cd04`. The packaged Windows shell now exposes authenticated current-Air
+and opaque explicit targets, include-origin, delivery choice, paginated
+inbox/history/receipts and explicit replay, dismiss, delete, report and mute
+commands through the shared fail-closed model. Durable retries freeze the exact
+sorted target set and idempotency keys without displaying or logging opaque
+references. Reconnect retains readable rows without stale action authority;
+automatic refresh preserves an active selection only until its capability
+expires, and no inbox read can autoplay. EN/RU keyboard, Win32 accessibility
+source seams and 96/120/144/192-DPI layout are deterministic tests; hands-on
+Narrator, packaged-app, audible and real-hardware evidence remains exclusively
+in `EPIC-260714-th54l3`. Local full/race/vet, amd64/arm64 cross-build, contract
+validators and pinned Windows acceptance passed. Hosted run `29468731725`
+passed all four jobs; PR #136 landed at merge `15f675e`. Progress is 98/205
+overall and 98/186 engineering; strict execution advances to
+`TASK-260712-1vklop`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -2439,7 +2458,12 @@ Story: `STORY-260712-ob1tx2` — P2 Explicit targets, inbox and transport parity
   231 Swift tests plus contract/acceptance validators and hosted run
   `29466777419` 4/4; PR #134 merge `22f7175`; hands-on app/hardware checks stay
   in the manual epic)
-- [ ] `TASK-260712-cuplon` — windows-p2-targets-inbox-ui
+- [x] `TASK-260712-cuplon` — windows-p2-targets-inbox-ui
+  (accepted on engineering head `0b4cd04`; packaged native Win32 explicit
+  targets, inbox/history/receipts, moderation and exact durable retry passed
+  full/race/vet, amd64/arm64 builds, pinned Windows acceptance and hosted run
+  `29468731725` 4/4; PR #136 merge `15f675e`; hands-on app/hardware checks stay
+  in the manual epic)
 - [ ] `TASK-260712-1vklop` — targets-inbox-parity-regressions
 - [ ] `TASK-260712-20cuna` — targets-inbox-rollout-handoff
 

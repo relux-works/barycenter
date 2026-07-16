@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-developer
 
 ## Created
 2026-07-12T16:13:27Z
 
 ## Last Update
-2026-07-12T16:34:26Z
+2026-07-16T06:22:23Z
 
 ## Blocked By
 - TASK-260712-1n5fks
@@ -39,6 +39,7 @@ backlog
 - [ ] Separate report-local protection from moderator delete or disable revocation
 
 ## Notes
+2026-07-16 strict-sequence start from synchronized main merge 4749a76 after TASK-260712-285pag code PR #148 and hosted run 29476335634 passed 4/4. Implementing authenticated conditional range serving, immutable target-snapshot authorization, revocation and actual-egress/amplification accounting inline outside task-board spawn workflow. Production codec/player selection remains no-go, so deterministic candidate-neutral fixtures may exercise the route but no production stream capability or real-app playback will be claimed.
 
 ## Precondition Resources
 - [p2-streamed-track-components.puml](file://TASK-260712-3lf8r0/p2-streamed-track-components.puml) — Range-serving and revocation context for streamed-track fetch

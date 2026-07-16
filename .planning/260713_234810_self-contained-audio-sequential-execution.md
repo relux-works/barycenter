@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 109 accepted, 96 remain.
-- Routed inventory: 186 engineering tasks (109 accepted, 77 remain) and 19
+- Combined inventory: 205 original tasks; 110 accepted, 95 remain.
+- Routed inventory: 186 engineering tasks (110 accepted, 76 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-wt2n7m` — telegram-explicit-target-parity
-- Next engineering task: `TASK-260712-wt2n7m` — telegram-explicit-target-parity
-- Most recently accepted: `TASK-260712-3aj8w2` — macos-streamed-track-player
-- Current branch: `task/task-260712-wt2n7m-telegram-explicit-target-parity`
+- Current engineering task: `TASK-260712-3lximx` — windows-stream-track-ui
+- Next engineering task: `TASK-260712-3lximx` — windows-stream-track-ui
+- Most recently accepted: `TASK-260712-wt2n7m` — telegram-explicit-target-parity
+- Current branch: `task/task-260712-3lximx-windows-stream-track-ui`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 109 / 205 tasks (approximately 53.2%); 96 remain
-- Engineering progress: 109 / 186 tasks (approximately 58.6%); 77 remain
+- Accepted overall: 110 / 205 tasks (approximately 53.7%); 95 remain
+- Engineering progress: 110 / 186 tasks (approximately 59.1%); 76 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2142,6 +2142,33 @@ two-hour/audible/packaged/hardware evidence remains unclaimed in manual task
 `TASK-260712-1fpb9q`. Progress is 109/205 overall and 109/186 engineering;
 strict execution advances to `TASK-260712-wt2n7m` from synchronized `main`.
 
+Implementation checkpoint 2026-07-16 (active): `TASK-260712-wt2n7m` now routes
+Telegram explicit Barycenter/Pulsar selections through the common opaque target
+reference and transmission services, binds include-origin in an additive
+rollback-safe callback companion, and preserves current-Air and immediate
+legacy voice defaults through the existing shared contract. Audio/document
+intake now requires the current content-policy grant plus a per-upload
+`rights`/`права` acknowledgement. Focused bot, store, presentation and
+coordinator suites pass; actor-bound foreign-reference denial, targeted-track
+no-fallback and non-leaking capability presentation have automated coverage.
+The accepted production codec no-go remains in force, and real Telegram,
+recipient and hardware evidence remains deferred to `TASK-260712-3u5cdn`.
+Counts remain 109/205 overall and 109/186 engineering until hosted CI and merge
+accept this task.
+
+Checkpoint 2026-07-16 (accepted): `TASK-260712-wt2n7m` landed on exact
+engineering head `3a822a1766b80cd0e0f3d67f68b4be3686037af7` through PR #160,
+merge `35f5fd4d13267199f3383ee437f5f1fe77bace36`, after hosted run
+`29489910594` passed coordinator, node-core, pulsar-win and signed packaged
+probe 4/4. Telegram now shares opaque target capabilities, immutable N-target
+snapshots, current-Air/include-origin policy, versioned consent, per-upload
+rights acknowledgement and non-leaking unsupported-target presentation with
+the app path. The additive callback companion makes old-binary rollback fail
+closed. Targeted queue/replace stays honestly unsupported under the accepted
+production codec no-go; real Telegram, recipient, packaged-app and audible
+evidence remains manual in `TASK-260712-3u5cdn`. Progress is 110/205 overall
+and 110/186 engineering; strict execution advances to `TASK-260712-3lximx`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -2648,7 +2675,13 @@ Story: `STORY-260712-2ori1t` — P2 Streamed user audio tracks.
   Swift tests and hosted run `29487762262` 4/4; PR #158 merge `6069948`;
   production stream capability stays disabled and real-app evidence stays
   manual)
-- [ ] `TASK-260712-wt2n7m` — telegram-explicit-target-parity
+- [x] `TASK-260712-wt2n7m` — telegram-explicit-target-parity
+  (accepted on engineering head `3a822a1`; common opaque Barycenter/Pulsar
+  target picker, N-target snapshot, include-origin, versioned consent,
+  per-upload rights gate and fail-closed callback rollback passed focused,
+  full, race, vet, B5-B7 and hosted run `29489910594` 4/4; PR #160 merge
+  `35f5fd4`; production track delivery remains unsupported and real Telegram
+  evidence stays manual)
 - [ ] `TASK-260712-3lximx` — windows-stream-track-ui
 - [ ] `TASK-260712-2psvhu` — macos-stream-track-ui
 - ↪ manual `TASK-260712-1fpb9q` — streamed-track-regression-evidence →

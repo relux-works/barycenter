@@ -85,6 +85,34 @@ func TestMediaIngestExactPreviousHeadRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	streamProcessing, err := current.BeginStreamProcessing(BeginStreamProcessingParams{
+		MediaID: streamMedia.ID, IdempotencyKey: "previous-head-processing-001",
+		TempReservedBytes: 8 << 20, CreatedAt: now + 13,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamProcessing, err = current.RecordStreamProcessingTemp(
+		streamProcessing.ID, streamProcessing.Revision, 3<<20, now+14,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamEgress, err := current.BeginStreamEgress(BeginStreamEgressParams{
+		VariantID: streamVariant.ID, IdempotencyKey: "previous-head-egress-0001",
+		PlaybackGeneration: 1, CreatedAt: now + 14,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	streamEgress, _, err = current.RecordStreamEgress(RecordStreamEgressParams{
+		SessionID: streamEgress.ID, RequestKey: "previous-head-range-0001",
+		ExpectedRevision: streamEgress.Revision, RangeStart: 0, RangeEnd: 1023,
+		ActualBytes: 1024, Outcome: "served", CreatedAt: now + 15,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	streamDomain, err := current.EnsureStreamPlaybackDomain("orbit", "previous-head", now+14)
 	if err != nil {
 		t.Fatal(err)
@@ -198,6 +226,13 @@ func TestMediaIngestExactPreviousHeadRollback(t *testing.T) {
 	streamVariantAfter, err := current.GetReadyStreamVariantForProfile(streamMedia.ID, "previous-head")
 	if err != nil || streamVariantAfter.ID != streamVariant.ID || streamVariantAfter.Revision != streamVariant.Revision {
 		t.Fatalf("stream variant after rollback=%+v err=%v", streamVariantAfter, err)
+	}
+	streamUsageAfter, err := current.GetStreamAccountingUsage("actor", keep.ActorID, time.Now().UnixMilli())
+	if err != nil || streamUsageAfter.RetainedStorageBytes != 6<<20 ||
+		streamUsageAfter.ConcurrentJobs != 1 || streamUsageAfter.TempProcessingBytes != 3<<20 ||
+		streamUsageAfter.RangeRequests24h != 1 || streamUsageAfter.ActualEgressBytes24h != 1024 ||
+		streamUsageAfter.ActiveEgressReservedBytes != streamEgress.ReservedBytes-streamEgress.ActualBytes {
+		t.Fatalf("stream accounting after rollback=%+v err=%v", streamUsageAfter, err)
 	}
 	streamDomainAfter, err := current.LoadStreamPlaybackDomainByTarget("orbit", "previous-head")
 	if err != nil || streamDomainAfter.CurrentQueueItemID != streamQueueItem.ID ||

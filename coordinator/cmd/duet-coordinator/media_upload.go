@@ -274,6 +274,8 @@ func (api *onboardingAPI) mediaUploadCreationError(w http.ResponseWriter, err er
 		apiError(w, http.StatusTooManyRequests, errorTooManyAttempts, rate.RetryAfter)
 	case errors.Is(err, store.ErrMediaUploadConcurrent), errors.Is(err, store.ErrMediaUploadDailyBytes):
 		apiError(w, http.StatusTooManyRequests, errorUploadQuota, 0)
+	case errors.Is(err, store.ErrStreamQuotaExceeded):
+		apiError(w, http.StatusTooManyRequests, errorUploadQuota, 0)
 	case errors.Is(err, store.ErrMediaIdempotencyMismatch):
 		apiError(w, http.StatusConflict, errorUploadStateConflict, 0)
 	case errors.Is(err, store.ErrContentPolicyAcceptanceRequired):

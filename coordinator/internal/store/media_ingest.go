@@ -909,6 +909,14 @@ WHERE id = ? AND token_hash <> ?`, hashToken(token), params.Media.CreatedAt,
 	if err := mediaUploadCapacityTx(tx, params, quota); err != nil {
 		return MediaUploadCreation{}, err
 	}
+	if err := streamUploadCapacityTx(tx, params); err != nil {
+		if errors.Is(err, ErrStreamQuotaExceeded) {
+			if commitErr := tx.Commit(); commitErr != nil {
+				return MediaUploadCreation{}, commitErr
+			}
+		}
+		return MediaUploadCreation{}, err
+	}
 	created, err := insertMediaUploadTx(tx, params, idempotencyHash, fingerprint, token)
 	if err != nil {
 		return MediaUploadCreation{}, err

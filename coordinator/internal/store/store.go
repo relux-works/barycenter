@@ -151,6 +151,10 @@ func openWithOptionsAndCheckpoint(path string, opts Options, checkpoint func(str
 		db.Close()
 		return nil, fmt.Errorf("store: init stream track schema: %w", err)
 	}
+	if err := s.initStreamAccountingSchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init stream accounting schema: %w", err)
+	}
 	if err := s.initTransmissionSchema(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: init transmission schema: %w", err)
@@ -162,6 +166,12 @@ func openWithOptionsAndCheckpoint(path string, opts Options, checkpoint func(str
 	if err := s.initModerationSchema(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: init moderation schema: %w", err)
+	}
+	if _, err := s.ReconcileStreamAccounting(
+		time.Now().UnixMilli(), StreamAccountingDefaultStaleAfter,
+	); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: reconcile stream accounting: %w", err)
 	}
 	if opts.SelfServiceOnboarding {
 		if err := s.ReconcileIdentity(); err != nil {

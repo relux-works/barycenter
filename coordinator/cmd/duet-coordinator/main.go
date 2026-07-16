@@ -295,6 +295,7 @@ func main() {
 		mediaLifecycle.SetDeliveryCancellationSink(l)
 	}
 	go retentionSweep(log, st, cfg.MediaDir, stop)
+	go runStreamAccountingReconciliation(log, st, stop)
 
 	mux := http.NewServeMux()
 	var onboarding *onboardingAPI
@@ -313,6 +314,7 @@ func main() {
 			body["media_processing"] = map[string]string{"status": "unavailable"}
 		}
 		addMediaLifecycleHealth(body, mediaLifecycle, mediaLifecycleInitErr)
+		addStreamAccountingHealth(body, st, time.Now().UnixMilli())
 		if onboarding != nil {
 			if onboarding.mediaSubmitter == nil || onboarding.mediaSubmitterInitErr != nil {
 				body["status"] = "degraded"
@@ -588,6 +590,23 @@ func retentionSweep(log *slog.Logger, st *store.Store, mediaDir string, stop <-c
 			return
 		case <-t.C:
 			sweep()
+		}
+	}
+}
+
+func runStreamAccountingReconciliation(log *slog.Logger, st *store.Store, stop <-chan struct{}) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			if _, err := st.ReconcileStreamAccounting(
+				time.Now().UnixMilli(), store.StreamAccountingDefaultStaleAfter,
+			); err != nil {
+				log.Error("stream accounting reconciliation failed")
+			}
 		}
 	}
 }

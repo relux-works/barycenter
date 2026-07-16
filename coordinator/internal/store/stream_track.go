@@ -112,7 +112,8 @@ func (s *Store) CreateStreamTrackMetadata(params CreateStreamTrackMetadataParams
 	defer tx.Rollback()
 	var kind MediaKind
 	var status MediaItemStatus
-	if err := tx.QueryRow(`SELECT kind, status FROM media_items WHERE id = ?`, params.MediaID).Scan(&kind, &status); err != nil {
+	var ownerOrbitID, actorID int64
+	if err := tx.QueryRow(`SELECT kind, status, owner_orbit_id, actor_id FROM media_items WHERE id = ?`, params.MediaID).Scan(&kind, &status, &ownerOrbitID, &actorID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return StreamTrackMetadata{}, ErrStreamTrackNotFound
 		}
@@ -120,6 +121,20 @@ func (s *Store) CreateStreamTrackMetadata(params CreateStreamTrackMetadataParams
 	}
 	if kind != MediaKindAudioTrack || status == MediaStatusDeleted || status == MediaStatusExpired || status == MediaStatusFailed {
 		return StreamTrackMetadata{}, ErrStreamTrackInvalid
+	}
+	for _, scope := range []struct {
+		kind string
+		id   int64
+	}{{"actor", actorID}, {"orbit", ownerOrbitID}} {
+		usage, err := streamUsageForScopeTx(tx, scope.kind, scope.id, params.CreatedAt)
+		if err != nil {
+			return StreamTrackMetadata{}, err
+		}
+		if streamQuotaFailure(usage, StreamQuotaRetainedBytes, params.OriginalSizeBytes) {
+			return StreamTrackMetadata{}, rejectStreamQuotaTx(
+				tx, scope.kind, scope.id, StreamQuotaRetainedBytes, params.CreatedAt,
+			)
+		}
 	}
 	_, err = tx.Exec(`INSERT INTO stream_track_metadata(
 media_id, original_filename, original_mime, original_container, original_codec,
@@ -197,7 +212,20 @@ func (s *Store) CreateStagedStreamVariant(params CreateStreamVariantParams) (Str
 	chunks, _ := json.Marshal(params.Chunks)
 	seekMap, _ := json.Marshal(params.SeekMap)
 	id := "sv_" + ulid.New(time.UnixMilli(params.CreatedAt))
-	_, err := s.db.Exec(`INSERT INTO stream_variants(
+	tx, err := s.db.Begin()
+	if err != nil {
+		return StreamVariant{}, err
+	}
+	defer tx.Rollback()
+	if err := streamVariantCapacityTx(tx, params.MediaID, params.SizeBytes, params.CreatedAt); err != nil {
+		if errors.Is(err, ErrStreamQuotaExceeded) {
+			if commitErr := tx.Commit(); commitErr != nil {
+				return StreamVariant{}, commitErr
+			}
+		}
+		return StreamVariant{}, err
+	}
+	_, err = tx.Exec(`INSERT INTO stream_variants(
 id, media_id, purpose, profile, codec, container, mime, rate_mode, bitrate_bps,
 sample_rate_hz, channels, duration_ms, size_bytes, sha256, etag, storage_key,
 chunk_size_bytes, chunk_manifest_json, seek_map_json, status, revision, created_at, updated_at
@@ -207,6 +235,9 @@ chunk_size_bytes, chunk_manifest_json, seek_map_json, status, revision, created_
 		params.DurationMS, params.SizeBytes, params.SHA256, params.ETag, params.StorageKey,
 		params.ChunkSizeBytes, string(chunks), string(seekMap), params.CreatedAt, params.CreatedAt)
 	if err != nil {
+		return StreamVariant{}, err
+	}
+	if err := tx.Commit(); err != nil {
 		return StreamVariant{}, err
 	}
 	return s.GetStreamVariant(id)

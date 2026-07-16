@@ -1,0 +1,140 @@
+{
+  "artifacts": [
+    {
+      "bytes": 130,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "f52e0444d12ba3b3ac0c2e910ab04e0dc7498b4adb3aa7b74ee04d3bc002f0f0"
+    },
+    {
+      "bytes": 48907,
+      "path": "02-swift-tests.log",
+      "sha256": "f305cb320d3c92ce8d8651e7ebf30176c07be2bcb73e988e4d8d235e57cbadfe"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/codec_spike/test_codec_spike.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "test"
+      ],
+      "cwd": "node-app",
+      "exitCode": 0,
+      "log": "02-swift-tests.log",
+      "name": "swift-tests"
+    }
+  ],
+  "finishedAt": "2026-07-16T00:53:10Z",
+  "git": {
+    "dirty": true,
+    "endDirty": true,
+    "endDirtyPaths": [
+      "M .planning/260713_234810_self-contained-audio-sequential-execution.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/README.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1bcpda_e2ee-c4-c6-evidence-review-pack/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1bcpda_e2ee-c4-c6-evidence-review-pack/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1rziyo_recovery-device-transfer-history-grants/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1rziyo_recovery-device-transfer-history-grants/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1u57qz_windows-protected-media-playback/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1u57qz_windows-protected-media-playback/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1x9ruo_macos-e2ee-key-state/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1x9ruo_macos-e2ee-key-state/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1yz5ca_coordinator-opaque-media-router/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1yz5ca_coordinator-opaque-media-router/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-20j5tm_coordinator-ciphertext-routing-rotation/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-20j5tm_coordinator-ciphertext-routing-rotation/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-25dzp4_windows-e2ee-key-state/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-25dzp4_windows-e2ee-key-state/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-28zhpl_windows-protected-media-send/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-28zhpl_windows-protected-media-send/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2i0w6x_report-evidence-moderation-export/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2i0w6x_report-evidence-moderation-export/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2kcduo_macos-protected-media-send/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2kcduo_macos-protected-media-send/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2nppt6_macos-encrypted-media-client-path/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2nppt6_macos-encrypted-media-client-path/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2q4jbu_windows-encrypted-media-client-path/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2q4jbu_windows-encrypted-media-client-path/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-3980vy_macos-e2ee-live-ptt/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-3980vy_macos-e2ee-live-ptt/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-39vjzd_windows-e2ee-live-ptt/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-39vjzd_windows-e2ee-live-ptt/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-3w1cst_encrypted-media-schema-epoch-foundation/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-3w1cst_encrypted-media-schema-epoch-foundation/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-aniuyy_e2ee-independent-design-review/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-aniuyy_e2ee-independent-design-review/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-tcwn44_macos-protected-media-playback/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-tcwn44_macos-protected-media-playback/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/TASK-260712-1ulshp_phase3-external-security-review-closure/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/TASK-260712-1ulshp_phase3-external-security-review-closure/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/TASK-260712-2b5685_phase3-root-engineering-completion-audit/README.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/TASK-260712-2b5685_phase3-root-engineering-completion-audit/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/TASK-260712-3b7bp4_phase3-engineering-handoff-disclosures/README.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/TASK-260712-3b7bp4_phase3-engineering-handoff-disclosures/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/TASK-260712-3g0axs_phase3-root-line-review/README.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/TASK-260712-3g0axs_phase3-root-line-review/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-ob1tx2_p2-targets-inbox-parity/TASK-260712-2zoy4u_rights-report-disable-enforcement/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-ob1tx2_p2-targets-inbox-parity/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/progress.md",
+      " M acceptance/targets-inbox-contract-v1.json",
+      " M coordinator/cmd/duet-coordinator/history_http_test.go",
+      " M coordinator/cmd/duet-coordinator/transmission_http.go",
+      " M coordinator/internal/media/download_test.go",
+      " M coordinator/internal/moderation/service.go",
+      " M coordinator/internal/moderation/service_test.go",
+      " M coordinator/internal/store/inbox_query.go",
+      " M coordinator/internal/store/moderation.go",
+      " M coordinator/internal/store/moderation_test.go",
+      " M coordinator/internal/store/transmission.go",
+      " M coordinator/internal/store/transmission_inbox.go",
+      " M coordinator/internal/store/transmission_resolution.go",
+      " M coordinator/internal/store/transmission_scheduler.go",
+      " M docs/analysis/p2-targets-inbox-contract-v1.md",
+      " M docs/diagrams/p2-targets-inbox-parity-components.puml",
+      " M docs/diagrams/p2-targets-inbox-parity-sequence.puml",
+      " M scripts/validate_targets_inbox_contract.py",
+      "?? .research/pulsar-audio-market-search-log.md",
+      "?? .task-board/EPIC-260716-3qsztl_deferred-e2ee-media-implementation/",
+      "?? docs/analysis/p2-rights-report-disable-enforcement.md"
+    ],
+    "head": "568cb0e374c8ef14a09eff7c6e71a4c84392eecb",
+    "startDirty": true
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-16T00:53:06Z",
+  "status": "pass",
+  "suite": "swift",
+  "toolchains": {
+    "apple": {
+      "developerDir": "/Applications/Xcode.app/Contents/Developer",
+      "swiftVersion": "6.2.3",
+      "xcodeBuild": "17C52",
+      "xcodeVersion": "26.2"
+    },
+    "go": null
+  }
+}

@@ -252,7 +252,7 @@ private final class EventBox {
         receiver.end(LivePTTEndPayload(
             sessionId: liveSession, generation: 7, commandSequence: 1,
             lastSequence: 3, endedAtCoordMs: now,
-            drainDeadlineCoordMs: now + 600, reason: "released"))
+            drainDeadlineCoordMs: now + 600, reason: "release"))
         #expect(receiver.snapshot().phase == .draining)
         #expect(route.stops.isEmpty)
         route.consumeAll(); receiver.tick()
@@ -263,7 +263,7 @@ private final class EventBox {
         #expect(receiver.start(liveStart(generation: 8, now: now), authorized: true))
         receiver.cancel(LivePTTCancelPayload(
             sessionId: liveSession, generation: 8, commandSequence: 1,
-            cancelledAtCoordMs: now, reason: "dnd", discardBuffered: true))
+            cancelledAtCoordMs: now, reason: "policy_changed", discardBuffered: true))
         #expect(receiver.snapshot().phase == .idle)
         #expect(route.stops.last?.discard == true)
     }

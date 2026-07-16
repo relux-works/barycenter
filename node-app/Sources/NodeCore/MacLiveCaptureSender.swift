@@ -337,6 +337,9 @@ final class MacLiveCaptureSender: @unchecked Sendable {
     func handleSystemSleep() { queue.async { self.terminateLocked(.systemSleep, sendTerminal: true) } }
     func handleSessionLock() { queue.async { self.terminateLocked(.sessionLocked, sendTerminal: true) } }
     func handleDisconnect() { queue.async { self.terminateLocked(.disconnected, sendTerminal: false) } }
+    func handleCoordinatorCancel() { queue.async {
+        self.terminateLocked(.coordinatorCancelled, sendTerminal: false)
+    }}
     func shutdown() { queue.sync { terminateLocked(.appQuit, sendTerminal: false) } }
     func retryOutbound() { queue.async { self.drainOutboundLocked() } }
     func recheckPermission() { queue.async {
@@ -412,26 +415,36 @@ final class MacLiveCaptureSender: @unchecked Sendable {
         timer?.cancel(); timer = nil
         if backendActive { backend.stop(); backendActive = false }
         drainSamplesLocked()
-        if var terminal = pendingFrame {
+        let graceful = sendTerminal && Self.endReason(reason) != nil
+        if graceful, var terminal = pendingFrame {
             terminal.flags |= LivePTTBinaryFrame.endFlag
             pendingFrame = nil
             if outbound.count < Self.sendQueueLimit { outbound.append(terminal) }
             drainOutboundLocked()
         }
         if sendTerminal, let session {
-            if sequence > 0 {
+            let message: Message
+            if graceful, sequence > 0, let endReason = Self.endReason(reason) {
                 let now = max(1, coordinatorNowMs())
-                sendControl(.livePTTEnd(LivePTTEndPayload(
+                message = .livePTTEnd(LivePTTEndPayload(
                     sessionId: session.sessionId, generation: session.generation,
                     commandSequence: 1, lastSequence: sequence,
                     endedAtCoordMs: now,
                     drainDeadlineCoordMs: now + LivePTTConstants.drainTimeoutMs,
-                    reason: reason.rawValue)))
-            } else {
-                sendControl(.livePTTCancel(LivePTTCancelPayload(
+                    reason: endReason))
+            } else if let cancelReason = Self.cancelReason(reason) {
+                message = .livePTTCancel(LivePTTCancelPayload(
                     sessionId: session.sessionId, generation: session.generation,
                     commandSequence: 1, cancelledAtCoordMs: max(1, coordinatorNowMs()),
-                    reason: reason.rawValue, discardBuffered: true)))
+                    reason: cancelReason, discardBuffered: true))
+            } else {
+                message = .livePTTFailed(LivePTTFailedPayload(
+                    sessionId: session.sessionId, generation: session.generation,
+                    eventSequence: 1, stage: "capture", code: reason.rawValue,
+                    failedAtCoordMs: max(1, coordinatorNowMs())))
+            }
+            if (try? LivePTTValidation.validate(message)) != nil {
+                sendControl(message)
             }
         }
         mailbox.reset(); overflowPosted.store(0); encoder.reset()
@@ -476,5 +489,29 @@ final class MacLiveCaptureSender: @unchecked Sendable {
             bytes.append(byte); index = next
         }
         return bytes
+    }
+
+    private static func endReason(_ reason: MacLiveCaptureStopReason) -> String? {
+        switch reason {
+        case .released: "release"
+        case .lostRelease: "lost_release"
+        case .systemSleep: "sleep"
+        case .sessionLocked: "lock"
+        case .permissionRevoked: "permission_revoked"
+        case .deviceLost: "device_lost"
+        case .appQuit: "quit"
+        case .disconnected: "disconnect"
+        default: nil
+        }
+    }
+
+    private static func cancelReason(_ reason: MacLiveCaptureStopReason) -> String? {
+        switch reason {
+        case .localStop, .released: "user_cancel"
+        case .lostRelease: "lost_release"
+        case .backpressure: "backpressure"
+        case .maximumDuration: "timeout"
+        default: nil
+        }
     }
 }

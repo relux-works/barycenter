@@ -441,7 +441,7 @@ final class MacLiveJitterReceiver {
     private func tickLocked(nowMs: Int64) {
         guard let active = session else { return }
         if nowMs > active.start.startedAtCoordMs + active.start.maxDurationMs {
-            failLocked(stage: "playback", code: "max_duration")
+            failLocked(stage: "render", code: "max_duration")
             return
         }
         if active.phase == .playing || active.phase == .draining {
@@ -510,7 +510,7 @@ final class MacLiveJitterReceiver {
             guard written == Self.frameSamples else {
                 active.failedFrames += 1
                 session = active
-                failLocked(stage: "pcm", code: "buffer_full")
+                failLocked(stage: "render", code: "buffer_full")
                 return false
             }
             lastPCM.baseAddress!.update(
@@ -523,7 +523,7 @@ final class MacLiveJitterReceiver {
         } catch {
             active.failedFrames += 1
             session = active
-            failLocked(stage: "decoder", code: "decode_failed")
+            failLocked(stage: "decode", code: "decode_failed")
             return false
         }
     }

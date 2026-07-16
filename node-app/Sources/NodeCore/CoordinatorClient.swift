@@ -30,6 +30,9 @@ public final class CoordinatorClient: NSObject {
     private var backoffSeconds: Double = 1
     private var stopped = false
     private var healthy = false
+    private let liveSendLock = NSLock()
+    private var liveSendQueued = 0
+    private var liveTransportReady = false
 
     private var pingTimer: DispatchSourceTimer?
     private var heartbeatTimer: DispatchSourceTimer?
@@ -38,6 +41,9 @@ public final class CoordinatorClient: NSObject {
 
     /// Set by the owner: called on the client queue for every incoming message.
     public var onMessage: ((EnvelopeHead, Message) -> Void)?
+    /// Validated BP binary frames. Remains unused unless live_ptt_v1 is
+    /// explicitly present in the frozen registration capability set.
+    public var onLivePTTFrame: ((LivePTTBinaryFrame) -> Void)?
     /// Called after register is sent on a fresh connection (spec 8.6: the node
     /// then receives welcome and reconciles).
     public var onConnected: (() -> Void)?
@@ -70,6 +76,7 @@ public final class CoordinatorClient: NSObject {
         queue.async {
             self.stopped = true
             self.healthy = false
+            self.setLiveTransportReady(false)
             self.pingTimer?.cancel()
             self.heartbeatTimer?.cancel()
             self.task?.cancel(with: .goingAway, reason: nil)
@@ -127,6 +134,35 @@ public final class CoordinatorClient: NSObject {
         queue.async { self.sendMessageOnQueue(message) }
     }
 
+    /// Non-blocking bounded binary seam used by the production-dark live node.
+    /// It fails closed while the capability is absent, the authenticated socket
+    /// is unhealthy, the frame is malformed, or eight sends are already in flight.
+    public func trySendLivePTTFrame(_ frame: LivePTTBinaryFrame) -> Bool {
+        guard capabilities.contains(livePTTCapability),
+              let data = try? frame.encoded()
+        else { return false }
+        liveSendLock.lock()
+        guard liveTransportReady, liveSendQueued < 8 else {
+            liveSendLock.unlock()
+            return false
+        }
+        liveSendQueued += 1
+        liveSendLock.unlock()
+        queue.async { [weak self] in
+            guard let self, let task = self.task, self.healthy else {
+                self?.releaseLiveSend()
+                return
+            }
+            task.send(.data(data)) { [weak self] error in
+                self?.releaseLiveSend()
+                if error != nil {
+                    self?.log.warn("live binary send failed")
+                }
+            }
+        }
+        return true
+    }
+
     private func sendMessageOnQueue(_ message: Message) {
         let id = "msg_" + ULID.new()
         do {
@@ -153,13 +189,17 @@ public final class CoordinatorClient: NSObject {
                     self.scheduleReconnect()
                 case .success(let wsMessage):
                     let t4 = Self.nowMs()
-                    let data: Data
                     switch wsMessage {
-                    case .data(let d): data = d
-                    case .string(let s): data = Data(s.utf8)
-                    @unknown default: data = Data()
-                    }
-                    if self.handleIncoming(data, t4: t4) {
+                    case .data(let data) where Self.isLivePTTBinary(data):
+                        self.handleIncomingLivePTT(data)
+                        self.receiveNext()
+                        return
+                    case .data(let data):
+                        if self.handleIncoming(data, t4: t4) { self.receiveNext() }
+                    case .string(let string):
+                        if self.handleIncoming(Data(string.utf8), t4: t4) { self.receiveNext() }
+                    @unknown default:
+                        self.log.warn("unknown websocket frame ignored")
                         self.receiveNext()
                     }
                 }
@@ -221,9 +261,27 @@ public final class CoordinatorClient: NSObject {
         return true
     }
 
+    static func isLivePTTBinary(_ data: Data) -> Bool {
+        data.count >= 2 && data[data.startIndex] == 0x42 &&
+            data[data.index(after: data.startIndex)] == 0x50
+    }
+
+    private func handleIncomingLivePTT(_ data: Data) {
+        guard capabilities.contains(livePTTCapability) else {
+            log.warn("unadvertised live binary ignored")
+            return
+        }
+        guard let frame = try? LivePTTBinaryFrame.decode(data) else {
+            log.warn("malformed live binary ignored")
+            return
+        }
+        onLivePTTFrame?(frame)
+    }
+
     private func scheduleReconnect() {
         guard !stopped else { return }
         healthy = false
+        setLiveTransportReady(false)
         pingTimer?.cancel()
         heartbeatTimer?.cancel()
         task?.cancel()
@@ -241,7 +299,20 @@ public final class CoordinatorClient: NSObject {
         queue.async {
             self.backoffSeconds = 1
             self.healthy = true
+            self.setLiveTransportReady(true)
         }
+    }
+
+    private func setLiveTransportReady(_ value: Bool) {
+        liveSendLock.lock()
+        liveTransportReady = value && capabilities.contains(livePTTCapability)
+        liveSendLock.unlock()
+    }
+
+    private func releaseLiveSend() {
+        liveSendLock.lock()
+        liveSendQueued = max(0, liveSendQueued - 1)
+        liveSendLock.unlock()
     }
 
     /// Thread-safe UI/diagnostic projection. True only after an authenticated

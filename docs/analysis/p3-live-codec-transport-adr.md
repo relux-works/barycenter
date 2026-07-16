@@ -130,6 +130,9 @@ are documented in [p3-macos-live-jitter-receiver.md](p3-macos-live-jitter-receiv
 The matching bounded capture/encode path and its explicit system-encoder/FEC
 boundary are documented in
 [p3-macos-live-capture-sender.md](p3-macos-live-capture-sender.md).
+The production-dark macOS node state machine, bounded websocket binary seam and
+explicit hold-input/manual-evidence boundary are documented in
+[p3-macos-live-ptt-node-integration.md](p3-macos-live-ptt-node-integration.md).
 The bounded Windows jitter/mixer runtime and its deliberately empty production
 decoder registration are documented in
 [p3-windows-live-jitter-receiver.md](p3-windows-live-jitter-receiver.md).

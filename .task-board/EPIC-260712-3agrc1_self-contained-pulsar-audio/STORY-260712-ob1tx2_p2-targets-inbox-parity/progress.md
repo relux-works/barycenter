@@ -1,5 +1,5 @@
 ## Status
-development
+done
 
 ## Assigned To
 (none)
@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-16T03:59:50Z
+2026-07-16T04:15:44Z
 
 ## Blocked By
 - STORY-260712-1i0doc
@@ -48,6 +48,8 @@ Root decomposition review completed. Recast Phase 2 as an extension of Phase 1 t
 2026-07-16 strict progress: Windows targets/inbox task TASK-260712-cuplon accepted through code PR #136 merge 15f675e after hosted run 29468731725 passed 4/4. Deterministic Win32 keyboard/accessibility-source and high-DPI coverage is accepted; hands-on Narrator, packaged-app and physical-hardware evidence remains unclaimed in EPIC-260714-th54l3. Story advances strictly to TASK-260712-1vklop.
 2026-07-16 strict progress: TASK-260712-1vklop started inline after tracking PR #137 merge 1d49243 and hosted run 29469062833 passed 4/4. Building adversarial automated B5-B7 parity fixtures; manual real-app and mixed-fleet proof remains routed to EPIC-260714-th54l3.
 2026-07-16 strict progress: TASK-260712-1vklop accepted through code PR #138 merge 029346c after hosted run 29470131117 passed 4/4. Nineteen fail-closed repository invariants now map explicit ACL, frozen N-recipient targets, inbox/TTL/cursor behavior, mixed-version capability policy, consent, canonical revocation, migration rollback and the shared Windows/macOS/Telegram fixture to executable anchors. Manual B5-B7 app, hardware, accessibility, audible and real mixed-fleet proof remains unclaimed in TASK-260712-3u5cdn. Story advances strictly to TASK-260712-20cuna.
+2026-07-16 strict progress: TASK-260712-20cuna started inline from tracking PR #139 merge 9ee893e after hosted run 29470338566 passed 4/4. Freezing the final target/inbox/rights contract, additive rollout and rollback order, mixed-version boundary and downstream/manual consumers.
+2026-07-16 implementation complete: all eleven engineering tasks in the explicit-target, inbox and transport-parity story are accepted. TASK-260712-20cuna landed through PR #140 merge e51c937 after hosted run 29470807661 passed 4/4. The final handoff pins the common authority graph, coordinator-first dark rollout, additive reconciliation, bounded clip cohort, downstream track gate, safe predecessor rollback and exact streamed-track/acceptance/E2EE ownership. Real app, hardware, accessibility, audible, mixed-fleet and rollout-rehearsal evidence remains exclusively in the manual epic and is not claimed.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-ob1tx2/spec-entry.md) — Authoritative specification entry point

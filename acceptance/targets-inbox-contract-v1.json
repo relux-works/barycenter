@@ -169,19 +169,16 @@
   "inboxEntry": {
     "requiredFields": [
       "id",
+      "history_item_id",
       "revision",
-      "transmission_id",
-      "media_id",
-      "target_reference",
-      "media_kind",
+      "media",
+      "sender",
+      "receipt",
       "requested_delivery",
       "effective_delivery",
-      "missed_status",
-      "missed_reason",
       "availability",
       "created_at",
       "expires_at",
-      "replay_root_transmission_id",
       "replay_depth",
       "actions"
     ],
@@ -201,6 +198,7 @@
       "unblock"
     ],
     "sourceIdentity": "localized display label only; no actor, orbit, slot or Telegram numeric identifier",
+    "wireIdentifierBoundary": "return ib_ and hi_ capabilities only; never serialize m_, tr_, actor_id, orbit_id, slot or binding generation",
     "receiptAggregate": "reuse p1 history aggregate; target sees only its exact target row",
     "actionHintsAreAuthority": false
   },
@@ -224,7 +222,30 @@
       "last_inbox_id"
     ],
     "clientTokenContainsTenantOrMediaID": false,
-    "membershipChangesExpandFrozenPage": false
+    "membershipChangesExpandFrozenPage": false,
+    "invalidExpiredOrCrossActorCursor": "410 cursor_expired"
+  },
+  "receiptPagination": {
+    "route": "GET /v1/history/{history_item_id}/receipts",
+    "order": "immutable target snapshot order held server-side",
+    "defaultLimit": 20,
+    "minimumLimit": 1,
+    "maximumLimit": 100,
+    "cursorTTLSeconds": 86400,
+    "maximumLiveCursorsPerActor": 128,
+    "senderView": "safe labels and all snapshotted receipt states",
+    "targetView": "only the caller exact current target binding",
+    "wireFields": [
+      "target_label",
+      "status",
+      "reason_code",
+      "ready_at",
+      "scheduled_at",
+      "started_at",
+      "ended_at"
+    ],
+    "rawTargetIdentityReturned": false,
+    "readTriggersPlaybackOrQueue": false
   },
   "replay": {
     "route": "POST /v1/inbox/{inbox_id}/replays",
@@ -233,6 +254,11 @@
     "createsNewTransmission": true,
     "mutatesOriginalReceipt": false,
     "target": "same exact current recipient installation unless a separate authorized explicit audience is supplied",
+    "defaultInboxReplayAudience": "same exact current recipient installation",
+    "responseIdentifiers": [
+      "ir_ replay request capability",
+      "hi_ history item capability"
+    ],
     "idempotencyRequired": true,
     "maximumDepth": 8,
     "lineageFields": [

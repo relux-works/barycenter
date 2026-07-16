@@ -301,6 +301,30 @@ CREATE TABLE IF NOT EXISTS transmission_inbox_cursors (
 CREATE INDEX IF NOT EXISTS transmission_inbox_cursors_expiry
   ON transmission_inbox_cursors(expires_at, actor_id);
 
+-- Receipt cursors keep the immutable target ordering server-side. The client
+-- receives only a random capability and therefore cannot recover a
+-- transmission, actor, orbit, slot, or binding generation from pagination.
+CREATE TABLE IF NOT EXISTS transmission_receipt_cursors (
+  token_hash TEXT PRIMARY KEY
+    CHECK(length(token_hash) = 64 AND token_hash NOT GLOB '*[^0-9a-f]*'),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  authorization_hash TEXT NOT NULL
+    CHECK(length(authorization_hash) = 64
+      AND authorization_hash NOT GLOB '*[^0-9a-f]*'),
+  history_item_id TEXT NOT NULL
+    CHECK(length(history_item_id) = 29
+      AND substr(history_item_id, 1, 3) = 'hi_'),
+  page_limit INTEGER NOT NULL CHECK(page_limit BETWEEN 1 AND 100),
+  last_orbit_id INTEGER NOT NULL CHECK(last_orbit_id > 0),
+  last_actor_id INTEGER NOT NULL CHECK(last_actor_id > 0),
+  last_slot TEXT NOT NULL CHECK(length(last_slot) = 1 AND last_slot GLOB '[a-z]'),
+  last_binding_paired_at INTEGER NOT NULL CHECK(last_binding_paired_at >= 0),
+  expires_at INTEGER NOT NULL CHECK(expires_at > 0),
+  created_at INTEGER NOT NULL CHECK(created_at > 0)
+);
+CREATE INDEX IF NOT EXISTS transmission_receipt_cursors_expiry
+  ON transmission_receipt_cursors(expires_at, actor_id);
+
 -- Scheduler timestamps live outside the immutable acceptance snapshot.  This
 -- keeps the domain FIFO and barrier restart-safe while allowing a previous
 -- coordinator binary to ignore the additive runtime state during rollback.

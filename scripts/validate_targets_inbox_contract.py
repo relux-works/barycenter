@@ -92,10 +92,12 @@ def validate(contract: dict[str, Any]) -> None:
 
     entry = contract.get("inboxEntry", {})
     required_fields = entry.get("requiredFields", [])
-    require(len(required_fields) == len(set(required_fields)) and len(required_fields) >= 15,
+    require(len(required_fields) == len(set(required_fields)) and len(required_fields) >= 13,
             "inbox field set is incomplete or duplicated")
     require(entry.get("receiptAggregate").startswith("reuse p1 history"), "parallel receipt aggregate introduced")
     require(entry.get("actionHintsAreAuthority") is False, "action hints became mutation authority")
+    require("never serialize m_, tr_" in entry.get("wireIdentifierBoundary", ""),
+            "inbox wire identifier boundary weakened")
 
     pagination = contract.get("pagination", {})
     require((pagination.get("minimumLimit"), pagination.get("defaultLimit"), pagination.get("maximumLimit")) ==
@@ -104,6 +106,21 @@ def validate(contract: dict[str, Any]) -> None:
     require(pagination.get("maximumLiveCursorsPerActor") == 128, "cursor bound changed")
     require(pagination.get("clientTokenContainsTenantOrMediaID") is False, "cursor leaks identifiers")
     require(pagination.get("membershipChangesExpandFrozenPage") is False, "cursor scope expands with membership")
+    require(pagination.get("invalidExpiredOrCrossActorCursor") == "410 cursor_expired",
+            "cursor failure surface changed")
+
+    receipts = contract.get("receiptPagination", {})
+    require(receipts.get("route") == "GET /v1/history/{history_item_id}/receipts",
+            "receipt pagination route changed")
+    require((receipts.get("minimumLimit"), receipts.get("defaultLimit"), receipts.get("maximumLimit")) ==
+            (1, 20, 100), "receipt pagination limits changed")
+    require(receipts.get("cursorTTLSeconds") == 86400 and
+            receipts.get("maximumLiveCursorsPerActor") == 128,
+            "receipt cursor bounds changed")
+    require(receipts.get("rawTargetIdentityReturned") is False,
+            "receipt projection exposes target identity")
+    require(receipts.get("readTriggersPlaybackOrQueue") is False,
+            "receipt read can trigger playback")
 
     replay = contract.get("replay", {})
     require(replay.get("manualExplicitActionRequired") is True, "replay is no longer manual")
@@ -112,6 +129,11 @@ def validate(contract: dict[str, Any]) -> None:
             "replay lineage semantics changed")
     require(replay.get("maximumDepth") == 8, "replay depth bound changed")
     require(replay.get("lateAutoPlayAllowed") is False, "late autoplay enabled")
+    require(replay.get("defaultInboxReplayAudience") == "same exact current recipient installation",
+            "inbox replay target widened")
+    require(replay.get("responseIdentifiers") == [
+        "ir_ replay request capability", "hi_ history item capability"
+    ], "inbox replay leaks raw resource identifiers")
 
     deletion = contract.get("statusAndDelete", {})
     require(deletion.get("localDismissDeletesMedia") is False, "local dismiss deletes media")

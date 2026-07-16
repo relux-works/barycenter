@@ -42,11 +42,12 @@ and fail-closed command model is defined by the
 [Pulsar targets/inbox presentation model](analysis/p2-pulsar-targets-inbox-presentation-model.md)
 and its executable
 [`pulsar.targets-inbox-presentation.v1`](../protocol/pulsar-targets-inbox-presentation-v1.json)
-contract. Native macOS and Windows views consume this model in their later
-platform tasks; this contract itself does not claim those views or hardware
-evidence.
-The native boundary is documented in
-[macOS targets/inbox UI and command composition](analysis/p2-macos-targets-inbox-ui.md).
+contract. Native macOS and Windows views consume this model, while this
+contract itself does not claim hands-on hardware evidence. The native
+boundaries are documented in the
+[macOS targets/inbox UI and command composition](analysis/p2-macos-targets-inbox-ui.md)
+and [Windows targets/inbox UI and command composition](analysis/p2-windows-targets-inbox-ui.md)
+handoffs.
 
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 

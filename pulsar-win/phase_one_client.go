@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -364,6 +365,46 @@ func (c *PhaseOneAppClient) Transmit(ctx context.Context, mediaID string, route 
 	}{mediaID, struct {
 		Kind string `json:"kind"`
 	}{string(route)}, string(delivery), string(originKind), route == PhaseOneThisPulsar, phaseOneFallbackBody(fallback)}
+	raw, _, err := c.requestJSON(ctx, http.MethodPost, "/v1/transmissions", c.token,
+		map[string]string{"Idempotency-Key": idempotencyKey}, body, http.StatusOK, http.StatusCreated)
+	if err != nil {
+		return PhaseOneTransmissionReceipt{}, err
+	}
+	return decodePhaseOneTransmission(raw, mediaID)
+}
+
+// TransmitExplicit uses only current server-minted target references. Callers
+// must persist the exact sorted set with the idempotency key so retry cannot
+// silently broaden or change the audience.
+func (c *PhaseOneAppClient) TransmitExplicit(ctx context.Context, mediaID string, references []string, includeOrigin bool, delivery PhaseOneDelivery, originKind PhaseOneOriginKind, idempotencyKey string) (PhaseOneTransmissionReceipt, error) {
+	if !validPhaseOnePublicID(mediaID, "m_") || len(references) < 1 || len(references) > 64 ||
+		!validPhaseOneDelivery(delivery) || (originKind != PhaseOneMicrophone && originKind != PhaseOneFile) ||
+		!validPhaseOneIdempotencyKey(idempotencyKey) {
+		return PhaseOneTransmissionReceipt{}, phaseOneError(PhaseOneInvalidRequest)
+	}
+	canonical := append([]string(nil), references...)
+	sort.Strings(canonical)
+	for index, reference := range canonical {
+		if !targetReferencePattern.MatchString(reference) || index > 0 && canonical[index-1] == reference {
+			return PhaseOneTransmissionReceipt{}, phaseOneError(PhaseOneInvalidRequest)
+		}
+	}
+	targets := make([]struct {
+		Reference string `json:"reference"`
+	}, len(canonical))
+	for index, reference := range canonical {
+		targets[index].Reference = reference
+	}
+	body := struct {
+		MediaID       string `json:"media_id"`
+		Audience      any    `json:"audience"`
+		Delivery      string `json:"delivery"`
+		OriginKind    string `json:"origin_kind"`
+		IncludeOrigin bool   `json:"include_origin"`
+	}{mediaID, struct {
+		Kind    string `json:"kind"`
+		Targets any    `json:"targets"`
+	}{"explicit", targets}, string(delivery), string(originKind), includeOrigin}
 	raw, _, err := c.requestJSON(ctx, http.MethodPost, "/v1/transmissions", c.token,
 		map[string]string{"Idempotency-Key": idempotencyKey}, body, http.StatusOK, http.StatusCreated)
 	if err != nil {

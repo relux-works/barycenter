@@ -55,59 +55,81 @@ const (
 
 	mainRefreshTimer = 1
 
-	idShellHome          = 3001
-	idShellCreate        = 3002
-	idShellJoin          = 3003
-	idShellTry           = 3004
-	idShellHistory       = 3005
-	idShellAirs          = 3006
-	idShellSettings      = 3007
-	idShellAction        = 3010
-	idShellRecord        = 3011
-	idShellDND           = 3012
-	idShellEnglish       = 3013
-	idShellRussian       = 3014
-	idShellOpen          = 3020
-	idShellCancel        = 3021
-	idShellCue           = 3022
-	idShellFile          = 3023
-	idShellDelete        = 3024
-	idShellInput         = 3025
-	idShellOutput        = 3026
-	idShellIdentityInput = 3027
-	idShellRecovery      = 3028
-	idShellDraftNext     = 3030
-	idShellRoute         = 3031
-	idShellDelivery      = 3032
-	idShellSend          = 3033
-	idShellPhaseDelete   = 3034
-	idShellHistoryNext   = 3035
-	idShellHistoryDelete = 3036
-	idShellHistoryReplay = 3037
-	idShellHistoryBlock  = 3038
-	idShellOutgoingFile  = 3039
-	idShellReportReason  = 3040
-	idShellReportDetails = 3041
-	idShellHistoryReport = 3042
-	idShellAirTitle      = 3050
-	idShellAirCode       = 3051
-	idShellAirNext       = 3052
-	idShellAirCreate     = 3053
-	idShellAirConsume    = 3054
-	idShellAirJoinSaved  = 3055
-	idShellAirJoinActive = 3056
-	idShellAirDecline    = 3057
-	idShellAirRole       = 3058
-	idShellAirInvite     = 3059
-	idShellAirCopy       = 3060
-	idShellAirHide       = 3061
-	idShellAirWithdraw   = 3062
-	idShellAirActivate   = 3063
-	idShellAirLeave      = 3064
-	idShellAirDissolve   = 3065
-	idShellAirPolicy     = 3066
-	idShellAirConfirm    = 3067
-	idShellAirCancel     = 3068
+	idShellHome            = 3001
+	idShellCreate          = 3002
+	idShellJoin            = 3003
+	idShellTry             = 3004
+	idShellHistory         = 3005
+	idShellAirs            = 3006
+	idShellSettings        = 3007
+	idShellInbox           = 3008
+	idShellAction          = 3010
+	idShellRecord          = 3011
+	idShellDND             = 3012
+	idShellEnglish         = 3013
+	idShellRussian         = 3014
+	idShellOpen            = 3020
+	idShellCancel          = 3021
+	idShellCue             = 3022
+	idShellFile            = 3023
+	idShellDelete          = 3024
+	idShellInput           = 3025
+	idShellOutput          = 3026
+	idShellIdentityInput   = 3027
+	idShellRecovery        = 3028
+	idShellDraftNext       = 3030
+	idShellRoute           = 3031
+	idShellDelivery        = 3032
+	idShellSend            = 3033
+	idShellPhaseDelete     = 3034
+	idShellHistoryNext     = 3035
+	idShellHistoryDelete   = 3036
+	idShellHistoryReplay   = 3037
+	idShellHistoryBlock    = 3038
+	idShellOutgoingFile    = 3039
+	idShellReportReason    = 3040
+	idShellReportDetails   = 3041
+	idShellHistoryReport   = 3042
+	idShellAirTitle        = 3050
+	idShellAirCode         = 3051
+	idShellAirNext         = 3052
+	idShellAirCreate       = 3053
+	idShellAirConsume      = 3054
+	idShellAirJoinSaved    = 3055
+	idShellAirJoinActive   = 3056
+	idShellAirDecline      = 3057
+	idShellAirRole         = 3058
+	idShellAirInvite       = 3059
+	idShellAirCopy         = 3060
+	idShellAirHide         = 3061
+	idShellAirWithdraw     = 3062
+	idShellAirActivate     = 3063
+	idShellAirLeave        = 3064
+	idShellAirDissolve     = 3065
+	idShellAirPolicy       = 3066
+	idShellAirConfirm      = 3067
+	idShellAirCancel       = 3068
+	idTargetsRefresh       = 3070
+	idTargetsAudience      = 3071
+	idTargetsNext          = 3072
+	idTargetsToggle        = 3073
+	idTargetsOrigin        = 3074
+	idTargetsDelivery      = 3075
+	idTargetsSend          = 3076
+	idInboxNext            = 3077
+	idInboxReplay          = 3078
+	idInboxDismiss         = 3079
+	idInboxMute            = 3080
+	idInboxMore            = 3081
+	idTargetsHistoryNext   = 3082
+	idTargetsHistoryDelete = 3083
+	idTargetsHistoryMute   = 3084
+	idTargetsHistoryMore   = 3085
+	idTargetsReceipts      = 3086
+	idTargetsReason        = 3087
+	idTargetsDetails       = 3088
+	idTargetsReportInbox   = 3089
+	idTargetsReportHistory = 3090
 
 	bsPushButton = 0x00000000
 	bsMultiline  = 0x00002000
@@ -136,8 +158,8 @@ type accel struct {
 func shellSectionControlID(section ShellSection) int {
 	return map[ShellSection]int{
 		ShellHome: idShellHome, ShellCreate: idShellCreate, ShellJoin: idShellJoin,
-		ShellTryLocally: idShellTry, ShellHistory: idShellHistory, ShellAirs: idShellAirs,
-		ShellSettings: idShellSettings,
+		ShellTryLocally: idShellTry, ShellHistory: idShellHistory, ShellInbox: idShellInbox,
+		ShellAirs: idShellAirs, ShellSettings: idShellSettings,
 	}[section]
 }
 
@@ -147,65 +169,86 @@ type mainFonts struct {
 }
 
 type mainWindowCtx struct {
-	hwnd           windows.Handle
-	shell          *WindowsShell
-	nav            map[ShellSection]windows.Handle
-	title          windows.Handle
-	banner         windows.Handle
-	body           windows.Handle
-	home           [3]windows.Handle
-	cards          [3]windows.Handle
-	footer         windows.Handle
-	detail         windows.Handle
-	identityInput  windows.Handle
-	recovery       windows.Handle
-	cue            windows.Handle
-	file           windows.Handle
-	outgoingFile   windows.Handle
-	delete         windows.Handle
-	input          windows.Handle
-	output         windows.Handle
-	draftNext      windows.Handle
-	route          windows.Handle
-	delivery       windows.Handle
-	send           windows.Handle
-	phaseDelete    windows.Handle
-	historyNext    windows.Handle
-	historyDelete  windows.Handle
-	historyReplay  windows.Handle
-	historyBlock   windows.Handle
-	reportReason   windows.Handle
-	reportLabel    windows.Handle
-	reportDetails  windows.Handle
-	historyReport  windows.Handle
-	airTitleLabel  windows.Handle
-	airTitle       windows.Handle
-	airCodeLabel   windows.Handle
-	airCode        windows.Handle
-	airNext        windows.Handle
-	airCreate      windows.Handle
-	airConsume     windows.Handle
-	airJoinSaved   windows.Handle
-	airJoinActive  windows.Handle
-	airDecline     windows.Handle
-	airRole        windows.Handle
-	airInvite      windows.Handle
-	airCopy        windows.Handle
-	airHide        windows.Handle
-	airWithdraw    windows.Handle
-	airActivate    windows.Handle
-	airLeave       windows.Handle
-	airDissolve    windows.Handle
-	airPolicy      windows.Handle
-	airConfirm     windows.Handle
-	airCancel      windows.Handle
-	record         windows.Handle
-	dnd            windows.Handle
-	english        windows.Handle
-	russian        windows.Handle
-	all            []windows.Handle
-	fonts          mainFonts
-	laidOutSection ShellSection
+	hwnd                 windows.Handle
+	shell                *WindowsShell
+	nav                  map[ShellSection]windows.Handle
+	title                windows.Handle
+	banner               windows.Handle
+	body                 windows.Handle
+	home                 [3]windows.Handle
+	cards                [3]windows.Handle
+	footer               windows.Handle
+	detail               windows.Handle
+	identityInput        windows.Handle
+	recovery             windows.Handle
+	cue                  windows.Handle
+	file                 windows.Handle
+	outgoingFile         windows.Handle
+	delete               windows.Handle
+	input                windows.Handle
+	output               windows.Handle
+	draftNext            windows.Handle
+	route                windows.Handle
+	delivery             windows.Handle
+	send                 windows.Handle
+	phaseDelete          windows.Handle
+	historyNext          windows.Handle
+	historyDelete        windows.Handle
+	historyReplay        windows.Handle
+	historyBlock         windows.Handle
+	reportReason         windows.Handle
+	reportLabel          windows.Handle
+	reportDetails        windows.Handle
+	historyReport        windows.Handle
+	airTitleLabel        windows.Handle
+	airTitle             windows.Handle
+	airCodeLabel         windows.Handle
+	airCode              windows.Handle
+	airNext              windows.Handle
+	airCreate            windows.Handle
+	airConsume           windows.Handle
+	airJoinSaved         windows.Handle
+	airJoinActive        windows.Handle
+	airDecline           windows.Handle
+	airRole              windows.Handle
+	airInvite            windows.Handle
+	airCopy              windows.Handle
+	airHide              windows.Handle
+	airWithdraw          windows.Handle
+	airActivate          windows.Handle
+	airLeave             windows.Handle
+	airDissolve          windows.Handle
+	airPolicy            windows.Handle
+	airConfirm           windows.Handle
+	airCancel            windows.Handle
+	targetsRefresh       windows.Handle
+	targetsAudience      windows.Handle
+	targetsNext          windows.Handle
+	targetsToggle        windows.Handle
+	targetsOrigin        windows.Handle
+	targetsDelivery      windows.Handle
+	targetsSend          windows.Handle
+	inboxNext            windows.Handle
+	inboxReplay          windows.Handle
+	inboxDismiss         windows.Handle
+	inboxMute            windows.Handle
+	inboxMore            windows.Handle
+	targetsHistoryNext   windows.Handle
+	targetsHistoryDelete windows.Handle
+	targetsHistoryMute   windows.Handle
+	targetsHistoryMore   windows.Handle
+	targetsReceipts      windows.Handle
+	targetsReason        windows.Handle
+	targetsDetails       windows.Handle
+	targetsReportInbox   windows.Handle
+	targetsReportHistory windows.Handle
+	record               windows.Handle
+	dnd                  windows.Handle
+	english              windows.Handle
+	russian              windows.Handle
+	all                  []windows.Handle
+	fonts                mainFonts
+	laidOutSection       ShellSection
 }
 
 var (
@@ -343,6 +386,28 @@ func (ctx *mainWindowCtx) createControls() {
 	ctx.airPolicy = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirPolicy)
 	ctx.airConfirm = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirConfirm)
 	ctx.airCancel = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellAirCancel)
+	ctx.targetsRefresh = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsRefresh)
+	ctx.targetsAudience = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsAudience)
+	ctx.targetsNext = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsNext)
+	ctx.targetsToggle = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsToggle)
+	ctx.targetsOrigin = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsOrigin)
+	ctx.targetsDelivery = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsDelivery)
+	ctx.targetsSend = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsSend)
+	ctx.inboxNext = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idInboxNext)
+	ctx.inboxReplay = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idInboxReplay)
+	ctx.inboxDismiss = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idInboxDismiss)
+	ctx.inboxMute = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idInboxMute)
+	ctx.inboxMore = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idInboxMore)
+	ctx.targetsHistoryNext = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsHistoryNext)
+	ctx.targetsHistoryDelete = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsHistoryDelete)
+	ctx.targetsHistoryMute = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsHistoryMute)
+	ctx.targetsHistoryMore = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsHistoryMore)
+	ctx.targetsReceipts = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsReceipts)
+	ctx.targetsReason = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsReason)
+	ctx.targetsDetails = mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop|0x0080, idTargetsDetails)
+	pSendMessageW.Call(uintptr(ctx.targetsDetails), emSetLimitText, 2000, 0)
+	ctx.targetsReportInbox = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsReportInbox)
+	ctx.targetsReportHistory = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsReportHistory)
 	ctx.record = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellRecord)
 	ctx.dnd = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDND)
 	ctx.english = mk(0, "BUTTON", "English", buttonStyle|bsPushButton, idShellEnglish)
@@ -356,8 +421,10 @@ func (ctx *mainWindowCtx) installAccelerators() {
 		{fVirtKey | fControl, 0, '1', idShellCreate},
 		{fVirtKey | fControl, 0, '2', idShellJoin},
 		{fVirtKey | fControl, 0, '3', idShellAirs},
+		{fVirtKey | fControl, 0, '4', idShellInbox},
 		{fVirtKey | fControl | fShift, 0, 'T', idShellTry},
 		{fVirtKey | fControl | fShift, 0, 'R', idShellRecord},
+		{fVirtKey | fControl, 0, 'R', idTargetsRefresh},
 		{fVirtKey | fControl | fShift, 0, 'D', idShellDND},
 		{fVirtKey | fControl, 0, vkComma, idShellSettings},
 		{fVirtKey, 0, vkEscape, idShellCancel},
@@ -419,6 +486,9 @@ func (ctx *mainWindowCtx) layout() {
 	layout := layoutWindowsShell(int(client.right-client.left), int(client.bottom-client.top), ctx.dpi())
 	if ctx.shell != nil && ctx.shell.Section() == ShellAirs {
 		layout.Body.Height = dip(210, layout.DPI)
+	}
+	if ctx.shell != nil && ctx.shell.Section() == ShellInbox {
+		layout.Body.Height = dip(240, layout.DPI)
 	}
 	gap, pad := dip(8, layout.DPI), dip(10, layout.DPI)
 	navHeight := dip(42, layout.DPI)
@@ -482,6 +552,18 @@ func (ctx *mainWindowCtx) layout() {
 	}
 	move(ctx.airConfirm, airLayout.Confirm)
 	move(ctx.airCancel, airLayout.Cancel)
+	targetLayout := layoutWindowsTargetsInboxControls(layout.Content, layout.Body.Bottom(), layout.DPI)
+	targetControls := []windows.Handle{
+		ctx.targetsRefresh, ctx.targetsAudience, ctx.targetsNext, ctx.targetsToggle,
+		ctx.targetsOrigin, ctx.targetsDelivery, ctx.targetsSend, ctx.inboxNext,
+		ctx.inboxReplay, ctx.inboxDismiss, ctx.inboxMute, ctx.inboxMore,
+		ctx.targetsHistoryNext, ctx.targetsHistoryDelete, ctx.targetsHistoryMute, ctx.targetsHistoryMore,
+		ctx.targetsReceipts, ctx.targetsReason, ctx.targetsDetails,
+		ctx.targetsReportInbox, ctx.targetsReportHistory,
+	}
+	for index, control := range targetControls {
+		move(control, targetLayout.Rect[index])
+	}
 }
 
 func (ctx *mainWindowCtx) render() {
@@ -632,6 +714,106 @@ func (ctx *mainWindowCtx) render() {
 	pEnableWindow.Call(uintptr(ctx.reportDetails), boolWord(hasHistory && selectedHistory.CanReport))
 	pEnableWindow.Call(uintptr(ctx.historyReport), boolWord(hasHistory && selectedHistory.CanReport))
 
+	inboxPage := section == ShellInbox
+	targetControls := []windows.Handle{
+		ctx.targetsRefresh, ctx.targetsAudience, ctx.targetsNext, ctx.targetsToggle,
+		ctx.targetsOrigin, ctx.targetsDelivery, ctx.targetsSend, ctx.inboxNext,
+		ctx.inboxReplay, ctx.inboxDismiss, ctx.inboxMute, ctx.inboxMore,
+		ctx.targetsHistoryNext, ctx.targetsHistoryDelete, ctx.targetsHistoryMute, ctx.targetsHistoryMore,
+		ctx.targetsReceipts, ctx.targetsReason, ctx.targetsDetails,
+		ctx.targetsReportInbox, ctx.targetsReportHistory,
+	}
+	for _, control := range targetControls {
+		showControl(control, inboxPage)
+	}
+	projection := snapshot.TargetsInbox
+	ready := inboxPage && projection.State == TargetsInboxReady && !snapshot.TargetsInboxBusy
+	selectedAudience := "—"
+	for _, audience := range projection.AvailableAudiences {
+		if audience.Kind == projection.SelectedAudience {
+			selectedAudience = audience.Label.Text(copy.locale)
+			break
+		}
+	}
+	selectedTarget := TargetsInboxTargetChoice{}
+	if len(projection.Targets) > 0 {
+		selectedTarget = projection.Targets[snapshot.SelectedTarget]
+	}
+	selectedInboxItem := TargetsInboxInboxItem{}
+	if len(projection.Inbox) > 0 {
+		selectedInboxItem = projection.Inbox[snapshot.SelectedInbox]
+	}
+	selectedTargetsHistory := TargetsInboxHistoryItem{}
+	if len(projection.History) > 0 {
+		selectedTargetsHistory = projection.History[snapshot.SelectedTargetsHistory]
+	}
+	if copy.locale == ShellRussian {
+		setText(ctx.targetsRefresh, "Обновить  Ctrl+R")
+		setText(ctx.targetsAudience, "Получатели: "+selectedAudience)
+		setText(ctx.targetsNext, "След. получатель")
+		setText(ctx.targetsToggle, map[bool]string{true: "Убрать получателя", false: "Выбрать получателя"}[targetIsSelected(projection, selectedTarget.Reference)])
+		setText(ctx.targetsOrigin, map[bool]string{true: "Origin включён", false: "Включить origin"}[projection.IncludeOrigin])
+		setText(ctx.targetsDelivery, "Режим: "+copy.Delivery(snapshot.TargetsInboxDelivery))
+		setText(ctx.targetsSend, "Отправить / точный повтор")
+		setText(ctx.inboxNext, "След. входящее")
+		setText(ctx.inboxReplay, "Воспроизвести явно")
+		setText(ctx.inboxDismiss, "Убрать входящее")
+		setText(ctx.inboxMute, "Заглушить отправителя")
+		setText(ctx.inboxMore, "Ещё входящие")
+		setText(ctx.targetsHistoryNext, "След. история")
+		setText(ctx.targetsHistoryDelete, "Удалить навсегда")
+		setText(ctx.targetsHistoryMute, "Заглушить отправителя")
+		setText(ctx.targetsHistoryMore, "Ещё история")
+		setText(ctx.targetsReceipts, "Загрузить квитанции")
+		setText(ctx.targetsReason, "Причина: "+copy.ModerationReason(snapshot.TargetsInboxReason))
+		setText(ctx.targetsReportInbox, "Жалоба: входящее")
+		setText(ctx.targetsReportHistory, "Жалоба: история")
+	} else {
+		setText(ctx.targetsRefresh, "Refresh  Ctrl+R")
+		setText(ctx.targetsAudience, "Audience: "+selectedAudience)
+		setText(ctx.targetsNext, "Next target")
+		setText(ctx.targetsToggle, map[bool]string{true: "Remove target", false: "Select target"}[targetIsSelected(projection, selectedTarget.Reference)])
+		setText(ctx.targetsOrigin, map[bool]string{true: "Origin included", false: "Include origin"}[projection.IncludeOrigin])
+		setText(ctx.targetsDelivery, "Mode: "+copy.Delivery(snapshot.TargetsInboxDelivery))
+		setText(ctx.targetsSend, "Send / exact retry")
+		setText(ctx.inboxNext, "Next inbox item")
+		setText(ctx.inboxReplay, "Replay explicitly")
+		setText(ctx.inboxDismiss, "Dismiss inbox item")
+		setText(ctx.inboxMute, "Mute sender")
+		setText(ctx.inboxMore, "More inbox")
+		setText(ctx.targetsHistoryNext, "Next history item")
+		setText(ctx.targetsHistoryDelete, "Delete permanently")
+		setText(ctx.targetsHistoryMute, "Mute sender")
+		setText(ctx.targetsHistoryMore, "More history")
+		setText(ctx.targetsReceipts, "Load receipts")
+		setText(ctx.targetsReason, "Reason: "+copy.ModerationReason(snapshot.TargetsInboxReason))
+		setText(ctx.targetsReportInbox, "Report inbox item")
+		setText(ctx.targetsReportHistory, "Report history item")
+	}
+	canSend := ready && len(snapshot.PhaseOneDrafts) > 0 && projection.SelectedAudience != "" &&
+		(projection.SelectedAudience != TargetsInboxExplicitAudience || len(projection.SelectedReferences) > 0)
+	pEnableWindow.Call(uintptr(ctx.targetsRefresh), boolWord(inboxPage && !snapshot.TargetsInboxBusy))
+	pEnableWindow.Call(uintptr(ctx.targetsAudience), boolWord(ready && len(projection.AvailableAudiences) > 1))
+	pEnableWindow.Call(uintptr(ctx.targetsNext), boolWord(ready && len(projection.Targets) > 1))
+	pEnableWindow.Call(uintptr(ctx.targetsToggle), boolWord(ready && len(projection.Targets) > 0))
+	pEnableWindow.Call(uintptr(ctx.targetsOrigin), boolWord(ready))
+	pEnableWindow.Call(uintptr(ctx.targetsDelivery), boolWord(ready))
+	pEnableWindow.Call(uintptr(ctx.targetsSend), boolWord(canSend))
+	pEnableWindow.Call(uintptr(ctx.inboxNext), boolWord(ready && len(projection.Inbox) > 1))
+	pEnableWindow.Call(uintptr(ctx.inboxReplay), boolWord(ready && projection.ContentPolicyState == "current" && targetsInboxHasAction(selectedInboxItem.Actions, "replay")))
+	pEnableWindow.Call(uintptr(ctx.inboxDismiss), boolWord(ready && targetsInboxHasAction(selectedInboxItem.Actions, "dismiss")))
+	pEnableWindow.Call(uintptr(ctx.inboxMute), boolWord(ready && targetsInboxHasAction(selectedInboxItem.Actions, "block_actor")))
+	pEnableWindow.Call(uintptr(ctx.inboxMore), boolWord(ready && projection.InboxNextCursor != ""))
+	pEnableWindow.Call(uintptr(ctx.targetsHistoryNext), boolWord(ready && len(projection.History) > 1))
+	pEnableWindow.Call(uintptr(ctx.targetsHistoryDelete), boolWord(ready && targetsInboxHasAction(selectedTargetsHistory.Actions, "delete")))
+	pEnableWindow.Call(uintptr(ctx.targetsHistoryMute), boolWord(ready && targetsInboxHasAction(selectedTargetsHistory.Actions, "block_actor")))
+	pEnableWindow.Call(uintptr(ctx.targetsHistoryMore), boolWord(ready && projection.HistoryNextCursor != ""))
+	pEnableWindow.Call(uintptr(ctx.targetsReceipts), boolWord(ready && len(projection.History) > 0 && (len(selectedTargetsHistory.ReceiptPage.Items) == 0 || selectedTargetsHistory.ReceiptPage.NextCursor != "")))
+	pEnableWindow.Call(uintptr(ctx.targetsReason), boolWord(ready && (targetsInboxHasAction(selectedInboxItem.Actions, "report") || targetsInboxHasAction(selectedTargetsHistory.Actions, "report"))))
+	pEnableWindow.Call(uintptr(ctx.targetsDetails), boolWord(ready))
+	pEnableWindow.Call(uintptr(ctx.targetsReportInbox), boolWord(ready && targetsInboxHasAction(selectedInboxItem.Actions, "report")))
+	pEnableWindow.Call(uintptr(ctx.targetsReportHistory), boolWord(ready && targetsInboxHasAction(selectedTargetsHistory.Actions, "report")))
+
 	airPage := section == ShellAirs
 	for _, control := range []windows.Handle{ctx.airTitleLabel, ctx.airTitle, ctx.airCodeLabel, ctx.airCode, ctx.airNext, ctx.airCreate, ctx.airConsume,
 		ctx.airJoinSaved, ctx.airJoinActive, ctx.airDecline, ctx.airRole, ctx.airInvite, ctx.airCopy, ctx.airHide,
@@ -771,7 +953,8 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		id := int(wParam & 0xffff)
 		sectionByID := map[int]ShellSection{
 			idShellHome: ShellHome, idShellCreate: ShellCreate, idShellJoin: ShellJoin,
-			idShellTry: ShellTryLocally, idShellHistory: ShellHistory, idShellAirs: ShellAirs, idShellSettings: ShellSettings,
+			idShellTry: ShellTryLocally, idShellHistory: ShellHistory, idShellInbox: ShellInbox,
+			idShellAirs: ShellAirs, idShellSettings: ShellSettings,
 		}
 		if section, ok := sectionByID[id]; ok {
 			ctx.shell.Select(section)
@@ -883,6 +1066,88 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		case idShellHistoryReport:
 			if actions.ReportSelectedHistoryItem != nil {
 				actions.ReportSelectedHistoryItem(windowText(ctx.reportDetails))
+			}
+		case idTargetsRefresh:
+			if actions.RefreshTargetsInbox != nil {
+				actions.RefreshTargetsInbox()
+			}
+		case idTargetsAudience:
+			if actions.SelectNextTargetAudience != nil {
+				actions.SelectNextTargetAudience()
+			}
+		case idTargetsNext:
+			if actions.SelectNextTarget != nil {
+				actions.SelectNextTarget()
+			}
+		case idTargetsToggle:
+			if actions.ToggleSelectedTarget != nil {
+				actions.ToggleSelectedTarget()
+			}
+		case idTargetsOrigin:
+			if actions.ToggleTargetIncludeOrigin != nil {
+				actions.ToggleTargetIncludeOrigin()
+			}
+		case idTargetsDelivery:
+			if actions.SelectNextTargetsDelivery != nil {
+				actions.SelectNextTargetsDelivery()
+			}
+		case idTargetsSend:
+			if actions.SendTargetsDraft != nil && confirmWindowsUploadRights(hwnd, ctx.shell.Locale()) {
+				actions.SendTargetsDraft()
+			}
+		case idInboxNext:
+			if actions.SelectNextInboxItem != nil {
+				actions.SelectNextInboxItem()
+				setText(ctx.targetsDetails, "")
+			}
+		case idInboxReplay:
+			if actions.ReplaySelectedInbox != nil {
+				actions.ReplaySelectedInbox()
+			}
+		case idInboxDismiss:
+			if actions.DismissSelectedInbox != nil {
+				actions.DismissSelectedInbox()
+			}
+		case idInboxMute:
+			if actions.MuteSelectedInbox != nil {
+				actions.MuteSelectedInbox()
+			}
+		case idInboxMore:
+			if actions.LoadMoreInbox != nil {
+				actions.LoadMoreInbox()
+			}
+		case idTargetsHistoryNext:
+			if actions.SelectNextTargetsHistory != nil {
+				actions.SelectNextTargetsHistory()
+				setText(ctx.targetsDetails, "")
+			}
+		case idTargetsHistoryDelete:
+			if actions.DeleteSelectedTargetsHistory != nil && confirmWindowsPermanentDelete(hwnd, ctx.shell.Locale()) {
+				actions.DeleteSelectedTargetsHistory()
+			}
+		case idTargetsHistoryMute:
+			if actions.MuteSelectedTargetsHistory != nil {
+				actions.MuteSelectedTargetsHistory()
+			}
+		case idTargetsHistoryMore:
+			if actions.LoadMoreTargetsHistory != nil {
+				actions.LoadMoreTargetsHistory()
+			}
+		case idTargetsReceipts:
+			if actions.LoadMoreTargetReceipts != nil {
+				actions.LoadMoreTargetReceipts()
+			}
+		case idTargetsReason:
+			if actions.SelectNextTargetsReason != nil {
+				actions.SelectNextTargetsReason()
+			}
+		case idTargetsReportInbox:
+			if actions.ReportSelectedInbox != nil {
+				actions.ReportSelectedInbox(windowText(ctx.targetsDetails))
+			}
+		case idTargetsReportHistory:
+			if actions.ReportSelectedTargetsHistory != nil {
+				actions.ReportSelectedTargetsHistory(windowText(ctx.targetsDetails))
 			}
 		case idShellAirNext:
 			if actions.SelectNextAir != nil {
@@ -1049,6 +1314,16 @@ func confirmWindowsUploadRights(owner windows.Handle, locale ShellLocale) bool {
 		uintptr(owner), uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(body))),
 		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(title))), 0x00000004|0x00000030,
 	)
+	return result == 6
+}
+
+func confirmWindowsPermanentDelete(owner windows.Handle, locale ShellLocale) bool {
+	title, body := "Delete media permanently", "Delete this media for every authorized surface? It will no longer be available for replay. This cannot be undone."
+	if locale == ShellRussian {
+		title, body = "Удалить медиа навсегда", "Удалить это медиа со всех разрешённых поверхностей? Повторное воспроизведение станет недоступно. Это действие необратимо."
+	}
+	result, _, _ := pMessageBoxW.Call(uintptr(owner), uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(body))),
+		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(title))), 0x00000004|0x00000030)
 	return result == 6
 }
 

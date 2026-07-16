@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestWindowsShellCatalogAndInformationArchitecture(t *testing.T) {
@@ -19,7 +20,7 @@ func TestWindowsShellCatalogAndInformationArchitecture(t *testing.T) {
 			}
 		}
 	}
-	want := []ShellSection{ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellAirs, ShellSettings}
+	want := []ShellSection{ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellInbox, ShellAirs, ShellSettings}
 	if !reflect.DeepEqual(shellSections, want) {
 		t.Fatalf("sections=%v want %v", shellSections, want)
 	}
@@ -61,6 +62,9 @@ func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
 		"showControl(ctx.historyReport, historyPage && hasHistory && selectedHistory.CanReport)",
 		"idShellAirs", "idShellAirConfirm", "esPassword", "windowText(ctx.airCode)",
 		"showControl(ctx.airConfirm, airPage && confirming)", "pGetDpiForWindow", "ctx.laidOutSection != section",
+		"idShellInbox", "idTargetsRefresh", "idTargetsSend", "idInboxReplay", "idTargetsHistoryDelete",
+		"layoutWindowsTargetsInboxControls", "confirmWindowsPermanentDelete", "ReportSelectedTargetsHistory(windowText(ctx.targetsDetails))",
+		"projection.ContentPolicyState == \"current\"", "TargetsInboxReady", "Ctrl+R",
 	} {
 		if !strings.Contains(nativeText, seam) {
 			t.Errorf("native shell missing %q", seam)
@@ -271,6 +275,48 @@ func TestWindowsShellKeyboardContractIsUnique(t *testing.T) {
 	for _, required := range []string{"open", "section", "record", "dnd"} {
 		if !commands[required] {
 			t.Fatalf("missing %s shortcut", required)
+		}
+	}
+}
+
+func TestWindowsTargetsInboxProjectionIsLocalizedAccessibleAndOpaque(t *testing.T) {
+	now := time.Now()
+	projection := targetsInboxFixture(now)
+	projection.StateLabel = targetsStateLabel(TargetsInboxReady)
+	projection.SelectedReferences = []string{projection.Targets[0].Reference}
+	snapshot := ShellSnapshot{TargetsInbox: projection, TargetsInboxDelivery: PhaseOneOverlay,
+		TargetsInboxReason: PhaseOneReportSpam, TargetsInboxActionOutcome: "replay_accepted"}
+	for _, locale := range []ShellLocale{ShellEnglish, ShellRussian} {
+		body := NewShellCopy(locale).Body(ShellInbox, snapshot)
+		for _, required := range []string{"Voice", "1", "Replay"} {
+			if locale == ShellRussian && required == "Replay" {
+				required = "Повтор"
+			}
+			if !strings.Contains(body, required) {
+				t.Errorf("%s missing %q: %q", locale, required, body)
+			}
+		}
+		for _, forbidden := range []string{"trf_", "ib_", "hi_", projection.Targets[0].Reference} {
+			if strings.Contains(body, forbidden) {
+				t.Errorf("%s leaked opaque value %q: %q", locale, forbidden, body)
+			}
+		}
+		if !strings.Contains(body, "[+]") {
+			t.Errorf("%s outcome lacks non-color status: %q", locale, body)
+		}
+	}
+}
+
+func TestWindowsTargetsInboxControlsRemainReachableAtSupportedDPI(t *testing.T) {
+	for _, dpi := range []int{96, 120, 144, 192} {
+		layout := layoutWindowsShell(dip(960, dpi), dip(800, dpi), dpi)
+		layout.Body.Height = dip(240, dpi)
+		controls := layoutWindowsTargetsInboxControls(layout.Content, layout.Body.Bottom(), dpi)
+		for index, rect := range controls.Rects() {
+			if rect.X < layout.Content.X || rect.Right() > layout.Content.Right() || rect.Y < layout.Content.Y ||
+				rect.Bottom() > layout.Client.Bottom() || rect.Width < dip(80, dpi) || rect.Height < dip(34, dpi) {
+				t.Fatalf("dpi %d targets control %d unreachable: %+v in %+v", dpi, index, rect, layout)
+			}
 		}
 	}
 }

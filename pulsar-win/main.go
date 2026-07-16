@@ -207,6 +207,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	} else {
 		airs = configured
 	}
+	var targetsInbox *WindowsTargetsInboxComposition
+	if configured, targetsErr := newProductionWindowsTargetsInboxComposition(dir, phaseOne); targetsErr != nil {
+		log.Error("Phase 2 targets and inbox unavailable")
+	} else {
+		targetsInbox = configured
+	}
 	presenceStore := NewNodePresenceStore(filepath.Join(dir, "node-presence.v1.json"), log)
 	player.ConfigureTransmissionHooks(mediaClips, presenceStore)
 	player.Start()
@@ -322,6 +328,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		} else {
 			snapshot.AirFailure = "credential_unavailable"
 		}
+		if targetsInbox != nil {
+			targetsInbox.ApplyShellSnapshot(&snapshot)
+		} else {
+			snapshot.TargetsInbox = TargetsInboxSnapshot{State: TargetsInboxCoordinatorError, StateLabel: targetsStateLabel(TargetsInboxCoordinatorError)}
+			snapshot.TargetsInboxFailure = "credential_unavailable"
+		}
 		return snapshot
 	}, ShellActions{
 		TryLocally:         workflow.TryLocally,
@@ -399,6 +411,106 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		BlockSelectedHistoryActor: func() {
 			if phaseOne != nil {
 				phaseOne.BlockSelectedHistoryActor()
+			}
+		},
+		RefreshTargetsInbox: func() {
+			if targetsInbox != nil {
+				targetsInbox.Refresh()
+			}
+		},
+		SelectNextTargetAudience: func() {
+			if targetsInbox != nil {
+				targetsInbox.SelectNextAudience()
+			}
+		},
+		SelectNextTarget: func() {
+			if targetsInbox != nil {
+				targetsInbox.SelectNextTarget()
+			}
+		},
+		ToggleSelectedTarget: func() {
+			if targetsInbox != nil {
+				targetsInbox.ToggleSelectedTarget()
+			}
+		},
+		ToggleTargetIncludeOrigin: func() {
+			if targetsInbox != nil {
+				targetsInbox.ToggleIncludeOrigin()
+			}
+		},
+		SelectNextTargetsDelivery: func() {
+			if targetsInbox != nil {
+				targetsInbox.SelectNextDelivery()
+			}
+		},
+		SendTargetsDraft: func() {
+			if targetsInbox != nil {
+				targetsInbox.SendSelectedDraft()
+			}
+		},
+		SelectNextInboxItem: func() {
+			if targetsInbox != nil {
+				targetsInbox.SelectNextInbox()
+			}
+		},
+		ReplaySelectedInbox: func() {
+			if targetsInbox != nil {
+				targetsInbox.ReplaySelectedInbox()
+			}
+		},
+		DismissSelectedInbox: func() {
+			if targetsInbox != nil {
+				targetsInbox.DismissSelectedInbox()
+			}
+		},
+		ReportSelectedInbox: func(details string) {
+			if targetsInbox != nil {
+				targetsInbox.ReportSelectedInbox(details)
+			}
+		},
+		MuteSelectedInbox: func() {
+			if targetsInbox != nil {
+				targetsInbox.MuteSelectedInbox()
+			}
+		},
+		LoadMoreInbox: func() {
+			if targetsInbox != nil {
+				targetsInbox.LoadMoreInbox()
+			}
+		},
+		SelectNextTargetsHistory: func() {
+			if targetsInbox != nil {
+				targetsInbox.SelectNextHistory()
+			}
+		},
+		DeleteSelectedTargetsHistory: func() {
+			if targetsInbox != nil {
+				targetsInbox.DeleteSelectedHistory()
+			}
+		},
+		ReportSelectedTargetsHistory: func(details string) {
+			if targetsInbox != nil {
+				targetsInbox.ReportSelectedHistory(details)
+			}
+		},
+		MuteSelectedTargetsHistory: func() {
+			if targetsInbox != nil {
+				targetsInbox.MuteSelectedHistory()
+			}
+		},
+		LoadMoreTargetsHistory: func() {
+			if targetsInbox != nil {
+				targetsInbox.LoadMoreHistory()
+			}
+		},
+		LoadMoreTargetReceipts: func() {
+			if targetsInbox != nil {
+				targetsInbox.LoadMoreReceipts()
+			}
+		},
+		SelectNextTargetsReason: func() {
+			if targetsInbox != nil {
+				targetsInbox.SelectNextReason()
 			}
 		},
 		SelectNextAir: func() {
@@ -513,6 +625,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		OnQuit: func() { close(quit) },
 	}
 	awaitShutdown(tray, quit)
+	if targetsInbox != nil {
+		targetsInbox.Close()
+	}
 	if phaseOne != nil {
 		phaseOne.Close()
 	}

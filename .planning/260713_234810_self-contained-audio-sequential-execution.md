@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 125 accepted, 80 remain.
-- Routed inventory: 186 engineering tasks (125 accepted, 61 remain) and 19
+- Combined inventory: 205 original tasks; 126 accepted, 79 remain.
+- Routed inventory: 186 engineering tasks (126 accepted, 60 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-26mnp1` — macos-live-capture-sender
-- Next engineering task: `TASK-260712-1ckdr7` — windows-live-jitter-receiver
-- Most recently accepted: `TASK-260712-19w1qn` — macos-live-jitter-receiver
-- Current branch: `chore/track-task-260712-19w1qn`
+- Current engineering task: `TASK-260712-1ckdr7` — windows-live-jitter-receiver
+- Next engineering task: `TASK-260712-ezdhpf` — windows-live-capture-sender
+- Most recently accepted: `TASK-260712-26mnp1` — macos-live-capture-sender
+- Current branch: `chore/track-task-260712-26mnp1`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 125 / 205 tasks (61.0%); 80 remain
-- Engineering progress: 125 / 186 tasks (approximately 67.2%); 61 remain
+- Accepted overall: 126 / 205 tasks (61.5%); 79 remain
+- Engineering progress: 126 / 186 tasks (approximately 67.7%); 60 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2420,6 +2420,27 @@ exact code head `c4a8fd1` at merge
 `9c1d0c2a4e3fc2bb0f339ccef57945ac5ffa4f4c`. Progress is 125/205 overall and
 125/186 engineering. Strict execution advances to `TASK-260712-26mnp1`.
 
+Checkpoint 2026-07-16 (accepted bounded macOS live capture sender):
+`TASK-260712-26mnp1` binds microphone capture to one current local hold
+generation plus the matching authorized coordinator start; an unsolicited or
+stale start cannot open or resume capture, and unavailable release-capable
+input falls back to the existing clip path before microphone access. A fixed
+3,840-sample mailbox keeps encoder, framing, transport and metering off the
+capture callback. Fixed 20 ms raw Opus frames use one-frame lookbehind and an
+eight-frame outbound bound. Release, Stop, watchdog, duration, sleep, lock,
+permission revoke, device loss, quit, disconnect, overflow and backpressure
+converge on generation-safe teardown with no live-media persistence. The
+self-contained Apple encoder is engineering-only because its API does not
+expose the frozen libopus FEC and complexity controls; `live_ptt_v1` therefore
+remains unadvertised. Physical hold, microphone/device/sleep/lock behavior,
+audible cues and real-hardware cycles remain manual in `TASK-260712-1rzqh9`.
+Focused sender coverage passed 7/7 including 100 deterministic cycles, full
+Swift passed 273/273, clean repository acceptance passed 12/12 and hosted run
+`29523191600` passed all four jobs. PR #193 landed exact code head `d5868f9`
+at merge `eac1c183144df93ea126c9c595bb6dca8a8cd842`. Progress is 126/205
+overall and 126/186 engineering. Strict execution advances to
+`TASK-260712-1ckdr7`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -3028,7 +3049,11 @@ executed before soundboard automation because it is on the epic critical path.
   code head `c4a8fd1`; clean acceptance 12/12, Swift 263/263 and hosted run
   `29521325367` 4/4; PR #191 merge `9c1d0c2`. The receiver and render branch
   are bounded and production-dark; physical audio evidence remains manual)
-- [ ] `TASK-260712-26mnp1` — macos-live-capture-sender
+- [x] `TASK-260712-26mnp1` — macos-live-capture-sender (accepted on exact
+  code head `d5868f9`; clean acceptance 12/12, focused sender 7/7, Swift
+  273/273 and hosted run `29523191600` 4/4; PR #193 merge `eac1c18`. The
+  sender is bounded and production-dark; physical lifecycle/audio evidence
+  remains manual)
 - [ ] `TASK-260712-1ckdr7` — windows-live-jitter-receiver
 - [ ] `TASK-260712-ezdhpf` — windows-live-capture-sender
 - [ ] `TASK-260712-2kj9kj` — macos-live-ptt-node-integration

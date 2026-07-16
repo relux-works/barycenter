@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "contract_id": "pulsar.stream-track-ui-model.v1",
+  "extends": [
+    "pulsar.targets-inbox-presentation.v1",
+    "p2-content-policy-consent.v1",
+    "p2-stream-track-wire.v1"
+  ],
+  "limits": {
+    "maximum_file_bytes": 524288000,
+    "maximum_duration_ms": 7200000,
+    "maximum_targets": 64,
+    "maximum_title_utf8_bytes": 512,
+    "maximum_report_utf8_bytes": 2000
+  },
+  "surface_states": ["loading", "ready", "stale", "offline", "coordinator_error"],
+  "draft_phases": ["retained", "uploading", "uploaded", "processing", "ready", "failed"],
+  "playback_phases": [
+    "idle", "queued", "loading", "ready", "playing", "paused", "seeking",
+    "rebuffering", "ended", "failed"
+  ],
+  "audiences": ["current_air", "explicit"],
+  "insertions": ["queue", "replace"],
+  "actions": [
+    "accept_policy", "upload", "retry", "delete", "queue", "replace", "pause",
+    "seek", "resume", "report"
+  ],
+  "failure_codes": [
+    "offline", "quota_exceeded", "unsupported_targets", "policy_required",
+    "processing_failed", "variant_unavailable", "stale_generation", "service_unavailable"
+  ],
+  "progress": {
+    "upload": "byte offset divided by immutable local size",
+    "processing": "server-owned 0 through 100 percent; never inferred from MIME or local probing",
+    "playback": "audible position divided by server-confirmed duration",
+    "fields_are_never_substituted_for_each_other": true
+  },
+  "draft": {
+    "local_id": "32 lowercase hex characters",
+    "local_bytes_survive_stale_offline_and_missing-server replacement": true,
+    "local_bytes_auto_delete_before_persisted-server-confirmation": false,
+    "explicit_delete_requires_confirmation": true,
+    "confirmed_delete_requires_exact_local_id_echo": true,
+    "media_id_and_variant_manifest_are_opaque": true,
+    "ready_requires_server_metadata_and_variant": true,
+    "client_mime_can_mark_ready": false
+  },
+  "selection": {
+    "audience_and_insertion_are_explicit": true,
+    "explicit_requires_distinct_current_target_references": true,
+    "queue_or_replace_requires_current_server_action": true,
+    "content_policy_must_be_current": true,
+    "quota_and_moderation_are_server_authority": true
+  },
+  "generation": {
+    "playback_generation_is_monotonic": true,
+    "seek_generation_is_monotonic_within_playback_generation": true,
+    "audible_position_is_monotonic_within_exact_generation_except_new_seek": true,
+    "optimistic_seek_increments_seek_generation": true,
+    "stale_replacement_is_discarded": true
+  },
+  "commands": {
+    "accept_policy": {"requires_state": ["ready"], "requires_policy": ["required", "stale"]},
+    "upload": {"requires_state": ["ready"], "requires_draft": ["retained"], "requires_policy": "current"},
+    "retry": {"requires_state": ["ready"], "requires_draft_or_playback": ["failed"]},
+    "delete": {"requires_explicit_confirmation": true, "does_not_optimistically_remove_draft": true},
+    "queue": {"requires_state": ["ready"], "requires_draft": ["ready"], "requires_current_targets": true},
+    "replace": {"requires_state": ["ready"], "requires_draft": ["ready"], "requires_current_targets": true},
+    "pause": {"requires_exact_generation": true, "requires_playback": ["playing"]},
+    "seek": {"requires_exact_generation": true, "requires_playback": ["ready", "playing", "paused", "rebuffering"]},
+    "resume": {"requires_exact_generation": true, "requires_playback": ["ready", "paused", "rebuffering"]},
+    "report": {"requires_state": ["ready"], "requires_server_action": true}
+  },
+  "localization": {
+    "wire_shape": {"key": "stable semantic key", "en": "English copy", "ru": "Russian copy"},
+    "authority": "coordinator/internal/presentation",
+    "clients_select_language_only": true,
+    "labels": {
+      "stream_track.draft.retained": {"en": "Ready to upload", "ru": "Готово к загрузке"},
+      "stream_track.draft.uploading": {"en": "Uploading", "ru": "Загрузка"},
+      "stream_track.draft.uploaded": {"en": "Upload confirmed", "ru": "Загрузка подтверждена"},
+      "stream_track.draft.processing": {"en": "Processing audio", "ru": "Обработка аудио"},
+      "stream_track.draft.ready": {"en": "Track ready", "ru": "Трек готов"},
+      "stream_track.draft.failed": {"en": "Track preparation failed", "ru": "Не удалось подготовить трек"},
+      "stream_track.playback.idle": {"en": "Not playing", "ru": "Не воспроизводится"},
+      "stream_track.playback.queued": {"en": "Queued", "ru": "В очереди"},
+      "stream_track.playback.loading": {"en": "Buffering", "ru": "Буферизация"},
+      "stream_track.playback.ready": {"en": "Ready to play", "ru": "Готово к воспроизведению"},
+      "stream_track.playback.playing": {"en": "Playing", "ru": "Воспроизводится"},
+      "stream_track.playback.paused": {"en": "Paused", "ru": "На паузе"},
+      "stream_track.playback.seeking": {"en": "Seeking", "ru": "Переход к позиции"},
+      "stream_track.playback.rebuffering": {"en": "Rebuffering", "ru": "Повторная буферизация"},
+      "stream_track.playback.ended": {"en": "Played", "ru": "Воспроизведено"},
+      "stream_track.playback.failed": {"en": "Playback failed", "ru": "Ошибка воспроизведения"},
+      "stream_track.action.accept_policy": {"en": "Review and accept", "ru": "Ознакомиться и принять"},
+      "stream_track.action.upload": {"en": "Upload track", "ru": "Загрузить трек"},
+      "stream_track.action.retry": {"en": "Try again", "ru": "Повторить"},
+      "stream_track.action.delete": {"en": "Delete", "ru": "Удалить"},
+      "stream_track.action.queue": {"en": "Add to queue", "ru": "Добавить в очередь"},
+      "stream_track.action.replace": {"en": "Replace current", "ru": "Заменить текущий"},
+      "stream_track.action.pause": {"en": "Pause", "ru": "Пауза"},
+      "stream_track.action.seek": {"en": "Seek", "ru": "Перейти"},
+      "stream_track.action.resume": {"en": "Resume", "ru": "Продолжить"},
+      "stream_track.action.report": {"en": "Report", "ru": "Пожаловаться"},
+      "stream_track.failure.offline": {"en": "Offline. Your draft is kept on this device.", "ru": "Нет сети. Черновик сохранён на этом устройстве."},
+      "stream_track.failure.quota_exceeded": {"en": "Storage or transfer limit reached", "ru": "Достигнут лимит хранения или передачи"},
+      "stream_track.failure.unsupported_targets": {"en": "Some recipients cannot play tracks", "ru": "Некоторые получатели не могут воспроизводить треки"},
+      "stream_track.failure.policy_required": {"en": "Accept the current content policy first", "ru": "Сначала примите текущие правила содержимого"},
+      "stream_track.failure.processing_failed": {"en": "Audio processing failed", "ru": "Не удалось обработать аудио"},
+      "stream_track.failure.variant_unavailable": {"en": "No supported playback variant is available", "ru": "Нет поддерживаемого варианта воспроизведения"},
+      "stream_track.failure.stale_generation": {"en": "Playback changed; refresh the controls", "ru": "Воспроизведение изменилось; обновите управление"},
+      "stream_track.failure.service_unavailable": {"en": "Service unavailable. Try again later.", "ru": "Сервис недоступен. Повторите позже."}
+    }
+  },
+  "privacy": {
+    "description_and_debug_redact": ["local_id", "confirmed_deleted_local_id", "media_id", "variant_manifest", "stream_id", "target_reference"],
+    "failure_copy_must_be_bounded_enum": true
+  },
+  "platform_consumers": ["node-app NodeAppUI", "pulsar-win shell composition"],
+  "platform_views_deferred_to": ["TASK-260712-3lximx", "TASK-260712-2psvhu"]
+}

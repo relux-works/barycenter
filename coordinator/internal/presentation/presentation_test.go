@@ -28,7 +28,7 @@ func TestGoldenEnglishAndRussianCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(raw)
-	const goldenSHA256 = "3daae4adc1f1ecf3974038b78178b31c4221c6b801d68b8ae2728724ddd4eee6"
+	const goldenSHA256 = "8958b59b4a944037c6ee69ce5e81352ed20d83beeddaba078444034b6ee1155b"
 	if got := hex.EncodeToString(digest[:]); got != goldenSHA256 {
 		t.Fatalf("RU/EN presentation golden digest=%s want=%s", got, goldenSHA256)
 	}

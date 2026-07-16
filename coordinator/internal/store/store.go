@@ -167,6 +167,14 @@ func openWithOptionsAndCheckpoint(path string, opts Options, checkpoint func(str
 		db.Close()
 		return nil, fmt.Errorf("store: init moderation schema: %w", err)
 	}
+	if err := s.initSavedCueSchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init saved cue schema: %w", err)
+	}
+	if err := s.ReconcileSavedCues(time.Now().UnixMilli()); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: reconcile saved cues: %w", err)
+	}
 	if _, err := s.ReconcileStreamAccounting(
 		time.Now().UnixMilli(), StreamAccountingDefaultStaleAfter,
 	); err != nil {

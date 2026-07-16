@@ -18,7 +18,11 @@ package "Coordinator Control Plane" {
 }
 
 package "Shared Data" {
-  database "SQLite\ncues, schedules,\nautomation principals,\nexecutions, audit" as DB
+  database "SQLite\nsaved cue pins + revocations,\nschedules, automation principals,\nexecutions, audit" as DB
+}
+
+package "Canonical Media" {
+  component "Generic Media Lifecycle\ningest, ACL, moderation,\nretention + cleanup" as Media
 }
 
 package "Prerequisite Story Seams" {
@@ -37,6 +41,7 @@ WinUI --> History : render attribution,\nstatus and quick disable
 Contract --> ControlAPI : approved contract
 Contract --> Runtime : safety rules
 ControlAPI --> DB : persist cues,\nschedules, principals
+Media --> DB : honor active cue pin;\nrevoke terminal source
 Runtime --> DB : claim schedules,\nrecord executions
 Runtime --> Tx : create or cancel\ncue transmissions
 Tx --> History : receipts and status

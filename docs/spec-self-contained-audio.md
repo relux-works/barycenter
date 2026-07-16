@@ -1366,7 +1366,10 @@ DST/no-catch-up, deny reasons и mixed-version поведения зафикси
 Saved cue — owner-scoped durable reference на canonical ready MediaItem либо
 hash-pinned builtin asset. Его pinning, quota, retention, delete, report и actor
 disable используют общие media services; обычный cleanup clips не должен
-молча ломать soundboard. Scheduler хранит IANA timezone, имеет явные DST и
+молча ломать soundboard. Реализованные lifecycle, generation и reconciliation
+правила описаны в
+[`docs/analysis/p3-saved-cue-media-lifecycle.md`](analysis/p3-saved-cue-media-lifecycle.md).
+Scheduler хранит IANA timezone, имеет явные DST и
 no-catch-up semantics, атомарно claim-ит execution и не создаёт дубль после
 restart или clock jump. Token показывается один раз, хранится только как hash и
 немедленно revoke-ится. Manual soundboard и automation включаются раздельно;

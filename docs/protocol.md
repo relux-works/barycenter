@@ -14,6 +14,10 @@ principal scope, quiet-hours/DST rules, denial vocabulary and fail-closed
 mixed-version behavior are frozen in the
 [P3 automation safety contract](analysis/p3-automation-safety-contract-v1.md).
 This contract adds no listener and advertises no capability by itself.
+The implemented owner-scoped media pin, quota, generation and canonical
+revocation behavior is documented in the
+[P3 saved-cue lifecycle](analysis/p3-saved-cue-media-lifecycle.md); it likewise
+adds no public automation route or capability.
 
 The exact additive phase-one clip-transmission, DND and presence payloads are
 frozen in [`docs/analysis/p1-transmission-contract-v1.md`](analysis/p1-transmission-contract-v1.md)

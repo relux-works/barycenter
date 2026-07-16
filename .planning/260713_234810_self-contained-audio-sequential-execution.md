@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 126 accepted, 79 remain.
-- Routed inventory: 186 engineering tasks (126 accepted, 60 remain) and 19
+- Combined inventory: 205 original tasks; 127 accepted, 78 remain.
+- Routed inventory: 186 engineering tasks (127 accepted, 59 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1ckdr7` — windows-live-jitter-receiver
-- Next engineering task: `TASK-260712-ezdhpf` — windows-live-capture-sender
-- Most recently accepted: `TASK-260712-26mnp1` — macos-live-capture-sender
-- Current branch: `chore/track-task-260712-26mnp1`
+- Current engineering task: `TASK-260712-ezdhpf` — windows-live-capture-sender
+- Next engineering task: `TASK-260712-2kj9kj` — macos-live-ptt-node-integration
+- Most recently accepted: `TASK-260712-1ckdr7` — windows-live-jitter-receiver
+- Current branch: `chore/track-task-260712-1ckdr7`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 126 / 205 tasks (61.5%); 79 remain
-- Engineering progress: 126 / 186 tasks (approximately 67.7%); 60 remain
+- Accepted overall: 127 / 205 tasks (62.0%); 78 remain
+- Engineering progress: 127 / 186 tasks (approximately 68.3%); 59 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2441,6 +2441,25 @@ at merge `eac1c183144df93ea126c9c595bb6dca8a8cd842`. Progress is 126/205
 overall and 126/186 engineering. Strict execution advances to
 `TASK-260712-1ckdr7`.
 
+Checkpoint 2026-07-16 (accepted bounded Windows live jitter receiver):
+`TASK-260712-1ckdr7` adds a single-session nine-packet reorder window, fixed
+320 ms PCM ring and an allocation-free render branch mixed through the common
+-1 dBFS limiter and local master gain. Start validation rejects unauthorized,
+stale-generation, malformed-profile and concurrent sessions before decode;
+sequence, exact-timestamp, duplicate, conflict, late and frozen-window checks
+fail closed. Decode, FEC/PLC and timer work stay off WASAPI render. The
+production decoder is intentionally not registered because the accepted codec
+spike found no reviewed signed Windows libopus supply path; the capability
+therefore stays unadvertised. Deterministic 2% loss proves bounded state,
+continuity and cleanup only. Signed-app playback, physical intelligibility,
+latency, audible PLC/click quality and real-hardware lifecycle evidence remain
+manual in `TASK-260712-1rzqh9`. Focused receiver coverage passed 6/6, full Go
+test and race suites, amd64/arm64 Windows cross-builds and clean repository
+acceptance 12/12 passed; hosted run `29525402024` passed all four jobs. PR #195
+landed exact code head `987de8b` at merge
+`365fb117e04d2bb8f462b7cd3bd29b7339d797a5`. Progress is 127/205 overall and
+127/186 engineering. Strict execution advances to `TASK-260712-ezdhpf`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -3054,7 +3073,11 @@ executed before soundboard automation because it is on the epic critical path.
   273/273 and hosted run `29523191600` 4/4; PR #193 merge `eac1c18`. The
   sender is bounded and production-dark; physical lifecycle/audio evidence
   remains manual)
-- [ ] `TASK-260712-1ckdr7` — windows-live-jitter-receiver
+- [x] `TASK-260712-1ckdr7` — windows-live-jitter-receiver (accepted on exact
+  code head `987de8b`; focused receiver 6/6, full Go test/race, Windows
+  amd64/arm64 cross-builds, clean acceptance 12/12 and hosted run
+  `29525402024` 4/4 passed; PR #195 merge `365fb11`. The receiver is bounded
+  and production-dark; physical audio evidence remains manual)
 - [ ] `TASK-260712-ezdhpf` — windows-live-capture-sender
 - [ ] `TASK-260712-2kj9kj` — macos-live-ptt-node-integration
 - [ ] `TASK-260712-2jbo5i` — windows-live-ptt-node-integration

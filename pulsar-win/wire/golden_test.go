@@ -133,7 +133,6 @@ func TestGoldenRoundTrip(t *testing.T) {
 const mirrorHeader = `// Code mirrored from coordinator/internal/protocol — keep in sync via golden tests.
 // Do not edit below this header: golden_test.go verifies both the wire contract
 // (round-trip of every golden file) and byte-equality with the coordinator source.
-//
 `
 
 // Go internal-package rules forbid importing coordinator/internal/protocol
@@ -160,7 +159,15 @@ func TestMirrorMatchesCoordinatorSource(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read mirrored %s: %v", name, err)
 		}
-		want, err := format.Source(append([]byte(mirrorHeader), src...))
+		header := []byte(mirrorHeader)
+		// Keep a comment separator only when the coordinator source starts with a
+		// package doc comment. Formatting an otherwise empty // line before a bare
+		// package clause changed between Go 1.25 and 1.26, so deriving the separator
+		// from the source keeps the mirror check stable across supported toolchains.
+		if bytes.HasPrefix(src, []byte("//")) {
+			header = append(header, []byte("//\n")...)
+		}
+		want, err := format.Source(append(header, src...))
 		if err != nil {
 			t.Fatalf("format coordinator source %s: %v", name, err)
 		}

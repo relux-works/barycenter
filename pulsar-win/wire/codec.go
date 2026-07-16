@@ -1,7 +1,6 @@
 // Code mirrored from coordinator/internal/protocol — keep in sync via golden tests.
 // Do not edit below this header: golden_test.go verifies both the wire contract
 // (round-trip of every golden file) and byte-equality with the coordinator source.
-//
 package protocol
 
 import (

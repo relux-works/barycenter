@@ -1,9 +1,9 @@
 # Phase 2 codec, license and supply-chain review
 
-Date: 2026-07-16  
-Task: `TASK-260712-2g3fkt`  
-Reviewed base: `496c07272e4a5406b44be8709fa84c9b5932cdda`  
-Engineering reviewer: `codex-inline-reviewer`  
+Date: 2026-07-16
+Task: `TASK-260712-2g3fkt`
+Reviewed base: `496c07272e4a5406b44be8709fa84c9b5932cdda`
+Engineering reviewer: `codex-inline-reviewer`
 Independent approver: Ivan Oparin
 
 ## Decision

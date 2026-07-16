@@ -368,6 +368,7 @@ func main() {
 			}
 		}
 		go onboarding.runMediaUploadMaintenance(stop)
+		go onboarding.runAutomationRuntime(stop)
 	} else if mediaLifecycle != nil && mediaLifecycleInitErr == nil {
 		go runStandaloneMediaLifecycle(log, mediaLifecycle, stop)
 	}

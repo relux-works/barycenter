@@ -5,9 +5,9 @@ Task: `TASK-260712-1kk8bd`
 This document freezes the authenticated HTTP and repository boundary layered
 on `automation-safety-v1`. The control surface is registered on the existing
 coordinator HTTPS API. It creates no loopback listener, webhook, callback or
-outbound fetch. The scoped trigger route has a separate authentication path
-and remains a generic `404` in production until the downstream runtime service
-is deliberately installed.
+outbound fetch. The scoped trigger route has a separate authentication path;
+the downstream runtime is now composed by `TASK-260712-1eva0y`, while a
+feature-disabled orbit still receives the generic route-missing `404`.
 
 ## Shared request boundary
 
@@ -44,7 +44,7 @@ resource; cross-operation, cross-route or different-request reuse returns
 | `POST /v1/automation/schedules/{schedule_id}/disable` | disarm with CAS revision |
 | `GET/POST /v1/automation/principals` | list non-secret metadata or issue one immutable principal |
 | `POST /v1/automation/principals/{principal_id}/revoke` | terminal revoke with CAS revision |
-| `POST /v1/automation/triggers` | strict scoped boundary; no production service is composed by this task |
+| `POST /v1/automation/triggers` | strict scoped boundary; runtime behavior is documented in `p3-automation-runtime-v1.md` |
 
 Schedule weekdays are integers `0..6` (`0` is Sunday), and `local_time` is
 `HH:MM`. Delivery is exactly `overlay`. New schedules are created disarmed and
@@ -86,10 +86,10 @@ The trigger request is the frozen cue/audience/overlay shape from
 `p3-automation-safety-contract-v1.md`. It rejects cookies, query parameters,
 browser origins, credentials outside the Authorization header and target URLs.
 Unknown, disabled, revoked and expired secrets share
-`401 invalid_automation_credential`. No runtime service is installed here, so
-the production handler returns the generic route-missing `404`; rate limits,
-quiet-hour admission, target snapshot creation, transmission dispatch and
-revoke/disarm execution remain `TASK-260712-1eva0y`.
+`401 invalid_automation_credential`. Feature/emergency disable returns the
+generic route-missing `404`. Runtime rate/concurrency admission, quiet hours,
+target snapshot creation, transmission dispatch and revoke/disarm execution
+are implemented by `TASK-260712-1eva0y` without widening this HTTP shape.
 
 ## Stable control errors
 

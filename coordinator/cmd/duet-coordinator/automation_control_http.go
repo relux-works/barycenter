@@ -402,6 +402,12 @@ func (api *onboardingAPI) automationStatus(w http.ResponseWriter, r *http.Reques
 		if api.automationControlError(w, "replace automation feature", errorAutomationSchedule, err) {
 			return
 		}
+		if !result.Replayed {
+			if err := api.reconcileAutomationCancellations(auth.Now); err != nil {
+				api.internalError(w, "cancel disabled automation", err)
+				return
+			}
+		}
 		response := automationFeatureHTTP(result.State)
 		response["replayed"] = result.Replayed
 		writeJSON(w, http.StatusOK, response)
@@ -580,6 +586,12 @@ func (api *onboardingAPI) automationScheduleItem(w http.ResponseWriter, r *http.
 		if api.automationControlError(w, "replace automation schedule", errorAutomationSchedule, err) {
 			return
 		}
+		if !result.Replayed {
+			if err := api.reconcileAutomationCancellations(auth.Now); err != nil {
+				api.internalError(w, "cancel replaced automation schedule", err)
+				return
+			}
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"schedule": automationScheduleHTTP(result.Control), "replayed": result.Replayed,
 		})
@@ -599,6 +611,12 @@ func (api *onboardingAPI) automationScheduleItem(w http.ResponseWriter, r *http.
 		result, err := api.store.DeleteAuthorizedAutomationSchedule(auth, parts[0], request.ExpectedRevision)
 		if api.automationControlError(w, "delete automation schedule", errorAutomationSchedule, err) {
 			return
+		}
+		if !result.Replayed {
+			if err := api.reconcileAutomationCancellations(auth.Now); err != nil {
+				api.internalError(w, "cancel deleted automation schedule", err)
+				return
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"schedule": automationScheduleHTTP(result.Control), "replayed": result.Replayed,
@@ -621,6 +639,12 @@ func (api *onboardingAPI) automationScheduleItem(w http.ResponseWriter, r *http.
 			auth, parts[0], request.ExpectedRevision, parts[1] == "enable")
 		if api.automationControlError(w, "set automation schedule state", errorAutomationSchedule, err) {
 			return
+		}
+		if !result.Replayed && parts[1] == "disable" {
+			if err := api.reconcileAutomationCancellations(auth.Now); err != nil {
+				api.internalError(w, "cancel disabled automation schedule", err)
+				return
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"schedule": automationScheduleHTTP(result.Control), "replayed": result.Replayed,
@@ -750,6 +774,12 @@ func (api *onboardingAPI) automationPrincipalItem(w http.ResponseWriter, r *http
 	if api.automationControlError(w, "revoke automation principal", errorAutomationPrincipal, err) {
 		return
 	}
+	if !result.Replayed {
+		if err := api.reconcileAutomationCancellations(auth.Now); err != nil {
+			api.internalError(w, "cancel revoked automation principal", err)
+			return
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"principal": automationPrincipalHTTP(result.Principal), "replayed": result.Replayed,
 	})
@@ -772,6 +802,7 @@ func automationBearerToken(r *http.Request) (string, bool) {
 }
 
 func (api *onboardingAPI) automationTriggerError(w http.ResponseWriter, err error) {
+	var limited *store.AutomationRateLimitError
 	switch {
 	case errors.Is(err, store.ErrAutomationInvalidCredential):
 		apiError(w, http.StatusUnauthorized, errorAutomationCredential, 0)
@@ -779,8 +810,18 @@ func (api *onboardingAPI) automationTriggerError(w http.ResponseWriter, err erro
 		apiError(w, http.StatusConflict, errorAirIdempotency, 0)
 	case errors.Is(err, store.ErrAutomationDisabled):
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+	case errors.As(err, &limited):
+		apiError(w, http.StatusTooManyRequests, "automation_rate_limited", limited.RetryAfter)
+	case errors.Is(err, store.ErrAutomationExecutionInProgress):
+		apiError(w, http.StatusConflict, "automation_execution_in_progress", 0)
 	case errors.Is(err, store.ErrInsufficientCapability):
 		apiError(w, http.StatusForbidden, errorAutomationScope, 0)
+	case errors.Is(err, store.ErrAutomationQuietHours):
+		apiError(w, http.StatusConflict, "automation_quiet_hours", 0)
+	case errors.Is(err, store.ErrAutomationCueNotReady):
+		apiError(w, http.StatusUnprocessableEntity, "automation_cue_not_ready", 0)
+	case errors.Is(err, store.ErrAutomationCapabilityMissing):
+		apiError(w, http.StatusUnprocessableEntity, "automation_capability_missing", 0)
 	case errors.Is(err, store.ErrTransmissionAudienceNotFound), errors.Is(err, store.ErrAutomationInvalid):
 		apiError(w, http.StatusUnprocessableEntity, errorAutomationAudience, 0)
 	default:

@@ -271,8 +271,9 @@ func (fake *fakeAutomationTrigger) TriggerAutomation(input automationTriggerInpu
 	return fake.result, fake.err
 }
 
-func TestAutomationTriggerBoundaryProductionDarkOriginStrictJSONAndCredentialCollapse(t *testing.T) {
+func TestAutomationTriggerBoundaryAbsentOriginStrictJSONAndCredentialCollapse(t *testing.T) {
 	harness := newOnboardingHarness(t)
+	harness.api.automationTrigger = nil
 	dark := httptest.NewRequest(http.MethodPost, automationcontract.TriggerPath+"?probe=1",
 		strings.NewReader(`{"cue_id":null}`))
 	dark.RemoteAddr = "127.0.0.1:34567"

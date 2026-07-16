@@ -401,6 +401,9 @@ func newOnboardingAPIBase(st *store.Store, cfg *config.Config, log *slog.Logger,
 	if api.mediaDownloadInitErr == nil {
 		api.mediaDownload.SetTargetSnapshotReader(st)
 	}
+	// Installing the adapter does not expose a kill-switch bypass: feature-off
+	// requests are still collapsed to the same generic 404 as an absent route.
+	api.automationTrigger = api
 	return api
 }
 

@@ -27,7 +27,7 @@
     {"path": "acceptance/targets-inbox-rollout-handoff-v1.json", "sha256": "0a051e419000d06c89a7b383283e87ec2dfef553d6e37cce05e806fc9b1221cb"},
     {"path": "coordinator/internal/store/transmission_target_references.go", "sha256": "bc0078f55cd1d776f0f4d98579ba9d8469928ec61a2bb1fc60aa9181227c8dc8"},
     {"path": "coordinator/internal/store/inbox_query.go", "sha256": "c6927acf712b93cdec6416a762c562722bb3913a78720f0eb6a28ab389f2f3a1"},
-    {"path": "coordinator/internal/store/transmission.go", "sha256": "c30a782df224e61328aba40ee5106411190e592303dae4d1e845224d937ee1b3"},
+    {"path": "coordinator/internal/store/transmission.go", "sha256": "697d774032eeb9697c7e4476898ae127b0a3fdc50b86182d7ab9f1235943a4d4"},
     {"path": "coordinator/internal/store/stream_track.go", "sha256": "1dc90287e78e0102f12a94526ac867511409f9128e5a836b395bffdcf9344200"},
     {"path": "coordinator/internal/media/download.go", "sha256": "0dcc7c0effbd7452b2c4b3d9c95673d357f4b90bcc9862b566b62b405dd963c6"},
     {"path": "coordinator/cmd/duet-coordinator/content_policy_http.go", "sha256": "0088398adcc1e6a5280c93729c1f3c010706461925772d289e9c99639a7840ac"},

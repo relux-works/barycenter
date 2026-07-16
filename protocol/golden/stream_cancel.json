@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "msg_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "ts": 1770000030000,
+  "type": "stream_cancel",
+  "payload": {
+    "stream_id": "sq_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "playback_generation": 7,
+    "seek_generation": 1,
+    "command_sequence": 6,
+    "reason": "sender_cancelled"
+  }
+}

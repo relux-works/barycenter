@@ -10,15 +10,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 const Version = 1
+
+const (
+	StreamMinimumBufferedMS  int64 = 2000
+	StreamLoadReadyTimeoutMS int64 = 5000
+	StreamSeekReadyTimeoutMS int64 = 3000
+	StreamStartDeadlineMS    int64 = 5000
+)
+
+const (
+	StreamMixedVersionRequireAll                = "require_all"
+	StreamMixedVersionSupportedOnlyWithReceipts = "supported_only_with_receipts"
+)
 
 const (
 	CapabilityInterruptResume  = "interrupt_resume_v1"
 	CapabilityMediaClip        = "media_clip_v1"
 	CapabilityOverlayMix       = "overlay_mix_v1"
 	CapabilitySeamlessAdoption = "seamless_adoption_v1"
+	CapabilityStreamTrack      = "stream_track_v1"
 )
 
 // CapabilitySet is an immutable, validated register capability snapshot.
@@ -89,6 +103,11 @@ const (
 	TypePlayMediaAt    = "play_media_at"
 	TypeCancelMedia    = "cancel_media"
 	TypePresenceUpdate = "presence_update"
+	TypeStreamLoad     = "stream_load"
+	TypeStreamResumeAt = "stream_resume_at"
+	TypeStreamSeek     = "stream_seek"
+	TypeStreamPause    = "stream_pause"
+	TypeStreamCancel   = "stream_cancel"
 )
 
 // Node -> coordinator message types.
@@ -111,14 +130,21 @@ const (
 	// the Spotify app. Pause detaches only this home from the shared air
 	// (the broadcast keeps playing for the others); resume catches it back
 	// up at the live position.
-	TypeUserPause      = "user_pause"
-	TypeUserResume     = "user_resume"
-	TypeMediaReady     = "media_ready"
-	TypeMediaStarted   = "media_started"
-	TypeMediaEnded     = "media_ended"
-	TypeMediaFailed    = "media_failed"
-	TypeMediaCancelled = "media_cancelled"
-	TypeSetDND         = "set_dnd"
+	TypeUserPause       = "user_pause"
+	TypeUserResume      = "user_resume"
+	TypeMediaReady      = "media_ready"
+	TypeMediaStarted    = "media_started"
+	TypeMediaEnded      = "media_ended"
+	TypeMediaFailed     = "media_failed"
+	TypeMediaCancelled  = "media_cancelled"
+	TypeSetDND          = "set_dnd"
+	TypeStreamReady     = "stream_ready"
+	TypeStreamStarted   = "stream_started"
+	TypeStreamProgress  = "stream_progress"
+	TypeStreamRebuffer  = "stream_rebuffer"
+	TypeStreamFailed    = "stream_failed"
+	TypeStreamEnded     = "stream_ended"
+	TypeStreamCancelled = "stream_cancelled"
 )
 
 type Envelope struct {
@@ -287,6 +313,95 @@ type PresenceUpdatePayload struct {
 	Nodes              []PresenceNode `json:"nodes"`
 }
 
+// Streamed-track commands are additive protocol-v1 messages. VariantManifest
+// is an opaque server-issued value: clients do not negotiate codecs, derive
+// storage keys or place credentials in VariantURL. Every command is ordered by
+// CommandSequence inside an exact playback/seek generation.
+type StreamLoadPayload struct {
+	StreamID             string `json:"stream_id"`
+	PlaybackGeneration   int64  `json:"playback_generation"`
+	SeekGeneration       int64  `json:"seek_generation"`
+	CommandSequence      int64  `json:"command_sequence"`
+	MediaID              string `json:"media_id"`
+	VariantManifest      string `json:"variant_manifest"`
+	VariantURL           string `json:"variant_url"`
+	VariantETag          string `json:"variant_etag"`
+	VariantSHA256        string `json:"variant_sha256"`
+	VariantSizeBytes     int64  `json:"variant_size_bytes"`
+	StartPositionMS      int64  `json:"start_position_ms"`
+	MinimumBufferedMS    int64  `json:"minimum_buffered_ms"`
+	ReadyDeadlineCoordMS int64  `json:"ready_deadline_coord_ms"`
+	MixedVersionPolicy   string `json:"mixed_version_policy"`
+}
+
+type StreamResumeAtPayload struct {
+	StreamID             string `json:"stream_id"`
+	PlaybackGeneration   int64  `json:"playback_generation"`
+	SeekGeneration       int64  `json:"seek_generation"`
+	CommandSequence      int64  `json:"command_sequence"`
+	TCoordMS             int64  `json:"t_coord_ms"`
+	StartDeadlineCoordMS int64  `json:"start_deadline_coord_ms"`
+}
+
+type StreamSeekPayload struct {
+	StreamID             string `json:"stream_id"`
+	PlaybackGeneration   int64  `json:"playback_generation"`
+	SeekGeneration       int64  `json:"seek_generation"`
+	CommandSequence      int64  `json:"command_sequence"`
+	PositionMS           int64  `json:"position_ms"`
+	MinimumBufferedMS    int64  `json:"minimum_buffered_ms"`
+	ReadyDeadlineCoordMS int64  `json:"ready_deadline_coord_ms"`
+}
+
+type StreamPausePayload struct {
+	StreamID           string `json:"stream_id"`
+	PlaybackGeneration int64  `json:"playback_generation"`
+	SeekGeneration     int64  `json:"seek_generation"`
+	CommandSequence    int64  `json:"command_sequence"`
+	FadeMS             int64  `json:"fade_ms"`
+}
+
+type StreamCancelPayload struct {
+	StreamID           string `json:"stream_id"`
+	PlaybackGeneration int64  `json:"playback_generation"`
+	SeekGeneration     int64  `json:"seek_generation"`
+	CommandSequence    int64  `json:"command_sequence"`
+	Reason             string `json:"reason"`
+}
+
+func ValidateStreamLoadPayload(payload StreamLoadPayload) error {
+	if payload.StreamID == "" || payload.MediaID == "" || payload.PlaybackGeneration <= 0 ||
+		payload.SeekGeneration != 0 || payload.CommandSequence != 1 ||
+		!strings.HasPrefix(payload.VariantManifest, "svm1.") || len(payload.VariantManifest) > 512 ||
+		strings.Trim(payload.VariantManifest, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-") != "" ||
+		payload.VariantSizeBytes <= 0 || payload.StartPositionMS < 0 ||
+		payload.MinimumBufferedMS != StreamMinimumBufferedMS || payload.ReadyDeadlineCoordMS <= 0 {
+		return fmt.Errorf("invalid stream_load identity, generation, size or timing")
+	}
+	if len(payload.VariantSHA256) != 64 || strings.Trim(payload.VariantSHA256, "0123456789abcdef") != "" ||
+		payload.VariantETag != `"sha256-`+payload.VariantSHA256+`"` {
+		return fmt.Errorf("invalid stream_load integrity")
+	}
+	if !strings.HasPrefix(payload.VariantURL, "/v1/media/"+payload.MediaID+"/variants/") ||
+		strings.ContainsAny(payload.VariantURL, "?#@") || strings.Contains(payload.VariantURL, "://") {
+		return fmt.Errorf("stream_load variant_url must be credential-free and coordinator-relative")
+	}
+	if payload.MixedVersionPolicy != StreamMixedVersionRequireAll &&
+		payload.MixedVersionPolicy != StreamMixedVersionSupportedOnlyWithReceipts {
+		return fmt.Errorf("invalid stream_load mixed-version policy")
+	}
+	return nil
+}
+
+func ValidateStreamReadyPayload(payload StreamReadyPayload) error {
+	if payload.StreamID == "" || payload.PlaybackGeneration <= 0 || payload.SeekGeneration < 0 ||
+		payload.EventSequence <= 0 || payload.AudiblePositionMS < 0 ||
+		payload.BufferedDurationMS < StreamMinimumBufferedMS {
+		return fmt.Errorf("stream_ready is below the frozen buffer barrier")
+	}
+	return nil
+}
+
 // --- Node -> coordinator payloads ---
 
 type RegisterPayload struct {
@@ -335,6 +450,63 @@ type SetDNDPayload struct {
 	Revision          int64  `json:"revision"`
 	Mode              string `json:"mode"`
 	MutedUntilCoordMS *int64 `json:"muted_until_coord_ms,omitempty"`
+}
+
+type StreamReadyPayload struct {
+	StreamID           string `json:"stream_id"`
+	PlaybackGeneration int64  `json:"playback_generation"`
+	SeekGeneration     int64  `json:"seek_generation"`
+	EventSequence      int64  `json:"event_sequence"`
+	AudiblePositionMS  int64  `json:"audible_position_ms"`
+	BufferedDurationMS int64  `json:"buffered_duration_ms"`
+}
+
+type StreamStartedPayload struct {
+	StreamID            string `json:"stream_id"`
+	PlaybackGeneration  int64  `json:"playback_generation"`
+	SeekGeneration      int64  `json:"seek_generation"`
+	EventSequence       int64  `json:"event_sequence"`
+	AudiblePositionMS   int64  `json:"audible_position_ms"`
+	TFirstSampleCoordMS int64  `json:"t_first_sample_coord_ms"`
+}
+
+type StreamProgressPayload struct {
+	StreamID           string `json:"stream_id"`
+	PlaybackGeneration int64  `json:"playback_generation"`
+	SeekGeneration     int64  `json:"seek_generation"`
+	EventSequence      int64  `json:"event_sequence"`
+	AudiblePositionMS  int64  `json:"audible_position_ms"`
+	BufferedDurationMS int64  `json:"buffered_duration_ms"`
+}
+
+type StreamRebufferPayload = StreamProgressPayload
+
+type StreamFailedPayload struct {
+	StreamID           string `json:"stream_id"`
+	PlaybackGeneration int64  `json:"playback_generation"`
+	SeekGeneration     int64  `json:"seek_generation"`
+	EventSequence      int64  `json:"event_sequence"`
+	Stage              string `json:"stage"`
+	Code               string `json:"code"`
+}
+
+type StreamEndedPayload struct {
+	StreamID           string `json:"stream_id"`
+	PlaybackGeneration int64  `json:"playback_generation"`
+	SeekGeneration     int64  `json:"seek_generation"`
+	EventSequence      int64  `json:"event_sequence"`
+	AudiblePositionMS  int64  `json:"audible_position_ms"`
+	TLastSampleCoordMS int64  `json:"t_last_sample_coord_ms"`
+	Reason             string `json:"reason"`
+}
+
+type StreamCancelledPayload struct {
+	StreamID           string `json:"stream_id"`
+	PlaybackGeneration int64  `json:"playback_generation"`
+	SeekGeneration     int64  `json:"seek_generation"`
+	EventSequence      int64  `json:"event_sequence"`
+	AudiblePositionMS  int64  `json:"audible_position_ms"`
+	Reason             string `json:"reason"`
 }
 
 type Speaker struct {
@@ -410,4 +582,181 @@ type UserResumePayload struct {
 
 type SetProviderPayload struct {
 	Provider string `json:"provider"`
+}
+
+type StreamGenerationDecision string
+
+const (
+	StreamGenerationApply     StreamGenerationDecision = "apply"
+	StreamGenerationDuplicate StreamGenerationDecision = "duplicate"
+	StreamGenerationStale     StreamGenerationDecision = "stale"
+	StreamGenerationInvalid   StreamGenerationDecision = "invalid"
+)
+
+type StreamEventKind string
+
+const (
+	StreamEventReady     StreamEventKind = "ready"
+	StreamEventStarted   StreamEventKind = "started"
+	StreamEventProgress  StreamEventKind = "progress"
+	StreamEventRebuffer  StreamEventKind = "rebuffer"
+	StreamEventFailed    StreamEventKind = "failed"
+	StreamEventEnded     StreamEventKind = "ended"
+	StreamEventCancelled StreamEventKind = "cancelled"
+)
+
+// StreamGenerationGuard is the shared deterministic ordering rule used by the
+// coordinator and candidate test clients. WebSocket delivery is ordered, so a
+// command/event sequence gap is invalid rather than guessed through. A seek
+// advances seek generation and resets event ordering. Terminal events close
+// only their exact generation; late output can never close a newer one.
+type StreamGenerationGuard struct {
+	PlaybackGeneration int64
+	SeekGeneration     int64
+	CommandSequence    int64
+	EventSequence      int64
+	CommandKind        string
+	EventKind          StreamEventKind
+	Phase              string
+}
+
+func (g *StreamGenerationGuard) AcceptLoad(playbackGeneration, seekGeneration, commandSequence int64) StreamGenerationDecision {
+	if playbackGeneration <= 0 || seekGeneration != 0 || commandSequence != 1 {
+		return StreamGenerationInvalid
+	}
+	if playbackGeneration < g.PlaybackGeneration {
+		return StreamGenerationStale
+	}
+	if playbackGeneration == g.PlaybackGeneration {
+		if seekGeneration == g.SeekGeneration && commandSequence == g.CommandSequence && g.CommandKind == "load" {
+			return StreamGenerationDuplicate
+		}
+		return StreamGenerationStale
+	}
+	g.PlaybackGeneration = playbackGeneration
+	g.SeekGeneration = 0
+	g.CommandSequence = commandSequence
+	g.EventSequence = 0
+	g.CommandKind = "load"
+	g.EventKind = ""
+	g.Phase = "loading"
+	return StreamGenerationApply
+}
+
+func (g *StreamGenerationGuard) AcceptCommand(playbackGeneration, seekGeneration, commandSequence int64, command string) StreamGenerationDecision {
+	if playbackGeneration != g.PlaybackGeneration || seekGeneration != g.SeekGeneration {
+		return StreamGenerationStale
+	}
+	if commandSequence <= g.CommandSequence {
+		if commandSequence == g.CommandSequence && command == g.CommandKind {
+			return StreamGenerationDuplicate
+		}
+		if commandSequence == g.CommandSequence {
+			return StreamGenerationInvalid
+		}
+		return StreamGenerationStale
+	}
+	if commandSequence != g.CommandSequence+1 || g.Phase == "terminal" {
+		return StreamGenerationInvalid
+	}
+	switch command {
+	case "resume":
+		if g.Phase != "ready" && g.Phase != "paused_ready" {
+			return StreamGenerationInvalid
+		}
+		g.Phase = "ready"
+	case "pause":
+		if g.Phase == "started" {
+			g.Phase = "paused_ready"
+		} else if g.Phase == "rebuffering" {
+			g.Phase = "paused_loading"
+		} else {
+			return StreamGenerationInvalid
+		}
+	case "cancel":
+	default:
+		return StreamGenerationInvalid
+	}
+	g.CommandSequence = commandSequence
+	g.CommandKind = command
+	return StreamGenerationApply
+}
+
+func (g *StreamGenerationGuard) AcceptSeek(playbackGeneration, seekGeneration, commandSequence int64) StreamGenerationDecision {
+	if playbackGeneration != g.PlaybackGeneration {
+		return StreamGenerationStale
+	}
+	if seekGeneration <= g.SeekGeneration {
+		if seekGeneration == g.SeekGeneration && commandSequence == g.CommandSequence && g.CommandKind == "seek" {
+			return StreamGenerationDuplicate
+		}
+		return StreamGenerationStale
+	}
+	if seekGeneration != g.SeekGeneration+1 || commandSequence != g.CommandSequence+1 || g.Phase == "terminal" {
+		return StreamGenerationInvalid
+	}
+	g.SeekGeneration = seekGeneration
+	g.CommandSequence = commandSequence
+	g.EventSequence = 0
+	g.CommandKind = "seek"
+	g.EventKind = ""
+	g.Phase = "loading"
+	return StreamGenerationApply
+}
+
+func (g *StreamGenerationGuard) AcceptEvent(playbackGeneration, seekGeneration, eventSequence int64, kind StreamEventKind) StreamGenerationDecision {
+	if playbackGeneration != g.PlaybackGeneration || seekGeneration != g.SeekGeneration {
+		return StreamGenerationStale
+	}
+	if eventSequence <= g.EventSequence {
+		if eventSequence == g.EventSequence && kind == g.EventKind {
+			return StreamGenerationDuplicate
+		}
+		if eventSequence == g.EventSequence {
+			return StreamGenerationInvalid
+		}
+		return StreamGenerationStale
+	}
+	if eventSequence != g.EventSequence+1 || g.Phase == "terminal" {
+		return StreamGenerationInvalid
+	}
+	switch kind {
+	case StreamEventReady:
+		if g.Phase != "loading" && g.Phase != "rebuffering" && g.Phase != "paused_loading" {
+			return StreamGenerationInvalid
+		}
+		if g.Phase == "paused_loading" {
+			g.Phase = "paused_ready"
+		} else {
+			g.Phase = "ready"
+		}
+	case StreamEventStarted:
+		if g.Phase != "ready" {
+			return StreamGenerationInvalid
+		}
+		g.Phase = "started"
+	case StreamEventProgress:
+		if g.Phase != "started" {
+			return StreamGenerationInvalid
+		}
+	case StreamEventRebuffer:
+		if g.Phase != "started" {
+			return StreamGenerationInvalid
+		}
+		g.Phase = "rebuffering"
+	case StreamEventFailed, StreamEventEnded, StreamEventCancelled:
+		g.Phase = "terminal"
+	default:
+		return StreamGenerationInvalid
+	}
+	g.EventSequence = eventSequence
+	g.EventKind = kind
+	return StreamGenerationApply
+}
+
+func (g *StreamGenerationGuard) AcceptReady(playbackGeneration, seekGeneration, eventSequence, bufferedDurationMS, minimumBufferedMS int64) StreamGenerationDecision {
+	if minimumBufferedMS != StreamMinimumBufferedMS || bufferedDurationMS < minimumBufferedMS {
+		return StreamGenerationInvalid
+	}
+	return g.AcceptEvent(playbackGeneration, seekGeneration, eventSequence, StreamEventReady)
 }

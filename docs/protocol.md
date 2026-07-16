@@ -54,6 +54,13 @@ The final coordinator-first deploy, mixed-version, rollback and downstream
 extension rules are frozen in the
 [Phase 2 targets/inbox rollout handoff](analysis/p2-targets-inbox-rollout-handoff.md).
 
+The additive, generation-safe Phase 2 streamed-track messages, buffer barrier,
+sender-selected mixed-version policy and codec no-go boundary are frozen in the
+[P2 streamed-track wire contract](analysis/p2-stream-track-wire-contract-v1.md)
+and its executable [`p2-stream-track-wire.v1`](../protocol/stream-track-v1.json)
+contract. Landing these codecs does not advertise `stream_track_v1` in a
+production node.
+
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 
 ## Envelope

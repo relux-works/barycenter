@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "msg_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "ts": 1770000000000,
+  "type": "stream_load",
+  "payload": {
+    "stream_id": "sq_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "playback_generation": 7,
+    "seek_generation": 0,
+    "command_sequence": 1,
+    "media_id": "m_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "variant_manifest": "svm1.opaque-candidate-neutral",
+    "variant_url": "/v1/media/m_01ARZ3NDEKTSV4RRFFQ69G5FAV/variants/sv_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "variant_etag": "\"sha256-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"",
+    "variant_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "variant_size_bytes": 2097152,
+    "start_position_ms": 0,
+    "minimum_buffered_ms": 2000,
+    "ready_deadline_coord_ms": 1770000005000,
+    "mixed_version_policy": "supported_only_with_receipts"
+  }
+}

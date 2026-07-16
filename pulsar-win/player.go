@@ -229,6 +229,11 @@ func (p *Player) Handle(env protocol.Envelope, payload any) {
 			update := clonePresenceUpdate(m)
 			go p.presenceStore.AcceptPresence(update)
 		}
+	case *protocol.StreamLoadPayload, *protocol.StreamResumeAtPayload,
+		*protocol.StreamSeekPayload, *protocol.StreamPausePayload, *protocol.StreamCancelPayload:
+		// The codec is additive contract scaffolding only. This build does not
+		// advertise stream_track_v1 while the production codec ADR is no-go.
+		p.log.Warn("rejecting unadvertised stream_track_v1 command", "type", env.Type)
 	default:
 		p.log.Debug("ignoring non-command", "type", env.Type)
 	}

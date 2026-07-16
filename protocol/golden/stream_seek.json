@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "msg_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "ts": 1770000010000,
+  "type": "stream_seek",
+  "payload": {
+    "stream_id": "sq_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "playback_generation": 7,
+    "seek_generation": 1,
+    "command_sequence": 3,
+    "position_ms": 60000,
+    "minimum_buffered_ms": 2000,
+    "ready_deadline_coord_ms": 1770000013000
+  }
+}

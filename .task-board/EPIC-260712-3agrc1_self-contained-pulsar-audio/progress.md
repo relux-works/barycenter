@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-16T05:16:21Z
+2026-07-16T05:58:12Z
 
 ## Blocked By
 - STORY-260712-sskhip
@@ -35,6 +35,8 @@ User mandate 2026-07-12: do not accept agent code without scrupulous root review
 2026-07-16 strict sequential checkpoint: 101/186 engineering tasks accepted (54.3%) and 101/205 combined tasks accepted (49.3%). TASK-260712-1n5fks landed through PR #142 at merge 5478006 after hosted run 29471845396 passed 4/4. Additive streamed-track schema, pinned variant/seek behavior, restart state and exact previous-binary rollback are accepted; production codec/player remains no-go and no real-app or hardware result is claimed. Strict engineering execution advances to TASK-260712-31rkpe.
 2026-07-16 strict sequential start: TASK-260712-31rkpe began inline from tracking PR #143 merge d26cb26 after hosted run 29472071694 passed 4/4. Counts remain 101/186 engineering and 101/205 combined until the candidate-neutral generation-safe wire contract is accepted; the production codec/player no-go remains in force.
 2026-07-16 strict sequential checkpoint: 102/186 engineering tasks accepted (54.8%) and 102/205 combined tasks accepted (49.8%). TASK-260712-31rkpe landed through PR #144 at merge 0b9fc7d after hosted run 29473326227 passed 4/4. Generation-safe Go/Swift/Windows stream payloads, 51 shared goldens, timing barriers, stale-event rejection and explicit mixed-version policy are accepted; production stream_track_v1 remains unadvertised and no real-app or hardware result is claimed. Strict engineering execution advances to TASK-260712-2ogntd.
+2026-07-16 strict sequential start: TASK-260712-2ogntd began inline from tracking PR #145 merge 188b503 after hosted run 29473524803 passed 4/4. Counts remain 102/186 engineering and 102/205 combined until privacy-safe storage, processing and actual-egress accounting plus deterministic quota enforcement are accepted; production traffic and real-app evidence remain unclaimed.
+2026-07-16 strict sequential checkpoint: 103/186 engineering tasks accepted (55.4%) and 103/205 combined tasks accepted (50.2%). TASK-260712-2ogntd landed through PR #146 at merge 15ebd3d after hosted run 29475162175 passed 4/4. Per-actor/per-orbit upload, retained storage, processing, range and actual-egress accounting, deterministic quotas, crash reconciliation and authenticated audited operator views are accepted; no production traffic, real-app or hardware result is claimed. Strict engineering execution advances to TASK-260712-285pag.
 
 ## Precondition Resources
 (none)

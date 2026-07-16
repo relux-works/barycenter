@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 102 accepted, 103 remain.
-- Routed inventory: 186 engineering tasks (102 accepted, 84 remain) and 19
+- Combined inventory: 205 original tasks; 103 accepted, 102 remain.
+- Routed inventory: 186 engineering tasks (103 accepted, 83 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2ogntd` — stream-storage-egress-accounting
-- Next engineering task: `TASK-260712-2ogntd` — stream-storage-egress-accounting
-- Most recently accepted: `TASK-260712-31rkpe` — stream-track-wire-contract
-- Current branch: `tracking/task-260712-31rkpe-acceptance`
+- Current engineering task: `TASK-260712-285pag` — audio-track-variant-pipeline
+- Next engineering task: `TASK-260712-285pag` — audio-track-variant-pipeline
+- Most recently accepted: `TASK-260712-2ogntd` — stream-storage-egress-accounting
+- Current branch: `tracking/task-260712-2ogntd-acceptance`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 102 / 205 tasks (approximately 49.8%); 103 remain
-- Engineering progress: 102 / 186 tasks (approximately 54.8%); 84 remain
+- Accepted overall: 103 / 205 tasks (approximately 50.2%); 102 remain
+- Engineering progress: 103 / 186 tasks (approximately 55.4%); 83 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1692,6 +1692,21 @@ claimed. Hosted run `29473326227` passed all four jobs; PR #144 landed at
 merge `0b9fc7d6`. Progress is 102/205 overall and 102/186 engineering; strict
 execution advances to `TASK-260712-2ogntd`.
 
+Checkpoint 2026-07-16: `TASK-260712-2ogntd` is accepted on exact engineering
+head `00a269747fcb17133304e57ba0f76976a20f1daf`. Authoritative projections
+cover per-actor/per-orbit upload starts/input, original and canonical retained
+bytes, processing temp/concurrency, range requests, actual egress and active
+reservations. Default and revisioned override quotas are deterministic; an
+admitted playback owns a bounded 2x reservation and survives later quota
+reduction, while amplification fails explicitly. Startup/five-minute
+reconciliation releases stale leases, and exact metrics/adjustments require a
+still-live operator capability inside the same SQLite transaction. Local full
+store/command, focused race, fault-injection and exact-predecessor rollback
+tests passed; hosted run `29475162175` passed all four jobs. PR #146 landed at
+merge `15ebd3d5`. Production stream capability remains disabled and no real
+traffic is claimed. Progress is 103/205 overall and 103/186 engineering;
+strict execution advances to `TASK-260712-285pag`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2551,7 +2566,11 @@ Story: `STORY-260712-2ori1t` — P2 Streamed user audio tracks.
   generation/timing guards and explicit mixed-version handling passed hosted
   run `29473326227` 4/4; PR #144 merge `0b9fc7d`; production capability
   advertisement and hands-on playback remain disabled)
-- [ ] `TASK-260712-2ogntd` — stream-storage-egress-accounting
+- [x] `TASK-260712-2ogntd` — stream-storage-egress-accounting
+  (accepted on engineering head `00a2697`; actor/orbit storage, processing,
+  actual-egress, quota, reconciliation and operator contracts passed local
+  full/race/rollback evidence and hosted run `29475162175` 4/4; PR #146 merge
+  `15ebd3d`; production traffic and hands-on playback remain unclaimed)
 - [ ] `TASK-260712-285pag` — audio-track-variant-pipeline
 - [ ] `TASK-260712-3lf8r0` — stream-range-serving-revocation
 - [ ] `TASK-260712-2h6snp` — streamed-track-coordinator-flow

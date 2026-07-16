@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-16T05:16:21Z
+2026-07-16T05:58:12Z
 
 ## Blocked By
 - STORY-260712-3l1r1u
@@ -40,6 +40,8 @@ Root decomposition review completed. Added missing shared plus Windows/macOS lon
 2026-07-16 strict checkpoint: TASK-260712-1n5fks accepted on exact head b64a671 through PR #142, merge 5478006, after hosted run 29471845396 passed 4/4. Candidate-neutral persistence and exact previous-binary rollback are green; production codec/player remains no-go. Strict story execution advances to TASK-260712-31rkpe.
 2026-07-16 strict progress: TASK-260712-31rkpe started inline from tracking PR #143 merge d26cb26 after hosted run 29472071694 passed 4/4. Implementing shared/Go/Swift/Windows wire payloads, generation semantics and mixed-version policy without enabling production codecs or claiming real-app playback.
 2026-07-16 strict checkpoint: TASK-260712-31rkpe accepted on exact head ea2d6d4 through PR #144, merge 0b9fc7d, after hosted run 29473326227 passed 4/4. All three codecs share 51 goldens and generation/timing/mixed-version invariants; production stream_track_v1 advertisement remains disabled. Strict story execution advances to TASK-260712-2ogntd.
+2026-07-16 strict progress: TASK-260712-2ogntd started inline from tracking PR #145 merge 188b503 after hosted run 29473524803 passed 4/4. Auditing and implementing storage, processing, retained-byte and actual-egress counters, deterministic quota boundaries, reconciliation and privacy-safe operator surfaces without enabling production streamed playback.
+2026-07-16 strict checkpoint: TASK-260712-2ogntd accepted on exact head 00a2697 through PR #146, merge 15ebd3d, after hosted run 29475162175 passed 4/4. Authoritative actor/orbit storage, processing and actual-egress projections, deterministic admission/reconciliation and authenticated audited operator surfaces are green; production streamed playback remains disabled. Strict story execution advances to TASK-260712-285pag.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-2ori1t/spec-entry.md) — Authoritative specification entry point

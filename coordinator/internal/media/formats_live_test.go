@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,6 +38,20 @@ func requireLiveMediaTools(t *testing.T) {
 	}
 }
 
+func liveMediaEncoderAvailable(name string) bool {
+	output, err := exec.Command("ffmpeg", "-hide_banner", "-encoders").CombinedOutput()
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(output), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[1] == name {
+			return true
+		}
+	}
+	return false
+}
+
 func generateLiveFormatFixture(t *testing.T, test liveFormatCase) string {
 	t.Helper()
 	input := filepath.Join(t.TempDir(), "source"+test.extension)
@@ -45,7 +60,15 @@ func generateLiveFormatFixture(t *testing.T, test liveFormatCase) string {
 		"-i", "sine=frequency=440:sample_rate=48000:duration=1",
 		"-af", "volume=0.2", "-ac", "1", "-ar", "48000",
 	}
-	arguments = append(arguments, test.codecArgs...)
+	codecArgs := test.codecArgs
+	if test.name == "ogg_vorbis" && !liveMediaEncoderAvailable("libvorbis") {
+		// The pinned Homebrew FFmpeg exposes its native Vorbis encoder while
+		// Debian CI exposes libvorbis. Both create the exact input format this
+		// acceptance case exercises; the native encoder currently requires
+		// stereo plus the experimental opt-in.
+		codecArgs = []string{"-ac", "2", "-strict", "-2", "-c:a", "vorbis", "-f", "ogg"}
+	}
+	arguments = append(arguments, codecArgs...)
 	arguments = append(arguments, input)
 	if output, err := exec.Command("ffmpeg", arguments...).CombinedOutput(); err != nil {
 		t.Fatalf("generate %s fixture: %v\n%s", test.name, err, output)

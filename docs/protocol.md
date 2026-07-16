@@ -9,6 +9,12 @@ capability remains unadvertised until the later runtime and platform gates pass.
 The coordinator implementation and its environment-only dark-launch boundary
 are documented in the [bounded live PTT runtime handoff](analysis/p3-live-ptt-coordinator-runtime.md).
 
+The normative Phase 3 soundboard/automation entry point, cue-only boundary,
+principal scope, quiet-hours/DST rules, denial vocabulary and fail-closed
+mixed-version behavior are frozen in the
+[P3 automation safety contract](analysis/p3-automation-safety-contract-v1.md).
+This contract adds no listener and advertises no capability by itself.
+
 The exact additive phase-one clip-transmission, DND and presence payloads are
 frozen in [`docs/analysis/p1-transmission-contract-v1.md`](analysis/p1-transmission-contract-v1.md)
 and shipped in the canonical Go codec plus the Windows and Swift mirrors. The

@@ -1351,10 +1351,15 @@ independent protocol-design review, cross-platform vectors и внешнего r
 
 #### P3.4 Soundboard и automation
 
+Точный нормативный v1-контракт surface, cue scope, principals, quiet hours,
+DST/no-catch-up, deny reasons и mixed-version поведения зафиксирован в
+[`docs/analysis/p3-automation-safety-contract-v1.md`](analysis/p3-automation-safety-contract-v1.md).
+
 - сохранённые короткие cues;
 - configurable hotkeys;
 - schedules/quiet-hour aware announcements;
-- optional webhook/local automation API с scoped tokens;
+- authenticated coordinator HTTPS automation API со scoped tokens; webhook и
+  local listener отсутствуют в v1;
 - каждый automation event виден в history и может быть быстро отключён;
 - никакой automation не обходит DND.
 
@@ -1448,8 +1453,9 @@ automation, если его собственные gates доказаны.
    и migration при этом уже определены.
 4. **P3-HOTKEY:** low-level hold implementation под Store AppContainer.
 5. **P3-E2EE:** group key protocol, local encoding и moderation evidence.
-6. **Automation surface:** webhook против локального plugin API после threat
-   model.
+6. **Automation surface [РЕШЕНО]:** authenticated coordinator HTTPS API без
+   webhook и local listener; точный threat model и контракт — в
+   [`p3-automation-safety-contract-v1.md`](analysis/p3-automation-safety-contract-v1.md).
 
 Ни один из этих вопросов не должен возвращать Spotify или Telegram в роль
 обязательного аккаунта.

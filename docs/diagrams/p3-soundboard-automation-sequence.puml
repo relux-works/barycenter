@@ -4,7 +4,7 @@
 title P3 Soundboard and Safe Automation Trigger Sequence
 
 actor "User or Scoped Principal" as Actor
-participant "Desktop UI or Webhook" as Surface
+participant "Desktop UI or\nAuthenticated HTTPS API" as Surface
 participant "Automation Runtime" as Runtime
 participant "Cue/Schedule Store" as Store
 participant "History/Audit" as History
@@ -13,7 +13,7 @@ participant "Target Policy\nDND/Air/ACL" as Policy
 participant "Desktop Targets" as Targets
 
 == Trigger ==
-Actor -> Surface: fire cue hotkey\nor webhook trigger
+Actor -> Surface: fire cue hotkey\nor scoped API trigger
 Surface -> Runtime: request(trigger, cue, audience, delivery)
 Runtime -> Store: load cue, principal,\nschedule and revoke state
 Runtime -> Policy: validate scope, DND,\nquiet hours, Air policy,\nrate limits

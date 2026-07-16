@@ -30,6 +30,126 @@ func createStreamTrackFixture(t *testing.T, st *Store, credentials OnboardingCre
 	return media, metadata
 }
 
+func TestStreamVariantPersistedTargetAuthorizationAndReporterLocalHide(t *testing.T) {
+	st, source := newMediaIngestTestStore(t)
+	reporter, err := st.CreateSelfServiceOrbit("Stream reporter target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	neighbor, err := st.CreateSelfServiceOrbit("Stream neighbor target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	media, _ := createStreamTrackFixture(t, st, source, now)
+	publication, err := st.StageMediaPublication(media.ID, media.Revision, now+2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ready, err := st.CompleteMediaPublication(publication.ID, publication.Revision, MediaPublication{
+		MIME: "audio/mpeg", Codec: "mp3", DurationMS: 12000, SizeBytes: 2 << 20,
+		SHA256:       strings.Repeat("e", 64),
+		LoudnessJSON: `{"input_i":"-14","input_tp":"-1","output_i":"-14","output_tp":"-1"}`,
+	}, now+3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	variant, err := st.CreateStagedStreamVariant(streamVariantParams(ready.ID, "auth-range-v1", now+4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	variant, err = st.PublishStreamVariant(variant.ID, variant.Revision, now+5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transmissionID := "tr_00000000000000000000000001"
+	if _, err := st.db.Exec(`INSERT INTO transmissions(
+id, media_id, source_orbit_id, source_actor_id, source_slot,
+playback_domain_kind, playback_domain_id, audience_kind, origin_kind,
+include_origin, requested_delivery, effective_delivery, accepted_at, expires_at, updated_at
+) VALUES(?, ?, ?, ?, ?, 'orbit', ?, 'explicit', 'file', 0, 'overlay', 'overlay', ?, ?, ?)`,
+		transmissionID, ready.ID, source.OrbitID, source.ActorID, source.Slot,
+		source.OrbitID, now+6, now+int64(time.Hour/time.Millisecond), now+6,
+	); err != nil {
+		t.Fatal(err)
+	}
+	for _, target := range []OnboardingCredentials{reporter, neighbor} {
+		var pairedAt int64
+		if err := st.db.QueryRow(`SELECT slot_paired_at FROM installation_credentials
+WHERE actor_id = ? AND slot_orbit_id = ? AND slot_name = ?`,
+			target.ActorID, target.OrbitID, target.Slot,
+		).Scan(&pairedAt); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.db.Exec(`INSERT INTO transmission_targets(
+transmission_id, orbit_id, actor_id, slot, binding_paired_at, resolved_at_ms,
+online_at_acceptance, media_clip_capable, overlay_capable,
+interrupt_capable, interrupt_resume_ready, updated_at
+) VALUES(?, ?, ?, ?, ?, ?, 1, 0, 0, 0, 0, ?)`,
+			transmissionID, target.OrbitID, target.ActorID, target.Slot,
+			pairedAt, now+6, now+6,
+		); err != nil {
+			t.Fatal(err)
+		}
+	}
+	open := func(credentials OnboardingCredentials) error {
+		ctx, err := st.ResolveTokenActorContext(credentials.NodeToken)
+		if err != nil {
+			return err
+		}
+		_, err = st.WithAuthorizedPersistedStreamVariantDownload(
+			ctx, credentials.NodeToken,
+			MediaTargetIdentity{MediaID: ready.ID, OrbitID: ctx.OrbitID, ActorID: ctx.ActorID, Slot: ctx.Slot},
+			variant.ID, now+7, func(candidate StreamVariant) error {
+				if candidate.ID != variant.ID || candidate.ETag != variant.ETag {
+					return errors.New("wrong immutable variant")
+				}
+				return nil
+			},
+		)
+		return err
+	}
+	if err := open(reporter); err != nil {
+		t.Fatalf("reporter initial open=%v", err)
+	}
+	if err := open(neighbor); err != nil {
+		t.Fatalf("neighbor initial open=%v", err)
+	}
+	controlContext, err := st.ResolveTokenActorContext(source.ControlToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.WithAuthorizedPersistedStreamVariantDownload(
+		controlContext, source.ControlToken,
+		MediaTargetIdentity{MediaID: ready.ID, OrbitID: source.OrbitID, ActorID: source.ActorID, Slot: source.Slot},
+		variant.ID, now+7, func(StreamVariant) error { return nil },
+	); !errors.Is(err, ErrStreamTrackNotFound) {
+		t.Fatalf("owner control stream error=%v", err)
+	}
+	if _, err := st.CreateModerationReport(reporter.ActorID, reporter.ControlToken, CreateModerationReportParams{
+		MediaID: ready.ID, Reason: ModerationReasonSpam, CreatedAt: now + 8,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := open(reporter); !errors.Is(err, ErrStreamTrackNotFound) {
+		t.Fatalf("reporter local hide error=%v", err)
+	}
+	if err := open(neighbor); err != nil {
+		t.Fatalf("plain report affected neighbor=%v", err)
+	}
+	neighborContext, err := st.ResolveTokenActorContext(neighbor.NodeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.WithAuthorizedPersistedStreamVariantDownload(
+		neighborContext, neighbor.NodeToken,
+		MediaTargetIdentity{MediaID: ready.ID, OrbitID: neighbor.OrbitID, ActorID: neighbor.ActorID, Slot: neighbor.Slot},
+		"sv_00000000000000000000000000", now+9, func(StreamVariant) error { return nil },
+	); !errors.Is(err, ErrStreamTrackNotFound) {
+		t.Fatalf("unknown variant error=%v", err)
+	}
+}
+
 func streamVariantParams(mediaID, profile string, now int64) CreateStreamVariantParams {
 	digest := strings.Repeat("b", 64)
 	return CreateStreamVariantParams{

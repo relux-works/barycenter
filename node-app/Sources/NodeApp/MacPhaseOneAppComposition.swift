@@ -83,6 +83,54 @@ final class MacPhaseOneAppComposition {
         }
     }
 
+    func sendExplicit(
+        draftID: String,
+        targetReferences: [String],
+        includeOrigin: Bool,
+        delivery: PulsarDeliveryMode,
+        rightsAcknowledged: Bool
+    ) {
+        guard !stopped, !mutationInFlight,
+              let coreDelivery = PhaseOneDelivery(rawValue: delivery.rawValue),
+              !targetReferences.isEmpty else { return }
+        mutationInFlight = true
+        refreshTask?.cancel()
+        mutationTask = Task { [weak self] in
+            guard let self else { return }
+            defer { mutationInFlight = false }
+            do {
+                try await ensureContentPolicy()
+                _ = try await outbox.sendExplicit(
+                    draftID: draftID,
+                    targetReferences: targetReferences,
+                    includeOrigin: includeOrigin,
+                    delivery: coreDelivery,
+                    rightsAcknowledged: rightsAcknowledged)
+                await loadProjection()
+            } catch {
+                await loadOutbox(failure: shellFailure(error))
+            }
+        }
+    }
+
+    func retryExplicit(draftID: String, rightsAcknowledged: Bool) {
+        guard !stopped, !mutationInFlight else { return }
+        mutationInFlight = true
+        refreshTask?.cancel()
+        mutationTask = Task { [weak self] in
+            guard let self else { return }
+            defer { mutationInFlight = false }
+            do {
+                try await ensureContentPolicy()
+                _ = try await outbox.retryExplicit(
+                    draftID: draftID, rightsAcknowledged: rightsAcknowledged)
+                await loadProjection()
+            } catch {
+                await loadOutbox(failure: shellFailure(error))
+            }
+        }
+    }
+
     private func ensureContentPolicy() async throws {
         do {
             let current = try await client.currentContentPolicyGrant()
@@ -295,7 +343,8 @@ final class MacPhaseOneAppComposition {
             downgradeReason: draft.downgradeReason,
             status: draft.status,
             failureCode: draft.failureCode,
-            localBytesRetained: draft.localBytesRetained)
+            localBytesRetained: draft.localBytesRetained,
+            explicitTargetCount: draft.explicitTargetCount)
     }
 
     private func shellFailure(_ error: Error) -> String {

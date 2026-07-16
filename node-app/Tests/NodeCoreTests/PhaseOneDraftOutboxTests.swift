@@ -87,6 +87,44 @@ struct PhaseOneDraftOutboxTests {
     #expect(FileManager.default.fileExists(atPath: selfTest.fileURL.path))
   }
 
+  @Test("Explicit target intent is durable, canonical and retried without another upload")
+  func explicitTargetRetry() async throws {
+    let root = temporaryRoot()
+    let mediaRoot = root.appendingPathComponent("CaptureMedia", isDirectory: true)
+    let stateURL = root.appendingPathComponent("PhaseOne/outbox.json")
+    let store = CaptureMediaStore(
+      root: mediaRoot,
+      idProvider: { "00000000000000000000000000000002" })
+    let draft = try store.importUserDraft(bytes: try cueBytes())
+    let service = ScriptedPhaseOneService(failedTransmissionCount: 1)
+    let first = try PhaseOneDraftOutbox(
+      service: service, mediaStore: store, stateURL: stateURL, recoveredDrafts: [draft])
+    let targets = [
+      "trf_" + String(repeating: "b", count: 43),
+      "trf_" + String(repeating: "a", count: 43),
+    ]
+
+    await #expect(throws: PhaseOneDraftOutboxError.service("coordinator_unavailable")) {
+      _ = try await first.sendExplicit(
+        draftID: draft.id, targetReferences: targets, includeOrigin: false,
+        delivery: .overlay, rightsAcknowledged: true)
+    }
+    #expect((await first.snapshots().first)?.explicitTargetCount == 2)
+
+    let restartedStore = CaptureMediaStore(root: mediaRoot)
+    let recovery = try restartedStore.recover()
+    let restarted = try PhaseOneDraftOutbox(
+      service: service, mediaStore: restartedStore,
+      stateURL: stateURL, recoveredDrafts: recovery.retainedDrafts)
+    let accepted = try await restarted.retryExplicit(
+      draftID: draft.id, rightsAcknowledged: true)
+    #expect(accepted.state == .accepted)
+    #expect(accepted.explicitTargetCount == 2)
+    let calls = await service.calls()
+    #expect(calls.uploadKeys == ["mac-upload-\(draft.id)"])
+    #expect(calls.explicitTargets == [targets.sorted(), targets.sorted()])
+  }
+
   private func cueBytes() throws -> Data {
     let root = URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent().deletingLastPathComponent()
@@ -105,6 +143,7 @@ private actor ScriptedPhaseOneService: PhaseOneAppServicing {
     var uploadKeys: [String] = []
     var transmissionKeys: [String] = []
     var deletedMediaIDs: [String] = []
+    var explicitTargets: [[String]] = []
   }
 
   private var recorded = Calls()
@@ -144,6 +183,27 @@ private actor ScriptedPhaseOneService: PhaseOneAppServicing {
       downgradeReason: "mandatory_target_missing_overlay_capability",
       status: "accepted",
       reused: recorded.transmissionKeys.count > 1)
+  }
+
+  func transmitExplicit(
+    mediaID: String,
+    targetReferences: [String],
+    includeOrigin: Bool,
+    delivery: PhaseOneDelivery,
+    originKind: PhaseOneOriginKind,
+    idempotencyKey: String
+  ) async throws -> PhaseOneTransmissionReceipt {
+    recorded.transmissionKeys.append(idempotencyKey)
+    recorded.explicitTargets.append(targetReferences)
+    #expect(!includeOrigin)
+    if failedTransmissionCount > 0 {
+      failedTransmissionCount -= 1
+      throw PhaseOneClientError.transport
+    }
+    return .init(
+      transmissionID: "tr_" + String(repeating: "D", count: 26),
+      requestedDelivery: delivery, effectiveDelivery: delivery,
+      downgradeReason: nil, status: "accepted", reused: recorded.explicitTargets.count > 1)
   }
 
   func deleteMedia(_ mediaID: String) async throws { recorded.deletedMediaIDs.append(mediaID) }

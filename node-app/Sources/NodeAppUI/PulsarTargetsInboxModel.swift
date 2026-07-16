@@ -185,6 +185,9 @@ public struct PulsarTargetsInboxSnapshot: Equatable, Sendable {
     public var inboxNextCursor: String?
     public var history: [PulsarHistoryCapabilityItem]
     public var historyNextCursor: String?
+    public var actionOutcome: PulsarLocalizedLabel?
+    public var actionFailure: PulsarLocalizedLabel?
+    public var commandInFlight: Bool
 
     public init(
         state: PulsarTargetsInboxSurfaceState = .loading,
@@ -200,7 +203,10 @@ public struct PulsarTargetsInboxSnapshot: Equatable, Sendable {
         inbox: [PulsarInboxCapabilityItem] = [],
         inboxNextCursor: String? = nil,
         history: [PulsarHistoryCapabilityItem] = [],
-        historyNextCursor: String? = nil
+        historyNextCursor: String? = nil,
+        actionOutcome: PulsarLocalizedLabel? = nil,
+        actionFailure: PulsarLocalizedLabel? = nil,
+        commandInFlight: Bool = false
     ) {
         self.state = state
         self.stateLabel = stateLabel
@@ -216,6 +222,25 @@ public struct PulsarTargetsInboxSnapshot: Equatable, Sendable {
         self.inboxNextCursor = inboxNextCursor
         self.history = history
         self.historyNextCursor = historyNextCursor
+        self.actionOutcome = actionOutcome
+        self.actionFailure = actionFailure
+        self.commandInFlight = commandInFlight
+    }
+}
+
+@MainActor
+public final class PulsarTargetsInboxActions {
+    private let onPerform: (PulsarTargetsInboxCommand) -> Void
+
+    public init(
+        perform: @escaping @MainActor (PulsarTargetsInboxCommand) -> Void = { _ in }
+    ) {
+        onPerform = perform
+    }
+
+    public func perform(_ command: PulsarTargetsInboxCommand?) {
+        guard let command else { return }
+        onPerform(command)
     }
 }
 

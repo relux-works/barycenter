@@ -137,4 +137,37 @@ struct PulsarTargetsInboxModelTests {
             #expect(commands[command] != nil)
         }
     }
+
+    @Test("Native macOS surface keeps playback explicit and exposes keyboard and VoiceOver seams")
+    func macSurfaceSourceContract() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let view = try String(
+            contentsOf: root.appendingPathComponent("Sources/NodeAppUI/PulsarTargetsInboxView.swift"),
+            encoding: .utf8)
+        let main = try String(
+            contentsOf: root.appendingPathComponent("Sources/NodeAppUI/PulsarMainWindow.swift"),
+            encoding: .utf8)
+        let composition = try String(
+            contentsOf: root.appendingPathComponent("Sources/NodeApp/MacTargetsInboxAppComposition.swift"),
+            encoding: .utf8)
+        for seam in [
+            "PulsarTargetsInboxView", "model.replayInboxCommand", "model.reportInboxCommand",
+            "model.loadMoreInboxCommand", ".keyboardShortcut(\"r\", modifiers: .command)",
+            ".accessibilityHint(copy.explicitReplayHint)", ".accessibilityElement(children: .contain)",
+            "boundedReportDetails",
+        ] {
+            #expect(view.contains(seam))
+        }
+        #expect(main.contains("case .inbox"))
+        #expect(!view.contains("onAppear"))
+        #expect(!view.contains("onTapGesture"))
+        #expect(!view.contains("Text(item.id)"))
+        #expect(!view.contains("Text(target.reference)"))
+        #expect(composition.contains("preservingSelection: selectionIntent"))
+        #expect(composition.contains("filter(targetReferences.contains)"))
+        #expect(main.contains("actions.sendTargetedDraft"))
+        #expect(main.contains("draft.explicitTargetCount"))
+    }
 }

@@ -90,6 +90,12 @@ func TestInboxHTTPPaginationRedactionDismissReplayAndReceipts(t *testing.T) {
 		len(accepted) != 0 {
 		t.Fatalf("safe handles inbox=%q history=%q accepted=%v", inboxID, historyItemID, accepted)
 	}
+	presented := item["presentation"].(map[string]any)
+	if presented["availability"].(map[string]any)["key"] != "inbox.availability.available" ||
+		presented["receipt"].(map[string]any)["key"] != "receipt.reason.offline_before_start" ||
+		len(presented["actions"].([]any)) == 0 {
+		t.Fatalf("inbox presentation=%v", presented)
+	}
 	for _, forbidden := range []string{
 		`"media_id"`, `"transmission_id"`, `"actor_id"`, `"orbit_id"`,
 		`"slot"`, "binding_paired_at", source.ControlToken, target.NodeToken,
@@ -171,6 +177,10 @@ func TestInboxHTTPPaginationRedactionDismissReplayAndReceipts(t *testing.T) {
 	receiptItems := decodeObject(t, receipts)["items"].([]any)
 	if len(receiptItems) != 1 || receiptItems[0].(map[string]any)["target_label"] == "" {
 		t.Fatalf("receipt items=%v", receiptItems)
+	}
+	receiptPresentation := receiptItems[0].(map[string]any)["presentation"].(map[string]any)
+	if receiptPresentation["status"].(map[string]any)["key"] == "receipt.unknown" {
+		t.Fatalf("receipt presentation=%v", receiptPresentation)
 	}
 }
 

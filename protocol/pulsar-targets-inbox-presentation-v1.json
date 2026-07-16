@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "contract_id": "pulsar.targets-inbox-presentation.v1",
+  "extends": [
+    "p2-targets-inbox-parity.v1",
+    "p2-content-policy-consent.v1",
+    "pulsar.air-lifecycle-policy.v1"
+  ],
+  "surface_states": [
+    "loading",
+    "ready",
+    "stale",
+    "offline",
+    "coordinator_error"
+  ],
+  "content_policy_states": ["current", "required", "stale"],
+  "targeted_track_policies": ["clip", "queue", "replace", "unsupported"],
+  "capability_states": ["known", "mixed", "unknown"],
+  "target_choice": {
+    "fields": [
+      "reference",
+      "kind",
+      "expires_at",
+      "capability_state",
+      "capabilities",
+      "presentation"
+    ],
+    "reference": "trf_ opaque server capability",
+    "kinds": ["barycenter", "pulsar"],
+    "maximum_selection": 64,
+    "selection_rule": "a command may return only distinct unexpired references in the latest ready model",
+    "capabilities_are_advisory": true,
+    "server_reauthorizes_on_send": true,
+    "raw_identity_fields_forbidden": [
+      "actor_id",
+      "orbit_id",
+      "slot",
+      "binding_generation",
+      "telegram_user_id"
+    ]
+  },
+  "routing": {
+    "audience_kinds": ["this_pulsar", "own_barycenter", "current_air", "explicit"],
+    "available_audiences_are_server_derived": true,
+    "active_air_is_server_derived": true,
+    "include_origin_is_explicit": true,
+    "requested_and_effective_delivery_are_separate": true,
+    "targeted_track_policy_is_server_derived": true
+  },
+  "pages": {
+    "inbox": {
+      "id_prefix": "ib_",
+      "cursor_prefix": "ic_",
+      "availability": ["available", "dismissed", "replayed", "unavailable", "expired"],
+      "actions": ["replay", "dismiss", "report", "block_actor", "block_orbit", "unblock"]
+    },
+    "history": {
+      "id_prefix": "hi_",
+      "cursor_prefix": "hc_",
+      "actions": ["cancel", "delete", "replay", "report", "block_actor", "block_orbit", "unblock"]
+    },
+    "receipts": {
+      "parent_prefix": "hi_",
+      "cursor_prefix": "rc_",
+      "partial_delivery_is_explicit": true,
+      "target_labels_are_server_safe": true
+    },
+    "cursor_rule": "opaque cursors are scoped capabilities; clients neither parse nor persist them beyond the current page chain",
+    "cursor_expired": "discard the chain and refresh from the beginning"
+  },
+  "commands": {
+    "refresh": {"requires_state": ["loading", "ready", "stale", "offline", "coordinator_error"]},
+    "set_audience": {"requires_state": ["ready"], "requires_current_server_option": true, "explicit_requires_current_selection": true},
+    "select_targets": {"requires_state": ["ready"], "requires_current_references": true},
+    "set_include_origin": {"requires_state": ["ready"]},
+    "load_more_inbox": {"requires_state": ["ready"], "requires_cursor": "ic_"},
+    "load_more_history": {"requires_state": ["ready"], "requires_cursor": "hc_"},
+    "load_more_receipts": {"requires_state": ["ready"], "requires_parent": "hi_", "requires_cursor": "rc_"},
+    "replay_inbox": {"requires_state": ["ready"], "requires_object": "ib_", "requires_action": "replay", "requires_current_policy": true},
+    "dismiss_inbox": {"requires_state": ["ready"], "requires_object": "ib_", "requires_action": "dismiss"},
+    "delete_history": {"requires_state": ["ready"], "requires_object": "hi_", "requires_action": "delete"},
+    "report_inbox": {"wire_object": "server-returned history_item_id", "requires_state": ["ready"], "requires_object": "ib_", "requires_action": "report"},
+    "report_history": {"requires_state": ["ready"], "requires_object": "hi_", "requires_action": "report"},
+    "mute_sender": {"wire_action": "block_actor", "inbox_wire_object": "server-returned history_item_id", "requires_state": ["ready"], "requires_object": "hi_ or ib_", "requires_action": "block_actor"}
+  },
+  "localization": {
+    "wire_shape": {"key": "stable semantic key", "en": "English copy", "ru": "Russian copy"},
+    "authority": "coordinator/internal/presentation",
+    "clients_select_language_only": true,
+    "unknown_enum": "preserve a bounded enum as unsupported; never coerce it to an enabled command"
+  },
+  "freshness": {
+    "loading": "no mutation commands",
+    "ready": "commands may be built only from current capabilities",
+    "stale": "render retained values with stale copy and no mutation commands",
+    "offline": "render retained values with offline copy and no mutation commands",
+    "coordinator_error": "render retained values with error copy and no mutation commands",
+    "replacement": "drop selected references and action capabilities missing from the replacement model"
+  },
+  "privacy": {
+    "labels_may_contain": ["bounded human title", "bounded human display name", "safe server target label"],
+    "labels_must_not_contain": ["raw object ID", "numeric identity", "credential", "cursor", "opaque target reference"],
+    "opaque_values_are_never_description_or_debug_output": true
+  },
+  "playback": {
+    "late_inbox_autoplay_command_exists": false,
+    "missed_items_require_manual_replay": true,
+    "read_or_pagination_triggers_playback": false
+  },
+  "platform_consumers": ["node-app NodeAppUI", "pulsar-win shell composition"],
+  "platform_views_deferred_to": ["TASK-260712-2nto40", "TASK-260712-cuplon"]
+}

@@ -536,11 +536,14 @@ FROM air_invites WHERE code_hash = ?`, hashAirInviteCode(key, code)).Scan(
 		&invite.IssuedByActorID, &invite.IssuedByOrbitID, &invite.PolicyRevision,
 		&invite.Revision, &invite.ExpiresAt, &invite.ConsumedMembershipID,
 		&invite.CreatedAt, &invite.UpdatedAt)
-	if errors.Is(err, sql.ErrNoRows) || invite.Status != "open" || invite.ExpiresAt <= auth.Now {
+	if errors.Is(err, sql.ErrNoRows) {
 		return AirJoinPreview{}, ErrAirInviteUnavailable
 	}
 	if err != nil {
 		return AirJoinPreview{}, err
+	}
+	if invite.Status != "open" || invite.ExpiresAt <= auth.Now {
+		return AirJoinPreview{}, ErrAirInviteUnavailable
 	}
 	if invite.IssuedByOrbitID == state.ctx.OrbitID {
 		return AirJoinPreview{}, ErrAirInvalid

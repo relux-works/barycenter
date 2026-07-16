@@ -156,8 +156,28 @@ func TestAirHTTPRejectsLooseShapesAndRateLimitsUnavailableInvites(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
+	owner, err := harness.store.CreateSelfServiceOrbit("Invite owner")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := harness.store.CutoverLinksToAirs(1, 100); err != nil {
 		t.Fatal(err)
+	}
+	createdResponse := airAPIRequest(harness.mux, http.MethodPost, "/v1/airs",
+		`{"title":"Rate limit Air"}`, owner.ControlToken, "http-air-rate-create-0001")
+	if createdResponse.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%q", createdResponse.Code, createdResponse.Body.String())
+	}
+	created := decodeAirProjection(t, createdResponse)
+	issueResponse := airAPIRequest(harness.mux, http.MethodPost,
+		"/v1/airs/"+created.AirID+"/invites", `{"air_role":"member"}`,
+		owner.ControlToken, "http-air-rate-issue-0001")
+	if issueResponse.Code != http.StatusCreated {
+		t.Fatalf("issue status=%d body=%q", issueResponse.Code, issueResponse.Body.String())
+	}
+	var issued airInviteHTTPResponse
+	if err := json.Unmarshal(issueResponse.Body.Bytes(), &issued); err != nil || len(issued.Code) != 43 {
+		t.Fatalf("issued=%+v err=%v", issued, err)
 	}
 	bad := airAPIRequest(harness.mux, http.MethodPost, "/v1/airs?loose=1",
 		`{"title":"No"}`, actor.ControlToken, "http-air-invalid-0001")
@@ -172,9 +192,20 @@ func TestAirHTTPRejectsLooseShapesAndRateLimitsUnavailableInvites(t *testing.T) 
 			t.Fatalf("unavailable attempt=%d status=%d body=%q", i, response.Code, response.Body.String())
 		}
 	}
+	valid := `{"code":"` + issued.Code + `"}`
 	limited := airAPIRequest(harness.mux, http.MethodPost, "/v1/air-invites/consume",
-		unknown, actor.ControlToken, "http-air-missing-0006")
+		valid, actor.ControlToken, "http-air-valid-0006")
 	if limited.Code != http.StatusTooManyRequests {
 		t.Fatalf("limited status=%d body=%q", limited.Code, limited.Body.String())
+	}
+	// The admission check must happen before the store mutation: exhausting
+	// the failure budget cannot be bypassed by making the next guess valid.
+	harness.api.airInviteConsumeActor = newAttemptLimiter(5, time.Minute, 10_000)
+	harness.api.airInviteConsumeIP = newAttemptLimiter(5, time.Minute, 10_000)
+	accepted := airAPIRequest(harness.mux, http.MethodPost, "/v1/air-invites/consume",
+		valid, actor.ControlToken, "http-air-valid-0006")
+	if accepted.Code != http.StatusAccepted {
+		t.Fatalf("valid invite was consumed before limiter admission status=%d body=%q",
+			accepted.Code, accepted.Body.String())
 	}
 }

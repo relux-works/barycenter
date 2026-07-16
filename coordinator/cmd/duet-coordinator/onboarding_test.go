@@ -778,6 +778,32 @@ func TestAttemptLimiterCountsRejectedAttemptsAndConcurrentBoundary(t *testing.T)
 	}
 }
 
+func TestAttemptLimiterReleasesExactSuccessfulReservation(t *testing.T) {
+	base := time.Unix(1_700_000_000, 0)
+	now := base
+	limiter := newAttemptLimiter(2, time.Minute, 10)
+	limiter.now = func() time.Time { return now }
+	allowed, _, first := limiter.reserveReleasable("key")
+	if !allowed {
+		t.Fatal("first reservation rejected")
+	}
+	now = base.Add(time.Second)
+	allowed, _, second := limiter.reserveReleasable("key")
+	if !allowed {
+		t.Fatal("second reservation rejected")
+	}
+	limiter.release(first)
+	entry := limiter.entries["key"]
+	if len(entry.timestamps) != 1 || len(entry.reservationIDs) != 1 ||
+		entry.timestamps[0] != now.UnixMilli() || entry.reservationIDs[0] != second.id {
+		t.Fatalf("release removed wrong reservation: %+v", entry)
+	}
+	now = base.Add(2 * time.Second)
+	if allowed, _, _ := limiter.reserveReleasable("key"); !allowed {
+		t.Fatal("released successful attempt still consumed the failure budget")
+	}
+}
+
 func TestForwardedHeadersRequireLoopbackProxyPeer(t *testing.T) {
 	harness := newOnboardingHarness(t)
 	harness.api.config.TrustedProxy = true

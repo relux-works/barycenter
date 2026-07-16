@@ -234,18 +234,22 @@ func (api *onboardingAPI) consumeAirInvite(w http.ResponseWriter, r *http.Reques
 		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
 		return
 	}
-	result, err := api.store.ConsumeAuthorizedAirInvite(auth, request.Code)
-	if errors.Is(err, store.ErrAirInviteUnavailable) {
-		actorAllowed, actorRetry := api.airInviteConsumeActor.reserve(strconv.FormatInt(actor.Context.ActorID, 10))
-		ipAllowed, ipRetry := api.airInviteConsumeIP.reserve(onboardingClientIP(r, api.config.TrustedProxy))
-		if !actorAllowed || !ipAllowed {
-			retry := actorRetry
-			if ipRetry > retry {
-				retry = ipRetry
-			}
-			apiError(w, http.StatusTooManyRequests, errorTooManyAttempts, retry)
-			return
+	actorAllowed, actorRetry, actorReservation := api.airInviteConsumeActor.reserveReleasable(
+		strconv.FormatInt(actor.Context.ActorID, 10))
+	ipAllowed, ipRetry, ipReservation := api.airInviteConsumeIP.reserveReleasable(
+		onboardingClientIP(r, api.config.TrustedProxy))
+	if !actorAllowed || !ipAllowed {
+		retry := actorRetry
+		if ipRetry > retry {
+			retry = ipRetry
 		}
+		apiError(w, http.StatusTooManyRequests, errorTooManyAttempts, retry)
+		return
+	}
+	result, err := api.store.ConsumeAuthorizedAirInvite(auth, request.Code)
+	if !errors.Is(err, store.ErrAirInviteUnavailable) {
+		api.airInviteConsumeActor.release(actorReservation)
+		api.airInviteConsumeIP.release(ipReservation)
 	}
 	if api.airStoreError(w, "consume Air invite", err) {
 		return

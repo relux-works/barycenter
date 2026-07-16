@@ -175,8 +175,14 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 }
 
 type attemptEntry struct {
-	timestamps []int64
-	lastUsed   uint64
+	timestamps     []int64
+	reservationIDs []uint64
+	lastUsed       uint64
+}
+
+type attemptReservation struct {
+	key string
+	id  uint64
 }
 
 // attemptLimiter reserves before returning and caps arbitrary-key state. It
@@ -201,16 +207,27 @@ func newAttemptLimiter(limit int, window time.Duration, cap int) *attemptLimiter
 }
 
 func (l *attemptLimiter) reserve(key string) (bool, time.Duration) {
+	allowed, retry, _ := l.reserveReleasable(key)
+	return allowed, retry
+}
+
+// reserveReleasable reserves an attempt before protected work starts. A
+// caller may release the exact reservation when the work succeeds or fails
+// for a reason that must not count against the limiter.
+func (l *attemptLimiter) reserveReleasable(key string) (bool, time.Duration, attemptReservation) {
 	now := l.now().UnixMilli()
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.clock++
+	reservation := attemptReservation{key: key, id: l.clock}
 	entry, exists := l.entries[key]
 	cut := now - l.window
 	kept := entry.timestamps[:0]
-	for _, timestamp := range entry.timestamps {
+	keptIDs := entry.reservationIDs[:0]
+	for index, timestamp := range entry.timestamps {
 		if timestamp > cut {
 			kept = append(kept, timestamp)
+			keptIDs = append(keptIDs, entry.reservationIDs[index])
 		}
 	}
 	if !exists && l.cap > 0 && len(l.entries) >= l.cap {
@@ -224,14 +241,17 @@ func (l *attemptLimiter) reserve(key string) (bool, time.Duration) {
 		delete(l.entries, oldestKey)
 	}
 	kept = append(kept, now)
+	keptIDs = append(keptIDs, reservation.id)
 	if len(kept) > l.limit+1 {
 		kept = kept[len(kept)-(l.limit+1):]
+		keptIDs = keptIDs[len(keptIDs)-(l.limit+1):]
 	}
 	entry.timestamps = kept
+	entry.reservationIDs = keptIDs
 	entry.lastUsed = l.clock
 	l.entries[key] = entry
 	if len(kept) <= l.limit {
-		return true, 0
+		return true, 0, reservation
 	}
 	// The next request also counts. Admission therefore requires the current
 	// population to fall to limit-1 before that append. For m retained events,
@@ -242,7 +262,32 @@ func (l *attemptLimiter) reserve(key string) (bool, time.Duration) {
 	if retryMS < 1 {
 		retryMS = 1
 	}
-	return false, time.Duration(retryMS) * time.Millisecond
+	return false, time.Duration(retryMS) * time.Millisecond, reservation
+}
+
+func (l *attemptLimiter) release(reservation attemptReservation) {
+	if reservation.key == "" || reservation.id == 0 {
+		return
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	entry, ok := l.entries[reservation.key]
+	if !ok {
+		return
+	}
+	for index, id := range entry.reservationIDs {
+		if id != reservation.id {
+			continue
+		}
+		entry.timestamps = append(entry.timestamps[:index], entry.timestamps[index+1:]...)
+		entry.reservationIDs = append(entry.reservationIDs[:index], entry.reservationIDs[index+1:]...)
+		if len(entry.timestamps) == 0 {
+			delete(l.entries, reservation.key)
+		} else {
+			l.entries[reservation.key] = entry
+		}
+		return
+	}
 }
 
 type actorRequest struct {

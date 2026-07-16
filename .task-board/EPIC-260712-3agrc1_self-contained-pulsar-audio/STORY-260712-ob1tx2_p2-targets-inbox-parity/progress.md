@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-16T03:26:42Z
+2026-07-16T03:59:50Z
 
 ## Blocked By
 - STORY-260712-1i0doc
@@ -46,6 +46,8 @@ agent spawned: codex (pid=77519, exit=0)
 Root decomposition review completed. Recast Phase 2 as an extension of Phase 1 target snapshots, history, secure callbacks and moderation; added versioned content-policy consent and separate Windows/macOS UI tasks. Tightened opaque authorized target selectors, targeted-track semantics blocker, one inbox item per eligible missed target, TTL/replay lineage, new-member isolation, stable pagination, zero autoplay, canonical rights revocation and mixed-version visibility. Remaining Air and stream task links will be added after those decompositions finish.
 2026-07-16 strict progress: macOS targets/inbox task TASK-260712-2nto40 accepted through code PR #134 merge 22f7175 after hosted run 29466777419 passed 4/4. Story remains in development and advances strictly to TASK-260712-cuplon; no hands-on app/hardware evidence is claimed.
 2026-07-16 strict progress: Windows targets/inbox task TASK-260712-cuplon accepted through code PR #136 merge 15f675e after hosted run 29468731725 passed 4/4. Deterministic Win32 keyboard/accessibility-source and high-DPI coverage is accepted; hands-on Narrator, packaged-app and physical-hardware evidence remains unclaimed in EPIC-260714-th54l3. Story advances strictly to TASK-260712-1vklop.
+2026-07-16 strict progress: TASK-260712-1vklop started inline after tracking PR #137 merge 1d49243 and hosted run 29469062833 passed 4/4. Building adversarial automated B5-B7 parity fixtures; manual real-app and mixed-fleet proof remains routed to EPIC-260714-th54l3.
+2026-07-16 strict progress: TASK-260712-1vklop accepted through code PR #138 merge 029346c after hosted run 29470131117 passed 4/4. Nineteen fail-closed repository invariants now map explicit ACL, frozen N-recipient targets, inbox/TTL/cursor behavior, mixed-version capability policy, consent, canonical revocation, migration rollback and the shared Windows/macOS/Telegram fixture to executable anchors. Manual B5-B7 app, hardware, accessibility, audible and real mixed-fleet proof remains unclaimed in TASK-260712-3u5cdn. Story advances strictly to TASK-260712-20cuna.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-ob1tx2/spec-entry.md) — Authoritative specification entry point

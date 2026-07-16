@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-16T06:22:23Z
+2026-07-16T08:19:07Z
 
 ## Blocked By
 - STORY-260712-3l1r1u
@@ -49,6 +49,8 @@ Root decomposition review completed. Added missing shared plus Windows/macOS lon
 2026-07-16 strict progress: TASK-260712-2h6snp started inline from merge cf3a33a after hosted run 29478459982 passed 4/4. Implementing candidate-neutral queue/replace, buffer-ready, audible progress, seek/rebuffer generations, leave and restart behavior without enabling production playback.
 2026-07-16 strict checkpoint: TASK-260712-2h6snp accepted on exact head 020c9e9 through PR #152, merge d427f82, after hosted run 29480661409 passed 4/4. Provider-neutral main-source orchestration, FIFO queue/replace persistence, exact-generation buffered scheduling, audible progress, rebuffer/restart, Air join/leave and ring-drained completion are green; production stream_track_v1 remains disabled and hands-on playback unclaimed. Strict story execution advances to TASK-260712-17w78q.
 2026-07-16 strict progress: TASK-260712-17w78q started inline from merge d427f82 after hosted run 29480661409 passed 4/4. Implementing bounded Windows range cache, incremental candidate decoder/ring integration and generation-safe load/seek/pause/resume/ended behavior in code and deterministic tests without enabling the production capability or claiming real-hardware performance.
+2026-07-16 strict checkpoint: TASK-260712-17w78q accepted on exact head a7bfeb7 through PR #154, merge feabd2e, after hosted run 29482823224 passed 4/4. Authenticated opaque range caching, fixed disk/PCM bounds, integrity and durable revoke handling, exact-generation lifecycle and drained completion are green; production stream_track_v1 remains disabled and hands-on Windows performance is unclaimed. Strict story execution advances to TASK-260712-1q2kwa.
+2026-07-16 strict progress: TASK-260712-1q2kwa started inline from merge feabd2e after hosted run 29482823224 passed 4/4. Implementing the shared RU/EN long-track draft, processing, canonical target, queue/replace and generation-safe playback presentation model without enabling production decoding or claiming real-app behavior.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-2ori1t/spec-entry.md) — Authoritative specification entry point

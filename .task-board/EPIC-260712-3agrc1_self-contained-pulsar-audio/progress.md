@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-16T06:22:23Z
+2026-07-16T08:19:07Z
 
 ## Blocked By
 - STORY-260712-sskhip
@@ -44,6 +44,8 @@ User mandate 2026-07-12: do not accept agent code without scrupulous root review
 2026-07-16 strict sequential start: TASK-260712-2h6snp began inline from merge cf3a33a after hosted run 29478459982 passed 4/4. Counts remain 105/186 engineering and 105/205 combined until provider-neutral queue/replace, buffer-ready scheduling, audible progress, seek/rebuffer generations and restart behavior are accepted.
 2026-07-16 strict sequential checkpoint: 106/186 engineering tasks accepted (57.0%) and 106/205 combined tasks accepted (51.7%). TASK-260712-2h6snp landed through PR #152 at merge d427f82 after hosted run 29480661409 passed 4/4. Provider-neutral main-source orchestration, trusted FIFO queue/replace, generation-safe buffer/start/seek barriers, audible progress, rebuffer/restart, Air lifecycle and drained completion are accepted; production codec/player and real-app evidence remain unclaimed. Strict engineering execution advances to TASK-260712-17w78q.
 2026-07-16 strict sequential start: TASK-260712-17w78q began inline from merge d427f82 after hosted run 29480661409 passed 4/4. Counts remain 106/186 engineering and 106/205 combined until bounded Windows cache/player and deterministic lifecycle coverage are accepted; production capability advertisement and manual hardware/performance evidence remain deferred.
+2026-07-16 strict sequential checkpoint: 107/186 engineering tasks accepted (57.5%) and 107/205 combined tasks accepted (52.2%). TASK-260712-17w78q landed through PR #154 at merge feabd2e after hosted run 29482823224 passed 4/4. Authenticated bounded range caching, integrity/ETag/revocation fences, candidate decoder/ring and generation-safe streamed lifecycle are accepted; production stream capability remains disabled and real Windows timing/RSS/audio evidence remains manual. Strict engineering execution advances to TASK-260712-1q2kwa.
+2026-07-16 strict sequential start: TASK-260712-1q2kwa began inline from merge feabd2e after hosted run 29482823224 passed 4/4. Counts remain 107/186 engineering and 107/205 combined until the shared localized draft, processing, targeting and playback UI model is accepted; production codec/player and real-app evidence remain unclaimed.
 
 ## Precondition Resources
 (none)

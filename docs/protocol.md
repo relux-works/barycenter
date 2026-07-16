@@ -76,6 +76,9 @@ consumes this model without weakening the production codec no-go.
 The [macOS streamed-track UI and bounded resumable intake](analysis/p2-macos-stream-track-ui.md)
 uses the same fail-closed projection, retains app-private drafts and requires a
 separate rights confirmation for every upload attempt.
+The final [streamed-track rollout, limits and operational handoff](analysis/p2-streamed-track-rollout-handoff.md)
+freezes the no-go-aware rollout/rollback order, cache and quota ceilings,
+operator metrics and Air/targets/inbox seams without claiming activation.
 The candidate-neutral
 [macOS streamed-track player](analysis/p2-macos-streamed-track-player.md)
 implements the bounded range/cache/render lifecycle without registering a

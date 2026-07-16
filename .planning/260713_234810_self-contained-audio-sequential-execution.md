@@ -4,25 +4,27 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 116 accepted, 89 remain.
-- Routed inventory: 186 engineering tasks (116 accepted, 70 remain) and 19
+- Combined inventory: 205 original tasks; 117 accepted, 88 remain.
+- Routed inventory: 186 engineering tasks (117 accepted, 69 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2sicfs` — p2-independent-air-migration-review
-- Next engineering task: `TASK-260712-2sicfs` — p2-independent-air-migration-review
-- Most recently accepted: `TASK-260712-28mn7w` — p2-independent-stream-performance-review
-- Current branch: `chore/resume-after-stream-performance-review`
+- Current engineering task: `TASK-260712-n11rg6` — p2-independent-target-security-review
+- Next engineering task: `TASK-260712-n11rg6` — p2-independent-target-security-review
+- Most recently accepted: `TASK-260712-2sicfs` — p2-independent-air-migration-review
+- Current branch: `chore/resume-after-air-migration-review`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
   latter consumes physical evidence from manual tasks `TASK-260712-1fpb9q`
   and `TASK-260712-2bdi4a`. Production playback and Phase 2 promotion stay
-  blocked; reversible engineering continues under the owner-approved
-  best-effort rule.
+  blocked. Air production and promotion are additionally blocked on manual
+  tasks `TASK-260712-21kz3b` and `TASK-260712-3qybi2` plus independent approval
+  `TASK-260716-19g4gd`. Reversible engineering continues under the
+  owner-approved best-effort rule.
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -32,8 +34,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 116 / 205 tasks (approximately 56.6%); 89 remain
-- Engineering progress: 116 / 186 tasks (approximately 62.4%); 70 remain
+- Accepted overall: 117 / 205 tasks (approximately 57.1%); 88 remain
+- Engineering progress: 117 / 186 tasks (approximately 62.9%); 69 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2272,6 +2274,26 @@ one-hour/two-hour matrix and independent review. Those gates are routed to
 Ivan Oparin. Progress is 116/205 overall and 116/186 engineering. Strict
 reversible execution advances to `TASK-260712-2sicfs`.
 
+Checkpoint 2026-07-16 (accepted fail-closed technical review):
+`TASK-260712-2sicfs` landed on exact engineering head
+`e8d4dc97d823a362c527f429b67f0052fb9698ed` through PR #175, merge
+`22f21b882627f359827a804f8bb22b6a9a42f9d2`. The review fixed a High invite
+admission bypass: actor and source-IP failure budgets are now reserved before
+the store mutation, unavailable guesses retain reservations, and successful
+or non-guess outcomes release the exact concurrent reservation. Five invalid
+codes followed by a valid sixth can no longer consume before `429`; targeted
+race and 100-repeat tests pass. A Medium database scan-error masking defect was
+also fixed. The deterministic 8x20 Air rehearsal reports one runtime, no
+legacy group and no duplicates; relevant store/runtime/alias/Telegram race,
+exact pinned previous-coordinator rollback and 100-repeat transactional-winner
+tests passed. Seventy-seven contract tests passed. Hosted run `29501451845`
+passed all four jobs on its first attempt (coordinator 2m53s, node-core 2m02s,
+pulsar-win 2m09s, signed packaged probe 2m37s). Production Air and Phase 2
+promotion remain blocked on manual `TASK-260712-21kz3b` and
+`TASK-260712-3qybi2` plus independent approval `TASK-260716-19g4gd` owned by
+Ivan Oparin. Progress is 117/205 overall and 117/186 engineering. Strict
+reversible execution advances to `TASK-260712-n11rg6`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -2825,7 +2847,7 @@ manual promotion remains separate.
   production playback is accepted, and all counsel/independent-review/release
   gates remain preserved in external owner task `TASK-260716-tlxe3s`)
 - [x] `TASK-260712-28mn7w` — p2-independent-stream-performance-review — accepted as a fail-closed technical review: Windows shutdown High fixed and re-reviewed; bounded long-track integrity, physical performance evidence and independent signature remain routed production gates
-- [ ] `TASK-260712-2sicfs` — p2-independent-air-migration-review
+- [x] `TASK-260712-2sicfs` — p2-independent-air-migration-review — accepted as a fail-closed technical review: invite pre-admission High and scan-error masking Medium fixed and re-reviewed; physical rollout and independent signature remain routed production gates
 - [ ] `TASK-260712-n11rg6` — p2-independent-target-security-review
 - [ ] `TASK-260712-qi81vf` — phase2-observability-quota-views
 - [ ] `TASK-260712-1kfnpu` — p2-root-integration-review

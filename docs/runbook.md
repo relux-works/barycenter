@@ -156,6 +156,13 @@ For the authenticated Air lifecycle routes, idempotent mutation records,
 invite-secret boundary and synchronous runtime acceptance barrier, use
 `docs/analysis/p2-air-control-plane-api.md`.
 
+For Phase 2 explicit-target, inbox, replay and rights deployment, use
+`docs/analysis/p2-targets-inbox-rollout-handoff.md`. Deploy the coordinator
+first with caller surfaces withdrawn, never enable targeted tracks before the
+streamed-track story exists, and preserve every additive target/inbox/policy/
+moderation table across predecessor rollback. The repository handoff is not a
+substitute for manual tasks `TASK-260712-3u5cdn` and `TASK-260712-3qybi2`.
+
 For the Telegram `/approach`, `/accept`, `/decline` and `/apart` cutover
 boundary, restart behavior and stale-link rollback guard, use
 `docs/analysis/p2-approach-air-alias-compat.md`.

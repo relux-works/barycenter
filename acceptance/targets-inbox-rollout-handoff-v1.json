@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-targets-inbox-rollout-handoff.v1",
+  "task": "TASK-260712-20cuna",
+  "scope": "repository-engineering-handoff",
+  "executionStatus": "documented-not-executed",
+  "sourceContracts": [
+    "p1-transmission-v1",
+    "pulsar.air-lifecycle-policy.v1",
+    "p2-targets-inbox-parity.v1",
+    "pulsar.targets-inbox-presentation.v1",
+    "p2-targets-inbox-parity-regressions.v1"
+  ],
+  "surfaces": [
+    {"method": "POST", "path": "/v1/transmissions", "authority": "control credential plus current ActorContext and content-policy grant"},
+    {"method": "GET", "path": "/v1/inbox", "authority": "exact current target binding plus digest-only cursor"},
+    {"method": "GET", "path": "/v1/inbox/{ib_}", "authority": "exact current target binding; foreign and stale bindings are nonexistent"},
+    {"method": "DELETE", "path": "/v1/inbox/{ib_}", "authority": "recipient-local idempotent dismissal"},
+    {"method": "POST", "path": "/v1/inbox/{ib_}/replays", "authority": "explicit current action plus reauthorization and idempotency"},
+    {"method": "GET", "path": "/v1/history/{hi_}/receipts", "authority": "sender safe projection or caller exact target row"},
+    {"method": "POST", "path": "/v1/history/{hi_}/actions/report", "authority": "reporter exact persisted target evidence"},
+    {"method": "POST", "path": "/v1/history/{hi_}/actions/delete", "authority": "reauthorized canonical sender media lifecycle"}
+  ],
+  "rollout": [
+    {
+      "sequence": 1,
+      "id": "freeze-and-backup",
+      "required": ["record coordinator and desktop artifact hashes", "take SQLite-safe backup", "retain immediate predecessor artifact", "record current policy version and hash"],
+      "newCallerExposureAllowed": false
+    },
+    {
+      "sequence": 2,
+      "id": "coordinator-schema-dark",
+      "required": ["deploy coordinator first", "keep explicit-target create and inbox mutation entry points withdrawn at caller surfaces", "install additive schema in one startup transaction", "complete foreign-key check before commit"],
+      "newCallerExposureAllowed": false
+    },
+    {
+      "sequence": 3,
+      "id": "reconcile-and-read",
+      "required": ["backfill target capability hashes and resolution times", "backfill scheduler companions and eligible inbox rows", "verify legacy Phase 1 traffic", "verify non-target nonexistence and read-only no-autoplay"],
+      "newCallerExposureAllowed": false
+    },
+    {
+      "sequence": 4,
+      "id": "desktop-and-telegram-models-dark",
+      "required": ["deploy Windows and macOS consumers of the shared presentation contract", "deploy Telegram adapter over the common service", "reconnect replaces rather than unions capabilities", "unknown values remain visibly unsupported"],
+      "newCallerExposureAllowed": false
+    },
+    {
+      "sequence": 5,
+      "id": "bounded-clip-cohort",
+      "required": ["expose current-Air and explicit clip targeting to a bounded cohort", "keep targeted tracks visibly unsupported", "monitor unsupported-target, cursor, replay, moderation and revocation outcomes", "retain manual replay and zero reconnect autoplay"],
+      "newCallerExposureAllowed": true
+    },
+    {
+      "sequence": 6,
+      "id": "streamed-track-extension",
+      "required": ["complete streamed-track schema, range ACL, players and queue or replace runtime", "advertise exact track capabilities only after executable paths exist", "reuse immutable target rows, inbox lineage and canonical revocation", "rerun B5-B7 delta regressions"],
+      "newCallerExposureAllowed": false,
+      "blockedByStory": "STORY-260712-2ori1t"
+    },
+    {
+      "sequence": 7,
+      "id": "manual-acceptance-and-rollout-rehearsal",
+      "required": ["execute real packaged mixed-fleet B5-B7 acceptance", "rehearse upgrade, drain, predecessor rollback and roll-forward", "record exact artifacts, schema and data hashes", "keep promotion closed until manual results are accepted"],
+      "newCallerExposureAllowed": false,
+      "manualTasks": ["TASK-260712-3u5cdn", "TASK-260712-3qybi2"]
+    }
+  ],
+  "mixedVersion": {
+    "phase1Clip": "allowed only when every mandatory online target supports the requested Phase 1 delivery",
+    "targetedTrackBeforeStreamStory": "visible unsupported; no transmission, inbox row, queue or broadcast fallback",
+    "mandatoryOnlineMissingCapability": "atomic 422 unsupported_targets with opaque references and sorted missing capabilities",
+    "offlineUnknownCapability": "freeze exact target and allow eligible missed receipt; never late autoplay or autoqueue",
+    "capabilityLossAfterPrepare": "fail only the exact target with the existing receipt; never downgrade peers",
+    "unknownEnum": "preserve and render unsupported; never coerce",
+    "partialCreateAllowed": false,
+    "broadcastFallbackAllowed": false,
+    "plaintextFallbackForFutureE2EEAllowed": false
+  },
+  "rollback": {
+    "withdrawFirst": ["explicit-target creates", "inbox replay", "new Phase 2 Telegram callbacks", "future streamed-track queue and replace"],
+    "readsAndSafetyMutationsRemain": ["inbox and history reads", "dismiss", "sender delete", "report", "block", "audited moderation disable", "transmission cancel"],
+    "drain": "finish or canonically cancel nonterminal Phase 2 work and wait for generation-bound acknowledgements; never edit lifecycle rows manually",
+    "stopWriterBeforeArtifactChange": true,
+    "downMigrationAllowed": false,
+    "manualSQLLifecycleMutationAllowed": false,
+    "preserveTables": [
+      "transmission_target_references",
+      "transmission_targets",
+      "transmission_inbox_items",
+      "transmission_replay_lineage",
+      "transmission_inbox_cursors",
+      "transmission_receipt_cursors",
+      "content_policy_acceptances",
+      "moderation_reports"
+    ],
+    "testedPredecessorRevisions": [
+      "0c1e1946ff692aa553c19ca6bf7328150d1a24b8",
+      "2aa97c2d08cb93b110200ae159fd43265410ff5a"
+    ],
+    "rollForward": "redeploy current coordinator with callers withdrawn, reconcile additive rows, verify ACL and lineage, then repeat coordinator-first rollout"
+  },
+  "downstream": [
+    {"task": "TASK-260712-1n5fks", "consume": "extend media and playback persistence without duplicating target, inbox or history authority"},
+    {"task": "TASK-260712-3lf8r0", "consume": "authorize every range and cache refill through the exact target snapshot and canonical revocation"},
+    {"task": "TASK-260712-wt2n7m", "consume": "route Telegram explicit targets and track actions through the common service and opaque callbacks"},
+    {"task": "TASK-260712-14rxuk", "consume": "map repository evidence separately from manual B5-B7 and rollout evidence"},
+    {"task": "TASK-260712-1kfnpu", "consume": "review this frozen boundary and exact accepted artifacts before integrated Phase 2 acceptance"},
+    {"task": "TASK-260712-2ys1ww", "consume": "bind encrypted grants to exact immutable targets and forbid silent plaintext fallback"},
+    {"task": "TASK-260712-3w1cst", "consume": "add ciphertext metadata and epoch tables without replacing target, inbox, delete or audit authority"},
+    {"task": "TASK-260712-1rziyo", "consume": "make historical protected access an explicit grant rather than membership or inbox inheritance"},
+    {"task": "TASK-260712-2i0w6x", "consume": "keep report metadata canonical and require explicit recipient export for decrypted evidence"},
+    {"task": "TASK-260712-3u5cdn", "consume": "execute real packaged B5-B7 mixed-fleet and rights acceptance"},
+    {"task": "TASK-260712-3qybi2", "consume": "execute the real rollout, predecessor rollback and roll-forward rehearsal"}
+  ],
+  "evidence": [
+    {"path": "coordinator/internal/store/transmission_schema.go", "symbol": "func (s *Store) initTransmissionSchema() error"},
+    {"path": "coordinator/internal/store/transmission_inbox_test.go", "symbol": "TestTransmissionInboxAdditiveUpgradeBackfillsSnapshotAndReceipt"},
+    {"path": "coordinator/internal/store/transmission_previous_head_test.go", "symbol": "TestTransmissionStoreExactPreviousHeadRollback"},
+    {"path": "coordinator/internal/store/targets_inbox_parity_regression_test.go", "symbol": "TestTargetsInboxB5ExplicitACLAndFrozenAudienceRegression"},
+    {"path": "coordinator/cmd/duet-coordinator/inbox_http_test.go", "symbol": "TestInboxHTTPPaginationRedactionDismissReplayAndReceipts"},
+    {"path": "coordinator/internal/store/moderation_test.go", "symbol": "TestModerationDecisionIsCrashResumableIdempotentAndEnforced"},
+    {"path": "docs/diagrams/p2-targets-inbox-parity-components.puml", "symbol": "@startuml"},
+    {"path": "docs/diagrams/p2-targets-inbox-parity-sequence.puml", "symbol": "@startuml"}
+  ],
+  "manualBoundary": [
+    {"task": "TASK-260712-3u5cdn", "epic": "EPIC-260714-th54l3", "status": "manual-required"},
+    {"task": "TASK-260712-3qybi2", "epic": "EPIC-260714-th54l3", "status": "manual-required"}
+  ]
+}

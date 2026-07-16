@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-engineering-handoff.v1",
+  "task": "TASK-260712-3a0cf9",
+  "publishedAt": "2026-07-16",
+  "handoffBaselineCommit": "cfb6fa3801742e1150ca22d95452093efe2c037d",
+  "rootReviewedSourceCommit": "5f2f7e97a343b4bca84fe56ee57dd02458265f31",
+  "rootReviewedSourceTree": "4a03b4d3a3db062ed210e6696869366a9b6cf775",
+  "decision": {
+    "result": "phase2-engineering-complete-promotion-blocked",
+    "opensP3ReversibleDevelopmentOnly": true,
+    "phase2ProductionAccepted": false,
+    "phase2PromotionAllowed": false,
+    "betaAccepted": false,
+    "codecSelection": "no-go",
+    "maximumRolloutStage": 4,
+    "openRepositoryCriticalOrHighFindings": [],
+    "productionBlockingHighFindings": 13
+  },
+  "artifacts": {
+    "acceptedSourceCommit": "5f2f7e97a343b4bca84fe56ee57dd02458265f31",
+    "acceptedSourceTree": "4a03b4d3a3db062ed210e6696869366a9b6cf775",
+    "productionBuildSha256": null,
+    "productionWindowsPackageSha256": null,
+    "productionMacOSPackageSha256": null,
+    "productionRuntimeConfigSha256": null,
+    "productionDatabaseSnapshotSha256": null,
+    "productionFixtureLockSha256": null,
+    "reason": "no production codec/player exists and all physical, rollout and beta evidence remains deferred"
+  },
+  "rootReview": {
+    "contract": "acceptance/phase2/root-integration-review-v1.json",
+    "report": "docs/analysis/p2-root-integration-review.md",
+    "manifest": "docs/analysis/p2-root-review-manifest.json",
+    "reviewedPathsNoRenames": 624,
+    "reviewedPhase2Tasks": 50,
+    "unmappedPaths": 0,
+    "pullRequest": 181,
+    "mergeCommit": "a1c4d08988624d3ba5d9c2e6834541bfee879d92",
+    "hostedRun": 29509397804
+  },
+  "trackingProvenance": {
+    "pullRequest": 182,
+    "mergeCommit": "cfb6fa3801742e1150ca22d95452093efe2c037d",
+    "initialRun": 29509872003,
+    "initialRunStatus": "failed-review-provenance-bug",
+    "fixCommit": "c62ac201d4d07ab8f61186369a0fa80c6d73ba93",
+    "acceptedRun": 29510066254,
+    "acceptedRunStatus": "four-of-four-pass",
+    "fix": "manifest task cards are read from the reviewed candidate tree rather than mutable worktree status"
+  },
+  "featureAuthorities": {
+    "streamedTracks": {
+      "currentState": "disabled",
+      "runtimeFlagImplementation": "absent",
+      "productionSelectionEnabled": false,
+      "selectedProfile": null,
+      "productionEncoderRegistry": [],
+      "productionDecoderRegistry": [],
+      "wireCapabilityAdvertised": false,
+      "futureAuthority": "reviewed coordinator-owned default-off per-orbit allowlist after replacement ADR and additive policy revision",
+      "rollbackOwner": "operator withdraws all create/queue/replace/replay/Telegram callers, drains generations, then deploys the retained predecessor"
+    },
+    "airRooms": {
+      "currentAuthority": "persisted air_authority.mode plus generation",
+      "enabledOnlyWhen": "airs_authoritative",
+      "safeDarkStates": ["links_authoritative", "airs_shadow"],
+      "rollbackState": "rollback_hold",
+      "legacyAndAirConcurrentDeliveryAllowed": false,
+      "rollbackOwner": "operator transitions to rollback_hold before an Air-unaware predecessor and preserves all additive rows"
+    },
+    "targetsInboxRights": {
+      "runtimeFlag": null,
+      "authority": "authenticated caller exposure plus canonical target, inbox, content-policy and moderation stores",
+      "broadcastFallbackAllowed": false,
+      "rollbackOwner": "operator withdraws create/replay surfaces before predecessor deploy while delete/report/block/disable remain available"
+    }
+  },
+  "quotaModel": {
+    "source": "acceptance/streamed-track-rollout-handoff-v1.json",
+    "calibrationState": "engineering-defaults-only",
+    "actor": {
+      "uploadStarts24h": 100,
+      "inputBytes24h": 5368709120,
+      "canonicalBytes": 10737418240,
+      "temporaryProcessingBytes": 2147483648,
+      "concurrentJobs": 2,
+      "retainedTrackBytes": 21474836480,
+      "egressBytes24h": 107374182400
+    },
+    "orbit": {
+      "uploadStarts24h": 500,
+      "inputBytes24h": 26843545600,
+      "canonicalBytes": 53687091200,
+      "temporaryProcessingBytes": 8589934592,
+      "concurrentJobs": 8,
+      "retainedTrackBytes": 107374182400,
+      "egressBytes24h": 536870912000
+    },
+    "overrideAuthority": "revision-conditional audited moderation operator decision",
+    "betaCalibrationTask": "TASK-260712-2pnc5a"
+  },
+  "gateIndex": {
+    "B1": {
+      "repositoryPreflight": "pass",
+      "finalStatus": "manual-required-blocked-by-codec-no-go",
+      "manualTasks": ["TASK-260712-1fpb9q", "TASK-260712-2bdi4a"]
+    },
+    "B2": {
+      "repositoryPreflight": "pass-synthetic-only",
+      "finalStatus": "manual-required",
+      "manualTasks": ["TASK-260712-21kz3b"]
+    },
+    "B3": {
+      "repositoryPreflight": "pass-synthetic-only",
+      "finalStatus": "manual-required",
+      "manualTasks": ["TASK-260712-21kz3b"]
+    },
+    "B4": {
+      "repositoryPreflight": "pass-synthetic-only",
+      "finalStatus": "manual-required",
+      "manualTasks": ["TASK-260712-21kz3b"]
+    },
+    "B5": {
+      "repositoryPreflight": "pass",
+      "finalStatus": "manual-required",
+      "manualTasks": ["TASK-260712-3u5cdn"]
+    },
+    "B6": {
+      "repositoryPreflight": "pass",
+      "finalStatus": "manual-required-blocked-by-codec-no-go",
+      "manualTasks": ["TASK-260712-1fpb9q", "TASK-260712-2bdi4a", "TASK-260712-3u5cdn"]
+    },
+    "B7": {
+      "repositoryPreflight": "pass",
+      "finalStatus": "manual-required",
+      "manualTasks": ["TASK-260712-3u5cdn"]
+    },
+    "20.5": {
+      "repositoryPreflight": "pass-contract-and-synthetic-only",
+      "finalStatus": "manual-required",
+      "manualTasks": ["TASK-260712-1fpb9q", "TASK-260712-21kz3b", "TASK-260712-2bdi4a", "TASK-260712-3qybi2", "TASK-260712-2pnc5a"]
+    },
+    "18-rollout": {
+      "repositoryPreflight": "pass-documentation-and-rollback-tests",
+      "finalStatus": "manual-required-blocked-after-stage-4",
+      "manualTasks": ["TASK-260712-3qybi2"]
+    },
+    "20.6-beta": {
+      "repositoryPreflight": "contract-frozen-not-executed",
+      "finalStatus": "seven-consecutive-days-required",
+      "manualTasks": ["TASK-260712-2pnc5a"]
+    }
+  },
+  "rolloutOrder": [
+    {"stage": 1, "id": "freeze-backup-and-record", "allowedNow": true, "executionClaimed": false},
+    {"stage": 2, "id": "coordinator-additive-schema-dark", "allowedNow": true, "executionClaimed": false},
+    {"stage": 3, "id": "reconcile-and-observe-dark", "allowedNow": true, "executionClaimed": false},
+    {"stage": 4, "id": "clients-and-adapters-dark", "allowedNow": true, "executionClaimed": false},
+    {"stage": 5, "id": "replacement-adr-and-runtime-gate", "allowedNow": false, "blockedBy": "codec-no-go"},
+    {"stage": 6, "id": "internal-orbit-enable", "allowedNow": false, "blockedBy": "replacement-adr-and-real-B1"},
+    {"stage": 7, "id": "bounded-orbit-expansion", "allowedNow": false, "blockedBy": "telemetry-and-incident-review"},
+    {"stage": 8, "id": "store-and-public-promotion", "allowedNow": false, "blockedBy": "B1-B7-rollback-beta-and-owner-approval"}
+  ],
+  "engineeringEvidence": [
+    {
+      "id": "root-clean-acceptance",
+      "command": "python3 scripts/acceptance/run_automated.py --suite all --require-clean --run-id p2-root-7287258",
+      "result": "pass-12-of-12-with-89-contract-tests",
+      "manualClaim": false
+    },
+    {
+      "id": "air-synthetic-regression",
+      "command": "python3 scripts/acceptance/run_air_regression.py --output <private-campaign>/air-regression.json",
+      "result": "repository-preflight-only",
+      "manualClaim": false
+    },
+    {
+      "id": "target-rights-contracts",
+      "command": "python3 scripts/validate_targets_inbox_parity_regressions.py && python3 scripts/validate_targets_inbox_rollout_handoff.py",
+      "result": "pass",
+      "manualClaim": false
+    },
+    {
+      "id": "stream-rollout-contract",
+      "command": "python3 scripts/validate_streamed_track_rollout_handoff.py",
+      "result": "pass-production-disabled",
+      "manualClaim": false
+    },
+    {
+      "id": "phase2-observability-contract",
+      "command": "python3 scripts/acceptance/validate_phase2_observability.py && python3 scripts/validate_phase2_gate_matrix.py",
+      "result": "pass-client-and-campaign-evidence-still-required",
+      "manualClaim": false
+    }
+  ],
+  "manualEpic": {
+    "id": "EPIC-260714-th54l3",
+    "totalPendingTasksAtHandoff": 19,
+    "phase2PendingTasks": [
+      "TASK-260712-1fpb9q",
+      "TASK-260712-21kz3b",
+      "TASK-260712-2bdi4a",
+      "TASK-260712-2pnc5a",
+      "TASK-260712-3qybi2",
+      "TASK-260712-3u5cdn"
+    ]
+  },
+  "externalApprovals": {
+    "epic": "EPIC-260714-zmnd4n",
+    "owner": "Ivan Oparin",
+    "phase2Tasks": [
+      "TASK-260716-19g4gd",
+      "TASK-260716-2l5j1a",
+      "TASK-260716-3voo6j",
+      "TASK-260716-tlxe3s"
+    ]
+  },
+  "sourceAnchors": [
+    {"path": "acceptance/phase2/gate-matrix-v1.json", "sha256": "85f120bd7376b853f3f3ad88988979dc9d4ebc241f9304aa3fde47a6a2d80297"},
+    {"path": "acceptance/phase2/observability-contract-v1.json", "sha256": "14d75dc7a7f9b12acf7f0e2939dff53f2e3d7d57856b05cc56ceefa5924f4977"},
+    {"path": "acceptance/phase2/root-integration-review-v1.json", "sha256": "b98688166c649f25209ca2dfb37c6af65509ce9f65eee8e00341efeda9bf02c3"},
+    {"path": "acceptance/phase2/stream-performance-review-v1.json", "sha256": "cf33cdb61b30381a56989f8f8fbe3563f5ea892b1e9b7e2ebead2bf0ee51373a"},
+    {"path": "acceptance/phase2/air-migration-review-v1.json", "sha256": "7097b7a339b115416a1ef8a60845a9645e768c5651ef0512d256719e087bf420"},
+    {"path": "acceptance/phase2/target-security-review-v1.json", "sha256": "812504ad21fe828e2fa726d034098ea33a2ce99544df2d243a1a0ed102302788"},
+    {"path": "acceptance/codec-spike/independent-supply-review-v1.json", "sha256": "96775fff29a833b3bf2ab565023dcef78717b659bfa78f138c69ebecfde6554e"},
+    {"path": "acceptance/codec-spike/player-handoff-v1.json", "sha256": "7f122576f6841c38ff4f9e308e0cf5d0d7f761827d086784b0e34d7cd14ce273"},
+    {"path": "acceptance/streamed-track-rollout-handoff-v1.json", "sha256": "6d2450b122e56d053a6d4c503bf72b28ff5460827f69addcfb37d7588ba3c380"},
+    {"path": "acceptance/targets-inbox-parity-regressions-v1.json", "sha256": "52393c70e34e68511cf4e1f439a33a7861cf86fd5c9170b7f0db336969757911"},
+    {"path": "acceptance/targets-inbox-rollout-handoff-v1.json", "sha256": "0a051e419000d06c89a7b383283e87ec2dfef553d6e37cce05e806fc9b1221cb"},
+    {"path": "docs/analysis/p2-root-integration-review.md", "sha256": "47632ba466c99180dbbeea47b2cb6d5f7016e71d2b9a480578466a5bcfb8f0e3"},
+    {"path": "docs/analysis/p2-root-review-manifest.json", "sha256": "dc2e8e46b9ac48d04b81a70f821f23616ae9cd9fb711c98992ddf43e55cae4a1"},
+    {"path": "docs/analysis/p2-air-lifecycle-regression-rehearsal.md", "sha256": "5d5d6a9d42308572455ce1abe4aea7b94a6bcf63e5e26d7168579ca1f05623d6"},
+    {"path": "docs/analysis/p2-targets-inbox-rollout-handoff.md", "sha256": "b706b83c6f883933c391079f3b6ee0740d0dcd962439a6aad5ec4fc547697ced"},
+    {"path": "docs/analysis/p2-streamed-track-rollout-handoff.md", "sha256": "31f11731d4d17d4877c81be0e07afcdd229983d865175527fc8d1ba5be356b6b"},
+    {"path": "docs/phase2-observability-runbook.md", "sha256": "a738c36a609cf7d448f5876a2370f5277910244451fe286dc96efe64b15968b4"},
+    {"path": "docs/runbook.md", "sha256": "2bb28f239617ccf18863cc8c484889dedb6951c664791a88866912951e721ed0"},
+    {"path": "coordinator/internal/store/stream_track_schema.go", "sha256": "5ce18fe599334186073f164d118c9b74eba50d849411bb6f3c28162888576671"},
+    {"path": "coordinator/internal/store/air_schema.go", "sha256": "fdb79c4e0ff4ed29eb9926430ba9ac2e9e719d77f13ffad6715eecd29919e485"},
+    {"path": "coordinator/internal/store/stream_accounting_schema.go", "sha256": "5ae5d216eceb478f3effe2af766c55947a62d33ddb68a0882b3a7e2130ec4006"},
+    {"path": "coordinator/internal/store/phase2_observability.go", "sha256": "dc8863826a8bd3de6e1cdfbefad6b0912fc9267542439e9f0e5ba7bde5c13924"},
+    {"path": "protocol/stream-track-v1.json", "sha256": "fe1360cda460d88f58f51e3cb02537630b337393eceaa54976eeaa1a85395a9a"},
+    {"path": "scripts/validate_phase2_campaign.py", "sha256": "96d1f5ceafb2b43a7e17839a30d0186e1f468fe5305ab3a48771da804f1a8ff6"},
+    {"path": "scripts/validate_phase2_gate_matrix.py", "sha256": "9d377e3f8ba9cc266383d3da18d9dd4b13e09eca313204c8360e0b18358eee17"},
+    {"path": "scripts/acceptance/run_air_regression.py", "sha256": "f89473561a4b0e4128207992a6b1a4a8ee78969d10a16ecdfb8a8dc374fb2436"},
+    {"path": "scripts/acceptance/validate_phase2_observability.py", "sha256": "0e4a01556cffd5fbd40ca32e60d6ae686d2d5b98ffeafeb0428d8799b5c05b57"}
+  ],
+  "nextEngineeringTask": "TASK-260712-lo7a68",
+  "deferredBeforeNextTask": "TASK-260712-9wivva"
+}

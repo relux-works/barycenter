@@ -176,6 +176,7 @@ def suite_commands(suite: str, go_env: dict[str, str] | None, apple_env: dict[st
                 "scripts/acceptance/test_target_security_review.py",
                 "scripts/acceptance/test_phase2_observability.py",
                 "scripts/acceptance/test_p2_root_review.py",
+                "scripts/acceptance/test_phase2_engineering_handoff.py",
                 "scripts/codec_spike/test_codec_spike.py",
                 "scripts/codec_spike/test_independent_supply_review.py",
             ),

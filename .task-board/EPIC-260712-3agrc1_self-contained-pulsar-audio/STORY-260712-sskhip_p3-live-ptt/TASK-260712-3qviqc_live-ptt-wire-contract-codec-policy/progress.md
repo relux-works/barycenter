@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-engineer
 
 ## Created
 2026-07-12T16:25:04Z
 
 ## Last Update
-2026-07-14T00:48:43Z
+2026-07-16T15:56:40Z
 
 ## Blocked By
 - TASK-260712-lo7a68
@@ -28,6 +28,7 @@ backlog
 - [ ] Publish an outcome resource that downstream runtime and node tasks treat as authoritative
 
 ## Notes
+2026-07-16 strict-sequence engineering start from synchronized main merge e3f8d63e0057042771edf7653406fcd5f519c6b4 after accepted fail-closed codec/transport spike TASK-260712-lo7a68. Execute inline outside task-board spawn. Treat acceptance/live-ptt/codec-transport-decision-v1.json as authoritative: production capability remains disabled, exact bounded codec/frame constraints cannot widen, and real-app/hardware C2 stays manual under TASK-260712-1rzqh9.
 
 ## Precondition Resources
 (none)

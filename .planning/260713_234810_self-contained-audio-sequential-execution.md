@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 121 accepted, 84 remain.
-- Routed inventory: 186 engineering tasks (121 accepted, 65 remain) and 19
+- Combined inventory: 205 original tasks; 122 accepted, 83 remain.
+- Routed inventory: 186 engineering tasks (122 accepted, 64 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-lo7a68` — live-codec-transport-spike
-- Next engineering task: `TASK-260712-3qviqc` — live-ptt-wire-contract-codec-policy
-- Most recently accepted: `TASK-260712-3a0cf9` — phase2-engineering-handoff-packet
-- Current branch: `chore/resume-after-phase2-handoff`
+- Current engineering task: `TASK-260712-3qviqc` — live-ptt-wire-contract-codec-policy
+- Next engineering task: `TASK-260712-3vzbbl` — coordinator-live-ptt-session-runtime
+- Most recently accepted: `TASK-260712-lo7a68` — live-codec-transport-spike
+- Current branch: `task/task-260712-3qviqc-live-ptt-wire-contract`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 121 / 205 tasks (approximately 59.0%); 84 remain
-- Engineering progress: 121 / 186 tasks (approximately 65.1%); 65 remain
+- Accepted overall: 122 / 205 tasks (approximately 59.5%); 83 remain
+- Engineering progress: 122 / 186 tasks (approximately 65.6%); 64 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2949,7 +2949,16 @@ executed before soundboard automation because it is on the epic critical path.
 
 - ↪ manual `TASK-260712-9wivva` — store-safe-hold-input-spike →
   `EPIC-260714-th54l3`
-- [ ] `TASK-260712-lo7a68` — live-codec-transport-spike
+- [x] `TASK-260712-lo7a68` — live-codec-transport-spike (accepted as an
+  explicit fail-closed spike on exact engineering head `5cc58e0`; Ivan Oparin
+  approved the engineering defaults, and libopus 1.6.1 at 48 kHz mono, 20 ms,
+  24 kbit/s constrained VBR, complexity 5, FEC/PLC and a 400-byte payload bound
+  is frozen. The local x86_64 macOS benchmark used a 0.010217 real-time factor;
+  the deterministic two-leg 2% loss WSS model produced p50 272.266 ms and p95
+  458.432 ms while the per-recipient queue stayed bounded. Production remains
+  no-go because Windows, macOS arm64, signed-package, hostile-input and physical
+  C2/intelligibility evidence are absent. Clean local acceptance passed 12/12
+  and hosted run `29512991362` passed 4/4; PR #185 merge `e3f8d63`)
 - [ ] `TASK-260712-3qviqc` — live-ptt-wire-contract-codec-policy
 - [ ] `TASK-260712-3vzbbl` — coordinator-live-ptt-session-runtime
 - [ ] `TASK-260712-19w1qn` — macos-live-jitter-receiver

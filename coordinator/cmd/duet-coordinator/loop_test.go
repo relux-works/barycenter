@@ -32,8 +32,17 @@ type sentMsg struct {
 
 type fakeSender struct {
 	sent      []sentMsg
+	binary    map[hub.NodeKey][][]byte
 	snapshots map[hub.NodeKey]hub.NodeSnapshot
 	online    map[int64]map[protocol.NodeID]bool
+}
+
+func (f *fakeSender) TrySendBinary(key hub.NodeKey, raw []byte) bool {
+	if f.binary == nil {
+		f.binary = map[hub.NodeKey][][]byte{}
+	}
+	f.binary[key] = append(f.binary[key], append([]byte(nil), raw...))
+	return true
 }
 
 func TestRegistrationReplacesExactCapabilitySnapshot(t *testing.T) {

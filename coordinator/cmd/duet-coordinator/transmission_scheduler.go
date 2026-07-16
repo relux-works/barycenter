@@ -365,6 +365,10 @@ func (l *loop) runTransmissionScheduler(now int64) {
 			if item.Transmission.EffectiveDelivery == store.TransmissionDeliveryAfterCurrent {
 				continue
 			}
+			if l.livePTTBlocksTransmission(item.Transmission) {
+				nextDue = earlierCoordinatorDeadline(nextDue, now+100)
+				continue
+			}
 			domain := transmissionDomainKey(item.Transmission)
 			if _, seen := domainSeen[domain]; seen {
 				continue

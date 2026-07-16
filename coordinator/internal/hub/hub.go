@@ -82,6 +82,15 @@ type (
 		Env                 protocol.Envelope
 		Payload             any
 	}
+	// EvBinary carries only a validated bounded live frame. Raw bytes are kept
+	// in memory until fanout and are never formatted into logs or persisted.
+	EvBinary struct {
+		Key                 NodeKey
+		CredentialTokenHash string
+		ReceivedAtMS        int64
+		Frame               protocol.LivePTTBinaryFrame
+		Raw                 []byte
+	}
 )
 
 // TokenLookup resolves a node token to its orbit and slot (store-backed).
@@ -89,10 +98,15 @@ type TokenLookup func(token string) (orbitID int64, slot string, ok bool)
 
 type conn struct {
 	ws                  *websocket.Conn
-	send                chan protocol.Envelope
+	send                chan outboundFrame
 	stop                chan struct{}
 	once                sync.Once
 	credentialTokenHash string
+}
+
+type outboundFrame struct {
+	envelope *protocol.Envelope
+	binary   []byte
 }
 
 func (c *conn) close() {
@@ -260,9 +274,37 @@ func (h *Hub) Send(key NodeKey, msgType string, payload any) bool {
 		return false
 	}
 	select {
-	case c.send <- env:
+	case c.send <- outboundFrame{envelope: &env}:
 		return true
 	case <-c.stop:
+		return false
+	}
+}
+
+// TrySendBinary queues one already-validated live frame without blocking.
+// Each connection has an isolated fixed-capacity queue; a slow receiver can
+// therefore be failed independently instead of retaining audio or delaying
+// healthy peers.
+func (h *Hub) TrySendBinary(key NodeKey, raw []byte) bool {
+	if len(raw) < protocol.LivePTTFrameHeaderBytes || len(raw) > protocol.LivePTTMaxMessageBytes {
+		return false
+	}
+	if _, err := protocol.DecodeLivePTTBinaryFrame(raw); err != nil {
+		return false
+	}
+	h.mu.Lock()
+	c := h.conns[key]
+	h.mu.Unlock()
+	if c == nil {
+		return false
+	}
+	frame := outboundFrame{binary: append([]byte(nil), raw...)}
+	select {
+	case c.send <- frame:
+		return true
+	case <-c.stop:
+		return false
+	default:
 		return false
 	}
 }
@@ -337,7 +379,7 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	tokenDigest := sha256.Sum256([]byte(reg.Token))
 	c := &conn{
-		ws: ws, send: make(chan protocol.Envelope, 32), stop: make(chan struct{}),
+		ws: ws, send: make(chan outboundFrame, 32), stop: make(chan struct{}),
 		credentialTokenHash: hex.EncodeToString(tokenDigest[:]),
 	}
 
@@ -371,8 +413,8 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 func (h *Hub) awaitRegister(ws *websocket.Conn) (NodeKey, *protocol.RegisterPayload, protocol.CapabilitySet, bool) {
 	ws.SetReadDeadline(time.Now().Add(registerDeadline))
-	_, raw, err := ws.ReadMessage()
-	if err != nil {
+	messageType, raw, err := ws.ReadMessage()
+	if err != nil || messageType != websocket.TextMessage {
 		ws.Close()
 		return NodeKey{}, nil, protocol.CapabilitySet{}, false
 	}
@@ -417,14 +459,23 @@ func (h *Hub) writer(key NodeKey, c *conn) {
 		select {
 		case <-c.stop:
 			return
-		case env := <-c.send:
+		case frame := <-c.send:
 			c.ws.SetWriteDeadline(time.Now().Add(writeDeadline))
-			if err := c.ws.WriteJSON(env); err != nil {
+			var err error
+			if frame.envelope != nil {
+				err = c.ws.WriteJSON(*frame.envelope)
+			} else {
+				err = c.ws.WriteMessage(websocket.BinaryMessage, frame.binary)
+			}
+			if err != nil {
 				h.log.Warn("write failed", "orbit", key.Orbit, "slot", key.Slot, "err", err)
 				c.close()
 				return
 			}
-			h.log.Debug("sent", "orbit", key.Orbit, "slot", key.Slot, "type", env.Type, "id", env.ID)
+			if frame.envelope != nil {
+				h.log.Debug("sent", "orbit", key.Orbit, "slot", key.Slot,
+					"type", frame.envelope.Type, "id", frame.envelope.ID)
+			}
 		}
 	}
 }
@@ -439,7 +490,7 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 		h.mu.Unlock()
 	}()
 	for {
-		_, raw, err := c.ws.ReadMessage()
+		messageType, raw, err := c.ws.ReadMessage()
 		if err != nil {
 			select {
 			case <-c.stop: // replaced by a newer connection: not a liveness signal
@@ -449,6 +500,36 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 			return
 		}
 		t2 := time.Now().UnixMilli()
+		if messageType == websocket.BinaryMessage {
+			frame, decodeErr := protocol.DecodeLivePTTBinaryFrame(raw)
+			if decodeErr != nil {
+				h.log.Warn("rejected bounded binary frame", "orbit", key.Orbit,
+					"slot", key.Slot, "bytes", len(raw), "err", decodeErr)
+				continue
+			}
+			h.mu.Lock()
+			if h.conns[key] != c {
+				h.mu.Unlock()
+				return
+			}
+			h.lastSeen[key] = time.Now()
+			cameBack := !h.online[key]
+			h.online[key] = true
+			h.mu.Unlock()
+			if cameBack {
+				h.emit(EvOnline{Key: key}, c.stop)
+			}
+			select {
+			case h.Events <- EvBinary{Key: key, CredentialTokenHash: c.credentialTokenHash,
+				ReceivedAtMS: t2, Frame: frame, Raw: append([]byte(nil), raw...)}:
+			case <-c.stop:
+				return
+			}
+			continue
+		}
+		if messageType != websocket.TextMessage {
+			continue
+		}
 
 		var env protocol.Envelope
 		if err := json.Unmarshal(raw, &env); err != nil {
@@ -502,7 +583,7 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 			env, err := protocol.NewEnvelope(ulid.NewMessageID(time.Now()), pong.T3, protocol.TypePong, &pong)
 			if err == nil {
 				select {
-				case c.send <- env:
+				case c.send <- outboundFrame{envelope: &env}:
 				case <-c.stop:
 					return
 				}

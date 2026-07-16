@@ -92,6 +92,8 @@ type loop struct {
 	telegramInlinePrompt func(int64, string, bot.InlineKeyboardBuilder)
 	mediaLifecycle       *media.LifecycleService
 	moderationService    *moderation.Service
+	livePTT              *session.LivePTTRuntime
+	livePTTGeneration    int64
 
 	// resolveTrack runs the provider cascade for one track (providers.go).
 	// nil while the provider layer is off; tests stub it directly.
@@ -235,6 +237,7 @@ func newLoop(log *slog.Logger, cfg *config.Config, h nodeSender, st *store.Store
 		airVoiceNext:     map[string]int64{},
 		airVoicePending:  map[string]map[int64]mediaDone{},
 		stopped:          make(chan struct{}),
+		livePTT:          session.NewLivePTTRuntime(),
 	}
 	if b != nil {
 		l.telegramInlinePrompt = b.SendInlinePrompt
@@ -699,6 +702,10 @@ func (l *loop) warmup() {
 
 func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 	defer close(l.stopped)
+	liveTicker := time.NewTicker(100 * time.Millisecond)
+	defer liveTicker.Stop()
+	livePolicyTicker := time.NewTicker(time.Second)
+	defer livePolicyTicker.Stop()
 	var botEvents chan bot.Event
 	if l.bot != nil {
 		botEvents = l.bot.Events
@@ -706,6 +713,7 @@ func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 	for {
 		select {
 		case <-stop:
+			l.livePTT.ResetForRestart()
 			return
 		case ev := <-nodeEvents:
 			l.handleNode(ev)
@@ -753,6 +761,10 @@ func (l *loop) run(stop <-chan struct{}, nodeEvents <-chan hub.Event) {
 				now = due
 			}
 			l.runTransmissionScheduler(now)
+		case now := <-liveTicker.C:
+			l.applyLivePTTEffects(l.livePTT.Sweep(now.UnixMilli()))
+		case now := <-livePolicyTicker.C:
+			l.auditLivePTTPolicy(now.UnixMilli())
 		}
 	}
 }
@@ -1187,6 +1199,9 @@ func (l *loop) saveSession(o *orbitState) error {
 func (l *loop) handleNode(ev hub.Event) {
 	switch e := ev.(type) {
 	case hub.EvRegistered:
+		// A last-write-wins socket is a new generation and cannot resume live
+		// media from the predecessor connection.
+		l.applyLivePTTEffects(l.livePTT.Disconnect(livePTTNode(e.Key), time.Now().UnixMilli()))
 		o := l.stateFor(e.Key.Orbit)
 		n := l.peerFor(o, e.Key)
 		o.sess.EnsurePeer(n) // a slot paired after orbit/group warm-up
@@ -1228,6 +1243,7 @@ func (l *loop) handleNode(ev hub.Event) {
 		}
 		l.signalTransmission(transmissionSignal{})
 	case hub.EvOffline:
+		l.applyLivePTTEffects(l.livePTT.Disconnect(livePTTNode(e.Key), time.Now().UnixMilli()))
 		o := l.stateFor(e.Key.Orbit)
 		l.log.Warn("node offline", "orbit", e.Key.Orbit, "slot", e.Key.Slot)
 		l.st.LogEvent(string(e.Key.Slot), "offline", nil)
@@ -1235,6 +1251,8 @@ func (l *loop) handleNode(ev hub.Event) {
 		l.signalTransmission(transmissionSignal{})
 	case hub.EvMessage:
 		l.handleNodeMessage(e)
+	case hub.EvBinary:
+		l.handleLivePTTBinary(e)
 	}
 }
 
@@ -1299,6 +1317,28 @@ func (l *loop) handleNodeMessage(m hub.EvMessage) {
 		l.handleMediaCancelled(m.Key, m.CredentialTokenHash, p)
 	case *protocol.SetDNDPayload:
 		l.handleNodeDND(m.Key, m.CredentialTokenHash, p)
+		l.applyLivePTTEffects(l.livePTT.Disconnect(livePTTNode(m.Key), now))
+	case *protocol.LivePTTStartPayload:
+		l.handleLivePTTStart(m.Key, m.CredentialTokenHash, *p, now)
+	case *protocol.LivePTTAcceptPayload:
+		l.auditLivePTTPolicy(now)
+		effects, _ := l.livePTT.Accept(livePTTNode(m.Key), *p)
+		l.applyLivePTTEffects(effects)
+	case *protocol.LivePTTRejectPayload:
+		effects, _ := l.livePTT.Reject(livePTTNode(m.Key), *p)
+		l.applyLivePTTEffects(effects)
+	case *protocol.LivePTTEndPayload:
+		effects, _ := l.livePTT.End(livePTTNode(m.Key), *p)
+		l.applyLivePTTEffects(effects)
+	case *protocol.LivePTTCancelPayload:
+		effects, _ := l.livePTT.Cancel(livePTTNode(m.Key), *p)
+		l.applyLivePTTEffects(effects)
+	case *protocol.LivePTTFailedPayload:
+		effects, _ := l.livePTT.Failed(livePTTNode(m.Key), *p)
+		l.applyLivePTTEffects(effects)
+	case *protocol.LivePTTReceiptPayload:
+		effects, _ := l.livePTT.Receipt(livePTTNode(m.Key), *p)
+		l.applyLivePTTEffects(effects)
 	case *protocol.ExternalPlaybackPayload:
 		positionMS := int64(0)
 		if p.PositionMS != nil {

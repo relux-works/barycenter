@@ -61,7 +61,7 @@
     },
     {
       "path": "coordinator/cmd/duet-coordinator/loop.go",
-      "sha256": "d1bcc3ff803de205b5b4a28aacf6b557a857346db601ba8e5433c5bdc59d761d"
+      "sha256": "77a288ecb745069a4300f8a5497b98c4866f6193a307757d3be0fdca4674ac07"
     },
     {
       "path": "coordinator/cmd/duet-coordinator/air_runtime_control.go",
@@ -95,6 +95,13 @@
       "scope": "one authenticated list-only Phase 2 observability route registration",
       "result": "no Air lifecycle, invite limiter, authorization, mutation, runtime or Telegram behavior changed",
       "verification": "the complete Air migration review validator and source-linked invite admission assertions pass against the new exact onboarding.go hash"
+    },
+    {
+      "task": "TASK-260712-3vzbbl",
+      "reviewedAt": "2026-07-16",
+      "scope": "additive env-dark live PTT event dispatch, watchdogs and overlay scheduler serialization in loop.go",
+      "result": "no Air invite, lifecycle, authority generation, migration, alias, Telegram or rollback mutation changed; live target resolution is read-only and continues to delegate current-Air membership and overlay authorization to the reviewed store authority",
+      "verification": "the fail-closed Air review validator, deterministic Air regression rehearsal and repository acceptance suite pass against the new exact loop.go hash"
     }
   ],
   "reruns": [

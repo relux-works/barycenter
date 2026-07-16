@@ -4,24 +4,23 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 114 accepted, 91 remain.
-- Routed inventory: 186 engineering tasks (114 accepted, 72 remain) and 19
+- Combined inventory: 205 original tasks; 115 accepted, 90 remain.
+- Routed inventory: 186 engineering tasks (115 accepted, 71 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
-- Next engineering task: `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
-- Most recently accepted: `TASK-260712-14rxuk` — phase2-gate-matrix-evidence-contract
-- Current branch: `chore/task-260712-2g3fkt-blocked-tracking`
-- Current strict blocker: the engineering review for `TASK-260712-2g3fkt`
-  landed through PR #170 at merge `affa66ab830696e38e923f217a3b43dd5e95b581`,
-  but it correctly returned `BLOCK PHASE 2`. No codec combination is accepted;
-  six High findings, qualified AAC/LGPL counsel disposition and an
-  implementation-independent review of an exact replacement candidate remain
-  open. The task is not accepted and the next row has not started.
+- Current engineering task: `TASK-260712-28mn7w` — p2-independent-stream-performance-review
+- Next engineering task: `TASK-260712-28mn7w` — p2-independent-stream-performance-review
+- Most recently accepted: `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
+- Current branch: `chore/resume-after-codec-block`
+- Current deferred owner gate: `TASK-260716-tlxe3s` — approve-p2-codec-candidate-legal-supply-gates
+  in `EPIC-260714-zmnd4n`. It retains the qualified AAC/LGPL counsel,
+  implementation-independent reviewer and exact replacement-candidate release
+  proof. Production playback and Phase 2 promotion stay blocked; reversible
+  engineering continues under the owner-approved best-effort rule.
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -31,8 +30,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 114 / 205 tasks (approximately 55.6%); 91 remain
-- Engineering progress: 114 / 186 tasks (approximately 61.3%); 72 remain
+- Accepted overall: 115 / 205 tasks (approximately 56.1%); 90 remain
+- Engineering progress: 115 / 186 tasks (approximately 61.8%); 71 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2240,6 +2239,20 @@ independence and High-finding fix/re-review remain open. Progress therefore
 stays 114/205 overall and 114/186 engineering, and strict execution does not
 advance to `TASK-260712-28mn7w`.
 
+Checkpoint 2026-07-16 (accepted fail-closed outcome): the owner continuation
+rule resolves the sequencing treatment of `TASK-260712-2g3fkt`. Its acceptance
+criterion explicitly permits a source-linked report that blocks Phase 2, so
+the landed `BLOCK PHASE 2` review is accepted as the engineering task outcome,
+without converting any failed gate into a pass. Qualified AAC/LGPL counsel,
+implementation-independent review and exact candidate release proof were
+transferred to `TASK-260716-tlxe3s` — approve-p2-codec-candidate-legal-supply-gates
+under `EPIC-260714-zmnd4n` — Critical owner approval questions. The proposed
+default is bundled FFmpeg 8.1.2 minimal shared, package-local, no CLI, no
+runtime download and dark-only; it is not legal advice or production
+authorization. Progress is 115/205 overall and 115/186 engineering. Strict
+reversible execution advances to `TASK-260712-28mn7w` while production playback
+and Phase 2 promotion remain fail-closed.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -2787,11 +2800,11 @@ manual promotion remains separate.
   locks, artifacts, privacy and beta reset rules; 60 contract tests, Air
   regression and hosted run `29496295085` 4/4 passed; PR #168 merge `d3db8c9`;
   all six real-app/hardware/rollback/beta tasks stay manual and unclaimed)
-- [ ] `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
-  (blocked review landed on head `87f5851` through PR #170, merge `affa66a`;
-  hosted run `29497274813` 4/4 passed, but no codec combination is accepted,
-  six High findings and independent approval remain open, so this row is not
-  complete and strict execution cannot advance)
+- [x] `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
+  (accepted fail-closed engineering outcome on head `87f5851` through PR #170,
+  merge `affa66a`, hosted run `29497274813` 4/4; no codec combination or
+  production playback is accepted, and all counsel/independent-review/release
+  gates remain preserved in external owner task `TASK-260716-tlxe3s`)
 - [ ] `TASK-260712-28mn7w` — p2-independent-stream-performance-review
 - [ ] `TASK-260712-2sicfs` — p2-independent-air-migration-review
 - [ ] `TASK-260712-n11rg6` — p2-independent-target-security-review

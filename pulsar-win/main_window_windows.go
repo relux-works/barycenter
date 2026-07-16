@@ -130,6 +130,22 @@ const (
 	idTargetsDetails       = 3088
 	idTargetsReportInbox   = 3089
 	idTargetsReportHistory = 3090
+	idTrackFile            = 3091
+	idTrackRefresh         = 3092
+	idTrackPolicy          = 3093
+	idTrackUpload          = 3094
+	idTrackDelete          = 3095
+	idTrackAudience        = 3096
+	idTrackTargetNext      = 3097
+	idTrackTargetToggle    = 3098
+	idTrackInsertion       = 3099
+	idTrackQueue           = 3100
+	idTrackReplace         = 3101
+	idTrackPause           = 3102
+	idTrackSeek            = 3103
+	idTrackResume          = 3104
+	idTrackRetry           = 3105
+	idTrackReport          = 3106
 
 	bsPushButton = 0x00000000
 	bsMultiline  = 0x00002000
@@ -242,6 +258,22 @@ type mainWindowCtx struct {
 	targetsDetails       windows.Handle
 	targetsReportInbox   windows.Handle
 	targetsReportHistory windows.Handle
+	trackFile            windows.Handle
+	trackRefresh         windows.Handle
+	trackPolicy          windows.Handle
+	trackUpload          windows.Handle
+	trackDelete          windows.Handle
+	trackAudience        windows.Handle
+	trackTargetNext      windows.Handle
+	trackTargetToggle    windows.Handle
+	trackInsertion       windows.Handle
+	trackQueue           windows.Handle
+	trackReplace         windows.Handle
+	trackPause           windows.Handle
+	trackSeek            windows.Handle
+	trackResume          windows.Handle
+	trackRetry           windows.Handle
+	trackReport          windows.Handle
 	record               windows.Handle
 	dnd                  windows.Handle
 	english              windows.Handle
@@ -408,6 +440,22 @@ func (ctx *mainWindowCtx) createControls() {
 	pSendMessageW.Call(uintptr(ctx.targetsDetails), emSetLimitText, 2000, 0)
 	ctx.targetsReportInbox = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsReportInbox)
 	ctx.targetsReportHistory = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTargetsReportHistory)
+	ctx.trackFile = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackFile)
+	ctx.trackRefresh = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackRefresh)
+	ctx.trackPolicy = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackPolicy)
+	ctx.trackUpload = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackUpload)
+	ctx.trackDelete = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackDelete)
+	ctx.trackAudience = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackAudience)
+	ctx.trackTargetNext = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackTargetNext)
+	ctx.trackTargetToggle = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackTargetToggle)
+	ctx.trackInsertion = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackInsertion)
+	ctx.trackQueue = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackQueue)
+	ctx.trackReplace = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackReplace)
+	ctx.trackPause = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackPause)
+	ctx.trackSeek = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackSeek)
+	ctx.trackResume = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackResume)
+	ctx.trackRetry = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackRetry)
+	ctx.trackReport = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackReport)
 	ctx.record = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellRecord)
 	ctx.dnd = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDND)
 	ctx.english = mk(0, "BUTTON", "English", buttonStyle|bsPushButton, idShellEnglish)
@@ -425,6 +473,7 @@ func (ctx *mainWindowCtx) installAccelerators() {
 		{fVirtKey | fControl | fShift, 0, 'T', idShellTry},
 		{fVirtKey | fControl | fShift, 0, 'R', idShellRecord},
 		{fVirtKey | fControl, 0, 'R', idTargetsRefresh},
+		{fVirtKey | fControl | fShift, 0, 'L', idTrackFile},
 		{fVirtKey | fControl | fShift, 0, 'D', idShellDND},
 		{fVirtKey | fControl, 0, vkComma, idShellSettings},
 		{fVirtKey, 0, vkEscape, idShellCancel},
@@ -490,6 +539,9 @@ func (ctx *mainWindowCtx) layout() {
 	if ctx.shell != nil && ctx.shell.Section() == ShellInbox {
 		layout.Body.Height = dip(240, layout.DPI)
 	}
+	if ctx.shell != nil && ctx.shell.Section() == ShellHistory {
+		layout.Body.Height = dip(210, layout.DPI)
+	}
 	gap, pad := dip(8, layout.DPI), dip(10, layout.DPI)
 	navHeight := dip(42, layout.DPI)
 	for index, section := range shellSections {
@@ -531,6 +583,17 @@ func (ctx *mainWindowCtx) layout() {
 	move(ctx.reportLabel, ShellRect{X: layout.Content.X + dip(132, layout.DPI), Y: reportY + dip(3, layout.DPI), Width: dip(108, layout.DPI), Height: dip(36, layout.DPI)})
 	move(ctx.reportDetails, ShellRect{X: layout.Content.X + dip(248, layout.DPI), Y: reportY + dip(3, layout.DPI), Width: dip(108, layout.DPI), Height: dip(34, layout.DPI)})
 	move(ctx.historyReport, ShellRect{X: layout.Content.X + dip(364, layout.DPI), Y: reportY, Width: dip(104, layout.DPI), Height: dip(40, layout.DPI)})
+	trackY := reportY + dip(48, layout.DPI)
+	trackControls := []windows.Handle{
+		ctx.trackFile, ctx.trackRefresh, ctx.trackPolicy, ctx.trackUpload,
+		ctx.trackDelete, ctx.trackAudience, ctx.trackTargetNext, ctx.trackTargetToggle,
+		ctx.trackInsertion, ctx.trackQueue, ctx.trackReplace, ctx.trackRetry,
+		ctx.trackPause, ctx.trackSeek, ctx.trackResume, ctx.trackReport,
+	}
+	trackLayout := layoutWindowsStreamTrackControls(layout.Content, trackY, layout.DPI)
+	for index, control := range trackControls {
+		move(control, trackLayout.Rect[index])
+	}
 	airLayout := layoutWindowsAirControls(layout.Content, layout.Body.Bottom(), layout.DPI)
 	move(ctx.airTitleLabel, airLayout.TitleLabel)
 	move(ctx.airTitle, airLayout.TitleInput)
@@ -655,6 +718,15 @@ func (ctx *mainWindowCtx) render() {
 	for _, control := range []windows.Handle{ctx.draftNext, ctx.route, ctx.delivery, ctx.send, ctx.phaseDelete, ctx.outgoingFile, ctx.historyNext, ctx.historyDelete, ctx.historyReplay, ctx.historyBlock, ctx.reportReason, ctx.reportLabel, ctx.reportDetails, ctx.historyReport} {
 		showControl(control, historyPage)
 	}
+	trackControls := []windows.Handle{
+		ctx.trackFile, ctx.trackRefresh, ctx.trackPolicy, ctx.trackUpload,
+		ctx.trackDelete, ctx.trackAudience, ctx.trackTargetNext, ctx.trackTargetToggle,
+		ctx.trackInsertion, ctx.trackQueue, ctx.trackReplace, ctx.trackRetry,
+		ctx.trackPause, ctx.trackSeek, ctx.trackResume, ctx.trackReport,
+	}
+	for _, control := range trackControls {
+		showControl(control, historyPage)
+	}
 	hasDraft := len(snapshot.PhaseOneDrafts) > 0
 	hasHistory := len(snapshot.PhaseOneHistory) > 0
 	setText(ctx.draftNext, map[bool]string{true: "Next draft", false: "След. черновик"}[copy.locale == ShellEnglish])
@@ -713,6 +785,77 @@ func (ctx *mainWindowCtx) render() {
 	pEnableWindow.Call(uintptr(ctx.reportReason), boolWord(hasHistory && selectedHistory.CanReport))
 	pEnableWindow.Call(uintptr(ctx.reportDetails), boolWord(hasHistory && selectedHistory.CanReport))
 	pEnableWindow.Call(uintptr(ctx.historyReport), boolWord(hasHistory && selectedHistory.CanReport))
+
+	track := snapshot.StreamTrack
+	trackReady := historyPage && track.State == TargetsInboxReady && !snapshot.StreamTrackBusy
+	hasTrackDraft := track.Draft != nil
+	trackTarget := TargetsInboxTargetChoice{}
+	if snapshot.SelectedStreamTrackTarget >= 0 && snapshot.SelectedStreamTrackTarget < len(track.Targets) {
+		trackTarget = track.Targets[snapshot.SelectedStreamTrackTarget]
+	}
+	audience := string(track.SelectedAudience)
+	if audience == "" {
+		audience = "—"
+	}
+	insertion := string(track.SelectedInsertion)
+	if insertion == "" {
+		insertion = "—"
+	}
+	selectedTrackTarget := false
+	for _, reference := range track.SelectedReferences {
+		selectedTrackTarget = selectedTrackTarget || reference == trackTarget.Reference
+	}
+	if copy.locale == ShellRussian {
+		setText(ctx.trackFile, "Выбрать трек  Ctrl+Shift+L")
+		setText(ctx.trackRefresh, "Обновить")
+		setText(ctx.trackPolicy, "Принять правила")
+		setText(ctx.trackUpload, "Загрузить")
+		setText(ctx.trackDelete, "Удалить")
+		setText(ctx.trackAudience, "Кому: "+audience)
+		setText(ctx.trackTargetNext, "След. цель")
+		setText(ctx.trackTargetToggle, map[bool]string{true: "Убрать цель", false: "Выбрать цель"}[selectedTrackTarget])
+		setText(ctx.trackInsertion, "Режим: "+insertion)
+		setText(ctx.trackQueue, "В очередь")
+		setText(ctx.trackReplace, "Заменить")
+		setText(ctx.trackRetry, "Повторить")
+		setText(ctx.trackPause, "Пауза")
+		setText(ctx.trackSeek, "Вперёд 30 с")
+		setText(ctx.trackResume, "Продолжить")
+		setText(ctx.trackReport, "Пожаловаться")
+	} else {
+		setText(ctx.trackFile, "Choose track  Ctrl+Shift+L")
+		setText(ctx.trackRefresh, "Refresh")
+		setText(ctx.trackPolicy, "Accept policy")
+		setText(ctx.trackUpload, "Upload")
+		setText(ctx.trackDelete, "Delete")
+		setText(ctx.trackAudience, "Audience: "+audience)
+		setText(ctx.trackTargetNext, "Next target")
+		setText(ctx.trackTargetToggle, map[bool]string{true: "Remove target", false: "Select target"}[selectedTrackTarget])
+		setText(ctx.trackInsertion, "Mode: "+insertion)
+		setText(ctx.trackQueue, "Add to queue")
+		setText(ctx.trackReplace, "Replace current")
+		setText(ctx.trackRetry, "Try again")
+		setText(ctx.trackPause, "Pause")
+		setText(ctx.trackSeek, "Seek +30 s")
+		setText(ctx.trackResume, "Resume")
+		setText(ctx.trackReport, "Report")
+	}
+	pEnableWindow.Call(uintptr(ctx.trackFile), boolWord(historyPage && !snapshot.StreamTrackBusy))
+	pEnableWindow.Call(uintptr(ctx.trackRefresh), boolWord(historyPage && !snapshot.StreamTrackBusy))
+	pEnableWindow.Call(uintptr(ctx.trackPolicy), boolWord(trackReady && track.ContentPolicyState != "current" && targetsInboxHasAction(track.Actions, "accept_policy")))
+	pEnableWindow.Call(uintptr(ctx.trackUpload), boolWord(trackReady && hasTrackDraft && track.ContentPolicyState == "current" && track.Draft.Phase == StreamTrackDraftRetained && targetsInboxHasAction(track.Actions, "upload")))
+	pEnableWindow.Call(uintptr(ctx.trackDelete), boolWord(trackReady && hasTrackDraft && targetsInboxHasAction(track.Actions, "delete")))
+	pEnableWindow.Call(uintptr(ctx.trackAudience), boolWord(trackReady && (track.ActiveAirAvailable || len(track.SelectedReferences) > 0)))
+	pEnableWindow.Call(uintptr(ctx.trackTargetNext), boolWord(trackReady && len(track.Targets) > 1))
+	pEnableWindow.Call(uintptr(ctx.trackTargetToggle), boolWord(trackReady && len(track.Targets) > 0))
+	pEnableWindow.Call(uintptr(ctx.trackInsertion), boolWord(trackReady && (targetsInboxHasAction(track.Actions, "queue") || targetsInboxHasAction(track.Actions, "replace"))))
+	pEnableWindow.Call(uintptr(ctx.trackQueue), boolWord(trackReady && targetsInboxHasAction(track.Actions, "queue") && hasTrackDraft && track.Draft.Phase == StreamTrackDraftReady))
+	pEnableWindow.Call(uintptr(ctx.trackReplace), boolWord(trackReady && targetsInboxHasAction(track.Actions, "replace") && hasTrackDraft && track.Draft.Phase == StreamTrackDraftReady))
+	pEnableWindow.Call(uintptr(ctx.trackRetry), boolWord(trackReady && targetsInboxHasAction(track.Actions, "retry") && hasTrackDraft && track.Draft.Phase == StreamTrackDraftFailed))
+	pEnableWindow.Call(uintptr(ctx.trackPause), boolWord(trackReady && targetsInboxHasAction(track.Actions, "pause") && track.Playback.Phase == StreamTrackPlaybackPlaying))
+	pEnableWindow.Call(uintptr(ctx.trackSeek), boolWord(trackReady && targetsInboxHasAction(track.Actions, "seek") && track.Playback.DurationMS > 0))
+	pEnableWindow.Call(uintptr(ctx.trackResume), boolWord(trackReady && targetsInboxHasAction(track.Actions, "resume") && (track.Playback.Phase == StreamTrackPlaybackPaused || track.Playback.Phase == StreamTrackPlaybackRebuffering)))
+	pEnableWindow.Call(uintptr(ctx.trackReport), boolWord(trackReady && targetsInboxHasAction(track.Actions, "report") && hasTrackDraft && track.Draft.MediaID != ""))
 
 	inboxPage := section == ShellInbox
 	targetControls := []windows.Handle{
@@ -896,7 +1039,7 @@ func (ctx *mainWindowCtx) render() {
 	} else {
 		body := copy.Body(section, snapshot)
 		if section == ShellHistory {
-			body += "\r\n\r\n" + copy.Draft(snapshot)
+			body += "\r\n\r\n" + copy.Draft(snapshot) + "\r\n\r\n" + copy.StreamTrackProjection(snapshot)
 		}
 		setText(ctx.body, body)
 		if key := shellPrimaryAction(section); key != "" {
@@ -1149,6 +1292,70 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 			if actions.ReportSelectedTargetsHistory != nil {
 				actions.ReportSelectedTargetsHistory(windowText(ctx.targetsDetails))
 			}
+		case idTrackFile:
+			if actions.ChooseStreamTrackFile != nil {
+				actions.ChooseStreamTrackFile()
+			}
+		case idTrackRefresh:
+			if actions.RefreshStreamTrack != nil {
+				actions.RefreshStreamTrack()
+			}
+		case idTrackPolicy:
+			if actions.AcceptStreamTrackPolicy != nil && confirmWindowsUploadRights(hwnd, ctx.shell.Locale()) {
+				actions.AcceptStreamTrackPolicy()
+			}
+		case idTrackUpload:
+			if actions.UploadStreamTrack != nil {
+				actions.UploadStreamTrack()
+			}
+		case idTrackDelete:
+			if actions.DeleteStreamTrack != nil && confirmWindowsPermanentDelete(hwnd, ctx.shell.Locale()) {
+				actions.DeleteStreamTrack(true)
+			}
+		case idTrackAudience:
+			if actions.SelectNextStreamTrackAudience != nil {
+				actions.SelectNextStreamTrackAudience()
+			}
+		case idTrackTargetNext:
+			if actions.SelectNextStreamTrackTarget != nil {
+				actions.SelectNextStreamTrackTarget()
+			}
+		case idTrackTargetToggle:
+			if actions.ToggleStreamTrackTarget != nil {
+				actions.ToggleStreamTrackTarget()
+			}
+		case idTrackInsertion:
+			if actions.SelectNextStreamTrackInsertion != nil {
+				actions.SelectNextStreamTrackInsertion()
+			}
+		case idTrackQueue:
+			if actions.QueueStreamTrack != nil {
+				actions.QueueStreamTrack()
+			}
+		case idTrackReplace:
+			if actions.ReplaceStreamTrack != nil {
+				actions.ReplaceStreamTrack()
+			}
+		case idTrackPause:
+			if actions.PauseStreamTrack != nil {
+				actions.PauseStreamTrack()
+			}
+		case idTrackSeek:
+			if actions.SeekStreamTrack != nil {
+				actions.SeekStreamTrack()
+			}
+		case idTrackResume:
+			if actions.ResumeStreamTrack != nil {
+				actions.ResumeStreamTrack()
+			}
+		case idTrackRetry:
+			if actions.RetryStreamTrack != nil {
+				actions.RetryStreamTrack()
+			}
+		case idTrackReport:
+			if actions.ReportStreamTrack != nil {
+				actions.ReportStreamTrack("")
+			}
 		case idShellAirNext:
 			if actions.SelectNextAir != nil {
 				actions.SelectNextAir()
@@ -1247,7 +1454,15 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 	case wmDropFiles:
 		if ctx != nil && ctx.shell != nil {
 			snapshot := ctx.shell.Snapshot()
-			if snapshot.SelfTestAvailable && !shellLocalCaptureBusy(snapshot) && snapshot.Recording != ShellRecordingActive && snapshot.Recording != ShellRecordingProcessing {
+			if ctx.shell.Section() == ShellHistory {
+				if file, ok := windowsDroppedAudioFile(wParam); ok {
+					if action := ctx.shell.Actions().AcceptDroppedStreamTrack; action != nil {
+						action(file)
+					} else if file.Release != nil {
+						file.Release()
+					}
+				}
+			} else if snapshot.SelfTestAvailable && !shellLocalCaptureBusy(snapshot) && snapshot.Recording != ShellRecordingActive && snapshot.Recording != ShellRecordingProcessing {
 				if file, ok := windowsDroppedAudioFile(wParam); ok {
 					if action := ctx.shell.Actions().AcceptDroppedFile; action != nil {
 						action(file)

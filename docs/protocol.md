@@ -71,6 +71,8 @@ executable
 contract. It keeps upload, server processing and audible playback progress
 distinct, retains unsent drafts through outages, consumes coordinator-owned
 RU/EN labels and fences optimistic controls by playback and seek generation.
+The [Windows streamed-track UI and bounded resumable intake](analysis/p2-windows-stream-track-ui.md)
+consumes this model without weakening the production codec no-go.
 The candidate-neutral
 [macOS streamed-track player](analysis/p2-macos-streamed-track-player.md)
 implements the bounded range/cache/render lifecycle without registering a

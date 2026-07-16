@@ -594,6 +594,12 @@ func (c *PhaseOneAppClient) request(ctx context.Context, method, path, bearer st
 	if err != nil {
 		return nil, nil, phaseOneError(PhaseOneInvalidRequest)
 	}
+	// io.SectionReader is the bounded long-track upload body. net/http does
+	// not infer its length, while the coordinator deliberately rejects
+	// transfer-encoded uploads; preserve the exact section size explicitly.
+	if sized, ok := body.(interface{ Size() int64 }); ok {
+		request.ContentLength = sized.Size()
+	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Authorization", "Bearer "+bearer)
 	for name, value := range headers {

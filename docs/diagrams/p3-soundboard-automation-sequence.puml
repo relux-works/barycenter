@@ -5,12 +5,24 @@ title P3 Soundboard and Safe Automation Trigger Sequence
 
 actor "User or Scoped Principal" as Actor
 participant "Desktop UI or\nAuthenticated HTTPS API" as Surface
+participant "Control API\n(primary + CAS/idempotency)" as Control
 participant "Automation Runtime" as Runtime
 participant "Cue/Schedule Store" as Store
 participant "History/Audit" as History
 participant "Transmission Service" as Tx
 participant "Target Policy\nDND/Air/ACL" as Policy
 participant "Desktop Targets" as Targets
+
+== Configure ==
+Actor -> Control: cue/schedule/feature CRUD\nor issue/revoke principal
+Control -> Store: re-authorize primary inside writer\ncommit mutation + sanitized replay
+Store --> Control: resource projection\nsecret only on first issue response
+Control --> Actor: no-store response
+
+note over Control,Runtime
+  Scoped trigger is a generic 404 until the downstream
+  runtime service is explicitly composed.
+end note
 
 == Trigger ==
 Actor -> Surface: fire cue hotkey\nor scoped API trigger

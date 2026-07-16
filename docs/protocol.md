@@ -160,6 +160,12 @@ The application HTTP contracts and authorization boundaries are documented in
 [the history/receipt query](analysis/p1-transmission-history-receipt-query.md),
 and [the history replay/policy command layer](analysis/p1-history-replay-policy-actions.md).
 
+The production-dark P3 soundboard/automation HTTP surface is documented in
+[the automation control API v1](analysis/p3-automation-control-api-v1.md).
+It adds no node wire message: control mutations persist cues, schedules,
+scoped-principal metadata and one-time credential digests only. Runtime
+admission and transmission composition remain a later task.
+
 The following v1 message types are additive. Every clip lifecycle payload is
 bound to `(transmission_id, generation)`; target identity comes only from the
 authenticated WebSocket connection and is never accepted from a payload.

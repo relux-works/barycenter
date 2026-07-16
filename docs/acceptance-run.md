@@ -7,6 +7,11 @@ the automated/manual evidence boundary, use
 is retained as historical evidence for the original Spotify/Airfoil baseline;
 none of its pending rows is promoted by repository automation.
 
+For the frozen Phase 2 B1-B7, sections 17-18, 20.5 and seven-day 20.6 evidence
+contract, use [`acceptance/phase2-gate-matrix.md`](acceptance/phase2-gate-matrix.md).
+That contract keeps repository preflight separate from manual packaged-app,
+real-hardware, production-shaped rollback and beta claims.
+
 Scope: items 18.1-18.7 and 18.9-18.13 (18.8 is phase 2), plus the factual
 clean-install run (goal 3.6). A row counts only with date, environment and an
 observed result — no pre-ticking (goal invariant: progress needs evidence).

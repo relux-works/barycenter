@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-gate-matrix-evidence.v1",
+  "task": "TASK-260712-14rxuk",
+  "frozenAt": "2026-07-16",
+  "owner": "Ivan Oparin",
+  "scope": "engineering-contract-only",
+  "executionStatus": "frozen-not-executed",
+  "manualEpic": "EPIC-260714-th54l3",
+  "productionGate": {
+    "status": "blocked",
+    "reason": "p2-codec-player-adr-handoff.v1 is no-go",
+    "selectedCodecPlayerCombination": null,
+    "streamedTracksActivationAllowed": false,
+    "maximumCurrentRolloutStage": 4,
+    "reopenRequires": [
+      "reviewed replacement codec/player ADR",
+      "explicit production encoder and decoder registries",
+      "additive stream_variant_policy schema revision",
+      "signed packaged Windows and macOS builds with exact hashes"
+    ]
+  },
+  "sourceAnchors": [
+    {"path": "acceptance/codec-spike/rubric-v1.json", "sha256": "8701ddc6307e289817b020f07aa56b74203e472894b65ec84e4f61d5c9f6a4d2"},
+    {"path": "acceptance/codec-spike/player-handoff-v1.json", "sha256": "7f122576f6841c38ff4f9e308e0cf5d0d7f761827d086784b0e34d7cd14ce273"},
+    {"path": "acceptance/streamed-track-rollout-handoff-v1.json", "sha256": "6d2450b122e56d053a6d4c503bf72b28ff5460827f69addcfb37d7588ba3c380"},
+    {"path": "acceptance/targets-inbox-parity-regressions-v1.json", "sha256": "52393c70e34e68511cf4e1f439a33a7861cf86fd5c9170b7f0db336969757911"},
+    {"path": "acceptance/targets-inbox-rollout-handoff-v1.json", "sha256": "0a051e419000d06c89a7b383283e87ec2dfef553d6e37cce05e806fc9b1221cb"},
+    {"path": "docs/analysis/p2-air-lifecycle-regression-rehearsal.md", "sha256": "5d5d6a9d42308572455ce1abe4aea7b94a6bcf63e5e26d7168579ca1f05623d6"},
+    {"path": "protocol/stream-track-v1.json", "sha256": "fe1360cda460d88f58f51e3cb02537630b337393eceaa54976eeaa1a85395a9a"}
+  ],
+  "claimClasses": {
+    "repository-automated-preflight": "May prove deterministic schema, protocol, ACL, lifecycle, range, cache and synthetic coordinator invariants only.",
+    "manual-final": "Requires provenance-tracked packaged applications, recorded real hardware and human-operated or audible observations.",
+    "beta-final": "Requires seven consecutive immutable 24-hour records from one approved real multi-home Air.",
+    "forbidden": [
+      "developer-mode result represented as packaged application evidence",
+      "synthetic coordinator fanout represented as audible or decoder performance",
+      "mock clock represented as real latency or skew",
+      "repository test represented as Windows, macOS, Telegram, rollback or beta execution"
+    ]
+  },
+  "clocks": {
+    "latency": "process monotonic clock",
+    "scheduledSkew": "coordinator monotonic schedule plus node monotonic first-audio timestamps",
+    "wallClock": "UTC metadata only",
+    "wallClockSync": "record source and pre/post offset; absolute offset must be at most 10 ms for cross-node samples",
+    "sampleIntervalMS": 1000,
+    "percentileMethod": "nearest-rank",
+    "failures": "retained in denominator and never discarded"
+  },
+  "provenance": {
+    "required": [
+      "root git commit",
+      "coordinator artifact sha256",
+      "Windows MSIX sha256 and package identity",
+      "macOS app sha256, signing identity and notarization receipt",
+      "configuration and feature-flag snapshot sha256",
+      "database schema and sanitized data-shape sha256",
+      "fixture-lock sha256",
+      "OS build, architecture, machine model, audio device and network profile",
+      "operator and participant-consent record ids"
+    ],
+    "mutationRule": "any binary, config, schema, fixture, topology or measurement-script change invalidates the affected sample group; beta changes restart day one after root review"
+  },
+  "fixturePack": {
+    "rubric": "p2-codec-spike-rubric.v1",
+    "rubricSha256": "8701ddc6307e289817b020f07aa56b74203e472894b65ec84e4f61d5c9f6a4d2",
+    "generator": "python3 scripts/codec_spike/generate_fixtures.py --output <private-dir> --lock <fixture-lock.json>",
+    "toolchain": "FFmpeg 8.1.2",
+    "toolchainReleaseSha256": "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c",
+    "longClasses": ["mp3_cbr_1h", "mp3_vbr_2h_seek", "aac_m4a_cbr_1h", "aac_adts_vbr_2h_seek", "opus_ogg_cbr_1h", "opus_ogg_vbr_2h_seek"],
+    "smokeFixtureHashesSource": "acceptance/codec-spike/player-handoff-v1.json",
+    "campaignLock": "generated once before samples; every file sha256 and the lock sha256 are immutable campaign provenance",
+    "selectionRule": "a replacement ADR must name the exact production fixture classes; the current no-go permits no final B1 sample"
+  },
+  "environmentRoster": {
+    "pairings": ["windows_windows", "windows_macos", "macos_macos"],
+    "windows": [
+      {"id": "windows10_x64", "minimumBuild": "19044", "package": "signed MSIX", "physical": true},
+      {"id": "windows11_x64", "minimumBuild": "record supported build", "package": "signed MSIX", "physical": true},
+      {"id": "windows11_arm64", "minimumBuild": "record supported build", "package": "signed MSIX", "physical": true, "requiredWhenProductionArchitecture": true}
+    ],
+    "macos": [
+      {"id": "macos14_arm64", "minimumVersion": "14.0", "package": "signed notarized app", "physical": true}
+    ],
+    "pairingRule": "two distinct installations per pairing; Windows rows cover Windows 10 x64 and Windows 11 x64, plus ARM64 when shipped",
+    "airRealMinimum": {"barycenters": 3, "pulsars": 5},
+    "airSyntheticMaximum": {"barycenters": 8, "pulsars": 20},
+    "mixedFleet": "at least one Phase 1 node and one exact Phase 2 build in the same accepted Air snapshot",
+    "telegram": "one real private chat with opaque callbacks and no raw chat or user id in exported evidence"
+  },
+  "samplePlan": {
+    "warmupsPerTimedGroup": 3,
+    "measuredSamplesPerTimedGroup": 30,
+    "timedGroupKeys": ["buildSha256", "pairing", "node", "fixtureId", "networkProfile"],
+    "rss": "sample process-tree RSS once per second from prepare through drained ended; maximum must stay at or below 200 MiB and duration growth gates come from the codec rubric",
+    "oneHourPlaybackRunsPerPairing": 1,
+    "twoHourDurationRunsPerPairing": 1,
+    "airScenarioRepetitions": 30,
+    "b5AdversarialCasesPerSurface": 30,
+    "b6PolicyCasesPerPairing": 30,
+    "b7RevocationCasesPerSurface": 30,
+    "syntheticLoad": {"barycenters": 8, "pulsars": 20, "commandsPerIteration": 20, "iterations": 30, "duplicateCommandsAllowed": 0, "lostCommandsAllowed": 0},
+    "beta": {"consecutiveWindows": 7, "windowHours": 24, "immutableDailyRecords": 7, "criticalIncidentsAllowed": 0}
+  },
+  "artifactLayout": {
+    "campaignIdPattern": "p2-YYYYMMDDTHHMMSSZ-<12hex-root-head>",
+    "privateWorkingRoot": ".temp/acceptance/phase2/<campaign-id>",
+    "relativePattern": "<gate-id>/<pairing-or-topology>/<run-id>/<artifact-kind>.<ext>",
+    "requiredPerRun": ["result.json", "artifact-manifest.json", "commands.json", "environment.json", "metrics.csv", "sanitization-report.json"],
+    "manifestRule": "every artifact records relative path, byte length and sha256; manifests are append-only after signing",
+    "exportRule": "the promotion packet indexes signed sanitized manifests and content-addressed artifact URIs; raw participant data and audio are never committed"
+  },
+  "gates": {
+    "B1": {"source": "20.4 B1", "manualPreconditionTask": "TASK-260712-1fpb9q", "manualTask": "TASK-260712-2bdi4a", "preflightCommand": "python3 scripts/acceptance/run_automated.py --suite all --require-clean --run-id <campaign>-b1-preflight", "preflightArtifact": ".temp/acceptance/<campaign>-b1-preflight/manifest.json", "finalArtifact": "B1/<pairing>/<run-id>/result.json", "status": "manual-required-blocked-by-codec-no-go"},
+    "B2": {"source": "20.4 B2", "manualTask": "TASK-260712-21kz3b", "preflightCommand": "python3 scripts/acceptance/run_air_regression.py --output .temp/acceptance/phase2/<campaign>/B2-B4/synthetic/air-regression.json", "preflightArtifact": "B2-B4/synthetic/air-regression.json", "finalArtifact": "B2/three-barycenters-five-pulsars/<run-id>/result.json", "status": "manual-required"},
+    "B3": {"source": "20.4 B3", "manualTask": "TASK-260712-21kz3b", "preflightCommand": "python3 scripts/acceptance/run_air_regression.py --output .temp/acceptance/phase2/<campaign>/B2-B4/synthetic/air-regression.json", "preflightArtifact": "B2-B4/synthetic/air-regression.json", "finalArtifact": "B3/living-air/<run-id>/result.json", "status": "manual-required"},
+    "B4": {"source": "20.4 B4", "manualTask": "TASK-260712-21kz3b", "preflightCommand": "python3 scripts/acceptance/run_air_regression.py --output .temp/acceptance/phase2/<campaign>/B2-B4/synthetic/air-regression.json", "preflightArtifact": "B2-B4/synthetic/air-regression.json", "finalArtifact": "B4/leave-during-track/<run-id>/result.json", "status": "manual-required"},
+    "B5": {"source": "20.4 B5", "manualTask": "TASK-260712-3u5cdn", "preflightCommand": "python3 scripts/validate_targets_inbox_parity_regressions.py", "preflightArtifact": "acceptance/targets-inbox-parity-regressions-v1.json", "finalArtifact": "B5/explicit-target-adversarial/<run-id>/result.json", "status": "manual-required"},
+    "B6": {"source": "20.4 B6", "manualPreconditionTask": "TASK-260712-1fpb9q", "manualTask": "TASK-260712-3u5cdn", "preflightCommand": "python3 scripts/validate_streamed_track_rollout_handoff.py", "preflightArtifact": "acceptance/streamed-track-rollout-handoff-v1.json", "finalArtifact": "B6/mixed-fleet/<run-id>/result.json", "status": "manual-required-blocked-by-codec-no-go"},
+    "B7": {"source": "20.4 B7", "manualTask": "TASK-260712-3u5cdn", "preflightCommand": "python3 scripts/validate_targets_inbox_parity_regressions.py", "preflightArtifact": "acceptance/targets-inbox-parity-regressions-v1.json", "finalArtifact": "B7/rights-abuse/<run-id>/result.json", "status": "manual-required"},
+    "20.5-track-start": {"threshold": {"metric": "track_start_ms", "method": "nearest-rank-p95", "limit": 5000, "samples": 30, "warmups": 3}, "manualTask": "TASK-260712-2bdi4a", "command": "python3 scripts/codec_spike/evaluate_evidence.py <evidence.json> --output <evaluation.json>", "artifact": "20.5/<pairing>/track-start/evaluation.json", "status": "manual-required-blocked-by-codec-no-go"},
+    "20.5-start-skew": {"threshold": {"metric": "scheduled_skew_ms", "method": "nearest-rank-p95", "limit": 100, "samples": 30, "warmups": 3}, "manualTask": "TASK-260712-2bdi4a", "command": "python3 scripts/codec_spike/evaluate_evidence.py <evidence.json> --output <evaluation.json>", "artifact": "20.5/<pairing>/start-skew/evaluation.json", "status": "manual-required-blocked-by-codec-no-go"},
+    "20.5-seek": {"threshold": {"metric": "seek_to_audio_ms", "method": "nearest-rank-p95", "limit": 3000, "samples": 30, "warmups": 3}, "manualTask": "TASK-260712-2bdi4a", "command": "python3 scripts/codec_spike/evaluate_evidence.py <evidence.json> --output <evaluation.json>", "artifact": "20.5/<pairing>/seek/evaluation.json", "status": "manual-required-blocked-by-codec-no-go"},
+    "20.5-memory": {"threshold": {"metric": "peak_rss_mib", "method": "maximum", "limit": 200, "samples": 1, "warmups": 0}, "manualTask": "TASK-260712-2bdi4a", "command": "python3 scripts/codec_spike/evaluate_evidence.py <evidence.json> --output <evaluation.json>", "artifact": "20.5/<pairing>/rss/evaluation.json", "status": "manual-required-blocked-by-codec-no-go"},
+    "20.5-accounting": {"threshold": {"reconciliationMismatchAllowed": 0, "unexplainedCrashReleaseGrowthAllowed": 0}, "engineeringTask": "TASK-260712-qi81vf", "manualTask": "TASK-260712-2pnc5a", "command": "python3 scripts/validate_phase2_campaign.py --contract acceptance/phase2/gate-matrix-v1.json --campaign <campaign-dir>", "producerOwner": "TASK-260712-qi81vf must add the canonical sanitized metrics export without changing this validation path", "artifact": "20.5/accounting/<run-id>/sanitized-metrics.json", "status": "engineering-pending-and-manual-required"},
+    "20.5-migration": {"threshold": {"dualRuntimeCommandsAllowed": 0, "phase2RowsLostAllowed": 0, "phase1RegressionAllowed": 0}, "manualTask": "TASK-260712-3qybi2", "command": "python3 scripts/validate_phase2_campaign.py --contract acceptance/phase2/gate-matrix-v1.json --campaign <campaign-dir>", "producerOwner": "TASK-260712-3qybi2 must freeze and execute the production-shaped runbook", "artifact": "20.5/migration-rollback/<run-id>/result.json", "status": "manual-required"},
+    "20.5-scale": {"threshold": {"barycenters": 8, "pulsars": 20, "iterations": 30, "commandsPerIteration": 20, "duplicateCommandsAllowed": 0, "lostCommandsAllowed": 0}, "manualTask": "TASK-260712-21kz3b", "preflightCommand": "python3 scripts/acceptance/run_air_regression.py --output .temp/acceptance/phase2/<campaign>/20.5-scale/synthetic/air-regression.json", "preflightArtifact": "20.5-scale/synthetic/air-regression.json", "finalArtifact": "20.5-scale/eight-by-twenty/<run-id>/result.json", "status": "manual-required"},
+    "17-observability": {"engineeringTask": "TASK-260712-qi81vf", "command": "python3 scripts/validate_phase2_campaign.py --contract acceptance/phase2/gate-matrix-v1.json --campaign <campaign-dir>", "producerOwner": "TASK-260712-qi81vf must add the canonical sanitized metrics export without parallel counters", "artifact": "17-observability/<run-id>/sanitized-metrics.json", "status": "engineering-pending"},
+    "18-rollout": {"manualTask": "TASK-260712-3qybi2", "preflightCommand": "python3 scripts/validate_streamed_track_rollout_handoff.py", "preflightArtifact": "acceptance/streamed-track-rollout-handoff-v1.json", "finalArtifact": "18-rollout/<run-id>/result.json", "status": "manual-required-blocked-after-stage-4"},
+    "20.6-beta": {"manualTask": "TASK-260712-2pnc5a", "command": "python3 scripts/validate_phase2_campaign.py --contract acceptance/phase2/gate-matrix-v1.json --campaign <campaign-dir> --require-beta", "artifact": "20.6-beta/day-01..day-07/result.json", "status": "manual-required-after-reviews-and-B1-B7"}
+  },
+  "criticalIncidentRubric": {
+    "critical": [
+      "wrong-recipient or unauthorized content access",
+      "delete, disable, report protection or cache revocation bypass",
+      "lost or corrupted accepted media, target, Air, inbox or accounting state",
+      "duplicate or transitive audible delivery",
+      "flag-off or rollback cannot stop new Phase 2 work",
+      "runaway storage or egress accounting not contained by configured quota",
+      "coordinator or any participating node unavailable for Phase 1 and Phase 2 recovery"
+    ],
+    "action": "stop cohort, preserve sanitized evidence, disable flags, execute approved drain/rollback, root-review fix; beta restarts at day one",
+    "unapprovedChange": "same restart rule as a critical incident"
+  },
+  "privacy": {
+    "consentOwner": "Ivan Oparin",
+    "requiredBeforeManualRun": true,
+    "allowedIdentifiers": ["campaign id", "opaque installation role", "opaque target role", "media/transmission ids after campaign-scoped hashing"],
+    "forbiddenArtifacts": ["audio bytes", "original filename", "caption", "transcript", "bearer token", "raw actor id", "raw chat id", "email", "local filesystem path"],
+    "sanitizationRequired": true
+  },
+  "blockers": [
+    {"id": "codec-player-no-go", "owner": "Ivan Oparin", "blocks": ["B1", "B6", "20.5-track-start", "20.5-start-skew", "20.5-seek", "20.5-memory", "18-rollout", "20.6-beta"], "status": "open"},
+    {"id": "real-lab-hardware-roster", "owner": "Ivan Oparin", "blocks": ["B1", "B2", "B3", "B4", "B5", "B6", "B7"], "status": "manual-required"},
+    {"id": "participant-consent-roster", "owner": "Ivan Oparin", "blocks": ["B2", "B3", "B4", "B5", "B6", "B7", "20.6-beta"], "status": "manual-required"},
+    {"id": "production-credentials-and-feature-flag-authority", "owner": "Ivan Oparin", "blocks": ["18-rollout", "20.6-beta"], "status": "manual-required"},
+    {"id": "phase2-observability-export", "ownerTask": "TASK-260712-qi81vf", "blocks": ["17-observability", "20.5-accounting", "20.6-beta"], "status": "engineering-pending"}
+  ]
+}

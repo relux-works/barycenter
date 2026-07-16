@@ -467,6 +467,7 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/moderation/stream-accounting", api.secure(api.withModerationOperator(api.streamAccountingOperatorView)))
 	mux.HandleFunc("/v1/moderation/stream-accounting/policies", api.secure(api.withModerationOperator(api.streamAccountingPolicies)))
 	mux.HandleFunc("/v1/moderation/stream-accounting/policies/audit", api.secure(api.withModerationOperator(api.streamAccountingPolicyAudit)))
+	mux.HandleFunc("/v1/moderation/phase2-observability", api.secure(api.withModerationOperator(api.phase2ObservabilityOperatorView)))
 	mux.HandleFunc("/v1/airs", api.secure(api.withAirControl(api.airsCollection)))
 	mux.HandleFunc("/v1/airs/", api.secure(api.withAirControl(api.airItem)))
 	mux.HandleFunc("/v1/air-invites/consume", api.secure(api.withAirControl(api.consumeAirInvite)))

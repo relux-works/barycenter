@@ -73,7 +73,7 @@
     },
     {
       "path": "coordinator/cmd/duet-coordinator/onboarding.go",
-      "sha256": "f0bc841432daacb53128cb8b23ca6f7745395f6febc612e212849daa3a00b042"
+      "sha256": "5d0c8c7a94f7c107bdfd2d683b8cf74080cb743b628264c1cae39d4f390babcf"
     },
     {
       "path": "coordinator/cmd/duet-coordinator/telegram_air.go",
@@ -86,6 +86,15 @@
     {
       "path": "acceptance/phase2/gate-matrix-v1.json",
       "sha256": "85f120bd7376b853f3f3ad88988979dc9d4ebc241f9304aa3fde47a6a2d80297"
+    }
+  ],
+  "deltaReviews": [
+    {
+      "task": "TASK-260712-qi81vf",
+      "reviewedAt": "2026-07-16",
+      "scope": "one authenticated list-only Phase 2 observability route registration",
+      "result": "no Air lifecycle, invite limiter, authorization, mutation, runtime or Telegram behavior changed",
+      "verification": "the complete Air migration review validator and source-linked invite admission assertions pass against the new exact onboarding.go hash"
     }
   ],
   "reruns": [

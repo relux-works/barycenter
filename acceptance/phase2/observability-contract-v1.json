@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-observability-quota-view.v1",
+  "task": "TASK-260712-qi81vf",
+  "status": "engineering-ready-production-blocked",
+  "operatorEndpoint": {
+    "method": "GET",
+    "path": "/v1/moderation/phase2-observability",
+    "authentication": "moderation bearer with list capability",
+    "queryParameters": [],
+    "cacheControl": "no-store"
+  },
+  "publicHealth": {
+    "path": "/healthz",
+    "phase2Fields": ["ready", "streamed_tracks_enabled", "air_rooms_enabled", "air_authority_state"],
+    "streamAccountingFields": ["ready", "saturated", "last_reconciled_at"],
+    "disabledRule": "a disabled Phase 2 dependency cannot degrade Phase 1 health",
+    "enabledRule": "enabled stream accounting, processor, storage and authoritative Air runtime are mandatory"
+  },
+  "window": {
+    "seconds": 86400,
+    "rolling": true,
+    "generatedAtClock": "UTC Unix milliseconds",
+    "serverTimingClock": "coordinator wall-clock Unix milliseconds; negative samples are excluded",
+    "clientTimingClock": "process monotonic clock"
+  },
+  "metricGroups": {
+    "accounting": ["processing_crash_releases", "egress_crash_releases", "upload_starts_24h", "input_bytes_24h", "canonical_bytes", "retained_storage_bytes", "temp_processing_bytes", "temp_processing_reserved_bytes", "concurrent_jobs", "range_requests_24h", "actual_egress_bytes_24h", "active_egress_reserved_bytes", "quota_rejections_24h", "saturated_scopes_24h"],
+    "processing": ["active_jobs", "succeeded_24h", "failed_24h", "expired_24h", "processor_failures_24h", "validation_failures_24h", "latency"],
+    "timing": ["release_to_ready", "track_start", "start_skew", "seek_to_audio"],
+    "playback": ["domains", "buffering_domains", "playing_domains", "paused_domains", "queued_items", "active_items", "seek_generations", "buffer_sample_status", "seek_sample_status"],
+    "delivery": ["target_statuses", "inbox_reasons", "inbox_available", "inbox_replayed", "inbox_unavailable", "duplicate_target_anomalies"],
+    "air": ["authority_state", "authority_generation", "divergence_count", "parked", "active", "dissolved", "joined_members", "pending_members", "active_pointers", "runtime_shape_anomalies"]
+  },
+  "cardinality": {
+    "dynamicLabelsAllowed": false,
+    "fixedDimensions": ["feature", "readiness dependency", "timing metric", "playback state", "target status", "inbox reason", "Air lifecycle state", "quota dimension"],
+    "forbidden": ["raw actor id", "raw orbit id", "raw Air id", "raw media id", "raw transmission id", "raw chat id", "filename", "title", "caption", "transcript", "audio bytes", "bearer token", "filesystem path", "arbitrary error text"]
+  },
+  "retention": {
+    "operatorAggregation": "rolling 24 hours for event counters and timing samples; current gauges for storage, queue, feature and Air state",
+    "evidenceExport": "content-addressed sanitized JSON retained with the Phase 2 campaign manifest",
+    "canonicalRows": "retain according to owning media, inbox, audit and accounting lifecycle; the view creates no parallel metric rows"
+  },
+  "alerts": [
+    {"id": "stream-accounting-not-ready", "condition": "streamed_tracks.enabled && !stream_accounting_ready", "severity": "critical"},
+    {"id": "stream-runtime-dependency-unavailable", "condition": "streamed_tracks.enabled && (!media_processor_ready || !stream_storage_ready)", "severity": "critical"},
+    {"id": "air-runtime-divergence", "condition": "air_rooms.enabled && (!air_runtime_ready || divergence_count > 0 || runtime_shape_anomalies > 0)", "severity": "critical"},
+    {"id": "quota-saturation", "condition": "accounting.saturated || quota_rejections_24h > 0", "severity": "warning-until-approved-capacity-decision"},
+    {"id": "crash-release-growth", "condition": "processing_crash_releases or egress_crash_releases increases without an explained restart", "severity": "warning"},
+    {"id": "duplicate-target-anomaly", "condition": "duplicate_target_anomalies > 0", "severity": "critical"}
+  ],
+  "evidence": {
+    "artifact": "17-observability/<run-id>/sanitized-metrics.json",
+    "accountingArtifact": "20.5/accounting/<run-id>/sanitized-metrics.json",
+    "query": "curl --fail --silent --show-error -H 'Authorization: Bearer $MODERATION_LIST_TOKEN' https://<coordinator>/v1/moderation/phase2-observability",
+    "validation": "python3 scripts/acceptance/validate_phase2_observability.py",
+    "manualBoundary": ["seek-to-audio latency and buffer depth require process-monotonic client evidence", "audible behavior, physical hardware, production rollout and seven-day beta remain in EPIC-260714-th54l3", "the current codec/player no-go keeps streamed_tracks disabled"]
+  },
+  "sourceAnchors": [
+    {"path": "coordinator/internal/store/phase2_observability.go", "sha256": "dc8863826a8bd3de6e1cdfbefad6b0912fc9267542439e9f0e5ba7bde5c13924"},
+    {"path": "coordinator/cmd/duet-coordinator/stream_accounting_http.go", "sha256": "97d47070d5b8624faa95af26d5dcc0179647cf8846e6a24eeb8fd3ac8392a2cf"},
+    {"path": "coordinator/cmd/duet-coordinator/onboarding.go", "sha256": "5d0c8c7a94f7c107bdfd2d683b8cf74080cb743b628264c1cae39d4f390babcf"},
+    {"path": "coordinator/internal/store/stream_accounting.go", "sha256": "deff714aad019a7cb4300d2df3cd5f7f4f5bb1ea936bebdedc22add0be9ba7f7"},
+    {"path": "acceptance/streamed-track-rollout-handoff-v1.json", "sha256": "6d2450b122e56d053a6d4c503bf72b28ff5460827f69addcfb37d7588ba3c380"},
+    {"path": "acceptance/phase2/gate-matrix-v1.json", "sha256": "85f120bd7376b853f3f3ad88988979dc9d4ebc241f9304aa3fde47a6a2d80297"}
+  ]
+}

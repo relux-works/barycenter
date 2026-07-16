@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 96 accepted, 109 remain.
-- Routed inventory: 186 engineering tasks (96 accepted, 90 remain) and 19
+- Combined inventory: 205 original tasks; 97 accepted, 108 remain.
+- Routed inventory: 186 engineering tasks (97 accepted, 89 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2nto40` — macos-p2-targets-inbox-ui
-- Next engineering task: `TASK-260712-2nto40` — macos-p2-targets-inbox-ui
-- Most recently accepted: `TASK-260712-2vipy3` — pulsar-inbox-history-ui
-- Current branch: `tracking/task-260712-2vipy3-pulsar-inbox-history-ui`
+- Current engineering task: `TASK-260712-cuplon` — windows-p2-targets-inbox-ui
+- Next engineering task: `TASK-260712-cuplon` — windows-p2-targets-inbox-ui
+- Most recently accepted: `TASK-260712-2nto40` — macos-p2-targets-inbox-ui
+- Current branch: `tracking/task-260712-2nto40-macos-p2-targets-inbox-ui`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 96 / 205 tasks (approximately 46.8%); 109 remain
-- Engineering progress: 96 / 186 tasks (approximately 51.6%); 90 remain
+- Accepted overall: 97 / 205 tasks (approximately 47.3%); 108 remain
+- Engineering progress: 97 / 186 tasks (approximately 52.2%); 89 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1592,8 +1592,25 @@ mutation authority, and there is no late-autoplay command. Local affected Go,
 vet/race, Windows full/race, Swift 226/226, contract and acceptance validators
 passed. Exact engineering head `5968046` passed all four hosted jobs in run
 `29464453352`; PR #132 landed at merge `45f27ac`. No native final-view or
-real-app/hardware result is claimed. Progress is 96/205 overall and 96/186
-engineering; strict execution advances to `TASK-260712-2nto40`.
+real-app/hardware result is claimed. Tracking head `6400b22` passed all four
+hosted jobs in run `29464705100` after a failed-job rerun confirmed two old
+Windows async timing flakes; PR #133 landed at merge `aa04a01`. Progress is
+96/205 overall and 96/186 engineering; strict execution advances to
+`TASK-260712-2nto40`.
+
+Checkpoint 2026-07-16: `TASK-260712-2nto40` is accepted on exact engineering
+head `382e055`. Native macOS SwiftUI now exposes authenticated current-Air and
+opaque explicit targeting, versioned consent, paginated inbox/history and
+receipts, explicit replay/dismiss/delete/report/mute actions, durable exact
+targeted-send retry, fail-closed reconnect semantics, EN/RU copy and an
+explicit no-autoplay boundary. Queue/replace remains visibly unavailable until
+the later streamed-track contract exists rather than inventing a fallback.
+Local Xcode tests passed 231 tests in 38 suites; the presentation, coordinator
+contract and acceptance validators passed. Hosted run `29466777419` passed all
+four jobs; PR #134 landed at merge `22f7175`. No hands-on VoiceOver, packaged
+app, audible playback or physical-hardware result is claimed; those remain in
+`EPIC-260714-th54l3`. Progress is 97/205 overall and 97/186 engineering; strict
+execution advances to `TASK-260712-cuplon`.
 
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
@@ -2416,7 +2433,12 @@ Story: `STORY-260712-ob1tx2` — P2 Explicit targets, inbox and transport parity
   (accepted on engineering head `5968046`; additive localized target,
   inbox/history/receipt projection and fail-closed Swift/Windows command
   models passed hosted run `29464453352` 4/4; PR #132 merge `45f27ac`)
-- [ ] `TASK-260712-2nto40` — macos-p2-targets-inbox-ui
+- [x] `TASK-260712-2nto40` — macos-p2-targets-inbox-ui
+  (accepted on engineering head `382e055`; native authenticated SwiftUI
+  targeting, consent, inbox/history, receipts and moderation actions passed
+  231 Swift tests plus contract/acceptance validators and hosted run
+  `29466777419` 4/4; PR #134 merge `22f7175`; hands-on app/hardware checks stay
+  in the manual epic)
 - [ ] `TASK-260712-cuplon` — windows-p2-targets-inbox-ui
 - [ ] `TASK-260712-1vklop` — targets-inbox-parity-regressions
 - [ ] `TASK-260712-20cuna` — targets-inbox-rollout-handoff

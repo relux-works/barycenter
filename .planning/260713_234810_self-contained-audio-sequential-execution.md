@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 99 accepted, 106 remain.
-- Routed inventory: 186 engineering tasks (99 accepted, 87 remain) and 19
+- Combined inventory: 205 original tasks; 100 accepted, 105 remain.
+- Routed inventory: 186 engineering tasks (100 accepted, 86 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-20cuna` — targets-inbox-rollout-handoff
-- Next engineering task: `TASK-260712-20cuna` — targets-inbox-rollout-handoff
-- Most recently accepted: `TASK-260712-1vklop` — targets-inbox-parity-regressions
-- Current branch: `tracking/task-260712-1vklop-acceptance`
+- Current engineering task: `TASK-260712-1n5fks` — stream-track-schema-variants
+- Next engineering task: `TASK-260712-1n5fks` — stream-track-schema-variants
+- Most recently accepted: `TASK-260712-20cuna` — targets-inbox-rollout-handoff
+- Current branch: `tracking/task-260712-20cuna-acceptance`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 99 / 205 tasks (approximately 48.3%); 106 remain
-- Engineering progress: 99 / 186 tasks (approximately 53.2%); 87 remain
+- Accepted overall: 100 / 205 tasks (approximately 48.8%); 105 remain
+- Engineering progress: 100 / 186 tasks (approximately 53.8%); 86 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -1649,6 +1649,21 @@ real-network denial and mixed fleet remain manual-required in
 `TASK-260712-3u5cdn`. Progress is 99/205 overall and 99/186 engineering;
 strict execution advances to `TASK-260712-20cuna`.
 
+Checkpoint 2026-07-16: `TASK-260712-20cuna` is accepted on exact engineering
+head `43534c88540644f6b1477fab8c8cb1e0b3ad96f3`. The final versioned handoff
+freezes eight API/rights surfaces, seven coordinator-first rollout stages, the
+atomic mixed-version policy, additive schema reconciliation, single-writer
+drain/rollback without destructive down-migration, preserved target/inbox/
+policy/moderation tables and eleven streamed-track, acceptance and future E2EE
+consumers. The validator rejects early targeted-track enablement, broadcast or
+plaintext fallback, missing downstream tasks and promotion of either manual
+gate. Local all-suite acceptance passed all 12 commands and 41 contract/unit
+tests; hosted run `29470807661` passed all four jobs. PR #140 landed at merge
+`e51c937`. No production rollout was executed: `TASK-260712-3u5cdn` and
+`TASK-260712-3qybi2` remain manual-required. Progress is 100/205 overall and
+100/186 engineering; `STORY-260712-ob1tx2` is complete and strict execution
+advances to `TASK-260712-1n5fks`.
+
 Checkpoint 2026-07-14 (in progress): `TASK-260712-16zfvu` now has a strict
 machine-readable legal/operations approval contract and a seven-group human
 checklist. Repository and live-site audit found usable candidates for the
@@ -2488,7 +2503,11 @@ Story: `STORY-260712-ob1tx2` — P2 Explicit targets, inbox and transport parity
   matrix and hosted run `29470131117` 4/4; PR #138 merge `029346c`; real app,
   hardware, accessibility, audible and mixed-fleet proof stays in the manual
   epic)
-- [ ] `TASK-260712-20cuna` — targets-inbox-rollout-handoff
+- [x] `TASK-260712-20cuna` — targets-inbox-rollout-handoff
+  (accepted on engineering head `43534c8`; versioned coordinator-first deploy,
+  mixed-version, rollback and 11-consumer handoff passed 41 contract/unit tests,
+  the 12-command local all-suite and hosted run `29470807661` 4/4; PR #140
+  merge `e51c937`; B5-B7 and rollout execution remain manual-required)
 
 ## 12. P2 streamed user audio tracks
 

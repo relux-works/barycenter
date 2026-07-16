@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 111 accepted, 94 remain.
-- Routed inventory: 186 engineering tasks (111 accepted, 75 remain) and 19
+- Combined inventory: 205 original tasks; 112 accepted, 93 remain.
+- Routed inventory: 186 engineering tasks (112 accepted, 74 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2psvhu` — macos-stream-track-ui
-- Next engineering task: `TASK-260712-2psvhu` — macos-stream-track-ui
-- Most recently accepted: `TASK-260712-3lximx` — windows-stream-track-ui
-- Current branch: `task/task-260712-2psvhu-macos-stream-track-ui`
+- Current engineering task: `TASK-260712-2ubzyf` — streamed-track-rollout-handoff
+- Next engineering task: `TASK-260712-2ubzyf` — streamed-track-rollout-handoff
+- Most recently accepted: `TASK-260712-2psvhu` — macos-stream-track-ui
+- Current branch: `task/task-260712-2ubzyf-streamed-track-rollout-handoff`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 111 / 205 tasks (approximately 54.1%); 94 remain
-- Engineering progress: 111 / 186 tasks (approximately 59.7%); 75 remain
+- Accepted overall: 112 / 205 tasks (approximately 54.6%); 93 remain
+- Engineering progress: 112 / 186 tasks (approximately 60.2%); 74 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2702,7 +2702,13 @@ Story: `STORY-260712-2ori1t` — P2 Streamed user audio tracks.
   EN/RU keyboard/DPI-safe controls passed local full/race/vet, Windows cross
   compile and hosted run `29491811217` 4/4; PR #162 merge `c1a9096`; production
   playback and real Narrator/packaged/hardware evidence remain manual)
-- [ ] `TASK-260712-2psvhu` — macos-stream-track-ui
+- [x] `TASK-260712-2psvhu` — macos-stream-track-ui
+  (accepted on engineering head `5c977be`; crash-durable 64 KiB app-private
+  intake, exact-offset 4 MiB resumable upload, stable reuse semantics,
+  per-attempt rights confirmation and EN/RU fail-closed shared-model controls
+  passed 254 Swift tests and hosted run `29493756075` 4/4; PR #164 merge
+  `533ead1`; production playback remains disabled and real VoiceOver,
+  packaged-app, one-hour audible/rebuffer and hardware evidence remain manual)
 - ↪ manual `TASK-260712-1fpb9q` — streamed-track-regression-evidence →
   `EPIC-260714-th54l3`
 - [ ] `TASK-260712-2ubzyf` — streamed-track-rollout-handoff

@@ -18,7 +18,7 @@ import (
 	automationcontract "relux.works/duet/coordinator/internal/automation"
 )
 
-const automationPreviousRevision = "8ccd7704a0f167cf099c9f13713764cf4da867ba"
+const automationPreviousRevision = "6f772ba21000915980275520a6c5a24c388909a2"
 
 func TestAutomationExactPreviousHeadRollback(t *testing.T) {
 	_, currentFile, _, ok := runtime.Caller(0)
@@ -76,6 +76,27 @@ func TestAutomationExactPreviousHeadRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	controlSchedule, err := current.CreateAuthorizedAutomationSchedule(
+		automationControlTestAuth(owner, "previous-control-schedule", "schedule", now+8),
+		AutomationScheduleControlParams{
+			CueID: cue.ID, DisplayName: "rollback control", Timezone: "UTC",
+			WeekdaysMask: 127, LocalMinute: 600,
+			AudienceKind:   automationcontract.AudienceOwnBarycenter,
+			PolicyRevision: 1,
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	controlPrincipal, err := current.IssueAuthorizedAutomationPrincipal(
+		automationControlTestAuth(owner, "previous-control-principal", "principal", now+9),
+		AutomationPrincipalControlParams{
+			DisplayName: "rollback control", AllowedCueIDs: []string{cue.ID},
+			AllowedAudiences: []automationcontract.AudienceKind{automationcontract.AudienceOwnBarycenter},
+			MaxTargetCount:   1, ExpiresAt: now + int64((24*time.Hour)/time.Millisecond),
+		})
+	if err != nil || !controlPrincipal.SecretAvailable {
+		t.Fatalf("control principal=%+v err=%v", controlPrincipal, err)
+	}
 	if err := current.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -111,6 +132,15 @@ func TestAutomationExactPreviousHeadRollback(t *testing.T) {
 	storedMedia, err := current.GetMediaItem(media.ID)
 	if err != nil || storedMedia == nil || storedMedia.Status != MediaStatusReady {
 		t.Fatalf("media after rollback=%+v err=%v", storedMedia, err)
+	}
+	controlSchedules, err := current.AuthorizedAutomationSchedules(owner.ActorID, owner.ControlToken)
+	if err != nil || len(controlSchedules) != 1 ||
+		controlSchedules[0].Schedule.ID != controlSchedule.Control.Schedule.ID {
+		t.Fatalf("control schedules after rollback=%+v err=%v", controlSchedules, err)
+	}
+	controlPrincipals, err := current.AuthorizedAutomationPrincipals(owner.ActorID, owner.ControlToken)
+	if err != nil || len(controlPrincipals) != 2 {
+		t.Fatalf("control principals after rollback=%+v err=%v", controlPrincipals, err)
 	}
 	if err := foreignKeyCheck(current.db); err != nil {
 		t.Fatal(err)

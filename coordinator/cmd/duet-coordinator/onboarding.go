@@ -64,6 +64,15 @@ const (
 	errorAirParked               = "air_parked"
 	errorAirPolicyDenied         = "policy_denied"
 	errorAirOwnerTransfer        = "owner_transfer_required"
+	errorAutomationCueNotFound   = "cue_not_found"
+	errorAutomationCueIneligible = "cue_not_eligible"
+	errorAutomationCueQuota      = "cue_quota_exceeded"
+	errorAutomationSchedule      = "schedule_not_found"
+	errorAutomationPrincipal     = "principal_not_found"
+	errorAutomationDisabled      = "automation_disabled"
+	errorAutomationCredential    = "invalid_automation_credential"
+	errorAutomationScope         = "insufficient_scope"
+	errorAutomationAudience      = "audience_not_allowed"
 	errorForbidden               = "forbidden"
 	errorServiceUnavailable      = "service_unavailable"
 	errorInternal                = "internal_error"
@@ -145,6 +154,15 @@ func apiError(w http.ResponseWriter, status int, code string, retry time.Duratio
 		errorAirParked:               "The Air is parked and cannot accept playback work.",
 		errorAirPolicyDenied:         "The Air policy denies this operation.",
 		errorAirOwnerTransfer:        "Transfer Air ownership before leaving.",
+		errorAutomationCueNotFound:   "The saved cue was not found.",
+		errorAutomationCueIneligible: "The source is not eligible for a saved cue.",
+		errorAutomationCueQuota:      "The saved cue quota has been reached.",
+		errorAutomationSchedule:      "The automation schedule was not found.",
+		errorAutomationPrincipal:     "The automation principal was not found.",
+		errorAutomationDisabled:      "Automation is disabled for this barycenter.",
+		errorAutomationCredential:    "The automation credential is not valid.",
+		errorAutomationScope:         "The automation principal lacks the required scope.",
+		errorAutomationAudience:      "The requested automation audience is not allowed.",
 		errorForbidden:               "This actor is not permitted to perform the operation.",
 		errorServiceUnavailable:      "The service is temporarily unavailable.",
 		errorInternal:                "An internal error occurred.",
@@ -341,6 +359,8 @@ type onboardingAPI struct {
 	airInviteConsumeIP     *attemptLimiter
 	airNow                 func() time.Time
 	airRuntimeChanged      func() error
+	automationNow          func() time.Time
+	automationTrigger      automationTriggerService
 	// testAfterAuth is nil in production. Tests use it to pause between
 	// middleware authentication and the immediate writer transaction.
 	testAfterAuth   func(store.ActorContext)
@@ -373,6 +393,7 @@ func newOnboardingAPIBase(st *store.Store, cfg *config.Config, log *slog.Logger,
 		airInviteConsumeIP:    newAttemptLimiter(5, time.Minute, 10_000),
 		airNow:                time.Now,
 		airRuntimeChanged:     func() error { return nil },
+		automationNow:         time.Now,
 	}
 	api.mediaUploadInitErr = api.initializeMediaUploadStorage()
 	api.mediaLifecycle, api.mediaLifecycleInitErr = media.NewLifecycleService(st, cfg.MediaDir)
@@ -471,6 +492,15 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/airs", api.secure(api.withAirControl(api.airsCollection)))
 	mux.HandleFunc("/v1/airs/", api.secure(api.withAirControl(api.airItem)))
 	mux.HandleFunc("/v1/air-invites/consume", api.secure(api.withAirControl(api.consumeAirInvite)))
+	mux.HandleFunc("/v1/soundboard/cues", api.secure(api.automationOriginBoundary(api.withControl(api.soundboardCues))))
+	mux.HandleFunc("/v1/soundboard/cues/order", api.secure(api.automationOriginBoundary(api.withControl(api.soundboardCueOrder))))
+	mux.HandleFunc("/v1/soundboard/cues/", api.secure(api.automationOriginBoundary(api.withControl(api.soundboardCueItem))))
+	mux.HandleFunc("/v1/automation/status", api.secure(api.automationOriginBoundary(api.withControl(api.automationStatus))))
+	mux.HandleFunc("/v1/automation/schedules", api.secure(api.automationOriginBoundary(api.withControl(api.automationSchedules))))
+	mux.HandleFunc("/v1/automation/schedules/", api.secure(api.automationOriginBoundary(api.withControl(api.automationScheduleItem))))
+	mux.HandleFunc("/v1/automation/principals", api.secure(api.automationOriginBoundary(api.withControl(api.automationPrincipals))))
+	mux.HandleFunc("/v1/automation/principals/", api.secure(api.automationOriginBoundary(api.withControl(api.automationPrincipalItem))))
+	mux.HandleFunc("/v1/automation/triggers", api.secure(api.automationOriginBoundary(api.automationTriggerBoundary)))
 }
 
 func (api *onboardingAPI) secure(next http.HandlerFunc) http.HandlerFunc {

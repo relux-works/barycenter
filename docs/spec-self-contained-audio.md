@@ -1371,6 +1371,9 @@ disable используют общие media services; обычный cleanup c
 [`docs/analysis/p3-saved-cue-media-lifecycle.md`](analysis/p3-saved-cue-media-lifecycle.md).
 Additive schedule, principal, occurrence/idempotency и lease lineage описаны в
 [`docs/analysis/p3-automation-schema-lineage-foundation.md`](analysis/p3-automation-schema-lineage-foundation.md).
+Versioned control-plane CRUD, durable idempotency, canonical target scopes и
+one-time principal display описаны в
+[`docs/analysis/p3-automation-control-api-v1.md`](analysis/p3-automation-control-api-v1.md).
 Scheduler хранит IANA timezone, имеет явные DST и
 no-catch-up semantics, атомарно claim-ит execution и не создаёт дубль после
 restart или clock jump. Token показывается один раз, хранится только как hash и

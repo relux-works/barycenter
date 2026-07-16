@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-target-range-rights-security-technical-review.v1",
+  "task": "TASK-260712-n11rg6",
+  "reviewedAt": "2026-07-16",
+  "reviewedBaseCommit": "fb50d39754f343e4eb89f527af4aa434b587c6bd",
+  "reviewer": {
+    "id": "codex-inline-reviewer",
+    "independenceRequired": true,
+    "independenceSatisfied": false,
+    "reason": "the same root execution session changed the reviewed consent and cursor implementation",
+    "independentApprovalTask": "TASK-260716-2l5j1a",
+    "independentApprover": "Ivan Oparin",
+    "approvalStatus": "required"
+  },
+  "decision": {
+    "result": "engineering-review-complete-production-blocked",
+    "repositoryPreflightPassed": true,
+    "productionTargetsAllowed": false,
+    "phase2PromotionAllowed": false,
+    "manualSecurityClaim": false,
+    "nextEngineeringTaskMayStart": true
+  },
+  "sourceAnchors": [
+    {"path": "acceptance/targets-inbox-contract-v1.json", "sha256": "0ea3831086cde10b8a359983120f2cedaa07197f4e6d43f3d625beb033a86adf"},
+    {"path": "acceptance/targets-inbox-parity-regressions-v1.json", "sha256": "52393c70e34e68511cf4e1f439a33a7861cf86fd5c9170b7f0db336969757911"},
+    {"path": "acceptance/targets-inbox-rollout-handoff-v1.json", "sha256": "0a051e419000d06c89a7b383283e87ec2dfef553d6e37cce05e806fc9b1221cb"},
+    {"path": "coordinator/internal/store/transmission_target_references.go", "sha256": "bc0078f55cd1d776f0f4d98579ba9d8469928ec61a2bb1fc60aa9181227c8dc8"},
+    {"path": "coordinator/internal/store/inbox_query.go", "sha256": "c6927acf712b93cdec6416a762c562722bb3913a78720f0eb6a28ab389f2f3a1"},
+    {"path": "coordinator/internal/store/transmission.go", "sha256": "c30a782df224e61328aba40ee5106411190e592303dae4d1e845224d937ee1b3"},
+    {"path": "coordinator/internal/store/stream_track.go", "sha256": "1dc90287e78e0102f12a94526ac867511409f9128e5a836b395bffdcf9344200"},
+    {"path": "coordinator/internal/media/download.go", "sha256": "0dcc7c0effbd7452b2c4b3d9c95673d357f4b90bcc9862b566b62b405dd963c6"},
+    {"path": "coordinator/cmd/duet-coordinator/content_policy_http.go", "sha256": "0088398adcc1e6a5280c93729c1f3c010706461925772d289e9c99639a7840ac"},
+    {"path": "coordinator/internal/store/moderation.go", "sha256": "bef67c7229f6daa972668b908242940eb45a7ac9114a9a575d3c4561beb2e25a"},
+    {"path": "coordinator/internal/store/telegram_history_callbacks.go", "sha256": "493488a41c1ea64bcedf65a74fd3b28a651874043ddee3213318028a0a34a03d"},
+    {"path": "acceptance/phase2/gate-matrix-v1.json", "sha256": "85f120bd7376b853f3f3ad88988979dc9d4ebc241f9304aa3fde47a6a2d80297"}
+  ],
+  "reruns": [
+    {
+      "id": "contracts",
+      "command": "python3 scripts/validate_targets_inbox_contract.py && python3 scripts/validate_targets_inbox_parity_regressions.py && python3 scripts/validate_targets_inbox_rollout_handoff.py && python3 -m unittest scripts/acceptance/test_targets_inbox_parity.py scripts/acceptance/test_targets_inbox_rollout.py",
+      "status": "pass",
+      "claim": "all frozen target/inbox/rights contracts and ten negative contract tests pass"
+    },
+    {
+      "id": "anchored-adversarial-race",
+      "command": "cd coordinator && go test -race -count=1 ./internal/store ./cmd/duet-coordinator -run '<21 target/inbox/consent/report/callback anchors>'",
+      "status": "pass",
+      "claim": "the executable B5-B7 selector, snapshot, cursor, replay, consent, report and callback anchors pass under the race detector"
+    },
+    {
+      "id": "adversarial-stress",
+      "command": "cd coordinator && go test -count=100 ./internal/store -run '<selector|cursor|replay|report|callback adversarial group>'",
+      "status": "pass",
+      "claim": "six security-critical store scenarios pass 100 repetitions"
+    },
+    {
+      "id": "consent-and-cursor-fixes",
+      "command": "cd coordinator && go test -race -count=1 ./cmd/duet-coordinator ./internal/store -run '<content-policy|pagination>' && go test -count=100 ./cmd/duet-coordinator ./internal/store -run '<content-policy|pagination>'",
+      "status": "pass-after-fix",
+      "claim": "ambiguous duplicate consent cannot create a grant and cursor isolation remains uniform while operational errors propagate"
+    },
+    {
+      "id": "range-cache-revocation",
+      "command": "cd coordinator && go test -race -count=1 ./cmd/duet-coordinator ./internal/media ./internal/store -run '<range|download|quota|moderation group>' && go test -count=100 ./cmd/duet-coordinator ./internal/media -run '<range|descriptor-revocation group>'",
+      "status": "pass",
+      "claim": "exact-target reauthorization, descriptor pinning, quota-before-bytes, tiny-range floor and delete/block/report/revoke denial remain stable"
+    },
+    {
+      "id": "exact-previous-coordinator",
+      "command": "cd coordinator && go test -tags previoushead -count=1 ./internal/store -run '^TestTransmissionStoreExactPreviousHeadRollback$'",
+      "status": "pass",
+      "claim": "the pinned predecessor preserves additive target, inbox and replay rows"
+    }
+  ],
+  "findings": [
+    {
+      "id": "P2-TGT-001",
+      "severity": "high",
+      "status": "fixed-re-reviewed",
+      "area": "content-policy-consent-integrity",
+      "finding": "PUT content-policy acceptance accepted duplicate JSON keys, allowing contradictory terms_accepted values to produce one ambiguous durable legal-consent record",
+      "fix": "the endpoint now uses the duplicate-rejecting strict JSON decoder required by the frozen contract",
+      "reReview": "false/true duplicate consent returns 400, leaves the grant absent and passes race plus 100 repetitions"
+    },
+    {
+      "id": "P2-TGT-002",
+      "severity": "medium",
+      "status": "fixed-re-reviewed",
+      "area": "cursor-error-classification",
+      "finding": "inbox and receipt cursor loaders collapsed non-ErrNoRows SQLite scan faults into cursor_expired",
+      "fix": "unknown capabilities remain uniformly expired while operational scan failures propagate to the internal error boundary",
+      "reReview": "cross-actor, binding, view, limit and expiry isolation tests pass under race and 100 repetitions"
+    },
+    {
+      "id": "P2-TGT-003",
+      "severity": "high",
+      "status": "open-manual-blocking",
+      "area": "physical-mixed-fleet-and-rollout",
+      "finding": "repository automation does not prove packaged mixed-fleet non-enumeration, real fetch denial, audible no-autoplay, accessibility, production backup or predecessor rollback",
+      "ownerTasks": ["TASK-260712-3u5cdn", "TASK-260712-3qybi2"],
+      "manualEpic": "EPIC-260714-th54l3"
+    },
+    {
+      "id": "P2-TGT-004",
+      "severity": "high",
+      "status": "open-external-review",
+      "area": "review-independence",
+      "finding": "the inline root session changed the reviewed security implementation and cannot satisfy independent review",
+      "ownerTask": "TASK-260716-2l5j1a"
+    }
+  ],
+  "automatedEvidenceBoundary": {
+    "proved": [
+      "opaque credential/domain/binding-bound target references and atomic N-target failure",
+      "immutable target snapshots without new-member or broadcast expansion",
+      "digest-only actor/binding/view/limit-bound cursor isolation and stable pages",
+      "explicit idempotent replay with bounded immutable lineage and no reconnect autoplay",
+      "strict current policy consent plus separate per-upload rights acknowledgement",
+      "exact-target range/cache authorization, bounded requests and canonical revocation",
+      "reporter-local report effects until audited operator authority acts",
+      "opaque actor/chat/message/role-bound expiring replay-safe Telegram callbacks"
+    ],
+    "notProved": [
+      "packaged Windows/macOS/Telegram mixed-fleet behavior",
+      "real network cache/refill denial after revocation",
+      "physical audible replay and no-autoplay behavior",
+      "production backup, deploy, drain, predecessor rollback and roll-forward",
+      "implementation-independent acceptance of the exact candidate commit"
+    ]
+  },
+  "manualEpic": "EPIC-260714-th54l3",
+  "productionBlockers": ["P2-TGT-003", "P2-TGT-004"],
+  "nextEngineeringTask": "TASK-260712-qi81vf"
+}

@@ -213,6 +213,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	} else {
 		targetsInbox = configured
 	}
+	var streamTracks *WindowsStreamTrackComposition
+	if configured, trackErr := newProductionWindowsStreamTrackComposition(dir, targetsInbox); trackErr != nil {
+		log.Error("Phase 2 streamed-track UI unavailable")
+	} else {
+		streamTracks = configured
+	}
 	presenceStore := NewNodePresenceStore(filepath.Join(dir, "node-presence.v1.json"), log)
 	player.ConfigureTransmissionHooks(mediaClips, presenceStore)
 	player.Start()
@@ -333,6 +339,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		} else {
 			snapshot.TargetsInbox = TargetsInboxSnapshot{State: TargetsInboxCoordinatorError, StateLabel: targetsStateLabel(TargetsInboxCoordinatorError)}
 			snapshot.TargetsInboxFailure = "credential_unavailable"
+		}
+		if streamTracks != nil {
+			streamTracks.ApplyShellSnapshot(&snapshot)
+		} else {
+			snapshot.StreamTrack = StreamTrackSnapshot{State: TargetsInboxCoordinatorError, Failure: StreamTrackServiceUnavailable}
+			snapshot.StreamTrackOutcome = "credential_unavailable"
 		}
 		return snapshot
 	}, ShellActions{
@@ -513,6 +525,63 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 				targetsInbox.SelectNextReason()
 			}
 		},
+		ChooseStreamTrackFile: func() {
+			if streamTracks != nil {
+				workflow.ChooseStreamTrackFile(currentMainWindowOwner(), streamTracks.AcceptBrokeredFile)
+			}
+		},
+		AcceptDroppedStreamTrack: func(file WindowsBrokeredAudioFile) {
+			if streamTracks != nil {
+				streamTracks.AcceptBrokeredFile(file)
+			} else if file.Release != nil {
+				file.Release()
+			}
+		},
+		RefreshStreamTrack: func() {
+			if streamTracks != nil {
+				streamTracks.Refresh()
+			}
+		},
+		AcceptStreamTrackPolicy: func() {
+			if streamTracks != nil {
+				streamTracks.AcceptPolicy()
+			}
+		},
+		UploadStreamTrack: func() {
+			if streamTracks != nil {
+				streamTracks.Upload()
+			}
+		},
+		DeleteStreamTrack: func(confirmed bool) {
+			if streamTracks != nil {
+				streamTracks.Delete(confirmed)
+			}
+		},
+		SelectNextStreamTrackAudience: func() {
+			if streamTracks != nil {
+				streamTracks.SelectNextAudience()
+			}
+		},
+		SelectNextStreamTrackTarget: func() {
+			if streamTracks != nil {
+				streamTracks.SelectNextTarget()
+			}
+		},
+		ToggleStreamTrackTarget: func() {
+			if streamTracks != nil {
+				streamTracks.ToggleSelectedTarget()
+			}
+		},
+		SelectNextStreamTrackInsertion: func() {
+			if streamTracks != nil {
+				streamTracks.SelectNextInsertion()
+			}
+		},
+		RetryStreamTrack: func() {
+			if streamTracks != nil {
+				streamTracks.Retry()
+			}
+		},
 		SelectNextAir: func() {
 			if airs != nil {
 				airs.SelectNextAir()
@@ -625,6 +694,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		OnQuit: func() { close(quit) },
 	}
 	awaitShutdown(tray, quit)
+	if streamTracks != nil {
+		streamTracks.Close()
+	}
 	if targetsInbox != nil {
 		targetsInbox.Close()
 	}

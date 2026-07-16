@@ -176,6 +176,10 @@ type ShellSnapshot struct {
 	TargetsInboxActionOutcome string
 	TargetsInboxFailure       string
 	TargetsInboxBusy          bool
+	StreamTrack               StreamTrackSnapshot
+	SelectedStreamTrackTarget int
+	StreamTrackBusy           bool
+	StreamTrackOutcome        string
 	Airs                      []ShellAirItem
 	SelectedAir               int
 	PendingAirJoin            *ShellPendingAirJoin
@@ -287,67 +291,84 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 }
 
 type ShellActions struct {
-	Create                       func(string)
-	Join                         func(string)
-	SaveRecovery                 func(string)
-	TryLocally                   func()
-	PlayBuiltinCue               func()
-	ChooseLocalFile              func()
-	ChooseOutgoingFile           func()
-	AcceptDroppedFile            func(WindowsBrokeredAudioFile)
-	DeleteLocalDraft             func()
-	SelectNextInput              func()
-	SelectNextOutput             func()
-	ToggleRecording              func()
-	CancelRecording              func()
-	SetDND                       func(ShellDND)
-	SendSelectedDraft            func()
-	DeleteSelectedDraft          func()
-	SelectNextPhaseOneDraft      func()
-	SelectNextPhaseOneRoute      func()
-	SelectNextPhaseOneDelivery   func()
-	SelectNextHistoryItem        func()
-	SelectNextReportReason       func()
-	DeleteSelectedHistoryItem    func()
-	ReportSelectedHistoryItem    func(string)
-	ReplaySelectedHistoryItem    func()
-	BlockSelectedHistoryActor    func()
-	RefreshTargetsInbox          func()
-	SelectNextTargetAudience     func()
-	SelectNextTarget             func()
-	ToggleSelectedTarget         func()
-	ToggleTargetIncludeOrigin    func()
-	SelectNextTargetsDelivery    func()
-	SendTargetsDraft             func()
-	SelectNextInboxItem          func()
-	ReplaySelectedInbox          func()
-	DismissSelectedInbox         func()
-	ReportSelectedInbox          func(string)
-	MuteSelectedInbox            func()
-	LoadMoreInbox                func()
-	SelectNextTargetsHistory     func()
-	DeleteSelectedTargetsHistory func()
-	ReportSelectedTargetsHistory func(string)
-	MuteSelectedTargetsHistory   func()
-	LoadMoreTargetsHistory       func()
-	LoadMoreTargetReceipts       func()
-	SelectNextTargetsReason      func()
-	SelectNextAir                func()
-	CreateAir                    func(string)
-	ConsumeAirInvite             func(string)
-	ConfirmAirJoin               func(bool)
-	DeclineAirJoin               func()
-	SelectNextAirInviteRole      func()
-	IssueAirInvite               func()
-	CopyAirInvite                func()
-	HideAirInvite                func()
-	WithdrawAirInvite            func()
-	RequestAirActivation         func()
-	RequestAirLeave              func()
-	RequestAirDissolve           func()
-	CycleAirPolicy               func()
-	ConfirmAirDisruptive         func()
-	CancelAirDisruptive          func()
+	Create                         func(string)
+	Join                           func(string)
+	SaveRecovery                   func(string)
+	TryLocally                     func()
+	PlayBuiltinCue                 func()
+	ChooseLocalFile                func()
+	ChooseOutgoingFile             func()
+	AcceptDroppedFile              func(WindowsBrokeredAudioFile)
+	DeleteLocalDraft               func()
+	SelectNextInput                func()
+	SelectNextOutput               func()
+	ToggleRecording                func()
+	CancelRecording                func()
+	SetDND                         func(ShellDND)
+	SendSelectedDraft              func()
+	DeleteSelectedDraft            func()
+	SelectNextPhaseOneDraft        func()
+	SelectNextPhaseOneRoute        func()
+	SelectNextPhaseOneDelivery     func()
+	SelectNextHistoryItem          func()
+	SelectNextReportReason         func()
+	DeleteSelectedHistoryItem      func()
+	ReportSelectedHistoryItem      func(string)
+	ReplaySelectedHistoryItem      func()
+	BlockSelectedHistoryActor      func()
+	RefreshTargetsInbox            func()
+	SelectNextTargetAudience       func()
+	SelectNextTarget               func()
+	ToggleSelectedTarget           func()
+	ToggleTargetIncludeOrigin      func()
+	SelectNextTargetsDelivery      func()
+	SendTargetsDraft               func()
+	SelectNextInboxItem            func()
+	ReplaySelectedInbox            func()
+	DismissSelectedInbox           func()
+	ReportSelectedInbox            func(string)
+	MuteSelectedInbox              func()
+	LoadMoreInbox                  func()
+	SelectNextTargetsHistory       func()
+	DeleteSelectedTargetsHistory   func()
+	ReportSelectedTargetsHistory   func(string)
+	MuteSelectedTargetsHistory     func()
+	LoadMoreTargetsHistory         func()
+	LoadMoreTargetReceipts         func()
+	SelectNextTargetsReason        func()
+	ChooseStreamTrackFile          func()
+	AcceptDroppedStreamTrack       func(WindowsBrokeredAudioFile)
+	RefreshStreamTrack             func()
+	AcceptStreamTrackPolicy        func()
+	UploadStreamTrack              func()
+	DeleteStreamTrack              func(bool)
+	SelectNextStreamTrackAudience  func()
+	SelectNextStreamTrackTarget    func()
+	ToggleStreamTrackTarget        func()
+	SelectNextStreamTrackInsertion func()
+	QueueStreamTrack               func()
+	ReplaceStreamTrack             func()
+	PauseStreamTrack               func()
+	SeekStreamTrack                func()
+	ResumeStreamTrack              func()
+	RetryStreamTrack               func()
+	ReportStreamTrack              func(string)
+	SelectNextAir                  func()
+	CreateAir                      func(string)
+	ConsumeAirInvite               func(string)
+	ConfirmAirJoin                 func(bool)
+	DeclineAirJoin                 func()
+	SelectNextAirInviteRole        func()
+	IssueAirInvite                 func()
+	CopyAirInvite                  func()
+	HideAirInvite                  func()
+	WithdrawAirInvite              func()
+	RequestAirActivation           func()
+	RequestAirLeave                func()
+	RequestAirDissolve             func()
+	CycleAirPolicy                 func()
+	ConfirmAirDisruptive           func()
+	CancelAirDisruptive            func()
 }
 
 type WindowsShell struct {
@@ -686,6 +707,52 @@ func (c ShellCopy) Draft(snapshot ShellSnapshot) string {
 		} else {
 			line += fmt.Sprintf("\r\nExact retry: %d recipients", draft.ExplicitTargetCount)
 		}
+	}
+	return line
+}
+
+func (c ShellCopy) StreamTrackProjection(snapshot ShellSnapshot) string {
+	projection := snapshot.StreamTrack
+	heading := "Long track"
+	if c.locale == ShellRussian {
+		heading = "Длинный трек"
+	}
+	line := heading + ": " + projection.StateLabel.Text(c.locale)
+	if projection.StateLabel.Text(c.locale) == "" {
+		line = heading + ": " + string(projection.State)
+	}
+	if projection.Draft == nil {
+		if c.locale == ShellRussian {
+			line += " · файл не выбран"
+		} else {
+			line += " · no file selected"
+		}
+	} else {
+		draft := projection.Draft
+		phase := draft.PhaseLabel.Text(c.locale)
+		if phase == "" {
+			phase = string(draft.Phase)
+		}
+		line += "\r\n" + draft.Title + " · " + phase
+		line += fmt.Sprintf(" · %d/%d bytes", draft.UploadOffset, draft.LocalByteCount)
+		if draft.Phase == StreamTrackDraftProcessing {
+			line += fmt.Sprintf(" · %d%%", draft.ProcessingPercent)
+		}
+	}
+	playback := projection.Playback.PhaseLabel.Text(c.locale)
+	if playback == "" {
+		playback = string(projection.Playback.Phase)
+	}
+	line += fmt.Sprintf("\r\n%s · %d/%d ms", playback, projection.Playback.AudiblePositionMS, projection.Playback.DurationMS)
+	if projection.Failure != "" {
+		failure := projection.FailureLabel.Text(c.locale)
+		if failure == "" {
+			failure = string(projection.Failure)
+		}
+		line += "\r\n[!] " + failure
+	}
+	if snapshot.StreamTrackOutcome != "" {
+		line += "\r\n" + snapshot.StreamTrackOutcome
 	}
 	return line
 }
@@ -1210,6 +1277,24 @@ type AirControlLayout struct {
 
 type TargetsInboxControlLayout struct{ Rect [21]ShellRect }
 
+type StreamTrackControlLayout struct{ Rect [16]ShellRect }
+
+func (layout StreamTrackControlLayout) Rects() []ShellRect { return layout.Rect[:] }
+
+func layoutWindowsStreamTrackControls(content ShellRect, startY, dpi int) StreamTrackControlLayout {
+	gap, height := dip(8, dpi), dip(40, dpi)
+	columnWidth := (content.Width - gap*3) / 4
+	var result StreamTrackControlLayout
+	for index := range result.Rect {
+		row, column := index/4, index%4
+		result.Rect[index] = ShellRect{
+			X: content.X + column*(columnWidth+gap), Y: startY + row*(height+gap),
+			Width: columnWidth, Height: height,
+		}
+	}
+	return result
+}
+
 func (layout TargetsInboxControlLayout) Rects() []ShellRect { return layout.Rect[:] }
 
 func layoutWindowsTargetsInboxControls(content ShellRect, bodyBottom, dpi int) TargetsInboxControlLayout {
@@ -1321,6 +1406,7 @@ var shellShortcuts = []ShellShortcut{
 	{Key: "T", Control: true, Shift: true, Section: ShellTryLocally, Command: "section"},
 	{Key: "R", Control: true, Shift: true, Command: "record"},
 	{Key: "R", Control: true, Command: "refresh_targets_inbox"},
+	{Key: "L", Control: true, Shift: true, Section: ShellHistory, Command: "choose_stream_track"},
 	{Key: "D", Control: true, Shift: true, Command: "dnd"},
 	{Key: ",", Control: true, Section: ShellSettings, Command: "section"},
 }

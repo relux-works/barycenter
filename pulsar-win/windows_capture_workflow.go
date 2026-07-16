@@ -303,6 +303,38 @@ func (c *WindowsCaptureWorkflowController) ChooseOutgoingFile(owner uintptr) {
 	}()
 }
 
+// ChooseStreamTrackFile obtains the same brokered, least-privilege file
+// capability as short-audio intake and transfers ownership to the long-track
+// composition. The picker result is never converted into a broad path.
+func (c *WindowsCaptureWorkflowController) ChooseStreamTrackFile(owner uintptr, accept func(WindowsBrokeredAudioFile)) {
+	if c == nil || accept == nil || c.recordingBusy() || c.selfTestBusy() {
+		return
+	}
+	c.mu.RLock()
+	picker := c.picker
+	c.mu.RUnlock()
+	if picker == nil || !c.beginOperation() {
+		return
+	}
+	go func() {
+		defer c.pending.Done()
+		file, err := picker(c.ctx, owner)
+		if err != nil {
+			if c.ctx.Err() == nil {
+				c.setLocalFailure("stream_track_picker_failed")
+			}
+			return
+		}
+		if c.ctx.Err() != nil {
+			if file.Release != nil {
+				file.Release()
+			}
+			return
+		}
+		accept(file)
+	}()
+}
+
 func (c *WindowsCaptureWorkflowController) setLocalFailure(code string) {
 	c.mu.Lock()
 	c.snapshot.Failure = code

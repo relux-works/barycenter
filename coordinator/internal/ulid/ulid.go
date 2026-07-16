@@ -88,6 +88,9 @@ func NewTransmissionID(t time.Time) string { return "tr_" + New(t) }
 // NewInboxID returns "ib_<ULID>".
 func NewInboxID(t time.Time) string { return "ib_" + New(t) }
 
+// NewSavedCueID returns "cq_<ULID>".
+func NewSavedCueID(t time.Time) string { return "cq_" + New(t) }
+
 // NewUploadSessionID returns "up_<ULID>".
 func NewUploadSessionID(t time.Time) string { return "up_" + New(t) }
 

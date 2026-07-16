@@ -1656,6 +1656,15 @@ func transitionMediaTerminalTx(tx *sql.Tx, mediaID string, expectedRevision int6
 		if requireExpired && item.ExpiresAt > now {
 			return MediaItem{}, ErrMediaStateConflict
 		}
+		if target == MediaStatusExpired {
+			pinned, err := savedCuePinExistsTx(tx, mediaID)
+			if err != nil {
+				return MediaItem{}, err
+			}
+			if pinned {
+				return MediaItem{}, ErrMediaStateConflict
+			}
+		}
 		failureCode = ""
 	default:
 		return MediaItem{}, fmt.Errorf("%w: unsupported terminal status", ErrMediaInvalid)
@@ -1709,9 +1718,14 @@ WHERE media_id = ? AND kind = 'publish' AND state = 'pending'`, now, now, mediaI
 	if target == MediaStatusDeleted || target == MediaStatusExpired {
 		reason := MediaCancellationDeleted
 		inboxReason := TransmissionReasonMediaDeleted
+		cueReason := "source_media_deleted"
 		if target == MediaStatusExpired {
 			reason = MediaCancellationExpired
 			inboxReason = TransmissionReasonMediaExpired
+			cueReason = "source_media_expired"
+		}
+		if err := revokeSavedCuesForMediaTx(tx, mediaID, cueReason, now); err != nil {
+			return MediaItem{}, err
 		}
 		if err := scheduleMediaDeliveryCancellationTx(tx, mediaID, newRevision, reason, now); err != nil {
 			return MediaItem{}, err
@@ -2176,6 +2190,10 @@ func (s *Store) ExpiredMediaItems(now int64, limit int) ([]MediaItem, error) {
 	rows, err := s.db.Query(`SELECT `+mediaItemColumns+`
 FROM media_items
 WHERE status IN ('processing', 'ready', 'failed') AND expires_at <= ?
+  AND NOT EXISTS (
+    SELECT 1 FROM saved_cues c
+    WHERE c.media_id = media_items.id AND c.state = 'active'
+  )
 ORDER BY expires_at, id
 LIMIT ?`, now, limit)
 	if err != nil {
@@ -2498,7 +2516,11 @@ func (s *Store) MediaLifecycleBacklog(now int64) (MediaLifecycleBacklog, error) 
 	var backlog MediaLifecycleBacklog
 	err := s.db.QueryRow(`SELECT
   (SELECT COUNT(*) FROM media_items
-    WHERE status IN ('processing', 'ready', 'failed') AND expires_at <= ?),
+    WHERE status IN ('processing', 'ready', 'failed') AND expires_at <= ?
+      AND NOT EXISTS (
+        SELECT 1 FROM saved_cues c
+        WHERE c.media_id = media_items.id AND c.state = 'active'
+      )),
   (SELECT COUNT(*) FROM media_storage_operations
     WHERE kind = 'cleanup' AND state = 'pending'),
   (SELECT COUNT(*) FROM media_delivery_cancellations WHERE state = 'pending'),

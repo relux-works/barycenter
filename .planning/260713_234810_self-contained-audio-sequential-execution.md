@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 118 accepted, 87 remain.
-- Routed inventory: 186 engineering tasks (118 accepted, 68 remain) and 19
+- Combined inventory: 205 original tasks; 119 accepted, 86 remain.
+- Routed inventory: 186 engineering tasks (119 accepted, 67 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-qi81vf` — phase2-observability-quota-views
-- Next engineering task: `TASK-260712-qi81vf` — phase2-observability-quota-views
-- Most recently accepted: `TASK-260712-n11rg6` — p2-independent-target-security-review
-- Current branch: `chore/resume-after-target-security-review`
+- Current engineering task: `TASK-260712-1kfnpu` — p2-root-integration-review
+- Next engineering task: `TASK-260712-3a0cf9` — phase2-engineering-handoff-packet
+- Most recently accepted: `TASK-260712-qi81vf` — phase2-observability-quota-views
+- Current branch: `chore/resume-after-phase2-observability`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 118 / 205 tasks (approximately 57.6%); 87 remain
-- Engineering progress: 118 / 186 tasks (approximately 63.4%); 68 remain
+- Accepted overall: 119 / 205 tasks (approximately 58.0%); 86 remain
+- Engineering progress: 119 / 186 tasks (approximately 64.0%); 67 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2313,6 +2313,23 @@ Phase 2 promotion remain blocked on manual `TASK-260712-3u5cdn` and
 Ivan Oparin. Progress is 118/205 overall and 118/186 engineering. Strict
 reversible execution advances to `TASK-260712-qi81vf`.
 
+Checkpoint 2026-07-16 (accepted Phase 2 observability and quota views):
+`TASK-260712-qi81vf` landed on exact engineering head
+`b54ccd720f1ec00f372d39645984d143e7c9d892` through PR #179, merge
+`347d7ae2e03780f95530748ed59cb90baf391b77`. The authenticated no-store
+operator view now aggregates canonical stream accounting, processing,
+playback, target/inbox and Air state with a rolling 24-hour window and fixed
+privacy-safe dimensions. Public health uses a lightweight snapshot, fails only
+enabled Phase 2 dependencies and preserves Phase 1 with flags off. Exact SQL
+order-statistic p95 uses constant memory; server timestamps are honestly
+identified as wall-clock milliseconds, while client seek/buffer/audible
+evidence remains manual and unclaimed. Observability and Air delta validators,
+85 contract tests, `go vet`, focused race suites and 100-repeat tests passed.
+Hosted run `29506259964` passed all four jobs on its first attempt (coordinator
+2m50s, node-core 1m49s, pulsar-win 1m53s, signed packaged probe 2m17s).
+Progress is 119/205 overall and 119/186 engineering. Strict reversible
+execution advances to `TASK-260712-1kfnpu`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -2868,7 +2885,11 @@ manual promotion remains separate.
 - [x] `TASK-260712-28mn7w` — p2-independent-stream-performance-review — accepted as a fail-closed technical review: Windows shutdown High fixed and re-reviewed; bounded long-track integrity, physical performance evidence and independent signature remain routed production gates
 - [x] `TASK-260712-2sicfs` — p2-independent-air-migration-review — accepted as a fail-closed technical review: invite pre-admission High and scan-error masking Medium fixed and re-reviewed; physical rollout and independent signature remain routed production gates
 - [x] `TASK-260712-n11rg6` — p2-independent-target-security-review
-- [ ] `TASK-260712-qi81vf` — phase2-observability-quota-views
+- [x] `TASK-260712-qi81vf` — phase2-observability-quota-views (accepted on
+  exact head `b54ccd7`; canonical privacy-safe operator view, flag-aware
+  lightweight health, source-pinned contract/runbook, 85 contract tests,
+  focused race and 100-repeat suites passed; PR #179 merge `347d7ae`, hosted
+  run `29506259964` 4/4; client/hardware/rollout/beta evidence remains manual)
 - [ ] `TASK-260712-1kfnpu` — p2-root-integration-review
 - ↪ manual `TASK-260712-21kz3b` — phase2-b2-b4-air-scale-acceptance
 - ↪ manual `TASK-260712-2bdi4a` — phase2-b1-track-platform-matrix

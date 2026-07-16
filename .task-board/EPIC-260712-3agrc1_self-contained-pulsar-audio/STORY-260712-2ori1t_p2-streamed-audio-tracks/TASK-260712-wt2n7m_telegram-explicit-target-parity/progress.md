@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-developer
 
 ## Created
 2026-07-12T16:12:52Z
 
 ## Last Update
-2026-07-12T17:03:17Z
+2026-07-16T09:40:00Z
 
 ## Blocked By
 - TASK-260712-2j5fkr
@@ -32,6 +32,7 @@ backlog
 - [ ] Prove Air and explicit target selection cannot address foreign recipients
 
 ## Notes
+2026-07-16 strict-sequence start from synchronized main merge 6069948 after TASK-260712-3aj8w2 exact head e6f0685 and hosted run 29487762262 passed 4/4. Implementing Telegram explicit-target and Air parity inline outside task-board spawn workflow; no real Telegram client, real recipient or hardware result will be claimed.
 
 ## Precondition Resources
 (none)

@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "contract": "p2-root-integration-review.v1",
+  "task": "TASK-260712-1kfnpu",
+  "reviewedAt": "2026-07-16",
+  "baselineCommit": "c0e0d4a5686ebac897dfa2665ee2cd59ba35e133",
+  "reviewedSourceCommit": "5f2f7e97a343b4bca84fe56ee57dd02458265f31",
+  "reviewedSourceTree": "4a03b4d3a3db062ed210e6696869366a9b6cf775",
+  "reviewer": {
+    "id": "codex-inline-reviewer",
+    "rootReviewPerformed": true,
+    "independentReviewer": false,
+    "independentApprover": "Ivan Oparin",
+    "independentApprovalStatus": "required"
+  },
+  "decision": {
+    "result": "engineering-baseline-accepted-production-blocked",
+    "reversibleEngineeringContinuationAllowed": true,
+    "phase2ProductionAccepted": false,
+    "phase2PromotionAllowed": false,
+    "betaAllowed": false,
+    "codecSelection": "no-go",
+    "manualEvidenceClaimed": false
+  },
+  "inventory": {
+    "manifest": "docs/analysis/p2-root-review-manifest.json",
+    "firstParentIntervals": 102,
+    "phase2Tasks": 50,
+    "repositoryContextIntervals": 2,
+    "changedPathsNoRenames": 624,
+    "addedLinesNoRenames": 84546,
+    "deletedLinesNoRenames": 2172,
+    "unmappedPaths": 0,
+    "classifications": {
+      "coordinator": 116,
+      "governance": 266,
+      "macos-client": 35,
+      "operational-and-product-docs": 60,
+      "repository-context": 1,
+      "verification-and-contract": 110,
+      "windows-client": 36
+    }
+  },
+  "acceptedArtifacts": {
+    "sourceCommit": "5f2f7e97a343b4bca84fe56ee57dd02458265f31",
+    "sourceTree": "4a03b4d3a3db062ed210e6696869366a9b6cf775",
+    "productionBuildSha256": null,
+    "productionPackageSha256": null,
+    "productionRuntimeConfigSha256": null,
+    "reason": "codec no-go, physical evidence and independent approvals remain open"
+  },
+  "independentReviews": [
+    {
+      "path": "acceptance/codec-spike/independent-supply-review-v1.json",
+      "decision": "block-phase2",
+      "fixedFindings": [],
+      "openHighFindings": [
+        "P2-CODEC-SUPPLY-001",
+        "P2-CODEC-SUPPLY-002",
+        "P2-CODEC-SUPPLY-003",
+        "P2-CODEC-SUPPLY-004",
+        "P2-CODEC-SUPPLY-005",
+        "P2-CODEC-SUPPLY-006"
+      ]
+    },
+    {
+      "path": "acceptance/phase2/stream-performance-review-v1.json",
+      "decision": "engineering-review-complete-production-blocked",
+      "fixedFindings": ["P2-PERF-001"],
+      "openHighFindings": ["P2-PERF-002", "P2-PERF-003", "P2-PERF-004"]
+    },
+    {
+      "path": "acceptance/phase2/air-migration-review-v1.json",
+      "decision": "engineering-review-complete-production-blocked",
+      "fixedFindings": ["P2-AIR-001", "P2-AIR-002"],
+      "openHighFindings": ["P2-AIR-003", "P2-AIR-004"]
+    },
+    {
+      "path": "acceptance/phase2/target-security-review-v1.json",
+      "decision": "engineering-review-complete-production-blocked",
+      "fixedFindings": ["P2-TGT-001", "P2-TGT-002"],
+      "openHighFindings": ["P2-TGT-003", "P2-TGT-004"]
+    }
+  ],
+  "verification": [
+    {
+      "id": "coordinator-full-race",
+      "command": "cd coordinator && GOTOOLCHAIN=go1.25.12 go vet ./... && GOTOOLCHAIN=go1.25.12 go test -race -count=1 ./...",
+      "status": "pass",
+      "candidate": "5f2f7e97a343b4bca84fe56ee57dd02458265f31"
+    },
+    {
+      "id": "windows-full-race",
+      "command": "cd pulsar-win && GOTOOLCHAIN=go1.25.12 go vet ./... && GOTOOLCHAIN=go1.25.12 go test -race -count=1 ./...",
+      "status": "pass",
+      "candidate": "5f2f7e97a343b4bca84fe56ee57dd02458265f31"
+    },
+    {
+      "id": "macos-full-suite",
+      "command": "cd node-app && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test",
+      "status": "pass",
+      "candidate": "5f2f7e97a343b4bca84fe56ee57dd02458265f31"
+    },
+    {
+      "id": "acceptance-contract-suite",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/acceptance -p 'test_*.py'",
+      "status": "pass",
+      "candidate": "5f2f7e97a343b4bca84fe56ee57dd02458265f31"
+    },
+    {
+      "id": "hosted-four-job-ci",
+      "command": "GitHub Actions run 29506654140 on Phase 2 observability tracking main",
+      "status": "pass",
+      "candidate": "7681c961a703a73dd4f4d5e030f954eb866faab3",
+      "scope": "pre-review main; exact root packet still requires hosted CI"
+    }
+  ],
+  "manualAndExternalHolds": {
+    "manualEpic": "EPIC-260714-th54l3",
+    "externalEpic": "EPIC-260714-zmnd4n",
+    "openHighFindingCount": 13,
+    "acceptedProductionBuild": null,
+    "observabilityEngineeringComplete": true,
+    "observabilityCampaignEvidenceComplete": false,
+    "betaSevenDayGateComplete": false
+  },
+  "nextEngineeringTask": "TASK-260712-3a0cf9"
+}

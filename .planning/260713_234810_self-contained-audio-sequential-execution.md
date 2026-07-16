@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 119 accepted, 86 remain.
-- Routed inventory: 186 engineering tasks (119 accepted, 67 remain) and 19
+- Combined inventory: 205 original tasks; 120 accepted, 85 remain.
+- Routed inventory: 186 engineering tasks (120 accepted, 66 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1kfnpu` — p2-root-integration-review
-- Next engineering task: `TASK-260712-3a0cf9` — phase2-engineering-handoff-packet
-- Most recently accepted: `TASK-260712-qi81vf` — phase2-observability-quota-views
-- Current branch: `chore/resume-after-phase2-observability`
+- Current engineering task: `TASK-260712-3a0cf9` — phase2-engineering-handoff-packet
+- Next engineering task: `TASK-260712-lo7a68` — live-codec-transport-spike
+- Most recently accepted: `TASK-260712-1kfnpu` — p2-root-integration-review
+- Current branch: `chore/resume-after-p2-root-review`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 119 / 205 tasks (approximately 58.0%); 86 remain
-- Engineering progress: 119 / 186 tasks (approximately 64.0%); 67 remain
+- Accepted overall: 120 / 205 tasks (approximately 58.5%); 85 remain
+- Engineering progress: 120 / 186 tasks (approximately 64.5%); 66 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2330,6 +2330,23 @@ Hosted run `29506259964` passed all four jobs on its first attempt (coordinator
 Progress is 119/205 overall and 119/186 engineering. Strict reversible
 execution advances to `TASK-260712-1kfnpu`.
 
+Checkpoint 2026-07-16 (accepted Phase 2 root integration review):
+`TASK-260712-1kfnpu` reviewed the exact source candidate
+`5f2f7e97a343b4bca84fe56ee57dd02458265f31` and tree
+`4a03b4d3a3db062ed210e6696869366a9b6cf775` across 624 no-rename paths,
+50 Phase 2 tasks, 102 first-parent intervals and B1-B7. The engineering
+baseline is accepted for reversible continuation, while production build,
+package and config hashes remain null, the codec decision remains no-go and
+13 High production/manual/external findings remain fail-closed. The review
+also made OGG test fixture generation portable to FFmpeg installations without
+`libvorbis`; production codec behavior did not change. Clean local acceptance
+passed all 12 stages and 89 contract tests. Hosted run `29509397804` passed all
+four jobs on its first attempt (pulsar-win 2m07s, node-core 2m21s, signed
+packaged probe 2m45s, coordinator 3m02s). PR #181 landed commits `5f2f7e9` and
+`7287258` at merge `a1c4d08988624d3ba5d9c2e6834541bfee879d92`.
+Progress is 120/205 overall and 120/186 engineering. Strict reversible
+execution advances to `TASK-260712-3a0cf9`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -2890,7 +2907,11 @@ manual promotion remains separate.
   lightweight health, source-pinned contract/runbook, 85 contract tests,
   focused race and 100-repeat suites passed; PR #179 merge `347d7ae`, hosted
   run `29506259964` 4/4; client/hardware/rollout/beta evidence remains manual)
-- [ ] `TASK-260712-1kfnpu` — p2-root-integration-review
+- [x] `TASK-260712-1kfnpu` — p2-root-integration-review (accepted exact source
+  candidate `5f2f7e9` / tree `4a03b4d`; 624 paths and B1-B7 mapped in a
+  deterministic manifest; production artifacts remain null, codec no-go and
+  13 High production/manual/external holds stay open; clean 12-stage local
+  acceptance and hosted run `29509397804` 4/4 passed; PR #181 merge `a1c4d08`)
 - ↪ manual `TASK-260712-21kz3b` — phase2-b2-b4-air-scale-acceptance
 - ↪ manual `TASK-260712-2bdi4a` — phase2-b1-track-platform-matrix
 - ↪ manual `TASK-260712-3qybi2` — phase2-rollout-migration-rollback

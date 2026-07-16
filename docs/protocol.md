@@ -69,7 +69,11 @@ executable
 contract. It keeps upload, server processing and audible playback progress
 distinct, retains unsent drafts through outages, consumes coordinator-owned
 RU/EN labels and fences optimistic controls by playback and seek generation.
-Native streamed-track views remain deferred to their platform tasks.
+The candidate-neutral
+[macOS streamed-track player](analysis/p2-macos-streamed-track-player.md)
+implements the bounded range/cache/render lifecycle without registering a
+production decoder. Native streamed-track views remain deferred to their
+platform tasks.
 
 This file records only the details the spec leaves to the implementation. It must never contradict the spec.
 

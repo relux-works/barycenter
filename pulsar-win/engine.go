@@ -33,7 +33,17 @@ const (
 	clickDurationMS = 30
 	clickFreqHz     = 1000
 	clickAmplitude  = 0.9
+	liveInputRate   = 48000
+	liveFrameInput  = 960
+	liveFrameOutput = sampleRate * livePTTFrameDurationMS / 1000
+	livePCMFrames   = liveInputRate * 320 / 1000
+	liveDuckDB      = -12.0
+	liveLimiterDB   = -1.0
 )
+
+// livePTTFrameDurationMS stays local to the render package so the WASAPI
+// boundary does not import protocol code. The wire mirror pins the same 20 ms.
+const livePTTFrameDurationMS = 20
 
 type voiceState struct {
 	samples []float32 // interleaved stereo 44.1k
@@ -119,6 +129,7 @@ const (
 	renderInterruptStarted
 	renderInterruptEnded
 	renderInterruptCancelReady
+	renderLiveStarted
 )
 
 type renderCompletion struct {
@@ -128,7 +139,36 @@ type renderCompletion struct {
 	cancel          *overlayCancelRequest
 	interrupt       *interruptState
 	interruptCancel *interruptCancelRequest
+	liveStarted     func()
 	localMS         int64
+}
+
+type liveStopRequest struct{ discard bool }
+
+// Control publishes only atomics after construction. Gain, duck and cursor
+// fields are owned by the single WASAPI render consumer.
+type windowsLiveRenderState struct {
+	generation int64
+	ring       *Ring
+	active     atomic.Bool
+	stop       atomic.Pointer[liveStopRequest]
+
+	activated  bool
+	stopping   bool
+	liveGain   float32
+	liveStart  float32
+	liveTarget float32
+	liveTotal  int
+	liveDone   int
+	duckGain   float32
+	duckStart  float32
+	duckTarget float32
+	duckTotal  int
+	duckDone   int
+	lastLeft   float32
+	lastRight  float32
+	onStarted  func()
+	started    bool
 }
 
 // RenderStats is a snapshot of the dropout telemetry counters.
@@ -139,6 +179,8 @@ type RenderStats struct {
 	OverlayFrames   int64 // clip frames mixed into the output
 	InterruptFrames int64 // replacement clip frames rendered
 	LimiterHits     int64 // samples constrained by the post-mix ceiling
+	LiveFrames      int64 // live frames mixed before the common limiter
+	LiveUnderruns   int64 // callbacks that exhausted the bounded live PCM ring
 }
 
 type Engine struct {
@@ -146,22 +188,28 @@ type Engine struct {
 	gain  *Gain
 	now   func() time.Time // injectable for click/voice scheduling tests
 
-	voice           atomic.Pointer[voiceState]
-	overlay         atomic.Pointer[overlayState]
-	interrupt       atomic.Pointer[interruptState]
-	mediaBusy       atomic.Bool
-	clicks          atomic.Pointer[clickSchedule]
-	clickBurst      []float32 // precomputed mono burst
-	expectingMusic  atomic.Bool
-	fed             atomic.Int64
-	starved         atomic.Int64
-	starvedStreak   atomic.Int64
-	overlayFrames   atomic.Int64
-	interruptFrames atomic.Int64
-	limiterHits     atomic.Int64
-	completions     chan renderCompletion
-	done            chan struct{}
-	closeOnce       sync.Once
+	voice             atomic.Pointer[voiceState]
+	overlay           atomic.Pointer[overlayState]
+	interrupt         atomic.Pointer[interruptState]
+	mediaBusy         atomic.Bool
+	clicks            atomic.Pointer[clickSchedule]
+	clickBurst        []float32 // precomputed mono burst
+	expectingMusic    atomic.Bool
+	fed               atomic.Int64
+	starved           atomic.Int64
+	starvedStreak     atomic.Int64
+	overlayFrames     atomic.Int64
+	interruptFrames   atomic.Int64
+	limiterHits       atomic.Int64
+	liveFrames        atomic.Int64
+	liveUnderruns     atomic.Int64
+	liveEpoch         atomic.Int64
+	live              atomic.Pointer[windowsLiveRenderState]
+	liveWriteScratch  [liveFrameOutput * channels]float32
+	liveRenderScratch [2048]float32
+	completions       chan renderCompletion
+	done              chan struct{}
+	closeOnce         sync.Once
 }
 
 func NewEngine(music *Ring, gain *Gain) *Engine {
@@ -199,6 +247,8 @@ func (e *Engine) dispatchDoneCallbacks() {
 				completion.interrupt.onEnded(completion.localMS)
 			case renderInterruptCancelReady:
 				completion.interruptCancel.ready()
+			case renderLiveStarted:
+				completion.liveStarted()
 			}
 		case <-e.done:
 			return
@@ -285,9 +335,91 @@ func (e *Engine) Stats() RenderStats {
 	return RenderStats{
 		Fed: e.fed.Load(), Starved: e.starved.Load(), StarvedStreak: e.starvedStreak.Load(),
 		OverlayFrames: e.overlayFrames.Load(), InterruptFrames: e.interruptFrames.Load(),
-		LimiterHits: e.limiterHits.Load(),
+		LimiterHits: e.limiterHits.Load(), LiveFrames: e.liveFrames.Load(),
+		LiveUnderruns: e.liveUnderruns.Load(),
 	}
 }
+
+// PrepareLivePCM creates a generation-isolated 320 ms ring. A replacement
+// raises the epoch before publication so a callback holding the old pointer
+// cannot consume or mix samples from the new generation.
+func (e *Engine) PrepareLivePCM() int64 {
+	generation := e.liveEpoch.Add(1)
+	state := &windowsLiveRenderState{
+		generation: generation,
+		ring:       NewRing(livePCMFrames * sampleRate * channels / liveInputRate),
+		duckGain:   1, duckStart: 1, duckTarget: dbAmplitude(liveDuckDB),
+		duckTotal: sampleRate * 60 / 1000,
+	}
+	if previous := e.live.Swap(state); previous != nil {
+		previous.ring.Clear()
+	}
+	return generation
+}
+
+func (e *Engine) ActivateLivePCM(generation int64, audibleStarted func()) bool {
+	state := e.live.Load()
+	if state == nil || state.generation != generation || state.stop.Load() != nil || audibleStarted == nil {
+		return false
+	}
+	state.onStarted = audibleStarted
+	state.active.Store(true)
+	return true
+}
+
+// WriteLivePCM resamples one 48 kHz mono/20 ms decoder frame into the fixed
+// 44.1 kHz stereo render format. It is called by the receiver worker only.
+func (e *Engine) WriteLivePCM(generation int64, samples []float32) int {
+	state := e.live.Load()
+	if state == nil || state.generation != generation || e.liveEpoch.Load() != generation ||
+		state.stop.Load() != nil || len(samples) != liveFrameInput {
+		return 0
+	}
+	for frame := 0; frame < liveFrameOutput; frame++ {
+		position := float64(frame) * liveInputRate / sampleRate
+		lower := int(position)
+		fraction := float32(position - float64(lower))
+		value := samples[lower]
+		if lower+1 < len(samples) {
+			value += (samples[lower+1] - value) * fraction
+		}
+		e.liveWriteScratch[frame*channels] = value
+		e.liveWriteScratch[frame*channels+1] = value
+	}
+	output := e.liveWriteScratch[:]
+	if state.ring.Capacity()-state.ring.Fill() < len(output) || state.ring.Write(output) != len(output) {
+		return 0
+	}
+	return len(samples)
+}
+
+func (e *Engine) StopLivePCM(generation int64, discard bool) bool {
+	state := e.live.Load()
+	if state == nil || state.generation != generation {
+		return false
+	}
+	request := &liveStopRequest{discard: discard}
+	if !state.stop.CompareAndSwap(nil, request) {
+		return false
+	}
+	if discard {
+		state.ring.Clear()
+	}
+	return true
+}
+
+func (e *Engine) LivePCMCapacityFrames() int { return livePCMFrames }
+
+func (e *Engine) LivePCMBufferedFrames() int {
+	state := e.live.Load()
+	if state == nil {
+		return 0
+	}
+	return state.ring.Fill() / channels * liveInputRate / sampleRate
+}
+
+func (e *Engine) LivePCMUnderrunCallbacks() int64 { return e.liveUnderruns.Load() }
+func (e *Engine) LiveRenderActive() bool          { return e.live.Load() != nil }
 
 // ArmOverlay publishes a fully decoded immutable clip to the render consumer.
 // Only the render callback mutates cursors and ramps after this CAS succeeds.
@@ -592,6 +724,81 @@ func (e *Engine) mixOverlay(dst []float32, state *overlayState, now time.Time) {
 	}
 }
 
+// mixLive is part of the WASAPI render boundary. It reads only a fixed SPSC
+// ring and preallocated scratch, owns every mutable envelope field, and never
+// waits, allocates, decodes, logs or performs transport/filesystem work.
+func (e *Engine) mixLive(dst []float32, state *windowsLiveRenderState) bool {
+	if state == nil || state.generation != e.liveEpoch.Load() {
+		return false
+	}
+	if request := state.stop.Load(); request != nil && !state.stopping {
+		state.stopping = true
+		state.liveStart, state.liveTarget, state.liveTotal, state.liveDone =
+			beginInterruptRamp(state.liveGain, 0, 5)
+		state.duckStart, state.duckTarget, state.duckTotal, state.duckDone =
+			beginInterruptRamp(state.duckGain, 1, 160)
+	}
+	if state.active.Load() && !state.activated && !state.stopping {
+		state.activated = true
+		state.liveStart, state.liveTarget, state.liveTotal, state.liveDone =
+			beginInterruptRamp(0, 1, 5)
+	}
+
+	underrun := false
+	for offset := 0; offset < len(dst); {
+		count := min(len(e.liveRenderScratch), len(dst)-offset)
+		count -= count % channels
+		if count == 0 {
+			break
+		}
+		scratch := e.liveRenderScratch[:count]
+		got := 0
+		if state.activated {
+			got = state.ring.Read(scratch)
+			if got < count && !state.stopping {
+				underrun = true
+			}
+		}
+		if got > 0 && !state.started {
+			state.started = true
+			e.postCompletion(renderCompletion{kind: renderLiveStarted, liveStarted: state.onStarted})
+		}
+		for index := got; index < count; index++ {
+			scratch[index] = 0
+		}
+		for frame := 0; frame < count/channels; frame++ {
+			state.duckGain = rampValue(
+				state.duckGain, state.duckStart, state.duckTarget,
+				&state.duckTotal, &state.duckDone)
+			state.liveGain = rampValue(
+				state.liveGain, state.liveStart, state.liveTarget,
+				&state.liveTotal, &state.liveDone)
+			base := offset + frame*channels
+			dst[base] *= state.duckGain
+			dst[base+1] *= state.duckGain
+			left, right := scratch[frame*channels], scratch[frame*channels+1]
+			if state.stopping && frame*channels >= got {
+				left, right = state.lastLeft, state.lastRight
+			}
+			dst[base] += left * state.liveGain
+			dst[base+1] += right * state.liveGain
+			if frame*channels < got {
+				state.lastLeft, state.lastRight = left, right
+				e.liveFrames.Add(1)
+			}
+		}
+		offset += count
+	}
+	if underrun {
+		e.liveUnderruns.Add(1)
+	}
+	if state.stopping && state.liveTotal == 0 && state.liveGain == 0 &&
+		state.duckTotal == 0 && state.duckGain == 1 {
+		e.live.CompareAndSwap(state, nil)
+	}
+	return true
+}
+
 func (e *Engine) applyOverlayLimiter(dst []float32, ceilingDB float64) {
 	ceiling := dbAmplitude(ceilingDB)
 	for index, sample := range dst {
@@ -659,6 +866,9 @@ func (e *Engine) Render(dst []float32) int {
 		musicFloats = e.renderMusic(dst)
 	}
 
+	activeLive := e.live.Load()
+	liveMixed := e.mixLive(dst, activeLive)
+
 	// Click overlay (additive, like the mac insert player node).
 	if schedule := e.clicks.Load(); schedule != nil {
 		frames := len(dst) / channels
@@ -687,7 +897,9 @@ func (e *Engine) Render(dst []float32) int {
 			e.clicks.CompareAndSwap(schedule, nil)
 		}
 	}
-	if activeInterrupt != nil {
+	if liveMixed {
+		e.applyOverlayLimiter(dst, liveLimiterDB)
+	} else if activeInterrupt != nil {
 		e.applyOverlayLimiter(dst, activeInterrupt.control.LimiterCeilingDB)
 	} else if activeOverlay != nil {
 		e.applyOverlayLimiter(dst, activeOverlay.control.LimiterCeilingDB)

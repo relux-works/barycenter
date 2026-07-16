@@ -125,3 +125,6 @@ three package/security blockers pass, production live PTT stays unavailable.
 
 The macOS receiver implementation and its explicit system-decoder/FEC boundary
 are documented in [p3-macos-live-jitter-receiver.md](p3-macos-live-jitter-receiver.md).
+The matching bounded capture/encode path and its explicit system-encoder/FEC
+boundary are documented in
+[p3-macos-live-capture-sender.md](p3-macos-live-capture-sender.md).

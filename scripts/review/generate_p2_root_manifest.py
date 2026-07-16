@@ -222,13 +222,16 @@ def main() -> None:
         "schema": "barycenter.p2-root-review-manifest.v1",
         "baseline": baseline,
         "reviewed_candidate": candidate,
-        "review_decision": "pending-root-review",
+        "review_decision": "engineering-baseline-accepted-production-blocked",
         "acceptance_boundary": {
             "production_phase2": "blocked",
             "manual_real_app_hardware": "open in EPIC-260714-th54l3",
             "independent_owner_approvals": "open in EPIC-260714-zmnd4n",
             "codec_selection": "no-go",
+            "accepted_source_candidate": candidate,
+            "accepted_source_tree": git("rev-parse", f"{candidate}^{{tree}}").strip(),
             "accepted_build": None,
+            "accepted_package": None,
         },
         "mapping_policy": "Each file inherits every first-parent task interval and B1-B7/section gate that changed it; two non-Phase-2 repository-context intervals remain explicit.",
         "totals": {

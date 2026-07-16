@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-developer
 
 ## Created
 2026-07-12T16:13:27Z
 
 ## Last Update
-2026-07-14T00:48:40Z
+2026-07-16T11:19:34Z
 
 ## Blocked By
 - (none)
@@ -27,6 +27,7 @@ backlog
 - [ ] Write explicit handoff notes to Air, targets or inbox and acceptance stories
 
 ## Notes
+2026-07-16 strict-sequence start after TASK-260712-2psvhu landed through PR #164 at merge 533ead1689f16645dc04e192a84a75530a38f5c8 and hosted run 29493756075 passed 4/4. Executing inline outside task-board spawn workflow. TASK-260712-1fpb9q remains routed to the manual-testing epic and is skipped in engineering sequence without claiming evidence.
 
 ## Precondition Resources
 (none)

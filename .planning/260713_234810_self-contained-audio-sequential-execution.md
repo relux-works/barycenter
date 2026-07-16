@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 122 accepted, 83 remain.
-- Routed inventory: 186 engineering tasks (122 accepted, 64 remain) and 19
+- Combined inventory: 205 original tasks; 123 accepted, 82 remain.
+- Routed inventory: 186 engineering tasks (123 accepted, 63 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3qviqc` — live-ptt-wire-contract-codec-policy
-- Next engineering task: `TASK-260712-3vzbbl` — coordinator-live-ptt-session-runtime
-- Most recently accepted: `TASK-260712-lo7a68` — live-codec-transport-spike
-- Current branch: `task/task-260712-3qviqc-live-ptt-wire-contract`
+- Current engineering task: `TASK-260712-3vzbbl` — coordinator-live-ptt-session-runtime
+- Next engineering task: `TASK-260712-19w1qn` — macos-live-jitter-receiver
+- Most recently accepted: `TASK-260712-3qviqc` — live-ptt-wire-contract-codec-policy
+- Current branch: `task/task-260712-3qviqc-tracking`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 122 / 205 tasks (approximately 59.5%); 83 remain
-- Engineering progress: 122 / 186 tasks (approximately 65.6%); 64 remain
+- Accepted overall: 123 / 205 tasks (60.0%); 82 remain
+- Engineering progress: 123 / 186 tasks (approximately 66.1%); 63 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2365,6 +2365,23 @@ engineering only. Progress is 121/205 overall and 121/186 engineering. Manual
 `TASK-260712-9wivva` stays deferred; strict engineering advances to
 `TASK-260712-lo7a68`.
 
+Checkpoint 2026-07-16 (accepted generation-safe live PTT wire contract):
+`TASK-260712-3qviqc` freezes eight additive `live_ptt_v1` JSON signals, a
+40-byte big-endian binary Opus envelope, random non-zero 128-bit session IDs,
+monotonic generation and sequence guards, frozen targets, no late join and
+non-resume after disconnect or restart. Exact duplicates are idempotent;
+stale, oversized, truncated, wrong-profile, unauthorized and post-terminal
+input fails closed. Capture authority is local-user-input-only, unsupported
+targets receive explicit terminal receipts, and there is no hidden clip
+fallback. Go coordinator and Windows remain byte-equal; Swift is independently
+typed; 59 signalling goldens and binary start/middle/end plus malformed vectors
+are shared. The capability remains unadvertised until later runtime and platform
+tasks pass, while physical C2 evidence stays manual in `TASK-260712-1rzqh9`.
+Clean repository acceptance passed all 12 stages and hosted run `29515367395`
+passed all four jobs. PR #187 landed exact code head `667f43904fb9afe0c346966f47b0ed56a10d1890`
+at merge `4ec46a121c4da7dfc702491eb8ab296edfb8763a`. Progress is 123/205 overall
+and 123/186 engineering. Strict execution advances to `TASK-260712-3vzbbl`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -2959,7 +2976,11 @@ executed before soundboard automation because it is on the epic critical path.
   no-go because Windows, macOS arm64, signed-package, hostile-input and physical
   C2/intelligibility evidence are absent. Clean local acceptance passed 12/12
   and hosted run `29512991362` passed 4/4; PR #185 merge `e3f8d63`)
-- [ ] `TASK-260712-3qviqc` — live-ptt-wire-contract-codec-policy
+- [x] `TASK-260712-3qviqc` — live-ptt-wire-contract-codec-policy (accepted on
+  exact code head `667f439`; clean acceptance 12/12 and hosted run
+  `29515367395` 4/4; PR #187 merge `4ec46a1`. The additive signalling and
+  binary profile are frozen across Go, Windows and Swift, while the capability
+  remains unadvertised and physical C2 evidence remains manual)
 - [ ] `TASK-260712-3vzbbl` — coordinator-live-ptt-session-runtime
 - [ ] `TASK-260712-19w1qn` — macos-live-jitter-receiver
 - [ ] `TASK-260712-26mnp1` — macos-live-capture-sender

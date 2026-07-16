@@ -4,23 +4,25 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 115 accepted, 90 remain.
-- Routed inventory: 186 engineering tasks (115 accepted, 71 remain) and 19
+- Combined inventory: 205 original tasks; 116 accepted, 89 remain.
+- Routed inventory: 186 engineering tasks (116 accepted, 70 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-28mn7w` — p2-independent-stream-performance-review
-- Next engineering task: `TASK-260712-28mn7w` — p2-independent-stream-performance-review
-- Most recently accepted: `TASK-260712-2g3fkt` — p2-independent-codec-supply-review
-- Current branch: `chore/resume-after-codec-block`
-- Current deferred owner gate: `TASK-260716-tlxe3s` — approve-p2-codec-candidate-legal-supply-gates
-  in `EPIC-260714-zmnd4n`. It retains the qualified AAC/LGPL counsel,
-  implementation-independent reviewer and exact replacement-candidate release
-  proof. Production playback and Phase 2 promotion stay blocked; reversible
-  engineering continues under the owner-approved best-effort rule.
+- Current engineering task: `TASK-260712-2sicfs` — p2-independent-air-migration-review
+- Next engineering task: `TASK-260712-2sicfs` — p2-independent-air-migration-review
+- Most recently accepted: `TASK-260712-28mn7w` — p2-independent-stream-performance-review
+- Current branch: `task/task-260712-28mn7w-p2-independent-stream-performance-review`
+- Current deferred owner gates in `EPIC-260714-zmnd4n` are
+  `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
+  `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
+  latter consumes physical evidence from manual tasks `TASK-260712-1fpb9q`
+  and `TASK-260712-2bdi4a`. Production playback and Phase 2 promotion stay
+  blocked; reversible engineering continues under the owner-approved
+  best-effort rule.
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -30,8 +32,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 115 / 205 tasks (approximately 56.1%); 90 remain
-- Engineering progress: 115 / 186 tasks (approximately 61.8%); 71 remain
+- Accepted overall: 116 / 205 tasks (approximately 56.6%); 89 remain
+- Engineering progress: 116 / 186 tasks (approximately 62.4%); 70 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2805,7 +2807,7 @@ manual promotion remains separate.
   merge `affa66a`, hosted run `29497274813` 4/4; no codec combination or
   production playback is accepted, and all counsel/independent-review/release
   gates remain preserved in external owner task `TASK-260716-tlxe3s`)
-- [ ] `TASK-260712-28mn7w` — p2-independent-stream-performance-review
+- [x] `TASK-260712-28mn7w` — p2-independent-stream-performance-review — accepted as a fail-closed technical review: Windows shutdown High fixed and re-reviewed; bounded long-track integrity, physical performance evidence and independent signature remain routed production gates
 - [ ] `TASK-260712-2sicfs` — p2-independent-air-migration-review
 - [ ] `TASK-260712-n11rg6` — p2-independent-target-security-review
 - [ ] `TASK-260712-qi81vf` — phase2-observability-quota-views

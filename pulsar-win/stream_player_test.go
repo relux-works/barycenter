@@ -29,6 +29,20 @@ func (waitingWindowsStreamDecoder) Decode(ctx context.Context, _ WindowsStreamDe
 	return ctx.Err()
 }
 
+type delayedCancelWindowsStreamDecoder struct {
+	started chan struct{}
+	exited  chan struct{}
+}
+
+func (decoder delayedCancelWindowsStreamDecoder) Decode(ctx context.Context, _ WindowsStreamDecodeRequest) error {
+	close(decoder.started)
+	<-ctx.Done()
+	// Model decoder/cache cleanup that continues briefly after cancellation.
+	time.Sleep(20 * time.Millisecond)
+	close(decoder.exited)
+	return ctx.Err()
+}
+
 func (decoder *scriptedWindowsStreamDecoder) Decode(ctx context.Context, request WindowsStreamDecodeRequest) error {
 	decoder.mu.Lock()
 	decoder.requests = append(decoder.requests, request)
@@ -469,6 +483,40 @@ func TestWindowsStreamCandidateClockFailureDoesNotConsumeGenerationCommand(t *te
 		TCoordMS: nowMS() + 10, StartDeadlineCoordMS: nowMS() + 1000,
 	}); err == nil {
 		t.Fatal("terminal unsynchronized generation resumed")
+	}
+}
+
+func TestWindowsStreamCandidateCloseJoinsDecoderCleanup(t *testing.T) {
+	parts := [][]byte{[]byte("close-a"), []byte("close-b")}
+	manifest := windowsStreamManifest("close_join", parts...)
+	fetcher := newFakeWindowsStreamRangeFetcher(manifest.ETag)
+	populateStreamFetcher(fetcher, manifest, parts...)
+	cache, err := NewWindowsStreamChunkCache(t.TempDir(), []byte("0123456789abcdef"), fetcher)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoder := delayedCancelWindowsStreamDecoder{
+		started: make(chan struct{}),
+		exited:  make(chan struct{}),
+	}
+	player, err := NewWindowsStreamCandidatePlayer(cache, decoder, fixedClock{ok: true}, func(string, any) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := player.Load(protocolStreamLoad(manifest, 1, 0, nowMS()+3000), manifest); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-decoder.started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("decoder did not start")
+	}
+
+	player.Close()
+	select {
+	case <-decoder.exited:
+	default:
+		t.Fatal("Close returned before decoder cleanup completed")
 	}
 }
 

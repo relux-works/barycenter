@@ -222,6 +222,11 @@ func (player *WindowsStreamCandidatePlayer) Close() {
 		player.cancelRuntimeLocked()
 		player.mu.Unlock()
 		close(player.done)
+		// Cancellation is only a request. Join the serialized decoder/cache
+		// worker before returning so callers may safely remove its cache root or
+		// release package resources immediately after Close.
+		player.decoderMu.Lock()
+		player.decoderMu.Unlock()
 	})
 }
 

@@ -90,6 +90,12 @@ only after the first rendered sample. Decoder EOF alone is not terminal:
 Audible progress advances only by rendered frames, never by downloaded or
 decoded bytes.
 
+`Close` cancels timers and the active decoder, closes the internal event stop
+channel, and then joins the serialized decoder/cache worker. It therefore does
+not return while package resources or the installation-private cache may still
+be in use. A delayed-cancellation regression test freezes this shutdown
+boundary after a hosted Windows cleanup race exposed the earlier gap.
+
 ## Automated evidence and explicit nonclaims
 
 Deterministic tests cover authenticated exact ranges, no credential-bearing

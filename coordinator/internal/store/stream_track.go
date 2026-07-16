@@ -630,19 +630,120 @@ func (s *Store) EnqueueStreamTrack(domainID, mediaID, profile string, expectedRe
 }
 
 func (s *Store) ActivateStreamQueueItem(domainID, itemID string, expectedRevision, now int64) (StreamPlaybackDomain, error) {
+	if domainID == "" || itemID == "" || expectedRevision <= 0 || now <= 0 {
+		return StreamPlaybackDomain{}, ErrStreamTrackInvalid
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return StreamPlaybackDomain{}, err
 	}
 	defer tx.Rollback()
-	result, err := tx.Exec(`UPDATE stream_queue_items SET state = 'active', updated_at = ? WHERE id = ? AND domain_id = ? AND state = 'queued'`, now, itemID, domainID)
+	result, err := tx.Exec(`UPDATE stream_queue_items SET state = 'active', updated_at = ?
+WHERE id = ? AND domain_id = ? AND state = 'queued'
+  AND sequence = (SELECT MIN(sequence) FROM stream_queue_items
+                  WHERE domain_id = ? AND state = 'queued')`,
+		now, itemID, domainID, domainID)
 	if err != nil {
 		return StreamPlaybackDomain{}, err
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return StreamPlaybackDomain{}, ErrStreamTrackConflict
 	}
-	result, err = tx.Exec(`UPDATE stream_playback_domains SET source_kind = 'stream_track', current_queue_item_id = ?, state = 'buffering', playback_generation = playback_generation + 1, seek_generation = 0, audible_position_ms = 0, revision = revision + 1, updated_at = ? WHERE id = ? AND revision = ?`, itemID, now, domainID, expectedRevision)
+	result, err = tx.Exec(`UPDATE stream_playback_domains SET source_kind = 'stream_track', current_queue_item_id = ?, state = 'buffering', playback_generation = playback_generation + 1, seek_generation = 0, audible_position_ms = 0, revision = revision + 1, updated_at = ? WHERE id = ? AND revision = ? AND source_kind = 'none' AND current_queue_item_id = '' AND state = 'idle'`, itemID, now, domainID, expectedRevision)
+	if err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	if changed, _ := result.RowsAffected(); changed != 1 {
+		return StreamPlaybackDomain{}, ErrStreamTrackConflict
+	}
+	if err := tx.Commit(); err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	return s.loadStreamPlaybackDomainByID(domainID)
+}
+
+// ActivateNextStreamQueueItem atomically chooses the oldest still-queued
+// insert. A concurrent activation can win only once through the domain
+// revision and idle-state predicate.
+func (s *Store) ActivateNextStreamQueueItem(
+	domainID string,
+	expectedRevision, now int64,
+) (StreamPlaybackDomain, error) {
+	if domainID == "" || expectedRevision <= 0 || now <= 0 {
+		return StreamPlaybackDomain{}, ErrStreamTrackInvalid
+	}
+	var itemID string
+	err := s.db.QueryRow(`SELECT id FROM stream_queue_items
+WHERE domain_id = ? AND state = 'queued' ORDER BY sequence LIMIT 1`, domainID).Scan(&itemID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return StreamPlaybackDomain{}, ErrStreamTrackNotFound
+	}
+	if err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	return s.ActivateStreamQueueItem(domainID, itemID, expectedRevision, now)
+}
+
+// ReplaceStreamTrack installs a new active insert and cancels only the
+// current active item. Older queued inserts retain their relative order.
+func (s *Store) ReplaceStreamTrack(
+	domainID, mediaID, profile string,
+	expectedRevision, now int64,
+) (StreamPlaybackDomain, error) {
+	if domainID == "" || mediaID == "" || profile == "" ||
+		expectedRevision <= 0 || now <= 0 {
+		return StreamPlaybackDomain{}, ErrStreamTrackInvalid
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	defer tx.Rollback()
+	var ready int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM stream_variants
+WHERE media_id = ? AND profile = ? AND purpose = 'canonical' AND status = 'ready'`,
+		mediaID, profile).Scan(&ready); err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	if ready != 1 {
+		return StreamPlaybackDomain{}, ErrStreamTrackNotFound
+	}
+	var currentItemID string
+	if err := tx.QueryRow(`SELECT current_queue_item_id FROM stream_playback_domains
+WHERE id = ? AND revision = ? AND source_kind = 'stream_track'
+  AND current_queue_item_id <> '' AND state <> 'idle'`,
+		domainID, expectedRevision).Scan(&currentItemID); errors.Is(err, sql.ErrNoRows) {
+		return StreamPlaybackDomain{}, ErrStreamTrackConflict
+	} else if err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	var sequence int64
+	if err := tx.QueryRow(`SELECT COALESCE(MAX(sequence), 0) + 1
+FROM stream_queue_items WHERE domain_id = ?`, domainID).Scan(&sequence); err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	id := "sq_" + ulid.New(time.UnixMilli(now))
+	result, err := tx.Exec(`UPDATE stream_queue_items SET state = 'cancelled', updated_at = ?
+WHERE id = ? AND domain_id = ? AND state = 'active'`, now, currentItemID, domainID)
+	if err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	if changed, _ := result.RowsAffected(); changed != 1 {
+		return StreamPlaybackDomain{}, ErrStreamTrackConflict
+	}
+	if _, err := tx.Exec(`INSERT INTO stream_queue_items(
+id, domain_id, media_id, variant_profile, sequence, state, created_at, updated_at
+) VALUES(?, ?, ?, ?, ?, 'active', ?, ?)`,
+		id, domainID, mediaID, profile, sequence, now, now); err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	result, err = tx.Exec(`UPDATE stream_playback_domains SET
+source_kind = 'stream_track', current_queue_item_id = ?, state = 'buffering',
+playback_generation = playback_generation + 1, seek_generation = 0,
+audible_position_ms = 0, revision = revision + 1, updated_at = ?
+WHERE id = ? AND revision = ? AND source_kind = 'stream_track'
+  AND current_queue_item_id = ? AND state <> 'idle'`,
+		id, now, domainID, expectedRevision, currentItemID)
 	if err != nil {
 		return StreamPlaybackDomain{}, err
 	}
@@ -680,6 +781,107 @@ func (s *Store) SeekStreamPlayback(domainID string, expectedRevision, playbackGe
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return StreamPlaybackDomain{}, ErrStreamTrackConflict
+	}
+	return s.loadStreamPlaybackDomainByID(domainID)
+}
+
+// RebufferStreamPlayback persists the last audible sample and returns the
+// exact generation to buffering without creating a seek generation.
+func (s *Store) RebufferStreamPlayback(
+	domainID string,
+	expectedRevision, playbackGeneration, seekGeneration, positionMS, now int64,
+) (StreamPlaybackDomain, error) {
+	if domainID == "" || expectedRevision <= 0 || playbackGeneration <= 0 ||
+		seekGeneration < 0 || positionMS < 0 || now <= 0 {
+		return StreamPlaybackDomain{}, ErrStreamTrackInvalid
+	}
+	result, err := s.db.Exec(`UPDATE stream_playback_domains SET
+state = 'buffering', audible_position_ms = ?, revision = revision + 1, updated_at = ?
+WHERE id = ? AND revision = ? AND playback_generation = ? AND seek_generation = ?
+  AND source_kind = 'stream_track' AND state IN ('playing', 'paused')
+  AND ? >= audible_position_ms`, positionMS, now, domainID, expectedRevision,
+		playbackGeneration, seekGeneration, positionMS)
+	if err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	if changed, _ := result.RowsAffected(); changed != 1 {
+		return StreamPlaybackDomain{}, ErrStreamTrackConflict
+	}
+	return s.loadStreamPlaybackDomainByID(domainID)
+}
+
+// RestartStreamPlayback fences all pre-restart events with a new playback
+// generation while retaining the last persisted audible position.
+func (s *Store) RestartStreamPlayback(
+	domainID string,
+	expectedRevision, playbackGeneration, now int64,
+) (StreamPlaybackDomain, error) {
+	if domainID == "" || expectedRevision <= 0 || playbackGeneration <= 0 || now <= 0 {
+		return StreamPlaybackDomain{}, ErrStreamTrackInvalid
+	}
+	result, err := s.db.Exec(`UPDATE stream_playback_domains SET
+state = 'buffering', playback_generation = playback_generation + 1,
+seek_generation = 0, revision = revision + 1, updated_at = ?
+WHERE id = ? AND revision = ? AND playback_generation = ?
+  AND source_kind = 'stream_track' AND current_queue_item_id <> ''`,
+		now, domainID, expectedRevision, playbackGeneration)
+	if err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	if changed, _ := result.RowsAffected(); changed != 1 {
+		return StreamPlaybackDomain{}, ErrStreamTrackConflict
+	}
+	return s.loadStreamPlaybackDomainByID(domainID)
+}
+
+// CompleteStreamPlayback closes only the exact current item/generation and
+// reveals the parked provider-neutral base source. The next queued item is
+// activated by a separate revision-checked call.
+func (s *Store) CompleteStreamPlayback(
+	domainID string,
+	expectedRevision, playbackGeneration, seekGeneration int64,
+	itemState string,
+	now int64,
+) (StreamPlaybackDomain, error) {
+	if domainID == "" || expectedRevision <= 0 || playbackGeneration <= 0 ||
+		seekGeneration < 0 || (itemState != "played" && itemState != "cancelled") || now <= 0 {
+		return StreamPlaybackDomain{}, ErrStreamTrackInvalid
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	defer tx.Rollback()
+	var itemID string
+	if err := tx.QueryRow(`SELECT current_queue_item_id FROM stream_playback_domains
+WHERE id = ? AND revision = ? AND playback_generation = ? AND seek_generation = ?
+  AND source_kind = 'stream_track' AND current_queue_item_id <> ''`, domainID,
+		expectedRevision, playbackGeneration, seekGeneration).Scan(&itemID); errors.Is(err, sql.ErrNoRows) {
+		return StreamPlaybackDomain{}, ErrStreamTrackConflict
+	} else if err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	result, err := tx.Exec(`UPDATE stream_queue_items SET state = ?, updated_at = ?
+WHERE id = ? AND domain_id = ? AND state = 'active'`, itemState, now, itemID, domainID)
+	if err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	if changed, _ := result.RowsAffected(); changed != 1 {
+		return StreamPlaybackDomain{}, ErrStreamTrackConflict
+	}
+	result, err = tx.Exec(`UPDATE stream_playback_domains SET source_kind = 'none',
+current_queue_item_id = '', state = 'idle', seek_generation = 0,
+audible_position_ms = 0, revision = revision + 1, updated_at = ?
+WHERE id = ? AND revision = ? AND playback_generation = ?`,
+		now, domainID, expectedRevision, playbackGeneration)
+	if err != nil {
+		return StreamPlaybackDomain{}, err
+	}
+	if changed, _ := result.RowsAffected(); changed != 1 {
+		return StreamPlaybackDomain{}, ErrStreamTrackConflict
+	}
+	if err := tx.Commit(); err != nil {
+		return StreamPlaybackDomain{}, err
 	}
 	return s.loadStreamPlaybackDomainByID(domainID)
 }

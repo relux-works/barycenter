@@ -5,6 +5,33 @@ public enum PulsarStreamTrackDraftPhase: String, CaseIterable, Equatable, Sendab
     case retained, uploading, uploaded, processing, ready, failed
 }
 
+@MainActor
+public final class PulsarStreamTrackActions {
+    private let onIntake: (URL) -> Void
+    private let onRefresh: () -> Void
+    private let onPerform: (PulsarStreamTrackCommand, Bool) -> Void
+
+    public init(
+        intake: @escaping @MainActor (URL) -> Void = { _ in },
+        refresh: @escaping @MainActor () -> Void = {},
+        perform: @escaping @MainActor (PulsarStreamTrackCommand, Bool) -> Void = { _, _ in }
+    ) {
+        onIntake = intake
+        onRefresh = refresh
+        onPerform = perform
+    }
+
+    public func intake(_ url: URL) { onIntake(url) }
+    public func refresh() { onRefresh() }
+    public func perform(
+        _ command: PulsarStreamTrackCommand?,
+        rightsAcknowledged: Bool = false
+    ) {
+        guard let command else { return }
+        onPerform(command, rightsAcknowledged)
+    }
+}
+
 public enum PulsarStreamTrackPlaybackPhase: String, CaseIterable, Equatable, Sendable {
     case idle, queued, loading, ready, playing, paused, seeking, rebuffering, ended, failed
 }

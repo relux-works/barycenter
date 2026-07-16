@@ -5,19 +5,25 @@ import UniformTypeIdentifiers
 public struct PulsarMainView: View {
     @Bindable private var model: PulsarShellModel
     @Bindable private var targetsInboxModel: PulsarTargetsInboxModel
+    @Bindable private var streamTrackModel: PulsarStreamTrackModel
     private let actions: PulsarShellActions
     private let targetsInboxActions: PulsarTargetsInboxActions
+    private let streamTrackActions: PulsarStreamTrackActions
 
     public init(
         model: PulsarShellModel,
         actions: PulsarShellActions,
         targetsInboxModel: PulsarTargetsInboxModel,
-        targetsInboxActions: PulsarTargetsInboxActions
+        targetsInboxActions: PulsarTargetsInboxActions,
+        streamTrackModel: PulsarStreamTrackModel,
+        streamTrackActions: PulsarStreamTrackActions
     ) {
         self.model = model
         self.actions = actions
         self.targetsInboxModel = targetsInboxModel
         self.targetsInboxActions = targetsInboxActions
+        self.streamTrackModel = streamTrackModel
+        self.streamTrackActions = streamTrackActions
     }
 
     public var body: some View {
@@ -28,7 +34,9 @@ public struct PulsarMainView: View {
             PulsarDetail(
                 model: model, actions: actions,
                 targetsInboxModel: targetsInboxModel,
-                targetsInboxActions: targetsInboxActions)
+                targetsInboxActions: targetsInboxActions,
+                streamTrackModel: streamTrackModel,
+                streamTrackActions: streamTrackActions)
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {
@@ -85,6 +93,8 @@ private struct PulsarDetail: View {
     let actions: PulsarShellActions
     let targetsInboxModel: PulsarTargetsInboxModel
     let targetsInboxActions: PulsarTargetsInboxActions
+    let streamTrackModel: PulsarStreamTrackModel
+    let streamTrackActions: PulsarStreamTrackActions
 
     var body: some View {
         switch model.selectedSection {
@@ -119,7 +129,10 @@ private struct PulsarDetail: View {
         case .tryLocally:
             PulsarSelfTestView(model: model, actions: actions)
         case .history:
-            PulsarHistoryView(model: model, actions: actions)
+            PulsarHistoryView(
+                model: model, actions: actions,
+                streamTrackModel: streamTrackModel,
+                streamTrackActions: streamTrackActions)
         case .settings:
             PulsarSettingsView(model: model, actions: actions)
         }
@@ -416,17 +429,27 @@ private struct PulsarHistoryPreview: View {
 private struct PulsarHistoryView: View {
     let model: PulsarShellModel
     let actions: PulsarShellActions
+    let streamTrackModel: PulsarStreamTrackModel
+    let streamTrackActions: PulsarStreamTrackActions
 
     var body: some View {
         let copy = PulsarShellCopy(locale: model.locale)
-        Group {
-            if model.snapshot.history.isEmpty {
-                ContentUnavailableView(copy.text(.noHistory), systemImage: "clock.arrow.circlepath")
-            } else {
-                List(model.snapshot.history) { item in
-                    PulsarHistoryRow(item: item, locale: model.locale, actions: actions)
+        VSplitView {
+            PulsarStreamTrackView(
+                model: streamTrackModel,
+                locale: model.locale,
+                actions: streamTrackActions)
+                .frame(minHeight: 300)
+            Group {
+                if model.snapshot.history.isEmpty {
+                    ContentUnavailableView(copy.text(.noHistory), systemImage: "clock.arrow.circlepath")
+                } else {
+                    List(model.snapshot.history) { item in
+                        PulsarHistoryRow(item: item, locale: model.locale, actions: actions)
+                    }
                 }
             }
+            .frame(minHeight: 150)
         }
         .navigationTitle(copy.text(.historyTitle))
         .safeAreaInset(edge: .top) {
@@ -984,18 +1007,24 @@ public final class PulsarMainWindowController: NSObject, NSWindowDelegate {
     private let actions: PulsarShellActions
     private let targetsInboxModel: PulsarTargetsInboxModel
     private let targetsInboxActions: PulsarTargetsInboxActions
+    private let streamTrackModel: PulsarStreamTrackModel
+    private let streamTrackActions: PulsarStreamTrackActions
     private var window: NSWindow?
 
     public init(
         model: PulsarShellModel,
         actions: PulsarShellActions,
         targetsInboxModel: PulsarTargetsInboxModel,
-        targetsInboxActions: PulsarTargetsInboxActions
+        targetsInboxActions: PulsarTargetsInboxActions,
+        streamTrackModel: PulsarStreamTrackModel,
+        streamTrackActions: PulsarStreamTrackActions
     ) {
         self.model = model
         self.actions = actions
         self.targetsInboxModel = targetsInboxModel
         self.targetsInboxActions = targetsInboxActions
+        self.streamTrackModel = streamTrackModel
+        self.streamTrackActions = streamTrackActions
     }
 
     public func show(section: PulsarShellSection = .home) {
@@ -1010,7 +1039,9 @@ public final class PulsarMainWindowController: NSObject, NSWindowDelegate {
             model: model,
             actions: actions,
             targetsInboxModel: targetsInboxModel,
-            targetsInboxActions: targetsInboxActions)
+            targetsInboxActions: targetsInboxActions,
+            streamTrackModel: streamTrackModel,
+            streamTrackActions: streamTrackActions)
         let hosting = NSHostingController(rootView: root)
         let target = NSWindow(contentViewController: hosting)
         target.title = "Pulsar"

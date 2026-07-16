@@ -172,4 +172,40 @@ struct PulsarStreamTrackModelTests {
         #expect(contract["insertions"] as? [String] == PulsarStreamTrackInsertion.allCases.map(\.rawValue))
         #expect(contract["failure_codes"] as? [String] == PulsarStreamTrackFailure.allCases.map(\.rawValue))
     }
+
+    @MainActor
+    @Test("Native actions preserve explicit per-attempt rights acknowledgement")
+    func explicitRightsAction() {
+        var events: [(PulsarStreamTrackCommand, Bool)] = []
+        let actions = PulsarStreamTrackActions { command, rights in
+            events.append((command, rights))
+        }
+        let upload = PulsarStreamTrackCommand.upload(localID: localID)
+        actions.perform(upload)
+        actions.perform(upload, rightsAcknowledged: true)
+        #expect(events.count == 2)
+        #expect(events[0].0 == upload && events[0].1 == false)
+        #expect(events[1].0 == upload && events[1].1 == true)
+    }
+
+    @Test("macOS surface keeps deterministic keyboard, drop, rights, and accessibility evidence")
+    func macSurfaceSourceEvidence() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+        let view = try String(contentsOf: root.appendingPathComponent(
+            "node-app/Sources/NodeAppUI/PulsarStreamTrackView.swift"))
+        let composition = try String(contentsOf: root.appendingPathComponent(
+            "node-app/Sources/NodeApp/MacStreamTrackAppComposition.swift"))
+
+        for marker in [
+            ".fileImporter(", ".dropDestination(for: URL.self)",
+            ".keyboardShortcut(\"l\"", ".accessibilityValue(",
+            "I confirm the rights", "Подтверждаю права", "rightsAcknowledged: true",
+        ] {
+            #expect(view.contains(marker))
+        }
+        #expect(composition.contains("guard rightsAcknowledged else { return }"))
+        #expect(composition.contains("publishes no corresponding server action under no-go"))
+    }
 }

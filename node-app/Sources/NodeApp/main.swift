@@ -275,6 +275,7 @@ var runtime: CoreRuntime?
 @MainActor var macCaptureComposition: MacCaptureAppComposition?
 @MainActor var macPhaseOneComposition: MacPhaseOneAppComposition?
 @MainActor var macTargetsInboxComposition: MacTargetsInboxAppComposition?
+@MainActor var macStreamTrackComposition: MacStreamTrackAppComposition?
 @MainActor var macAirComposition: MacAirAppComposition?
 @MainActor var macIdentityComposition: MacIdentityAppComposition?
 
@@ -301,6 +302,8 @@ final class LocalCaptureAudioRuntime {
 @MainActor var shellActions: PulsarShellActions!
 @MainActor var targetsInboxModel: PulsarTargetsInboxModel!
 @MainActor var targetsInboxActions: PulsarTargetsInboxActions!
+@MainActor var streamTrackModel: PulsarStreamTrackModel!
+@MainActor var streamTrackActions: PulsarStreamTrackActions!
 @MainActor var mainWindow: PulsarMainWindowController!
 @MainActor var statusMenu: StatusMenuController!
 let onboarding = OnboardingWindowController()
@@ -349,6 +352,7 @@ func startCore(with config: NodeConfig) {
         startMacCaptureComposition(audio: rt.engine, log: rt.log)
         startMacPhaseOneComposition(log: rt.log)
         startMacTargetsInboxComposition(log: rt.log)
+        startMacStreamTrackComposition(log: rt.log)
         startMacAirComposition(log: rt.log)
         mainWindow.show()
     } catch let err as ConfigError {
@@ -466,6 +470,11 @@ func configureShell() {
     targetsInboxActions = PulsarTargetsInboxActions { command in
         macTargetsInboxComposition?.perform(command)
     }
+    streamTrackModel = PulsarStreamTrackModel()
+    streamTrackActions = PulsarStreamTrackActions(
+        intake: { macStreamTrackComposition?.intake($0) },
+        refresh: { macStreamTrackComposition?.refresh() },
+        perform: { macStreamTrackComposition?.perform($0, rightsAcknowledged: $1) })
     shellActions = PulsarShellActions(
         createOrbit: { showShellSection(.create) },
         joinOrbit: { showShellSection(.join) },
@@ -543,7 +552,9 @@ func configureShell() {
         model: shellModel,
         actions: shellActions,
         targetsInboxModel: targetsInboxModel,
-        targetsInboxActions: targetsInboxActions)
+        targetsInboxActions: targetsInboxActions,
+        streamTrackModel: streamTrackModel,
+        streamTrackActions: streamTrackActions)
     statusMenu = StatusMenuController()
     statusMenu.targetsInboxModel = targetsInboxModel
     startMacIdentityComposition()
@@ -631,6 +642,27 @@ func startMacTargetsInboxComposition(log: Logger) {
 }
 
 @MainActor
+func startMacStreamTrackComposition(log: Logger) {
+    do {
+        guard let bundle = try CredentialsStore.loadBundle(besideConfig: configPath) else { return }
+        let composition = try MacStreamTrackAppComposition(
+            bundle: bundle,
+            supportRoot: URL(fileURLWithPath: ConfigLoader.supportDir, isDirectory: true),
+            shellModel: shellModel,
+            targetsModel: targetsInboxModel,
+            model: streamTrackModel)
+        macStreamTrackComposition = composition
+        composition.start()
+    } catch {
+        log.error("phase two streamed-track UI unavailable", ["reason": "initialization_failed"])
+        var snapshot = streamTrackModel.snapshot
+        snapshot.state = .coordinatorError
+        snapshot.failure = .serviceUnavailable
+        streamTrackModel.replace(snapshot)
+    }
+}
+
+@MainActor
 func startMacAirComposition(log: Logger) {
     do {
         guard let bundle = try CredentialsStore.loadBundle(besideConfig: configPath) else {
@@ -669,6 +701,9 @@ func stopMacCaptureComposition() {
     macTargetsInboxComposition?.shutdown()
     macTargetsInboxComposition = nil
     targetsInboxModel?.replace(.init())
+    macStreamTrackComposition?.shutdown()
+    macStreamTrackComposition = nil
+    streamTrackModel?.replace(.init())
     macCaptureComposition?.shutdown()
     macCaptureComposition = nil
     localCaptureAudioRuntime?.stop()

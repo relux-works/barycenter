@@ -143,3 +143,22 @@ func TestPersonalCaption(t *testing.T) {
 		}
 	}
 }
+
+func TestRightsAcknowledgementCanBeCombinedWithRoutingCaption(t *testing.T) {
+	for _, caption := range []string{"rights", "ПРАВА", "rights лично", "всем права"} {
+		if !IsRightsAcknowledgementCaption(caption) {
+			t.Fatalf("%q must acknowledge per-upload rights", caption)
+		}
+	}
+	if !IsPersonalCaption("rights лично") || IsBroadcastCaption("rights лично") {
+		t.Fatal("rights + personal routing was not preserved")
+	}
+	if !IsBroadcastCaption("all rights") || IsPersonalCaption("all rights") {
+		t.Fatal("rights + broadcast routing was not preserved")
+	}
+	for _, caption := range []string{"", "copyright", "правами"} {
+		if IsRightsAcknowledgementCaption(caption) {
+			t.Fatalf("%q must not acknowledge rights", caption)
+		}
+	}
+}

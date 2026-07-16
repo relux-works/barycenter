@@ -296,6 +296,31 @@ func (s *Store) ListTransmissionTargetReferences(
 	bearer string,
 	now int64,
 ) ([]TransmissionTargetReferenceOption, error) {
+	return s.listTransmissionTargetReferences(
+		expectedActorID, bearer, Identity{}, now,
+	)
+}
+
+// ListTransmissionTargetReferencesForIdentity gives a verified non-HTTP
+// adapter the same opaque target picker as the bearer API. The returned
+// references remain bound to the exact actor and Telegram authorization
+// generation and disclose no numeric identity to the transport.
+func (s *Store) ListTransmissionTargetReferencesForIdentity(
+	expectedActorID int64,
+	identity Identity,
+	now int64,
+) ([]TransmissionTargetReferenceOption, error) {
+	return s.listTransmissionTargetReferences(
+		expectedActorID, "", identity, now,
+	)
+}
+
+func (s *Store) listTransmissionTargetReferences(
+	expectedActorID int64,
+	bearer string,
+	identity Identity,
+	now int64,
+) ([]TransmissionTargetReferenceOption, error) {
 	if now <= 0 {
 		return nil, ErrTransmissionInvalid
 	}
@@ -304,7 +329,7 @@ func (s *Store) ListTransmissionTargetReferences(
 		return nil, err
 	}
 	defer tx.Rollback()
-	ctx, proof, err := authorizeTransmissionProofTx(tx, expectedActorID, bearer, Identity{})
+	ctx, proof, err := authorizeTransmissionProofTx(tx, expectedActorID, bearer, identity)
 	if err != nil {
 		return nil, err
 	}

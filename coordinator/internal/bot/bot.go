@@ -46,16 +46,17 @@ const (
 )
 
 type AttachmentEvent struct {
-	Kind             AttachmentKind
-	TGFileID         string
-	OriginalUpdateID int64
-	FileName         string
-	MIMEType         string
-	Duration         int
-	SizeBytes        int64
-	MediaGroupID     string
-	Personal         bool
-	Broadcast        bool
+	Kind               AttachmentKind
+	TGFileID           string
+	OriginalUpdateID   int64
+	FileName           string
+	MIMEType           string
+	Duration           int
+	SizeBytes          int64
+	MediaGroupID       string
+	Personal           bool
+	Broadcast          bool
+	RightsAcknowledged bool
 }
 
 // CallbackEvent is a transport event only. The coordinator must resolve the
@@ -400,6 +401,7 @@ func (b *Bot) handleUpdate(u Update) {
 			FileName: msg.Audio.FileName, MIMEType: msg.Audio.MIMEType, Duration: msg.Audio.Duration,
 			SizeBytes: msg.Audio.FileSize, MediaGroupID: msg.MediaGroupID,
 			Personal: IsPersonalCaption(msg.Caption), Broadcast: IsBroadcastCaption(msg.Caption),
+			RightsAcknowledged: IsRightsAcknowledgementCaption(msg.Caption),
 		})
 		return
 	}
@@ -408,7 +410,8 @@ func (b *Bot) handleUpdate(u Update) {
 			Kind: AttachmentDocument, TGFileID: msg.Document.FileID,
 			FileName: msg.Document.FileName, MIMEType: msg.Document.MIMEType, SizeBytes: msg.Document.FileSize,
 			MediaGroupID: msg.MediaGroupID, Personal: IsPersonalCaption(msg.Caption),
-			Broadcast: IsBroadcastCaption(msg.Caption),
+			Broadcast:          IsBroadcastCaption(msg.Caption),
+			RightsAcknowledged: IsRightsAcknowledgementCaption(msg.Caption),
 		})
 		return
 	}

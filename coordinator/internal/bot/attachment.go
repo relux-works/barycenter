@@ -24,6 +24,8 @@ func AttachmentFailureFromIngest(kind AttachmentKind, ingestCode string) Attachm
 		return AttachmentTooLarge
 	case "media_duration_exceeded":
 		return AttachmentTrackPhase2
+	case "codec_profile_unavailable":
+		return AttachmentTrackPhase2
 	case "media_duration_mismatch", "media_duration_invalid":
 		return AttachmentDurationMismatch
 	case "canonical_output_oversized":
@@ -49,7 +51,7 @@ func AttachmentFailureText(code AttachmentFailureCode) string {
 	case AttachmentGroupUnsupported:
 		return "Альбомы и несколько вложений пока не поддерживаются. Отправь один аудиофайл."
 	case AttachmentTrackPhase2:
-		return "Это длиннее 3 минут: в Phase 1 доступны только короткие клипы, треки появятся в Phase 2."
+		return "Этот файл требует режима трека, но потоковая доставка пока недоступна для production-профиля. Короткий клип до 3 минут можно отправить сейчас."
 	case AttachmentDurationMismatch:
 		return "Не удалось надёжно определить длительность аудио."
 	case AttachmentCanonicalTooLarge:

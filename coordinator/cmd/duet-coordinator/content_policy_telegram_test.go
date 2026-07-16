@@ -97,6 +97,21 @@ func TestTelegramContentPolicyDisplayAcceptAndAttachmentGate(t *testing.T) {
 			FileName: "still-untrusted.bin",
 		},
 	})
+	if !strings.Contains(acceptedReplies.last(t), "`rights`") {
+		t.Fatalf("missing per-upload rights prompt=%q", acceptedReplies.last(t))
+	}
+	select {
+	case accepted := <-adapter.accepted:
+		t.Fatalf("attachment reached ingest before rights acknowledgement: %+v", accepted)
+	default:
+	}
+	l.handleBot(bot.Event{
+		FromUserID: 101, FromName: "Policy user", Reply: acceptedReplies.fn,
+		Attachment: &bot.AttachmentEvent{
+			Kind: bot.AttachmentDocument, TGFileID: "allowed-after-consent",
+			FileName: "still-untrusted.bin", RightsAcknowledged: true,
+		},
+	})
 	attachment := takeTelegramAcceptance(t, adapter)
 	if attachment.AttachmentKind != string(bot.AttachmentDocument) {
 		t.Fatalf("accepted attachment=%+v", attachment)

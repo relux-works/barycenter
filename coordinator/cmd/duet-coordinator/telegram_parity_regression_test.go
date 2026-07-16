@@ -114,3 +114,27 @@ func TestTelegramTargetsInboxParityRegressionFixture(t *testing.T) {
 		}
 	}
 }
+
+func TestTelegramTargetCapabilityErrorsAreHumanReadableAndOpaque(t *testing.T) {
+	err := &store.TransmissionUnsupportedTargetsError{Targets: []store.UnsupportedTransmissionTarget{{
+		Reference: "trf_secret-capability-must-not-render",
+		MissingCapabilities: []string{
+			store.TransmissionCapabilityAudioTrack,
+			store.TransmissionCapabilityQueueReplace,
+			store.TransmissionCapabilityStream,
+		},
+	}}}
+	text := telegramUnsupportedTargetsText(err)
+	for _, want := range []string{"пользовательские треки", "очередь и замена", "потоковое"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("missing human capability %q in %q", want, text)
+		}
+	}
+	if strings.Contains(text, "trf_") || strings.Contains(text, "audio_track_v1") {
+		t.Fatalf("opaque/internal capability leaked: %q", text)
+	}
+	track := telegramUnsupportedTargetsText(store.ErrTransmissionDeliveryKindMismatch)
+	if !strings.Contains(track, "production-профиль") || strings.Contains(track, "queue_replace_v1") {
+		t.Fatalf("targeted track no-go presentation=%q", track)
+	}
+}

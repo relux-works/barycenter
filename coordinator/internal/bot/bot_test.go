@@ -65,7 +65,7 @@ func TestAudioAndDocumentProduceTypedHintOnlyEvents(t *testing.T) {
 	b, _ := newTestBot()
 	b.handleUpdate(Update{UpdateID: 10, Message: &Message{
 		MessageID: 8, From: &User{ID: 111, FirstName: "Ivan"},
-		Chat: Chat{ID: -100500, Type: "private"}, Caption: "всем",
+		Chat: Chat{ID: -100500, Type: "private"}, Caption: "всем rights",
 		Audio: &Audio{FileID: "audio-file", FileUniqueID: "unique-audio",
 			FileName: "declared.mp3", MIMEType: "audio/mpeg", Duration: 999,
 			FileSize: 99 << 20},
@@ -73,6 +73,7 @@ func TestAudioAndDocumentProduceTypedHintOnlyEvents(t *testing.T) {
 	audio := <-b.Events
 	if audio.Attachment == nil || audio.Attachment.Kind != AttachmentAudio ||
 		audio.Attachment.TGFileID != "audio-file" || !audio.Attachment.Broadcast ||
+		!audio.Attachment.RightsAcknowledged ||
 		audio.Attachment.Duration != 999 || audio.Attachment.SizeBytes != 99<<20 {
 		t.Fatalf("audio event=%+v attachment=%+v", audio, audio.Attachment)
 	}
@@ -221,6 +222,7 @@ func TestAttachmentFailureVocabularyUsesCommonIngestProof(t *testing.T) {
 		{AttachmentDocument, "media_signature_unsupported", AttachmentNotAudio},
 		{AttachmentAudio, "media_signature_unsupported", AttachmentDecodeFailed},
 		{AttachmentAudio, "media_duration_exceeded", AttachmentTrackPhase2},
+		{AttachmentAudio, "codec_profile_unavailable", AttachmentTrackPhase2},
 		{AttachmentDocument, "media_input_unavailable", AttachmentDownloadFailed},
 	}
 	for _, test := range tests {

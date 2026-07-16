@@ -50,6 +50,8 @@ and [Windows targets/inbox UI and command composition](analysis/p2-windows-targe
 handoffs. The repository-automated B5-B7 coverage and its explicit manual-test
 boundary are recorded in the
 [targets/inbox parity regression evidence](analysis/p2-targets-inbox-parity-regression-evidence.md).
+Telegram consumes the same target and policy services through the opaque,
+rollback-safe [Phase 2 Telegram explicit-target adapter](analysis/p2-telegram-explicit-target-parity.md).
 The final coordinator-first deploy, mixed-version, rollback and downstream
 extension rules are frozen in the
 [Phase 2 targets/inbox rollout handoff](analysis/p2-targets-inbox-rollout-handoff.md).

@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"relux.works/duet/coordinator/internal/bot"
@@ -143,10 +144,13 @@ func (l *loop) telegramPeerTitle(orbitID int64) string {
 }
 
 type telegramPromptChoice struct {
-	text     string
-	action   store.TelegramInlineAction
-	delivery store.TransmissionDelivery
-	audience store.TransmissionAudienceKind
+	text            string
+	action          store.TelegramInlineAction
+	delivery        store.TransmissionDelivery
+	audience        store.TransmissionAudienceKind
+	routeV2         bool
+	targetReference string
+	includeOrigin   bool
 }
 
 func (l *loop) telegramRoutingChoices(orbitID int64) []telegramPromptChoice {
@@ -175,6 +179,81 @@ func (l *loop) telegramRoutingChoices(orbitID int64) []telegramPromptChoice {
 	return choices
 }
 
+func (l *loop) telegramExplicitRoutingChoices(
+	telegramUserID int64,
+	route store.TelegramInlineRoute,
+	now int64,
+) ([]telegramPromptChoice, error) {
+	actor, err := l.st.ResolveTelegramActorContext(telegramUserID)
+	if err != nil {
+		return nil, err
+	}
+	options, err := l.st.ListTransmissionTargetReferencesForIdentity(
+		actor.ActorID,
+		store.Identity{Kind: store.IdentityTelegram, TelegramUserID: telegramUserID},
+		now,
+	)
+	if err != nil {
+		return nil, err
+	}
+	media, err := l.st.GetMediaItem(route.MediaID)
+	if err != nil || media == nil {
+		return nil, store.ErrTransmissionMediaNotFound
+	}
+	deliveries := []store.TransmissionDelivery{
+		store.TransmissionDeliveryOverlay,
+		store.TransmissionDeliveryInterrupt,
+		store.TransmissionDeliveryAfterCurrent,
+	}
+	if media.Kind == store.MediaKindAudioTrack {
+		deliveries = []store.TransmissionDelivery{"queue", "replace"}
+	}
+	choices := make([]telegramPromptChoice, 0, len(options)*len(deliveries)*2+8)
+	if media.Kind == store.MediaKindAudioTrack {
+		for _, audience := range []store.TransmissionAudienceKind{
+			store.TransmissionAudienceOwnBarycenter,
+			store.TransmissionAudienceCurrentAir,
+		} {
+			audienceLabel := presentation.AudienceLabel(
+				audience, l.telegramPeerTitle(route.SourceOrbitID),
+			).Text(presentation.Russian)
+			for _, includeOrigin := range []bool{false, true} {
+				for _, delivery := range deliveries {
+					choices = append(choices, telegramPromptChoice{
+						text: presentation.DeliveryLabel(delivery).Text(presentation.Russian) +
+							" · " + audienceLabel + " · " +
+							presentation.IncludeOriginLabel(includeOrigin).Text(presentation.Russian),
+						action: store.TelegramChooseOwn, delivery: delivery,
+						audience: audience, routeV2: true, includeOrigin: includeOrigin,
+					})
+				}
+			}
+		}
+	}
+	for _, option := range options {
+		targetLabel := presentation.TargetLabel(presentation.TargetMetadata{
+			OrbitTitle: option.OrbitTitle, Slot: option.Slot,
+			MultipleSlots: len(option.TargetSlots) > 1,
+		}).Text(presentation.Russian)
+		for _, includeOrigin := range []bool{false, true} {
+			originSuffix := " · без исходного Pulsar"
+			if includeOrigin {
+				originSuffix = " · + исходный Pulsar"
+			}
+			for _, delivery := range deliveries {
+				choices = append(choices, telegramPromptChoice{
+					text: presentation.DeliveryLabel(delivery).Text(presentation.Russian) +
+						" · " + targetLabel + originSuffix,
+					action: store.TelegramChooseOwn, delivery: delivery,
+					audience: store.TransmissionAudienceExplicit, routeV2: true,
+					targetReference: option.Reference, includeOrigin: includeOrigin,
+				})
+			}
+		}
+	}
+	return choices, nil
+}
+
 func (l *loop) sendTelegramRoutingPrompt(
 	chatID, telegramUserID int64,
 	route store.TelegramInlineRoute,
@@ -184,6 +263,18 @@ func (l *loop) sendTelegramRoutingPrompt(
 		return
 	}
 	choices := l.telegramRoutingChoices(route.SourceOrbitID)
+	if media, mediaErr := l.st.GetMediaItem(route.MediaID); mediaErr == nil &&
+		media != nil && media.Kind == store.MediaKindAudioTrack {
+		choices = nil
+	}
+	explicit, err := l.telegramExplicitRoutingChoices(
+		telegramUserID, route, time.Now().UnixMilli(),
+	)
+	if err != nil {
+		l.log.Error("list Telegram explicit targets", "media", route.MediaID, "err", err)
+	} else {
+		choices = append(choices, explicit...)
+	}
 	l.telegramInlinePrompt(chatID, text, func(messageID int64) (bot.InlineKeyboard, error) {
 		keyboard := make(bot.InlineKeyboard, 0, len(choices)+1)
 		for _, choice := range choices {
@@ -191,7 +282,9 @@ func (l *loop) sendTelegramRoutingPrompt(
 				TelegramUserID: telegramUserID, MediaID: route.MediaID,
 				MediaGeneration: route.MediaGeneration, ChatID: chatID, MessageID: messageID,
 				Action: choice.action, Delivery: choice.delivery, Audience: choice.audience,
-				Now: time.Now().UnixMilli(),
+				RouteV2: choice.routeV2, TargetReference: choice.targetReference,
+				IncludeOrigin: choice.includeOrigin,
+				Now:           time.Now().UnixMilli(),
 			})
 			if err != nil {
 				return nil, err
@@ -229,13 +322,21 @@ func (l *loop) sendTelegramConfirmationPrompt(
 				if alternative.Delivery == store.TransmissionDeliveryOverlay {
 					action = store.TelegramConfirmOverlay
 				}
-				token, err := l.st.MintTelegramInlineCallback(store.MintTelegramInlineCallbackParams{
+				params := store.MintTelegramInlineCallbackParams{
 					TelegramUserID: telegramUserID, MediaID: result.MediaID,
 					MediaGeneration: result.MediaGeneration, ChatID: chatID, MessageID: messageID,
 					Action: action, Delivery: alternative.Delivery, Audience: result.Audience,
 					ConfirmationTokenHash: result.ConfirmationTokenHash,
 					Now:                   time.Now().UnixMilli(),
-				})
+				}
+				if result.RouteV2 {
+					params.RouteV2 = true
+					params.Delivery = store.TransmissionDeliveryInterrupt
+					params.ConfirmationDelivery = alternative.Delivery
+					params.TargetReference = result.TargetReference
+					params.IncludeOrigin = result.IncludeOrigin
+				}
+				token, err := l.st.MintTelegramInlineCallback(params)
 				if err != nil {
 					return nil, err
 				}
@@ -267,6 +368,39 @@ func telegramCallbackAnswer(outcome store.TelegramCallbackOutcome) bot.CallbackA
 	default:
 		return bot.CallbackFailed
 	}
+}
+
+func telegramUnsupportedTargetsText(err error) string {
+	if errors.Is(err, store.ErrTransmissionDeliveryKindMismatch) {
+		return "доставка пользовательских треков пока недоступна: production-профиль потокового воспроизведения не принят"
+	}
+	var unsupported *store.TransmissionUnsupportedTargetsError
+	if !errors.As(err, &unsupported) {
+		return "выбранные получатели больше недоступны"
+	}
+	missing := map[string]bool{}
+	for _, target := range unsupported.Targets {
+		for _, capability := range target.MissingCapabilities {
+			missing[capability] = true
+		}
+	}
+	labels := make([]string, 0, len(missing))
+	for _, capability := range []struct{ value, label string }{
+		{store.TransmissionCapabilityMediaClip, "аудиоклипы"},
+		{store.TransmissionCapabilityOverlayMix, "микширование поверх эфира"},
+		{store.TransmissionCapabilityInterrupt, "прерывание с продолжением"},
+		{store.TransmissionCapabilityAudioTrack, "пользовательские треки"},
+		{store.TransmissionCapabilityQueueReplace, "очередь и замена трека"},
+		{store.TransmissionCapabilityStream, "потоковое воспроизведение"},
+	} {
+		if missing[capability.value] {
+			labels = append(labels, capability.label)
+		}
+	}
+	if len(labels) == 0 {
+		return "выбранные получатели не поддерживают этот способ доставки"
+	}
+	return "выбранные получатели пока не поддерживают: " + strings.Join(labels, ", ")
 }
 
 func (l *loop) handleTelegramInlineCallback(ev bot.Event) {
@@ -321,7 +455,18 @@ func (l *loop) handleTelegramInlineCallback(ev bot.Event) {
 	if err != nil {
 		if errors.Is(err, store.ErrAirPolicyDenied) {
 			result.Outcome = store.TelegramCallbackForbidden
+			result.ClearKeyboard = true
 			ev.Reply("политика текущего Air запрещает этот способ доставки")
+		} else if errors.Is(err, store.ErrTransmissionUnsupportedTargets) ||
+			errors.Is(err, store.ErrTransmissionDeliveryKindMismatch) {
+			result.Outcome = store.TelegramCallbackUnsupported
+			result.ClearKeyboard = true
+			ev.Reply(telegramUnsupportedTargetsText(err))
+		} else if errors.Is(err, store.ErrTransmissionAudienceNotFound) ||
+			errors.Is(err, store.ErrTransmissionAudienceEmpty) {
+			result.Outcome = store.TelegramCallbackForbidden
+			result.ClearKeyboard = true
+			ev.Reply("выбранные получатели больше недоступны")
 		} else {
 			l.log.Error("apply Telegram inline callback", "err", err)
 			result.Outcome = store.TelegramCallbackFailed

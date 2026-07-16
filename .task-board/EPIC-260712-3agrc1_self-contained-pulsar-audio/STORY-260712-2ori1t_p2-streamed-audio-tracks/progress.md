@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-16T10:16:22Z
+2026-07-16T10:46:15Z
 
 ## Blocked By
 - STORY-260712-3l1r1u
@@ -56,6 +56,7 @@ Root decomposition review completed. Added missing shared plus Windows/macOS lon
 2026-07-16 strict checkpoint: TASK-260712-3aj8w2 accepted on exact head e6f0685 through PR #158, merge 6069948, after hosted run 29487762262 passed 4/4. macOS now has a candidate-neutral bounded authenticated chunk cache, injected decoder seam and fixed 1 MiB generation-safe PCM lifecycle; production codec/capability stays disabled and real timing/RSS/audible evidence remains manual. Strict story execution advances to TASK-260712-wt2n7m.
 2026-07-16 strict progress: TASK-260712-wt2n7m started inline from merge 6069948. Counts are 109/186 engineering and 109/205 combined; Telegram explicit-target/Air parity is now the only active engineering task.
 2026-07-16 strict checkpoint: TASK-260712-wt2n7m accepted on exact head 3a822a1 through PR #160, merge 35f5fd4, after hosted run 29489910594 passed 4/4. Telegram now shares opaque Barycenter/Pulsar targets, immutable N-target/include-origin policy, rights/consent and fail-closed callback semantics; production track delivery and real Telegram evidence remain explicitly unclaimed. Strict story execution advances to TASK-260712-3lximx at 110/186 engineering and 110/205 combined.
+2026-07-16 strict checkpoint: TASK-260712-3lximx accepted on exact head 2598c2a through PR #162, merge c1a9096, after hosted run 29491811217 passed 4/4. Windows now has bounded crash-resumable long-track intake/upload and a keyboard/DPI-safe native shared-model surface; production playback and hands-on accessibility remain unclaimed. Strict story execution advances to TASK-260712-2psvhu at 111/186 engineering and 111/205 combined.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-2ori1t/spec-entry.md) — Authoritative specification entry point

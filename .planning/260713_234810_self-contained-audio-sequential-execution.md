@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 110 accepted, 95 remain.
-- Routed inventory: 186 engineering tasks (110 accepted, 76 remain) and 19
+- Combined inventory: 205 original tasks; 111 accepted, 94 remain.
+- Routed inventory: 186 engineering tasks (111 accepted, 75 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3lximx` — windows-stream-track-ui
-- Next engineering task: `TASK-260712-3lximx` — windows-stream-track-ui
-- Most recently accepted: `TASK-260712-wt2n7m` — telegram-explicit-target-parity
-- Current branch: `task/task-260712-3lximx-windows-stream-track-ui`
+- Current engineering task: `TASK-260712-2psvhu` — macos-stream-track-ui
+- Next engineering task: `TASK-260712-2psvhu` — macos-stream-track-ui
+- Most recently accepted: `TASK-260712-3lximx` — windows-stream-track-ui
+- Current branch: `task/task-260712-2psvhu-macos-stream-track-ui`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 110 / 205 tasks (approximately 53.7%); 95 remain
-- Engineering progress: 110 / 186 tasks (approximately 59.1%); 76 remain
+- Accepted overall: 111 / 205 tasks (approximately 54.1%); 94 remain
+- Engineering progress: 111 / 186 tasks (approximately 59.7%); 75 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2169,6 +2169,20 @@ production codec no-go; real Telegram, recipient, packaged-app and audible
 evidence remains manual in `TASK-260712-3u5cdn`. Progress is 110/205 overall
 and 110/186 engineering; strict execution advances to `TASK-260712-3lximx`.
 
+Checkpoint 2026-07-16 (accepted): `TASK-260712-3lximx` landed on exact
+engineering head `2598c2af882ff589bc1ca0431bf1c6f708253f99` through PR #162,
+merge `c1a909652cab82807dc483ee3dd4afdf1c2b7416`, after hosted run
+`29491811217` passed coordinator, node-core, pulsar-win and signed packaged
+probe 4/4. Windows now has crash-safe app-private long-track drafts, bounded
+64 KiB brokered intake, 4 MiB authenticated offset-resumable upload, stable
+idempotent retry and a native EN/RU shared-model surface for consent, progress,
+targets and playback intent. Queue/replace/pause/seek/resume remain visibly
+disabled under the production codec no-go instead of falling back to clips.
+Automated keyboard, accessible-label and 96/144/192 DPI evidence is accepted;
+real Narrator, packaged MSIX, one-hour audible playback and hardware remain
+manual in `TASK-260712-1fpb9q`. Progress is 111/205 overall and 111/186
+engineering; strict execution advances to `TASK-260712-2psvhu`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -2682,7 +2696,12 @@ Story: `STORY-260712-2ori1t` — P2 Streamed user audio tracks.
   full, race, vet, B5-B7 and hosted run `29489910594` 4/4; PR #160 merge
   `35f5fd4`; production track delivery remains unsupported and real Telegram
   evidence stays manual)
-- [ ] `TASK-260712-3lximx` — windows-stream-track-ui
+- [x] `TASK-260712-3lximx` — windows-stream-track-ui
+  (accepted on engineering head `2598c2a`; crash-safe app-private draft,
+  bounded brokered intake, 4 MiB exact-offset upload, stable retry and native
+  EN/RU keyboard/DPI-safe controls passed local full/race/vet, Windows cross
+  compile and hosted run `29491811217` 4/4; PR #162 merge `c1a9096`; production
+  playback and real Narrator/packaged/hardware evidence remain manual)
 - [ ] `TASK-260712-2psvhu` — macos-stream-track-ui
 - ↪ manual `TASK-260712-1fpb9q` — streamed-track-regression-evidence →
   `EPIC-260714-th54l3`

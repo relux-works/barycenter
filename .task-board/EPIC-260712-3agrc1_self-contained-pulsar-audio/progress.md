@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-16T10:16:23Z
+2026-07-16T10:46:15Z
 
 ## Blocked By
 - STORY-260712-sskhip
@@ -52,6 +52,7 @@ User mandate 2026-07-12: do not accept agent code without scrupulous root review
 2026-07-16 strict sequential start: TASK-260712-wt2n7m began inline from merge 6069948. Telegram explicit-target/Air parity is active; all hands-on Telegram or real-recipient evidence remains deferred and unclaimed.
 2026-07-16 strict sequential checkpoint: 110/186 engineering tasks accepted (59.1%) and 110/205 combined tasks accepted (53.7%). TASK-260712-wt2n7m landed through PR #160 at merge 35f5fd4 after hosted run 29489910594 passed 4/4. Telegram explicit-target/Air, consent, rights and callback parity is accepted; real Telegram and production track evidence stays manual. Strict execution advances to TASK-260712-3lximx.
 2026-07-16 strict sequential start: TASK-260712-3lximx began inline from merge 35f5fd4. Counts remain 110/186 engineering and 110/205 combined until the bounded Windows shared long-track UI and deterministic accessibility evidence are accepted; production playback and real packaged-app evidence remain disabled and unclaimed.
+2026-07-16 strict sequential checkpoint: 111/186 engineering tasks accepted (59.7%) and 111/205 combined tasks accepted (54.1%). TASK-260712-3lximx landed through PR #162 at merge c1a9096 after hosted run 29491811217 passed 4/4. Bounded durable Windows long-track intake/upload and deterministic keyboard/DPI/accessibility-source evidence are accepted; real packaged app, Narrator, one-hour audio and hardware remain manual. Strict execution advances to TASK-260712-2psvhu.
 
 ## Precondition Resources
 (none)

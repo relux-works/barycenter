@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 132 accepted, 73 remain.
-- Routed inventory: 186 engineering tasks (132 accepted, 54 remain) and 19
+- Combined inventory: 205 original tasks; 133 accepted, 72 remain.
+- Routed inventory: 186 engineering tasks (133 accepted, 53 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3sv87k` — automation-schema-lineage-foundation
-- Next engineering task: `TASK-260712-1kk8bd` — cue-schedule-token-control-apis
-- Most recently accepted: `TASK-260712-hb5xz2` — saved-cue-media-lifecycle
-- Current branch: `tracking/task-260712-hb5xz2-saved-cue-media-lifecycle`
+- Current engineering task: `TASK-260712-1kk8bd` — cue-schedule-token-control-apis
+- Next engineering task: `TASK-260712-1eva0y` — automation-runtime-revoke-ratelimits
+- Most recently accepted: `TASK-260712-3sv87k` — automation-schema-lineage-foundation
+- Current branch: `tracking/task-260712-3sv87k-automation-schema-lineage-foundation`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -2565,6 +2565,23 @@ desktop composition or automation capability was enabled; real-app and
 hardware evidence remains in `EPIC-260714-th54l3`. Progress is 132/205 overall
 and 132/186 engineering. Strict execution advances to `TASK-260712-3sv87k`.
 
+Checkpoint 2026-07-16 (accepted automation schema and execution lineage):
+`TASK-260712-3sv87k` adds production-dark additive SQLite state for feature and
+emergency-disable policy, IANA schedules, scoped expiring principals and
+immutable schedule/API execution lineage. Unique occurrence and idempotency
+identities, fail-closed authority/revoke checks, hashed worker leases and
+startup reconciliation preserve at-most-once rows across DST folds, clock
+jumps, overlapping workers and crashes. Principals return 32 random bytes once
+and persist only a versioned domain-separated digest. Focused tests passed ten
+repeats and race three repeats; exact previous-head rollback preserved legacy
+media and new automation rows; clean exact-head acceptance passed 12/12 with
+`manualEvidence=not-run`. Hosted run `29538458103` passed all four jobs. PR
+#207 landed exact code head `6f772ba` at merge `4cd9a30`. No HTTP route,
+scheduler loop, target resolution, client composition or production capability
+was enabled; real-app and hardware evidence remains in `EPIC-260714-th54l3`.
+Progress is 133/205 overall and 133/186 engineering. Strict execution advances
+to `TASK-260712-1kk8bd`.
+
 ## Operating contract
 
 This is a standalone execution plan. Task-board IDs are stable links to the
@@ -3216,7 +3233,12 @@ Story: `STORY-260712-326wd5` — P3 Soundboard and safe automation.
   race x3, clean acceptance 12/12 and hosted run `29536161963` 4/4 passed; PR
   #205 merge `ae1812f3`. Automation remains production-dark and manual app/
   hardware evidence remains deferred)
-- [ ] `TASK-260712-3sv87k` — automation-schema-lineage-foundation
+- [x] `TASK-260712-3sv87k` — automation-schema-lineage-foundation (accepted on
+  exact code head `6f772ba`; additive schedule/principal/disable/execution
+  lineage, fail-closed at-most-once claims, lease recovery and exact previous-
+  head rollback; focused tests x10, race x3, clean acceptance 12/12 and hosted
+  run `29538458103` 4/4 passed; PR #207 merge `4cd9a30`. Runtime/API/client and
+  real-app or hardware evidence remain deferred)
 - [ ] `TASK-260712-1kk8bd` — cue-schedule-token-control-apis
 - [ ] `TASK-260712-1eva0y` — automation-runtime-revoke-ratelimits
 - [ ] `TASK-260712-11e4e3` — automation-history-audit-disable

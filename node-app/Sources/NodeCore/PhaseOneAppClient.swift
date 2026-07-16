@@ -378,8 +378,9 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
       session.uploadOffset <= session.uploadLength
     else { throw PhaseOneClientError.invalidResponse }
     progress(session.uploadOffset, session.uploadLength)
+    let reused = session.reused ?? false
     if session.status == "completed", session.uploadOffset == session.uploadLength {
-      return PhaseOneUploadConfirmation(mediaID: session.mediaID, reused: true)
+      return PhaseOneUploadConfirmation(mediaID: session.mediaID, reused: reused)
     }
     guard session.status == "open", CredentialSyntax.lowerHexToken(session.uploadToken) else {
       throw PhaseOneClientError.invalidResponse
@@ -418,7 +419,7 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
     }
     guard session.status == "completed" else { throw PhaseOneClientError.invalidResponse }
     return PhaseOneUploadConfirmation(
-      mediaID: session.mediaID, reused: session.reused ?? false)
+      mediaID: session.mediaID, reused: reused)
   }
 
   public func contentPolicy(locale: ContentPolicyLocale) async throws -> ContentPolicyManifest {

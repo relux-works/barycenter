@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 93 accepted, 112 remain.
-- Routed inventory: 186 engineering tasks (93 accepted, 93 remain) and 19
+- Combined inventory: 205 original tasks; 94 accepted, 111 remain.
+- Routed inventory: 186 engineering tasks (94 accepted, 92 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2j5fkr` — inbox-history-api-pagination
-- Next engineering task: `TASK-260712-2j5fkr` — inbox-history-api-pagination
-- Most recently accepted: `TASK-260712-2ctf3x` — versioned-content-policy-consent
-- Current branch: `tracking/task-260712-2ctf3x-versioned-content-policy-consent`
+- Current engineering task: `TASK-260712-2zoy4u` — rights-report-disable-enforcement
+- Next engineering task: `TASK-260712-2zoy4u` — rights-report-disable-enforcement
+- Most recently accepted: `TASK-260712-2j5fkr` — inbox-history-api-pagination
+- Current branch: `tracking/task-260712-2j5fkr-inbox-history-api-pagination`
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -25,8 +25,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 93 / 205 tasks (approximately 45.4%); 112 remain
-- Engineering progress: 93 / 186 tasks (exactly 50.0%); 93 remain
+- Accepted overall: 94 / 205 tasks (approximately 45.9%); 111 remain
+- Engineering progress: 94 / 186 tasks (approximately 50.5%); 92 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2365,7 +2365,13 @@ Story: `STORY-260712-ob1tx2` — P2 Explicit targets, inbox and transport parity
   stale/revoked re-prompting and app/Telegram enforcement are covered without
   treating consent as proof of ownership; hosted run `29459297560` passed 4/4,
   PR #126 merge `c647b2d`)
-- [ ] `TASK-260712-2j5fkr` — inbox-history-api-pagination
+- [x] `TASK-260712-2j5fkr` — inbox-history-api-pagination
+  (accepted on engineering head `3dbf474`; actor-scoped inbox/detail/replay and
+  history receipt APIs use stable digest-only cursors, exact current-binding
+  authorization, safe presentation, uniform missing behavior and explicit
+  idempotent replay; local targeted, race, previous-head, Swift and Windows
+  acceptance passed, hosted run `29461136915` passed 4/4, PR #128 merge
+  `dbd6baa`)
 - [ ] `TASK-260712-2zoy4u` — rights-report-disable-enforcement
 - [ ] `TASK-260712-2vipy3` — pulsar-inbox-history-ui
 - [ ] `TASK-260712-2nto40` — macos-p2-targets-inbox-ui

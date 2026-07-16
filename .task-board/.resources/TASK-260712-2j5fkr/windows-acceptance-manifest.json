@@ -1,0 +1,201 @@
+{
+  "artifacts": [
+    {
+      "bytes": 130,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "3d9ae1c4f207c34e7b7fe407ee9a9f7212884826b68d2fc94c41cae33566a5c3"
+    },
+    {
+      "bytes": 0,
+      "path": "02-windows-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 210,
+      "path": "03-windows-tests.log",
+      "sha256": "22f7b43ca7f908b513c70ce351cafde599c9ecc79415bf10b500d9d83ff510b3"
+    },
+    {
+      "bytes": 211,
+      "path": "04-windows-race.log",
+      "sha256": "609598386e172b8373fc9a639fa7c20f25d8fd36624153493dc388183cc3090a"
+    },
+    {
+      "bytes": 0,
+      "path": "05-windows-cross-vet-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "06-windows-cross-build-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "07-windows-cross-build-arm64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/codec_spike/test_codec_spike.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "02-windows-vet.log",
+      "name": "windows-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "03-windows-tests.log",
+      "name": "windows-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "04-windows-race.log",
+      "name": "windows-race"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "05-windows-cross-vet-amd64.log",
+      "name": "windows-cross-vet-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "06-windows-cross-build-amd64.log",
+      "name": "windows-cross-build-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "07-windows-cross-build-arm64.log",
+      "name": "windows-cross-build-arm64"
+    }
+  ],
+  "finishedAt": "2026-07-16T00:18:03Z",
+  "git": {
+    "dirty": true,
+    "endDirty": true,
+    "endDirtyPaths": [
+      "M .planning/260713_234810_self-contained-audio-sequential-execution.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1bcpda_e2ee-c4-c6-evidence-review-pack/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1bcpda_e2ee-c4-c6-evidence-review-pack/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1rziyo_recovery-device-transfer-history-grants/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1rziyo_recovery-device-transfer-history-grants/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1u57qz_windows-protected-media-playback/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1u57qz_windows-protected-media-playback/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1x9ruo_macos-e2ee-key-state/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1x9ruo_macos-e2ee-key-state/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1yz5ca_coordinator-opaque-media-router/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-1yz5ca_coordinator-opaque-media-router/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-20j5tm_coordinator-ciphertext-routing-rotation/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-20j5tm_coordinator-ciphertext-routing-rotation/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-25dzp4_windows-e2ee-key-state/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-25dzp4_windows-e2ee-key-state/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-28zhpl_windows-protected-media-send/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-28zhpl_windows-protected-media-send/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2i0w6x_report-evidence-moderation-export/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2i0w6x_report-evidence-moderation-export/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2kcduo_macos-protected-media-send/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2kcduo_macos-protected-media-send/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2nppt6_macos-encrypted-media-client-path/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2nppt6_macos-encrypted-media-client-path/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2q4jbu_windows-encrypted-media-client-path/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-2q4jbu_windows-encrypted-media-client-path/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-3980vy_macos-e2ee-live-ptt/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-3980vy_macos-e2ee-live-ptt/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-39vjzd_windows-e2ee-live-ptt/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-39vjzd_windows-e2ee-live-ptt/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-3w1cst_encrypted-media-schema-epoch-foundation/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-3w1cst_encrypted-media-schema-epoch-foundation/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-aniuyy_e2ee-independent-design-review/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-tcwn44_macos-protected-media-playback/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/TASK-260712-tcwn44_macos-protected-media-playback/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-1frfmi_p3-e2ee-media/progress.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/TASK-260712-1ulshp_phase3-external-security-review-closure/README.md",
+      " D .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-2ft5wd_p3-acceptance-security-rollout/TASK-260712-1ulshp_phase3-external-security-review-closure/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-ob1tx2_p2-targets-inbox-parity/TASK-260712-2j5fkr_inbox-history-api-pagination/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/STORY-260712-ob1tx2_p2-targets-inbox-parity/progress.md",
+      " M .task-board/EPIC-260712-3agrc1_self-contained-pulsar-audio/progress.md",
+      " M acceptance/targets-inbox-contract-v1.json",
+      " M coordinator/cmd/duet-coordinator/history_http.go",
+      " M coordinator/cmd/duet-coordinator/history_http_test.go",
+      " M coordinator/cmd/duet-coordinator/onboarding.go",
+      " M coordinator/internal/store/transmission_resolution.go",
+      " M coordinator/internal/store/transmission_schema.go",
+      " M docs/diagrams/p2-targets-inbox-parity-components.puml",
+      " M docs/diagrams/p2-targets-inbox-parity-sequence.puml",
+      " M scripts/validate_targets_inbox_contract.py",
+      "?? .task-board/EPIC-260716-3qsztl_deferred-e2ee-media-implementation/",
+      "?? coordinator/cmd/duet-coordinator/inbox_http.go",
+      "?? coordinator/cmd/duet-coordinator/inbox_http_test.go",
+      "?? coordinator/internal/store/inbox_query.go",
+      "?? coordinator/internal/store/inbox_query_test.go",
+      "?? docs/analysis/p2-inbox-history-api-pagination.md"
+    ],
+    "head": "ed3f2369d33cfae07d2a2040066f43e7603d2ff7",
+    "startDirty": true
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-16T00:17:26Z",
+  "status": "pass",
+  "suite": "windows",
+  "toolchains": {
+    "apple": null,
+    "go": "go version go1.25.12 darwin/amd64"
+  }
+}

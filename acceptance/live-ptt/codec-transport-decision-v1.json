@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-live-codec-transport-decision.v1",
+  "taskId": "TASK-260712-lo7a68",
+  "decidedAt": "2026-07-16",
+  "owner": "Ivan Oparin",
+  "ownerApproval": {
+    "state": "approved-engineering-defaults",
+    "scope": "codec profile defaults only; no waiver of package, security, real-app, listening, or physical C2 gates"
+  },
+  "decision": {
+    "status": "engineering-profile-frozen-production-no-go",
+    "productionLivePttAllowed": false,
+    "wireContractEngineeringMayContinue": true,
+    "runtimeDefaultEnabled": false,
+    "reason": "The 20 ms Opus profile and deterministic WSS/QUIC budget model are credible, but only one x86_64 macOS host was benchmarked. Windows, macOS arm64, signed MSIX, signed/notarized macOS, hostile-input, real-network, and listening evidence do not exist. Current release packages contain no libopus binary, and the QUIC alternative has no integrated cross-platform package or server path."
+  },
+  "codecProfile": {
+    "implementation": "libopus",
+    "version": "1.6.1",
+    "sourceUrl": "https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz",
+    "sourceSha256": "6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1",
+    "application": "OPUS_APPLICATION_VOIP",
+    "sampleRateHz": 48000,
+    "channels": 1,
+    "frameMs": 20,
+    "targetBitrateBps": 24000,
+    "rateControl": "constrained-vbr",
+    "complexity": 5,
+    "dtx": false,
+    "inbandFec": true,
+    "expectedLossPercent": 2,
+    "decoderLossRule": "For an exposed single-frame gap, decode FEC from the immediately following packet; otherwise invoke Opus PLC for exactly one scheduled frame. Never wait beyond the bounded jitter deadline.",
+    "maxEncodedPayloadBytes": 400,
+    "maxFramesPerSecond": 50,
+    "selectionReason": "The measured 20 ms profile uses fewer messages and less encode-plus-decode CPU per audio second than 10 ms while retaining a modeled WSS p50/p95 well below C2. DTX is disabled so press/release timing and comfort-noise behavior do not become implicit wire state."
+  },
+  "binaryFrame": {
+    "byteOrder": "network-big-endian",
+    "headerBytes": 40,
+    "maxMessageBytes": 440,
+    "fields": [
+      {"offset": 0, "bytes": 2, "name": "magic", "value": "BP"},
+      {"offset": 2, "bytes": 1, "name": "version", "value": 1},
+      {"offset": 3, "bytes": 1, "name": "flags", "bits": ["session-start", "session-end", "fec-capable"]},
+      {"offset": 4, "bytes": 16, "name": "session-id", "format": "opaque-128-bit"},
+      {"offset": 20, "bytes": 4, "name": "sequence", "format": "uint32"},
+      {"offset": 24, "bytes": 8, "name": "capture-monotonic-us", "format": "uint64"},
+      {"offset": 32, "bytes": 2, "name": "payload-length", "format": "uint16", "maximum": 400},
+      {"offset": 34, "bytes": 1, "name": "frame-duration-ms", "value": 20},
+      {"offset": 35, "bytes": 1, "name": "channels", "value": 1},
+      {"offset": 36, "bytes": 1, "name": "sample-rate-code", "value": "48kHz"},
+      {"offset": 37, "bytes": 1, "name": "codec-id", "value": "opus"},
+      {"offset": 38, "bytes": 2, "name": "reserved", "value": 0}
+    ],
+    "validation": "Reject the whole frame before allocation when magic, version, reserved bytes, fixed profile fields, payload length, exact message length, session state, or monotonic sequence is invalid. TLS/QUIC integrity replaces an application checksum."
+  },
+  "transport": {
+    "engineeringBaseline": {
+      "id": "wss-tcp-existing-stack",
+      "serverAndWindowsLibrary": "github.com/gorilla/websocket v1.5.3",
+      "macosLibrary": "Foundation URLSessionWebSocketTask",
+      "security": "wss only outside loopback; existing authenticated node connection",
+      "retransmission": "TCP controlled; the application never retransmits expired live frames",
+      "headOfLine": "TCP loss can delay later audio; modeled explicitly and still requires physical two-home validation",
+      "queuePolicy": "One eight-frame/160 ms queue per recipient. Drop the oldest unsent live frame on overflow and continue other recipients without waiting.",
+      "receiverJitterBufferMs": 60,
+      "status": "engineering-only-not-production-accepted"
+    },
+    "datagramAlternative": {
+      "protocol": "QUIC DATAGRAM RFC 9221",
+      "candidateImplementation": "MsQuic 2.5.8",
+      "benefit": "unreliable delivery exposes loss to FEC/PLC and avoids TCP stream head-of-line recovery",
+      "rejectionForThisBaseline": "No coordinator, Go, Swift, Windows or package integration exists; datagram receive is disabled by default and must be negotiated; signed/notarized cross-platform native-library evidence is absent.",
+      "status": "deferred-not-selected"
+    }
+  },
+  "evidence": {
+    "opusBenchmark": {
+      "path": "acceptance/live-ptt/opus-local-benchmark-v1.json",
+      "sha256": "c33e752206e55ccbe8e5833be3c5811e5f856bf91318001dd90cb976471753ab",
+      "selected20ms": {
+        "audioSeconds": 240.0,
+        "encodeMeanUs": 169.701,
+        "decodeMeanUs": 34.631,
+        "realtimeFactor": 0.010217,
+        "averageBitrateBps": 22675.267,
+        "packetP95Bytes": 70,
+        "packetMaxBytes": 77,
+        "codecStateBytes": 50136,
+        "workingBufferBytes": 52240
+      },
+      "boundary": "Synthetic signal on one macOS 15.7.4 x86_64 host; no Windows, arm64, signed package, real app, physical network, or intelligibility claim."
+    },
+    "transportModel": {
+      "path": "acceptance/live-ptt/transport-model-v1.json",
+      "sha256": "f91854a6f66ba015f35f7c1afb4f33e4c68af92bc236128ee310db2085d02082",
+      "selected20msWss": {"p50Ms": 272.266, "p95Ms": 458.432, "p99Ms": 534.549, "maxMs": 699.367, "tcpHolEvents": 763},
+      "selected20msQuic": {"p50Ms": 248.896, "p95Ms": 289.769, "p99Ms": 413.045, "maxMs": 517.411, "fecRecovered": 735, "plcConcealed": 39},
+      "slowRecipient": {"queueCapacityFrames": 8, "queueCapacityMs": 160, "droppedOldest": 1658, "fastRecipientDrops": 0},
+      "boundary": "Deterministic assumptions and queue behavior only; a modeled budget pass is not C2 acceptance."
+    }
+  },
+  "supplyAndSecurity": {
+    "softwareLicense": "libopus reference implementation is BSD-3-Clause; binary redistribution must carry the copyright, conditions, and disclaimer.",
+    "patentDisposition": "The Opus project publishes royalty-free grants and patent-termination conditions plus third-party IPR caveats. This record is not legal advice; preserve exact notices and re-review if implementation or markets change.",
+    "sbomPurl": "pkg:generic/libopus@1.6.1",
+    "updateRule": "Pin source hash, patches, compiler, architectures and binary hashes; rescan the exact source and binaries on every release; no runtime code download.",
+    "vulnerabilityDisposition": "No zero-CVE claim is made. Release remains blocked until exact source and packaged binaries pass the chosen current vulnerability scanners and hostile-frame tests. CVE-2026-40614 concerns PJSIP 2.16 and earlier Opus wrapper buffer sizing, not a libopus 1.6.1 finding; it reinforces the 400-byte pre-allocation boundary.",
+    "noticesRequired": ["BSD-3-Clause libopus notice", "Opus patent-license terms or stable reference", "exact source/build/SBOM receipt"]
+  },
+  "packageGates": {
+    "noFirstRunCodeDownload": "required",
+    "windows": {
+      "status": "fail",
+      "currentRelease": "CGO_ENABLED=0 Go executable plus pulsar-capture.dll; no libopus component is staged, hashed, signed, or SBOM-listed.",
+      "required": "Build pinned libopus 1.6.1 for amd64 and arm64, expose a bounded ABI, run hostile-input tests, stage and hash it, sign inner binaries and MSIX, and prove AppContainer load on Windows 10 and 11."
+    },
+    "macos": {
+      "status": "fail",
+      "currentRelease": "Swift package has no libopus target or staged nested library; no arm64 benchmark, hardened-runtime signature, or notarization receipt exists.",
+      "required": "Build pinned libopus 1.6.1 for supported architectures, expose a bounded Swift/C ABI, run hostile-input tests, sign nested code, retain sandbox, notarize, and prove launch from the shipped package."
+    },
+    "quic": {
+      "status": "fail",
+      "required": "If selected later, pin MsQuic source and binary hashes, implement/benchmark both clients and coordinator, enable and negotiate datagrams, package/sign/notarize all native code, and rerun this decision."
+    }
+  },
+  "openBlockers": [
+    {"id": "P3-LIVE-001", "severity": "High", "owner": "Windows implementation", "block": "No Windows libopus benchmark or signed MSIX load evidence."},
+    {"id": "P3-LIVE-002", "severity": "High", "owner": "macOS implementation", "block": "No macOS arm64 packaged benchmark or signed/notarized load evidence."},
+    {"id": "P3-LIVE-003", "severity": "High", "owner": "security/release", "block": "No exact runtime SBOM, current binary vulnerability scan, hostile-frame containment, or update receipt."},
+    {"id": "P3-LIVE-004", "severity": "High", "owner": "TASK-260712-1rzqh9", "block": "No physical Windows-Windows, Windows-macOS, macOS-macOS two-home p50/p95, 2 percent loss, intelligibility, or 100-cycle evidence."}
+  ],
+  "sourceReceipts": [
+    {"id": "libopus-release", "url": "https://opus-codec.org/release/stable/2026/01/14/libopus-1_6_1.html", "retrievedAt": "2026-07-16"},
+    {"id": "opus-license", "url": "https://opus-codec.org/license/", "retrievedAt": "2026-07-16"},
+    {"id": "rfc6716", "url": "https://www.rfc-editor.org/info/rfc6716/", "retrievedAt": "2026-07-16"},
+    {"id": "rfc8854", "url": "https://www.rfc-editor.org/info/rfc8854/", "retrievedAt": "2026-07-16"},
+    {"id": "rfc6455", "url": "https://www.rfc-editor.org/info/rfc6455/", "retrievedAt": "2026-07-16"},
+    {"id": "rfc9221", "url": "https://www.rfc-editor.org/info/rfc9221/", "retrievedAt": "2026-07-16"},
+    {"id": "gorilla-websocket-1.5.3", "url": "https://github.com/gorilla/websocket/releases/tag/v1.5.3", "retrievedAt": "2026-07-16"},
+    {"id": "apple-urlsession-websocket", "url": "https://developer.apple.com/documentation/foundation/urlsessionwebsockettask", "retrievedAt": "2026-07-16"},
+    {"id": "msquic-2.5.8", "url": "https://github.com/microsoft/msquic/releases/tag/v2.5.8", "retrievedAt": "2026-07-16"},
+    {"id": "msquic-settings", "url": "https://github.com/microsoft/msquic/blob/main/docs/Settings.md", "retrievedAt": "2026-07-16"},
+    {"id": "msquic-api", "url": "https://github.com/microsoft/msquic/blob/main/docs/API.md", "retrievedAt": "2026-07-16"},
+    {"id": "nvd-pjsip-wrapper", "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-40614", "retrievedAt": "2026-07-16"}
+  ],
+  "repositoryReceipts": [
+    {"path": "scripts/live_ptt/opus_benchmark.c", "sha256": "72d9d9a11f53c5d60a604c28e2fde0201740967346118f10f5d831a94d68f25f"},
+    {"path": "scripts/live_ptt/run_opus_benchmark.py", "sha256": "91d509d73ab1abb89d1b799964c2b854651d27b45a0e9aef7e76c6c853e3e197"},
+    {"path": "scripts/live_ptt/transport_model.py", "sha256": "5fe3d731a49f639f1cdd608ea9a8646ec962e2985afe6f88f8105e1effe7159f"},
+    {"path": ".github/workflows/release.yml", "sha256": "381b3f4ca8d56ffaea3f81a4616f4c92b7f6fb33d25b73d279d4ad93319f39ab"},
+    {"path": "coordinator/go.mod", "sha256": "4b66332d1d51bbd1cf1e590b1816e5ffcdd5100c8f75d5252a1fa1a63c3e0d4b"},
+    {"path": "pulsar-win/go.mod", "sha256": "0d51a579223414af1a80c284fb22b721c81d3dc7341ffa76440474251fa535cc"},
+    {"path": "node-app/Package.swift", "sha256": "77e0f0eeaf38b09c93c6d8ff789a72c1650f90008357a383111a79269b401249"}
+  ],
+  "manualHandoff": {
+    "epicId": "EPIC-260714-th54l3",
+    "taskId": "TASK-260712-1rzqh9",
+    "requiredEvidence": "Real packaged app on physical Windows/macOS hardware, two home networks, 2 percent loss/jitter/reorder/backpressure, calibrated p50/p95, agreed intelligibility method, and 100 lifecycle cycles."
+  }
+}

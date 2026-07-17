@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-macos-capture-quality-engineering.v1",
+  "task": "TASK-260712-2egweh",
+  "publishedAt": "2026-07-17",
+  "owner": "Ivan Oparin",
+  "decision": {
+    "result": "best-effort-engineering-path-ready-manual-acoustic-proof-required",
+    "engineeringImplemented": true,
+    "productionCapabilityAdvertised": false,
+    "c3Accepted": false,
+    "manualEvidence": "not-run",
+    "manualEpic": "EPIC-260714-th54l3"
+  },
+  "implementation": {
+    "nativeProcessor": "AVAudioInputNode voice processing",
+    "workflows": ["recorded_clip", "local_self_test", "live_ptt"],
+    "inputTargetRMSDBFS": -20.0,
+    "inputTargetToleranceDB": 3.0,
+    "maximumDigitalGainDB": 12.0,
+    "maximumGainSlewDBPerSecond": 3.0,
+    "inputCeilingDBFS": -3.0,
+    "receiverOutputCeilingDBFS": -1.0,
+    "callbackHandoff": "fixed 16384-sample ring, nonblocking tryLock, pre-created dispatch sources",
+    "livePersistence": "forbidden"
+  },
+  "routePolicy": {
+    "headphone": "code-eligible-for-accepted-after-native-enable; physical proof pending",
+    "speaker": "degraded-reference_unavailable-until-reference-age-and-acoustic-proof",
+    "unknown": "degraded-route_unknown",
+    "explicitMismatch": "degraded-route_excluded",
+    "nativeUnavailable": "degraded-aec_unavailable",
+    "liveDegradedWithoutConsent": "capture_quality_unsupported"
+  },
+  "automatedCoverage": [
+    "bounded input AGC target, maximum gain, slew and final ceiling",
+    "honest speaker, headphone, unknown, mismatch and unavailable decisions",
+    "fresh generation and capture-quality contract validation",
+    "shared clip and local-self-test workflow selection and state forwarding",
+    "live PTT quality-required configuration, forwarding and typed fail-closed wire result",
+    "fixed-storage nonblocking Core Audio tap source audit",
+    "existing release, cancel, permission, device, sleep, lock, disconnect and quit teardown suites"
+  ],
+  "notRun": [
+    "signed application and TCC behavior",
+    "physical built-in speaker, wired, USB and Bluetooth routes",
+    "deterministic native AEC and noise-suppression C3 matrix",
+    "render-reference age, clock drift and acoustic echo-path change",
+    "physical CPU, memory and latency measurement",
+    "blinded listening and accessibility review"
+  ],
+  "documents": [
+    "docs/analysis/p3-macos-capture-quality-implementation.md",
+    "docs/analysis/p3-capture-quality-contract-v1.md",
+    "docs/analysis/p3-capture-quality-harness-v1.md"
+  ]
+}

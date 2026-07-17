@@ -4,23 +4,23 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 152 accepted, 53 remain.
-- Routed inventory: 186 engineering tasks (152 accepted, 34 remain) and 19
+- Combined inventory: 205 original tasks; 153 accepted, 52 remain.
+- Routed inventory: 186 engineering tasks (153 accepted, 33 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-39zh8g` — windows-capture-quality-ui
-- Next engineering task: `TASK-260712-1023d7` — capture-quality-integrated-regressions
+- Current engineering task: `TASK-260712-1023d7` — capture-quality-integrated-regressions
+- Next engineering task: `TASK-260712-3da0vz` — phase3-gate-matrix-evidence-contract
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
   E2EE implementation task are deferred outside the current engineering epic,
   so strict execution resumes at section 17 without claiming them complete.
-- Most recently accepted: `TASK-260712-1getbv` — macos-capture-quality-ui
-- Current branch: `tracking/task-260712-1getbv-complete`
+- Most recently accepted: `TASK-260712-39zh8g` — windows-capture-quality-ui
+- Current branch: `tracking/task-260712-39zh8g-complete`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -41,8 +41,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 152 / 205 tasks (74.1%); 53 remain
-- Engineering progress: 152 / 186 tasks (approximately 81.7%); 34 remain
+- Accepted overall: 153 / 205 tasks (74.6%); 52 remain
+- Engineering progress: 153 / 186 tasks (approximately 82.3%); 33 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3536,7 +3536,26 @@ Story: `STORY-260712-3pt00e` — P3 Capture quality and diagnostics.
   stop-latency checks remain `manualEvidence=not-run` in
   `EPIC-260714-th54l3`; the accessibility checklist item is closed only for
   source/unit semantics and explicit routing, not as a manual pass.)
-- [ ] `TASK-260712-39zh8g` — windows-capture-quality-ui
+- [x] `TASK-260712-39zh8g` — windows-capture-quality-ui (accepted on exact
+  engineering commit `de40dcb71387e9e3e422e72adf6f999cb0572212`, merged
+  by PR #248 at `def2aa2845175efac4a06f942cf2468e5b8e6ca7`. The native
+  Win32 main window and notification-area menu now expose local auto, speaker
+  and headphone selection, one-generation degraded consent, exact validated
+  route/lifecycle/AEC/NS/AGC/health state, and the distinct fixed -3 dBFS input
+  and -1 dBFS receiver ceilings. Active local capture replaces Record with a
+  persistent native Stop; foreground Escape, Ctrl-period and the tray item use
+  the same local workflow cancellation seam. English/Russian typed guidance
+  covers permission, device, reference, route, input-health, processing and
+  mixed-version failures, while a failed generation remains visible until the
+  next attempt. Production clips and self-test are wired, but native effects
+  remain honestly unverified, capture_quality_v1 is unadvertised, and shipping
+  main still does not construct WindowsLivePTTNode. Clean exact-head Windows
+  acceptance passed 11/11 with start/end dirty false and
+  `manualEvidence=not-run`; hosted run `29573283583` passed 4/4 including the
+  signed-MSIX packaging contract. Real signed-app Narrator/focus, DPI visual,
+  permission, physical route/reconnect, acoustic and stop-latency checks remain
+  in `EPIC-260714-th54l3`; checklist item 5 closes source/unit native-control,
+  keyboard, DPI-aware layout, lifecycle and no-remote-start semantics only.)
 - [ ] `TASK-260712-1023d7` — capture-quality-integrated-regressions
 - ↪ manual `TASK-260712-2e80pr` — c3-evidence-capability-matrix
 

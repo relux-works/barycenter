@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-windows-capture-quality-ui-engineering.v1",
+  "task": "TASK-260712-39zh8g",
+  "publishedAt": "2026-07-17",
+  "owner": "Ivan Oparin",
+  "decision": {
+    "result": "best-effort-ui-engineering-ready-manual-real-app-proof-required",
+    "engineeringImplemented": true,
+    "productionCapabilityAdvertised": false,
+    "livePTTProductionIntegration": false,
+    "c3Accepted": false,
+    "manualEvidence": "not-run",
+    "manualEpic": "EPIC-260714-th54l3"
+  },
+  "productionWiring": {
+    "recordedClip": true,
+    "localSelfTest": true,
+    "livePTTPresentationModel": true,
+    "livePTTNodeInstantiatedByApp": false,
+    "remoteStartAuthority": false,
+    "coordinatorModeAuthority": false,
+    "nativeEffectsVerifiedByCurrentHelper": false,
+    "degradedConsent": "fresh local one-generation consent, cleared at terminal state"
+  },
+  "surface": {
+    "locations": ["main window local self-test", "main window settings", "active header Stop", "notification-area menu"],
+    "requestedModes": ["auto", "speaker", "headphone"],
+    "states": ["accepted", "degraded", "unsupported"],
+    "effects": ["active", "not_required", "unavailable", "faulted"],
+    "inputCeilingDBFS": -3.0,
+    "receiverOutputCeilingDBFS": -1.0,
+    "ceilingsEditable": false,
+    "receiverVolumeChangesCeilings": false,
+    "localStopCommands": ["native window button", "Ctrl-period", "foreground Escape", "notification-area menu item"]
+  },
+  "automatedCoverage": [
+    "English and Russian shell catalog completeness",
+    "mode, route, lifecycle, effects, input health and distinct ceiling projection",
+    "fail-closed preflight and explicit one-generation degraded-consent seam",
+    "stale state clearing and failed-generation retention",
+    "recorded clip, local self-test and live_ptt lifecycle presentation",
+    "native Win32 Button, Ctrl-period, foreground Escape and tray Stop source contracts",
+    "DPI-aware native control layout source contracts",
+    "local workflow-only action wiring with no coordinator or runtime start seam",
+    "Windows amd64 CGO-free cross-build"
+  ],
+  "notRun": [
+    "signed MSIX visual inspection",
+    "Narrator reading order and announcements",
+    "full keyboard traversal and focus order",
+    "100%, 125%, 150%, 175% and 200% DPI inspection",
+    "real Windows microphone permission prompts",
+    "physical speaker, headphone, Bluetooth, USB and reconnect behavior",
+    "acoustic AEC, noise suppression and AGC C3 matrix",
+    "physical immediate-stop latency",
+    "production live PTT UI integration"
+  ],
+  "documents": [
+    "docs/analysis/p3-windows-capture-quality-ui.md",
+    "docs/analysis/p3-capture-quality-contract-v1.md",
+    "docs/analysis/p3-windows-capture-quality-implementation.md"
+  ]
+}

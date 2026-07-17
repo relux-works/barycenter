@@ -114,6 +114,26 @@ func TestLivePTTRuntimeRejectsUnauthorizedStaleAndPreAcceptMedia(t *testing.T) {
 	}
 }
 
+func TestLivePTTRuntimeRejectPayloadIsValidatedBeforeMutation(t *testing.T) {
+	runtime := NewLivePTTRuntime()
+	request := livePTTStartRequest(7)
+	if _, err := runtime.Start(request); err != nil {
+		t.Fatal(err)
+	}
+	target := request.Targets[0].Node
+	invalid := protocol.LivePTTRejectPayload{SessionID: request.Payload.SessionID,
+		Generation: 7, EventSequence: 1, Code: "private-free-form-reason", RejectedAtCoordMS: 1100}
+	if _, err := runtime.Reject(target, invalid); err != ErrLivePTTStale {
+		t.Fatalf("invalid reject=%v", err)
+	}
+	valid := invalid
+	valid.Code = "policy"
+	effects, err := runtime.Reject(target, valid)
+	if err != nil || len(effects) != 1 || effects[0].Type != protocol.TypeLivePTTReject {
+		t.Fatalf("valid reject after invalid attempt: effects=%+v err=%v", effects, err)
+	}
+}
+
 func TestLivePTTRuntimeWatchdogAndRestartNeverResume(t *testing.T) {
 	runtime := NewLivePTTRuntime()
 	request := livePTTStartRequest(7)

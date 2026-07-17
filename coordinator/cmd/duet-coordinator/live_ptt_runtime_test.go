@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -233,5 +234,32 @@ func TestLivePTTHealthContainsOnlyBoundedMetadata(t *testing.T) {
 	}
 	if !strings.Contains(text, `"enabled":false`) || !strings.Contains(text, `"retained_audio_bytes":0`) {
 		t.Fatalf("health=%s", text)
+	}
+}
+
+func TestLivePTTRuntimeLogsExcludeSessionAndNodeIdentity(t *testing.T) {
+	var captured bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&captured, nil))
+	l, _ := newTestLoop(t)
+	l.log = logger
+	canary := "00112233445566778899aabbccddeeff"
+	l.sendLivePTTExcludedReceipts(
+		hub.NodeKey{Orbit: 91, Slot: "private-source-slot"},
+		protocol.LivePTTStartPayload{SessionID: canary, Generation: 7},
+		[]store.LivePTTResolvedTarget{{OrbitID: 92, Slot: "private-target-slot", Reason: "unsupported"}},
+		1100)
+	l.applyLivePTTEffects([]session.LivePTTEffect{
+		{Kind: session.LivePTTDuckStart, SessionID: canary},
+		{Kind: session.LivePTTDuckEnd, SessionID: canary},
+	})
+	logs := captured.String()
+	for _, secret := range []string{canary, "private-source-slot", "private-target-slot", `"orbit"`, `"slot"`, `"session"`} {
+		if strings.Contains(logs, secret) {
+			t.Fatalf("live PTT log leaked private identity %q: %s", secret, logs)
+		}
+	}
+	if !strings.Contains(logs, `"reason":"unsupported"`) ||
+		!strings.Contains(logs, `"state":"start"`) || !strings.Contains(logs, `"state":"release"`) {
+		t.Fatalf("live PTT logs lost bounded operational fields: %s", logs)
 	}
 }

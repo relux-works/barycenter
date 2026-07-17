@@ -77,6 +77,7 @@ public final class AudioEngine {
     private var liveGainRampTotal: Int = 0
     private var liveGainRampDone: Int = 0
     private let liveUnderrunCounter = RenderAtomicInt64()
+    private let liveRenderedFrameCounter = RenderAtomicInt64()
     private let liveControlQueue = DispatchQueue(label: "duet.live-audio-control")
 
     // Underruns (spec 6.3/6.5) — read by heartbeat.
@@ -229,6 +230,7 @@ public final class AudioEngine {
                 got = liveScratch.withUnsafeMutableBufferPointer {
                     self.liveRing.read(into: $0.baseAddress!, count: need)
                 }
+                if got > 0 { self.liveRenderedFrameCounter.add(Int64(got)) }
                 if got < need { self.liveUnderrunCounter.add(1) }
             } else {
                 _ = liveScratch.withUnsafeMutableBufferPointer {
@@ -467,6 +469,7 @@ public final class AudioEngine {
     var livePCMCapacityFrames: Int { liveRing.capacity }
     var livePCMBufferedFrames: Int { liveRing.fill }
     var livePCMUnderrunCallbacks: Int64 { liveUnderrunCounter.load() }
+    var livePCMRenderedFrames: Int64 { liveRenderedFrameCounter.load() }
 
     func prepareLivePCM() -> Int64 {
         let generation = liveRouteGeneration.add(1)

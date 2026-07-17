@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,23 @@ import (
 
 	"relux.works/duet/coordinator/internal/protocol"
 )
+
+type lockedLogBuffer struct {
+	mu sync.Mutex
+	b  strings.Builder
+}
+
+func (b *lockedLogBuffer) Write(value []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.b.Write(value)
+}
+
+func (b *lockedLogBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.b.String()
+}
 
 func TestPresencePlaybackStateIsClosedAndSanitized(t *testing.T) {
 	cases := map[string]string{
@@ -465,7 +483,8 @@ func captureQualityStateWire(generation, updatedMS int64, includeQuality bool) m
 }
 
 func TestCaptureQualityStateIsCapabilityBoundGenerationSafeAndDefensive(t *testing.T) {
-	h := New(slog.Default(), func(token string) (int64, string, bool) {
+	var logs lockedLogBuffer
+	h := New(slog.New(slog.NewJSONHandler(&logs, nil)), func(token string) (int64, string, bool) {
 		return 9, "a", token == "valid"
 	}, time.Second)
 	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
@@ -522,6 +541,15 @@ func TestCaptureQualityStateIsCapabilityBoundGenerationSafeAndDefensive(t *testi
 	}
 	if got := h.NodeSnapshots()[key].CaptureQuality.UpdatedMonotonicMS; got != 42_420 {
 		t.Fatalf("stale state replaced snapshot: %d", got)
+	}
+	logged := logs.String()
+	for _, forbidden := range []string{`"orbit"`, `"slot"`, `"generation"`, `"err"`} {
+		if strings.Contains(logged, forbidden) {
+			t.Fatalf("capture quality log leaked private or arbitrary field %q: %s", forbidden, logged)
+		}
+	}
+	if !strings.Contains(logged, `"reason":"stale"`) {
+		t.Fatalf("capture quality log lost bounded reason: %s", logged)
 	}
 }
 

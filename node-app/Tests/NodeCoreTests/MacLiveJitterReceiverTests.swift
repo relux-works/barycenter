@@ -9,6 +9,7 @@ private final class LiveRouteFixture: MacLiveAudioRouting {
     var generation: Int64 = 0
     var stops: [(generation: Int64, discard: Bool)] = []
     var livePCMUnderrunCallbacks: Int64 = 0
+    var livePCMRenderedFrames: Int64 = 0
     var livePCMBufferedFrames: Int { pcm.count }
 
     init(capacity: Int = 15_360) { livePCMCapacityFrames = capacity }
@@ -43,7 +44,13 @@ private final class LiveRouteFixture: MacLiveAudioRouting {
         if discard { pcm.removeAll(keepingCapacity: true) }
     }
 
-    func consumeAll() { pcm.removeAll(keepingCapacity: true) }
+    func consume(_ count: Int) {
+        let consumed = min(max(0, count), pcm.count)
+        pcm.removeFirst(consumed)
+        livePCMRenderedFrames += Int64(consumed)
+    }
+
+    func consumeAll() { consume(pcm.count) }
 }
 
 private final class LiveDecoderFixture: MacLiveOpusDecoding {
@@ -170,12 +177,28 @@ private final class EventBox {
         #expect(events.events.contains {
             if case .livePTTAccept = $0 { return true }; return false
         })
+        #expect(!events.events.contains {
+            if case .livePTTReceipt(let payload) = $0 {
+                return payload.state == "audible_started"
+            }
+            return false
+        })
+        route.consume(64)
+        receiver.tick()
         #expect(events.events.contains {
             if case .livePTTReceipt(let payload) = $0 {
                 return payload.state == "audible_started" && payload.lastSequence == 3
             }
             return false
         })
+        route.consume(64)
+        receiver.tick()
+        #expect(events.events.filter {
+            if case .livePTTReceipt(let payload) = $0 {
+                return payload.state == "audible_started"
+            }
+            return false
+        }.count == 1)
     }
 
     @Test func malformedConflictAndOutOfWindowFramesNeverReachDecoder() {

@@ -122,6 +122,7 @@ protocol MacLiveAudioRouting: AnyObject {
     var livePCMCapacityFrames: Int { get }
     var livePCMBufferedFrames: Int { get }
     var livePCMUnderrunCallbacks: Int64 { get }
+    var livePCMRenderedFrames: Int64 { get }
     func prepareLivePCM() -> Int64
     func activateLivePCM(generation: Int64)
     func writeLivePCM(
@@ -184,6 +185,8 @@ final class MacLiveJitterReceiver {
         var plcFrames = 0
         var failedFrames = 0
         var consecutiveConcealments = 0
+        var renderedFramesAtActivation: Int64?
+        var audibleStarted = false
     }
 
     private let route: MacLiveAudioRouting
@@ -424,18 +427,9 @@ final class MacLiveJitterReceiver {
             guard decodeExpectedLocked() else { return }
         }
         guard let active = session else { return }
+        session?.renderedFramesAtActivation = route.livePCMRenderedFrames
         route.activateLivePCM(generation: active.routeGeneration)
         session?.phase = .playing
-        session?.eventSequence += 1
-        if let started = session {
-            send(.livePTTReceipt(LivePTTReceiptPayload(
-                sessionId: started.start.sessionId,
-                generation: started.start.generation,
-                eventSequence: started.eventSequence,
-                state: "audible_started",
-                lastSequence: started.expectedSequence - 1,
-                observedAtCoordMs: max(1, coordinatorNowMs()))))
-        }
     }
 
     private func tickLocked(nowMs: Int64) {
@@ -444,6 +438,7 @@ final class MacLiveJitterReceiver {
             failLocked(stage: "render", code: "max_duration")
             return
         }
+        publishAudibleStartedIfRenderedLocked(nowMs: nowMs)
         if active.phase == .playing || active.phase == .draining {
             if active.endSequence == nil || active.expectedSequence <= active.endSequence! {
                 _ = decodeExpectedLocked()
@@ -457,6 +452,24 @@ final class MacLiveJitterReceiver {
                   route.livePCMBufferedFrames == 0 {
             terminateLocked(state: "ended", discard: false)
         }
+    }
+
+    private func publishAudibleStartedIfRenderedLocked(nowMs: Int64) {
+        guard var active = session,
+              !active.audibleStarted,
+              let baseline = active.renderedFramesAtActivation,
+              route.livePCMRenderedFrames > baseline
+        else { return }
+        active.audibleStarted = true
+        active.eventSequence += 1
+        session = active
+        send(.livePTTReceipt(LivePTTReceiptPayload(
+            sessionId: active.start.sessionId,
+            generation: active.start.generation,
+            eventSequence: active.eventSequence,
+            state: "audible_started",
+            lastSequence: active.expectedSequence - 1,
+            observedAtCoordMs: max(1, nowMs))))
     }
 
     @discardableResult

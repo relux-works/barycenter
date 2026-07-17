@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-root-line-review.v1",
+  "task": "TASK-260712-3g0axs",
+  "reviewedAt": "2026-07-17",
+  "baselineCommit": "b02538f201cdfe40fd4bbfb5150842fd96754861",
+  "reviewedSourceCommit": "d94f51644a3acf37601b4a869b4247380372f9ec",
+  "reviewedSourceTree": "4e4cca878db806650eda6f1e1642051b87a18b93",
+  "reviewer": {
+    "id": "codex-inline-reviewer",
+    "rootReviewPerformed": true,
+    "independentReviewer": false,
+    "independentApprover": "Ivan Oparin",
+    "independentApprovalStatus": "required"
+  },
+  "decision": {
+    "result": "non-e2ee-engineering-baseline-accepted-production-blocked",
+    "reversibleEngineeringContinuationAllowed": true,
+    "phase3ProductionAccepted": false,
+    "phase3PromotionAllowed": false,
+    "betaAllowed": false,
+    "manualEvidenceClaimed": false,
+    "e2eeAccepted": false
+  },
+  "inventory": {
+    "manifest": "docs/analysis/p3-root-review-manifest.json",
+    "firstParentIntervals": 75,
+    "reviewedIntervals": 65,
+    "deferredE2EEIntervals": 8,
+    "repositoryContextIntervals": 2,
+    "reviewedNonE2EETasks": 32,
+    "deferredE2EETasks": 4,
+    "changedPathsNoRenames": 420,
+    "aggregateIntervalHunks": 1700,
+    "addedLinesNoRenames": 66787,
+    "deletedLinesNoRenames": 937,
+    "unmappedPaths": 0,
+    "classifications": {
+      "coordinator": 76,
+      "governance": 120,
+      "macos-client": 45,
+      "operational-and-product-docs": 42,
+      "protocol-and-goldens": 15,
+      "verification-and-contract": 59,
+      "windows-client": 63
+    }
+  },
+  "findings": [
+    {
+      "id": "P3-ROOT-001",
+      "severity": "high",
+      "status": "fixed-re-reviewed",
+      "area": "macos-live-ptt",
+      "summary": "macOS emitted audible_started when the route was activated rather than after render consumed PCM",
+      "fixCommit": "f3bf7ec2c3033977e0926a2b2c2419f0a569b5f1"
+    },
+    {
+      "id": "P3-ROOT-002",
+      "severity": "high",
+      "status": "fixed-re-reviewed",
+      "area": "phase3-log-privacy",
+      "summary": "new live PTT and capture diagnostics logged raw identifiers or arbitrary errors",
+      "fixCommit": "f3bf7ec2c3033977e0926a2b2c2419f0a569b5f1"
+    },
+    {
+      "id": "P3-ROOT-003",
+      "severity": "medium",
+      "status": "fixed-re-reviewed",
+      "area": "live-ptt-runtime-validation",
+      "summary": "runtime Reject accepted a structurally invalid payload after envelope decode",
+      "fixCommit": "f3bf7ec2c3033977e0926a2b2c2419f0a569b5f1"
+    },
+    {
+      "id": "P3-ROOT-004",
+      "severity": "low",
+      "status": "fixed-re-reviewed",
+      "area": "verification-fixture",
+      "summary": "new log-capture assertions used a non-thread-safe bytes buffer under race",
+      "fixCommit": "d94f51644a3acf37601b4a869b4247380372f9ec"
+    }
+  ],
+  "acceptedArtifacts": {
+    "sourceCommit": "d94f51644a3acf37601b4a869b4247380372f9ec",
+    "sourceTree": "4e4cca878db806650eda6f1e1642051b87a18b93",
+    "productionBuildSha256": null,
+    "productionPackageSha256": null,
+    "productionRuntimeConfigSha256": null,
+    "reason": "manual hardware, E2EE, independent reviews, rollout and beta evidence remain open"
+  },
+  "verification": [
+    {
+      "id": "coordinator-full-race",
+      "command": "cd coordinator && GOTOOLCHAIN=go1.25.12 go vet ./... && GOTOOLCHAIN=go1.25.12 go test -race -count=1 ./...",
+      "status": "pass",
+      "candidate": "d94f51644a3acf37601b4a869b4247380372f9ec"
+    },
+    {
+      "id": "windows-full-race",
+      "command": "cd pulsar-win && GOTOOLCHAIN=go1.25.12 go vet ./... && GOTOOLCHAIN=go1.25.12 go test -race -count=1 ./...",
+      "status": "pass",
+      "candidate": "d94f51644a3acf37601b4a869b4247380372f9ec"
+    },
+    {
+      "id": "macos-full-suite",
+      "command": "cd node-app && DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test",
+      "status": "pass",
+      "candidate": "d94f51644a3acf37601b4a869b4247380372f9ec"
+    },
+    {
+      "id": "acceptance-contract-suite",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/acceptance -p 'test_*.py'",
+      "status": "pass",
+      "candidate": "d94f51644a3acf37601b4a869b4247380372f9ec"
+    }
+  ],
+  "openHolds": {
+    "manualEpic": "EPIC-260714-th54l3",
+    "externalEpic": "EPIC-260714-zmnd4n",
+    "e2eeEpic": "EPIC-260716-3qsztl",
+    "manualRealAppHardwareStatus": "not-run",
+    "e2eeStatus": "deferred-unavailable",
+    "independentReviewStatus": "required",
+    "acceptedProductionBuild": null,
+    "betaStatus": "not-run"
+  },
+  "requiredIndependentReviewTasks": [
+    "TASK-260712-1ulshp",
+    "TASK-260712-3j4a06",
+    "TASK-260712-1x5jfo",
+    "TASK-260712-7ng1vs"
+  ],
+  "nextEngineeringTask": "TASK-260712-1ulshp"
+}

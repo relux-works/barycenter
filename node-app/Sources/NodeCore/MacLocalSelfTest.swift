@@ -595,6 +595,8 @@ public final class MacLocalSelfTestService: @unchecked Sendable {
                 }
             case .meter(let value):
                 self.emit(.meter(value))
+            case .quality:
+                break
             case .playStopCue:
                 self.stopCuePlaying = true
                 self.setPhase(.playingStopCue)

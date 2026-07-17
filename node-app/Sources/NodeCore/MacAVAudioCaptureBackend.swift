@@ -3,24 +3,148 @@ import AudioToolbox
 import CoreAudio
 import Foundation
 
+/// Fixed-storage handoff from the Core Audio tap to the backend worker. The
+/// tap only downmixes into this bounded ring and uses nonblocking signalling;
+/// resampling, quality processing and client callbacks stay off the realtime
+/// boundary.
+private final class MacAVCaptureSampleMailbox: @unchecked Sendable {
+    enum Offer { case accepted, scheduleDrain, overflow, terminal }
+
+    private let lock = NSLock()
+    private let storage: UnsafeMutablePointer<Float>
+    private let capacity: Int
+    private var head = 0
+    private var tail = 0
+    private var count = 0
+    private var drainScheduled = false
+    private var terminal = false
+
+    init(capacity: Int = 16_384) {
+        self.capacity = capacity
+        storage = .allocate(capacity: capacity)
+        storage.initialize(repeating: 0, count: capacity)
+    }
+
+    deinit {
+        storage.deinitialize(count: capacity)
+        storage.deallocate()
+    }
+
+    func offer(_ buffer: AVAudioPCMBuffer) -> Offer {
+        guard lock.try() else { return .overflow }
+        defer { lock.unlock() }
+        guard !terminal else { return .terminal }
+        guard let channels = buffer.floatChannelData else {
+            terminal = true
+            return .overflow
+        }
+        let frames = Int(buffer.frameLength)
+        let channelCount = Int(buffer.format.channelCount)
+        guard frames > 0, (1...8).contains(channelCount), frames <= capacity - count else {
+            terminal = true
+            return .overflow
+        }
+        let scale = Float(1.0 / Double(channelCount))
+        for frame in 0..<frames {
+            var mono: Float = 0
+            for channel in 0..<channelCount { mono += channels[channel][frame] * scale }
+            storage[head] = mono
+            head = (head + 1) % capacity
+        }
+        count += frames
+        if !drainScheduled {
+            drainScheduled = true
+            return .scheduleDrain
+        }
+        return .accepted
+    }
+
+    func pop(maxCount: Int = 4_096) -> [Float]? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !terminal, count > 0 else { return nil }
+        let amount = min(count, maxCount)
+        var result = [Float](repeating: 0, count: amount)
+        for index in 0..<amount {
+            result[index] = storage[tail]
+            tail = (tail + 1) % capacity
+        }
+        count -= amount
+        return result
+    }
+
+    /// Called only by the worker after a nil pop. A producer racing the drain
+    /// either leaves data for the current worker or observes a cleared signal
+    /// and schedules the next one; no wakeup can be lost.
+    func finishDrain() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !terminal else {
+            drainScheduled = false
+            return false
+        }
+        if count > 0 { return true }
+        drainScheduled = false
+        return false
+    }
+
+    func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        head = 0
+        tail = 0
+        count = 0
+        drainScheduled = false
+        terminal = false
+    }
+}
+
 /// AVAudioEngine/CoreAudio implementation. The tap is normalized to mono
 /// float samples and linearly resampled to the shared 48 kHz writer contract.
 /// It owns no storage, cue, upload, or lifecycle policy.
-public final class MacAVAudioCaptureBackend: MacMicrophoneCaptureBackend, @unchecked Sendable {
+public final class MacAVAudioCaptureBackend:
+    MacMicrophoneCaptureBackend, MacCaptureQualityBackendConfiguring, @unchecked Sendable
+{
     private let queue = DispatchQueue(label: "works.relux.pulsar.mac-capture-backend")
+    private let routeResolver: MacCaptureOutputRouteResolving
+    private let safetyProcessor = MacCaptureInputSafetyProcessor()
     private var engine: AVAudioEngine?
     private var configurationObserver: NSObjectProtocol?
     private var active = false
     private var sourceRate: Double = 48_000
     private var resamplePosition = 0.0
     private var previousSample: Float?
+    private var qualityWorkflow = "recorded_clip"
+    private var qualityRequest: MacCaptureQualityRequest = .legacyUnprocessed
+    private var qualitySession: MacCaptureQualitySession?
+    private var qualityStateHandler: (@Sendable (CaptureQualityState?) -> Void)?
+    private var sampleMailbox: MacAVCaptureSampleMailbox?
+    private var drainSignal: DispatchSourceUserDataAdd?
+    private var failureSignal: DispatchSourceUserDataAdd?
 
-    public init() {}
+    public init(
+        routeResolver: MacCaptureOutputRouteResolving = SystemMacCaptureOutputRouteResolver()
+    ) {
+        self.routeResolver = routeResolver
+    }
 
     deinit { stop() }
 
     public func availableDevices() -> [MacCaptureDevice] {
         Self.inputDevices()
+    }
+
+    public func configureCaptureQuality(
+        workflow: String,
+        request: MacCaptureQualityRequest,
+        onState: @escaping @Sendable (CaptureQualityState?) -> Void
+    ) {
+        queue.sync {
+            guard !active else { return }
+            qualityWorkflow = workflow
+            qualityRequest = request
+            qualityStateHandler = onState
+        }
     }
 
     public func start(
@@ -56,6 +180,22 @@ public final class MacAVAudioCaptureBackend: MacMicrophoneCaptureBackend, @unche
                     UInt32(MemoryLayout<AudioDeviceID>.size))
                 guard status == noErr else { throw MacCaptureEngineError.backendUnavailable }
             }
+            let resolvedMode = routeResolver.resolvedMode()
+            var voiceProcessingEnabled = false
+            if qualityRequest.processingRequested {
+                do {
+                    try input.setVoiceProcessingEnabled(true)
+                    input.isVoiceProcessingBypassed = false
+                    input.isVoiceProcessingAGCEnabled = true
+                    _ = engine.outputNode
+                    voiceProcessingEnabled = input.isVoiceProcessingEnabled
+                } catch {
+                    voiceProcessingEnabled = false
+                }
+            }
+            let session = try makeQualitySession(
+                resolvedMode: resolvedMode,
+                voiceProcessingEnabled: voiceProcessingEnabled)
             let native = input.outputFormat(forBus: 0)
             guard native.sampleRate > 0, native.channelCount > 0,
                   let tapFormat = AVAudioFormat(
@@ -65,24 +205,69 @@ public final class MacAVAudioCaptureBackend: MacMicrophoneCaptureBackend, @unche
                     interleaved: false) else {
                 throw MacCaptureEngineError.backendUnavailable
             }
+            qualitySession = session
+            safetyProcessor.reset()
             sourceRate = native.sampleRate
             resamplePosition = 0
             previousSample = nil
-            input.installTap(onBus: 0, bufferSize: 1_024, format: tapFormat) {
-                [weak self] buffer, _ in
-                guard let self else { return }
-                let mono = Self.downmix(buffer)
-                guard !mono.isEmpty else { return }
-                let normalized = self.resampleTo48k(mono)
-                if !normalized.isEmpty { onSamples(normalized) }
+            let mailbox = MacAVCaptureSampleMailbox()
+            let drainSignal = DispatchSource.makeUserDataAddSource(queue: queue)
+            let failureSignal = DispatchSource.makeUserDataAddSource(queue: queue)
+            drainSignal.setEventHandler { [weak self, mailbox] in
+                self?.drain(mailbox: mailbox, onSamples: onSamples)
             }
+            failureSignal.setEventHandler { [weak self] in
+                guard let self, self.active else { return }
+                if let session = self.qualitySession {
+                    self.emitQuality(CaptureQualityState(
+                        generation: session.generation,
+                        workflow: session.workflow,
+                        requestedMode: session.request.mode.rawValue,
+                        resolvedMode: session.resolvedMode,
+                        lifecycle: "failed",
+                        quality: "degraded",
+                        aec: session.aec,
+                        ns: session.ns,
+                        agc: session.agc,
+                        inputHealth: "processor_overrun",
+                        reason: "processor_overrun",
+                        updatedMonotonicMs: Self.monotonicMs(),
+                        processorOverruns: 1))
+                }
+                onFailure()
+            }
+            drainSignal.resume()
+            failureSignal.resume()
+            input.installTap(onBus: 0, bufferSize: 1_024, format: tapFormat) {
+                buffer, _ in
+                // BEGIN MAC AV CAPTURE CALLBACK
+                switch mailbox.offer(buffer) {
+                case .scheduleDrain:
+                    drainSignal.add(data: 1)
+                case .overflow:
+                    failureSignal.add(data: 1)
+                case .accepted, .terminal:
+                    break
+                }
+                // END MAC AV CAPTURE CALLBACK
+            }
+            emitQuality(session.state(lifecycle: "preparing", nowMs: Self.monotonicMs()))
             engine.prepare()
             do {
                 try engine.start()
             } catch {
                 input.removeTap(onBus: 0)
+                drainSignal.cancel()
+                failureSignal.cancel()
+                mailbox.reset()
+                qualitySession = nil
+                safetyProcessor.reset()
+                emitQuality(nil)
                 throw MacCaptureEngineError.backendUnavailable
             }
+            sampleMailbox = mailbox
+            self.drainSignal = drainSignal
+            self.failureSignal = failureSignal
             configurationObserver = NotificationCenter.default.addObserver(
                 forName: .AVAudioEngineConfigurationChange,
                 object: engine,
@@ -91,21 +276,36 @@ public final class MacAVAudioCaptureBackend: MacMicrophoneCaptureBackend, @unche
                 guard let self else { return }
                 self.queue.async {
                     guard self.active else { return }
+                    if let session = self.qualitySession {
+                        self.emitQuality(session.state(
+                            lifecycle: "reconfiguring", nowMs: Self.monotonicMs()))
+                    }
                     onFailure()
                 }
             }
             self.engine = engine
             active = true
+            emitQuality(session.state(lifecycle: "capturing", nowMs: Self.monotonicMs()))
         }
     }
 
     public func stop() {
         queue.sync {
             guard active || engine != nil else { return }
+            if let qualitySession {
+                emitQuality(qualitySession.state(
+                    lifecycle: "stopping", nowMs: Self.monotonicMs()))
+            }
             if let observer = configurationObserver {
                 NotificationCenter.default.removeObserver(observer)
             }
             configurationObserver = nil
+            drainSignal?.cancel()
+            failureSignal?.cancel()
+            drainSignal = nil
+            failureSignal = nil
+            sampleMailbox?.reset()
+            sampleMailbox = nil
             if let engine {
                 engine.inputNode.removeTap(onBus: 0)
                 engine.stop()
@@ -113,23 +313,64 @@ public final class MacAVAudioCaptureBackend: MacMicrophoneCaptureBackend, @unche
             }
             self.engine = nil
             active = false
+            qualitySession = nil
+            safetyProcessor.reset()
             previousSample = nil
             resamplePosition = 0
+            emitQuality(nil)
         }
     }
 
-    private static func downmix(_ buffer: AVAudioPCMBuffer) -> [Float] {
-        guard let channels = buffer.floatChannelData else { return [] }
-        let frameCount = Int(buffer.frameLength)
-        let channelCount = Int(buffer.format.channelCount)
-        guard frameCount > 0, channelCount > 0 else { return [] }
-        var mono = [Float](repeating: 0, count: frameCount)
-        let scale = Float(1.0 / Double(channelCount))
-        for channel in 0..<channelCount {
-            let source = channels[channel]
-            for frame in 0..<frameCount { mono[frame] += source[frame] * scale }
+    private func makeQualitySession(
+        resolvedMode: String,
+        voiceProcessingEnabled: Bool
+    ) throws -> MacCaptureQualitySession {
+        let request = qualityRequest
+        let decision = MacCaptureQualityDecision.evaluate(
+            request: request,
+            resolvedMode: resolvedMode,
+            voiceProcessingEnabled: voiceProcessingEnabled)
+        if request.processingRequested && decision.quality != "accepted"
+            && !request.degradedConsent
+        {
+            throw MacCaptureEngineError.captureQualityUnsupported
         }
-        return mono
+        return MacCaptureQualitySession(
+            generation: MacCaptureQualityGeneration.next(),
+            workflow: qualityWorkflow,
+            request: request,
+            resolvedMode: resolvedMode,
+            quality: decision.quality,
+            aec: decision.aec,
+            ns: decision.ns,
+            agc: decision.agc,
+            reason: decision.reason)
+    }
+
+    private func emitQuality(_ state: CaptureQualityState?) {
+        qualityStateHandler?(state)
+    }
+
+    private func drain(
+        mailbox: MacAVCaptureSampleMailbox,
+        onSamples: @escaping @Sendable ([Float]) -> Void
+    ) {
+        guard active else { return }
+        while active {
+            if let mono = mailbox.pop() {
+                var normalized = resampleTo48k(mono)
+                if qualityRequest.processingRequested {
+                    _ = safetyProcessor.process(&normalized)
+                }
+                if !normalized.isEmpty { onSamples(normalized) }
+                continue
+            }
+            if !mailbox.finishDrain() { break }
+        }
+    }
+
+    private static func monotonicMs() -> Int64 {
+        Int64((ProcessInfo.processInfo.systemUptime * 1_000).rounded())
     }
 
     private func resampleTo48k(_ input: [Float]) -> [Float] {

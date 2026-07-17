@@ -189,3 +189,29 @@ func livePTTCaptureSourceSafety() throws {
         #expect(!source.contains(token), "live capture path contains persistence token \(token)")
     }
 }
+
+@Test("macOS AV capture tap only uses fixed storage and nonblocking signals")
+func macAVCaptureTapSafety() throws {
+    let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    let sourceURL = testsDirectory
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("Sources/NodeCore/MacAVAudioCaptureBackend.swift")
+    let source = try String(contentsOf: sourceURL, encoding: .utf8)
+    let begin = try #require(
+        source.range(of: "// BEGIN MAC AV CAPTURE CALLBACK")?.upperBound)
+    let end = try #require(source.range(
+        of: "// END MAC AV CAPTURE CALLBACK", range: begin..<source.endIndex)?.lowerBound)
+    let callback = String(source[begin..<end])
+    #expect(callback.contains("mailbox.offer(buffer)"))
+    #expect(callback.contains("drainSignal.add"))
+    for token in [
+        "Array(", "[Float](", "Data(", "DispatchQueue", ".async", ".sync",
+        ".wait(", "lock.lock", "onSamples", "resample", "process(", "FileHandle",
+        "URLSession", ".write(to:",
+    ] {
+        #expect(!callback.contains(token), "capture tap contains forbidden token \(token)")
+    }
+    #expect(source.contains("UnsafeMutablePointer<Float>"))
+    #expect(source.contains("guard lock.try()"))
+}

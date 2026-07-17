@@ -258,6 +258,81 @@ struct PulsarShellModelTests {
         #expect(PulsarRecordingShortcutChoice.allCases.count == 4)
     }
 
+    @MainActor
+    @Test("Capture quality projection keeps fallback consent, processor truth, and ceilings distinct")
+    func captureQualityProjection() {
+        let model = PulsarShellModel(locale: .en)
+        var presentation = PulsarCaptureQualityPresentation(snapshot: model.snapshot)
+        #expect(presentation.quality == "unsupported")
+        #expect(presentation.reason == "mixed_version")
+        #expect(!presentation.canStop)
+
+        model.setCaptureQualityConfiguration(
+            mode: .speaker, degradedConsent: false, backendAvailable: true)
+        presentation = PulsarCaptureQualityPresentation(snapshot: model.snapshot)
+        #expect(presentation.quality == "degraded")
+        #expect(presentation.reason == "reference_unavailable")
+        #expect(presentation.requiresDegradedConsent)
+        #expect(presentation.inputCeilingDBFS == -3)
+        #expect(presentation.outputCeilingDBFS == -1)
+
+        model.setCaptureQualityConfiguration(
+            mode: .headphone, degradedConsent: false, backendAvailable: true)
+        #expect(model.snapshot.captureQualityState == nil)
+        model.setCaptureQualityState(.init(
+            generation: 7, workflow: "recorded_clip", requestedMode: "headphone",
+            resolvedMode: "headphone", lifecycle: "capturing", quality: "accepted",
+            aec: "active", ns: "active", agc: "active", inputHealth: "ok",
+            reason: "none", inputCeilingDBFS: -3, outputCeilingDBFS: -1))
+        presentation = PulsarCaptureQualityPresentation(snapshot: model.snapshot)
+        #expect(presentation.quality == "accepted")
+        #expect(presentation.reason == "none")
+        #expect(presentation.aec == "active")
+        #expect(presentation.ns == "active")
+        #expect(presentation.agc == "active")
+        #expect(presentation.canStop)
+        #expect(!presentation.requiresDegradedConsent)
+
+        model.setCaptureQualityState(.init(
+            generation: 7, workflow: "recorded_clip", requestedMode: "headphone",
+            resolvedMode: "headphone", lifecycle: "capturing", quality: "degraded",
+            aec: "active", ns: "active", agc: "active", inputHealth: "too_quiet",
+            reason: "none", inputCeilingDBFS: -3, outputCeilingDBFS: -1))
+        presentation = PulsarCaptureQualityPresentation(snapshot: model.snapshot)
+        #expect(presentation.reason == "too_quiet")
+
+        model.updateConnection(.reconnecting)
+        presentation = PulsarCaptureQualityPresentation(snapshot: model.snapshot)
+        #expect(presentation.reason == "too_quiet")
+        #expect(presentation.canStop)
+
+        model.setCaptureQualityState(.init(
+            generation: 8, workflow: "live_ptt", requestedMode: "auto",
+            resolvedMode: "unknown", lifecycle: "reconfiguring", quality: "unsupported",
+            aec: "faulted", ns: "faulted", agc: "faulted", inputHealth: "ok",
+            reason: "device_lost", inputCeilingDBFS: -3, outputCeilingDBFS: -1))
+        presentation = PulsarCaptureQualityPresentation(snapshot: model.snapshot)
+        #expect(presentation.isActive)
+        #expect(presentation.reason == "device_lost")
+
+        for locale in PulsarShellLocale.allCases {
+            let copy = PulsarShellCopy(locale: locale)
+            for mode in PulsarCaptureQualityMode.allCases {
+                #expect(!copy.captureQualityModeLabel(mode).isEmpty)
+            }
+            #expect(!copy.captureResolvedModeLabel("unknown").isEmpty)
+            #expect(copy.captureEffectLabel("faulted") != copy.captureEffectLabel("unavailable"))
+            for reason in [
+                "mixed_version", "permission_denied", "no_device", "reference_unavailable",
+                "reference_stale", "route_unknown", "route_excluded", "aec_unavailable",
+                "ns_unavailable", "agc_unavailable", "too_quiet", "clipping",
+                "clock_unstable", "processor_overrun", "device_lost", "rearm_timeout",
+            ] {
+                #expect(!copy.captureQualityReason(reason).isEmpty)
+            }
+        }
+    }
+
     @Test("DND labels map the frozen wire values in both languages")
     func dndWireValuesStayStable() {
         #expect(PulsarDNDMode.allowAll.rawValue == "allow_all")
@@ -285,6 +360,8 @@ struct PulsarShellModelTests {
             cancelRecording: { calls.append("cancel-record") },
             setCaptureDevice: { calls.append("input:\($0 ?? "default")") },
             setRecordingShortcut: { calls.append("shortcut:\($0.rawValue)") },
+            setCaptureQuality: { calls.append("quality:\($0.rawValue):consent=\($1)") },
+            stopActiveCapture: { calls.append("stop-capture") },
             playBuiltinCue: { calls.append("cue") },
             recordFiveSeconds: { calls.append("five") },
             reviewLocalFile: { calls.append("review:\($0.lastPathComponent)") },
@@ -324,6 +401,8 @@ struct PulsarShellModelTests {
         actions.cancelRecording()
         actions.setCaptureDevice("mic-1")
         actions.setRecordingShortcut(.controlShiftR)
+        actions.setCaptureQuality(.speaker, degradedConsent: true)
+        actions.stopActiveCapture()
         let file = URL(fileURLWithPath: "/tmp/voice.wav")
         actions.playBuiltinCue()
         actions.recordFiveSeconds()
@@ -361,7 +440,8 @@ struct PulsarShellModelTests {
 
         #expect(calls == [
             "create", "join", "self-test", "messages_only", "volume:45", "record",
-            "cancel-record", "input:mic-1", "shortcut:control_shift_r", "cue", "five", "review:voice.wav",
+            "cancel-record", "input:mic-1", "shortcut:control_shift_r",
+            "quality:speaker:consent=true", "stop-capture", "cue", "five", "review:voice.wav",
             "accept:voice.wav", "delete", "close",
             "send:draft-1:own_barycenter:overlay:rights=true", "delete-outbox:draft-1",
             "refresh-data", "history:history-1:block_actor", "history:history-2:report", "create-api:Family",
@@ -495,7 +575,7 @@ struct PulsarShellModelTests {
         }
     }
 
-    @Test("Escape is foreground-scoped and hidden recording has an explicit menu cancel")
+    @Test("Escape stops the active local capture and hidden recording keeps an explicit menu cancel")
     func escapeAndHiddenCancelBoundary() throws {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -509,7 +589,7 @@ struct PulsarShellModelTests {
             root.appendingPathComponent("node-app/Sources/NodeApp/StatusMenu.swift"),
             encoding: .utf8)
         #expect(window.contains(".onExitCommand"))
-        #expect(window.contains("actions.cancelRecording()"))
+        #expect(window.contains("actions.stopActiveCapture()"))
         #expect(menu.contains("#selector(cancelRecording)"))
         #expect(menu.contains("copy.text(.cancelRecording)"))
         #expect(!window.contains("addGlobalMonitorForEvents"))

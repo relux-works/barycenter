@@ -505,6 +505,10 @@ func configureShell() {
             macCaptureComposition?.setShortcut($0)
             macSoundboardComposition?.recordingShortcutChanged()
         },
+        setCaptureQuality: {
+            macCaptureComposition?.setCaptureQualityMode($0, degradedConsent: $1)
+        },
+        stopActiveCapture: { macCaptureComposition?.stopActiveCapture() },
         playBuiltinCue: { macCaptureComposition?.playBuiltinCue() },
         recordFiveSeconds: { macCaptureComposition?.recordFiveSeconds() },
         reviewLocalFile: { macCaptureComposition?.reviewFile($0) },

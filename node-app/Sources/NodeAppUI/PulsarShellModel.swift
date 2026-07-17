@@ -47,6 +47,109 @@ public enum PulsarRecordingState: Equatable, Sendable {
     case failed(String)
 }
 
+public enum PulsarCaptureQualityMode: String, CaseIterable, Identifiable, Sendable {
+    case auto
+    case speaker
+    case headphone
+
+    public var id: Self { self }
+}
+
+public struct PulsarCaptureQualityState: Equatable, Sendable {
+    public let generation: Int64
+    public let workflow: String
+    public let requestedMode: String
+    public let resolvedMode: String
+    public let lifecycle: String
+    public let quality: String
+    public let aec: String
+    public let ns: String
+    public let agc: String
+    public let inputHealth: String
+    public let reason: String
+    public let inputCeilingDBFS: Double
+    public let outputCeilingDBFS: Double
+
+    public init(
+        generation: Int64, workflow: String, requestedMode: String,
+        resolvedMode: String, lifecycle: String, quality: String,
+        aec: String, ns: String, agc: String, inputHealth: String,
+        reason: String, inputCeilingDBFS: Double, outputCeilingDBFS: Double
+    ) {
+        self.generation = generation
+        self.workflow = workflow
+        self.requestedMode = requestedMode
+        self.resolvedMode = resolvedMode
+        self.lifecycle = lifecycle
+        self.quality = quality
+        self.aec = aec
+        self.ns = ns
+        self.agc = agc
+        self.inputHealth = inputHealth
+        self.reason = reason
+        self.inputCeilingDBFS = inputCeilingDBFS
+        self.outputCeilingDBFS = outputCeilingDBFS
+    }
+}
+
+public struct PulsarCaptureQualityPresentation: Equatable, Sendable {
+    public let mode: PulsarCaptureQualityMode
+    public let degradedConsent: Bool
+    public let backendAvailable: Bool
+    public let quality: String
+    public let reason: String
+    public let lifecycle: String
+    public let resolvedMode: String
+    public let aec: String
+    public let ns: String
+    public let agc: String
+    public let inputHealth: String
+    public let inputCeilingDBFS: Double
+    public let outputCeilingDBFS: Double
+    public let isActive: Bool
+    public let canStop: Bool
+    public let requiresDegradedConsent: Bool
+
+    public init(snapshot: PulsarShellSnapshot) {
+        mode = snapshot.captureQualityMode
+        degradedConsent = snapshot.captureQualityDegradedConsent
+        backendAvailable = snapshot.captureQualityBackendAvailable
+        let state = snapshot.captureQualityState
+        lifecycle = state?.lifecycle ?? "idle"
+        resolvedMode = state?.resolvedMode ?? "unknown"
+        aec = state?.aec ?? "unavailable"
+        ns = state?.ns ?? "unavailable"
+        agc = state?.agc ?? "unavailable"
+        inputHealth = state?.inputHealth ?? "ok"
+        inputCeilingDBFS = state?.inputCeilingDBFS ?? -3
+        outputCeilingDBFS = state?.outputCeilingDBFS ?? -1
+        if let state {
+            quality = state.quality
+            reason = state.inputHealth == "ok" ? state.reason : state.inputHealth
+        } else if !snapshot.captureQualityBackendAvailable {
+            quality = "unsupported"
+            reason = "mixed_version"
+        } else if snapshot.captureQualityMode == .speaker {
+            quality = "degraded"
+            reason = "reference_unavailable"
+        } else {
+            quality = "ready"
+            reason = "none"
+        }
+        let activeLifecycle = [
+            "preparing", "awaiting_fallback_consent", "capturing", "reconfiguring",
+        ].contains(lifecycle)
+        isActive = activeLifecycle
+            || snapshot.recording == .recording
+            || snapshot.recording == .processing
+            || snapshot.selfTestState == .requestingPermission
+            || snapshot.selfTestState == .recording
+        canStop = isActive && lifecycle != "stopping"
+        requiresDegradedConsent = ["degraded", "unsupported"].contains(quality)
+            && !snapshot.captureQualityDegradedConsent
+    }
+}
+
 public enum PulsarRecordingShortcutChoice: String, CaseIterable, Identifiable, Sendable {
     case controlShiftSpace = "control_shift_space"
     case commandShiftSpace = "command_shift_space"
@@ -523,6 +626,10 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
     public var selectedCaptureDeviceID: String?
     public var recordingShortcut: PulsarRecordingShortcutChoice
     public var recordingShortcutState: PulsarRecordingShortcutState
+    public var captureQualityMode: PulsarCaptureQualityMode
+    public var captureQualityDegradedConsent: Bool
+    public var captureQualityBackendAvailable: Bool
+    public var captureQualityState: PulsarCaptureQualityState?
     public var selfTestAvailable: Bool
     public var selfTestState: PulsarSelfTestState
     public var selfTestMeter: Float
@@ -553,6 +660,10 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         selectedCaptureDeviceID: String? = nil,
         recordingShortcut: PulsarRecordingShortcutChoice = .controlShiftSpace,
         recordingShortcutState: PulsarRecordingShortcutState = .inactive,
+        captureQualityMode: PulsarCaptureQualityMode = .auto,
+        captureQualityDegradedConsent: Bool = false,
+        captureQualityBackendAvailable: Bool = false,
+        captureQualityState: PulsarCaptureQualityState? = nil,
         selfTestAvailable: Bool = false,
         selfTestState: PulsarSelfTestState = .idle,
         selfTestMeter: Float = 0,
@@ -582,6 +693,10 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         self.selectedCaptureDeviceID = selectedCaptureDeviceID
         self.recordingShortcut = recordingShortcut
         self.recordingShortcutState = recordingShortcutState
+        self.captureQualityMode = captureQualityMode
+        self.captureQualityDegradedConsent = captureQualityDegradedConsent
+        self.captureQualityBackendAvailable = captureQualityBackendAvailable
+        self.captureQualityState = captureQualityState
         self.selfTestAvailable = selfTestAvailable
         self.selfTestState = selfTestState
         self.selfTestMeter = min(max(selfTestMeter, 0), 1)
@@ -704,6 +819,21 @@ public final class PulsarShellModel {
         snapshot.recordingShortcutState = state
     }
 
+    public func setCaptureQualityConfiguration(
+        mode: PulsarCaptureQualityMode,
+        degradedConsent: Bool,
+        backendAvailable: Bool
+    ) {
+        snapshot.captureQualityMode = mode
+        snapshot.captureQualityDegradedConsent = degradedConsent
+        snapshot.captureQualityBackendAvailable = backendAvailable
+        snapshot.captureQualityState = nil
+    }
+
+    public func setCaptureQualityState(_ state: PulsarCaptureQualityState?) {
+        snapshot.captureQualityState = state
+    }
+
     public func setSelfTestAvailable(_ available: Bool) {
         snapshot.selfTestAvailable = available
     }
@@ -742,6 +872,8 @@ public final class PulsarShellActions {
     private let onCancelRecording: () -> Void
     private let onSetCaptureDevice: (String?) -> Void
     private let onSetRecordingShortcut: (PulsarRecordingShortcutChoice) -> Void
+    private let onSetCaptureQuality: (PulsarCaptureQualityMode, Bool) -> Void
+    private let onStopActiveCapture: () -> Void
     private let onPlayBuiltinCue: () -> Void
     private let onRecordFiveSeconds: () -> Void
     private let onReviewLocalFile: (URL) -> Void
@@ -803,6 +935,8 @@ public final class PulsarShellActions {
         cancelRecording: @escaping @MainActor () -> Void = {},
         setCaptureDevice: @escaping @MainActor (String?) -> Void = { _ in },
         setRecordingShortcut: @escaping @MainActor (PulsarRecordingShortcutChoice) -> Void = { _ in },
+        setCaptureQuality: @escaping @MainActor (PulsarCaptureQualityMode, Bool) -> Void = { _, _ in },
+        stopActiveCapture: @escaping @MainActor () -> Void = {},
         playBuiltinCue: @escaping @MainActor () -> Void = {},
         recordFiveSeconds: @escaping @MainActor () -> Void = {},
         reviewLocalFile: @escaping @MainActor (URL) -> Void = { _ in },
@@ -863,6 +997,8 @@ public final class PulsarShellActions {
         self.onCancelRecording = cancelRecording
         self.onSetCaptureDevice = setCaptureDevice
         self.onSetRecordingShortcut = setRecordingShortcut
+        self.onSetCaptureQuality = setCaptureQuality
+        self.onStopActiveCapture = stopActiveCapture
         self.onPlayBuiltinCue = playBuiltinCue
         self.onRecordFiveSeconds = recordFiveSeconds
         self.onReviewLocalFile = reviewLocalFile
@@ -926,6 +1062,10 @@ public final class PulsarShellActions {
     public func setRecordingShortcut(_ shortcut: PulsarRecordingShortcutChoice) {
         onSetRecordingShortcut(shortcut)
     }
+    public func setCaptureQuality(_ mode: PulsarCaptureQualityMode, degradedConsent: Bool) {
+        onSetCaptureQuality(mode, degradedConsent)
+    }
+    public func stopActiveCapture() { onStopActiveCapture() }
     public func playBuiltinCue() { onPlayBuiltinCue() }
     public func recordFiveSeconds() { onRecordFiveSeconds() }
     public func reviewLocalFile(_ url: URL) { onReviewLocalFile(url) }
@@ -1027,6 +1167,19 @@ public enum PulsarShellText: String, CaseIterable, Sendable {
     case dndAllowAll, dndMessagesOnly, dndMutedUntil
     case recordingIdle, recordingActive, recordingProcessing, recordingFailed
     case unpairedHelp, degradedHelp, recordingHelp, quit
+    case captureQuality, captureMode, captureModeAuto, captureModeSpeaker, captureModeHeadphone
+    case captureModeUnknown
+    case captureQualityReady, captureQualityAccepted, captureQualityDegraded, captureQualityUnsupported
+    case captureResolvedRoute, captureProcessorState, captureInputCeiling, receiverOutputCeiling, captureCeilingHelp
+    case allowDegradedCapture, degradedCaptureHelp, captureStopLocal
+    case captureAEC, captureNS, captureAGC, captureEffectActive, captureEffectNotRequired
+    case captureEffectUnavailable, captureEffectFaulted
+    case captureReasonNone, captureReasonMixedVersion, captureReasonPermissionDenied
+    case captureReasonNoDevice, captureReasonReferenceUnavailable, captureReasonReferenceStale
+    case captureReasonRouteUnknown, captureReasonRouteExcluded, captureReasonAECUnavailable
+    case captureReasonNSUnavailable, captureReasonAGCUnavailable, captureReasonTooQuiet
+    case captureReasonClipping, captureReasonClockUnstable, captureReasonProcessorOverrun
+    case captureReasonDeviceLost, captureReasonUserUnprocessed, captureReasonRearmTimeout
     case outgoingDrafts, routeTarget, deliveryMode, uploadRightsConfirm, send, retry, refresh
     case selectedRecipients, sendSelectedRecipients
     case thisPulsar, ownBarycenter, currentAir, overlay, interrupt, afterCurrent
@@ -1129,6 +1282,81 @@ public struct PulsarShellCopy: Sendable {
         case .conflict: text(.shortcutConflict)
         case .unavailable: text(.shortcutUnavailable)
         case .suspended: text(.shortcutSuspended)
+        }
+    }
+
+    public func captureQualityModeLabel(_ mode: PulsarCaptureQualityMode) -> String {
+        switch mode {
+        case .auto: text(.captureModeAuto)
+        case .speaker: text(.captureModeSpeaker)
+        case .headphone: text(.captureModeHeadphone)
+        }
+    }
+
+    public func captureResolvedModeLabel(_ mode: String) -> String {
+        guard let known = PulsarCaptureQualityMode(rawValue: mode) else {
+            return text(.captureModeUnknown)
+        }
+        return captureQualityModeLabel(known)
+    }
+
+    public func captureQualityLabel(_ quality: String) -> String {
+        switch quality {
+        case "accepted": text(.captureQualityAccepted)
+        case "degraded": text(.captureQualityDegraded)
+        case "unsupported": text(.captureQualityUnsupported)
+        default: text(.captureQualityReady)
+        }
+    }
+
+    public func captureQualityReason(_ reason: String) -> String {
+        switch reason {
+        case "none": text(.captureReasonNone)
+        case "mixed_version": text(.captureReasonMixedVersion)
+        case "permission_denied": text(.captureReasonPermissionDenied)
+        case "no_device": text(.captureReasonNoDevice)
+        case "reference_unavailable": text(.captureReasonReferenceUnavailable)
+        case "reference_stale": text(.captureReasonReferenceStale)
+        case "route_unknown": text(.captureReasonRouteUnknown)
+        case "route_excluded": text(.captureReasonRouteExcluded)
+        case "aec_unavailable": text(.captureReasonAECUnavailable)
+        case "ns_unavailable": text(.captureReasonNSUnavailable)
+        case "agc_unavailable": text(.captureReasonAGCUnavailable)
+        case "too_quiet", "silent": text(.captureReasonTooQuiet)
+        case "clipping": text(.captureReasonClipping)
+        case "clock_unstable": text(.captureReasonClockUnstable)
+        case "processor_overrun": text(.captureReasonProcessorOverrun)
+        case "device_lost": text(.captureReasonDeviceLost)
+        case "user_selected_unprocessed": text(.captureReasonUserUnprocessed)
+        case "rearm_timeout": text(.captureReasonRearmTimeout)
+        default: text(.captureQualityUnsupported)
+        }
+    }
+
+    public func captureEffectLabel(_ state: String) -> String {
+        switch state {
+        case "active": text(.captureEffectActive)
+        case "not_required": text(.captureEffectNotRequired)
+        case "faulted": text(.captureEffectFaulted)
+        default: text(.captureEffectUnavailable)
+        }
+    }
+
+    public func captureLifecycleLabel(_ lifecycle: String) -> String {
+        switch (locale, lifecycle) {
+        case (.en, "preparing"): "Preparing local capture"
+        case (.en, "awaiting_fallback_consent"): "Waiting for degraded-capture consent"
+        case (.en, "capturing"): "Capturing locally"
+        case (.en, "reconfiguring"): "Applying route change"
+        case (.en, "stopping"): "Stopping local capture"
+        case (.en, "failed"): "Capture stopped with an error"
+        case (.ru, "preparing"): "Подготовка локальной записи"
+        case (.ru, "awaiting_fallback_consent"): "Ожидание согласия на ограниченную запись"
+        case (.ru, "capturing"): "Локальная запись"
+        case (.ru, "reconfiguring"): "Применение смены маршрута"
+        case (.ru, "stopping"): "Остановка локальной записи"
+        case (.ru, "failed"): "Запись остановлена с ошибкой"
+        default: locale == .ru ? "Ожидание локальной записи" : "Local capture idle"
         }
     }
 
@@ -1272,6 +1500,40 @@ public struct PulsarShellCopy: Sendable {
         .unpairedHelp: "Create or join an air, try local audio, or open settings. Pairing is not required for those paths.",
         .degradedHelp: "Local controls and settings remain available while Pulsar reconnects.",
         .recordingHelp: "Recording is active. The Stop control remains available in this window and the menu bar.",
+        .captureQuality: "Capture quality", .captureMode: "Capture mode",
+        .captureModeAuto: "Auto", .captureModeSpeaker: "Speaker",
+        .captureModeHeadphone: "Headphones", .captureModeUnknown: "Unknown route",
+        .captureQualityReady: "Ready to verify on capture",
+        .captureQualityAccepted: "Accepted processing",
+        .captureQualityDegraded: "Degraded processing",
+        .captureQualityUnsupported: "Processing unavailable",
+        .captureResolvedRoute: "Resolved route", .captureProcessorState: "Processor state",
+        .captureInputCeiling: "Input safety ceiling", .receiverOutputCeiling: "Receiver output ceiling",
+        .captureCeilingHelp: "These are separate fixed safety limits. Receiver volume does not change either ceiling.",
+        .allowDegradedCapture: "Allow this degraded capture",
+        .degradedCaptureHelp: "Consent applies only to the next local capture generation. Speaker capture remains degraded until its render reference is proven.",
+        .captureStopLocal: "Stop local capture",
+        .captureAEC: "Echo cancellation", .captureNS: "Noise suppression", .captureAGC: "Input gain control",
+        .captureEffectActive: "Active", .captureEffectNotRequired: "Not required on this route",
+        .captureEffectUnavailable: "Unavailable", .captureEffectFaulted: "Failed during capture",
+        .captureReasonNone: "The exact route will be verified when capture starts.",
+        .captureReasonMixedVersion: "This build cannot expose the reviewed capture-quality contract. Recording stays fail-closed.",
+        .captureReasonPermissionDenied: "Microphone permission is denied. Allow Pulsar in System Settings.",
+        .captureReasonNoDevice: "No usable microphone is available.",
+        .captureReasonReferenceUnavailable: "The speaker render reference is not proven. Use headphones or explicitly allow degraded capture.",
+        .captureReasonReferenceStale: "The speaker render reference is stale. Stop or use headphones.",
+        .captureReasonRouteUnknown: "The output route is ambiguous. Choose headphones or explicitly allow degraded capture.",
+        .captureReasonRouteExcluded: "The resolved route does not match the requested capture mode.",
+        .captureReasonAECUnavailable: "Echo cancellation is not verified on this route.",
+        .captureReasonNSUnavailable: "Noise suppression is unavailable.",
+        .captureReasonAGCUnavailable: "Input gain control is unavailable.",
+        .captureReasonTooQuiet: "Microphone input is too quiet. Move closer or select another microphone.",
+        .captureReasonClipping: "Microphone input is clipping. Reduce input level or move farther away.",
+        .captureReasonClockUnstable: "Capture and render clocks are unstable. Stop and retry on a local route.",
+        .captureReasonProcessorOverrun: "Capture processing could not keep up. Audio capture was stopped.",
+        .captureReasonDeviceLost: "The microphone or output device was disconnected.",
+        .captureReasonUserUnprocessed: "Processing is disabled for this capture.",
+        .captureReasonRearmTimeout: "The route change could not be applied safely. Stop and retry.",
         .quit: "Quit Pulsar",
         .outgoingDrafts: "Ready to send", .routeTarget: "Send to",
         .selectedRecipients: "Selected recipients", .sendSelectedRecipients: "Send to selected recipients",
@@ -1346,6 +1608,40 @@ public struct PulsarShellCopy: Sendable {
         .unpairedHelp: "Создай эфир, присоединись, проверь локальный звук или открой настройки — для этих путей подключение не требуется.",
         .degradedHelp: "Локальные настройки остаются доступны, пока Пульсар переподключается.",
         .recordingHelp: "Запись активна. Кнопка остановки остаётся доступна в этом окне и в строке меню.",
+        .captureQuality: "Качество записи", .captureMode: "Режим записи",
+        .captureModeAuto: "Авто", .captureModeSpeaker: "Динамики",
+        .captureModeHeadphone: "Наушники", .captureModeUnknown: "Неизвестный маршрут",
+        .captureQualityReady: "Готово к проверке при старте",
+        .captureQualityAccepted: "Обработка принята",
+        .captureQualityDegraded: "Ограниченная обработка",
+        .captureQualityUnsupported: "Обработка недоступна",
+        .captureResolvedRoute: "Определённый маршрут", .captureProcessorState: "Состояние обработки",
+        .captureInputCeiling: "Входной защитный предел", .receiverOutputCeiling: "Выходной предел приёмника",
+        .captureCeilingHelp: "Это отдельные фиксированные защитные пределы. Громкость приёмника не меняет ни один из них.",
+        .allowDegradedCapture: "Разрешить эту ограниченную запись",
+        .degradedCaptureHelp: "Согласие действует только для следующего поколения локальной записи. Запись через динамики остаётся ограниченной, пока опорный звук не доказан.",
+        .captureStopLocal: "Остановить локальную запись",
+        .captureAEC: "Подавление эха", .captureNS: "Подавление шума", .captureAGC: "Управление входным усилением",
+        .captureEffectActive: "Активно", .captureEffectNotRequired: "Не требуется для этого маршрута",
+        .captureEffectUnavailable: "Недоступно", .captureEffectFaulted: "Сбой во время записи",
+        .captureReasonNone: "Точный маршрут будет проверен при старте записи.",
+        .captureReasonMixedVersion: "Эта сборка не показывает проверенный контракт качества. Запись блокируется безопасно.",
+        .captureReasonPermissionDenied: "Нет разрешения на микрофон. Разреши Пульсар в системных настройках.",
+        .captureReasonNoDevice: "Подходящий микрофон недоступен.",
+        .captureReasonReferenceUnavailable: "Опорный звук динамиков не доказан. Используй наушники или явно разреши ограниченную запись.",
+        .captureReasonReferenceStale: "Опорный звук динамиков устарел. Останови запись или используй наушники.",
+        .captureReasonRouteUnknown: "Маршрут выхода неоднозначен. Выбери наушники или явно разреши ограниченную запись.",
+        .captureReasonRouteExcluded: "Определённый маршрут не совпадает с выбранным режимом записи.",
+        .captureReasonAECUnavailable: "Подавление эха не подтверждено для этого маршрута.",
+        .captureReasonNSUnavailable: "Подавление шума недоступно.",
+        .captureReasonAGCUnavailable: "Управление входным усилением недоступно.",
+        .captureReasonTooQuiet: "Сигнал микрофона слишком тихий. Подойди ближе или выбери другой микрофон.",
+        .captureReasonClipping: "Сигнал микрофона перегружен. Уменьши уровень или отойди дальше.",
+        .captureReasonClockUnstable: "Часы записи и воспроизведения нестабильны. Останови и повтори на локальном маршруте.",
+        .captureReasonProcessorOverrun: "Обработка не успевает за записью. Запись звука остановлена.",
+        .captureReasonDeviceLost: "Микрофон или устройство вывода отключено.",
+        .captureReasonUserUnprocessed: "Обработка для этой записи выключена.",
+        .captureReasonRearmTimeout: "Не удалось безопасно применить смену маршрута. Останови и повтори.",
         .quit: "Выйти из Пульсара",
         .outgoingDrafts: "Готово к отправке", .routeTarget: "Отправить в",
         .selectedRecipients: "Выбранные адресаты", .sendSelectedRecipients: "Отправить выбранным адресатам",

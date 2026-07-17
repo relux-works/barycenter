@@ -23,6 +23,9 @@ final class MacCaptureAppComposition {
     private let shortcutLifecycle: MacRecordingShortcutLifecycle
     private let defaults: UserDefaults
     private var selectedDeviceID: String?
+    private var selectedQualityMode = PulsarCaptureQualityMode.auto
+    private var degradedQualityConsent = false
+    private var consentResetPending = false
     private var selfTestDraftAvailable = false
     private var stopped = false
     var onNormalDraft: ((CaptureMediaHandle) -> Void)?
@@ -84,6 +87,7 @@ final class MacCaptureAppComposition {
 
     func start() {
         guard !stopped else { return }
+        setCaptureQualityMode(.auto, degradedConsent: false)
         model.setSelfTestAvailable(true)
         model.setRecording(.idle, available: true)
         workflow.selectDevice(selectedDeviceID)
@@ -93,6 +97,16 @@ final class MacCaptureAppComposition {
 
     func toggleRecording() { workflow.toggleNormalRecording() }
     func cancelRecording() { workflow.cancelNormalRecording() }
+    func stopActiveCapture() {
+        if ![PulsarSelfTestState.idle, .reviewingDraft, .failed]
+            .contains(model.snapshot.selfTestState) {
+            workflow.closeSelfTest()
+        } else if model.snapshot.recording == .recording {
+            workflow.toggleNormalRecording()
+        } else if model.snapshot.recording == .processing {
+            workflow.cancelNormalRecording()
+        }
+    }
     func playBuiltinCue() { workflow.playBuiltinCue() }
     func recordFiveSeconds() { workflow.recordFiveSeconds() }
     func reviewFile(_ url: URL) { workflow.reviewFile(url) }
@@ -119,11 +133,18 @@ final class MacCaptureAppComposition {
     }
 
     func setCaptureQualityMode(
-        _ mode: MacCaptureQualityMode,
+        _ mode: PulsarCaptureQualityMode,
         degradedConsent: Bool
     ) {
-        workflow.setCaptureQualityRequest(MacCaptureQualityRequest(
+        guard !PulsarCaptureQualityPresentation(snapshot: model.snapshot).isActive else { return }
+        selectedQualityMode = mode
+        degradedQualityConsent = degradedConsent
+        model.setCaptureQualityConfiguration(
             mode: mode,
+            degradedConsent: degradedConsent,
+            backendAvailable: true)
+        workflow.setCaptureQualityRequest(MacCaptureQualityRequest(
+            mode: Self.platformCaptureQualityMode(mode),
             processingRequested: true,
             degradedConsent: degradedConsent))
     }
@@ -144,6 +165,10 @@ final class MacCaptureAppComposition {
         workflow.shutdown()
         model.setRecording(.unavailable, available: false)
         model.setSelfTestAvailable(false)
+        model.setCaptureQualityConfiguration(
+            mode: selectedQualityMode,
+            degradedConsent: degradedQualityConsent,
+            backendAvailable: false)
         model.setRecordingShortcut(
             model.snapshot.recordingShortcut,
             state: .inactive)
@@ -167,6 +192,18 @@ final class MacCaptureAppComposition {
                 },
                 selectedDeviceID: selectedDeviceID)
         case .captureQuality(let state):
+            model.setCaptureQualityState(state.map(Self.shellCaptureQualityState))
+            if state == nil, degradedQualityConsent {
+                degradedQualityConsent = false
+                consentResetPending = true
+                model.setCaptureQualityConfiguration(
+                    mode: selectedQualityMode,
+                    degradedConsent: false,
+                    backendAvailable: true)
+                DispatchQueue.main.async { [weak self] in
+                    self?.applyPendingConsentReset()
+                }
+            }
             onCaptureQuality?(state)
         case .normalDraft(let handle):
             onNormalDraft?(handle)
@@ -214,6 +251,15 @@ final class MacCaptureAppComposition {
             draftAvailable: selfTestDraftAvailable)
     }
 
+    private func applyPendingConsentReset() {
+        guard consentResetPending, !stopped else { return }
+        consentResetPending = false
+        workflow.setCaptureQualityRequest(MacCaptureQualityRequest(
+            mode: Self.platformCaptureQualityMode(selectedQualityMode),
+            processingRequested: true,
+            degradedConsent: false))
+    }
+
     private static func shellRecordingState(
         _ state: MacCaptureWorkflowRecordingState
     ) -> PulsarRecordingState {
@@ -223,6 +269,35 @@ final class MacCaptureAppComposition {
         case .recording: .recording
         case .failed(let code): .failed(code)
         }
+    }
+
+    private static func platformCaptureQualityMode(
+        _ mode: PulsarCaptureQualityMode
+    ) -> MacCaptureQualityMode {
+        switch mode {
+        case .auto: .auto
+        case .speaker: .speaker
+        case .headphone: .headphone
+        }
+    }
+
+    private static func shellCaptureQualityState(
+        _ state: CaptureQualityState
+    ) -> PulsarCaptureQualityState {
+        PulsarCaptureQualityState(
+            generation: state.generation,
+            workflow: state.workflow,
+            requestedMode: state.requestedMode,
+            resolvedMode: state.resolvedMode,
+            lifecycle: state.lifecycle,
+            quality: state.quality,
+            aec: state.aec,
+            ns: state.ns,
+            agc: state.agc,
+            inputHealth: state.inputHealth,
+            reason: state.reason,
+            inputCeilingDBFS: state.inputCeilingDBFS,
+            outputCeilingDBFS: CaptureQualityContract.outputCeilingDBFS)
     }
 
     private static func shellSelfTestState(_ phase: MacLocalSelfTestPhase) -> PulsarSelfTestState {

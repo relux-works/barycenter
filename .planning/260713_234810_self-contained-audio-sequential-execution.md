@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 134 accepted, 71 remain.
-- Routed inventory: 186 engineering tasks (134 accepted, 52 remain) and 19
+- Combined inventory: 205 original tasks; 135 accepted, 70 remain.
+- Routed inventory: 186 engineering tasks (135 accepted, 51 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1eva0y` — automation-runtime-revoke-ratelimits
-- Next engineering task: `TASK-260712-11e4e3` — automation-history-audit-disable
-- Most recently accepted: `TASK-260712-1kk8bd` — cue-schedule-token-control-apis
-- Current branch: `tracking/task-260712-1kk8bd-cue-schedule-token-control-apis`
+- Current engineering task: `TASK-260712-11e4e3` — automation-history-audit-disable
+- Next engineering task: `TASK-260712-1yw7fo` — windows-soundboard-hotkeys-schedules
+- Most recently accepted: `TASK-260712-1eva0y` — automation-runtime-revoke-ratelimits
+- Current branch: `tracking/task-260712-1eva0y-automation-runtime-revoke-ratelimits`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 131 / 205 tasks (63.9%); 74 remain
-- Engineering progress: 131 / 186 tasks (approximately 70.4%); 55 remain
+- Accepted overall: 135 / 205 tasks (65.9%); 70 remain
+- Engineering progress: 135 / 186 tasks (approximately 72.6%); 51 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3263,7 +3263,14 @@ Story: `STORY-260712-326wd5` — P3 Soundboard and safe automation.
   focused x10, race x3, clean acceptance 12/12 and hosted run `29541407173`
   4/4 passed; PR #209 merge `59fa34d`. Runtime and real-app evidence remain
   downstream/manual)
-- [ ] `TASK-260712-1eva0y` — automation-runtime-revoke-ratelimits
+- [x] `TASK-260712-1eva0y` — automation-runtime-revoke-ratelimits (accepted on
+  exact code head `708eaa5`; scoped API and current-minute schedule admission,
+  durable idempotency, rolling rate/concurrency limits, fail-closed quiet/Air/
+  target policy, deterministic builtin media publication and revoke/disable
+  cancellation through the ordinary transmission scheduler; focused race x3,
+  exact previous-head rollback, clean acceptance 12/12 and hosted run
+  `29543383233` 4/4 passed; PR #211 merge `ca3dda9`. Manual real-app/hardware
+  evidence remains deferred)
 - [ ] `TASK-260712-11e4e3` — automation-history-audit-disable
 - [ ] `TASK-260712-1yw7fo` — windows-soundboard-hotkeys-schedules
 - [ ] `TASK-260712-288j4a` — macos-soundboard-hotkeys-schedules

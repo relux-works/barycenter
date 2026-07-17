@@ -9,15 +9,18 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	protocol "relux.works/duet/pulsar-win/wire"
 )
 
 type fakeWindowsMicrophoneBackend struct {
-	permission WindowsCapturePermission
-	stream     *fakeWindowsMicrophoneStream
-	device     string
-	prompts    []bool
-	resolved   []string
-	events     *[]string
+	permission      WindowsCapturePermission
+	stream          *fakeWindowsMicrophoneStream
+	device          string
+	prompts         []bool
+	resolved        []string
+	events          *[]string
+	qualityRequests []WindowsCaptureQualityRequest
 }
 
 type blockingWindowsPermissionBackend struct{ started chan struct{} }
@@ -60,6 +63,15 @@ func (b *fakeWindowsMicrophoneBackend) Open(_ context.Context, device string) (W
 		*b.events = append(*b.events, "open:"+device)
 	}
 	return b.stream, nil
+}
+
+func (b *fakeWindowsMicrophoneBackend) OpenQuality(
+	ctx context.Context,
+	device string,
+	request WindowsCaptureQualityRequest,
+) (WindowsMicrophoneStream, error) {
+	b.qualityRequests = append(b.qualityRequests, request)
+	return b.Open(ctx, device)
 }
 
 type fakeWindowsMicrophoneStream struct {
@@ -136,6 +148,85 @@ func (c *fakeWindowsCaptureCues) PlayRecordingCue(_ context.Context, phase Recor
 type fakeWindowsCaptureDucker struct{ calls []float32 }
 
 func (d *fakeWindowsCaptureDucker) SetMusicGain(gain float32, _ int) { d.calls = append(d.calls, gain) }
+
+type windowsCaptureQualityEventBox struct {
+	mu     sync.Mutex
+	states []*protocol.CaptureQualityState
+}
+
+func (b *windowsCaptureQualityEventBox) append(state *protocol.CaptureQualityState) {
+	b.mu.Lock()
+	b.states = append(b.states, protocol.CloneCaptureQualityState(state))
+	b.mu.Unlock()
+}
+
+func (b *windowsCaptureQualityEventBox) snapshot() []*protocol.CaptureQualityState {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]*protocol.CaptureQualityState(nil), b.states...)
+}
+
+func TestWindowsMicrophoneCaptureQualityUsesSharedWorkflowAndFailsClosed(t *testing.T) {
+	stream := newFakeWindowsMicrophoneStream(WindowsCaptureFormat{
+		SampleRate: 48_000, Channels: 1,
+		CommunicationsCategoryActive: true, NativeEffectsVerified: true,
+	})
+	backend := &fakeWindowsMicrophoneBackend{
+		permission: WindowsCapturePermissionAllowed, stream: stream,
+	}
+	service := NewWindowsMicrophoneCaptureService(
+		backend, NewCaptureMediaStore(t.TempDir()), nil, nil)
+	service.SetCaptureQualityRouteResolver(fixedWindowsCaptureQualityRoute("headphone"))
+	events := &windowsCaptureQualityEventBox{}
+	request := WindowsCaptureQualityRequest{
+		Mode: WindowsCaptureQualityHeadphone, ProcessingRequested: true,
+	}
+	session, err := service.Start(context.Background(), WindowsCaptureRequest{
+		ExplicitUserAction: true, MediaClass: CaptureSelfTest,
+		Workflow: "local_self_test", QualityRequest: request, QualityState: events.append,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(backend.qualityRequests) != 1 || backend.qualityRequests[0] != request {
+		t.Fatalf("quality requests = %+v", backend.qualityRequests)
+	}
+	session.Stop(WindowsCaptureCancel)
+	<-session.Done()
+	found := false
+	for _, state := range events.snapshot() {
+		if state != nil && state.Workflow == "local_self_test" &&
+			state.Lifecycle == protocol.CaptureLifecycleCapturing &&
+			state.Quality == protocol.CaptureQualityAccepted {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("shared accepted self-test state was not emitted")
+	}
+
+	unverifiedStream := newFakeWindowsMicrophoneStream(WindowsCaptureFormat{
+		SampleRate: 48_000, Channels: 1, CommunicationsCategoryActive: true,
+	})
+	unverified := &fakeWindowsMicrophoneBackend{
+		permission: WindowsCapturePermissionAllowed, stream: unverifiedStream,
+	}
+	unverifiedService := NewWindowsMicrophoneCaptureService(
+		unverified, NewCaptureMediaStore(t.TempDir()), nil, nil)
+	unverifiedService.SetCaptureQualityRouteResolver(fixedWindowsCaptureQualityRoute("headphone"))
+	_, err = unverifiedService.Start(context.Background(), WindowsCaptureRequest{
+		ExplicitUserAction: true, QualityRequest: request,
+	})
+	if !errors.Is(err, ErrWindowsCaptureQualityUnsupported) {
+		t.Fatalf("unverified quality error = %v", err)
+	}
+	unverifiedStream.mu.Lock()
+	closed := unverifiedStream.closeCount
+	unverifiedStream.mu.Unlock()
+	if closed != 1 {
+		t.Fatalf("unverified quality retained stream: closes=%d", closed)
+	}
+}
 
 func TestWindowsMicrophoneCaptureRequiresExplicitRecordBeforePermission(t *testing.T) {
 	backend := &fakeWindowsMicrophoneBackend{permission: WindowsCapturePermissionAllowed}

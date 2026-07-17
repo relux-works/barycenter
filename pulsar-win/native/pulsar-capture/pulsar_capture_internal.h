@@ -17,9 +17,12 @@
 namespace pulsar_capture {
 
 static_assert(sizeof(CaptureFormat) == 13u * sizeof(uint32_t), "CaptureFormat ABI size changed");
+static_assert(sizeof(CaptureQualityNative) == 5u * sizeof(uint32_t),
+              "CaptureQualityNative ABI size changed");
 
 constexpr uint32_t kHelperAbiVersion = 1;
 constexpr uint32_t kCaptureFormatVersion = 2;
+constexpr uint32_t kCaptureQualityNativeVersion = 1;
 constexpr uint8_t kPrivateStatePreparing = 0;
 constexpr uint8_t kPrivateStatePrepared = 1;
 constexpr uint8_t kPrivateStateActivating = 2;

@@ -24,6 +24,7 @@ type Helper struct {
 	dll                         *windows.DLL
 	LoadedVia                   LoaderChoice
 	DiagnosticsExtensionVersion uint32
+	CaptureQualityVersion       uint32
 	procs                       map[string]*windows.Proc
 }
 
@@ -65,6 +66,24 @@ func LoadHelper() (*Helper, error) {
 		return nil, err
 	}
 	helper.DiagnosticsExtensionVersion = extensionVersion
+	for _, name := range []string{
+		"CapQualityGetVersion", "CaptureConfigureQuality", "CaptureGetQualityResult",
+	} {
+		proc, err := dll.FindProc(name)
+		if err != nil {
+			return nil, fmt.Errorf("resolve capture-quality ABI symbol %s: %w", name, err)
+		}
+		helper.procs[name] = proc
+	}
+	var qualityVersion, qualitySize uint32
+	qualityHR := helper.call("CapQualityGetVersion",
+		uintptr(unsafe.Pointer(&qualityVersion)), uintptr(unsafe.Pointer(&qualitySize)))
+	if qualityHR.Failed() || qualityVersion != CaptureQualityNativeVersion || qualitySize != CaptureQualityNativeStructSize {
+		return nil, fmt.Errorf(
+			"negotiate capture-quality extension: %s version=%d size=%d",
+			qualityHR.Hex(), qualityVersion, qualitySize)
+	}
+	helper.CaptureQualityVersion = qualityVersion
 	// Deliberately no FreeLibrary method: the accepted callback/COM lifetime
 	// contract keeps this module mapped for the process lifetime.
 	return helper, nil
@@ -214,6 +233,19 @@ func (h *Helper) CapturePrepare(event windows.Handle) (uint32, HResult) {
 	var id uint32
 	hr := h.call("CapturePrepare", uintptr(event), uintptr(unsafe.Pointer(&id)))
 	return id, hr
+}
+func (h *Helper) CaptureConfigureQuality(id uint32, requested bool) HResult {
+	var value uintptr
+	if requested {
+		value = 1
+	}
+	return h.call("CaptureConfigureQuality", uintptr(id), value)
+}
+
+func (h *Helper) CaptureQualityResult(id uint32) (CaptureQualityNative, HResult) {
+	result := NewCaptureQualityNative()
+	hr := h.call("CaptureGetQualityResult", uintptr(id), uintptr(unsafe.Pointer(&result)))
+	return result, hr
 }
 func (h *Helper) CaptureActivate(id uint32, deviceID string) HResult {
 	value, err := windows.UTF16PtrFromString(deviceID)

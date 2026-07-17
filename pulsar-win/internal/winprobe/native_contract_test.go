@@ -46,17 +46,24 @@ func TestNativeSourcePreservesReviewedStaticContracts(t *testing.T) {
 		"ReleaseBuffer",
 		"std::atomic_thread_fence(std::memory_order_seq_cst)",
 		"IStorageItemHandleAccess",
+		"AudioCategory_Communications",
+		"SetClientProperties(&properties)",
+		"native_effects_verified{0}",
 	} {
 		if !strings.Contains(cpp, required) {
 			t.Errorf("native source missing required contract marker %q", required)
 		}
+	}
+	if strings.Contains(cpp, "native_effects_verified.store(1") {
+		t.Error("native helper promotes capture effects without independent verification")
 	}
 
 	for _, export := range []string{
 		"CapGetVersion", "CapInit", "CapDestroy", "CapIsQuiescent",
 		"CapPermissionCheck", "CapPermissionRequest", "CapPermissionRequestCancel",
 		"CapEnumerateDevices", "CapEnumerateDevicesCancel", "CapGetDefaultDevice",
-		"CapturePrepare", "CaptureActivate", "CaptureGetResult", "CaptureRead", "CaptureRequestStop", "CaptureRelease",
+		"CapturePrepare", "CapQualityGetVersion", "CaptureConfigureQuality", "CaptureGetQualityResult",
+		"CaptureActivate", "CaptureGetResult", "CaptureRead", "CaptureRequestStop", "CaptureRelease",
 		"PickerOpenFile", "PickerGetResult", "PickerCancel", "PickerRelease",
 	} {
 		if !strings.Contains(header, export+"(") {

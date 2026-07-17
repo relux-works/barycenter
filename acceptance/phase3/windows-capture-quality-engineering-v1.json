@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-windows-capture-quality-engineering.v1",
+  "task": "TASK-260712-wcdz08",
+  "publishedAt": "2026-07-17",
+  "owner": "Ivan Oparin",
+  "decision": {
+    "result": "best-effort-engineering-path-ready-manual-acoustic-proof-required",
+    "engineeringImplemented": true,
+    "productionCapabilityAdvertised": false,
+    "nativeEffectsVerifiedInProduction": false,
+    "c3Accepted": false,
+    "manualEvidence": "not-run",
+    "manualEpic": "EPIC-260714-th54l3"
+  },
+  "implementation": {
+    "nativeRequest": "IAudioClient2 SetClientProperties AudioCategory_Communications",
+    "nativeVerificationPolicy": "communications category is telemetry only; production nativeEffectsVerified remains false",
+    "workflows": ["recorded_clip", "local_self_test", "live_ptt"],
+    "inputTargetRMSDBFS": -20.0,
+    "inputTargetToleranceDB": 3.0,
+    "maximumDigitalGainDB": 12.0,
+    "maximumGainSlewDBPerSecond": 3.0,
+    "inputCeilingDBFS": -3.0,
+    "receiverOutputCeilingDBFS": -1.0,
+    "livePersistence": "forbidden"
+  },
+  "routePolicy": {
+    "verifiedHeadphone": "code-eligible-for-accepted; signed physical proof pending",
+    "unverifiedNativeEffects": "degraded-aec_unavailable",
+    "verifiedSpeaker": "degraded-reference_unavailable-until-reference-alignment-and-acoustic-proof",
+    "unknown": "degraded-route_unknown",
+    "explicitMismatch": "degraded-route_excluded",
+    "liveDegradedWithoutConsent": "capture_quality_unsupported"
+  },
+  "automatedCoverage": [
+    "bounded input AGC target, maximum gain, slew and final ceiling",
+    "honest speaker, headphone, unknown, mismatch and unavailable decisions",
+    "fresh generation and shared capture-quality contract validation",
+    "versioned native quality-extension layout and helper symbol negotiation",
+    "communications category request without self-verification promotion",
+    "shared clip and local-self-test state forwarding",
+    "live PTT quality request, typed fail-closed result and explicit degraded consent",
+    "existing capture teardown suites, Go race tests and Windows amd64/arm64 cross-builds"
+  ],
+  "notRun": [
+    "native Windows C++ execution outside hosted packaging CI",
+    "signed application and AppContainer capture behavior",
+    "physical built-in speaker, wired, USB and Bluetooth routes",
+    "deterministic native AEC and noise-suppression C3 matrix",
+    "render-reference age, alignment, drift and acoustic echo-path change",
+    "physical CPU, memory and latency measurement",
+    "double-talk, blinded listening and accessibility review"
+  ],
+  "documents": [
+    "docs/analysis/p3-windows-capture-quality-implementation.md",
+    "docs/analysis/p3-capture-quality-contract-v1.md",
+    "docs/analysis/p3-capture-quality-harness-v1.md"
+  ]
+}

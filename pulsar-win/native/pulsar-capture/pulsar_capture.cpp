@@ -169,6 +169,12 @@ struct CaptureSession final : Operation, CaptureControl {
     std::atomic<uint32_t> timestamp_error_count{0};
     std::atomic<HRESULT> cleanup_release_buffer_hr{S_OK};
     std::atomic<HRESULT> cleanup_stop_hr{S_OK};
+    std::atomic<uint32_t> quality_requested{0};
+    std::atomic<uint32_t> communications_category_active{0};
+    // The public category request is not proof that the endpoint enabled AEC
+    // or NS. This remains zero until a later exact-build effects query and
+    // physical evidence path can establish it honestly.
+    std::atomic<uint32_t> native_effects_verified{0};
 };
 
 std::atomic<uint32_t> g_subscription_states{0};
@@ -665,6 +671,24 @@ unsigned __stdcall capture_thread_main(void* context) {
         hr = value;
         failure_reason = reason;
     };
+
+    if (!stopping() && session->quality_requested.load(std::memory_order_acquire) != 0) {
+        IAudioClient2* communications = nullptr;
+        const HRESULT query = resources.client->QueryInterface(
+            __uuidof(IAudioClient2), reinterpret_cast<void**>(&communications));
+        if (SUCCEEDED(query) && communications != nullptr) {
+            AudioClientProperties properties{};
+            properties.cbSize = sizeof(properties);
+            properties.bIsOffload = FALSE;
+            properties.eCategory = AudioCategory_Communications;
+            properties.Options = AUDCLNT_STREAMOPTIONS_NONE;
+            const HRESULT category = communications->SetClientProperties(&properties);
+            if (SUCCEEDED(category)) {
+                session->communications_category_active.store(1, std::memory_order_release);
+            }
+            communications->Release();
+        }
+    }
 
     if (!stopping()) {
         hr = resources.client->GetMixFormat(&resources.mix);
@@ -2029,6 +2053,37 @@ HRESULT __stdcall CaptureActivate(uint32_t opId, const wchar_t* deviceId) {
         SetEvent(session->capture_thread_wake);
         return S_OK;
     }
+}
+
+HRESULT __stdcall CapQualityGetVersion(uint32_t* version, uint32_t* structSize) {
+    if (version == nullptr || structSize == nullptr) return E_POINTER;
+    *version = kCaptureQualityNativeVersion;
+    *structSize = sizeof(CaptureQualityNative);
+    return S_OK;
+}
+
+HRESULT __stdcall CaptureConfigureQuality(uint32_t opId, int32_t requested) {
+    if (requested != 0 && requested != 1) return E_INVALIDARG;
+    auto session = lookup_operation<CaptureSession>(opId, OperationKind::Capture);
+    if (!session) return E_HANDLE;
+    const uint8_t state = PackedState(session->packed.load(std::memory_order_acquire));
+    if (state >= kPrivateStateActivating) return E_NOT_VALID_STATE;
+    session->quality_requested.store(static_cast<uint32_t>(requested), std::memory_order_release);
+    return S_OK;
+}
+
+HRESULT __stdcall CaptureGetQualityResult(uint32_t opId, CaptureQualityNative* quality) {
+    if (quality == nullptr) return E_POINTER;
+    if (quality->structSize < sizeof(CaptureQualityNative) ||
+        quality->version != kCaptureQualityNativeVersion) return E_INVALIDARG;
+    auto session = lookup_operation<CaptureSession>(opId, OperationKind::Capture);
+    if (!session) return E_HANDLE;
+    quality->requested = session->quality_requested.load(std::memory_order_acquire);
+    quality->communicationsCategoryActive =
+        session->communications_category_active.load(std::memory_order_acquire);
+    quality->nativeEffectsVerified =
+        session->native_effects_verified.load(std::memory_order_acquire);
+    return S_OK;
 }
 
 HRESULT __stdcall CaptureGetResult(uint32_t opId, int32_t* state, CaptureFormat* format,

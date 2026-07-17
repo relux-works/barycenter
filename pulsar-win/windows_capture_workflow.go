@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"sync"
+
+	protocol "relux.works/duet/pulsar-win/wire"
 )
 
 // WindowsCaptureInput is the stable identity shown by the main window. IDs
@@ -36,6 +38,8 @@ type WindowsCaptureWorkflowController struct {
 	mediaStore      *CaptureMediaStore
 	recoveredDrafts []CaptureMediaHandle
 	onNormalDraft   func(CaptureMediaHandle, PhaseOneOriginKind)
+	qualityRequest  WindowsCaptureQualityRequest
+	qualityState    func(*protocol.CaptureQualityState)
 
 	mu                sync.RWMutex
 	snapshot          WindowsCaptureWorkflowSnapshot
@@ -123,6 +127,7 @@ func (c *WindowsCaptureWorkflowController) SetOutgoingIntake(intake *WindowsShor
 func NewWindowsCaptureWorkflowController(recording *WindowsRecordingController, selfTest *WindowsLocalSelfTestService, inputs []WindowsCaptureInput) *WindowsCaptureWorkflowController {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &WindowsCaptureWorkflowController{recording: recording, selfTest: selfTest, ctx: ctx, cancel: cancel}
+	c.qualityRequest = WindowsCaptureQualityLegacy
 	c.snapshot = WindowsCaptureWorkflowSnapshot{
 		Available:     recording != nil && selfTest != nil,
 		SelfTestPhase: WindowsLocalSelfTestIdle,
@@ -135,6 +140,25 @@ func NewWindowsCaptureWorkflowController(recording *WindowsRecordingController, 
 		recording.ConfigureRequest(c.recordingRequest, c.handleRecordingOutcome)
 	}
 	return c
+}
+
+func (c *WindowsCaptureWorkflowController) ConfigureCaptureQuality(
+	request WindowsCaptureQualityRequest,
+	onState func(*protocol.CaptureQualityState),
+) {
+	if c == nil {
+		return
+	}
+	if request.Mode == "" {
+		request = WindowsCaptureQualityLegacy
+	}
+	c.mu.Lock()
+	c.qualityRequest = request
+	c.qualityState = onState
+	c.mu.Unlock()
+	if c.selfTest != nil {
+		c.selfTest.ConfigureCaptureQuality(request, onState)
+	}
 }
 
 func (c *WindowsCaptureWorkflowController) SetPlatformClose(close func()) {
@@ -480,11 +504,18 @@ func (c *WindowsCaptureWorkflowController) beginOperation() bool {
 }
 
 func (c *WindowsCaptureWorkflowController) recordingRequest() WindowsCaptureRequest {
-	return WindowsCaptureRequest{DeviceID: c.selectedInputID(), Meter: func(value float32) {
-		c.mu.Lock()
-		c.snapshot.Meter = value
-		c.mu.Unlock()
-	}}
+	c.mu.RLock()
+	qualityRequest := c.qualityRequest
+	qualityState := c.qualityState
+	c.mu.RUnlock()
+	return WindowsCaptureRequest{
+		DeviceID: c.selectedInputID(), Workflow: "recorded_clip",
+		QualityRequest: qualityRequest, QualityState: qualityState,
+		Meter: func(value float32) {
+			c.mu.Lock()
+			c.snapshot.Meter = value
+			c.mu.Unlock()
+		}}
 }
 
 func (c *WindowsCaptureWorkflowController) selectedInputID() string {

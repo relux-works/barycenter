@@ -61,6 +61,14 @@ typedef struct CaptureFormat {
     uint32_t nBlockAlign;
 } CaptureFormat;
 
+typedef struct CaptureQualityNative {
+    uint32_t structSize;
+    uint32_t version;
+    uint32_t requested;
+    uint32_t communicationsCategoryActive;
+    uint32_t nativeEffectsVerified;
+} CaptureQualityNative;
+
 extern "C" {
 
 PULSAR_CAPTURE_API HRESULT __stdcall CapGetVersion(uint32_t* version, uint32_t* structHeaderSize);
@@ -84,6 +92,9 @@ PULSAR_CAPTURE_API HRESULT __stdcall CapGetDefaultDeviceResult(uint32_t opId, in
 PULSAR_CAPTURE_API HRESULT __stdcall CapGetDefaultDeviceRelease(uint32_t opId);
 
 PULSAR_CAPTURE_API HRESULT __stdcall CapturePrepare(HANDLE notifyEvent, uint32_t* opId);
+PULSAR_CAPTURE_API HRESULT __stdcall CapQualityGetVersion(uint32_t* version, uint32_t* structSize);
+PULSAR_CAPTURE_API HRESULT __stdcall CaptureConfigureQuality(uint32_t opId, int32_t requested);
+PULSAR_CAPTURE_API HRESULT __stdcall CaptureGetQualityResult(uint32_t opId, CaptureQualityNative* quality);
 PULSAR_CAPTURE_API HRESULT __stdcall CaptureActivate(uint32_t opId, const wchar_t* deviceId);
 PULSAR_CAPTURE_API HRESULT __stdcall CaptureGetResult(uint32_t opId, int32_t* state, CaptureFormat* format, uint32_t* framesAvailable, HRESULT* hresult, int32_t* terminalReason);
 PULSAR_CAPTURE_API HRESULT __stdcall CaptureRead(uint32_t opId, float* buf, uint32_t maxFrames, uint32_t* framesRead);

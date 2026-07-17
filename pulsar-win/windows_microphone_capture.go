@@ -8,6 +8,8 @@ import (
 	"math"
 	"os"
 	"sync"
+
+	protocol "relux.works/duet/pulsar-win/wire"
 )
 
 const (
@@ -21,12 +23,13 @@ const (
 )
 
 var (
-	ErrWindowsCaptureExplicitAction = errors.New("windows_capture_explicit_record_required")
-	ErrWindowsCaptureBusy           = errors.New("windows_capture_busy")
-	ErrWindowsCapturePermission     = errors.New("windows_capture_permission_denied")
-	ErrWindowsCaptureDevice         = errors.New("windows_capture_device_unavailable")
-	ErrWindowsCaptureFormat         = errors.New("windows_capture_format_unsupported")
-	ErrWindowsCaptureBackendFailure = errors.New("windows_capture_backend_failure")
+	ErrWindowsCaptureExplicitAction     = errors.New("windows_capture_explicit_record_required")
+	ErrWindowsCaptureBusy               = errors.New("windows_capture_busy")
+	ErrWindowsCapturePermission         = errors.New("windows_capture_permission_denied")
+	ErrWindowsCaptureDevice             = errors.New("windows_capture_device_unavailable")
+	ErrWindowsCaptureFormat             = errors.New("windows_capture_format_unsupported")
+	ErrWindowsCaptureBackendFailure     = errors.New("windows_capture_backend_failure")
+	ErrWindowsCaptureQualityUnsupported = errors.New("capture_quality_unsupported")
 )
 
 type WindowsCapturePermission string
@@ -55,8 +58,10 @@ const (
 )
 
 type WindowsCaptureFormat struct {
-	SampleRate uint32
-	Channels   uint32
+	SampleRate                   uint32
+	Channels                     uint32
+	CommunicationsCategoryActive bool
+	NativeEffectsVerified        bool
 }
 
 type WindowsCaptureTerminalError struct {
@@ -82,6 +87,10 @@ type WindowsMicrophoneBackend interface {
 	Open(context.Context, string) (WindowsMicrophoneStream, error)
 }
 
+type WindowsQualityMicrophoneBackend interface {
+	OpenQuality(context.Context, string, WindowsCaptureQualityRequest) (WindowsMicrophoneStream, error)
+}
+
 type WindowsMicrophoneStream interface {
 	Format() WindowsCaptureFormat
 	Read(context.Context, []float32) (uint32, error)
@@ -102,6 +111,9 @@ type WindowsCaptureRequest struct {
 	DeviceID           string
 	MediaClass         CaptureMediaClass
 	Meter              func(float32)
+	Workflow           string
+	QualityRequest     WindowsCaptureQualityRequest
+	QualityState       func(*protocol.CaptureQualityState)
 }
 
 type WindowsCaptureOutcome struct {
@@ -113,17 +125,32 @@ type WindowsCaptureOutcome struct {
 }
 
 type WindowsMicrophoneCaptureService struct {
-	backend WindowsMicrophoneBackend
-	store   *CaptureMediaStore
-	cues    WindowsCaptureCuePlayer
-	ducker  WindowsCaptureDucker
+	backend      WindowsMicrophoneBackend
+	store        *CaptureMediaStore
+	cues         WindowsCaptureCuePlayer
+	ducker       WindowsCaptureDucker
+	qualityRoute WindowsCaptureQualityRouteResolver
 
 	mu     sync.Mutex
 	active *WindowsCaptureSession
 }
 
 func NewWindowsMicrophoneCaptureService(backend WindowsMicrophoneBackend, store *CaptureMediaStore, cues WindowsCaptureCuePlayer, ducker WindowsCaptureDucker) *WindowsMicrophoneCaptureService {
-	return &WindowsMicrophoneCaptureService{backend: backend, store: store, cues: cues, ducker: ducker}
+	return &WindowsMicrophoneCaptureService{
+		backend: backend, store: store, cues: cues, ducker: ducker,
+		qualityRoute: windowsUnknownCaptureQualityRoute{},
+	}
+}
+
+func (s *WindowsMicrophoneCaptureService) SetCaptureQualityRouteResolver(
+	resolver WindowsCaptureQualityRouteResolver,
+) {
+	if resolver == nil {
+		resolver = windowsUnknownCaptureQualityRoute{}
+	}
+	s.mu.Lock()
+	s.qualityRoute = resolver
+	s.mu.Unlock()
 }
 
 type WindowsCaptureSession struct {
@@ -132,9 +159,11 @@ type WindowsCaptureSession struct {
 	cancel  context.CancelFunc
 	done    chan WindowsCaptureOutcome
 
-	stopOnce sync.Once
-	mu       sync.Mutex
-	reason   WindowsCaptureStopReason
+	stopOnce  sync.Once
+	mu        sync.Mutex
+	reason    WindowsCaptureStopReason
+	quality   windowsCaptureQualitySession
+	onQuality func(*protocol.CaptureQualityState)
 }
 
 func (s *WindowsMicrophoneCaptureService) Start(ctx context.Context, request WindowsCaptureRequest) (*WindowsCaptureSession, error) {
@@ -151,6 +180,18 @@ func (s *WindowsMicrophoneCaptureService) Start(ctx context.Context, request Win
 	if mediaClass != CaptureUserRecording && mediaClass != CaptureSelfTest {
 		return nil, ErrCaptureInvalidState
 	}
+	workflow := request.Workflow
+	if workflow == "" {
+		if mediaClass == CaptureSelfTest {
+			workflow = "local_self_test"
+		} else {
+			workflow = "recorded_clip"
+		}
+	}
+	qualityRequest := request.QualityRequest
+	if qualityRequest.Mode == "" {
+		qualityRequest = WindowsCaptureQualityLegacy
+	}
 	s.mu.Lock()
 	if s.active != nil {
 		s.mu.Unlock()
@@ -158,10 +199,22 @@ func (s *WindowsMicrophoneCaptureService) Start(ctx context.Context, request Win
 	}
 	// Reserve the service before the permission prompt. A second Record cannot
 	// start a competing prompt or native operation.
+	route := s.qualityRoute
+	if route == nil {
+		route = windowsUnknownCaptureQualityRoute{}
+	}
+	quality := newWindowsCaptureQualitySession(
+		workflow, qualityRequest, route.ResolvedCaptureQualityMode(), false)
 	startCtx, cancel := context.WithCancel(ctx)
-	placeholder := &WindowsCaptureSession{service: s, cancel: cancel, done: make(chan WindowsCaptureOutcome, 1)}
+	placeholder := &WindowsCaptureSession{
+		service: s, cancel: cancel, done: make(chan WindowsCaptureOutcome, 1),
+		quality: quality, onQuality: request.QualityState,
+	}
 	s.active = placeholder
 	s.mu.Unlock()
+	if request.QualityState != nil {
+		request.QualityState(quality.state(protocol.CaptureLifecyclePreparing))
+	}
 
 	releaseReservation := func() {
 		cancel()
@@ -170,9 +223,16 @@ func (s *WindowsMicrophoneCaptureService) Start(ctx context.Context, request Win
 			s.active = nil
 		}
 		s.mu.Unlock()
+		if request.QualityState != nil {
+			request.QualityState(nil)
+		}
 	}
 	permission, err := s.backend.Permission(startCtx, true)
 	if err != nil || permission != WindowsCapturePermissionAllowed {
+		if request.QualityState != nil {
+			request.QualityState(quality.failedState(
+				protocol.CaptureHealthPermissionDenied, "permission_denied"))
+		}
 		releaseReservation()
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrWindowsCapturePermission, err)
@@ -181,6 +241,9 @@ func (s *WindowsMicrophoneCaptureService) Start(ctx context.Context, request Win
 	}
 	deviceID, err := s.backend.ResolveInput(startCtx, request.DeviceID)
 	if err != nil || deviceID == "" {
+		if request.QualityState != nil {
+			request.QualityState(quality.failedState(protocol.CaptureHealthNoDevice, "device_lost"))
+		}
 		releaseReservation()
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrWindowsCaptureDevice, err)
@@ -193,8 +256,16 @@ func (s *WindowsMicrophoneCaptureService) Start(ctx context.Context, request Win
 			return nil, err
 		}
 	}
-	stream, err := s.backend.Open(startCtx, deviceID)
+	var stream WindowsMicrophoneStream
+	if qualityBackend, ok := s.backend.(WindowsQualityMicrophoneBackend); ok {
+		stream, err = qualityBackend.OpenQuality(startCtx, deviceID, qualityRequest)
+	} else {
+		stream, err = s.backend.Open(startCtx, deviceID)
+	}
 	if err != nil || stream == nil {
+		if request.QualityState != nil {
+			request.QualityState(quality.failedState(protocol.CaptureHealthNoDevice, "device_lost"))
+		}
 		releaseReservation()
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", ErrWindowsCaptureDevice, err)
@@ -207,6 +278,25 @@ func (s *WindowsMicrophoneCaptureService) Start(ctx context.Context, request Win
 		_ = stream.Close()
 		releaseReservation()
 		return nil, ErrWindowsCaptureFormat
+	}
+	quality = quality.withNativeResult(
+		format.CommunicationsCategoryActive, format.NativeEffectsVerified)
+	placeholder.mu.Lock()
+	placeholder.quality = quality
+	placeholder.mu.Unlock()
+	if qualityRequest.ProcessingRequested &&
+		quality.decision.quality != protocol.CaptureQualityAccepted &&
+		!qualityRequest.DegradedConsent {
+		if request.QualityState != nil {
+			request.QualityState(quality.state(protocol.CaptureLifecycleFailed))
+		}
+		_ = stream.Stop(WindowsCaptureCancel)
+		_ = stream.Close()
+		releaseReservation()
+		return nil, ErrWindowsCaptureQualityUnsupported
+	}
+	if request.QualityState != nil {
+		request.QualityState(quality.state(protocol.CaptureLifecycleCapturing))
 	}
 	partial, err := s.store.Begin(mediaClass)
 	if err != nil {
@@ -250,6 +340,8 @@ func (s *WindowsMicrophoneCaptureService) capture(ctx context.Context, session *
 	var frames, dataBytes uint64
 	reason := WindowsCaptureBackendFailure
 	var captureErr error
+	qualityProcessor := newWindowsCaptureInputSafetyProcessor(
+		float64(format.SampleRate * format.Channels))
 
 	for {
 		readFrames, err := session.stream.Read(ctx, input)
@@ -258,6 +350,9 @@ func (s *WindowsMicrophoneCaptureService) capture(ctx context.Context, session *
 			if count > len(input) {
 				captureErr = ErrWindowsCaptureFormat
 				break
+			}
+			if session.quality.request.ProcessingRequested {
+				qualityProcessor.process(input[:count])
 			}
 			pcm = pcm[:0]
 			pcm = resampler.append(pcm, input[:count], int(format.Channels))
@@ -305,6 +400,9 @@ func (s *WindowsMicrophoneCaptureService) capture(ctx context.Context, session *
 	}
 	if requested := session.requestedReason(); requested != "" && (reason == WindowsCaptureUserStop || reason == WindowsCaptureBackendFailure) {
 		reason = requested
+	}
+	if session.onQuality != nil {
+		session.onQuality(session.quality.state(protocol.CaptureLifecycleStopping))
 	}
 	_ = session.stream.Close()
 	if s.ducker != nil {
@@ -356,6 +454,9 @@ func (s *WindowsMicrophoneCaptureService) capture(ctx context.Context, session *
 	s.mu.Unlock()
 	session.done <- outcome
 	close(session.done)
+	if session.onQuality != nil {
+		session.onQuality(nil)
+	}
 }
 
 func (s *WindowsCaptureSession) Stop(reason WindowsCaptureStopReason) {

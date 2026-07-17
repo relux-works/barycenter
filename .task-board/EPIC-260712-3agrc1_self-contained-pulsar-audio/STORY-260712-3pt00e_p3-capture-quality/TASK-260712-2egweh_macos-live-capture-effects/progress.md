@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-engineer
 
 ## Created
 2026-07-12T16:25:28Z
 
 ## Last Update
-2026-07-14T00:48:45Z
+2026-07-17T08:08:25Z
 
 ## Blocked By
 - TASK-260712-1gmsvh
@@ -27,6 +27,7 @@ backlog
 - [ ] Prove accepted speaker or headphone cases and degraded surfacing on real macOS hardware
 
 ## Notes
+2026-07-17 strict sequential engineering start after TASK-260712-39czd2 merged. Implement best-effort macOS shared capture DSP and deterministic adapter coverage only; signed-app acoustic and physical hardware proof remains not-run in EPIC-260714-th54l3.
 
 ## Precondition Resources
 - [p3-capture-quality-components.puml](file://TASK-260712-2egweh/p3-capture-quality-components.puml) — Task seam and dependency view for the macOS live capture implementation

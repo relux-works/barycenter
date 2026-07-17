@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-capture-quality-harness.v1",
+  "task": "TASK-260712-39czd2",
+  "publishedAt": "2026-07-17",
+  "claimBoundary": "deterministic synthetic conformance harness only; not acoustic, signed-app, physical-device, blinded-listening, CPU, memory or production evidence",
+  "sampleFormat": {
+    "sampleRateHz": 48000,
+    "channels": 1,
+    "encoding": "float32-little-endian",
+    "maximumAbsoluteSample": 1.0
+  },
+  "determinism": {
+    "seed": 11839438,
+    "generator": "integer phase accumulators, integer LCG noise and IEEE-754 little-endian packing; no platform DSP or private/user audio",
+    "fixtureLock": "acceptance/phase3/capture-quality-harness-lock-v1.json",
+    "artifactNames": "lowercase case-id and role only; no user, device, title, path or transcript metadata"
+  },
+  "thresholds": {
+    "farEndOnly": {
+      "convergenceMS": 2000,
+      "blockMS": 100,
+      "medianERLEMinDB": 18.0,
+      "p10ERLEMinDB": 10.0,
+      "residualRMSMaxDBFS": -45.0
+    },
+    "nearEndOnly": {
+      "absoluteLevelChangeMaxDB": 3.0,
+      "deterministicCorrelationMin": 0.95,
+      "finalSTOIDeltaMin": -0.05,
+      "finalSTOIMethod": "canonical STOI implementation over the clean near-end reference and processed capture; required by final C3, not replaced by the CI correlation sentinel"
+    },
+    "doubleTalk": {
+      "nearEndAttenuationMaxDB": 3.0,
+      "deterministicCorrelationMin": 0.90,
+      "finalSTOIDeltaMin": -0.05,
+      "medianERLEMinDB": 6.0
+    },
+    "noiseSuppression": {
+      "snrImprovementMinDB": 6.0,
+      "nearEndAttenuationMaxDB": 3.0
+    },
+    "inputAGC": {
+      "targetRMSDBFS": -20.0,
+      "targetToleranceDB": 3.0,
+      "peakMaxDBFS": -3.0,
+      "maximumGainDB": 12.0,
+      "maximumGainChangeDBPerSecond": 3.0
+    },
+    "clipping": {
+      "clippedSampleFractionMax": 0.001
+    },
+    "processor": {
+      "addedLatencyP95MaxMS": 20.0,
+      "callbackAllocationMax": 0,
+      "callbackBlockingWaitMax": 0,
+      "cpuRealtimeRatioP95Max": 0.50,
+      "peakWorkingSetMiBMax": 64.0,
+      "cpuAndMemoryStatus": "thresholds frozen for exact-build platform adapters; synthetic self-test values are not physical evidence"
+    },
+    "routeChange": {
+      "committedSamplesDuringReconfigureMax": 0,
+      "maximumRearmMS": 1500,
+      "requiredGenerationAdvance": 1
+    },
+    "clockDrift": {
+      "fixtureRangePPM": 200,
+      "referenceAgeMaxMS": 100
+    },
+    "livePacketCancel": {
+      "sentPacketCount": 100,
+      "lossPercent": 2,
+      "lostSequences": [17, 73],
+      "packetsAfterCancelMax": 0,
+      "committedSamplesAfterCancelMax": 0,
+      "terminalEventsExactly": 1
+    }
+  },
+  "fixtures": [
+    {"id": "far_end_only", "durationMS": 4000, "metrics": ["farEndOnly", "processor"]},
+    {"id": "near_end_only", "durationMS": 3000, "metrics": ["nearEndOnly", "noiseSuppression", "inputAGC", "processor"]},
+    {"id": "double_talk", "durationMS": 4000, "metrics": ["doubleTalk", "processor"]},
+    {"id": "echo_path_change", "durationMS": 5000, "metrics": ["farEndOnly", "doubleTalk"]},
+    {"id": "route_change", "durationMS": 3000, "metrics": ["routeChange"]},
+    {"id": "clock_drift", "durationMS": 3000, "metrics": ["clockDrift", "farEndOnly"]},
+    {"id": "clipping", "durationMS": 3000, "metrics": ["inputAGC", "clipping"]},
+    {"id": "too_quiet", "durationMS": 3000, "metrics": ["inputAGC"]},
+    {"id": "silence", "durationMS": 3000, "metrics": ["processor"]},
+    {"id": "device_loss", "durationMS": 3000, "metrics": ["routeChange"]},
+    {"id": "processor_overrun", "durationMS": 3000, "metrics": ["processor"]},
+    {"id": "missing_reference", "durationMS": 3000, "metrics": ["routeChange"]},
+    {"id": "effect_failure", "durationMS": 3000, "metrics": ["processor"]},
+    {"id": "live_packet_cancel", "durationMS": 3000, "metrics": ["livePacketCancel", "processor"]}
+  ],
+  "workflowRouteMatrix": {
+    "workflows": ["recorded_clip", "local_self_test", "live_ptt"],
+    "routes": ["speaker", "headphone", "unknown"],
+    "rule": "each candidate adapter reports every applicable case independently; results are never averaged across workflow, route or platform"
+  },
+  "candidateArtifact": {
+    "requiredTopLevel": ["schemaVersion", "contract", "fixtureLockSHA256", "candidate", "cases", "runtime"],
+    "requiredCandidateIdentity": ["platform", "build", "workflow", "route"],
+    "cellRule": "one candidate bundle is exactly one platform, exact build, workflow and resolved route cell; a report cannot be reused or averaged across cells",
+    "outputEncoding": "one exact-length relative .f32le output per fixture with declared SHA-256",
+    "caseReceipt": "each case binds id, output, SHA-256 and content-free lifecycle events; route/device/reference reconfiguration reports rearmed or terminated_unsupported",
+    "pathRule": "resolved output stays below the candidate artifact directory; symlinks, absolute paths and traversal are rejected",
+    "runtimeReceipt": ["addedLatencyMS", "callbackAllocations", "callbackBlockingWaits", "cpuRealtimeRatios", "peakWorkingSetMiB", "measurementSource"],
+    "forbiddenMetadata": ["audio content", "device id", "device name", "filename from user input", "absolute path", "transcript", "token", "secret"]
+  },
+  "retention": {
+    "syntheticFixtures": "generated under a caller-owned temporary directory and safe to delete immediately after the report",
+    "candidateOutputs": "delete after report hashing unless explicitly retained as non-user synthetic CI evidence",
+    "humanAudio": "forbidden in this harness; manual epic uses consented purpose-built fixtures and expires audio after aggregate review",
+    "report": "retain hashes, categorical failures, aggregate metrics and toolchain receipt only"
+  },
+  "manualBoundary": {
+    "status": "not-run",
+    "epic": "EPIC-260714-th54l3",
+    "requiredLater": [
+      "signed Windows and macOS exact-build adapters",
+      "physical speaker, headphone, Bluetooth and external-device routes",
+      "true acoustic echo paths and route changes",
+      "canonical STOI and blinded listening with at least three independent listeners",
+      "physical CPU, memory, latency, indicator and accessibility evidence"
+    ]
+  }
+}

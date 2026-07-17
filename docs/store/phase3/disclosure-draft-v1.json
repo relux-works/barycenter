@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-store-disclosure-draft.v1",
+  "task": "TASK-260712-3b7bp4",
+  "draftedAt": "2026-07-17",
+  "owner": "Ivan Oparin",
+  "state": "engineering-draft-external-publication-and-submission-required",
+  "eligibleForSubmission": false,
+  "partnerCenterMutationClaimed": false,
+  "policyPublicationClaimed": false,
+  "screenshotEvidenceClaimed": false,
+  "wackEvidenceClaimed": false,
+  "iarcPortalEvidenceClaimed": false,
+  "buildCertificationEvidenceClaimed": false,
+  "currentPublishedSource": {
+    "phase": "phase1",
+    "englishListing": "docs/store/phase1/listing-en-US.json",
+    "russianListing": "docs/store/phase1/listing-ru-RU.json",
+    "englishPrivacy": "docs/legal/en/privacy.md",
+    "russianPrivacy": "docs/legal/ru/privacy.md",
+    "status": "truthful-coordinator-readable-non-e2ee-audio-no-phase3-availability-claim"
+  },
+  "conditionalListingDelta": {
+    "en-US": {
+      "livePTT": "Near-live push-to-talk is available only when the installed build and your private Barycenter are enabled for it. Audio is routed in readable form by the Pulsar coordinator and is not end-to-end encrypted.",
+      "soundboard": "Saved audio cues and schedules are available only in enabled Barycenters and remain subject to destination, Do Not Disturb, block, revoke and emergency-disable controls.",
+      "e2ee": "This release does not provide or claim end-to-end encrypted media."
+    },
+    "ru-RU": {
+      "livePTT": "Почти мгновенная передача голоса доступна только тогда, когда она включена для установленной сборки и приватного Барицентра. Аудио направляется координатором Pulsar в читаемом виде и не защищено сквозным шифрованием.",
+      "soundboard": "Сохранённые аудиосигналы и расписания доступны только во включённых Барицентрах и подчиняются выбору получателей, режиму «Не беспокоить», блокировкам, отзыву и аварийному отключению.",
+      "e2ee": "Эта версия не предоставляет и не заявляет сквозное шифрование медиа."
+    }
+  },
+  "iarcDelta": {
+    "answerChangesAllowedNow": false,
+    "baseline": "docs/store/phase1/iarc-answer-profile.json",
+    "assessment": "no-reduction-private-user-audio-ugc-and-reactive-controls-remain",
+    "portalSubmissionTask": "TASK-260717-35bll1"
+  },
+  "activationConditions": {
+    "live_ptt": ["TASK-260712-flaiie", "TASK-260717-3dbi2v", "TASK-260712-30xwu2", "TASK-260712-1actom", "TASK-260712-2b5685"],
+    "soundboard_cues": ["TASK-260712-1gyohk", "TASK-260717-1pyg62", "TASK-260717-35bll1", "TASK-260712-30xwu2", "TASK-260712-1actom", "TASK-260712-2b5685"],
+    "automation": ["TASK-260712-1gyohk", "TASK-260717-1pyg62", "TASK-260717-35bll1", "TASK-260712-30xwu2", "TASK-260712-1actom", "TASK-260712-2b5685"],
+    "e2ee_media": ["EPIC-260716-3qsztl", "TASK-260712-aniuyy", "TASK-260712-1ulshp", "TASK-260712-yj668d", "TASK-260712-30xwu2", "TASK-260712-1actom", "TASK-260712-2b5685"]
+  },
+  "externalOwners": {
+    "listingOwner": "Ivan Oparin",
+    "finalSubmitAuthority": "Ivan Oparin",
+    "emergencyWithdrawalAuthority": "Ivan Oparin",
+    "englishReviewer": "Ivan Oparin",
+    "russianReviewer": "Ivan Oparin"
+  }
+}

@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline
 
 ## Created
 2026-07-12T16:41:36Z
 
 ## Last Update
-2026-07-16T00:18:36Z
+2026-07-17T14:55:55Z
 
 ## Blocked By
 - (none)
@@ -25,6 +25,7 @@ backlog
 
 ## Notes
 2026-07-14 scope change: legacy checklist rows for C1-C7 and beta artifacts are satisfied only by a complete pending-task index until EPIC-260714-th54l3 is manually executed.
+2026-07-17 strict-sequence start from merged migration/recovery tracking baseline 5e2daffa784f42dc2e736714f537cdf99d3e873b. This task assembles a fail-closed repository engineering handoff only: it does not claim manual C1-C7, signed real-app rollout/recovery, seven-day beta, independent review, live policy/mailbox/Partner Center evidence, E2EE implementation or release authority. Every absent external/manual artifact will remain an explicit hold with its owning task/epic.
 
 ## Precondition Resources
 - [p3-acceptance-evidence-map.puml](file://TASK-260712-3b7bp4/p3-acceptance-evidence-map.puml) — Evidence map to collapse into the final promotion packet

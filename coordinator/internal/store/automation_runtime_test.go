@@ -125,6 +125,11 @@ func TestAutomationRuntimeAtomicallyCreatesOneTransmissionAndReplays(t *testing.
 	if _, err := fixture.store.TriggerAutomationRuntime(params); !errors.Is(err, ErrAutomationIdempotencyConflict) {
 		t.Fatalf("conflicting replay error=%v", err)
 	}
+	var conflictAudits int
+	if err := fixture.store.db.QueryRow(`SELECT COUNT(*) FROM automation_audit_events
+WHERE principal_id = ? AND reason_code = 'idempotency_conflict'`, issued.Principal.ID).Scan(&conflictAudits); err != nil || conflictAudits != 1 {
+		t.Fatalf("idempotency conflict audits=%d err=%v", conflictAudits, err)
+	}
 }
 
 func TestAutomationRuntimeBoundsAttemptsConcurrencyAndPruning(t *testing.T) {
@@ -147,12 +152,12 @@ func TestAutomationRuntimeBoundsAttemptsConcurrencyAndPruning(t *testing.T) {
 		t.Fatalf("rate error=%v retry=%v", err, rate)
 	}
 	if count, err := fixture.store.AutomationRuntimeAttemptCount(fixture.owner.OrbitID); err != nil ||
-		count != automationcontract.MaxAcceptedPerMinute {
+		count != automationcontract.MaxAcceptedPerMinute+1 {
 		t.Fatalf("bounded attempts=%d err=%v", count, err)
 	}
 	pruned, err := fixture.store.PruneAutomationRuntimeAttempts(
 		base+AutomationExecutionRetention.Milliseconds()+100, 1000)
-	if err != nil || pruned != automationcontract.MaxAcceptedPerMinute {
+	if err != nil || pruned != automationcontract.MaxAcceptedPerMinute+1 {
 		t.Fatalf("pruned=%d err=%v", pruned, err)
 	}
 }
@@ -164,9 +169,9 @@ func TestAutomationRuntimeReconcilesPastMinuteUnlinkedClaim(t *testing.T) {
 	claimedAt := fixture.now + 20
 	execution, _, err := fixture.store.ClaimAutomationAPIExecution(ClaimAutomationAPIExecutionParams{
 		Secret: issued.Secret, CueID: fixture.cue.ID,
-		AudienceKind: automationcontract.AudienceOwnBarycenter,
+		AudienceKind:   automationcontract.AudienceOwnBarycenter,
 		IdempotencyKey: "automation-abandoned-claim-0001",
-		RequestDigest: strings.Repeat("d", 64), ClaimedAt: claimedAt,
+		RequestDigest:  strings.Repeat("d", 64), ClaimedAt: claimedAt,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -153,9 +153,9 @@ func automationAttemptLimitsTx(tx *sql.Tx, principalID string, orbitID, now int6
 	var principalCount, orbitCount int
 	if err := tx.QueryRow(`SELECT
   (SELECT COUNT(*) FROM automation_runtime_attempts
-    WHERE principal_id = ? AND attempted_at > ?),
+    WHERE principal_id = ? AND attempted_at > ? AND outcome <> 'reserved'),
   (SELECT COUNT(*) FROM automation_runtime_attempts
-    WHERE owner_orbit_id = ? AND attempted_at > ?)`, principalID, now-minute,
+    WHERE owner_orbit_id = ? AND attempted_at > ? AND outcome <> 'reserved')`, principalID, now-minute,
 		orbitID, now-hour).Scan(&principalCount, &orbitCount); err != nil {
 		return 0, err
 	}
@@ -484,6 +484,20 @@ outcome, reason_code, retry_after_ms, COALESCE(execution_id, '')
 FROM automation_runtime_attempts WHERE principal_id = ? AND idempotency_digest = ?`,
 		principal.ID, idempotencyDigest)); loadErr == nil {
 		if existing.RequestDigest != params.RequestDigest {
+			if _, err := tx.Exec(`INSERT INTO automation_audit_events(
+  event_kind, operation, owner_orbit_id, actor_id, principal_id,
+  principal_label, cue_id, cue_label, trigger_kind, outcome, reason_code,
+  terminal_at, created_at
+) VALUES('trigger', 'automation.trigger.scoped_api.v1', ?, ?, ?, ?, ?,
+  COALESCE((SELECT title FROM saved_cues WHERE id = ?), ''), 'scoped_api',
+  'denied', 'idempotency_conflict', ?, ?)`, principal.OwnerOrbitID,
+				principal.IssuedByActorID, principal.ID, principal.DisplayName,
+				params.CueID, params.CueID, params.AttemptedAt, params.AttemptedAt); err != nil {
+				return AutomationRuntimeResult{}, err
+			}
+			if err := tx.Commit(); err != nil {
+				return AutomationRuntimeResult{}, err
+			}
 			return AutomationRuntimeResult{}, ErrAutomationIdempotencyConflict
 		}
 		if existing.Outcome == "denied" {
@@ -505,38 +519,13 @@ FROM automation_executions WHERE id = ?`, existing.ExecutionID))
 	} else if !errors.Is(loadErr, sql.ErrNoRows) {
 		return AutomationRuntimeResult{}, loadErr
 	}
-	feature, err := scanAutomationFeatureState(tx.QueryRow(`SELECT `+automationFeatureColumns+`
-FROM automation_feature_state WHERE owner_orbit_id = ?`, principal.OwnerOrbitID))
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && (!feature.AutomationEnabled || feature.EmergencyDisabled)) {
-		return AutomationRuntimeResult{}, ErrAutomationDisabled
-	}
-	if err != nil {
-		return AutomationRuntimeResult{}, err
-	}
-	if !AutomationQuietPolicyValid(feature.Timezone, feature.QuietHoursJSON, feature.QuietHoursHash) {
-		return AutomationRuntimeResult{}, ErrAutomationDisabled
-	}
-	retry, err := automationAttemptLimitsTx(tx, principal.ID, principal.OwnerOrbitID, params.AttemptedAt)
-	if err != nil {
-		return AutomationRuntimeResult{}, err
-	}
-	if retry > 0 {
-		return AutomationRuntimeResult{}, &AutomationRateLimitError{RetryAfter: retry}
-	}
-	limited, err := automationConcurrentTx(tx, principal.ID, principal.OwnerOrbitID)
-	if err != nil {
-		return AutomationRuntimeResult{}, err
-	}
-	if limited {
-		return AutomationRuntimeResult{}, ErrAutomationExecutionInProgress
-	}
 	attemptID, err := insertAutomationAttemptTx(tx, principal, params.CueID,
 		idempotencyDigest, params.RequestDigest, params.AttemptedAt)
 	if err != nil {
 		return AutomationRuntimeResult{}, err
 	}
-	deny := func(reason automationcontract.DenialReason, cause error) (AutomationRuntimeResult, error) {
-		if err := denyAutomationAttemptTx(tx, attemptID, reason, 0); err != nil {
+	deny := func(reason automationcontract.DenialReason, cause error, retry time.Duration) (AutomationRuntimeResult, error) {
+		if err := denyAutomationAttemptTx(tx, attemptID, reason, retry); err != nil {
 			return AutomationRuntimeResult{}, err
 		}
 		if err := tx.Commit(); err != nil {
@@ -544,41 +533,68 @@ FROM automation_feature_state WHERE owner_orbit_id = ?`, principal.OwnerOrbitID)
 		}
 		return AutomationRuntimeResult{}, cause
 	}
+	feature, err := scanAutomationFeatureState(tx.QueryRow(`SELECT `+automationFeatureColumns+`
+FROM automation_feature_state WHERE owner_orbit_id = ?`, principal.OwnerOrbitID))
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && (!feature.AutomationEnabled || feature.EmergencyDisabled)) {
+		return deny(automationcontract.DenyAutomationDisabled, ErrAutomationDisabled, 0)
+	}
+	if err != nil {
+		return AutomationRuntimeResult{}, err
+	}
+	if !AutomationQuietPolicyValid(feature.Timezone, feature.QuietHoursJSON, feature.QuietHoursHash) {
+		return deny(automationcontract.DenyAutomationDisabled, ErrAutomationDisabled, 0)
+	}
+	retry, err := automationAttemptLimitsTx(tx, principal.ID, principal.OwnerOrbitID, params.AttemptedAt)
+	if err != nil {
+		return AutomationRuntimeResult{}, err
+	}
+	if retry > 0 {
+		return deny(automationcontract.DenyTooManyAttempts,
+			&AutomationRateLimitError{RetryAfter: retry}, retry)
+	}
+	limited, err := automationConcurrentTx(tx, principal.ID, principal.OwnerOrbitID)
+	if err != nil {
+		return AutomationRuntimeResult{}, err
+	}
+	if limited {
+		return deny(automationcontract.DenyExecutionInProgress,
+			ErrAutomationExecutionInProgress, 0)
+	}
 	if !containsString(principal.AllowedCueIDs, params.CueID) ||
 		!containsAudience(principal.AllowedAudiences, params.AudienceKind) {
-		return deny(automationcontract.DenyInsufficientScope, ErrInsufficientCapability)
+		return deny(automationcontract.DenyInsufficientScope, ErrInsufficientCapability, 0)
 	}
 	quiet, err := automationQuietAt(feature.Timezone, feature.QuietHoursJSON, params.AttemptedAt)
 	if err != nil {
 		return AutomationRuntimeResult{}, err
 	}
 	if quiet {
-		return deny(automationcontract.DenyQuietHours, ErrAutomationQuietHours)
+		return deny(automationcontract.DenyQuietHours, ErrAutomationQuietHours, 0)
 	}
 	var scopes []AutomationTargetScope
 	if params.AudienceKind == automationcontract.AudienceExplicit {
 		scopes, err = loadAutomationReferenceScopesTx(tx, principal, params.TargetReferences, params.AttemptedAt)
 		if err != nil {
-			return deny(automationcontract.DenyInsufficientScope, ErrInsufficientCapability)
+			return deny(automationcontract.DenyInsufficientScope, ErrInsufficientCapability, 0)
 		}
 	} else if len(params.TargetReferences) != 0 {
-		return deny(automationcontract.DenyAudienceNotAllowed, ErrAutomationAudienceNotAllowed)
+		return deny(automationcontract.DenyAudienceNotAllowed, ErrAutomationAudienceNotAllowed, 0)
 	}
 	ctx, err := automationRuntimeActorTx(tx, principal.IssuedByActorID, principal.OwnerOrbitID)
 	if err != nil {
-		return deny(automationcontract.DenyAutomationDisabled, ErrAutomationDisabled)
+		return deny(automationcontract.DenyAutomationDisabled, ErrAutomationDisabled, 0)
 	}
 	if err := requireCurrentContentPolicyTx(tx, ctx); err != nil {
-		return deny(automationcontract.DenyAutomationDisabled, ErrAutomationDisabled)
+		return deny(automationcontract.DenyAutomationDisabled, ErrAutomationDisabled, 0)
 	}
 	cue, mediaItem, err := automationRuntimeCueTx(tx, params.CueID, principal.OwnerOrbitID, params.AttemptedAt)
 	if err != nil {
-		return deny(automationcontract.DenyCueNotReady, ErrAutomationCueNotReady)
+		return deny(automationcontract.DenyCueNotReady, ErrAutomationCueNotReady, 0)
 	}
 	resolved, domainKind, domainID, policy, err := automationAudienceTx(tx, ctx,
 		params.AudienceKind, principal.BoundAirID, scopes)
 	if err != nil {
-		return deny(automationcontract.DenyAudienceNotAllowed, err)
+		return deny(automationcontract.DenyAudienceNotAllowed, err, 0)
 	}
 	transmissionParams := CreateResolvedTransmissionParams{
 		AudienceKind: TransmissionAudienceKind(params.AudienceKind),
@@ -598,16 +614,16 @@ FROM automation_feature_state WHERE owner_orbit_id = ?`, principal.OwnerOrbitID)
 		}
 	}
 	if acceptedTargets == 0 {
-		return deny(automationcontract.DenyAudienceNotAllowed, ErrTransmissionAudienceEmpty)
+		return deny(automationcontract.DenyAudienceNotAllowed, ErrTransmissionAudienceEmpty, 0)
 	}
 	if missingOverlay || len(unsupported) != 0 {
-		return deny(automationcontract.DenyDeliveryCapabilityMissing, ErrAutomationCapabilityMissing)
+		return deny(automationcontract.DenyDeliveryCapabilityMissing, ErrAutomationCapabilityMissing, 0)
 	}
 	policyContext := policy
 	authorization, err := authorizeAirPolicyTx(ctx, policyContext,
 		airPolicyOperationForDelivery(TransmissionDeliveryOverlay))
 	if err != nil {
-		return deny(automationcontract.DenyAirPolicy, ErrAutomationAudienceNotAllowed)
+		return deny(automationcontract.DenyAirPolicy, ErrAutomationAudienceNotAllowed, 0)
 	}
 	create := CreateTransmissionParams{
 		MediaID: mediaItem.ID, SourceOrbitID: ctx.OrbitID, SourceActorID: ctx.ActorID,

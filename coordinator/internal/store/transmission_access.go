@@ -256,6 +256,16 @@ WHERE transmission_id = ? AND orbit_id = ? AND actor_id = ? AND slot = ?
 	if err != nil {
 		return CancelTransmissionResult{}, err
 	}
+	if _, err := tx.Exec(`INSERT INTO automation_audit_events(
+  event_kind, operation, owner_orbit_id, actor_id, execution_id,
+  transmission_id, outcome, reason_code, terminal_at, created_at
+)
+SELECT 'control', 'automation.execution.cancel.v1', owner_orbit_id, ?, id, ?,
+  'accepted', 'sender_cancelled', ?, ?
+FROM automation_executions WHERE transmission_id = ?`, ctx.ActorID,
+		transmissionID, now, now, transmissionID); err != nil {
+		return CancelTransmissionResult{}, err
+	}
 	if err := s.checkpoint("transmission_sender_cancel_before_commit"); err != nil {
 		return CancelTransmissionResult{}, err
 	}

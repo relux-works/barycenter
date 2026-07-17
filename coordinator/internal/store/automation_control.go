@@ -100,6 +100,16 @@ func finishAutomationControlMutation(state automationControlMutationState, auth 
 	if err != nil {
 		return err
 	}
+	if _, err := state.tx.Exec(`INSERT INTO automation_audit_events(
+  event_kind, operation, owner_orbit_id, actor_id, outcome, reason_code,
+  terminal_at, created_at, principal_id, schedule_id
+) VALUES('control', ?, ?, ?, 'accepted', '', ?, ?,
+  CASE WHEN substr(?, 1, 3) = 'ap_' THEN ? ELSE '' END,
+  CASE WHEN substr(?, 1, 4) = 'sch_' THEN ? ELSE '' END)`, operation,
+		state.ctx.OrbitID, state.ctx.ActorID, auth.Now, auth.Now,
+		resourceID, resourceID, resourceID, resourceID); err != nil {
+		return err
+	}
 	return state.tx.Commit()
 }
 

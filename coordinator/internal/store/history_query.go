@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -43,6 +44,36 @@ type HistoryQueryItem struct {
 	SourceActorName     string
 	SourceOrbitID       int64
 	SourceOrbitName     string
+	Automation          *AutomationHistory
+	CanDisableSchedule  bool
+	CanRevokePrincipal  bool
+	CanEmergencyDisable bool
+}
+
+// AutomationHistory is the display-safe execution lineage attached to the
+// canonical history model. It intentionally excludes credential hashes,
+// idempotency digests, selectors, storage keys and private filenames.
+type AutomationHistory struct {
+	AuditID             int64
+	TriggerKind         string
+	PrincipalID         string
+	PrincipalRef        string
+	PrincipalLabel      string
+	ScheduleID          string
+	ScheduleLabel       string
+	ScheduleRevision    int64
+	ExecutionID         string
+	CueID               string
+	CueLabel            string
+	CueRevision         int64
+	AudienceKind        string
+	ResolvedTargetCount int
+	Outcome             string
+	ReasonCode          string
+	RetryAfterMS        int64
+	ScheduledAt         int64
+	AcceptedAt          int64
+	TerminalAt          int64
 }
 
 type HistoryPage struct {
@@ -59,7 +90,47 @@ func historyID(kind, rawID string) string {
 	if kind == "transmission" {
 		return "hi_" + strings.TrimPrefix(rawID, "tr_")
 	}
+	if kind == "automation_audit" {
+		value, _ := strconv.ParseInt(rawID, 10, 64)
+		return fmt.Sprintf("hi_a%025x", value)
+	}
 	return "hi_" + strings.TrimPrefix(rawID, "m_")
+}
+
+func automationAuditID(historyItemID string) (int64, bool) {
+	if len(historyItemID) != 29 || !strings.HasPrefix(historyItemID, "hi_a") {
+		return 0, false
+	}
+	value, err := strconv.ParseInt(strings.TrimPrefix(historyItemID, "hi_a"), 16, 64)
+	return value, err == nil && value > 0
+}
+
+func automationHistoryFromExecutionTx(tx *sql.Tx, execution AutomationExecution) (*AutomationHistory, error) {
+	result := &AutomationHistory{
+		TriggerKind: string(execution.TriggerKind), ScheduleID: execution.ScheduleID,
+		ScheduleRevision: execution.ScheduleRevision, ExecutionID: execution.ID,
+		CueID: execution.CueID, CueRevision: execution.CueRevision,
+		AudienceKind: string(execution.AudienceKind), ResolvedTargetCount: execution.ResolvedTargetCount,
+		Outcome: execution.Outcome, ReasonCode: execution.ReasonCode,
+		ScheduledAt: execution.ScheduledUTC, AcceptedAt: execution.ClaimedAt,
+		TerminalAt: execution.CompletedAt,
+	}
+	if execution.PrincipalID != "" {
+		result.PrincipalID = execution.PrincipalID
+		result.PrincipalRef = "apf_" + hashToken("automation-history:" + execution.PrincipalID)[:16]
+		if err := tx.QueryRow(`SELECT display_name FROM automation_principals WHERE id = ?`, execution.PrincipalID).Scan(&result.PrincipalLabel); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+	if execution.ScheduleID != "" {
+		if err := tx.QueryRow(`SELECT display_name FROM automation_schedules WHERE id = ?`, execution.ScheduleID).Scan(&result.ScheduleLabel); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+	if err := tx.QueryRow(`SELECT title FROM saved_cues WHERE id = ?`, execution.CueID).Scan(&result.CueLabel); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	return result, nil
 }
 
 func historyDirection(sent, received bool) HistoryDirection {
@@ -217,7 +288,76 @@ func historyTransmissionItemTx(tx *sql.Tx, ctx ActorContext, id string, now int6
 	if err := tx.QueryRow(`SELECT title FROM orbits WHERE id = ?`, t.SourceOrbitID).Scan(&item.SourceOrbitName); err != nil {
 		return HistoryQueryItem{}, false, err
 	}
+	execution, executionErr := scanAutomationExecution(tx.QueryRow(`SELECT `+automationExecutionColumns+`
+FROM automation_executions WHERE transmission_id = ?`, t.ID))
+	if executionErr == nil {
+		item.Automation, err = automationHistoryFromExecutionTx(tx, execution)
+		if err != nil {
+			return HistoryQueryItem{}, false, err
+		}
+		item.CanDisableSchedule = showAll && ctx.Role == "primary" && execution.ScheduleID != ""
+		item.CanRevokePrincipal = showAll && ctx.Role == "primary" && execution.PrincipalID != ""
+		item.CanEmergencyDisable = showAll && ctx.Role == "primary"
+		item.Automation.AcceptedAt = t.AcceptedAt
+		item.Automation.TerminalAt = t.CompletedAt
+		item.Automation.Outcome = string(t.Status)
+		if t.CancellationCause != "" {
+			item.Automation.ReasonCode = string(t.CancellationCause)
+		} else if t.ReasonCode != "" {
+			item.Automation.ReasonCode = string(t.ReasonCode)
+		}
+	} else if !errors.Is(executionErr, sql.ErrNoRows) {
+		return HistoryQueryItem{}, false, executionErr
+	}
 	return item, true, nil
+}
+
+func historyAutomationAuditItemTx(tx *sql.Tx, ctx ActorContext, id int64) (HistoryQueryItem, bool, error) {
+	var automation AutomationHistory
+	var ownerOrbitID, actorID int64
+	var principalID string
+	err := tx.QueryRow(`SELECT id, owner_orbit_id, actor_id, principal_id,
+principal_label, schedule_id, schedule_label, execution_id, cue_id, cue_label,
+cue_revision, schedule_revision, trigger_kind, audience_kind,
+resolved_target_count, outcome, reason_code, retry_after_ms, scheduled_at,
+accepted_at, terminal_at
+FROM automation_audit_events
+WHERE id = ? AND event_kind = 'trigger' AND outcome = 'denied'`, id).Scan(
+		&automation.AuditID, &ownerOrbitID, &actorID, &principalID,
+		&automation.PrincipalLabel, &automation.ScheduleID, &automation.ScheduleLabel,
+		&automation.ExecutionID, &automation.CueID, &automation.CueLabel,
+		&automation.CueRevision, &automation.ScheduleRevision, &automation.TriggerKind,
+		&automation.AudienceKind, &automation.ResolvedTargetCount, &automation.Outcome,
+		&automation.ReasonCode, &automation.RetryAfterMS, &automation.ScheduledAt,
+		&automation.AcceptedAt, &automation.TerminalAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return HistoryQueryItem{}, false, nil
+	}
+	if err != nil {
+		return HistoryQueryItem{}, false, err
+	}
+	if ownerOrbitID != ctx.OrbitID || (actorID != ctx.ActorID && ctx.Role != "primary") ||
+		!(ctx.Capabilities.Has(CapabilityControl) || ctx.Capabilities.Has(CapabilityTelegram)) {
+		return HistoryQueryItem{}, false, nil
+	}
+	if principalID != "" {
+		automation.PrincipalID = principalID
+		automation.PrincipalRef = "apf_" + hashToken("automation-history:" + principalID)[:16]
+	}
+	title := automation.CueLabel
+	if title == "" {
+		title = "Automation trigger"
+	}
+	return HistoryQueryItem{
+		HistoryItemID: historyID("automation_audit", strconv.FormatInt(id, 10)),
+		ItemKind:      "automation_attempt", OccurredAt: automation.TerminalAt,
+		Direction: HistorySent, Media: MediaItem{Kind: MediaKindAudioClip, Title: title,
+			Status: MediaStatusFailed, FailureCode: automation.ReasonCode},
+		Automation: &automation, SourceActorID: actorID, SourceOrbitID: ownerOrbitID,
+		CanDisableSchedule:  automation.ScheduleID != "" && ctx.Role == "primary",
+		CanRevokePrincipal:  principalID != "" && ctx.Role == "primary",
+		CanEmergencyDisable: ctx.Role == "primary",
+	}, true, nil
 }
 
 func historyMediaItemTx(tx *sql.Tx, ctx ActorContext, id string, now int64) (HistoryQueryItem, bool, error) {
@@ -273,9 +413,13 @@ WHERE accepted_at >= ? AND (source_orbit_id = ? OR EXISTS(
 UNION ALL
 SELECT 'media', m.id, m.created_at FROM media_items m
 WHERE (m.actor_id = ? OR (? = 'primary' AND m.owner_orbit_id = ?))
-  AND NOT EXISTS(SELECT 1 FROM transmissions t WHERE t.media_id = m.id)`,
+  AND NOT EXISTS(SELECT 1 FROM transmissions t WHERE t.media_id = m.id)
+UNION ALL
+SELECT 'automation_audit', CAST(id AS TEXT), created_at FROM automation_audit_events
+WHERE event_kind = 'trigger' AND outcome = 'denied' AND created_at >= ? AND owner_orbit_id = ?
+  AND (actor_id = ? OR ? = 'primary')`,
 		cutoff, ctx.OrbitID, ctx.ActorID, sharedTelegramReceipts, ctx.OrbitID,
-		ctx.ActorID, ctx.Role, ctx.OrbitID)
+		ctx.ActorID, ctx.Role, ctx.OrbitID, cutoff, ctx.OrbitID, ctx.ActorID, ctx.Role)
 	if err != nil {
 		return HistoryPage{}, err
 	}
@@ -319,6 +463,12 @@ WHERE (m.actor_id = ? OR (? = 'primary' AND m.owner_orbit_id = ?))
 		var ok bool
 		if key.kind == "transmission" {
 			item, ok, err = historyTransmissionItemTx(tx, ctx, key.rawID, now)
+		} else if key.kind == "automation_audit" {
+			id, parseErr := strconv.ParseInt(key.rawID, 10, 64)
+			if parseErr != nil {
+				return HistoryPage{}, parseErr
+			}
+			item, ok, err = historyAutomationAuditItemTx(tx, ctx, id)
 		} else {
 			item, ok, err = historyMediaItemTx(tx, ctx, key.rawID, now)
 		}
@@ -373,6 +523,28 @@ WHERE (m.actor_id = ? OR (? = 'primary' AND m.owner_orbit_id = ?))
 }
 
 func (s *Store) GetAuthorizedHistoryItem(expectedActorID int64, identity Identity, historyItemID string, now int64) (HistoryQueryItem, error) {
+	if auditID, ok := automationAuditID(historyItemID); ok {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return HistoryQueryItem{}, err
+		}
+		defer tx.Rollback()
+		ctx, err := resolveActorContext(tx, identity)
+		if err != nil || ctx.ActorID != expectedActorID {
+			return HistoryQueryItem{}, ErrUnauthorized
+		}
+		item, visible, err := historyAutomationAuditItemTx(tx, ctx, auditID)
+		if err != nil || !visible {
+			if err == nil {
+				err = ErrTransmissionNotFound
+			}
+			return HistoryQueryItem{}, err
+		}
+		if err := tx.Commit(); err != nil {
+			return HistoryQueryItem{}, err
+		}
+		return item, nil
+	}
 	if len(historyItemID) != 29 || !strings.HasPrefix(historyItemID, "hi_") ||
 		!transmissionIDPattern.MatchString("tr_"+strings.TrimPrefix(historyItemID, "hi_")) {
 		return HistoryQueryItem{}, ErrTransmissionNotFound

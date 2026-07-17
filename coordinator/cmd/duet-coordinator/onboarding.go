@@ -361,6 +361,7 @@ type onboardingAPI struct {
 	airRuntimeChanged      func() error
 	automationNow          func() time.Time
 	automationTrigger      automationTriggerService
+	phase3Observability    phase3ObservabilityBuilder
 	// testAfterAuth is nil in production. Tests use it to pause between
 	// middleware authentication and the immediate writer transaction.
 	testAfterAuth   func(store.ActorContext)
@@ -404,6 +405,9 @@ func newOnboardingAPIBase(st *store.Store, cfg *config.Config, log *slog.Logger,
 	// Installing the adapter does not expose a kill-switch bypass: feature-off
 	// requests are still collapsed to the same generic 404 as an absent route.
 	api.automationTrigger = api
+	api.phase3Observability = newPhase3ObservabilityBuilder(
+		version, cfg.PublicURL, cfg.LivePTT, nil, nil,
+	)
 	return api
 }
 
@@ -492,6 +496,7 @@ func (api *onboardingAPI) register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/moderation/stream-accounting/policies", api.secure(api.withModerationOperator(api.streamAccountingPolicies)))
 	mux.HandleFunc("/v1/moderation/stream-accounting/policies/audit", api.secure(api.withModerationOperator(api.streamAccountingPolicyAudit)))
 	mux.HandleFunc("/v1/moderation/phase2-observability", api.secure(api.withModerationOperator(api.phase2ObservabilityOperatorView)))
+	mux.HandleFunc("/v1/moderation/phase3-observability", api.secure(api.withModerationOperator(api.phase3ObservabilityOperatorView)))
 	mux.HandleFunc("/v1/airs", api.secure(api.withAirControl(api.airsCollection)))
 	mux.HandleFunc("/v1/airs/", api.secure(api.withAirControl(api.airItem)))
 	mux.HandleFunc("/v1/air-invites/consume", api.secure(api.withAirControl(api.consumeAirInvite)))

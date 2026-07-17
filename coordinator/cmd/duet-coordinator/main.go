@@ -323,6 +323,19 @@ func main() {
 		}
 		addStreamAccountingHealth(body, st, time.Now().UnixMilli(), processorReady, storageReady)
 		addLivePTTHealth(body, l.livePTT, cfg.LivePTT)
+		phase3Now := time.Now().UnixMilli()
+		if automation, err := st.Phase3AutomationObservabilitySnapshot(phase3Now); err != nil {
+			body["status"] = "degraded"
+			body["phase3"] = map[string]string{"status": "unavailable"}
+		} else {
+			builder := newPhase3ObservabilityBuilder(
+				version, cfg.PublicURL, cfg.LivePTT, l.livePTT, h.NodeSnapshots,
+			)
+			if onboarding != nil && onboarding.phase3Observability != nil {
+				builder = onboarding.phase3Observability
+			}
+			addPhase3Health(body, builder(automation, phase3Now))
+		}
 		if onboarding != nil {
 			if onboarding.mediaSubmitter == nil || onboarding.mediaSubmitterInitErr != nil {
 				body["status"] = "degraded"
@@ -344,6 +357,9 @@ func main() {
 		mux, st, cfg, log, botUsername, mediaSubmitter, mediaSubmitterInitErr,
 	)
 	if onboarding != nil {
+		onboarding.phase3Observability = newPhase3ObservabilityBuilder(
+			version, cfg.PublicURL, cfg.LivePTT, l.livePTT, h.NodeSnapshots,
+		)
 		onboarding.transmissionPresence = transmissionPresenceSnapshotterForHub(h)
 		onboarding.transmissionAccepted = l.transmissionAccepted
 		onboarding.transmissionCancelled = l.transmissionCancelled

@@ -1,7 +1,6 @@
 package hub
 
 import (
-	"bytes"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +13,7 @@ import (
 )
 
 func TestHubValidatesInboundAndPreservesOrderedBinaryFrames(t *testing.T) {
-	var logs bytes.Buffer
+	var logs lockedLogBuffer
 	h := New(slog.New(slog.NewJSONHandler(&logs, nil)), func(token string) (int64, string, bool) { return 42, "a", token == "valid" }, time.Second)
 	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
 	defer server.Close()

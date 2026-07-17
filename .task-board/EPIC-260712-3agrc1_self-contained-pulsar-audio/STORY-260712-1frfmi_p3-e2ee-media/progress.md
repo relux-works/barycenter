@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-17T04:19:51Z
+2026-07-17T04:42:54Z
 
 ## Blocked By
 - STORY-260712-1qfbiw
@@ -38,6 +38,7 @@ agent spawned: codex (pid=88661, exit=0)
 Root rejected the initial server-rotation and two-monolithic-client decomposition. The reviewed graph adds audited crypto and container spikes, an independent pre-implementation design review, client-owned group commits, an opaque router, separate per-platform key state send playback live-PTT and UX tasks, explicit irrecoverable key-loss and report-boundary semantics. No E2EE claim or implementation is accepted yet.
 Owner direction 2026-07-16: split E2EE at the independent design-audit boundary. Seventeen post-audit implementation and implementation-review tasks moved to EPIC-260716-3qsztl / STORY-260716-1qp4gp. This story now owns five pre-implementation gate tasks only.
 2026-07-16 correction to the E2EE split: TASK-260712-aniuyy moved to EPIC-260716-3qsztl as requested. This story now owns four audit-preparation tasks only and completes when the reproducible audit packet is ready; it does not wait for an external reviewer.
+2026-07-17 strict checkpoint: threat-model TASK-260712-2e2ymn accepted on exact 847a90b and PR #227 merge 868789c after clean 12/12 and hosted 4/4. The audit-preparation story advances to container spike TASK-260712-16xmy2; only spikes are authorized. E2EE implementation, feature enablement, claims and independent review remain blocked/false/not-run.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-1frfmi/spec-entry.md) — Authoritative specification entry point

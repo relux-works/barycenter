@@ -8,7 +8,7 @@ codex-inline-orchestrator
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-17T04:20:17Z
+2026-07-17T04:42:54Z
 
 ## Blocked By
 - STORY-260712-sskhip
@@ -58,6 +58,7 @@ User mandate 2026-07-12: do not accept agent code without scrupulous root review
 2026-07-16 strict progress checkpoint: TASK-260712-ezdhpf engineering accepted at merge 6d569e3216fd6fe72be9c683e299ddcfa10e6fa4 after hosted run 29527709243 passed 4/4. Original inventory 128/205 accepted (62.4%, 77 remain); engineering 128/186 accepted (68.8%, 58 remain); manual hardware 0/19 remains deferred in EPIC-260714-th54l3. Signed Windows 10/11 sender stress remains deliberately unchecked in engineering and owned by manual TASK-260712-1rzqh9. Strict next engineering task is TASK-260712-2kj9kj.
 2026-07-17 strict sequential checkpoint: 141/186 engineering tasks accepted (75.8%) and 141/205 combined tasks accepted (68.8%). TASK-260712-1oodka landed through PR #223 at merge fa6bc8e3f3908c9bd0abed5efab00613b7ba9476 after hosted run 29553117460 passed 4/4 and clean exact-head Swift acceptance passed. Execution advances to TASK-260712-2f0gpu; the separate manual epic remains 0/19 and no real-app, hardware, accessibility, audible or physical-DST result is claimed.
 2026-07-17 strict checkpoint: TASK-260712-2f0gpu automation safety engineering handoff accepted on exact f7f52a5 after clean 12/12, focused race x3 and hosted run 29554336162 4/4; PR #225 merged at 793f8ae. Progress is 142/205 overall (69.3%) and 142/186 engineering (76.3%); 44 engineering tasks remain. Strict execution advances to TASK-260712-2e2ymn. Manual epic remains 0/19 and no signed-app, hardware, audible/accessibility, real-client recovery or soak result is claimed.
+2026-07-17 strict checkpoint: TASK-260712-2e2ymn E2EE threat model accepted on exact 847a90b after clean 12/12 and hosted run 29555290473 4/4; PR #227 merged at 868789c. Progress is 143/205 overall (69.8%) and 143/186 engineering (76.9%); 43 engineering tasks remain. Strict execution advances to TASK-260712-16xmy2. E2EE remains disabled and unclaimed; independent review is not-run; manual epic remains 0/19.
 
 ## Precondition Resources
 (none)

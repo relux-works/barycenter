@@ -331,17 +331,25 @@ func (c *WindowsSoundboardComposition) AcceptBrokeredCue(file WindowsBrokeredAud
 		return
 	}
 	go func() {
-		if file.Release != nil {
-			defer file.Release()
+		var releaseOnce sync.Once
+		releaseFile := func() {
+			releaseOnce.Do(func() {
+				if file.Release != nil {
+					file.Release()
+				}
+			})
 		}
+		defer releaseFile()
 		stream, err := file.Open()
 		if err != nil || stream == nil {
+			releaseFile()
 			c.finish("file_unreadable", "")
 			return
 		}
 		handle, err := c.mediaStore.ImportUserDraft(stream)
 		closeErr := stream.Close()
 		if err != nil || closeErr != nil {
+			releaseFile()
 			c.finish("file_ineligible", "")
 			return
 		}
@@ -353,6 +361,7 @@ func (c *WindowsSoundboardComposition) AcceptBrokeredCue(file WindowsBrokeredAud
 		upload, uploadErr := c.media.Upload(c.ctx, handle.Path, title, "windows-soundboard-upload-"+keySuffix, true)
 		if uploadErr != nil {
 			_ = c.mediaStore.ExplicitlyDelete(handle)
+			releaseFile()
 			c.finish(phaseOneFailureCode(uploadErr), "")
 			return
 		}
@@ -360,9 +369,11 @@ func (c *WindowsSoundboardComposition) AcceptBrokeredCue(file WindowsBrokeredAud
 		_, createErr := c.service.CreateSoundboardMediaCue(c.ctx, title, upload.MediaID, "windows-soundboard-create-"+keySuffix)
 		if createErr != nil {
 			_ = c.media.DeleteMedia(c.ctx, upload.MediaID)
+			releaseFile()
 			c.finish(phaseOneFailureCode(createErr), "")
 			return
 		}
+		releaseFile()
 		c.finish("", "cue_created")
 	}()
 }

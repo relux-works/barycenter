@@ -4,16 +4,16 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 158 accepted, 47 remain.
-- Routed inventory: 186 engineering tasks (158 accepted, 28 remain) and 19
+- Combined inventory: 205 original tasks; 159 accepted, 46 remain.
+- Routed inventory: 186 engineering tasks (159 accepted, 27 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1x5jfo` — phase3-independent-automation-review
-- Next engineering task: `TASK-260712-7ng1vs` — phase3-independent-privacy-store-review
+- Current engineering task: `TASK-260712-7ng1vs` — phase3-independent-privacy-store-review
+- Next engineering task: `TASK-260712-6mz9xg` — phase3-independent-migration-recovery-review
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
@@ -22,8 +22,8 @@
   `TASK-260712-1ulshp` is also retained in that deferred E2EE epic: it remains
   blocked by `TASK-260712-aniuyy` and `TASK-260712-1bcpda` and cannot be
   self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-3j4a06` — phase3-independent-realtime-review
-- Current branch: `tracking/task-260712-3j4a06-realtime-review`
+- Most recently accepted: `TASK-260712-1x5jfo` — phase3-independent-automation-review
+- Current branch: `tracking/task-260712-1x5jfo-automation-review`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -37,7 +37,9 @@
   under the owner-approved best-effort rule. Phase 3 realtime activation and
   promotion are additionally blocked on manual C1-C3 task
   `TASK-260712-flaiie` and implementation-independent approval
-  `TASK-260717-3dbi2v`.
+  `TASK-260717-3dbi2v`. Phase 3 automation activation and promotion are
+  additionally blocked on manual C7 task `TASK-260712-1gyohk` and
+  implementation-independent approval `TASK-260717-1pyg62`.
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -47,8 +49,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 158 / 205 tasks (77.1%); 47 remain
-- Engineering progress: 158 / 186 tasks (approximately 84.9%); 28 remain
+- Accepted overall: 159 / 205 tasks (77.6%); 46 remain
+- Engineering progress: 159 / 186 tasks (approximately 85.5%); 27 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3670,7 +3672,28 @@ capability is released merely because another capability passed its gate.
   manual closure is `TASK-260712-flaiie`, external approval is
   `TASK-260717-3dbi2v`, and `live_ptt` activation and Phase 3 promotion remain
   blocked.)
-- [ ] `TASK-260712-1x5jfo` — phase3-independent-automation-review
+- [x] `TASK-260712-1x5jfo` — phase3-independent-automation-review (engineering
+  pre-review accepted on exact packet commit
+  `a1dae4856f4bafa0c7679fddc19e3661691a4812`, merged by PR #260 at
+  `e41f17144412b4bfc54e8351657070b92ed8fa1f`. The source-linked packet pins
+  23 authority, cue, schedule, principal, runtime, Telegram, client, mixer and
+  gate sources to root-reviewed candidate
+  `d94f51644a3acf37601b4a869b4247380372f9ec`. The frozen ten-test
+  adversarial coordinator group passed race×10, coordinator/Telegram passed
+  race×10, exact previous-head automation rollback passed ten repetitions,
+  Windows passed four packages under race×10, and Swift passed 19 tests in
+  three suites. Clean exact-packet coordinator acceptance passed 7/7 with
+  clean start/end; hosted run `29585744116` passed 4/4. A deliberately broad
+  expression selected 54 store tests and exceeded Go's ten-minute package
+  timeout while an unrelated scheduler test was running; it is explicitly
+  recorded as non-counted and the frozen subset was rerun successfully. No
+  new Critical/High code finding remains. Authority, idempotency, DST/no-
+  catch-up, bounds, DND/block/Air rechecks, kill switches, opaque callbacks,
+  local ceiling and no-microphone composition are repository-proved. The
+  inline session did not claim implementation independence or signed-app C7;
+  external closure is `TASK-260717-1pyg62`, manual closure is
+  `TASK-260712-1gyohk`, and automation activation and Phase 3 promotion remain
+  blocked.)
 - [ ] `TASK-260712-7ng1vs` — phase3-independent-privacy-store-review
 - ↪ manual `TASK-260712-flaiie` — phase3-c1-c3-live-platform-matrix
 - ↪ manual `TASK-260712-yj668d` — phase3-c4-c6-reviewed-e2ee-acceptance

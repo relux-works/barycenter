@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 138 accepted, 67 remain.
-- Routed inventory: 186 engineering tasks (138 accepted, 48 remain) and 19
+- Combined inventory: 205 original tasks; 139 accepted, 66 remain.
+- Routed inventory: 186 engineering tasks (139 accepted, 47 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-uht9e2` — telegram-soundboard-automation-parity
-- Next engineering task: `TASK-260712-89fzlc` — windows-automation-admin-ui
-- Most recently accepted: `TASK-260712-288j4a` — macos-soundboard-hotkeys-schedules
-- Current branch: `tracking/task-260712-288j4a-macos-soundboard-hotkeys-schedules`
+- Current engineering task: `TASK-260712-89fzlc` — windows-automation-admin-ui
+- Next engineering task: `TASK-260712-1oodka` — macos-automation-admin-ui
+- Most recently accepted: `TASK-260712-uht9e2` — telegram-soundboard-automation-parity
+- Current branch: `tracking/task-260712-uht9e2-telegram-soundboard-automation-parity`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 138 / 205 tasks (67.3%); 67 remain
-- Engineering progress: 138 / 186 tasks (approximately 74.2%); 48 remain
+- Accepted overall: 139 / 205 tasks (67.8%); 66 remain
+- Engineering progress: 139 / 186 tasks (approximately 74.7%); 47 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3301,7 +3301,17 @@ Story: `STORY-260712-326wd5` — P3 Soundboard and safe automation.
   in 46 suites and hosted run `29548357370` passed 4/4; PR #217 merge
   `00df382`. Signed app, audible playback, physical keyboard, prompt and real-
   hardware evidence remains manual in `EPIC-260714-th54l3`)
-- [ ] `TASK-260712-uht9e2` — telegram-soundboard-automation-parity
+- [x] `TASK-260712-uht9e2` — telegram-soundboard-automation-parity (accepted on
+  exact code head `33b1594`; private `/soundboard` and `/automation` use
+  opaque actor/chat/message/revision-bound callbacks, canonical cue/target/
+  DND/block/Air/policy/transmission and automation services, schedule next-run
+  controls and emergency disable without issuing bearer or automation secrets
+  or entering capture. Forged, forwarded, expired, replayed, concurrent and
+  role-changed callbacks fail closed; bot prompt downtime leaves desktop state
+  unchanged. Exact clean coordinator acceptance passed 5/5 including previous-
+  head rollback, focused race and Air/target-security delta reviews passed,
+  hosted run `29549870725` passed 4/4; PR #219 merge `b333bd4`. Real Telegram,
+  audible app and hardware evidence remains manual in `EPIC-260714-th54l3`)
 - [ ] `TASK-260712-89fzlc` — windows-automation-admin-ui
 - [ ] `TASK-260712-1oodka` — macos-automation-admin-ui
 - [ ] `TASK-260712-2f0gpu` — automation-safety-evidence-handoff

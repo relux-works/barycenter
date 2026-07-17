@@ -4,23 +4,23 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 154 accepted, 51 remain.
-- Routed inventory: 186 engineering tasks (154 accepted, 32 remain) and 19
+- Combined inventory: 205 original tasks; 155 accepted, 50 remain.
+- Routed inventory: 186 engineering tasks (155 accepted, 31 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3da0vz` — phase3-gate-matrix-evidence-contract
-- Next engineering task: `TASK-260712-2uo81g` — phase3-observability-health-evidence-views
+- Current engineering task: `TASK-260712-2uo81g` — phase3-observability-health-evidence-views
+- Next engineering task: `TASK-260712-3g0axs` — phase3-root-line-review
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
   E2EE implementation task are deferred outside the current engineering epic,
   so strict execution resumes at section 17 without claiming them complete.
-- Most recently accepted: `TASK-260712-1023d7` — capture-quality-integrated-regressions
-- Current branch: `tracking/task-260712-1023d7-capture-quality-integrated-regressions`
+- Most recently accepted: `TASK-260712-3da0vz` — phase3-gate-matrix-evidence-contract
+- Current branch: `tracking/task-260712-3da0vz-phase3-gate-matrix-evidence-contract`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -41,8 +41,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 154 / 205 tasks (75.1%); 51 remain
-- Engineering progress: 154 / 186 tasks (approximately 82.8%); 32 remain
+- Accepted overall: 155 / 205 tasks (75.6%); 50 remain
+- Engineering progress: 155 / 186 tasks (approximately 83.3%); 31 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3582,7 +3582,26 @@ Story: `STORY-260712-3pt00e` — P3 Capture quality and diagnostics.
 Story: `STORY-260712-2ft5wd` — P3 Security acceptance and rollout. No
 capability is released merely because another capability passed its gate.
 
-- [ ] `TASK-260712-3da0vz` — phase3-gate-matrix-evidence-contract
+- [x] `TASK-260712-3da0vz` — phase3-gate-matrix-evidence-contract (accepted
+  on exact engineering commit `9d429325f1b342f0559b6cc4d604023de19af6e4`,
+  merged by PR #252 at `45a83e7273358dc60903672ff946680492990f4e`.
+  The frozen machine contract maps C1-C7 plus twelve section 21.4/exit gates to
+  repository preflight commands, exact manual/review paths, artifact layouts,
+  owners and truthful non-pass statuses. It enumerates all 16 ordered
+  live_ptt/e2ee_media/soundboard_cues/automation flag postures, preserves four
+  independent promotion decisions, binds one reviewed build/fixture/topology
+  identity, and freezes the seven-day reset rubric. Approved Relux Works/Ivan
+  Oparin legal, operations, mailbox, policy URL, moderation, hosting, Store and
+  counsel defaults are consumed from the canonical approved input contract.
+  Six remaining hardware/network/participant, deferred E2EE, independent
+  reviewer, public external-record and observability inputs remain explicit
+  blockers. The fail-closed campaign validator rejects source drift, false
+  passes, missing/misclassified flag cells, averaging, invented reviewers or
+  environments, raw evidence export, root/flag mismatch and artifact hash
+  tampering. Clean exact-head acceptance passed all 16 commands with a clean
+  start/end worktree and `manualEvidence=not-run`; hosted run `29576896538`
+  passed 4/4. No C1-C7, independent-review, physical-hardware, beta, Store or
+  promotion result is claimed.)
 - [ ] `TASK-260712-2uo81g` — phase3-observability-health-evidence-views
 - [ ] `TASK-260712-3g0axs` — phase3-root-line-review
 - [ ] `TASK-260712-1ulshp` — phase3-external-security-review-closure

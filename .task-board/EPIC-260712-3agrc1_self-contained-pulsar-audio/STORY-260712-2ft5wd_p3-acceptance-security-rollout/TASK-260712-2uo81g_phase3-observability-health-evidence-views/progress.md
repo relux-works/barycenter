@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-engineer
 
 ## Created
 2026-07-12T16:41:36Z
 
 ## Last Update
-2026-07-12T16:57:11Z
+2026-07-17T11:32:03Z
 
 ## Blocked By
 - TASK-260712-3da0vz
@@ -27,6 +27,7 @@ backlog
 - [ ] Fail closed on missing or redaction-unsafe telemetry needed for rollout decisions
 
 ## Notes
+2026-07-17 strict sequential inline engineering start after TASK-260712-3da0vz merged. Consume the frozen p3-gate-matrix-evidence.v1 contract without weakening claims. Execute outside task-board spawn workflow; real-app, hardware, reviewer and beta evidence remains manual/external and must not be invented.
 
 ## Precondition Resources
 (none)

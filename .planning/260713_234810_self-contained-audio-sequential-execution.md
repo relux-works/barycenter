@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 139 accepted, 66 remain.
-- Routed inventory: 186 engineering tasks (139 accepted, 47 remain) and 19
+- Combined inventory: 205 original tasks; 140 accepted, 65 remain.
+- Routed inventory: 186 engineering tasks (140 accepted, 46 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-89fzlc` — windows-automation-admin-ui
-- Next engineering task: `TASK-260712-1oodka` — macos-automation-admin-ui
-- Most recently accepted: `TASK-260712-uht9e2` — telegram-soundboard-automation-parity
-- Current branch: `tracking/task-260712-uht9e2-telegram-soundboard-automation-parity`
+- Current engineering task: `TASK-260712-1oodka` — macos-automation-admin-ui
+- Next engineering task: `TASK-260712-2f0gpu` — automation-safety-evidence-handoff
+- Most recently accepted: `TASK-260712-89fzlc` — windows-automation-admin-ui
+- Current branch: `tracking/task-260712-89fzlc-windows-automation-admin-ui`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 139 / 205 tasks (67.8%); 66 remain
-- Engineering progress: 139 / 186 tasks (approximately 74.7%); 47 remain
+- Accepted overall: 140 / 205 tasks (68.3%); 65 remain
+- Engineering progress: 140 / 186 tasks (approximately 75.3%); 46 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3312,7 +3312,17 @@ Story: `STORY-260712-326wd5` — P3 Soundboard and safe automation.
   head rollback, focused race and Air/target-security delta reviews passed,
   hosted run `29549870725` passed 4/4; PR #219 merge `b333bd4`. Real Telegram,
   audible app and hardware evidence remains manual in `EPIC-260714-th54l3`)
-- [ ] `TASK-260712-89fzlc` — windows-automation-admin-ui
+- [x] `TASK-260712-89fzlc` — windows-automation-admin-ui (accepted on exact
+  code head `92443f443f4b012ae56deea839d86009031de1a0`; strict schedule/principal/
+  history clients, timezone/DST/quiet-hour editing and projection, CAS and
+  idempotency, one-time redacted principal issuance with hardened timed
+  clipboard, confirmed destructive actions, emergency disable, pending-history
+  cancel and epoch-fenced fail-closed Win32 state/UI. Clean Windows automated
+  acceptance `acceptance-92443f4` passed 7/7 with a clean end state and hosted
+  run `29551417454` passed 4/4; PR #221 merge
+  `1b06463d0ffd441f693dd0c78b5c416c99d6a3cf`. `manualEvidence` is `not-run`;
+  real signed-package, accessibility, audible, physical DST and hardware
+  evidence remains manual in `EPIC-260714-th54l3`)
 - [ ] `TASK-260712-1oodka` — macos-automation-admin-ui
 - [ ] `TASK-260712-2f0gpu` — automation-safety-evidence-handoff
 

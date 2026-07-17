@@ -29,6 +29,35 @@ func (p *Player) SetSpeakerName(name string) {
 	p.mu.Unlock()
 }
 
+// SetCaptureQualityState is the future processor/UI seam. It stores only the
+// validated categorical projection and never enables or advertises capture.
+func (p *Player) SetCaptureQualityState(state *protocol.CaptureQualityState) error {
+	if err := protocol.ValidateCaptureQualityState(state); err != nil {
+		return err
+	}
+	p.mu.Lock()
+	p.captureQuality = protocol.CloneCaptureQualityState(state)
+	p.mu.Unlock()
+	if state != nil && (state.Quality != protocol.CaptureQualityAccepted || state.InputHealth != protocol.CaptureHealthOK) {
+		p.log.Info("capture quality diagnostic",
+			"generation", state.Generation,
+			"workflow", state.Workflow,
+			"quality", state.Quality,
+			"reason", state.Reason,
+			"input_health", state.InputHealth)
+	}
+	return nil
+}
+
+// CaptureQualityPresentation is the read-only native-shell seam. Passing the
+// build's advertised capabilities keeps legacy builds visibly unsupported.
+func (p *Player) CaptureQualityPresentation(capabilities protocol.CapabilitySet) protocol.CaptureQualityGuidance {
+	p.mu.Lock()
+	state := protocol.CloneCaptureQualityState(p.captureQuality)
+	p.mu.Unlock()
+	return protocol.PresentCaptureQuality(capabilities, state)
+}
+
 // StatePayload builds the 5 s heartbeat snapshot.
 func (p *Player) StatePayload(rttMS int64) protocol.StatePayload {
 	p.mu.Lock()
@@ -36,6 +65,7 @@ func (p *Player) StatePayload(rttMS int64) protocol.StatePayload {
 	uri := p.uri
 	volume := p.volume
 	speaker := p.speakerName
+	captureQuality := protocol.CloneCaptureQualityState(p.captureQuality)
 	p.mu.Unlock()
 
 	var uriPtr *string
@@ -43,14 +73,15 @@ func (p *Player) StatePayload(rttMS int64) protocol.StatePayload {
 		uriPtr = &uri
 	}
 	return protocol.StatePayload{
-		Playback:   playback,
-		URI:        uriPtr,
-		PositionMS: p.AudiblePositionMS(),
-		Volume:     volume,
-		Degraded:   false, // placeholder: no degradation source wired yet
-		Underruns:  p.underruns.Load(),
-		RTTMS:      rttMS,
-		Provider:   providerName,
+		Playback:       playback,
+		URI:            uriPtr,
+		PositionMS:     p.AudiblePositionMS(),
+		Volume:         volume,
+		Degraded:       false, // placeholder: no degradation source wired yet
+		Underruns:      p.underruns.Load(),
+		RTTMS:          rttMS,
+		CaptureQuality: captureQuality,
+		Provider:       providerName,
 		// Single WASAPI default endpoint; no Airfoil on Windows (spec 6.5).
 		Speakers: []protocol.Speaker{{Name: speaker, Connected: true}},
 	}

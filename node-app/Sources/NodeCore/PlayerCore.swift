@@ -70,6 +70,7 @@ public final class PlayerCore: MacInterruptControlling {
     // AirfoilBridge feed for the heartbeat (spec 6.5).
     private var speakerStates: [SpeakerState] = []
     private var airfoilDegraded = false
+    private var captureQualityState: CaptureQualityState?
 
     // ended-after-drain (spec 6.3 item 5).
     private var draining = false
@@ -994,6 +995,33 @@ public final class PlayerCore: MacInterruptControlling {
         }
     }
 
+    /// Future processor/UI seam. Valid categorical state is available to the
+    /// local shell immediately, but this build still does not advertise the
+    /// capture-quality capability or enable any DSP.
+    @discardableResult
+    public func updateCaptureQualityState(_ state: CaptureQualityState?) -> Bool {
+        queue.sync {
+            do { try CaptureQualityContract.validate(state) }
+            catch { return false }
+            captureQualityState = state
+            if let state, state.quality != "accepted" || state.inputHealth != "ok" {
+                log.info(
+                    "capture quality diagnostic",
+                    CaptureQualityPresentation.diagnosticLogFields(state))
+            }
+            return true
+        }
+    }
+
+    /// Read-only presentation for native shells; the caller passes the exact
+    /// build advertisement so a legacy build cannot render false parity.
+    public func captureQualityPresentation(capabilities: [String]) -> CaptureQualityGuidance {
+        queue.sync {
+            CaptureQualityPresentation.guidance(
+                capabilities: capabilities, state: captureQualityState)
+        }
+    }
+
     public func statePayload(fallbackSpeakers: [SpeakerState], rttMs: Int64) -> StatePayload {
         queue.sync {
             StatePayload(
@@ -1004,7 +1032,8 @@ public final class PlayerCore: MacInterruptControlling {
                 degraded: airfoilDegraded,
                 underruns: engine.underrunCallbacks,
                 rttMs: rttMs,
-                speakers: speakerStates.isEmpty ? fallbackSpeakers : speakerStates
+                speakers: speakerStates.isEmpty ? fallbackSpeakers : speakerStates,
+                captureQuality: captureQualityState
             )
         }
     }

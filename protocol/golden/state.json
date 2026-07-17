@@ -15,6 +15,24 @@
       { "name": "Гостиная", "connected": true },
       { "name": "Кухня", "connected": false }
     ],
+    "capture_quality": {
+      "contract": "capture-quality.v1",
+      "generation": 7,
+      "workflow": "live_ptt",
+      "requested_mode": "auto",
+      "resolved_mode": "speaker",
+      "lifecycle": "capturing",
+      "quality": "accepted",
+      "aec": "active",
+      "ns": "active",
+      "agc": "active",
+      "input_health": "ok",
+      "reason": "none",
+      "input_ceiling_dbfs": -3,
+      "updated_monotonic_ms": 42420,
+      "reference_age_ms": 18,
+      "processor_overruns": 0
+    },
     "provider": "yandex"
   }
 }

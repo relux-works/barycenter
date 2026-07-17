@@ -43,6 +43,9 @@ type NodeSnapshot struct {
 	Capabilities   protocol.CapabilitySet
 	PlaybackState  string
 	OutputDegraded bool
+	// CaptureQuality is an ephemeral, content-free heartbeat snapshot. Nil is
+	// the honest legacy/mixed-version state; callers receive a defensive copy.
+	CaptureQuality *protocol.CaptureQualityState
 	// RTT is tied to the authenticated socket generation. Reconnect clears the
 	// sample so a scheduler cannot arm media from a predecessor connection's
 	// clock evidence.
@@ -102,6 +105,8 @@ type conn struct {
 	stop                chan struct{}
 	once                sync.Once
 	credentialTokenHash string
+	capabilities        protocol.CapabilitySet
+	captureQualityGuard protocol.CaptureQualityGenerationGuard
 }
 
 type outboundFrame struct {
@@ -136,6 +141,7 @@ type Hub struct {
 	rttSampledAt   map[NodeKey]time.Time
 	playbackState  map[NodeKey]string
 	outputDegraded map[NodeKey]bool
+	captureQuality map[NodeKey]*protocol.CaptureQualityState
 }
 
 func New(log *slog.Logger, lookup TokenLookup, offlineAfter time.Duration) *Hub {
@@ -155,6 +161,7 @@ func New(log *slog.Logger, lookup TokenLookup, offlineAfter time.Duration) *Hub 
 		rttSampledAt:   map[NodeKey]time.Time{},
 		playbackState:  map[NodeKey]string{},
 		outputDegraded: map[NodeKey]bool{},
+		captureQuality: map[NodeKey]*protocol.CaptureQualityState{},
 	}
 }
 
@@ -250,6 +257,7 @@ func (h *Hub) NodeSnapshots() map[NodeKey]NodeSnapshot {
 			Capabilities:        h.capabilities[key],
 			PlaybackState:       h.playbackState[key],
 			OutputDegraded:      h.outputDegraded[key],
+			CaptureQuality:      protocol.CloneCaptureQualityState(h.captureQuality[key]),
 			CredentialTokenHash: credentialTokenHash,
 			RTTMS:               h.rttMS[key],
 			RTTSampledAt:        rttSampledAt,
@@ -321,6 +329,7 @@ func (h *Hub) Disconnect(key NodeKey) bool {
 		delete(h.capabilities, key)
 		delete(h.rttMS, key)
 		delete(h.rttSampledAt, key)
+		delete(h.captureQuality, key)
 	}
 	h.mu.Unlock()
 	if c == nil {
@@ -381,6 +390,7 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	c := &conn{
 		ws: ws, send: make(chan outboundFrame, 32), stop: make(chan struct{}),
 		credentialTokenHash: hex.EncodeToString(tokenDigest[:]),
+		capabilities:        capabilities,
 	}
 
 	h.mu.Lock()
@@ -395,6 +405,7 @@ func (h *Hub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	delete(h.rttSampledAt, key)
 	delete(h.playbackState, key)
 	delete(h.outputDegraded, key)
+	delete(h.captureQuality, key)
 	wasOnline := h.online[key]
 	h.online[key] = true
 	h.mu.Unlock()
@@ -550,6 +561,18 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 			h.log.Warn("bad payload", "slot", key.Slot, "type", env.Type, "err", err)
 			continue
 		}
+		if state, ok := payload.(*protocol.StatePayload); ok && state.CaptureQuality != nil {
+			if !c.capabilities.Supports(protocol.CapabilityCaptureQuality) {
+				h.log.Warn("capture quality state without capability rejected", "orbit", key.Orbit, "slot", key.Slot)
+				continue
+			}
+			result := c.captureQualityGuard.Accept(
+				state.CaptureQuality.Generation, state.CaptureQuality.UpdatedMonotonicMS)
+			if result == protocol.CaptureQualityStale || result == protocol.CaptureQualityInvalid {
+				h.log.Warn("stale capture quality state rejected", "orbit", key.Orbit, "slot", key.Slot, "result", result)
+				continue
+			}
+		}
 
 		h.mu.Lock()
 		if h.conns[key] != c {
@@ -566,10 +589,22 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 			h.rttSampledAt[key] = receivedAt
 			h.playbackState[key] = presencePlaybackState(state.Playback)
 			h.outputDegraded[key] = state.Degraded
+			h.captureQuality[key] = protocol.CloneCaptureQualityState(state.CaptureQuality)
 		}
 		cameBack := !h.online[key]
 		h.online[key] = true
 		h.mu.Unlock()
+		if state, ok := payload.(*protocol.StatePayload); ok && state.CaptureQuality != nil &&
+			(state.CaptureQuality.Quality != protocol.CaptureQualityAccepted ||
+				state.CaptureQuality.InputHealth != protocol.CaptureHealthOK) {
+			h.log.Info("capture quality diagnostic",
+				"orbit", key.Orbit, "slot", key.Slot,
+				"generation", state.CaptureQuality.Generation,
+				"workflow", state.CaptureQuality.Workflow,
+				"quality", state.CaptureQuality.Quality,
+				"reason", state.CaptureQuality.Reason,
+				"input_health", state.CaptureQuality.InputHealth)
+		}
 		if cameBack {
 			// Reliable, outside the lock (bugs #3): the old best-effort drop
 			// could strand a live node "offline" in the FSM after a burst.

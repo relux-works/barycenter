@@ -383,7 +383,7 @@ func TestV11AdditiveFieldsOmittedWhenEmpty(t *testing.T) {
 		{"solo_inject", TypeSoloInject, &SoloInjectPayload{URI: "spotify:track:x"},
 			[]string{`"provider"`, `"ref"`, `"ctid"`}},
 		{"state", TypeState, &StatePayload{Playback: "playing", Speakers: []Speaker{}},
-			[]string{`"provider"`}},
+			[]string{`"provider"`, `"capture_quality"`}},
 		{"external_playback", TypeExternalPlayback, &ExternalPlaybackPayload{URI: "spotify:track:x"},
 			[]string{`"position_ms"`}},
 	}

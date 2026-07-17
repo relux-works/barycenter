@@ -118,7 +118,13 @@ public final class CoordinatorClient: NSObject {
         hb.schedule(deadline: .now() + 2, repeating: 5) // spec 8.4: every 5 s
         hb.setEventHandler { [weak self] in
             guard let self, let provider = self.stateProvider else { return }
-            self.sendMessageOnQueue(.state(provider()))
+            let provided = provider()
+            let state = CaptureQualityContract.heartbeatState(
+                provided, advertisedCapabilities: self.capabilities)
+            if provided.captureQuality != nil && state.captureQuality == nil {
+                self.log.warn("capture quality heartbeat withheld until capability is advertised")
+            }
+            self.sendMessageOnQueue(.state(state))
         }
         hb.resume()
         heartbeatTimer = hb

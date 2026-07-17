@@ -10,6 +10,8 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PROTOCOL_PATH = ROOT / "protocol" / "capture-quality-v1.json"
 EVIDENCE_PATH = ROOT / "acceptance" / "phase3" / "capture-quality-contract-v1.json"
+DIAGNOSTICS_EVIDENCE_PATH = ROOT / "acceptance" / "phase3" / "capture-diagnostics-capability-v1.json"
+VECTORS_PATH = ROOT / "protocol" / "capture-quality-v1-vectors.json"
 
 
 class CaptureQualityContractError(ValueError):
@@ -270,14 +272,11 @@ def validate_evidence(evidence: dict) -> None:
 
 
 def validate_repository_boundaries() -> None:
-    runtime_capability_sources = [
-        ROOT / "coordinator" / "internal" / "protocol" / "protocol.go",
-        ROOT / "pulsar-win" / "wire" / "protocol.go",
+    runtime_advertisement_sources = [
         ROOT / "pulsar-win" / "main.go",
-        ROOT / "node-app" / "Sources" / "NodeCore" / "Protocol.swift",
         ROOT / "node-app" / "Sources" / "NodeCore" / "PlayerCore.swift",
     ]
-    for path in runtime_capability_sources:
+    for path in runtime_advertisement_sources:
         require("capture_quality_v1" not in path.read_text(encoding="utf-8"), f"runtime advertises frozen-only capability: {path.relative_to(ROOT)}")
 
     windows = (ROOT / "pulsar-win" / "media_clip.go").read_text(encoding="utf-8")
@@ -318,12 +317,102 @@ def validate_repository_boundaries() -> None:
         require(fragment in diagram, f"shared graph diagram incomplete: {fragment}")
 
 
+def validate_diagnostics_surface() -> None:
+    vectors = load(VECTORS_PATH)
+    require(vectors.get("schemaVersion") == 1, "unsupported capture-quality vector schema")
+    require(vectors.get("contract") == "capture-quality.v1-vectors", "wrong capture-quality vectors")
+    required = {
+        "contract", "generation", "workflow", "requested_mode", "resolved_mode",
+        "lifecycle", "quality", "aec", "ns", "agc", "input_health", "reason",
+        "input_ceiling_dbfs", "updated_monotonic_ms",
+    }
+    valid = vectors.get("validState", {})
+    require(required <= set(valid), "valid capture-quality vector is incomplete")
+    mutation_fields = {item.get("field") for item in vectors.get("invalidMutations", [])}
+    require(
+        {"contract", "generation", "workflow", "resolved_mode", "aec", "ns",
+         "input_health", "reason", "input_ceiling_dbfs", "reference_age_ms",
+         "processor_overruns"} <= mutation_fields,
+        "malformed capture-quality vectors are incomplete",
+    )
+    require(
+        [item.get("expected") for item in vectors.get("generationSequence", [])]
+        == ["apply", "duplicate", "stale", "apply", "stale", "apply", "invalid"],
+        "capture-quality generation sequence drifted",
+    )
+
+    evidence = load(DIAGNOSTICS_EVIDENCE_PATH)
+    require(evidence.get("schemaVersion") == 1, "unsupported diagnostics evidence schema")
+    require(
+        evidence.get("contract") == "p3-capture-diagnostics-capability-evidence.v1"
+        and evidence.get("task") == "TASK-260712-1pw1l1",
+        "wrong capture diagnostics evidence identity",
+    )
+    require(
+        evidence.get("decision") == {
+            "result": "protocol-surface-implemented-production-unadvertised",
+            "coordinatorMirror": True,
+            "windowsMirror": True,
+            "macOSMirror": True,
+            "capabilityBound": True,
+            "generationGuarded": True,
+            "productionCapabilityAdvertised": False,
+            "productionDSPImplemented": False,
+            "manualEvidence": "not-run",
+            "manualEpic": "EPIC-260714-th54l3",
+        },
+        "diagnostics decision invents capability, DSP or manual evidence",
+    )
+    require(evidence.get("privacy", {}).get("remoteCaptureAuthority") is False,
+            "diagnostics gained remote capture authority")
+    require(evidence.get("privacy", {}).get("persistentSnapshot") is False,
+            "diagnostics became persistent")
+
+    canonical = (ROOT / "coordinator" / "internal" / "protocol" / "capture_quality.go").read_text(encoding="utf-8")
+    windows = (ROOT / "pulsar-win" / "wire" / "capture_quality.go").read_text(encoding="utf-8")
+    windows_body = windows[windows.index("package protocol"):]
+    require(canonical == windows_body, "coordinator and Windows capture-quality mirrors drifted")
+
+    source_fragments = {
+        ROOT / "coordinator" / "internal" / "hub" / "hub.go": (
+            "CapabilityCaptureQuality", "captureQualityGuard.Accept", "CloneCaptureQualityState",
+        ),
+        ROOT / "pulsar-win" / "wsclient.go": (
+            "stateForHeartbeat", "CapabilityCaptureQuality", "state.CaptureQuality = nil",
+        ),
+        ROOT / "node-app" / "Sources" / "NodeCore" / "CoordinatorClient.swift": (
+            "CaptureQualityContract.heartbeatState", "provided.captureQuality",
+        ),
+        ROOT / "node-app" / "Sources" / "NodeCore" / "CaptureQualityProtocol.swift": (
+            "CaptureQualityGenerationGuard", "capture_quality.mixed_version",
+            "diagnosticLogFields",
+        ),
+    }
+    for path, fragments in source_fragments.items():
+        text = path.read_text(encoding="utf-8")
+        for fragment in fragments:
+            require(fragment in text, f"capture diagnostics surface missing {fragment}: {path.relative_to(ROOT)}")
+
+    document = (ROOT / "docs" / "analysis" / "p3-capture-diagnostics-capability-v1.md").read_text(encoding="utf-8")
+    for fragment in (
+        "observational", "mixed_version", "Stale state never reaches consumers",
+        "production builds still do not advertise", "EPIC-260714-th54l3",
+    ):
+        require(fragment in document, f"diagnostics handoff disclosure missing: {fragment}")
+    require(
+        "p3-capture-diagnostics-capability-v1.md"
+        in (ROOT / "docs" / "protocol.md").read_text(encoding="utf-8"),
+        "protocol notes omit capture diagnostics handoff",
+    )
+
+
 def main() -> int:
     protocol = load(PROTOCOL_PATH)
     evidence = load(EVIDENCE_PATH)
     validate_protocol(protocol)
     validate_evidence(evidence)
     validate_repository_boundaries()
+    validate_diagnostics_surface()
     print(json.dumps({
         "contract": protocol["contract"],
         "decision": evidence["decision"]["result"],

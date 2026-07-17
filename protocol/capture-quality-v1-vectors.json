@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "contract": "capture-quality.v1-vectors",
+  "validState": {
+    "contract": "capture-quality.v1",
+    "generation": 7,
+    "workflow": "live_ptt",
+    "requested_mode": "auto",
+    "resolved_mode": "speaker",
+    "lifecycle": "capturing",
+    "quality": "accepted",
+    "aec": "active",
+    "ns": "active",
+    "agc": "active",
+    "input_health": "ok",
+    "reason": "none",
+    "input_ceiling_dbfs": -3,
+    "updated_monotonic_ms": 42420,
+    "reference_age_ms": 18,
+    "processor_overruns": 0
+  },
+  "invalidMutations": [
+    {"name": "contract-downgrade", "field": "contract", "value": "capture-quality.v0"},
+    {"name": "zero-generation", "field": "generation", "value": 0},
+    {"name": "unknown-workflow", "field": "workflow", "value": "remote_capture"},
+    {"name": "unknown-requested-mode", "field": "requested_mode", "value": "coordinator"},
+    {"name": "accepted-unknown-route", "field": "resolved_mode", "value": "unknown"},
+    {"name": "speaker-aec-bypass", "field": "aec", "value": "not_required"},
+    {"name": "accepted-clipping", "field": "input_health", "value": "clipping"},
+    {"name": "accepted-with-degraded-reason", "field": "reason", "value": "reference_stale"},
+    {"name": "wrong-input-ceiling", "field": "input_ceiling_dbfs", "value": -1},
+    {"name": "stale-reference", "field": "reference_age_ms", "value": 101},
+    {"name": "negative-overruns", "field": "processor_overruns", "value": -1},
+    {"name": "ns-not-required", "field": "ns", "value": "not_required"}
+  ],
+  "generationSequence": [
+    {"generation": 7, "updated_monotonic_ms": 42420, "expected": "apply"},
+    {"generation": 7, "updated_monotonic_ms": 42420, "expected": "duplicate"},
+    {"generation": 7, "updated_monotonic_ms": 42419, "expected": "stale"},
+    {"generation": 8, "updated_monotonic_ms": 10, "expected": "apply"},
+    {"generation": 7, "updated_monotonic_ms": 50000, "expected": "stale"},
+    {"generation": 8, "updated_monotonic_ms": 11, "expected": "apply"},
+    {"generation": 0, "updated_monotonic_ms": 12, "expected": "invalid"}
+  ]
+}

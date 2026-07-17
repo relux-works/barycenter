@@ -358,11 +358,21 @@ func (c *WSClient) timers(done <-chan struct{}) {
 			c.Send(protocol.TypePing, &protocol.PingPayload{T1: nowMS()})
 		case <-heartbeat.C:
 			if c.StateProvider != nil {
-				state := c.StateProvider()
+				state := c.stateForHeartbeat()
 				c.Send(protocol.TypeState, &state)
 			}
 		}
 	}
+}
+
+func (c *WSClient) stateForHeartbeat() protocol.StatePayload {
+	state := c.StateProvider()
+	if state.CaptureQuality != nil &&
+		!containsCapability(c.identity.Capabilities, protocol.CapabilityCaptureQuality) {
+		c.log.Warn("capture quality heartbeat withheld until capability is advertised")
+		state.CaptureQuality = nil
+	}
+	return state
 }
 
 func (c *WSClient) readLoop(conn *websocket.Conn) {

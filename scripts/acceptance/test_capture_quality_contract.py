@@ -26,6 +26,7 @@ class CaptureQualityContractTests(unittest.TestCase):
         validator.validate_protocol(self.protocol)
         validator.validate_evidence(self.evidence)
         validator.validate_repository_boundaries()
+        validator.validate_diagnostics_surface()
 
     def test_rejects_missing_common_workflow(self):
         changed = copy.deepcopy(self.protocol)

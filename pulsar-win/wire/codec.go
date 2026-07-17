@@ -108,6 +108,11 @@ func decode(env Envelope, strict bool) (any, error) {
 	if err := validateLivePTTPayload(target); err != nil {
 		return nil, fmt.Errorf("validate %s payload: %w", env.Type, err)
 	}
+	if state, ok := target.(*StatePayload); ok {
+		if err := ValidateCaptureQualityState(state.CaptureQuality); err != nil {
+			return nil, fmt.Errorf("validate state capture_quality: %w", err)
+		}
+	}
 	return target, nil
 }
 
@@ -115,6 +120,11 @@ func decode(env Envelope, strict bool) (any, error) {
 func NewEnvelope(id string, ts int64, msgType string, payload any) (Envelope, error) {
 	if !KnownType(msgType) {
 		return Envelope{}, fmt.Errorf("unknown message type %q", msgType)
+	}
+	if state, ok := payload.(*StatePayload); ok {
+		if err := ValidateCaptureQualityState(state.CaptureQuality); err != nil {
+			return Envelope{}, fmt.Errorf("validate state capture_quality: %w", err)
+		}
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {

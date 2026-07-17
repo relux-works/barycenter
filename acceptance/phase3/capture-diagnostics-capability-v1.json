@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-capture-diagnostics-capability-evidence.v1",
+  "task": "TASK-260712-1pw1l1",
+  "publishedAt": "2026-07-17",
+  "decision": {
+    "result": "protocol-surface-implemented-production-unadvertised",
+    "coordinatorMirror": true,
+    "windowsMirror": true,
+    "macOSMirror": true,
+    "capabilityBound": true,
+    "generationGuarded": true,
+    "productionCapabilityAdvertised": false,
+    "productionDSPImplemented": false,
+    "manualEvidence": "not-run",
+    "manualEpic": "EPIC-260714-th54l3"
+  },
+  "mixedVersion": {
+    "missingCapability": "unsupported",
+    "reason": "mixed_version",
+    "presentationKey": "capture_quality.mixed_version",
+    "legacyHeartbeatContinues": true,
+    "falseAcceptedStateAllowed": false
+  },
+  "privacy": {
+    "diagnosticFields": [
+      "contract",
+      "generation",
+      "workflow",
+      "quality",
+      "reason",
+      "input_health",
+      "processor_overruns"
+    ],
+    "forbidden": [
+      "audio",
+      "raw level samples",
+      "render reference",
+      "device identity",
+      "filename",
+      "local path",
+      "transcript",
+      "secret"
+    ],
+    "remoteCaptureAuthority": false,
+    "persistentSnapshot": false
+  }
+}

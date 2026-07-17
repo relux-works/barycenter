@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "contract": "capture-quality.v1",
+  "task": "TASK-260712-1gmsvh",
+  "publishedAt": "2026-07-17",
+  "productionMode": "disabled_pending_platform_implementation_and_c3_evidence",
+  "capability": {
+    "name": "capture_quality_v1",
+    "currentlyAdvertised": false,
+    "advertiseOnlyWhen": [
+      "the common processor is installed for recorded_clip, local_self_test and live_ptt",
+      "the resolved route is accepted and every required effect is active or explicitly not_required",
+      "capture-quality state is visible locally and the additive heartbeat surface is enabled",
+      "the platform implementation and deterministic regression tasks pass on the exact build"
+    ],
+    "doesNotAuthorize": [
+      "remote microphone start",
+      "coordinator-selected route or effect settings",
+      "coordinator-selected input or output ceiling",
+      "an acoustic C3 or hardware claim"
+    ]
+  },
+  "workflows": [
+    {
+      "id": "recorded_clip",
+      "source": "explicit local Record action",
+      "sink": "app-private partial then durable draft",
+      "networkDuringCapture": false,
+      "maximumDurationMS": 180000
+    },
+    {
+      "id": "local_self_test",
+      "source": "explicit local five-second self-test action",
+      "sink": "app-private temporary record-then-play media",
+      "networkDuringCapture": false,
+      "maximumDurationMS": 5000
+    },
+    {
+      "id": "live_ptt",
+      "source": "explicit local hold or acknowledged toggle",
+      "sink": "local Opus encoder and bounded live queue",
+      "networkDuringCapture": true,
+      "maximumDurationMS": 300000
+    }
+  ],
+  "ownership": {
+    "controlOwner": "one serialized platform capture-quality controller per process",
+    "captureCallback": "timestamps device frames and performs bounded nonblocking enqueue only",
+    "renderCallback": "timestamps the exact local output samples and performs bounded nonblocking reference-ring enqueue only",
+    "processorWorker": "owns format alignment, reference alignment, AEC, NS, AGC and generation state",
+    "sinkWorker": "owns draft I/O or live encoding after processed frames leave the processor",
+    "realtimeForbidden": ["blocking locks", "allocation", "filesystem I/O", "network I/O", "logging"],
+    "generationRule": "every start, route change, device change and terminal teardown advances generation; older capture and reference frames are discarded"
+  },
+  "graph": {
+    "captureOrder": [
+      "explicit_indicator_and_generation",
+      "device_capture",
+      "capture_clock_and_format_alignment",
+      "render_reference_alignment",
+      "acoustic_echo_cancellation",
+      "noise_suppression",
+      "bounded_input_agc",
+      "workflow_sink",
+      "terminal_teardown"
+    ],
+    "commonProcessorRequired": true,
+    "parallelWorkflowImplementationsAllowed": false,
+    "stages": [
+      {"id": "explicit_indicator_and_generation", "input": "local user action", "output": "visible preparing state and fresh generation", "mayBypass": false},
+      {"id": "device_capture", "input": "selected or default input device", "output": "timestamped native PCM", "mayBypass": false},
+      {"id": "capture_clock_and_format_alignment", "input": "native PCM", "output": "48 kHz mono float PCM with capture-clock position", "mayBypass": false},
+      {"id": "render_reference_alignment", "input": "timestamped pre-device render reference", "output": "capture-clock-aligned reference or typed unavailable reason", "mayBypass": "only when AEC requirement is not_required for an accepted headphone route"},
+      {"id": "acoustic_echo_cancellation", "input": "aligned capture and eligible reference", "output": "echo-controlled PCM", "mayBypass": "only as explicit not_required or explicit degraded fallback"},
+      {"id": "noise_suppression", "input": "echo-controlled PCM", "output": "noise-controlled PCM", "mayBypass": "only as explicit degraded fallback"},
+      {"id": "bounded_input_agc", "input": "noise-controlled PCM", "output": "level-controlled PCM below the input ceiling", "mayBypass": "only as explicit degraded fallback"},
+      {"id": "workflow_sink", "input": "one common processed PCM stream", "output": "draft/self-test writer or live encoder", "mayBypass": false},
+      {"id": "terminal_teardown", "input": "stop, cancel, failure, route/device change or lifecycle edge", "output": "closed devices, zero live queues and invalidated generation", "mayBypass": false}
+    ]
+  },
+  "renderReference": {
+    "owner": "local playback render graph",
+    "tap": "after program/live/overlay summing, the -1 dBFS post-mix limiter and final non-amplifying local volume; immediately before device submission",
+    "includes": ["main program", "media overlays", "interrupt inserts", "received live PTT", "recording cues when capture commit is disabled"],
+    "excludes": ["microphone capture", "remote or coordinator-generated synthetic reference", "samples from an older route generation"],
+    "timestamp": "render device sample position plus monotonic host time",
+    "alignmentOwner": "processor worker",
+    "alignment": {
+      "captureFormat": "48000 Hz mono float32",
+      "maximumSearchWindowMS": 250,
+      "maximumReferenceAgeMS": 100,
+      "maximumClockDriftPPM": 200,
+      "discontinuityAction": "stop committing output, advance generation and enter reconfiguring"
+    },
+    "privacy": "reference samples are memory-only, bounded to 500 ms, never logged, persisted, uploaded or included in crash reports"
+  },
+  "routes": {
+    "requestedModes": ["auto", "speaker", "headphone"],
+    "resolvedModes": ["speaker", "headphone", "unknown"],
+    "autoRule": "resolve the current physical route before capture and report the resolved mode; unknown is never accepted",
+    "speakerAcceptedRequires": ["eligible synchronized render reference", "aec active", "ns active", "agc active"],
+    "headphoneAcceptedRequires": ["headphone route positively identified", "ns active", "agc active"],
+    "headphoneAEC": "active when supported; otherwise not_required only after the route is positively identified as headphones",
+    "excludedAcceptedRoutes": ["AirPlay", "aggregate device", "remote desktop", "unknown route"],
+    "deviceOrRouteChange": {
+      "action": "stop sample commit and live send, keep the capture indicator visible, advance generation, flush processor/reference/sink queues, resolve and re-arm",
+      "maximumRearmMS": 1500,
+      "onTimeout": "terminal unsupported with an explicit reason; never resume raw samples"
+    }
+  },
+  "states": {
+    "lifecycle": ["idle", "preparing", "awaiting_fallback_consent", "capturing", "reconfiguring", "stopping", "failed"],
+    "quality": ["accepted", "degraded", "unsupported"],
+    "effect": ["active", "not_required", "unavailable", "faulted"],
+    "inputHealth": ["ok", "silent", "too_quiet", "clipping", "no_device", "permission_denied", "reference_stale", "clock_unstable", "processor_overrun"],
+    "reasons": [
+      "none", "user_selected_unprocessed", "aec_unavailable", "reference_unavailable", "reference_stale", "route_unknown",
+      "route_excluded", "ns_unavailable", "agc_unavailable", "device_lost", "permission_denied", "clock_unstable",
+      "processor_overrun", "rearm_timeout", "mixed_version"
+    ],
+    "indicatorRule": "the local visible and accessible indicator enters preparing before permission or device activation, remains visible through fallback consent, capture, reconfiguration and teardown, and clears only after device/reference/processor/sink shutdown completes"
+  },
+  "ceilings": {
+    "inputAGC": {
+      "stage": "before every workflow sink",
+      "targetRMSDBFS": -20.0,
+      "targetToleranceDB": 3.0,
+      "peakCeilingDBFS": -3.0,
+      "maximumDigitalGainDB": 12.0,
+      "maximumGainChangeDBPerSecond": 3.0,
+      "coordinatorMutable": false
+    },
+    "receiverOutput": {
+      "stage": "-1 dBFS post-mix limiter followed only by the final non-amplifying local volume before output",
+      "peakCeilingDBFS": -1.0,
+      "controlledBy": "recipient local application",
+      "coordinatorMutable": false,
+      "inputAGCMayOverride": false
+    }
+  },
+  "fallback": {
+    "accepted": "capture may start without an additional warning",
+    "degraded": "show the exact missing effect/reason and require per-session local consent before any microphone sample is committed",
+    "unsupported": "do not commit or send microphone samples",
+    "recorded_clip": "may offer one explicit unprocessed Phase-1 recording action; it remains quality=degraded and does not advertise capture_quality_v1",
+    "local_self_test": "may offer one explicit unprocessed local-only action; it remains quality=degraded and does not advertise capture_quality_v1",
+    "live_ptt": "cancel live start and optionally offer the existing separate recorded-clip action; automatic live-to-clip fallback is forbidden",
+    "mixedVersion": "a peer without capture_quality_v1 is displayed as unknown quality; it is never upgraded to accepted, but does not block ordinary live_ptt_v1 transport unless product policy explicitly requires quality"
+  },
+  "surfaces": {
+    "registerCapability": "capture_quality_v1",
+    "heartbeatExtension": {
+      "field": "capture_quality",
+      "requiredFields": ["contract", "generation", "workflow", "requested_mode", "resolved_mode", "lifecycle", "quality", "aec", "ns", "agc", "input_health", "reason", "input_ceiling_dbfs", "updated_monotonic_ms"],
+      "optionalFields": ["reference_age_ms", "processor_overruns"],
+      "forbiddenFields": ["audio bytes", "render-reference bytes", "device id", "device name", "absolute path", "filename", "transcript", "raw level samples"],
+      "authority": "client observational state only; coordinator cannot command capture from it"
+    },
+    "history": {
+      "newPersistentCaptureQualityObject": false,
+      "rule": "do not persist transient route, effect or input-health snapshots in transmission history",
+      "allowedTerminalCodes": ["capture_quality_unsupported", "capture_quality_degraded_declined", "capture_quality_reconfigured", "capture_quality_failed"]
+    }
+  },
+  "privacy": {
+    "remoteCaptureAuthority": false,
+    "indicatorMayBeWeakened": false,
+    "persistRawMicrophoneForDiagnostics": false,
+    "persistRenderReference": false,
+    "telemetry": "categorical state, counters and bounded timings only; no content, device identity or local paths",
+    "manualFixtures": "purpose-built consented fixture speech only; never private user capture"
+  },
+  "rollback": {
+    "order": ["withdraw capture_quality_v1 advertisement", "disable quality-required policy", "stop active quality generations", "retain additive unknown heartbeat compatibility", "run legacy clip/live paths only with their existing explicit indicators and claims"],
+    "silentClaimRetentionAllowed": false
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-capture-quality-contract-evidence.v1",
+  "task": "TASK-260712-1gmsvh",
+  "publishedAt": "2026-07-17",
+  "decision": {
+    "result": "contract-frozen-implementation-and-manual-c3-required",
+    "protocolFrozen": true,
+    "productionReady": false,
+    "c3Accepted": false,
+    "manualEvidence": "not-run",
+    "manualEpic": "EPIC-260714-th54l3"
+  },
+  "requirements": [
+    {"id": "p3.2-aec", "graphSeam": "render_reference_alignment -> acoustic_echo_cancellation", "state": "aec active/not_required/unavailable/faulted", "negative": "speaker route without eligible synchronized reference", "evidence": ["far_end_only", "double_talk", "echo_path_change"]},
+    {"id": "p3.2-ns", "graphSeam": "noise_suppression", "state": "ns active/unavailable/faulted", "negative": "noise suppression removes or distorts near-end speech", "evidence": ["near_end_only", "double_talk", "stationary_noise"]},
+    {"id": "p3.2-agc", "graphSeam": "bounded_input_agc", "state": "agc active/unavailable/faulted", "negative": "input peak exceeds -3 dBFS or gain exceeds 12 dB", "evidence": ["near_end_only", "clipping", "too_quiet"]},
+    {"id": "p3.2-routes", "graphSeam": "render_reference_alignment", "state": "requested/resolved auto/speaker/headphone", "negative": "unknown or excluded route is marked accepted", "evidence": ["route_change", "device_loss"]},
+    {"id": "p3.2-health", "graphSeam": "capture_clock_and_format_alignment", "state": "inputHealth categorical value", "negative": "silence, clipping, stale reference or overrun stays healthy", "evidence": ["silence", "clipping", "clock_drift", "processor_overrun"]},
+    {"id": "p3.2-parity", "graphSeam": "common processor contract", "state": "accepted/degraded/unsupported per exact platform route", "negative": "one platform advertises acceptance without the same rubric", "evidence": ["platform_route_matrix"]},
+    {"id": "c3-no-return-echo", "graphSeam": "render reference + AEC", "state": "accepted only", "negative": "a blinded listener can transcribe intelligible return echo", "evidence": ["far_end_only", "double_talk"]},
+    {"id": "c3-preserve-near-end", "graphSeam": "AEC -> NS -> bounded AGC", "state": "accepted only", "negative": "double-talk destroys or gates near-end speech", "evidence": ["near_end_only", "double_talk"]},
+    {"id": "c3-visible-degradation", "graphSeam": "indicator + heartbeat", "state": "degraded/unsupported with typed reason", "negative": "raw capture continues without per-session consent", "evidence": ["missing_reference", "route_change", "effect_failure"]}
+  ],
+  "objectiveRubric": {
+    "sampleFormat": "48000 Hz mono float32",
+    "metrics": {
+      "farEndOnly": {"convergenceMS": 2000, "medianERLEMinDB": 18.0, "p10ERLEMinDB": 10.0, "residualRMSMaxDBFS": -45.0},
+      "nearEndOnly": {"absoluteLevelChangeMaxDB": 3.0, "stoiDeltaMin": -0.05},
+      "doubleTalk": {"nearEndAttenuationMaxDB": 3.0, "stoiDeltaMin": -0.05, "medianERLEMinDB": 6.0},
+      "noiseSuppression": {"snrImprovementMinDB": 6.0, "nearEndAttenuationMaxDB": 3.0},
+      "inputAGC": {"targetRMSDBFS": -20.0, "toleranceDB": 3.0, "peakMaxDBFS": -3.0, "maximumGainDB": 12.0, "maximumGainChangeDBPerSecond": 3.0},
+      "clipping": {"clippedSampleFractionMax": 0.001},
+      "processor": {"addedLatencyP95MaxMS": 20.0, "callbackAllocationMax": 0, "callbackBlockingWaitMax": 0},
+      "routeChange": {"committedSamplesDuringReconfigureMax": 0, "maximumRearmMS": 1500},
+      "clockDrift": {"fixtureRangePPM": 200, "referenceAgeMaxMS": 100}
+    },
+    "rule": "every accepted route/workflow cell must pass every applicable threshold independently; results are never averaged across platforms, routes or workflows"
+  },
+  "blindedListeningRubric": {
+    "status": "not-run",
+    "minimumIndependentListeners": 3,
+    "repetitionsPerCell": 2,
+    "randomization": "hash-named processed/control pairs in a per-listener seeded random order with platform, route and processing labels hidden",
+    "intelligibleEchoDefinition": "the listener correctly transcribes two consecutive words from the far-end source as return echo",
+    "acceptedCellPass": "zero intelligible-echo findings across all six ratings, median near-end quality at least 4 of 5, and no double-talk rating below 3 of 5",
+    "degradedCellRule": "publish the exact warning and results; never merge it into accepted totals",
+    "artifactRule": "store consented fixture hashes, rubric forms and aggregate ratings; expire human audio according to the manual test plan"
+  },
+  "matrix": [
+    {"id": "far_end_only", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker", "headphone"], "objective": ["farEndOnly", "processor"], "listening": true},
+    {"id": "near_end_only", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker", "headphone"], "objective": ["nearEndOnly", "noiseSuppression", "inputAGC", "processor"], "listening": true},
+    {"id": "double_talk", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker", "headphone"], "objective": ["doubleTalk", "processor"], "listening": true},
+    {"id": "echo_path_change", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker"], "objective": ["farEndOnly", "doubleTalk"], "listening": true},
+    {"id": "route_change", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker", "headphone", "unknown"], "objective": ["routeChange"], "listening": false},
+    {"id": "clock_drift", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker"], "objective": ["clockDrift", "farEndOnly"], "listening": false},
+    {"id": "clipping", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker", "headphone"], "objective": ["inputAGC", "clipping"], "listening": false},
+    {"id": "too_quiet", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker", "headphone"], "objective": ["inputAGC"], "listening": false},
+    {"id": "silence", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker", "headphone"], "objective": ["processor"], "listening": false},
+    {"id": "device_loss", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker", "headphone"], "objective": ["routeChange"], "listening": false},
+    {"id": "processor_overrun", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker", "headphone"], "objective": ["processor"], "listening": false},
+    {"id": "missing_reference", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker"], "objective": ["routeChange"], "listening": false},
+    {"id": "effect_failure", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker", "headphone"], "objective": ["processor"], "listening": false},
+    {"id": "platform_route_matrix", "workflows": ["recorded_clip", "local_self_test", "live_ptt"], "routes": ["speaker", "headphone", "unknown"], "objective": ["farEndOnly", "nearEndOnly", "doubleTalk", "routeChange"], "listening": true}
+  ],
+  "manualEvidence": {
+    "status": "not-run",
+    "windowsSignedHardware": "not-run",
+    "macosSignedHardware": "not-run",
+    "crossPlatformAcousticMatrix": "not-run",
+    "blindedListening": "not-run",
+    "accessibilityAndVisibleIndicator": "not-run",
+    "physicalCPUAndMemory": "not-run"
+  },
+  "downstreamOwners": {
+    "platformProbes": ["TASK-260712-265o0f", "TASK-260712-2gaswa"],
+    "diagnosticsSurface": "TASK-260712-1pw1l1",
+    "regressionHarness": "TASK-260712-39czd2",
+    "platformEffects": ["TASK-260712-wcdz08", "TASK-260712-2egweh"],
+    "integratedRegressions": "TASK-260712-1023d7",
+    "manualC3Evidence": "TASK-260712-2e80pr"
+  }
+}

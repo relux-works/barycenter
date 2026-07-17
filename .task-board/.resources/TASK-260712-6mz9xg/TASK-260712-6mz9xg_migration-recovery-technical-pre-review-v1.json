@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-migration-recovery-technical-pre-review.v1",
+  "task": "TASK-260712-6mz9xg",
+  "reviewedAt": "2026-07-17",
+  "rootReview": {
+    "sourceCommit": "d94f51644a3acf37601b4a869b4247380372f9ec",
+    "sourceTree": "4e4cca878db806650eda6f1e1642051b87a18b93"
+  },
+  "reviewer": {
+    "id": "codex-inline-pre-reviewer",
+    "independenceRequired": true,
+    "independenceSatisfied": false,
+    "accountableOwner": "Ivan Oparin",
+    "independentApprovalTask": "TASK-260717-1sgb5r",
+    "approvalStatus": "required"
+  },
+  "decision": {
+    "result": "engineering-pre-review-complete-external-manual-and-e2ee-blocked",
+    "repositoryPreflightPassed": true,
+    "criticalOrHighTechnicalFindingsOpen": false,
+    "productionRestoreClaimed": false,
+    "destructiveDrillClaimed": false,
+    "e2eeRecoveryClaimed": false,
+    "affectedPhase3FlagsAllowed": false,
+    "rolloutRecoveryAccepted": false,
+    "betaAllowed": false,
+    "phase3PromotionAllowed": false,
+    "manualEvidenceClaimed": false,
+    "nextEngineeringTaskMayStart": true
+  },
+  "sourceAnchors": [
+    {"path": "coordinator/internal/store/store.go", "sha256": "fb26e0809acb8ce7cfa336cfb9c8d887a88120fef9f6ef54c969181f12edd9e4"},
+    {"path": "coordinator/internal/store/identity_schema.go", "sha256": "621c2d3bfb24c25bb8a6f1895dfbee612dd26d9734c6a67fbb0db48ea403c1ad"},
+    {"path": "coordinator/internal/store/onboarding.go", "sha256": "77f30536883a5798274e0b001bde7299f37bea5f6e64b0d402f1362cc1bba0f9"},
+    {"path": "coordinator/internal/store/air_schema.go", "sha256": "fdb79c4e0ff4ed29eb9926430ba9ac2e9e719d77f13ffad6715eecd29919e485"},
+    {"path": "coordinator/internal/store/air.go", "sha256": "5d65f51b7a48e3d75c00138d0d2d3acf4d5c81372d7cbfa2e9c3d05246536cdb"},
+    {"path": "coordinator/internal/store/automation_lineage.go", "sha256": "d918dc19d4a4c4234a631532e8b3218d07865cd39a87a4f49aa869a4a63d88e2"},
+    {"path": "coordinator/internal/store/automation_control_automation.go", "sha256": "2bd237c20b345989ac4013d9c56706c1752f7b3e59de20edb2d74634efd98b84"},
+    {"path": "coordinator/internal/store/automation_runtime.go", "sha256": "39c5308ba899fd8ac3549074033b2f0f33c316289053bac145e08c0e7ead2e14"},
+    {"path": "coordinator/internal/store/automation_control_schema.go", "sha256": "69e2dec5fb9ae6b8a84e977e119f195db7683e0d69fc9356c08d3bbff42a2feb"},
+    {"path": "coordinator/internal/store/automation_runtime_schema.go", "sha256": "b41e7a7e276e57eda5a96dfb871cf7ff6ab7a1a9059dd3f9ddea046bf795e79b"},
+    {"path": "coordinator/internal/store/transmission_scheduler.go", "sha256": "5fecd7f82e572bb0b09896c537c56228d8ebf42a47d86f2d5f2e886dff78083a"},
+    {"path": "coordinator/internal/config/config.go", "sha256": "3d8327a410dc768a035e31569db20ac1701e8b11c4bd4899de9ecf090d0979bf"},
+    {"path": "coordinator/cmd/duet-coordinator/main.go", "sha256": "c31512df77f36ed82be588cddc3f776c7bfc57151dfba767162f02b634f3433a"},
+    {"path": "coordinator/cmd/duet-coordinator/live_ptt_runtime.go", "sha256": "6b43699172883b90195e285de422842f48da952ac24b375f4d48c35a4225f171"},
+    {"path": "coordinator/cmd/duet-coordinator/phase3_observability_http.go", "sha256": "3c2acda91eb80b179b553f62514f7e61b2a6feee1a98e7266da69423cff33ab0"},
+    {"path": "docs/backup-restore.md", "sha256": "d6f61eb439f0ddb5a745b4418f87eaefeac4b8f5a8cd44bcb845ac4cdad6acd4"},
+    {"path": "pulsar-win/protected_repository.go", "sha256": "5021868e5f32b37f962c633d0a250a611eabe7a9cb06c6eaf1e610db273318c9"},
+    {"path": "pulsar-win/recovery_service.go", "sha256": "b146a4f0447694d185e5d87eaa1ebad599cd84df9ab2e9870868e040ca76b93e"},
+    {"path": "pulsar-win/windows_live_ptt_node.go", "sha256": "c9b3b1097d1c33ef5d7ad3010ce5c127c162e40c95f2c64b984401bf91183a08"},
+    {"path": "pulsar-win/e2ee_contract_audit.go", "sha256": "73b2ee8b2304b1648c6a1394eec24068281f84927774526585b35990a81378b9"},
+    {"path": "node-app/Sources/NodeCore/RecoveryService.swift", "sha256": "94135aeaaac8b1b728253498ab61e2a5220f72a5e62d54be1381a972279cd1b7"},
+    {"path": "node-app/Sources/NodeCore/RecoveryExport.swift", "sha256": "79c1ef32ad64050e546aa89487f3f34f2104ec292b662f631f7bf28c16697901"},
+    {"path": "node-app/Sources/NodeCore/MacLivePTTNode.swift", "sha256": "129ff8304c7d5ed6b3871108706dca8f905baa02f4658c6bfdc5f3a478024cba"},
+    {"path": "node-app/Sources/NodeCore/E2EEAuditContract.swift", "sha256": "3c03962b38e78298c6ae6f2a591d6714b513652337e80322123804abf0f3f061"},
+    {"path": "acceptance/phase3/root-line-review-v1.json", "sha256": "9a359f9021916f70c9187b9c3e35cf14ca133f3b65bb73154c774b26370142b0"},
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "6beb9260acea0e5eb98bfd02c3e7dcc8c9a88055e16b0a4d13bc73b552787318"},
+    {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "54255ef7307d679db97f1c6a219ebb3eff7556d2fe1e34115b4639ac7917a205"},
+    {"path": "acceptance/phase3/automation-safety-evidence-v1.json", "sha256": "f5c70f080fc0b09fc17e7fc632ee82459a3287285036e2974c1178bcf93ef906"},
+    {"path": "docs/legal/en/privacy.md", "sha256": "1fed3103d6a12444555e32e8f51bab15d3554e83166b6c6473e43cd1dcfc6e8e"}
+  ],
+  "reviewedInvariants": [
+    "schema-changes-are-additive-transactional-and-retryable",
+    "exact-predecessor-rollback-preserves-known-and-unknown-current-rows",
+    "unsafe-air-rollback-enters-hold-instead-of-resurrecting-links",
+    "identity-recovery-is-generation-bound-idempotent-and-audited",
+    "recovery-promotion-preserves-node-authority-and-never-restores-secrets",
+    "live-ptt-disable-rejects-new-capture-and-releases-active-routing",
+    "automation-disable-emergency-stop-and-revoke-cancel-canonical-work",
+    "e2ee-fork-transfer-and-key-loss-remain-contract-only-and-production-disabled",
+    "backup-restore-never-overwrites-an-existing-database-automatically",
+    "restored-state-requires-current-migrations-and-retention-reconciliation-before-service",
+    "beta-restarts-after-any-reviewed-path-schema-config-or-fixture-delta"
+  ],
+  "reruns": [
+    {
+      "id": "coordinator-migration-recovery-race-stress",
+      "command": "cd coordinator && go test -race -count=10 ./internal/store -run '<sixteen frozen migration recovery rollback and kill tests>'",
+      "status": "pass",
+      "durationSeconds": 419.239
+    },
+    {
+      "id": "coordinator-command-kill-race-stress",
+      "command": "cd coordinator && go test -race -count=10 ./cmd/duet-coordinator -run '<seven frozen rollback recovery feature-off and observability tests>'",
+      "status": "pass",
+      "durationSeconds": 93.612
+    },
+    {
+      "id": "coordinator-exact-predecessor-matrix",
+      "command": "cd coordinator && go test -tags previoushead -count=10 ./internal/store -run '<twelve exact previous-head identity media transmission moderation automation and Air tests>'",
+      "status": "pass",
+      "durationSeconds": 483.746
+    },
+    {
+      "id": "windows-migration-recovery-race-stress",
+      "command": "cd pulsar-win && go test -race -count=10 ./... -run '<eighteen frozen migration recovery live-disable and E2EE-audit tests>'",
+      "status": "pass",
+      "packages": 4
+    },
+    {
+      "id": "macos-migration-recovery-suite",
+      "command": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter 'RecoveryService|RecoveryExport|E2EEAuditContract|MacLivePTTNode|CaptureMediaLifecycle'",
+      "status": "pass",
+      "tests": 49,
+      "suites": 5,
+      "host": "x86_64-apple-macos14.0"
+    },
+    {
+      "id": "phase3-e2ee-fail-closed-contracts",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v scripts/acceptance/test_e2ee_threat_model.py scripts/acceptance/test_e2ee_protocol_key_lifecycle.py scripts/acceptance/test_phase3_gate_matrix.py scripts/acceptance/test_p3_root_review.py scripts/acceptance/test_p3_realtime_pre_review.py scripts/acceptance/test_p3_automation_pre_review.py scripts/acceptance/test_p3_privacy_store_pre_review.py && python3 scripts/acceptance/validate_e2ee_threat_model.py && python3 scripts/acceptance/validate_e2ee_protocol_key_lifecycle.py",
+      "status": "pass",
+      "tests": 35,
+      "productionE2EE": "disabled"
+    }
+  ],
+  "findings": [],
+  "evidenceBoundary": {
+    "automated": [
+      "copied production-shaped additive and partial migration fixtures",
+      "exact pinned predecessor identity media moderation automation and Air compatibility",
+      "identity recovery replay rotation generation and authority isolation",
+      "feature-off capture automation revoke and observability behavior",
+      "Windows and macOS pending-recovery crash and promotion state machines",
+      "E2EE fork transfer and irreversible-loss contract validation while disabled"
+    ],
+    "notProved": [
+      "destructive restore against the production backup provider and credentials",
+      "signed real-app independent enable disable capture and automation drills",
+      "implemented E2EE group fork device transfer and irreversible key-loss recovery",
+      "mixed-fleet physical rollback with exact production artifacts",
+      "implementation-independent migration and recovery reviewer approval"
+    ]
+  },
+  "openGates": [
+    {
+      "id": "P3-MIG-GATE-001",
+      "status": "manual-blocking",
+      "ownerEpic": "EPIC-260714-th54l3",
+      "task": "TASK-260712-30xwu2",
+      "manualEvidence": "not-run",
+      "environmentIdentity": null
+    },
+    {
+      "id": "P3-MIG-GATE-002",
+      "status": "external-review-blocking",
+      "ownerEpic": "EPIC-260714-zmnd4n",
+      "task": "TASK-260717-1sgb5r",
+      "reviewerIdentity": null,
+      "approval": "required"
+    },
+    {
+      "id": "P3-MIG-GATE-003",
+      "status": "deferred-e2ee-blocking",
+      "ownerEpic": "EPIC-260716-3qsztl",
+      "task": "TASK-260712-aniuyy",
+      "e2eeEvidence": "deferred-unavailable"
+    },
+    {
+      "id": "P3-MIG-GATE-004",
+      "status": "manual-beta-blocking",
+      "ownerEpic": "EPIC-260714-th54l3",
+      "task": "TASK-260712-1actom",
+      "betaEvidence": "not-run"
+    }
+  ],
+  "heldCapabilities": ["live_ptt", "e2ee_media", "soundboard_cues", "automation"],
+  "nextEngineeringTask": "TASK-260712-3b7bp4"
+}

@@ -4,18 +4,19 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 144 accepted, 61 remain.
-- Routed inventory: 186 engineering tasks (144 accepted, 42 remain) and 19
+- Combined inventory: 205 original tasks; 145 accepted, 60 remain.
+- Routed inventory: 186 engineering tasks (145 accepted, 41 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3er89x` — group-crypto-library-spike
-- Next engineering task: `TASK-260712-2ys1ww` — e2ee-protocol-key-lifecycle-contract
-- Most recently accepted: `TASK-260712-16xmy2` — protected-media-container-prep-spike
-- Current branch: `task/task-260712-3er89x-group-crypto-library-spike`
+- Current engineering task: `TASK-260712-2ys1ww` — e2ee-protocol-key-lifecycle-contract
+- Next engineering task: `TASK-260712-aniuyy` — e2ee-independent-design-review
+  (external owner gate in `EPIC-260716-3qsztl`)
+- Most recently accepted: `TASK-260712-3er89x` — group-crypto-library-spike
+- Current branch: `task/task-260712-2ys1ww-e2ee-protocol-key-lifecycle-contract`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +37,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 144 / 205 tasks (70.2%); 61 remain
-- Engineering progress: 144 / 186 tasks (approximately 77.4%); 42 remain
+- Accepted overall: 145 / 205 tasks (70.7%); 60 remain
+- Engineering progress: 145 / 186 tasks (approximately 78.0%); 41 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3374,7 +3375,19 @@ executed before capture quality because it is on the epic critical path.
   Windows/macOS apps, physical performance, cross-platform Swift vectors,
   whole-container replay state, HTTP range/resume integration, zeroization and
   independent review remain open; E2EE stays blocked, disabled and unclaimed.)
-- [ ] `TASK-260712-3er89x` — group-crypto-library-spike
+- [x] `TASK-260712-3er89x` — group-crypto-library-spike (accepted through
+  the explicit blocking no-go on exact code head
+  `7dc56d984b85d09d26036e0afb0271d946b4980c`. RFC 9420 is frozen as the
+  only standardized fit candidate, while exact OpenMLS 0.8.1, mls-rs 0.55.2
+  and MLS++ snapshots fail the combined audit, binding, Apple-arm64 test,
+  Store supply, interop and secret-lifecycle gates. Clean exact-head
+  acceptance passed 16/16 with `manualEvidence=not-run`; hosted run
+  `29557397257` attempt 1 was cancelled after a proven Windows runner hang,
+  and unchanged attempt 2 passed 4/4; PR #231 merged at
+  `b3a64badf1232d2273f74af4baa0b6e8f07bbaca`. No library, provider, suite,
+  serialization or platform binding is selected; KAT/lifecycle/fork/replay,
+  signed-app and independent-review evidence remains not-run, and E2EE stays
+  blocked, disabled and unclaimed.)
 - [ ] `TASK-260712-2ys1ww` — e2ee-protocol-key-lifecycle-contract
 - [ ] `TASK-260712-aniuyy` — e2ee-independent-design-review
 - [ ] `TASK-260712-3w1cst` — encrypted-media-schema-epoch-foundation

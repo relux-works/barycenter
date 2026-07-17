@@ -514,8 +514,8 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 		if messageType == websocket.BinaryMessage {
 			frame, decodeErr := protocol.DecodeLivePTTBinaryFrame(raw)
 			if decodeErr != nil {
-				h.log.Warn("rejected bounded binary frame", "orbit", key.Orbit,
-					"slot", key.Slot, "bytes", len(raw), "err", decodeErr)
+				h.log.Warn("rejected bounded binary frame", "reason", "invalid_frame",
+					"bytes", len(raw))
 				continue
 			}
 			h.mu.Lock()
@@ -563,13 +563,13 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 		}
 		if state, ok := payload.(*protocol.StatePayload); ok && state.CaptureQuality != nil {
 			if !c.capabilities.Supports(protocol.CapabilityCaptureQuality) {
-				h.log.Warn("capture quality state without capability rejected", "orbit", key.Orbit, "slot", key.Slot)
+				h.log.Warn("capture quality state rejected", "reason", "capability_missing")
 				continue
 			}
 			result := c.captureQualityGuard.Accept(
 				state.CaptureQuality.Generation, state.CaptureQuality.UpdatedMonotonicMS)
 			if result == protocol.CaptureQualityStale || result == protocol.CaptureQualityInvalid {
-				h.log.Warn("stale capture quality state rejected", "orbit", key.Orbit, "slot", key.Slot, "result", result)
+				h.log.Warn("capture quality state rejected", "reason", result)
 				continue
 			}
 		}
@@ -598,8 +598,6 @@ func (h *Hub) reader(key NodeKey, c *conn) {
 			(state.CaptureQuality.Quality != protocol.CaptureQualityAccepted ||
 				state.CaptureQuality.InputHealth != protocol.CaptureHealthOK) {
 			h.log.Info("capture quality diagnostic",
-				"orbit", key.Orbit, "slot", key.Slot,
-				"generation", state.CaptureQuality.Generation,
 				"workflow", state.CaptureQuality.Workflow,
 				"quality", state.CaptureQuality.Quality,
 				"reason", state.CaptureQuality.Reason,

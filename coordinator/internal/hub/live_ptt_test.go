@@ -1,9 +1,11 @@
 package hub
 
 import (
+	"bytes"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,7 +14,8 @@ import (
 )
 
 func TestHubValidatesInboundAndPreservesOrderedBinaryFrames(t *testing.T) {
-	h := New(slog.Default(), func(token string) (int64, string, bool) { return 42, "a", token == "valid" }, time.Second)
+	var logs bytes.Buffer
+	h := New(slog.New(slog.NewJSONHandler(&logs, nil)), func(token string) (int64, string, bool) { return 42, "a", token == "valid" }, time.Second)
 	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
 	defer server.Close()
 	conn, _, err := websocket.DefaultDialer.Dial(websocketTestURL(server.URL), nil)
@@ -67,6 +70,15 @@ func TestHubValidatesInboundAndPreservesOrderedBinaryFrames(t *testing.T) {
 			t.Fatal("wrong-profile frame emitted")
 		}
 	case <-time.After(50 * time.Millisecond):
+	}
+	logged := logs.String()
+	for _, forbidden := range []string{`"orbit"`, `"slot"`, `"err"`, "00112233445566778899aabbccddeeff"} {
+		if strings.Contains(logged, forbidden) {
+			t.Fatalf("rejected live frame log leaked private or arbitrary data %q: %s", forbidden, logged)
+		}
+	}
+	if !strings.Contains(logged, `"reason":"invalid_frame"`) {
+		t.Fatalf("rejected live frame lost bounded reason: %s", logged)
 	}
 }
 

@@ -61,8 +61,7 @@ func (l *loop) handleLivePTTStart(key hub.NodeKey, credentialHash string, payloa
 	}
 	resolution, err := l.st.ResolveLivePTTTargets(key.Orbit, string(key.Slot), credentialHash, availability, now)
 	if err != nil {
-		l.log.Warn("live PTT target resolution rejected", "orbit", key.Orbit,
-			"slot", key.Slot, "err", err)
+		l.log.Warn("live PTT target resolution rejected", "reason", "policy")
 		l.rejectLivePTTStart(key, payload, "policy", now)
 		return
 	}
@@ -148,8 +147,7 @@ func (l *loop) sendLivePTTExcludedReceipts(key hub.NodeKey, payload protocol.Liv
 			Generation: payload.Generation, EventSequence: int64(index + 2), State: state,
 			ObservedAtCoordMS: now}
 		l.hub.Send(key, protocol.TypeLivePTTReceipt, &receipt)
-		l.log.Info("live PTT target excluded", "session", payload.SessionID,
-			"orbit", target.OrbitID, "slot", target.Slot, "reason", target.Reason)
+		l.log.Info("live PTT target excluded", "reason", target.Reason)
 	}
 }
 
@@ -235,9 +233,9 @@ func (l *loop) applyLivePTTEffects(effects []session.LivePTTEffect) {
 					effect.SessionID, "backpressure", time.Now().UnixMilli())...)
 			}
 		case session.LivePTTDuckStart:
-			l.log.Info("live PTT duck boundary", "session", effect.SessionID, "state", "start")
+			l.log.Info("live PTT duck boundary", "state", "start")
 		case session.LivePTTDuckEnd:
-			l.log.Info("live PTT duck boundary", "session", effect.SessionID, "state", "release")
+			l.log.Info("live PTT duck boundary", "state", "release")
 			l.signalTransmission(transmissionSignal{})
 		}
 	}

@@ -240,7 +240,8 @@ func (r *LivePTTRuntime) Reject(from LivePTTNode, payload protocol.LivePTTReject
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	s := r.bySession[payload.SessionID]
-	if s == nil || s.payload.Generation != payload.Generation {
+	if s == nil || s.payload.Generation != payload.Generation ||
+		protocol.ValidateLivePTTRejectPayload(payload) != nil {
 		return nil, ErrLivePTTStale
 	}
 	target := s.targets[from]

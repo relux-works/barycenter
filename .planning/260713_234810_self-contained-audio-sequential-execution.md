@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 135 accepted, 70 remain.
-- Routed inventory: 186 engineering tasks (135 accepted, 51 remain) and 19
+- Combined inventory: 205 original tasks; 136 accepted, 69 remain.
+- Routed inventory: 186 engineering tasks (136 accepted, 50 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-11e4e3` — automation-history-audit-disable
-- Next engineering task: `TASK-260712-1yw7fo` — windows-soundboard-hotkeys-schedules
-- Most recently accepted: `TASK-260712-1eva0y` — automation-runtime-revoke-ratelimits
-- Current branch: `tracking/task-260712-1eva0y-automation-runtime-revoke-ratelimits`
+- Current engineering task: `TASK-260712-1yw7fo` — windows-soundboard-hotkeys-schedules
+- Next engineering task: `TASK-260712-288j4a` — macos-soundboard-hotkeys-schedules
+- Most recently accepted: `TASK-260712-11e4e3` — automation-history-audit-disable
+- Current branch: `tracking/task-260712-11e4e3-automation-history-audit-disable`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -3271,7 +3271,15 @@ Story: `STORY-260712-326wd5` — P3 Soundboard and safe automation.
   exact previous-head rollback, clean acceptance 12/12 and hosted run
   `29543383233` 4/4 passed; PR #211 merge `ca3dda9`. Manual real-app/hardware
   evidence remains deferred)
-- [ ] `TASK-260712-11e4e3` — automation-history-audit-disable
+- [x] `TASK-260712-11e4e3` — automation-history-audit-disable (accepted on
+  exact code head `022503c`; canonical history enriches accepted automation
+  transmissions and exposes actor-scoped terminal denials, immutable trigger/
+  control audit redacts credentials and raw selectors, and history cancel plus
+  revision/idempotency-bound schedule disable, principal revoke, and emergency
+  disable reuse shared authorities; focused race x3, clean acceptance 12/12
+  with 281 Swift tests in 45 suites, and hosted run `29544985523` 4/4 passed;
+  PR #213 merge `5e5c41c`. Manual real-app, audible, packaged-interaction, and
+  physical-hardware evidence remains deferred)
 - [ ] `TASK-260712-1yw7fo` — windows-soundboard-hotkeys-schedules
 - [ ] `TASK-260712-288j4a` — macos-soundboard-hotkeys-schedules
 - [ ] `TASK-260712-uht9e2` — telegram-soundboard-automation-parity

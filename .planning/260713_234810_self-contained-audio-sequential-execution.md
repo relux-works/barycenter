@@ -4,23 +4,23 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 150 accepted, 55 remain.
-- Routed inventory: 186 engineering tasks (150 accepted, 36 remain) and 19
+- Combined inventory: 205 original tasks; 151 accepted, 54 remain.
+- Routed inventory: 186 engineering tasks (151 accepted, 35 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-wcdz08` — windows-live-capture-effects
-- Next engineering task: `TASK-260712-1getbv` — macos-capture-quality-ui
+- Current engineering task: `TASK-260712-1getbv` — macos-capture-quality-ui
+- Next engineering task: `TASK-260712-39zh8g` — windows-capture-quality-ui
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
   E2EE implementation task are deferred outside the current engineering epic,
   so strict execution resumes at section 17 without claiming them complete.
-- Most recently accepted: `TASK-260712-2egweh` — macos-live-capture-effects
-- Current branch: `tracking/task-260712-2egweh-complete`
+- Most recently accepted: `TASK-260712-wcdz08` — windows-live-capture-effects
+- Current branch: `tracking/task-260712-wcdz08-complete`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -41,8 +41,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 150 / 205 tasks (73.2%); 55 remain
-- Engineering progress: 150 / 186 tasks (approximately 80.6%); 36 remain
+- Accepted overall: 151 / 205 tasks (73.7%); 54 remain
+- Engineering progress: 151 / 186 tasks (approximately 81.2%); 35 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3498,7 +3498,25 @@ Story: `STORY-260712-3pt00e` — P3 Capture quality and diagnostics.
   Bluetooth/external-route, resource and blinded-listening evidence remains
   explicitly not-run in `EPIC-260714-th54l3`; the real-hardware checklist item
   is closed here only as routed, not as a claimed pass.)
-- [ ] `TASK-260712-wcdz08` — windows-live-capture-effects
+- [x] `TASK-260712-wcdz08` — windows-live-capture-effects (accepted on exact
+  engineering commit `fc127034ee05b6a850e9ac5ed4aff237c777bf37`, merged
+  by PR #244 at `e15903b5f5d545885e0814b76e519449823d8409`. The
+  shared WASAPI path requests the public Windows Communications category
+  through a separately negotiated versioned extension, but deliberately does
+  not treat category activation as AEC/NS proof: production keeps native
+  effects unverified and route resolution unknown. Recorded clip, local
+  self-test and live PTT share fresh quality generations, typed lifecycle and
+  degraded states, plus the bounded product stage targeting -20 dBFS with +12
+  dB maximum gain, 3 dB/s slew and the final -3 dBFS input ceiling; the
+  receiver -1 dBFS ceiling is unchanged. Live PTT fails closed as
+  capture_quality_unsupported without explicit degraded consent, and no live
+  audio is persisted. Clean exact-head Windows acceptance passed 11/11 with
+  `manualEvidence=not-run`; hosted run `29569443207` passed 4/4 including
+  native C++ tests and signed MSIX packaging. Signed-app physical routes,
+  render-reference alignment, AEC/NS C3, double-talk, resources, listening and
+  accessibility remain explicitly not-run in `EPIC-260714-th54l3`; the
+  real-hardware checklist item is closed here only as routed, not as a claimed
+  pass.)
 - [ ] `TASK-260712-1getbv` — macos-capture-quality-ui
 - [ ] `TASK-260712-39zh8g` — windows-capture-quality-ui
 - [ ] `TASK-260712-1023d7` — capture-quality-integrated-regressions

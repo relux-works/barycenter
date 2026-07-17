@@ -20,7 +20,7 @@
   E2EE implementation task are deferred outside the current engineering epic,
   so strict execution resumes at section 17 without claiming them complete.
 - Most recently accepted: `TASK-260712-2uo81g` — phase3-observability-health-evidence-views
-- Current branch: `tracking/task-260712-2uo81g-phase3-observability-health-evidence-views`
+- Current branch: `task/task-260712-3g0axs-phase3-root-line-review`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The

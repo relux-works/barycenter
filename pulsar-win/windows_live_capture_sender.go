@@ -18,9 +18,10 @@ const (
 )
 
 var (
-	ErrWindowsLiveCaptureInvalidStart = errors.New("windows_live_capture_invalid_start")
-	ErrWindowsLiveCaptureUnavailable  = errors.New("windows_live_capture_unavailable")
-	ErrWindowsLiveCaptureEncoder      = errors.New("windows_live_capture_encoder_failure")
+	ErrWindowsLiveCaptureInvalidStart       = errors.New("windows_live_capture_invalid_start")
+	ErrWindowsLiveCaptureUnavailable        = errors.New("windows_live_capture_unavailable")
+	ErrWindowsLiveCaptureEncoder            = errors.New("windows_live_capture_encoder_failure")
+	ErrWindowsLiveCaptureQualityUnsupported = errors.New("capture_quality_unsupported")
 )
 
 type WindowsLiveOpusEncoder interface {
@@ -49,19 +50,20 @@ const (
 type WindowsLiveCaptureStopReason string
 
 const (
-	WindowsLiveCaptureReleased       WindowsLiveCaptureStopReason = "release"
-	WindowsLiveCaptureLocalStop      WindowsLiveCaptureStopReason = "local_stop"
-	WindowsLiveCaptureLostRelease    WindowsLiveCaptureStopReason = "lost_release"
-	WindowsLiveCaptureLock           WindowsLiveCaptureStopReason = "lock"
-	WindowsLiveCaptureSleep          WindowsLiveCaptureStopReason = "sleep"
-	WindowsLiveCapturePermissionLost WindowsLiveCaptureStopReason = "permission_revoked"
-	WindowsLiveCaptureDeviceLost     WindowsLiveCaptureStopReason = "device_lost"
-	WindowsLiveCaptureQuit           WindowsLiveCaptureStopReason = "quit"
-	WindowsLiveCaptureDisconnected   WindowsLiveCaptureStopReason = "disconnect"
-	WindowsLiveCaptureBackpressure   WindowsLiveCaptureStopReason = "backpressure"
-	WindowsLiveCaptureEncodeFailure  WindowsLiveCaptureStopReason = "encoder_failure"
-	WindowsLiveCaptureMaximum        WindowsLiveCaptureStopReason = "maximum_duration"
-	WindowsLiveCaptureCoordinator    WindowsLiveCaptureStopReason = "coordinator_cancelled"
+	WindowsLiveCaptureReleased           WindowsLiveCaptureStopReason = "release"
+	WindowsLiveCaptureLocalStop          WindowsLiveCaptureStopReason = "local_stop"
+	WindowsLiveCaptureLostRelease        WindowsLiveCaptureStopReason = "lost_release"
+	WindowsLiveCaptureLock               WindowsLiveCaptureStopReason = "lock"
+	WindowsLiveCaptureSleep              WindowsLiveCaptureStopReason = "sleep"
+	WindowsLiveCapturePermissionLost     WindowsLiveCaptureStopReason = "permission_revoked"
+	WindowsLiveCaptureDeviceLost         WindowsLiveCaptureStopReason = "device_lost"
+	WindowsLiveCaptureQuit               WindowsLiveCaptureStopReason = "quit"
+	WindowsLiveCaptureDisconnected       WindowsLiveCaptureStopReason = "disconnect"
+	WindowsLiveCaptureBackpressure       WindowsLiveCaptureStopReason = "backpressure"
+	WindowsLiveCaptureEncodeFailure      WindowsLiveCaptureStopReason = "encoder_failure"
+	WindowsLiveCaptureMaximum            WindowsLiveCaptureStopReason = "maximum_duration"
+	WindowsLiveCaptureCoordinator        WindowsLiveCaptureStopReason = "coordinator_cancelled"
+	WindowsLiveCaptureQualityUnsupported WindowsLiveCaptureStopReason = "capture_quality_unsupported"
 )
 
 type WindowsLiveCaptureEventKind string
@@ -74,6 +76,7 @@ const (
 	WindowsLiveCaptureStopCueEvent  WindowsLiveCaptureEventKind = "stop_cue"
 	WindowsLiveCaptureFallbackEvent WindowsLiveCaptureEventKind = "fallback_to_clip"
 	WindowsLiveCaptureTerminalEvent WindowsLiveCaptureEventKind = "terminal"
+	WindowsLiveCaptureQualityEvent  WindowsLiveCaptureEventKind = "quality"
 )
 
 type WindowsLiveCaptureEvent struct {
@@ -83,6 +86,7 @@ type WindowsLiveCaptureEvent struct {
 	Generation uint64
 	Meter      float32
 	Reason     WindowsLiveCaptureStopReason
+	Quality    *protocol.CaptureQualityState
 }
 
 type WindowsLiveCaptureSnapshot struct {
@@ -114,6 +118,7 @@ type windowsLiveCaptureRuntime struct {
 	terminalReason    WindowsLiveCaptureStopReason
 	terminalSequence  uint32
 	transportDeadline time.Time
+	quality           windowsCaptureQualitySession
 }
 
 func (r *windowsLiveCaptureRuntime) stopTransportNow() {
@@ -154,6 +159,8 @@ type WindowsLiveCaptureSender struct {
 	sendControl      func(string, any)
 	onEvent          func(WindowsLiveCaptureEvent)
 	automaticWatch   bool
+	qualityRequest   WindowsCaptureQualityRequest
+	qualityRoute     WindowsCaptureQualityRouteResolver
 
 	phase            WindowsLiveCapturePhase
 	localGeneration  uint64
@@ -194,7 +201,35 @@ func NewWindowsLiveCaptureSender(
 		backend: backend, encoder: encoder, automaticWatch: automaticWatch,
 		coordinatorNowMS: coordinatorNowMS, monotonicUS: monotonicUS,
 		trySendFrame: trySendFrame, sendControl: sendControl, onEvent: onEvent,
-		phase: WindowsLiveCaptureIdle,
+		phase: WindowsLiveCaptureIdle, qualityRequest: windowsLiveCaptureQualityRequest(),
+		qualityRoute: windowsUnknownCaptureQualityRoute{},
+	}
+}
+
+func (s *WindowsLiveCaptureSender) SetCaptureQualityRequest(request WindowsCaptureQualityRequest) {
+	if s == nil || request.Mode == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.phase == WindowsLiveCaptureIdle && s.active == nil {
+		s.qualityRequest = request
+	}
+}
+
+func (s *WindowsLiveCaptureSender) SetCaptureQualityRouteResolver(
+	resolver WindowsCaptureQualityRouteResolver,
+) {
+	if s == nil {
+		return
+	}
+	if resolver == nil {
+		resolver = windowsUnknownCaptureQualityRoute{}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.phase == WindowsLiveCaptureIdle && s.active == nil {
+		s.qualityRoute = resolver
 	}
 }
 
@@ -252,29 +287,46 @@ func (s *WindowsLiveCaptureSender) AcceptStart(ctx context.Context, payload prot
 		return ErrWindowsLiveCaptureInvalidStart
 	}
 	startCtx, cancel := context.WithCancel(ctx)
+	route := s.qualityRoute
+	if route == nil {
+		route = windowsUnknownCaptureQualityRoute{}
+	}
+	qualityRequest := s.qualityRequest
+	quality := newWindowsCaptureQualitySession(
+		"live_ptt", qualityRequest, route.ResolvedCaptureQualityMode(), false)
 	runtime := &windowsLiveCaptureRuntime{
 		start: payload, sessionID: sessionID, localGeneration: generation,
 		ctx: startCtx, cancel: cancel, frames: make(chan protocol.LivePTTBinaryFrame, windowsLiveCaptureQueueFrames),
 		retryTransport: make(chan struct{}, 1), stopTransport: make(chan struct{}), done: make(chan struct{}),
+		quality: quality,
 	}
 	s.active = runtime
 	s.phase = WindowsLiveCapturePermission
 	deviceID := s.selectedDeviceID
 	s.mu.Unlock()
+	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureQualityEvent, Quality: quality.state(protocol.CaptureLifecyclePreparing)})
 	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCapturePhaseEvent, Phase: WindowsLiveCapturePermission})
 
 	permission, err := s.backend.Permission(startCtx, true)
 	if err != nil || permission != WindowsCapturePermissionAllowed {
+		s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureQualityEvent, Quality: quality.failedState(protocol.CaptureHealthPermissionDenied, "permission_denied")})
 		s.finishStartFailure(runtime, WindowsLiveCapturePermissionLost)
 		return ErrWindowsLiveCaptureUnavailable
 	}
 	resolved, err := s.backend.ResolveInput(startCtx, deviceID)
 	if err != nil || resolved == "" {
+		s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureQualityEvent, Quality: quality.failedState(protocol.CaptureHealthNoDevice, "device_lost")})
 		s.finishStartFailure(runtime, WindowsLiveCaptureDeviceLost)
 		return ErrWindowsLiveCaptureUnavailable
 	}
-	stream, err := s.backend.Open(startCtx, resolved)
+	var stream WindowsMicrophoneStream
+	if qualityBackend, ok := s.backend.(WindowsQualityMicrophoneBackend); ok {
+		stream, err = qualityBackend.OpenQuality(startCtx, resolved, qualityRequest)
+	} else {
+		stream, err = s.backend.Open(startCtx, resolved)
+	}
 	if err != nil || stream == nil {
+		s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureQualityEvent, Quality: quality.failedState(protocol.CaptureHealthNoDevice, "device_lost")})
 		s.finishStartFailure(runtime, WindowsLiveCaptureDeviceLost)
 		return ErrWindowsLiveCaptureUnavailable
 	}
@@ -284,6 +336,18 @@ func (s *WindowsLiveCaptureSender) AcceptStart(ctx context.Context, payload prot
 		_ = stream.Close()
 		s.finishStartFailure(runtime, WindowsLiveCaptureDeviceLost)
 		return ErrWindowsLiveCaptureUnavailable
+	}
+	quality = quality.withNativeResult(
+		format.CommunicationsCategoryActive, format.NativeEffectsVerified)
+	runtime.quality = quality
+	if qualityRequest.ProcessingRequested &&
+		quality.decision.quality != protocol.CaptureQualityAccepted &&
+		!qualityRequest.DegradedConsent {
+		s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureQualityEvent, Quality: quality.state(protocol.CaptureLifecycleFailed)})
+		_ = stream.Stop(WindowsCaptureCancel)
+		_ = stream.Close()
+		s.finishStartFailure(runtime, WindowsLiveCaptureQualityUnsupported)
+		return ErrWindowsLiveCaptureQualityUnsupported
 	}
 
 	s.mu.Lock()
@@ -302,6 +366,7 @@ func (s *WindowsLiveCaptureSender) AcceptStart(ctx context.Context, payload prot
 	s.streamActive = true
 	s.phase = WindowsLiveCaptureActive
 	s.mu.Unlock()
+	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureQualityEvent, Quality: quality.state(protocol.CaptureLifecycleCapturing)})
 	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCapturePhaseEvent, Phase: WindowsLiveCaptureActive})
 	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureStartCueEvent})
 	go s.transportWorker(runtime)
@@ -406,6 +471,8 @@ func (s *WindowsLiveCaptureSender) captureWorker(runtime *windowsLiveCaptureRunt
 	baseUS := max(uint64(1), s.monotonicUS())
 	var pending *protocol.LivePTTBinaryFrame
 	reason := WindowsLiveCaptureDeviceLost
+	qualityProcessor := newWindowsCaptureInputSafetyProcessor(
+		float64(format.SampleRate * format.Channels))
 
 	for {
 		frames, readErr := runtime.stream.Read(runtime.ctx, input)
@@ -414,6 +481,9 @@ func (s *WindowsLiveCaptureSender) captureWorker(runtime *windowsLiveCaptureRunt
 			if count > len(input) {
 				reason = WindowsLiveCaptureDeviceLost
 				break
+			}
+			if runtime.quality.request.ProcessingRequested {
+				qualityProcessor.process(input[:count])
 			}
 			var bounded bool
 			pcm, bounded = resampler.append(pcm, input[:count], int(format.Channels))
@@ -541,6 +611,7 @@ func (s *WindowsLiveCaptureSender) transportWorker(runtime *windowsLiveCaptureRu
 }
 
 func (s *WindowsLiveCaptureSender) finishCapture(runtime *windowsLiveCaptureRuntime, reason WindowsLiveCaptureStopReason, pending *protocol.LivePTTBinaryFrame) {
+	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureQualityEvent, Quality: runtime.quality.state(protocol.CaptureLifecycleStopping)})
 	_ = runtime.stream.Stop(windowsLiveStreamStopReason(reason))
 	_ = runtime.stream.Close()
 	runtime.cancel()
@@ -597,6 +668,7 @@ func (s *WindowsLiveCaptureSender) finishStartFailure(runtime *windowsLiveCaptur
 	runtime.finishWorker()
 	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureTerminalEvent, Reason: reason})
 	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCapturePhaseEvent, Phase: WindowsLiveCaptureIdle})
+	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureQualityEvent, Quality: nil})
 }
 
 func (s *WindowsLiveCaptureSender) sendTransportTerminal(runtime *windowsLiveCaptureRuntime, timedOut bool) WindowsLiveCaptureStopReason {
@@ -624,6 +696,7 @@ func (s *WindowsLiveCaptureSender) completeCapture(runtime *windowsLiveCaptureRu
 	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureStopCueEvent})
 	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureTerminalEvent, Reason: reason})
 	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCapturePhaseEvent, Phase: WindowsLiveCaptureIdle})
+	s.emit(WindowsLiveCaptureEvent{Kind: WindowsLiveCaptureQualityEvent, Quality: nil})
 }
 
 func (s *WindowsLiveCaptureSender) sendImmediateTerminal(runtime *windowsLiveCaptureRuntime, reason WindowsLiveCaptureStopReason, sequence uint32) {

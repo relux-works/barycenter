@@ -58,17 +58,21 @@ func (s *windowsLiveSenderStream) fail(reason WindowsCaptureStopReason) {
 }
 
 type windowsLiveSenderBackend struct {
-	mu         sync.Mutex
-	permission WindowsCapturePermission
-	format     WindowsCaptureFormat
-	streams    []*windowsLiveSenderStream
-	opens      int
+	mu              sync.Mutex
+	permission      WindowsCapturePermission
+	format          WindowsCaptureFormat
+	streams         []*windowsLiveSenderStream
+	opens           int
+	qualityRequests []WindowsCaptureQualityRequest
 }
 
 func newWindowsLiveSenderBackend() *windowsLiveSenderBackend {
 	return &windowsLiveSenderBackend{
 		permission: WindowsCapturePermissionAllowed,
-		format:     WindowsCaptureFormat{SampleRate: 48_000, Channels: 1},
+		format: WindowsCaptureFormat{
+			SampleRate: 48_000, Channels: 1,
+			CommunicationsCategoryActive: true, NativeEffectsVerified: true,
+		},
 	}
 }
 func (b *windowsLiveSenderBackend) Permission(ctx context.Context, _ bool) (WindowsCapturePermission, error) {
@@ -105,6 +109,16 @@ func (b *windowsLiveSenderBackend) Open(ctx context.Context, _ string) (WindowsM
 	b.streams = append(b.streams, stream)
 	b.opens++
 	return stream, nil
+}
+func (b *windowsLiveSenderBackend) OpenQuality(
+	ctx context.Context,
+	deviceID string,
+	request WindowsCaptureQualityRequest,
+) (WindowsMicrophoneStream, error) {
+	b.mu.Lock()
+	b.qualityRequests = append(b.qualityRequests, request)
+	b.mu.Unlock()
+	return b.Open(ctx, deviceID)
 }
 func (b *windowsLiveSenderBackend) latest() *windowsLiveSenderStream {
 	b.mu.Lock()
@@ -182,6 +196,10 @@ type windowsLiveSenderFixture struct {
 	sender  *WindowsLiveCaptureSender
 }
 
+type fixedWindowsCaptureQualityRoute string
+
+func (r fixedWindowsCaptureQualityRoute) ResolvedCaptureQualityMode() string { return string(r) }
+
 func newWindowsLiveSenderFixture() *windowsLiveSenderFixture {
 	f := &windowsLiveSenderFixture{
 		backend: newWindowsLiveSenderBackend(), encoder: &windowsLiveSenderEncoder{},
@@ -191,8 +209,101 @@ func newWindowsLiveSenderFixture() *windowsLiveSenderFixture {
 		f.backend, f.encoder, false, f.now, func() uint64 { return 2_000_000 },
 		f.box.tryFrame, f.box.control, f.box.event,
 	)
+	f.sender.SetCaptureQualityRouteResolver(fixedWindowsCaptureQualityRoute("headphone"))
 	return f
 }
+
+func TestWindowsLiveCaptureQualityIsRequiredAndForwarded(t *testing.T) {
+	f := newWindowsLiveSenderFixture()
+	generation, ok := f.sender.LocalHoldBegan(WindowsLiveHoldButton, true, "")
+	if !ok {
+		t.Fatal("hold did not start")
+	}
+	if err := f.sender.AcceptStart(context.Background(), windowsLiveSenderStart(1, 1000), generation, true); err != nil {
+		t.Fatal(err)
+	}
+	f.backend.mu.Lock()
+	requests := append([]WindowsCaptureQualityRequest(nil), f.backend.qualityRequests...)
+	f.backend.mu.Unlock()
+	if len(requests) != 1 || requests[0] != windowsLiveCaptureQualityRequest() || requests[0].DegradedConsent {
+		t.Fatalf("live quality request = %+v", requests)
+	}
+	f.box.mu.Lock()
+	events := append([]WindowsLiveCaptureEvent(nil), f.box.events...)
+	f.box.mu.Unlock()
+	foundAccepted := false
+	for _, event := range events {
+		if event.Kind == WindowsLiveCaptureQualityEvent && event.Quality != nil &&
+			event.Quality.Lifecycle == protocol.CaptureLifecycleCapturing &&
+			event.Quality.Quality == protocol.CaptureQualityAccepted {
+			foundAccepted = true
+		}
+	}
+	if !foundAccepted {
+		t.Fatal("accepted quality state was not forwarded")
+	}
+	f.sender.LocalHoldEnded(generation)
+	waitWindowsLiveSender(t, func() bool { return f.sender.Snapshot().Phase == WindowsLiveCaptureIdle })
+}
+
+func TestWindowsLiveCaptureUnverifiedEffectsFailClosed(t *testing.T) {
+	f := newWindowsLiveSenderFixture()
+	f.backend.format.NativeEffectsVerified = false
+	generation, ok := f.sender.LocalHoldBegan(WindowsLiveHoldButton, true, "")
+	if !ok {
+		t.Fatal("hold did not start")
+	}
+	err := f.sender.AcceptStart(context.Background(), windowsLiveSenderStart(1, 1000), generation, true)
+	if !errors.Is(err, ErrWindowsLiveCaptureQualityUnsupported) {
+		t.Fatalf("quality error = %v", err)
+	}
+	if f.sender.Snapshot().Phase != WindowsLiveCaptureIdle || f.backend.latest().closeCount != 1 {
+		t.Fatal("quality rejection retained capture")
+	}
+	f.box.mu.Lock()
+	controls := append([]windowsLiveSenderControl(nil), f.box.controls...)
+	f.box.mu.Unlock()
+	if len(controls) != 1 || controls[0].kind != protocol.TypeLivePTTFailed {
+		t.Fatalf("quality rejection control = %+v", controls)
+	}
+	payload, ok := controls[0].payload.(protocol.LivePTTFailedPayload)
+	if !ok || payload.Code != "capture_quality_unsupported" {
+		t.Fatalf("quality rejection payload = %+v", controls[0].payload)
+	}
+}
+
+func TestWindowsLiveCaptureExplicitDegradedConsentCanProceed(t *testing.T) {
+	f := newWindowsLiveSenderFixture()
+	f.backend.format.NativeEffectsVerified = false
+	f.sender.SetCaptureQualityRequest(WindowsCaptureQualityRequest{
+		Mode: WindowsCaptureQualityAuto, ProcessingRequested: true, DegradedConsent: true,
+	})
+	generation, ok := f.sender.LocalHoldBegan(WindowsLiveHoldButton, true, "")
+	if !ok {
+		t.Fatal("hold did not start")
+	}
+	if err := f.sender.AcceptStart(context.Background(), windowsLiveSenderStart(1, 1000), generation, true); err != nil {
+		t.Fatal(err)
+	}
+	f.box.mu.Lock()
+	events := append([]WindowsLiveCaptureEvent(nil), f.box.events...)
+	f.box.mu.Unlock()
+	foundDegraded := false
+	for _, event := range events {
+		if event.Kind == WindowsLiveCaptureQualityEvent && event.Quality != nil &&
+			event.Quality.Lifecycle == protocol.CaptureLifecycleCapturing &&
+			event.Quality.Quality == protocol.CaptureQualityDegraded &&
+			event.Quality.Reason == "aec_unavailable" {
+			foundDegraded = true
+		}
+	}
+	if !foundDegraded {
+		t.Fatal("explicit degraded consent did not expose degraded capture state")
+	}
+	f.sender.LocalHoldEnded(generation)
+	waitWindowsLiveSender(t, func() bool { return f.sender.Snapshot().Phase == WindowsLiveCaptureIdle })
+}
+
 func (f *windowsLiveSenderFixture) now() int64 {
 	f.clockMu.Lock()
 	defer f.clockMu.Unlock()
@@ -374,7 +485,10 @@ func TestWindowsLiveCaptureDoesNotOverlapTerminalDrainWithNextHold(t *testing.T)
 
 func TestWindowsLiveCaptureLowestRateResamplingAndNativeFailureStayBounded(t *testing.T) {
 	f := newWindowsLiveSenderFixture()
-	f.backend.format = WindowsCaptureFormat{SampleRate: 8_000, Channels: 1}
+	f.backend.format = WindowsCaptureFormat{
+		SampleRate: 8_000, Channels: 1,
+		CommunicationsCategoryActive: true, NativeEffectsVerified: true,
+	}
 	generation, _ := f.sender.LocalHoldBegan(WindowsLiveHoldButton, true, "")
 	if err := f.sender.AcceptStart(context.Background(), windowsLiveSenderStart(1, 1000), generation, true); err != nil {
 		t.Fatal(err)

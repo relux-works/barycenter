@@ -254,6 +254,22 @@ func (b *nativeWindowsMicrophoneBackend) ResolveInput(ctx context.Context, reque
 }
 
 func (b *nativeWindowsMicrophoneBackend) Open(ctx context.Context, deviceID string) (WindowsMicrophoneStream, error) {
+	return b.open(ctx, deviceID, WindowsCaptureQualityLegacy)
+}
+
+func (b *nativeWindowsMicrophoneBackend) OpenQuality(
+	ctx context.Context,
+	deviceID string,
+	request WindowsCaptureQualityRequest,
+) (WindowsMicrophoneStream, error) {
+	return b.open(ctx, deviceID, request)
+}
+
+func (b *nativeWindowsMicrophoneBackend) open(
+	ctx context.Context,
+	deviceID string,
+	request WindowsCaptureQualityRequest,
+) (WindowsMicrophoneStream, error) {
 	event, err := windows.CreateEvent(nil, 0, 0, nil)
 	if err != nil {
 		return nil, err
@@ -270,6 +286,9 @@ func (b *nativeWindowsMicrophoneBackend) Open(ctx context.Context, deviceID stri
 			windows.CloseHandle(event)
 		}
 	}()
+	if configureHR := b.helper.CaptureConfigureQuality(id, request.ProcessingRequested); configureHR.Failed() {
+		return nil, configureHR
+	}
 	activated := false
 	for {
 		result, callHR := b.helper.CaptureResult(id)
@@ -283,10 +302,18 @@ func (b *nativeWindowsMicrophoneBackend) Open(ctx context.Context, deviceID stri
 			activated = true
 		}
 		if result.State == winprobe.CaptureStateCapturing && result.Format.Valid == 1 {
+			quality, qualityHR := b.helper.CaptureQualityResult(id)
+			if qualityHR.Failed() {
+				return nil, qualityHR
+			}
 			failed = false
 			return &nativeWindowsMicrophoneStream{
 				helper: b.helper, event: event, permissionEvent: b.permissionEvent, operationID: id,
-				format: WindowsCaptureFormat{SampleRate: result.Format.SampleRate, Channels: result.Format.Channels},
+				format: WindowsCaptureFormat{
+					SampleRate: result.Format.SampleRate, Channels: result.Format.Channels,
+					CommunicationsCategoryActive: quality.CommunicationsCategoryActive == 1,
+					NativeEffectsVerified:        quality.NativeEffectsVerified == 1,
+				},
 			}, nil
 		}
 		if result.State == winprobe.CaptureStateStopped || result.State == winprobe.CaptureStateFailed || result.State == winprobe.CaptureStateCancelled {

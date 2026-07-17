@@ -15,6 +15,17 @@ func TestCaptureFormatABISize(t *testing.T) {
 	}
 }
 
+func TestCaptureQualityNativeLayoutIsVersionedSeparately(t *testing.T) {
+	t.Parallel()
+	if got := uint32(unsafe.Sizeof(CaptureQualityNative{})); got != CaptureQualityNativeStructSize {
+		t.Fatalf("CaptureQualityNative size = %d, want %d", got, CaptureQualityNativeStructSize)
+	}
+	value := NewCaptureQualityNative()
+	if value.Version != CaptureQualityNativeVersion || value.StructSize != CaptureQualityNativeStructSize {
+		t.Fatalf("capture quality header = %+v", value)
+	}
+}
+
 func TestProbeDiagnosticsV1WireSizeIsIndependent(t *testing.T) {
 	t.Parallel()
 	if got := uint32(unsafe.Sizeof(probeCaptureDiagnosticsV1{})); got != ProbeCaptureDiagnosticsV1StructSize {

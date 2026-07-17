@@ -11,6 +11,8 @@ const (
 	CaptureFormatStructSize             = 13 * 4
 	ProbeDiagnosticsExtensionVersion    = 1
 	ProbeCaptureDiagnosticsV1StructSize = 5 * 4
+	CaptureQualityNativeVersion         = 1
+	CaptureQualityNativeStructSize      = 5 * 4
 )
 
 type HResult int32
@@ -197,6 +199,21 @@ type CaptureResult struct {
 	FramesAvailable uint32
 	Outcome         HResult
 	Reason          CaptureReason
+}
+
+type CaptureQualityNative struct {
+	StructSize                   uint32
+	Version                      uint32
+	Requested                    uint32
+	CommunicationsCategoryActive uint32
+	NativeEffectsVerified        uint32
+}
+
+func NewCaptureQualityNative() CaptureQualityNative {
+	return CaptureQualityNative{
+		StructSize: CaptureQualityNativeStructSize,
+		Version:    CaptureQualityNativeVersion,
+	}
 }
 
 type CaptureDiagnostics struct {

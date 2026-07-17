@@ -592,14 +592,16 @@ type WindowsLocalSelfTestService struct {
 	cuePath  string
 	duration time.Duration
 
-	mu         sync.Mutex
-	phase      WindowsLocalSelfTestPhase
-	generation uint64
-	session    WindowsSelfTestCaptureSession
-	timer      *time.Timer
-	draft      *CaptureMediaHandle
-	onEvent    func(WindowsLocalSelfTestEvent)
-	pending    sync.WaitGroup
+	mu             sync.Mutex
+	phase          WindowsLocalSelfTestPhase
+	generation     uint64
+	session        WindowsSelfTestCaptureSession
+	timer          *time.Timer
+	draft          *CaptureMediaHandle
+	onEvent        func(WindowsLocalSelfTestEvent)
+	qualityRequest WindowsCaptureQualityRequest
+	qualityState   func(*protocol.CaptureQualityState)
+	pending        sync.WaitGroup
 }
 
 func NewWindowsLocalSelfTestService(capture WindowsSelfTestCapture, output WindowsLocalClipPlaying, store *CaptureMediaStore, intake *WindowsShortAudioIntake, cuePath string) (*WindowsLocalSelfTestService, error) {
@@ -614,6 +616,7 @@ func newWindowsLocalSelfTestService(capture WindowsSelfTestCapture, output Windo
 	return &WindowsLocalSelfTestService{
 		capture: capture, output: output, store: store, intake: intake,
 		cuePath: cuePath, duration: duration, phase: WindowsLocalSelfTestIdle,
+		qualityRequest: WindowsCaptureQualityLegacy,
 	}, nil
 }
 
@@ -621,6 +624,21 @@ func (s *WindowsLocalSelfTestService) SetEventHandler(handler func(WindowsLocalS
 	s.mu.Lock()
 	s.onEvent = handler
 	s.mu.Unlock()
+}
+
+func (s *WindowsLocalSelfTestService) ConfigureCaptureQuality(
+	request WindowsCaptureQualityRequest,
+	onState func(*protocol.CaptureQualityState),
+) {
+	if request.Mode == "" {
+		request = WindowsCaptureQualityLegacy
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if windowsLocalSelfTestCanStart(s.phase) {
+		s.qualityRequest = request
+		s.qualityState = onState
+	}
 }
 
 func (s *WindowsLocalSelfTestService) Phase() WindowsLocalSelfTestPhase {
@@ -671,11 +689,14 @@ func (s *WindowsLocalSelfTestService) RecordFiveSeconds(ctx context.Context, dev
 	s.generation++
 	generation := s.generation
 	s.phase = WindowsLocalSelfTestRequestingPermission
+	qualityRequest := s.qualityRequest
+	qualityState := s.qualityState
 	s.mu.Unlock()
 	s.emit(WindowsLocalSelfTestEvent{Phase: WindowsLocalSelfTestRequestingPermission})
 
 	session, err := s.capture.Start(ctx, WindowsCaptureRequest{
 		ExplicitUserAction: true, DeviceID: deviceID, MediaClass: CaptureSelfTest,
+		Workflow: "local_self_test", QualityRequest: qualityRequest, QualityState: qualityState,
 		Meter: func(value float32) {
 			s.mu.Lock()
 			current := s.generation == generation && s.phase == WindowsLocalSelfTestRecording

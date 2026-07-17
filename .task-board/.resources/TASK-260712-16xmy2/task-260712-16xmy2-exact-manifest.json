@@ -1,0 +1,315 @@
+{
+  "artifacts": [
+    {
+      "bytes": 220,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "9ab877faf1d878d031cd503ae5004a0334d0ded3a273fe7ed8c49dc0f20a6d50"
+    },
+    {
+      "bytes": 124,
+      "path": "02-protected-media-container-probe-tests.log",
+      "sha256": "c50b3b925a1dadaac639355ead2d54a9aba2cb06f90ae2934bc1dee143f971d6"
+    },
+    {
+      "bytes": 124,
+      "path": "03-protected-media-container-probe-race.log",
+      "sha256": "c50b3b925a1dadaac639355ead2d54a9aba2cb06f90ae2934bc1dee143f971d6"
+    },
+    {
+      "bytes": 0,
+      "path": "04-protected-media-container-probe-windows-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "05-protected-media-container-probe-windows-arm64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "06-coordinator-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 1943,
+      "path": "07-coordinator-tests.log",
+      "sha256": "c6949214bc8a8cb8cf63656bdf48ed12de5ae1b81ee96db4e978d66820648ef5"
+    },
+    {
+      "bytes": 68,
+      "path": "08-moderation-contract.log",
+      "sha256": "461fdcf0892fae2772307ccb9b42b9e908a64612d72feda14a0b64b25b257c1f"
+    },
+    {
+      "bytes": 57,
+      "path": "09-previous-head-rollback.log",
+      "sha256": "1020bfa090ac2c7a43ed18710d0d3c52a005d78b4187dc7a862ef88b402a2b31"
+    },
+    {
+      "bytes": 0,
+      "path": "10-windows-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 212,
+      "path": "11-windows-tests.log",
+      "sha256": "3e7f2ec3d48226e90b059307d4d2dad9e4f49492f2b90470e671299a334771e8"
+    },
+    {
+      "bytes": 212,
+      "path": "12-windows-race.log",
+      "sha256": "3e7f2ec3d48226e90b059307d4d2dad9e4f49492f2b90470e671299a334771e8"
+    },
+    {
+      "bytes": 0,
+      "path": "13-windows-cross-vet-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "14-windows-cross-build-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "15-windows-cross-build-arm64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 62953,
+      "path": "16-swift-tests.log",
+      "sha256": "f7df1e86900d55ab5d89deeda6324020a0e4bf3c86669dbab79555fa4b17ef12"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/acceptance/test_targets_inbox_parity.py",
+        "scripts/acceptance/test_targets_inbox_rollout.py",
+        "scripts/acceptance/test_streamed_track_rollout.py",
+        "scripts/acceptance/test_phase2_gate_matrix.py",
+        "scripts/acceptance/test_stream_performance_review.py",
+        "scripts/acceptance/test_air_migration_review.py",
+        "scripts/acceptance/test_target_security_review.py",
+        "scripts/acceptance/test_phase2_observability.py",
+        "scripts/acceptance/test_p2_root_review.py",
+        "scripts/acceptance/test_phase2_engineering_handoff.py",
+        "scripts/acceptance/test_automation_safety_handoff.py",
+        "scripts/acceptance/test_e2ee_threat_model.py",
+        "scripts/acceptance/test_protected_media_container_spike.py",
+        "scripts/live_ptt/test_transport_model.py",
+        "scripts/live_ptt/test_codec_transport.py",
+        "scripts/codec_spike/test_codec_spike.py",
+        "scripts/codec_spike/test_independent_supply_review.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "scripts/e2ee_container/probe",
+      "exitCode": 0,
+      "log": "02-protected-media-container-probe-tests.log",
+      "name": "protected-media-container-probe-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "./..."
+      ],
+      "cwd": "scripts/e2ee_container/probe",
+      "exitCode": 0,
+      "log": "03-protected-media-container-probe-race.log",
+      "name": "protected-media-container-probe-race"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "scripts/e2ee_container/probe",
+      "exitCode": 0,
+      "log": "04-protected-media-container-probe-windows-amd64.log",
+      "name": "protected-media-container-probe-windows-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "scripts/e2ee_container/probe",
+      "exitCode": 0,
+      "log": "05-protected-media-container-probe-windows-arm64.log",
+      "name": "protected-media-container-probe-windows-arm64"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "06-coordinator-vet.log",
+      "name": "coordinator-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "07-coordinator-tests.log",
+      "name": "coordinator-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "run",
+        "./cmd/moderation-ops-check"
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "08-moderation-contract.log",
+      "name": "moderation-contract"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-tags",
+        "previoushead",
+        "-count=1",
+        "./internal/store",
+        "-run",
+        "^(TestR8ExactPreviousHEAD(AuthorityRoundTrip|TwoGenerationProjectionComposition|ConfigBootstrapContract)|TestMediaIngestExactPreviousHeadRollback|TestMediaUploadExactPreviousHeadRollback|TestMediaProcessingExactPreviousHeadRollback|TestMediaLifecycleExactPreviousHeadRollback|TestMediaIntegrationExactPreviousHeadRollback|TestTransmissionStoreExactPreviousHeadRollback|TestModerationExactPreviousHeadRollback|TestAutomationExactPreviousHeadRollback|TestAirExactPreviousCoordinatorLegacyServicePreservesPhase2Rows)$"
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "09-previous-head-rollback.log",
+      "name": "previous-head-rollback"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "10-windows-vet.log",
+      "name": "windows-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "11-windows-tests.log",
+      "name": "windows-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "12-windows-race.log",
+      "name": "windows-race"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "13-windows-cross-vet-amd64.log",
+      "name": "windows-cross-vet-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "14-windows-cross-build-amd64.log",
+      "name": "windows-cross-build-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "15-windows-cross-build-arm64.log",
+      "name": "windows-cross-build-arm64"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "test"
+      ],
+      "cwd": "node-app",
+      "exitCode": 0,
+      "log": "16-swift-tests.log",
+      "name": "swift-tests"
+    }
+  ],
+  "finishedAt": "2026-07-17T05:04:27Z",
+  "git": {
+    "dirty": false,
+    "endDirty": false,
+    "endDirtyPaths": [],
+    "head": "00b5bb07d7d97e5e876091fb5030edf328a0151b",
+    "startDirty": false
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-17T05:02:51Z",
+  "status": "pass",
+  "suite": "all",
+  "toolchains": {
+    "apple": {
+      "developerDir": "/Applications/Xcode.app/Contents/Developer",
+      "swiftVersion": "6.2.3",
+      "xcodeBuild": "17C52",
+      "xcodeVersion": "26.2"
+    },
+    "go": "go version go1.25.12 darwin/amd64"
+  }
+}

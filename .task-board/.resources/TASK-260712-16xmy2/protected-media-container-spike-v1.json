@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-protected-media-container-spike.v1",
+  "task": "TASK-260712-16xmy2",
+  "publishedAt": "2026-07-17",
+  "baselineCommit": "e4121a3f5217b7a471ef0d4f34125de6f1f95de2",
+  "decision": {
+    "result": "repository-probe-pass-production-no-go",
+    "repositoryProbeAccepted": true,
+    "productionContainerSelected": false,
+    "productionCodecSelected": false,
+    "localPreparationToolchainSelected": false,
+    "implementationAuthorized": false,
+    "e2eeFeatureEnabled": false,
+    "productClaimAllowed": false,
+    "independentReview": "not-run"
+  },
+  "upstream": {
+    "threatModel": {
+      "path": "acceptance/phase3/e2ee-threat-model-v1.json",
+      "sha256": "a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"
+    },
+    "codecPlayerHandoff": {
+      "path": "acceptance/codec-spike/player-handoff-v1.json",
+      "sha256": "7f122576f6841c38ff4f9e308e0cf5d0d7f761827d086784b0e34d7cd14ce273",
+      "production": "no-go",
+      "selectedCodec": null,
+      "selectedContainer": null
+    },
+    "streamPerformanceReview": {
+      "path": "docs/analysis/p2-stream-performance-technical-review.md",
+      "sha256": "d8bdf2f85dd661e7d4c06ef1bf514707fb386e9321e534e6e89cae60b78c5c8e",
+      "openBlockingFindings": [
+        "P2-PERF-002",
+        "P2-PERF-003",
+        "P2-PERF-004"
+      ]
+    }
+  },
+  "probe": {
+    "contractName": "pmc-probe-v1",
+    "source": "scripts/e2ee_container/probe",
+    "registration": "repository-experiment-only-never-e2ee_media_v1",
+    "language": "Go",
+    "goVersion": "1.25.12",
+    "goToolchain": "go1.25.12",
+    "dependencies": "go-standard-library-only",
+    "runtimeDownload": false,
+    "thirdPartyCodec": false,
+    "productionCodec": null,
+    "productionContainer": null,
+    "primitiveExperiment": "AES-256-GCM-with-HKDF-SHA256-domain-separated-keys",
+    "primitiveApprovedForProduction": false,
+    "deterministicVectorSHA256": "1ed44e2c5e5739c97840d2d82ccb6582e16647686159a85578b0516eb74398b8"
+  },
+  "format": {
+    "headerBytes": 144,
+    "manifestTagBytes": 16,
+    "maximumChunkPlaintextBytes": 1048576,
+    "mediaKinds": [
+      "clip",
+      "track",
+      "saved-cue"
+    ],
+    "authenticatedPublicFields": [
+      "format-version",
+      "probe-suite",
+      "media-kind",
+      "chunk-size-and-count",
+      "plaintext-size",
+      "declared-duration-ms",
+      "epoch",
+      "container-id",
+      "immutable-target-snapshot-digest",
+      "salt",
+      "nonce-prefix",
+      "private-manifest-sizes"
+    ],
+    "privateManifest": "separately-authenticated-before-chunk-plaintext-release",
+    "chunkAAD": [
+      "domain",
+      "public-header-sha256",
+      "chunk-index",
+      "chunk-plaintext-length"
+    ],
+    "keyDomains": [
+      "barycenter/pmc-probe/v1/manifest",
+      "barycenter/pmc-probe/v1/private-manifest",
+      "barycenter/pmc-probe/v1/chunks"
+    ],
+    "nonceRule": "four-byte-random-prefix-plus-big-endian-uint64-counter; manifest uses max; private manifest uses max-minus-one; chunks use zero-based-index; caller must never reuse the master-key/salt/prefix tuple",
+    "rangeRule": "fetch exact independently authenticated chunk records; never release plaintext before public header tag, private manifest and requested chunk authenticate",
+    "resumeRule": "resume only at the greatest complete authenticated-record boundary; retransmit a partial record verbatim",
+    "replayBoundary": "record substitution from a stale epoch into a different authenticated header fails; replay of an entire still-valid container requires protocol-owned container-id epoch and generation state and is not solved by AEAD",
+    "wholeObjectRule": "exact encoded length is checked before range or plaintext operations",
+    "maximumFourChunkOverheadBytes": 512
+  },
+  "automatedEvidence": {
+    "scope": "repository-only-synthetic",
+    "manualEvidence": "not-run",
+    "tests": [
+      "deterministic-vector-and-round-trip",
+      "independent-range-and-resume-boundaries",
+      "header-manifest-private-and-chunk-tamper",
+      "truncation",
+      "chunk-reorder",
+      "other-container-substitution",
+      "stale-epoch-record-replay-into-current-container",
+      "wrong-key",
+      "unsafe-chunk-bound",
+      "four-mebibyte-bounded-overhead",
+      "two-hour-duration-metadata-authentication"
+    ],
+    "commands": [
+      "GOTOOLCHAIN=go1.25.12 go test ./...",
+      "GOTOOLCHAIN=go1.25.12 go test -race ./...",
+      "GOTOOLCHAIN=go1.25.12 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./...",
+      "GOTOOLCHAIN=go1.25.12 CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build ./..."
+    ],
+    "syntheticTwoHourInputBytes": 2097152,
+    "syntheticTwoHourChunkCount": 2,
+    "syntheticTwoHourStructuralOverheadBytes": 252,
+    "timingOrHeapMeasurementsAreAcceptanceEvidence": false
+  },
+  "manualAndIndependentEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "status": "not-run",
+    "signedWindowsPackage": "not-run",
+    "signedMacOSPackage": "not-run",
+    "windowsMacOSPairings": "not-run",
+    "realCodecPreparation": "not-run-no-codec-selected",
+    "audibleStartSeekAndSkew": "not-run",
+    "physicalRSSDiskCPU": "not-run",
+    "twoHourPhysicalDuration": "not-run",
+    "swiftCrossImplementationVectors": "not-run",
+    "independentCryptoContainerReview": "not-run"
+  },
+  "plaintextLifecycle": {
+    "probeBehavior": [
+      "keeps-synthetic-input-and-output-in-memory",
+      "does-not-write-plaintext-or-keys-to-disk",
+      "does-not-print-plaintext-keys-or-nonces",
+      "best-effort-clears-cli-master-input-and-opened-buffers"
+    ],
+    "notClaimed": [
+      "compiler-or-runtime-guaranteed-zeroization",
+      "operating-system-buffer-zeroization",
+      "crash-swap-or-hibernation-exclusion",
+      "production-codec-buffer-lifecycle"
+    ]
+  },
+  "licenseAndSupply": {
+    "repositoryProbe": "Go standard library only; Go source and toolchain are distributed under the Go BSD-style license",
+    "runtimeExecutableDownload": false,
+    "productionSBOMComplete": false,
+    "productionCodecLicenseApproved": false,
+    "productionCryptoSupplyReviewPassed": false
+  },
+  "blockingFindings": [
+    {
+      "id": "PMC-001",
+      "severity": "critical",
+      "status": "open",
+      "reason": "P2 codec/player handoff selects no production codec or container"
+    },
+    {
+      "id": "PMC-002",
+      "severity": "high",
+      "status": "open",
+      "reason": "no signed Windows/macOS preparation path or physical pairing evidence"
+    },
+    {
+      "id": "PMC-003",
+      "severity": "high",
+      "status": "open",
+      "reason": "no independent Swift implementation or cross-platform vectors"
+    },
+    {
+      "id": "PMC-004",
+      "severity": "high",
+      "status": "open",
+      "reason": "Go AES documentation does not claim constant time without hardware support"
+    },
+    {
+      "id": "PMC-005",
+      "severity": "high",
+      "status": "open",
+      "reason": "group key lifecycle, unique tuple allocation and crypto library suite are not selected"
+    },
+    {
+      "id": "PMC-006",
+      "severity": "high",
+      "status": "open",
+      "reason": "independent cryptographic and container design review is not run"
+    },
+    {
+      "id": "PMC-007",
+      "severity": "high",
+      "status": "open",
+      "reason": "Go runtime and OS do not provide the production zeroization guarantees required by the plaintext lifecycle"
+    },
+    {
+      "id": "PMC-008",
+      "severity": "high",
+      "status": "open",
+      "reason": "probe uses a complete in-memory byte slice and does not prove authenticated HTTP range, resumable upload, revocation or storage integration"
+    }
+  ],
+  "sources": [
+    {
+      "id": "GO-HKDF",
+      "url": "https://go.dev/src/crypto/hkdf/hkdf.go",
+      "role": "HKDF implementation and RFC 5869 domain-separation basis"
+    },
+    {
+      "id": "GO-AES",
+      "url": "https://go.dev/src/crypto/aes/aes.go",
+      "role": "AES implementation and non-hardware constant-time caveat"
+    },
+    {
+      "id": "GO-CIPHER",
+      "url": "https://pkg.go.dev/crypto/cipher",
+      "role": "AEAD nonce uniqueness contract"
+    },
+    {
+      "id": "GO-LICENSE",
+      "url": "https://go.dev/LICENSE",
+      "role": "Go source and binary redistribution license"
+    }
+  ],
+  "exit": {
+    "taskAcceptedAsNoGo": true,
+    "nextTask": "TASK-260712-3er89x",
+    "e2eeMediaBlocked": true,
+    "unblockRequires": [
+      "production-codec-and-container-selection",
+      "reviewed-production-crypto-suite-and-group-key-lifecycle",
+      "cross-platform-independent-vectors",
+      "authenticated-network-range-resume-and-replay-state-integration",
+      "signed-package-physical-matrix",
+      "plaintext-lifecycle-proof",
+      "independent-crypto-container-review"
+    ]
+  }
+}

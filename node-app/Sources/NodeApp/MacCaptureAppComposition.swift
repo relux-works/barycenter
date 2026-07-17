@@ -26,6 +26,7 @@ final class MacCaptureAppComposition {
     private var selfTestDraftAvailable = false
     private var stopped = false
     var onNormalDraft: ((CaptureMediaHandle) -> Void)?
+    var onCaptureQuality: ((CaptureQualityState?) -> Void)?
 
     init(
         audio: AudioEngine,
@@ -54,7 +55,8 @@ final class MacCaptureAppComposition {
             permission: SystemMicrophonePermissionAuthorizer(),
             backend: MacAVAudioCaptureBackend(),
             mediaStore: store,
-            ducker: AudioEngineCaptureDucker(audio: audio))
+            ducker: AudioEngineCaptureDucker(audio: audio),
+            qualityRequest: .legacyUnprocessed)
         let output = MacProductionLocalClipOutput(audio: audio, log: log)
         workflow = try MacCaptureWorkflowController(
             capture: capture,
@@ -116,6 +118,16 @@ final class MacCaptureAppComposition {
         workflow.selectDevice(id)
     }
 
+    func setCaptureQualityMode(
+        _ mode: MacCaptureQualityMode,
+        degradedConsent: Bool
+    ) {
+        workflow.setCaptureQualityRequest(MacCaptureQualityRequest(
+            mode: mode,
+            processingRequested: true,
+            degradedConsent: degradedConsent))
+    }
+
     func setShortcut(_ choice: PulsarRecordingShortcutChoice) {
         let shortcut = Self.platformShortcut(choice)
         shortcutStore.save(shortcut)
@@ -154,6 +166,8 @@ final class MacCaptureAppComposition {
                     PulsarCaptureDevice(id: $0.id, name: $0.name, isDefault: $0.isDefault)
                 },
                 selectedDeviceID: selectedDeviceID)
+        case .captureQuality(let state):
+            onCaptureQuality?(state)
         case .normalDraft(let handle):
             onNormalDraft?(handle)
         case .normalDraftDeleted:

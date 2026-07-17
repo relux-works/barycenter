@@ -623,6 +623,9 @@ func startMacCaptureComposition(audio: AudioEngine, log: Logger) {
             supportRoot: URL(fileURLWithPath: ConfigLoader.supportDir, isDirectory: true),
             model: shellModel)
         macCaptureComposition = composition
+        composition.onCaptureQuality = { state in
+            _ = runtime?.player.updateCaptureQualityState(state)
+        }
         composition.start()
     } catch {
         log.error("mac capture composition unavailable", ["reason": "initialization_failed"])

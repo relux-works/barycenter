@@ -168,6 +168,29 @@ struct MacMicrophoneCaptureEngineTests {
         #expect(meters.count == 1)
         #expect(meters.allSatisfy { $0 >= 0 && $0 <= 1 })
     }
+
+    @Test("quality request and exact workflow reach the shared backend before capture")
+    func qualityConfigurationAndState() async throws {
+        let fixture = Fixture(permission: .granted)
+        let request = MacCaptureQualityRequest(
+            mode: .headphone, processingRequested: true, degradedConsent: false)
+        fixture.engine.setCaptureQualityRequest(request)
+        fixture.engine.selectCaptureQualityWorkflow("local_self_test")
+        try await fixture.engine.begin(selectedDeviceID: nil, explicitUserAction: true)
+        #expect(fixture.backend.qualityWorkflow == "local_self_test")
+        #expect(fixture.backend.qualityRequest == request)
+
+        let state = MacCaptureQualitySession(
+            generation: 7, workflow: "local_self_test", request: request,
+            resolvedMode: "headphone", quality: "accepted", aec: "active",
+            ns: "active", agc: "active", reason: "none"
+        ).state(lifecycle: "capturing", nowMs: 1)
+        fixture.backend.emitQuality(state)
+        fixture.flushEvents()
+        #expect(fixture.events.contains(.quality(state)))
+        fixture.engine.cancel()
+        fixture.waitUntilIdle()
+    }
 }
 
 private final class Fixture: @unchecked Sendable {
@@ -284,17 +307,34 @@ private final class FakePermission: MacMicrophonePermissionAuthorizing, @uncheck
     }
 }
 
-private final class FakeCaptureBackend: MacMicrophoneCaptureBackend, @unchecked Sendable {
+private final class FakeCaptureBackend:
+    MacMicrophoneCaptureBackend, MacCaptureQualityBackendConfiguring, @unchecked Sendable
+{
     let devices: [MacCaptureDevice]
     private let lock = NSLock()
     private var samples: (@Sendable ([Float]) -> Void)?
     private var failure: (@Sendable () -> Void)?
+    private var qualityState: (@Sendable (CaptureQualityState?) -> Void)?
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var selectedDeviceID: String?
+    private(set) var qualityWorkflow: String?
+    private(set) var qualityRequest: MacCaptureQualityRequest?
 
     init(devices: [MacCaptureDevice]) { self.devices = devices }
     func availableDevices() -> [MacCaptureDevice] { devices }
+
+    func configureCaptureQuality(
+        workflow: String,
+        request: MacCaptureQualityRequest,
+        onState: @escaping @Sendable (CaptureQualityState?) -> Void
+    ) {
+        lock.withLock {
+            qualityWorkflow = workflow
+            qualityRequest = request
+            qualityState = onState
+        }
+    }
 
     func start(
         selectedDeviceID: String?,
@@ -318,6 +358,7 @@ private final class FakeCaptureBackend: MacMicrophoneCaptureBackend, @unchecked 
     }
 
     func emit(_ values: [Float]) { lock.withLock { samples }?(values) }
+    func emitQuality(_ state: CaptureQualityState?) { lock.withLock { qualityState }?(state) }
     func fail() { lock.withLock { failure }?() }
 }
 

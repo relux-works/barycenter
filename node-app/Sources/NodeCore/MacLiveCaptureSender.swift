@@ -94,6 +94,7 @@ enum MacLiveCaptureStopReason: String, Equatable, Sendable {
     case released, localStop = "local_stop", lostRelease = "lost_release"
     case systemSleep = "system_sleep", sessionLocked = "session_locked"
     case permissionRevoked = "permission_revoked", deviceLost = "device_lost"
+    case captureQualityUnsupported = "capture_quality_unsupported"
     case appQuit = "app_quit", disconnected, backpressure, encoderFailure = "encoder_failure"
     case maximumDuration = "maximum_duration", coordinatorCancelled = "coordinator_cancelled"
 }
@@ -105,6 +106,7 @@ enum MacLiveCaptureEvent: Equatable, Sendable {
     case requestStart(localGeneration: UInt64, source: MacLiveHoldSource)
     case phase(MacLiveCapturePhase)
     case meter(Float)
+    case quality(CaptureQualityState?)
     case playStartCue
     case playStopCue
     case fallbackToClip
@@ -176,6 +178,7 @@ final class MacLiveCaptureSender: @unchecked Sendable {
     private static let sendQueueLimit = 8
     private let permission: MacMicrophonePermissionAuthorizing
     private let backend: MacMicrophoneCaptureBackend
+    private let qualityRequest: MacCaptureQualityRequest
     private let encoder: MacLiveOpusEncoding
     private let coordinatorNowMs: () -> Int64
     private let monotonicUs: () -> UInt64
@@ -214,6 +217,7 @@ final class MacLiveCaptureSender: @unchecked Sendable {
         permission: MacMicrophonePermissionAuthorizing,
         backend: MacMicrophoneCaptureBackend,
         encoder: MacLiveOpusEncoding,
+        qualityRequest: MacCaptureQualityRequest = MacCaptureQualityRequest(mode: .auto),
         eventQueue: DispatchQueue = .main,
         coordinatorNowMs: @escaping () -> Int64,
         monotonicUs: @escaping () -> UInt64,
@@ -221,6 +225,7 @@ final class MacLiveCaptureSender: @unchecked Sendable {
         sendControl: @escaping (Message) -> Void
     ) {
         self.permission = permission; self.backend = backend; self.encoder = encoder
+        self.qualityRequest = qualityRequest
         self.eventQueue = eventQueue; self.coordinatorNowMs = coordinatorNowMs
         self.monotonicUs = monotonicUs; self.trySendFrame = trySendFrame
         self.sendControl = sendControl
@@ -236,6 +241,7 @@ final class MacLiveCaptureSender: @unchecked Sendable {
     convenience init?(
         permission: MacMicrophonePermissionAuthorizing,
         backend: MacMicrophoneCaptureBackend,
+        qualityRequest: MacCaptureQualityRequest = MacCaptureQualityRequest(mode: .auto),
         eventQueue: DispatchQueue = .main,
         coordinatorNowMs: @escaping () -> Int64,
         monotonicUs: @escaping () -> UInt64,
@@ -244,6 +250,7 @@ final class MacLiveCaptureSender: @unchecked Sendable {
     ) {
         guard let encoder = MacAVAudioOpusEncoder() else { return nil }
         self.init(permission: permission, backend: backend, encoder: encoder,
+                  qualityRequest: qualityRequest,
                   eventQueue: eventQueue, coordinatorNowMs: coordinatorNowMs,
                   monotonicUs: monotonicUs, trySendFrame: trySendFrame,
                   sendControl: sendControl)
@@ -315,6 +322,12 @@ final class MacLiveCaptureSender: @unchecked Sendable {
             captureBaseUs = max(1, monotonicUs()); pendingFrame = nil
             outbound.removeAll(keepingCapacity: true); mailbox.reset()
             overflowPosted.store(0); encoder.reset()
+            if let qualityBackend = backend as? MacCaptureQualityBackendConfiguring {
+                qualityBackend.configureCaptureQuality(
+                    workflow: "live_ptt",
+                    request: qualityRequest,
+                    onState: { [weak self] state in self?.emit(.quality(state)) })
+            }
             backendActive = true
             try backend.start(selectedDeviceID: selectedDeviceID, onSamples: { [weak self] samples in
                 self?.captureCallback(samples)
@@ -324,7 +337,14 @@ final class MacLiveCaptureSender: @unchecked Sendable {
             phase = .capturing
             emit(.phase(.capturing)); emit(.playStartCue)
         }} catch {
-            queue.sync { terminateLocked(.deviceLost, sendTerminal: true) }
+            let reason: MacLiveCaptureStopReason
+            if let captureError = error as? MacCaptureEngineError,
+               captureError == .captureQualityUnsupported {
+                reason = .captureQualityUnsupported
+            } else {
+                reason = .deviceLost
+            }
+            queue.sync { terminateLocked(reason, sendTerminal: true) }
             throw error
         }
     }

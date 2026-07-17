@@ -8,18 +8,35 @@ private final class LiveCapturePermission: MacMicrophonePermissionAuthorizing {
     func requestPermission() async -> MacMicrophonePermission { value }
 }
 
-private final class LiveCaptureBackend: MacMicrophoneCaptureBackend, @unchecked Sendable {
+private final class LiveCaptureBackend:
+    MacMicrophoneCaptureBackend, MacCaptureQualityBackendConfiguring, @unchecked Sendable
+{
     var samples: (@Sendable ([Float]) -> Void)?
     var failure: (@Sendable () -> Void)?
     var starts = 0, stops = 0
+    var startError: Error?
+    var qualityWorkflow: String?
+    var qualityRequest: MacCaptureQualityRequest?
+    var qualityState: (@Sendable (CaptureQualityState?) -> Void)?
     var devices = [MacCaptureDevice(id: "mic", name: "Mic", isDefault: true)]
     func availableDevices() -> [MacCaptureDevice] { devices }
+    func configureCaptureQuality(
+        workflow: String,
+        request: MacCaptureQualityRequest,
+        onState: @escaping @Sendable (CaptureQualityState?) -> Void
+    ) {
+        qualityWorkflow = workflow
+        qualityRequest = request
+        qualityState = onState
+    }
     func start(selectedDeviceID: String?, onSamples: @escaping @Sendable ([Float]) -> Void,
                onFailure: @escaping @Sendable () -> Void) throws {
+        if let startError { throw startError }
         starts += 1; samples = onSamples; failure = onFailure
     }
     func stop() { if samples != nil { stops += 1 }; samples = nil; failure = nil }
     func emit(_ value: [Float]) { samples?(value) }
+    func emitQuality(_ state: CaptureQualityState?) { qualityState?(state) }
     func fail() { failure?() }
 }
 
@@ -42,6 +59,13 @@ private final class LiveCaptureBox: @unchecked Sendable {
     func control(_ message: Message) { lock.withLock { controls.append(message) } }
 }
 
+private final class LiveCaptureQualityBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [CaptureQualityState?] = []
+    func append(_ state: CaptureQualityState?) { lock.withLock { stored.append(state) } }
+    var values: [CaptureQualityState?] { lock.withLock { stored } }
+}
+
 private func senderStart(generation: Int64 = 9, now: Int64 = 1_000) -> LivePTTStartPayload {
     LivePTTStartPayload(
         sessionId: "00112233445566778899aabbccddeeff", generation: generation,
@@ -59,9 +83,10 @@ private final class LiveCaptureFixture {
     let permission = LiveCapturePermission(), backend = LiveCaptureBackend()
     let encoder = LiveCaptureEncoder(), box = LiveCaptureBox()
     let clock = LockedClock()
+    let eventQueue = DispatchQueue(label: "live-capture-events")
     lazy var sender = MacLiveCaptureSender(
             permission: permission, backend: backend, encoder: encoder,
-            eventQueue: DispatchQueue(label: "live-capture-events"),
+            eventQueue: eventQueue,
             coordinatorNowMs: { [clock] in clock.value }, monotonicUs: { 2_000_000 },
             trySendFrame: box.send, sendControl: box.control)
 }
@@ -76,6 +101,56 @@ private final class LockedClock: @unchecked Sendable {
 }
 
 @Suite struct MacLiveCaptureSenderTests {
+    @Test func liveCaptureIsQualityRequiredAndForwardsItsState() async throws {
+        let f = LiveCaptureFixture()
+        let qualityEvents = LiveCaptureQualityBox()
+        f.sender.onEvent = { event in
+            if case .quality(let state) = event {
+                qualityEvents.append(state)
+            }
+        }
+        let generation = try #require(f.sender.localHoldBegan(
+            source: .button, holdCapabilityAvailable: true, selectedDeviceID: nil))
+        try await f.sender.acceptStart(
+            senderStart(), localGeneration: generation, authorized: true)
+        #expect(f.backend.qualityWorkflow == "live_ptt")
+        #expect(f.backend.qualityRequest == MacCaptureQualityRequest(mode: .auto))
+        #expect(f.backend.qualityRequest?.degradedConsent == false)
+
+        let request = try #require(f.backend.qualityRequest)
+        let state = MacCaptureQualitySession(
+            generation: 8, workflow: "live_ptt", request: request,
+            resolvedMode: "headphone", quality: "accepted", aec: "active",
+            ns: "active", agc: "active", reason: "none"
+        ).state(lifecycle: "capturing", nowMs: 1)
+        f.backend.emitQuality(state)
+        f.eventQueue.sync {}
+        #expect(qualityEvents.values == [state])
+        f.sender.localHoldEnded(generation: generation)
+        _ = f.sender.snapshot()
+    }
+
+    @Test func unsupportedQualityFailsClosedWithTheTypedWireCode() async throws {
+        let f = LiveCaptureFixture()
+        f.backend.startError = MacCaptureEngineError.captureQualityUnsupported
+        let generation = try #require(f.sender.localHoldBegan(
+            source: .button, holdCapabilityAvailable: true, selectedDeviceID: nil))
+        await #expect(throws: MacCaptureEngineError.captureQualityUnsupported) {
+            try await f.sender.acceptStart(
+                senderStart(), localGeneration: generation, authorized: true)
+        }
+        #expect(f.sender.snapshot().phase == .idle)
+        #expect(f.backend.starts == 0)
+        let failure = try #require(f.box.lock.withLock { f.box.controls.last })
+        guard case .livePTTFailed(let payload) = failure else {
+            Issue.record("quality rejection must be a typed live_ptt_failed")
+            return
+        }
+        #expect(payload.stage == "capture")
+        #expect(payload.code == "capture_quality_unsupported")
+        #expect((try? LivePTTValidation.validate(failure)) != nil)
+    }
+
     @Test func onlyCurrentLocalHoldCanOpenMicrophoneAndFallbackStaysClipOnly() async throws {
         let f = LiveCaptureFixture()
         #expect(f.sender.localHoldBegan(

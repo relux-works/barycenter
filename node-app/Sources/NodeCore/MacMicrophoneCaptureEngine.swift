@@ -54,6 +54,7 @@ public enum MacCaptureEngineError: Error, Equatable, Sendable {
     case alreadyActive
     case invalidState
     case backendUnavailable
+    case captureQualityUnsupported
     case storage
 }
 
@@ -61,6 +62,7 @@ public enum MacCaptureEvent: Equatable, Sendable {
     case phase(MacCapturePhase)
     case devices([MacCaptureDevice])
     case meter(Float)
+    case quality(CaptureQualityState?)
     case playStartCue
     case playStopCue
     case finished(CaptureMediaHandle, MacCaptureTerminalReason)
@@ -137,7 +139,7 @@ public final class SystemMicrophonePermissionAuthorizer: MacMicrophonePermission
 
 /// UI-independent capture owner. Its serial queue is the only lifecycle
 /// writer; backend callbacks never touch disk or state directly.
-public final class MacMicrophoneCaptureEngine: @unchecked Sendable {
+public final class MacMicrophoneCaptureEngine: MacCaptureQualityWorkflowSelecting, @unchecked Sendable {
     public static let sampleRate = 48_000
 
     private let permission: MacMicrophonePermissionAuthorizing
@@ -147,6 +149,8 @@ public final class MacMicrophoneCaptureEngine: @unchecked Sendable {
     private let limits: MacCaptureLimits
     private let queue = DispatchQueue(label: "works.relux.pulsar.mac-capture")
     private let eventQueue: DispatchQueue
+    private var qualityRequest: MacCaptureQualityRequest
+    private var qualityWorkflow = "recorded_clip"
 
     private var phase: MacCapturePhase = .idle
     private var writer: MacCaptureWAVWriter?
@@ -166,6 +170,7 @@ public final class MacMicrophoneCaptureEngine: @unchecked Sendable {
         mediaStore: CaptureMediaStore,
         ducker: MacCaptureProgramDucking,
         limits: MacCaptureLimits = MacCaptureLimits(),
+        qualityRequest: MacCaptureQualityRequest = .legacyUnprocessed,
         eventQueue: DispatchQueue = .main,
         observeLifecycle: Bool = true
     ) {
@@ -174,6 +179,7 @@ public final class MacMicrophoneCaptureEngine: @unchecked Sendable {
         self.mediaStore = mediaStore
         self.ducker = ducker
         self.limits = limits
+        self.qualityRequest = qualityRequest
         self.eventQueue = eventQueue
         if observeLifecycle { installLifecycleObservers() }
     }
@@ -190,6 +196,22 @@ public final class MacMicrophoneCaptureEngine: @unchecked Sendable {
     }
 
     public func currentPhase() -> MacCapturePhase { queue.sync { phase } }
+
+    public func selectCaptureQualityWorkflow(_ workflow: String) {
+        queue.sync {
+            guard phase == .idle,
+                  ["recorded_clip", "local_self_test", "live_ptt"].contains(workflow)
+            else { return }
+            qualityWorkflow = workflow
+        }
+    }
+
+    public func setCaptureQualityRequest(_ request: MacCaptureQualityRequest) {
+        queue.sync {
+            guard phase == .idle else { return }
+            qualityRequest = request
+        }
+    }
 
     /// Must be called only from a visible, explicit Record action.
     public func begin(selectedDeviceID: String?, explicitUserAction: Bool) async throws {
@@ -237,6 +259,12 @@ public final class MacMicrophoneCaptureEngine: @unchecked Sendable {
                 self.writer = writer
                 terminalClaimed = false
                 commitSamples = false
+                if let qualityBackend = backend as? MacCaptureQualityBackendConfiguring {
+                    qualityBackend.configureCaptureQuality(
+                        workflow: qualityWorkflow,
+                        request: qualityRequest,
+                        onState: { [weak self] state in self?.emit(.quality(state)) })
+                }
                 try backend.start(
                     selectedDeviceID: selectedDeviceID,
                     onSamples: { [weak self] samples in

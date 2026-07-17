@@ -18,6 +18,7 @@ public enum MacCaptureWorkflowEvent: Equatable, Sendable {
     case recording(MacCaptureWorkflowRecordingState)
     case recordingMeter(Float)
     case devices([MacCaptureDevice])
+    case captureQuality(CaptureQualityState?)
     case normalDraft(CaptureMediaHandle)
     case normalDraftDeleted
     case selfTest(MacLocalSelfTestEvent)
@@ -99,11 +100,18 @@ public final class MacCaptureWorkflowController {
         onEvent?(.devices(devices))
     }
 
+    public func setCaptureQualityRequest(_ request: MacCaptureQualityRequest) {
+        guard !stopped, owner == .idle else { return }
+        (capture as? MacCaptureQualityWorkflowSelecting)?.setCaptureQualityRequest(request)
+    }
+
     public func toggleNormalRecording() {
         guard !stopped else { return }
         switch owner {
         case .idle:
             owner = .normal
+            (capture as? MacCaptureQualityWorkflowSelecting)?
+                .selectCaptureQualityWorkflow("recorded_clip")
             normalCanStop = false
             onEvent?(.recording(.processing))
             Task { @MainActor [weak self] in
@@ -144,6 +152,8 @@ public final class MacCaptureWorkflowController {
     public func recordFiveSeconds() {
         guard !stopped, owner == .idle else { return }
         owner = .selfTest
+        (capture as? MacCaptureQualityWorkflowSelecting)?
+            .selectCaptureQualityWorkflow("local_self_test")
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
@@ -189,6 +199,10 @@ public final class MacCaptureWorkflowController {
 
     private func consumeCaptureEvent(_ event: MacCaptureEvent) {
         guard !stopped else { return }
+        if case .quality(let state) = event {
+            onEvent?(.captureQuality(state))
+            return
+        }
         switch owner {
         case .selfTest:
             selfTest.consumeCaptureEvent(event)
@@ -212,6 +226,8 @@ public final class MacCaptureWorkflowController {
             onEvent?(.devices(devices))
         case .meter(let value):
             onEvent?(.recordingMeter(value))
+        case .quality:
+            break
         case .playStartCue:
             output.play(fileURL: cueURL) { [weak self] result in
                 Task { @MainActor [weak self] in

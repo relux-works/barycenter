@@ -56,6 +56,7 @@ struct MacLivePTTNodeStatus: Equatable, Sendable {
     var rejectedReceivers = 0
     var lastError: String?
     var fallbackToClip = false
+    var captureQuality: CaptureQualityState?
 }
 
 enum MacLivePTTIncomingDecision: Equatable, Sendable {
@@ -242,6 +243,9 @@ final class MacLivePTTNode: @unchecked Sendable {
             case .failed(let code):
                 self.status.phase = .failed
                 self.status.lastError = code
+                self.publishStatus()
+            case .quality(let state):
+                self.status.captureQuality = state
                 self.publishStatus()
             case .meter, .playStartCue, .playStopCue:
                 break

@@ -176,6 +176,16 @@ revocation, cancellation reconciliation and additive rollback order, use
 evidence does not replace signed-app, audible, accessibility, physical-clock or
 hardware acceptance in manual task `TASK-260712-1gyohk`.
 
+For the dated 17 July 2026 Phase 3 repository handoff, use
+`docs/acceptance/phase3-engineering-handoff.md` and validate
+`acceptance/phase3/engineering-handoff-v1.json` before any review or drill. It
+indexes C1-C7, section 21.4, flags, rollback, disclosures, all 19 manual tasks,
+all deferred E2EE tasks and every independent approval. `DUET_LIVE_PTT` must
+remain unset, `e2ee_media_v1` absent, and soundboard/automation held unless the
+packet's exact capability-specific gates close. The packet is not a release
+instruction: signed mixed-fleet rollback remains `TASK-260712-30xwu2`, beta
+remains `TASK-260712-1actom`, and Store/publication evidence remains external.
+
 ## 6a. Build machine: signing identity (once, before the first release)
 
 `scripts/setup-signing.sh` creates the self-signed identity `duet-nodeapp` in a

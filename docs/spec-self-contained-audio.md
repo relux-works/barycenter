@@ -1349,6 +1349,10 @@ E2EE остаётся выключенным до threat model, library/containe
 independent protocol-design review, cross-platform vectors и внешнего review
 реализации с закрытыми critical/high findings.
 
+Нормативные trust boundaries, metadata disclosure, C4-C6 requirements и
+product-claim rules зафиксированы в
+[`docs/analysis/p3-e2ee-threat-model-v1.md`](analysis/p3-e2ee-threat-model-v1.md).
+
 #### P3.4 Soundboard и automation
 
 Точный нормативный v1-контракт surface, cue scope, principals, quiet hours,

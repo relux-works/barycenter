@@ -1,0 +1,69 @@
+@startuml
+title P3 E2EE threat boundaries and explicit exits
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "Trusted endpoint: sender" {
+  component "Verified device identity" as SenderIdentity
+  component "Client-owned epoch commit" as SenderCommit
+  component "Local prepare / encrypt" as SenderEncrypt
+  database "OS-protected keys" as SenderKeys
+}
+
+package "Coordinator: untrusted for content" {
+  component "Authentication role\nidentity can equivocate" as Auth
+  component "Delivery role\nroute / order / deny" as Delivery
+  database "Opaque object storage\nand backups" as Storage
+  component "Metadata-only history / audit" as History
+}
+
+package "Trusted endpoint: recipient" {
+  component "Device verification\nand change warning" as Verify
+  component "Reject fork / replay /\nstale epoch / downgrade" as Reject
+  component "Decrypt / bounded playback" as Decrypt
+  database "OS-protected keys" as RecipientKeys
+  component "Explicit report export" as Export
+}
+
+package "Outside protected boundary" {
+  component "Moderator\nexplicit evidence only" as Moderator
+  component "Telegram / bot\nplaintext already visible" as Telegram
+  component "Spotify provider path" as Spotify
+}
+
+SenderIdentity --> SenderCommit : signs membership state
+SenderKeys --> SenderCommit
+SenderKeys --> SenderEncrypt
+SenderCommit --> Delivery : signed public commit
+SenderEncrypt --> Delivery : ciphertext + disclosed metadata
+Delivery --> Storage
+Delivery --> History : privacy-safe state only
+Delivery --> Verify : credentials / device set
+Delivery --> Reject : commits / ciphertext
+Verify --> Reject : verified devices / epoch view
+RecipientKeys --> Reject
+Reject --> Decrypt : authenticated bytes only
+Decrypt --> Export : deliberate selected plaintext
+Export --> Moderator : disclosed purpose-limited copy
+
+Telegram -[#red,dashed]-> Delivery : never E2EE
+Spotify -[#red,dashed]-> Delivery : provider boundary
+
+note right of Auth
+Coordinator credentials alone do not
+establish verified peer identity.
+Equivocation must be detectable and
+blocks the verified E2EE claim.
+end note
+
+note right of Delivery
+Malicious delivery behavior is in scope
+for confidentiality and integrity.
+Availability and traffic analysis are not.
+end note
+
+note bottom of Export
+This is the only intentional content exit.
+No hidden coordinator or moderator decrypt.
+end note
+@enduml

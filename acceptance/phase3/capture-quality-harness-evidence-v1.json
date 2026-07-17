@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-capture-quality-harness-evidence.v1",
+  "task": "TASK-260712-39czd2",
+  "publishedAt": "2026-07-17",
+  "decision": {
+    "result": "synthetic-regression-harness-ready-platform-adapters-required",
+    "engineeringHarnessReady": true,
+    "productionReady": false,
+    "c3Accepted": false,
+    "manualEvidence": "not-run",
+    "manualEpic": "EPIC-260714-th54l3"
+  },
+  "coverage": {
+    "deterministicFixtureClasses": 14,
+    "sampleDomainMetrics": [
+      "far-end ERLE and residual RMS",
+      "near-end correlation, level preservation and unexplained residual",
+      "noise suppression improvement",
+      "input AGC target, gain, slew, peak and clipped fraction"
+    ],
+    "runtimeReceipts": [
+      "p95 processor latency",
+      "callback allocation and blocking counts",
+      "p95 realtime CPU ratio",
+      "peak working set"
+    ],
+    "lifecycleReceipts": [
+      "route generation and zero commit during reconfigure",
+      "device loss, missing reference, effect failure and overrun",
+      "exact 2-percent packet-loss trace and zero post-cancel emission"
+    ],
+    "negativeSelfTests": [
+      "fake bypass",
+      "near-end destruction",
+      "ceiling and clipping violation",
+      "realtime callback blocking",
+      "nondeterministic lifecycle teardown",
+      "post-cancel packet emission",
+      "hash tamper and path traversal"
+    ]
+  },
+  "artifactPolicy": {
+    "fixtureAudio": "generated non-speech synthetic float32 only; not committed",
+    "fixtureIntegrity": "checked-in content-addressed lock",
+    "candidateAudio": "delete after report hashing unless retained as explicitly synthetic CI evidence",
+    "report": "content-free aggregate metrics, categorical failures, hashes and toolchain receipt",
+    "userOrPrivateAudio": "forbidden"
+  },
+  "limitations": [
+    "deterministic correlation is a CI destruction sentinel and does not replace canonical STOI",
+    "synthetic runtime receipts test evaluator behavior and are not physical CPU, memory or latency evidence",
+    "no signed app, physical route, acoustic echo path, blinded listening or accessibility result is claimed"
+  ],
+  "downstream": {
+    "macosEffects": "TASK-260712-2egweh",
+    "windowsEffects": "TASK-260712-wcdz08",
+    "integratedRegressions": "TASK-260712-1023d7",
+    "manualCapabilityMatrix": "TASK-260712-2e80pr"
+  }
+}

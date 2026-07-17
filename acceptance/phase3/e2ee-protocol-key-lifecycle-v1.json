@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-e2ee-protocol-key-lifecycle.v1",
+  "task": "TASK-260712-2ys1ww",
+  "publishedAt": "2026-07-17",
+  "baselineCommit": "73bdc18d14721936ad75c86cd135105175cc101e",
+  "decision": {
+    "result": "audit-contract-frozen-production-disabled",
+    "protocolSemantics": "RFC 9420",
+    "productionLibrarySelected": false,
+    "productionCipherSuiteSelected": false,
+    "productionContainerSelected": false,
+    "canonicalMLSSerializationSelected": false,
+    "implementationAuthorized": false,
+    "capabilityAdvertised": false,
+    "plaintextFallbackAllowed": false,
+    "coordinatorContentKeyAccess": false,
+    "independentReview": "not-run",
+    "auditPacketReady": true
+  },
+  "upstreamContracts": [
+    {"id":"threat-model","path":"acceptance/phase3/e2ee-threat-model-v1.json","sha256":"a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
+    {"id":"container-spike","path":"acceptance/phase3/protected-media-container-spike-v1.json","sha256":"320eb4221598e2a607e80614e349d15d447d92141f501567161b7a779f7492bb","production":"no-go"},
+    {"id":"group-crypto-spike","path":"acceptance/phase3/group-crypto-library-spike-v1.json","sha256":"da518ec18d99449b87995268a18d6e7de934ea766aac6c948b127aaa60af8860","production":"no-go"}
+  ],
+  "authoritativeResources": [
+    {"id":"protocol","path":"protocol/e2ee-media-audit-v1.json","sha256":"52b92b2f51bf6852fb9c7c7279c379fa2bbbaa9c262dba94a2c42239b6104b32"},
+    {"id":"vectors","path":"protocol/e2ee-media-audit-v1-vectors.json","sha256":"2264448a94cf01b5841f722089711ae8338eaf2c34bf512c51b062e4eb626a95"},
+    {"id":"adr","path":"docs/analysis/p3-e2ee-protocol-key-lifecycle-contract-v1.md"}
+  ],
+  "implementations": [
+    {"id":"coordinator-keyless-mirror","path":"coordinator/internal/e2eecontract/contract.go","sha256":"6e6ba3b2861036a6bf21d011d2f496c9a8b7b253d3ba21d59930c61a4f0f1987","runtimeWired":false,"cryptographyImplemented":false},
+    {"id":"coordinator-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"f94c939245ffea273591e7928b57ccdac8dcb0e816e0e164bd86148cb27cd280"},
+    {"id":"windows-audit-model","path":"pulsar-win/e2ee_contract_audit.go","sha256":"73b2ee8b2304b1648c6a1394eec24068281f84927774526585b35990a81378b9","runtimeWired":false,"cryptographyImplemented":false},
+    {"id":"windows-tests","path":"pulsar-win/e2ee_contract_audit_test.go","sha256":"2f6791f7dc3431d10cec357d37e0d2a641c2440c37dd3de4060c2acf2ddc4d71"},
+    {"id":"macos-audit-model","path":"node-app/Sources/NodeCore/E2EEAuditContract.swift","sha256":"3c03962b38e78298c6ae6f2a591d6714b513652337e80322123804abf0f3f061","runtimeWired":false,"cryptographyImplemented":false},
+    {"id":"macos-tests","path":"node-app/Tests/NodeCoreTests/E2EEAuditContractTests.swift","sha256":"59c5ef673385e299bbd70a524de937ad5bf22e8995145b1a81e6600e1af08f1c"}
+  ],
+  "vocabulary": {
+    "capability": "e2ee_media_v1",
+    "capabilityAdvertisementAllowed": false,
+    "productionSuites": [],
+    "auditFixtureSuite": "AUDIT_FIXTURE_SUITE_NOT_FOR_PRODUCTION",
+    "mediaKinds": ["clip", "live_ptt", "saved_cue", "track"],
+    "failureCodes": ["downgrade", "expired_grant", "foreign_target", "forked_epoch", "invalid_signature", "nonce_reuse", "replay", "stale_epoch", "tampered_manifest", "unknown_suite"]
+  },
+  "lifecycleCoverage": [
+    "device-public-identity-and-independent-verification",
+    "single-use-key-package-and-client-authored-proposal-commit",
+    "exactly-one-epoch-advance-and-previous-commit-binding",
+    "concurrent-commit-serialization-stale-and-fork-rejection",
+    "offline-restart-state-restore-before-decryption",
+    "leave-remove-revoke-recovery-epoch-rotation",
+    "no-automatic-history-for-new-or-recovered-device",
+    "recipient-object-range-epoch-target-expiry-bound-history-grant",
+    "best-effort-deletion-with-recipient-copy-limit",
+    "voluntary-report-plaintext-and-authenticated-evidence-export",
+    "exact-target-snapshot-and-no-plaintext-downgrade"
+  ],
+  "authenticatedDataBindings": [
+    "contract", "capability", "suite", "event_id", "group_id", "actor_id",
+    "device_id", "air_id", "target_snapshot_digest", "object_kind", "object_id",
+    "epoch", "generation", "sequence", "nonce", "expires_at_ms", "manifest_digest"
+  ],
+  "coordinatorBoundary": {
+    "routesCiphertextOnly": true,
+    "generatesContentKeys": false,
+    "unwrapsContentKeys": false,
+    "escrowsEpochOrRecoverySecrets": false,
+    "strictUnknownFieldRejection": true,
+    "forbiddenFieldTests": ["content_key", "epoch_secret", "plaintext", "private_key"]
+  },
+  "automatedEvidence": {
+    "sharedMalformedVectorCount": 10,
+    "goCoordinator": "go test ./internal/e2eecontract",
+    "windows": "go test ./...",
+    "macOS": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter E2EEAuditContractTests",
+    "acceptance": "python3 -m unittest scripts/acceptance/test_e2ee_protocol_key_lifecycle.py",
+    "fixtureVerifier": "injected deterministic verifier only",
+    "customCryptographicPrimitiveImplemented": false
+  },
+  "manualEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "signedMSIX": "not-run",
+    "signedNotarizedMacOS": "not-run",
+    "crossPlatformRealCryptoInterop": "not-run-no-selected-stack",
+    "recoveryOnRealDevices": "not-run",
+    "livePTTOnRealHardware": "not-run"
+  },
+  "blockingFindings": [
+    {"id":"EPC-001","severity":"critical","status":"open","finding":"No reviewed production MLS library, provider, suite, binding, or canonical serialization is selected."},
+    {"id":"EPC-002","severity":"critical","status":"open","finding":"No reviewed protected media container supports the required clip, track, saved-cue, and live-PTT paths."},
+    {"id":"EPC-003","severity":"high","status":"open","finding":"Independent design review TASK-260712-aniuyy has not run."},
+    {"id":"EPC-004","severity":"high","status":"open","finding":"Real cross-platform KAT, interop, signed package, persistence, recovery, and hardware evidence has not run."},
+    {"id":"EPC-005","severity":"high","status":"open","finding":"Secure storage, crash/log/backup exclusion, memory lifetime, and deletion behavior require implementation-specific review."}
+  ],
+  "handoff": {
+    "nextTask": "TASK-260712-aniuyy",
+    "ownerEpic": "EPIC-260716-3qsztl",
+    "reviewerMustReproduceExactHashes": true,
+    "reviewMayAuthorizeImplementation": false,
+    "implementationRemainsDeferredUntilAcceptedIndependentReview": true
+  }
+}

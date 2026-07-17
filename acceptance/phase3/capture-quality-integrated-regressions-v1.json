@@ -1,0 +1,3274 @@
+{
+  "adapters": [
+    {
+      "build": "baa341e2cfa26d0e4a21b4bcf59a7696edffc943",
+      "cells": [
+        {
+          "blocker": "native-effects-unverified",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 1,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "speaker",
+          "supported": false,
+          "workflow": "recorded_clip"
+        },
+        {
+          "blocker": "native-effects-unverified",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 3,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "headphone",
+          "supported": false,
+          "workflow": "recorded_clip"
+        },
+        {
+          "blocker": "native-effects-unverified",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 5,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "unknown",
+          "supported": false,
+          "workflow": "recorded_clip"
+        },
+        {
+          "blocker": "native-effects-unverified",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 7,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "speaker",
+          "supported": false,
+          "workflow": "local_self_test"
+        },
+        {
+          "blocker": "native-effects-unverified",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 9,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "headphone",
+          "supported": false,
+          "workflow": "local_self_test"
+        },
+        {
+          "blocker": "native-effects-unverified",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 11,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "unknown",
+          "supported": false,
+          "workflow": "local_self_test"
+        },
+        {
+          "blocker": "native-effects-unverified",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 13,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "speaker",
+          "supported": false,
+          "workflow": "live_ptt"
+        },
+        {
+          "blocker": "native-effects-unverified",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 15,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "headphone",
+          "supported": false,
+          "workflow": "live_ptt"
+        },
+        {
+          "blocker": "native-effects-unverified",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 17,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "unknown",
+          "supported": false,
+          "workflow": "live_ptt"
+        }
+      ],
+      "contract": "p3-capture-quality-platform-adapter.v1",
+      "fixtureLockSHA256": "1545311227c29b972cc08d8f5db6ea4c934396c655f8f52492c7a26d32424338",
+      "manualEvidence": "not-run",
+      "platform": "windows",
+      "runtime": {
+        "adapterDurationMS": 3605,
+        "callbackAllocations": 0,
+        "callbackBlockingWaits": 0,
+        "measurementSource": "repository-test-adapter",
+        "physicalCPUAndMemoryEvidence": "not-run",
+        "processorBlockLatencyP95MS": 0.008297
+      },
+      "schemaVersion": 1
+    },
+    {
+      "build": "baa341e2cfa26d0e4a21b4bcf59a7696edffc943",
+      "cells": [
+        {
+          "blocker": "signed-vpio-not-exercised",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 1,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "speaker",
+          "supported": false,
+          "workflow": "recorded_clip"
+        },
+        {
+          "blocker": "signed-vpio-not-exercised",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 3,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "headphone",
+          "supported": false,
+          "workflow": "recorded_clip"
+        },
+        {
+          "blocker": "signed-vpio-not-exercised",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 5,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "unknown",
+          "supported": false,
+          "workflow": "recorded_clip"
+        },
+        {
+          "blocker": "signed-vpio-not-exercised",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 7,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "speaker",
+          "supported": false,
+          "workflow": "local_self_test"
+        },
+        {
+          "blocker": "signed-vpio-not-exercised",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 9,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "headphone",
+          "supported": false,
+          "workflow": "local_self_test"
+        },
+        {
+          "blocker": "signed-vpio-not-exercised",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 11,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "unknown",
+          "supported": false,
+          "workflow": "local_self_test"
+        },
+        {
+          "blocker": "signed-vpio-not-exercised",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 13,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "speaker",
+          "supported": false,
+          "workflow": "live_ptt"
+        },
+        {
+          "blocker": "signed-vpio-not-exercised",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 15,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "headphone",
+          "supported": false,
+          "workflow": "live_ptt"
+        },
+        {
+          "blocker": "signed-vpio-not-exercised",
+          "cases": [
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "far_end_only",
+              "maximumAppliedGainDB": 12,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -20.041215,
+              "processedSHA256": "c07440e6455324dd564565fec42b0f14253cb3f826a9c030e3916a9cbe1e2214",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "near_end_only",
+              "maximumAppliedGainDB": 8.5857,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.833584,
+              "processedSHA256": "1b543075565d4ef3019d92d13572c6390e1d16058abbb156849814580a418c38",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "double_talk",
+              "maximumAppliedGainDB": 8.989953,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -10.184828,
+              "processedSHA256": "d329b354e482ef094a89812f875b061c83047495309f6eade4d78ffbff4d2314",
+              "safetyStagePassed": true,
+              "sampleCount": 192000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "echo_path_change",
+              "maximumAppliedGainDB": 11.923257,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -16.950698,
+              "processedSHA256": "51f297a5dc30d51047966da1f5dbfed3958a5ad1c3b626cf3017e612e0255486",
+              "safetyStagePassed": true,
+              "sampleCount": 240000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "route_change",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "clock_drift",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -23.041371,
+              "processedSHA256": "5acdf2ad4ee04d6b418fb8fb9fbf855366aa9994f9bcda56bee6a094f2e5701d",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0.034486,
+              "id": "clipping",
+              "maximumAppliedGainDB": 0,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -3,
+              "processedSHA256": "05d47ad4d8c5916d1916fa700c359175fcd6dfeb7d9b3aa6d9de6478917ba61b",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "too_quiet",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -33.458972,
+              "processedSHA256": "eef951d872478aa22069af603d185241028e9646d0215a7aeab963f6d343dc53",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "silence",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "device_loss",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "processor_overrun",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "missing_reference",
+              "maximumAppliedGainDB": 8.64,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -11.671222,
+              "processedSHA256": "c77e2d4713453dabe22a3511f3e0838e83cc0993ee61c69497e07d719cfc3509",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "effect_failure",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            },
+            {
+              "c3Status": "unsupported-native-effects-not-exercised",
+              "clippedFraction": 0,
+              "id": "live_packet_cancel",
+              "maximumAppliedGainDB": 9,
+              "maximumGainSlewDBPerSecond": 3,
+              "maximumPeakDBFS": -240,
+              "processedSHA256": "30fafbdc0facf210a26498db982f7ff8ad1e0b9a805816731c72e356a768c162",
+              "safetyStagePassed": true,
+              "sampleCount": 144000
+            }
+          ],
+          "failClosedWithoutConsent": true,
+          "freshGeneration": 17,
+          "quality": "degraded",
+          "reason": "aec_unavailable",
+          "route": "unknown",
+          "supported": false,
+          "workflow": "live_ptt"
+        }
+      ],
+      "contract": "p3-capture-quality-platform-adapter.v1",
+      "fixtureLockSHA256": "1545311227c29b972cc08d8f5db6ea4c934396c655f8f52492c7a26d32424338",
+      "manualEvidence": "not-run",
+      "platform": "macos",
+      "runtime": {
+        "adapterDurationMS": 91840,
+        "callbackAllocationMeasurement": "source-guard-only",
+        "callbackAllocations": 0,
+        "callbackBlockingWaits": 0,
+        "measurementSource": "repository-test-adapter",
+        "physicalCPUAndMemoryEvidence": "not-run",
+        "processorBlockLatencyP95MS": 0.29301
+      },
+      "schemaVersion": 1
+    }
+  ],
+  "blockers": [
+    "Windows native AEC and noise suppression remain unverified by the current helper",
+    "macOS signed VPIO and physical route behavior are not exercised by a repository test adapter",
+    "speaker render-reference age is not proven on either platform",
+    "canonical STOI, acoustic ERLE/SNR, blinded listening, physical resources and accessibility remain manual"
+  ],
+  "build": "baa341e2cfa26d0e4a21b4bcf59a7696edffc943",
+  "ceilings": {
+    "captureInputDBFS": -3.0,
+    "editable": false,
+    "ordering": "platform safety adapter applies -3 dBFS last; receiver -1 dBFS remains a separate playback contract",
+    "receiverPostMixDBFS": -1.0
+  },
+  "commands": [
+    {
+      "argv": [
+        "go",
+        "test",
+        "-count=1",
+        "-run",
+        "^TestWindowsCaptureQualityIntegratedAdapter$",
+        "."
+      ],
+      "cwd": "pulsar-win",
+      "durationMS": 5895,
+      "exitCode": 0,
+      "name": "windows-platform-adapter",
+      "stdoutSHA256": "ade3db683db2b958b86310d39e3cd388a8149a9ba0a8383d6135cee5c75a5c64"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "test",
+        "--filter",
+        "MacCaptureQualityIntegratedAdapterTests"
+      ],
+      "cwd": "node-app",
+      "durationMS": 157685,
+      "exitCode": 0,
+      "name": "macos-platform-adapter",
+      "stdoutSHA256": "6dac6556afbd392f17d8ecbd4a548ce927a05be225554fbafe991af3150f07b5"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-count=1",
+        "-run",
+        "TestWindows(CaptureWorkflow|MicrophoneCaptureQuality|LiveCapture|LivePTT|CaptureQuality)",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "durationMS": 3263,
+      "exitCode": 0,
+      "name": "windows-hostile-lifecycle",
+      "stdoutSHA256": "77771a91969b196a4f03ced883c9e3f64d3b7d681c6641e01fed01d5475ef348"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "test",
+        "--filter",
+        "Mac(CaptureWorkflowController|MicrophoneCaptureEngine|LiveCaptureSender|LivePTTNode|CaptureQualityProcessor)Tests"
+      ],
+      "cwd": "node-app",
+      "durationMS": 1543,
+      "exitCode": 0,
+      "name": "macos-hostile-lifecycle",
+      "stdoutSHA256": "35c48413a9b67fba303e4e47e624345e1639ab94864fed865700589bebc6bc19"
+    }
+  ],
+  "contract": "p3-capture-quality-integrated-regressions.v1",
+  "decision": {
+    "c3Accepted": false,
+    "captureQualityCapabilityAdvertised": false,
+    "engineeringRegressionPassed": true,
+    "manualEpic": "EPIC-260714-th54l3",
+    "manualEvidence": "not-run",
+    "productionReady": false,
+    "result": "engineering-regressions-pass-native-c3-unsupported-manual-proof-required"
+  },
+  "faultCoverage": [
+    {
+      "fault": "2-percent-loss",
+      "source": "live_packet_cancel fixture plus platform live sender/receiver tests",
+      "status": "synthetic-pass"
+    },
+    {
+      "fault": "jitter-and-slow-recipient",
+      "source": "platform live sender/receiver tests",
+      "status": "deterministic-pass"
+    },
+    {
+      "fault": "route-and-default-device-change",
+      "source": "route_change and device_loss fixtures plus platform lifecycle tests",
+      "status": "synthetic-pass-physical-not-run"
+    },
+    {
+      "fault": "bluetooth-profile-change",
+      "source": "unknown-route fail-closed matrix; physical profile transition is manual",
+      "status": "synthetic-route-transition-pass-physical-not-run"
+    },
+    {
+      "fault": "clock-drift",
+      "source": "clock_drift fixture at frozen 200 ppm",
+      "status": "synthetic-pass-native-reference-not-run"
+    },
+    {
+      "fault": "clipping-and-silence",
+      "source": "every platform/workflow/route cell",
+      "status": "safety-stage-pass"
+    },
+    {
+      "fault": "permission-revoke-and-device-loss",
+      "source": "platform capture lifecycle tests",
+      "status": "deterministic-pass"
+    },
+    {
+      "fault": "cancel-lock-sleep-and-reconnect",
+      "source": "platform live node and workflow tests",
+      "status": "deterministic-pass"
+    },
+    {
+      "fault": "feature-rollback",
+      "source": "capture_quality capability remains unadvertised and native effects unsupported",
+      "status": "fail-closed-pass"
+    }
+  ],
+  "fixtureLockSHA256": "1545311227c29b972cc08d8f5db6ea4c934396c655f8f52492c7a26d32424338",
+  "matrix": {
+    "aggregation": "none; every platform/workflow/route/case remains independent",
+    "cells": 18,
+    "fixtureRuns": 252,
+    "fixtures": [
+      "far_end_only",
+      "near_end_only",
+      "double_talk",
+      "echo_path_change",
+      "route_change",
+      "clock_drift",
+      "clipping",
+      "too_quiet",
+      "silence",
+      "device_loss",
+      "processor_overrun",
+      "missing_reference",
+      "effect_failure",
+      "live_packet_cancel"
+    ],
+    "platforms": 2,
+    "routes": [
+      "speaker",
+      "headphone",
+      "unknown"
+    ],
+    "workflows": [
+      "recorded_clip",
+      "local_self_test",
+      "live_ptt"
+    ]
+  },
+  "publishedAt": "2026-07-17",
+  "retention": {
+    "privateOrUserAudioAccepted": false,
+    "retainedData": "content-free metrics, processed SHA-256, commands and categorical blockers only",
+    "syntheticAudioRetained": false
+  },
+  "schemaVersion": 1,
+  "task": "TASK-260712-1023d7",
+  "toolchains": {
+    "go": "go version go1.26.0 darwin/amd64",
+    "host": "Darwin x86_64",
+    "python": "3.9.6",
+    "swift": "Apple Swift version 6.2.3 (swiftlang-6.2.3.3.21 clang-1700.6.3.2)"
+  },
+  "unsupportedRoutes": [
+    {
+      "platform": "windows",
+      "reason": "native-effects-unverified",
+      "route": "speaker",
+      "status": "unsupported-pending-manual-c3",
+      "workflows": [
+        "recorded_clip",
+        "local_self_test",
+        "live_ptt"
+      ]
+    },
+    {
+      "platform": "windows",
+      "reason": "native-effects-unverified",
+      "route": "headphone",
+      "status": "unsupported-pending-manual-c3",
+      "workflows": [
+        "recorded_clip",
+        "local_self_test",
+        "live_ptt"
+      ]
+    },
+    {
+      "platform": "windows",
+      "reason": "native-effects-unverified",
+      "route": "unknown",
+      "status": "unsupported-pending-manual-c3",
+      "workflows": [
+        "recorded_clip",
+        "local_self_test",
+        "live_ptt"
+      ]
+    },
+    {
+      "platform": "macos",
+      "reason": "signed-vpio-not-exercised",
+      "route": "speaker",
+      "status": "unsupported-pending-manual-c3",
+      "workflows": [
+        "recorded_clip",
+        "local_self_test",
+        "live_ptt"
+      ]
+    },
+    {
+      "platform": "macos",
+      "reason": "signed-vpio-not-exercised",
+      "route": "headphone",
+      "status": "unsupported-pending-manual-c3",
+      "workflows": [
+        "recorded_clip",
+        "local_self_test",
+        "live_ptt"
+      ]
+    },
+    {
+      "platform": "macos",
+      "reason": "signed-vpio-not-exercised",
+      "route": "unknown",
+      "status": "unsupported-pending-manual-c3",
+      "workflows": [
+        "recorded_clip",
+        "local_self_test",
+        "live_ptt"
+      ]
+    }
+  ]
+}

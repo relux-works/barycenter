@@ -103,6 +103,8 @@ final class MacCaptureInputSafetyProcessor {
     private let sampleRate: Double
     private var gainDB = 0.0
 
+    var currentGainDB: Double { gainDB }
+
     init(sampleRate: Double = 48_000) { self.sampleRate = sampleRate }
 
     func reset() { gainDB = 0 }

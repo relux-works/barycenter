@@ -4,23 +4,23 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 155 accepted, 50 remain.
-- Routed inventory: 186 engineering tasks (155 accepted, 31 remain) and 19
+- Combined inventory: 205 original tasks; 156 accepted, 49 remain.
+- Routed inventory: 186 engineering tasks (156 accepted, 30 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2uo81g` — phase3-observability-health-evidence-views
-- Next engineering task: `TASK-260712-3g0axs` — phase3-root-line-review
+- Current engineering task: `TASK-260712-3g0axs` — phase3-root-line-review
+- Next engineering task: `TASK-260712-1ulshp` — phase3-external-security-review-closure
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
   E2EE implementation task are deferred outside the current engineering epic,
   so strict execution resumes at section 17 without claiming them complete.
-- Most recently accepted: `TASK-260712-3da0vz` — phase3-gate-matrix-evidence-contract
-- Current branch: `tracking/task-260712-3da0vz-phase3-gate-matrix-evidence-contract`
+- Most recently accepted: `TASK-260712-2uo81g` — phase3-observability-health-evidence-views
+- Current branch: `tracking/task-260712-2uo81g-phase3-observability-health-evidence-views`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -41,8 +41,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 155 / 205 tasks (75.6%); 50 remain
-- Engineering progress: 155 / 186 tasks (approximately 83.3%); 31 remain
+- Accepted overall: 156 / 205 tasks (76.1%); 49 remain
+- Engineering progress: 156 / 186 tasks (approximately 83.9%); 30 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3602,7 +3602,25 @@ capability is released merely because another capability passed its gate.
   start/end worktree and `manualEvidence=not-run`; hosted run `29576896538`
   passed 4/4. No C1-C7, independent-review, physical-hardware, beta, Store or
   promotion result is claimed.)
-- [ ] `TASK-260712-2uo81g` — phase3-observability-health-evidence-views
+- [x] `TASK-260712-2uo81g` — phase3-observability-health-evidence-views
+  (accepted on exact engineering commit
+  `df2a410081d3be8384c84108179614927b7b22ef`, merged by PR #254 at
+  `5e51965249134237c076c4e9fcf162c8e8179cde`. The authenticated, query-free,
+  no-store operator snapshot exports only fixed-cardinality Live PTT lifecycle,
+  drop and zero-retention gauges; capture route, lifecycle, AEC/NS/AGC and input
+  health aggregates; canonical automation feature, execution, denial, revoke
+  and audit aggregates; exact feature posture; build version; and a one-way
+  environment reference. Public health exposes coarse per-subsystem runtime
+  readiness: disabled optional capabilities remain healthy, while enabled
+  missing, contradictory or prohibited-retention telemetry fails closed.
+  Mouth-to-ear latency, jitter, capture callback, manual hardware, independent
+  review, rollout/recovery and beta incident evidence remain visibly
+  `client_evidence_required` or `not_run`; E2EE is honestly
+  `deferred_unavailable`, and runtime health can never claim promotion. Hostile
+  identifier/secret/path tests, targeted race, full Go test/vet and 159 Python
+  contract tests passed. Clean exact-head acceptance passed all 16 commands
+  with clean start/end and `manualEvidence=not-run`; hosted run `29578990210`
+  passed 4/4. The external evidence stays in `EPIC-260714-th54l3`.)
 - [ ] `TASK-260712-3g0axs` — phase3-root-line-review
 - [ ] `TASK-260712-1ulshp` — phase3-external-security-review-closure
 - [ ] `TASK-260712-3j4a06` — phase3-independent-realtime-review

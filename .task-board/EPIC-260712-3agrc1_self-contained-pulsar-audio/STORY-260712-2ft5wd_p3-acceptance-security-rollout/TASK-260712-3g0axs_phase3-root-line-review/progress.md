@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-reviewer
 
 ## Created
 2026-07-12T16:55:33Z
 
 ## Last Update
-2026-07-16T00:18:37Z
+2026-07-17T12:10:15Z
 
 ## Blocked By
 - TASK-260712-2uo81g
@@ -30,6 +30,7 @@ backlog
 - [ ] Freeze reviewed commit build fixture and dependency hashes
 
 ## Notes
+2026-07-17 strict sequential inline root review start after TASK-260712-2uo81g merged. Review directly outside task-board spawn workflow. Scope is the in-engineering non-E2EE Phase 3 line from the frozen P2 promotion baseline through observability; deferred E2EE remains owned by EPIC-260716-3qsztl and real-app/hardware/reviewer/beta evidence must not be invented.
 
 ## Precondition Resources
 - [p3-root-review-amendments.md](file://TASK-260712-3g0axs/p3-root-review-amendments.md) — Mandatory scope for the root line-by-line implementation review

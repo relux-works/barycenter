@@ -1,0 +1,1 @@
+Exact code c0a79b9239ea17326699c23245ca592220404df6 implements additive capture-quality state in coordinator, Windows and Swift; PR 238 merged at 273d460446ec16bb664256643fcdde2ecd600217.

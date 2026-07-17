@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-engineer
 
 ## Created
 2026-07-12T16:25:28Z
 
 ## Last Update
-2026-07-14T00:48:46Z
+2026-07-17T07:33:53Z
 
 ## Blocked By
 - (none)
@@ -24,6 +24,7 @@ backlog
 - [ ] Publish the rerunnable runbook for another developer or QA
 
 ## Notes
+2026-07-17 strict sequential engineering start after TASK-260712-1pw1l1 merged. Build deterministic synthetic conformance fixtures and calculations only; real acoustic and hardware execution remains in EPIC-260714-th54l3.
 
 ## Precondition Resources
 - [p3-capture-quality-components.puml](file://TASK-260712-39czd2/p3-capture-quality-components.puml) — Task seam and dependency view for the capture-quality regression harness

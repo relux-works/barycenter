@@ -4,23 +4,23 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 147 accepted, 58 remain.
-- Routed inventory: 186 engineering tasks (147 accepted, 39 remain) and 19
+- Combined inventory: 205 original tasks; 148 accepted, 57 remain.
+- Routed inventory: 186 engineering tasks (148 accepted, 38 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1pw1l1` — capture-diagnostics-capability-surface
-- Next engineering task: `TASK-260712-39czd2` — capture-quality-regression-harness
+- Current engineering task: `TASK-260712-39czd2` — capture-quality-regression-harness
+- Next engineering task: `TASK-260712-2egweh` — macos-live-capture-effects
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
   E2EE implementation task are deferred outside the current engineering epic,
   so strict execution resumes at section 17 without claiming them complete.
-- Most recently accepted: `TASK-260712-1gmsvh` — freeze-capture-quality-contract
-- Current branch: `tracking/task-260712-1gmsvh-complete`
+- Most recently accepted: `TASK-260712-1pw1l1` — capture-diagnostics-capability-surface
+- Current branch: `tracking/task-260712-1pw1l1-complete`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -41,8 +41,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 147 / 205 tasks (71.7%); 58 remain
-- Engineering progress: 147 / 186 tasks (approximately 79.0%); 39 remain
+- Accepted overall: 148 / 205 tasks (72.2%); 57 remain
+- Engineering progress: 148 / 186 tasks (approximately 79.6%); 38 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3449,7 +3449,20 @@ Story: `STORY-260712-3pt00e` — P3 Capture quality and diagnostics.
   explicitly `not-run` in `EPIC-260714-th54l3`.)
 - ↪ manual `TASK-260712-265o0f` — probe-windows-voice-processing-path
 - ↪ manual `TASK-260712-2gaswa` — probe-macos-voice-processing-path
-- [ ] `TASK-260712-1pw1l1` — capture-diagnostics-capability-surface
+- [x] `TASK-260712-1pw1l1` — capture-diagnostics-capability-surface (accepted
+  on exact engineering commit `c0a79b9239ea17326699c23245ca592220404df6`,
+  merged by PR #238 at `273d460446ec16bb664256643fcdde2ecd600217`.
+  The additive coordinator/Windows/Swift mirrors validate bounded route,
+  lifecycle, quality, AEC/NS/AGC and input-health state, bind it to the exact
+  advertised capability and authenticated socket generation, reject malformed
+  and stale claims, and retain only defensive ephemeral snapshots. Both native
+  seams expose the same mixed-version, route/effect/health and distinct
+  `-3/-1 dBFS` presentation without granting microphone authority; diagnostics
+  are categorical and content-free. Clean exact-head acceptance passed 16/16
+  with `manualEvidence=not-run`; hosted run `29563206803` passed 4/4.
+  Production builds still do not advertise `capture_quality_v1`; DSP, signed
+  hardware, acoustic and accessibility evidence remains unexecuted in
+  `EPIC-260714-th54l3`.)
 - [ ] `TASK-260712-39czd2` — capture-quality-regression-harness
 - [ ] `TASK-260712-2egweh` — macos-live-capture-effects
 - [ ] `TASK-260712-wcdz08` — windows-live-capture-effects

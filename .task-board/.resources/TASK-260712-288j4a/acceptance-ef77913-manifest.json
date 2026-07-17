@@ -1,0 +1,81 @@
+{
+  "artifacts": [
+    {
+      "bytes": 204,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "65c3acad8ecd6b478f1cf7b41b8139c8f515d9cf89a90d45d2c10bbfe6aa2df8"
+    },
+    {
+      "bytes": 198630,
+      "path": "02-swift-tests.log",
+      "sha256": "5cc7c5311eb55b209a947ff69f27a57894b35920e36168adfd3b0813139df8ae"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/acceptance/test_targets_inbox_parity.py",
+        "scripts/acceptance/test_targets_inbox_rollout.py",
+        "scripts/acceptance/test_streamed_track_rollout.py",
+        "scripts/acceptance/test_phase2_gate_matrix.py",
+        "scripts/acceptance/test_stream_performance_review.py",
+        "scripts/acceptance/test_air_migration_review.py",
+        "scripts/acceptance/test_target_security_review.py",
+        "scripts/acceptance/test_phase2_observability.py",
+        "scripts/acceptance/test_p2_root_review.py",
+        "scripts/acceptance/test_phase2_engineering_handoff.py",
+        "scripts/live_ptt/test_transport_model.py",
+        "scripts/live_ptt/test_codec_transport.py",
+        "scripts/codec_spike/test_codec_spike.py",
+        "scripts/codec_spike/test_independent_supply_review.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "test"
+      ],
+      "cwd": "node-app",
+      "exitCode": 0,
+      "log": "02-swift-tests.log",
+      "name": "swift-tests"
+    }
+  ],
+  "finishedAt": "2026-07-17T01:47:39Z",
+  "git": {
+    "dirty": false,
+    "endDirty": false,
+    "endDirtyPaths": [],
+    "head": "ef77913cc2aeb694e3709f602d736e234583704c",
+    "startDirty": false
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-17T01:45:51Z",
+  "status": "pass",
+  "suite": "swift",
+  "toolchains": {
+    "apple": {
+      "developerDir": "/Applications/Xcode.app/Contents/Developer",
+      "swiftVersion": "6.2.3",
+      "xcodeBuild": "17C52",
+      "xcodeVersion": "26.2"
+    },
+    "go": null
+  }
+}

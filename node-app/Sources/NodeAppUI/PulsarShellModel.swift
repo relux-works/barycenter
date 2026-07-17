@@ -19,6 +19,7 @@ public enum PulsarShellSection: String, CaseIterable, Identifiable, Sendable {
     case create
     case join
     case tryLocally
+    case soundboard
     case history
     case settings
 
@@ -253,6 +254,7 @@ public struct PulsarHistoryItem: Equatable, Identifiable, Sendable {
     public let effectiveDelivery: String?
     public let downgradeReason: String?
     public let allowedActions: [PulsarHistoryAction]
+    public let automation: PulsarAutomationHistory?
 
     public init(
         id: String,
@@ -265,7 +267,8 @@ public struct PulsarHistoryItem: Equatable, Identifiable, Sendable {
         requestedDelivery: String? = nil,
         effectiveDelivery: String? = nil,
         downgradeReason: String? = nil,
-        allowedActions: [PulsarHistoryAction] = []
+        allowedActions: [PulsarHistoryAction] = [],
+        automation: PulsarAutomationHistory? = nil
     ) {
         self.id = id
         self.title = title
@@ -278,7 +281,68 @@ public struct PulsarHistoryItem: Equatable, Identifiable, Sendable {
         self.effectiveDelivery = effectiveDelivery
         self.downgradeReason = downgradeReason
         self.allowedActions = allowedActions
+        self.automation = automation
     }
+}
+
+public struct PulsarAutomationHistory: Equatable, Sendable {
+    public let triggerKind: String
+    public let principalLabel: String?
+    public let scheduleLabel: String?
+    public let cueLabel: String?
+    public let outcome: String
+    public let reasonCode: String?
+    public let canDisableSchedule: Bool
+    public let canRevokePrincipal: Bool
+    public let canEmergencyDisable: Bool
+
+    public init(
+        triggerKind: String, principalLabel: String? = nil,
+        scheduleLabel: String? = nil, cueLabel: String? = nil,
+        outcome: String, reasonCode: String? = nil,
+        canDisableSchedule: Bool = false, canRevokePrincipal: Bool = false,
+        canEmergencyDisable: Bool = false
+    ) {
+        self.triggerKind = triggerKind
+        self.principalLabel = principalLabel
+        self.scheduleLabel = scheduleLabel
+        self.cueLabel = cueLabel
+        self.outcome = outcome
+        self.reasonCode = reasonCode
+        self.canDisableSchedule = canDisableSchedule
+        self.canRevokePrincipal = canRevokePrincipal
+        self.canEmergencyDisable = canEmergencyDisable
+    }
+}
+
+public struct PulsarSoundboardCue: Equatable, Identifiable, Sendable {
+    public let id: String
+    public let title: String
+    public let sourceKind: String
+    public let durationMS: Int64
+    public let shortcutLabel: String?
+    public let shortcutStatus: String
+
+    public init(
+        id: String, title: String, sourceKind: String, durationMS: Int64,
+        shortcutLabel: String? = nil, shortcutStatus: String = "inactive"
+    ) {
+        self.id = id; self.title = title; self.sourceKind = sourceKind
+        self.durationMS = durationMS; self.shortcutLabel = shortcutLabel
+        self.shortcutStatus = shortcutStatus
+    }
+}
+
+public struct PulsarSoundboardState: Equatable, Sendable {
+    public var cues: [PulsarSoundboardCue] = []
+    public var selectedCueID: String?
+    public var route: PulsarRouteTarget = .ownBarycenter
+    public var delivery: PulsarDeliveryMode = .overlay
+    public var includeOrigin = true
+    public var busy = false
+    public var outcome: String?
+    public var failure: String?
+    public init() {}
 }
 
 public struct PulsarShellSnapshot: Equatable, Sendable {
@@ -289,6 +353,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
     public var nowPlaying: String?
     public var playbackState: String
     public var history: [PulsarHistoryItem]
+    public var soundboard: PulsarSoundboardState
     public var outgoingDrafts: [PulsarOutgoingDraft]
     public var phaseOneActionOutcome: String?
     public var phaseOneFailure: String?
@@ -317,6 +382,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         nowPlaying: String? = nil,
         playbackState: String = "stopped",
         history: [PulsarHistoryItem] = [],
+        soundboard: PulsarSoundboardState = .init(),
         outgoingDrafts: [PulsarOutgoingDraft] = [],
         phaseOneActionOutcome: String? = nil,
         phaseOneFailure: String? = nil,
@@ -344,6 +410,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         self.nowPlaying = nowPlaying
         self.playbackState = playbackState
         self.history = history
+        self.soundboard = soundboard
         self.outgoingDrafts = outgoingDrafts
         self.phaseOneActionOutcome = phaseOneActionOutcome
         self.phaseOneFailure = phaseOneFailure
@@ -409,6 +476,8 @@ public final class PulsarShellModel {
     public func setHistory(_ items: [PulsarHistoryItem]) {
         snapshot.history = items
     }
+
+    public func setSoundboard(_ state: PulsarSoundboardState) { snapshot.soundboard = state }
 
     public func setPhaseOneData(
         presenceSummary: String?,
@@ -525,6 +594,18 @@ public final class PulsarShellActions {
     private let onDeleteOutgoingDraft: (String) -> Void
     private let onRefreshPhaseOneData: () -> Void
     private let onHistoryAction: (String, PulsarHistoryActionRequest) -> Void
+    private let onRefreshSoundboard: () -> Void
+    private let onSelectSoundboardCue: (String) -> Void
+    private let onTriggerSoundboardCue: (String) -> Void
+    private let onCreateSoundboardCue: (URL, Bool) -> Void
+    private let onRenameSoundboardCue: (String, String) -> Void
+    private let onMoveSoundboardCue: (String, Int) -> Void
+    private let onDeleteSoundboardCue: (String) -> Void
+    private let onSetSoundboardRoute: (PulsarRouteTarget) -> Void
+    private let onSetSoundboardDelivery: (PulsarDeliveryMode) -> Void
+    private let onSetSoundboardIncludeOrigin: (Bool) -> Void
+    private let onCycleSoundboardShortcut: (String) -> Void
+    private let onOpenAutomationAdmin: () -> Void
     private let onSubmitCreateOrbit: (String) -> Void
     private let onSubmitJoinOrbit: (String) -> Void
     private let onExportRecovery: () -> Void
@@ -563,6 +644,18 @@ public final class PulsarShellActions {
         deleteOutgoingDraft: @escaping @MainActor (String) -> Void = { _ in },
         refreshPhaseOneData: @escaping @MainActor () -> Void = {},
         historyAction: @escaping @MainActor (String, PulsarHistoryActionRequest) -> Void = { _, _ in },
+        refreshSoundboard: @escaping @MainActor () -> Void = {},
+        selectSoundboardCue: @escaping @MainActor (String) -> Void = { _ in },
+        triggerSoundboardCue: @escaping @MainActor (String) -> Void = { _ in },
+        createSoundboardCue: @escaping @MainActor (URL, Bool) -> Void = { _, _ in },
+        renameSoundboardCue: @escaping @MainActor (String, String) -> Void = { _, _ in },
+        moveSoundboardCue: @escaping @MainActor (String, Int) -> Void = { _, _ in },
+        deleteSoundboardCue: @escaping @MainActor (String) -> Void = { _ in },
+        setSoundboardRoute: @escaping @MainActor (PulsarRouteTarget) -> Void = { _ in },
+        setSoundboardDelivery: @escaping @MainActor (PulsarDeliveryMode) -> Void = { _ in },
+        setSoundboardIncludeOrigin: @escaping @MainActor (Bool) -> Void = { _ in },
+        cycleSoundboardShortcut: @escaping @MainActor (String) -> Void = { _ in },
+        openAutomationAdmin: @escaping @MainActor () -> Void = {},
         submitCreateOrbit: @escaping @MainActor (String) -> Void = { _ in },
         submitJoinOrbit: @escaping @MainActor (String) -> Void = { _ in },
         exportRecovery: @escaping @MainActor () -> Void = {},
@@ -600,6 +693,18 @@ public final class PulsarShellActions {
         self.onDeleteOutgoingDraft = deleteOutgoingDraft
         self.onRefreshPhaseOneData = refreshPhaseOneData
         self.onHistoryAction = historyAction
+        self.onRefreshSoundboard = refreshSoundboard
+        self.onSelectSoundboardCue = selectSoundboardCue
+        self.onTriggerSoundboardCue = triggerSoundboardCue
+        self.onCreateSoundboardCue = createSoundboardCue
+        self.onRenameSoundboardCue = renameSoundboardCue
+        self.onMoveSoundboardCue = moveSoundboardCue
+        self.onDeleteSoundboardCue = deleteSoundboardCue
+        self.onSetSoundboardRoute = setSoundboardRoute
+        self.onSetSoundboardDelivery = setSoundboardDelivery
+        self.onSetSoundboardIncludeOrigin = setSoundboardIncludeOrigin
+        self.onCycleSoundboardShortcut = cycleSoundboardShortcut
+        self.onOpenAutomationAdmin = openAutomationAdmin
         self.onSubmitCreateOrbit = submitCreateOrbit
         self.onSubmitJoinOrbit = submitJoinOrbit
         self.onExportRecovery = exportRecovery
@@ -654,6 +759,20 @@ public final class PulsarShellActions {
     public func performHistoryAction(_ id: String, request: PulsarHistoryActionRequest) {
         onHistoryAction(id, request)
     }
+    public func refreshSoundboard() { onRefreshSoundboard() }
+    public func selectSoundboardCue(_ id: String) { onSelectSoundboardCue(id) }
+    public func triggerSoundboardCue(_ id: String) { onTriggerSoundboardCue(id) }
+    public func createSoundboardCue(_ url: URL, rightsAcknowledged: Bool) {
+        onCreateSoundboardCue(url, rightsAcknowledged)
+    }
+    public func renameSoundboardCue(_ id: String, title: String) { onRenameSoundboardCue(id, title) }
+    public func moveSoundboardCue(_ id: String, delta: Int) { onMoveSoundboardCue(id, delta) }
+    public func deleteSoundboardCue(_ id: String) { onDeleteSoundboardCue(id) }
+    public func setSoundboardRoute(_ value: PulsarRouteTarget) { onSetSoundboardRoute(value) }
+    public func setSoundboardDelivery(_ value: PulsarDeliveryMode) { onSetSoundboardDelivery(value) }
+    public func setSoundboardIncludeOrigin(_ value: Bool) { onSetSoundboardIncludeOrigin(value) }
+    public func cycleSoundboardShortcut(_ id: String) { onCycleSoundboardShortcut(id) }
+    public func openAutomationAdmin() { onOpenAutomationAdmin() }
     public func submitCreateOrbit(title: String) { onSubmitCreateOrbit(title) }
     public func submitJoinOrbit(code: String) { onSubmitJoinOrbit(code) }
     public func exportRecovery() { onExportRecovery() }
@@ -679,7 +798,7 @@ public final class PulsarShellActions {
 }
 
 public enum PulsarShellText: String, CaseIterable, Sendable {
-    case appName, home, airs, inbox, create, join, tryLocally, history, settings
+    case appName, home, airs, inbox, create, join, tryLocally, soundboard, history, settings
     case openMainWindow, primaryActions, status, presence, routing, nowPlaying
     case localControls, noHistory, noRoute, silence, volume, dnd, recording
     case startRecording, stopRecording, recordingUnavailable, selfTestUnavailable
@@ -726,6 +845,7 @@ public struct PulsarShellCopy: Sendable {
         case .create: text(.create)
         case .join: text(.join)
         case .tryLocally: text(.tryLocally)
+        case .soundboard: text(.soundboard)
         case .history: text(.history)
         case .settings: text(.settings)
         }
@@ -892,7 +1012,7 @@ public struct PulsarShellCopy: Sendable {
     private static let en: [PulsarShellText: String] = [
         .appName: "Pulsar", .home: "Home", .airs: "Airs", .inbox: "Inbox & targets",
         .create: "Create", .join: "Join",
-        .tryLocally: "Try locally", .history: "History", .settings: "Settings",
+        .tryLocally: "Try locally", .soundboard: "Soundboard", .history: "History", .settings: "Settings",
         .openMainWindow: "Open Pulsar", .primaryActions: "Primary actions",
         .status: "Status", .presence: "Presence", .routing: "Routing",
         .nowPlaying: "Now playing", .localControls: "Local controls",
@@ -966,7 +1086,7 @@ public struct PulsarShellCopy: Sendable {
     private static let ru: [PulsarShellText: String] = [
         .appName: "Пульсар", .home: "Главная", .airs: "Эфиры", .inbox: "Входящие и адресаты",
         .create: "Создать", .join: "Присоединиться",
-        .tryLocally: "Попробовать локально", .history: "История", .settings: "Настройки",
+        .tryLocally: "Попробовать локально", .soundboard: "Саундборд", .history: "История", .settings: "Настройки",
         .openMainWindow: "Открыть Пульсар", .primaryActions: "Основные действия",
         .status: "Статус", .presence: "Присутствие", .routing: "Маршрут звука",
         .nowPlaying: "Сейчас играет", .localControls: "Локальные настройки",

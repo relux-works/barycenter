@@ -95,7 +95,7 @@ struct PulsarShellModelTests {
         let model = PulsarShellModel(locale: .en)
         #expect(model.snapshot.connection == .unpaired)
         #expect(PulsarShellSection.allCases == [
-            .home, .airs, .inbox, .create, .join, .tryLocally, .history, .settings,
+            .home, .airs, .inbox, .create, .join, .tryLocally, .soundboard, .history, .settings,
         ])
 
         model.selectedSection = .tryLocally
@@ -107,6 +107,35 @@ struct PulsarShellModelTests {
         model.selectedSection = .settings
         #expect(model.snapshot.recording == .recording)
         #expect(model.selectedSection == .settings)
+    }
+
+    @MainActor
+    @Test("Soundboard projection and actions keep stable cue identity and manual fallback seams")
+    func soundboardProjectionAndActions() {
+        let model = PulsarShellModel()
+        var state = PulsarSoundboardState()
+        state.cues = [.init(
+            id: "cq_AAAAAAAAAAAAAAAAAAAAAAAAAA", title: "Bell", sourceKind: "media",
+            durationMS: 500, shortcutLabel: "⌃⌥F1", shortcutStatus: "conflict")]
+        state.selectedCueID = state.cues[0].id
+        model.setSoundboard(state)
+        #expect(model.snapshot.soundboard.cues[0].id == state.selectedCueID)
+        #expect(model.snapshot.soundboard.cues[0].shortcutStatus == "conflict")
+
+        var calls: [String] = []
+        let actions = PulsarShellActions(
+            triggerSoundboardCue: { calls.append("trigger:\($0)") },
+            setSoundboardDelivery: { calls.append("delivery:\($0.rawValue)") },
+            cycleSoundboardShortcut: { calls.append("shortcut:\($0)") },
+            openAutomationAdmin: { calls.append("admin") })
+        actions.triggerSoundboardCue(state.cues[0].id)
+        actions.setSoundboardDelivery(.interrupt)
+        actions.cycleSoundboardShortcut(state.cues[0].id)
+        actions.openAutomationAdmin()
+        #expect(calls == [
+            "trigger:cq_AAAAAAAAAAAAAAAAAAAAAAAAAA", "delivery:interrupt",
+            "shortcut:cq_AAAAAAAAAAAAAAAAAAAAAAAAAA", "admin",
+        ])
     }
 
     @MainActor

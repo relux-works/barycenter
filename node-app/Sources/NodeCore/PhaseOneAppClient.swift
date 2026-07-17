@@ -118,6 +118,7 @@ public struct PhaseOneHistoryItem: Equatable, Sendable {
   public let playedCount: Int?
   public let otherCount: Int?
   public let actions: [String]
+  public let automation: PhaseOneAutomationHistory?
 
   public init(
     id: String,
@@ -132,7 +133,8 @@ public struct PhaseOneHistoryItem: Equatable, Sendable {
     reasonCode: String?,
     playedCount: Int?,
     otherCount: Int?,
-    actions: [String]
+    actions: [String],
+    automation: PhaseOneAutomationHistory? = nil
   ) {
     self.id = id
     self.direction = direction
@@ -147,7 +149,25 @@ public struct PhaseOneHistoryItem: Equatable, Sendable {
     self.playedCount = playedCount
     self.otherCount = otherCount
     self.actions = actions
+    self.automation = automation
   }
+}
+
+public struct PhaseOneAutomationHistory: Equatable, Sendable {
+  public let triggerKind: String
+  public let principalRef: String?
+  public let principalLabel: String?
+  public let scheduleID: String?
+  public let scheduleLabel: String?
+  public let scheduleRevision: Int64?
+  public let executionID: String?
+  public let cueID: String
+  public let cueLabel: String?
+  public let cueRevision: Int64?
+  public let audienceKind: String?
+  public let resolvedTargetCount: Int
+  public let outcome: String
+  public let reasonCode: String?
 }
 
 public struct PhaseOneHistoryPage: Equatable, Sendable {
@@ -256,7 +276,7 @@ public extension PhaseOneAppServicing {
 /// presence and history contracts. It accepts only a canonical credential
 /// origin and never follows redirects, sends credentials in URLs, or derives
 /// status from a request that did not receive a successful coordinator reply.
-public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable {
+public final class PhaseOneAppClient: PhaseOneAppServicing, SoundboardAppServicing, @unchecked Sendable {
   private static let maximumResponseBytes = 64 * 1_024
   public static let streamTrackChunkBytes = 4 * 1_024 * 1_024
 
@@ -629,7 +649,8 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
         reasonCode: item.reasonCode,
         playedCount: item.targetCounts?.played,
         otherCount: item.targetCounts?.other,
-        actions: item.actions)
+        actions: item.actions,
+        automation: try Self.validatedAutomation(item.automation))
     }
     return PhaseOneHistoryPage(items: items, nextCursor: value.nextCursor)
   }
@@ -731,6 +752,91 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
       reused: value.reused ?? false)
   }
 
+  public func soundboardCues() async throws -> SoundboardCueList {
+    let response = try await request(
+      method: "GET", path: "/v1/soundboard/cues", bearer: controlToken, success: [200])
+    return try Self.validatedCueList(decode(response.data))
+  }
+
+  public func createSoundboardMediaCue(
+    title: String, mediaID: String, idempotencyKey: String
+  ) async throws -> SoundboardCueList {
+    guard Self.validCueTitle(title), Self.validMediaID(mediaID),
+      Self.validIdempotencyKey(idempotencyKey) else { throw PhaseOneClientError.invalidRequest }
+    let response = try await request(
+      method: "POST", path: "/v1/soundboard/cues", bearer: controlToken,
+      headers: ["Idempotency-Key": idempotencyKey],
+      jsonBody: SoundboardCreateBody(title: title, source: .init(kind: "media", mediaID: mediaID)),
+      success: [201])
+    return try Self.validatedCueMutation(decode(response.data))
+  }
+
+  public func renameSoundboardCue(
+    _ cueID: String, title: String, revision: Int64, idempotencyKey: String
+  ) async throws -> SoundboardCueList {
+    guard Self.validCueID(cueID), Self.validCueTitle(title), revision > 0,
+      Self.validIdempotencyKey(idempotencyKey) else { throw PhaseOneClientError.invalidRequest }
+    let response = try await request(
+      method: "PATCH", path: "/v1/soundboard/cues/\(cueID)", bearer: controlToken,
+      headers: ["Idempotency-Key": idempotencyKey],
+      jsonBody: SoundboardRenameBody(title: title, expectedRevision: revision), success: [200])
+    return try Self.validatedCueMutation(decode(response.data))
+  }
+
+  public func deleteSoundboardCue(
+    _ cueID: String, revision: Int64, idempotencyKey: String
+  ) async throws -> SoundboardCueList {
+    guard Self.validCueID(cueID), revision > 0, Self.validIdempotencyKey(idempotencyKey)
+    else { throw PhaseOneClientError.invalidRequest }
+    let response = try await request(
+      method: "DELETE", path: "/v1/soundboard/cues/\(cueID)", bearer: controlToken,
+      headers: ["Idempotency-Key": idempotencyKey],
+      jsonBody: ExpectedRevisionBody(expectedRevision: revision), success: [200])
+    return try Self.validatedCueMutation(decode(response.data))
+  }
+
+  public func reorderSoundboardCues(
+    _ cueIDs: [String], revision: Int64, idempotencyKey: String
+  ) async throws -> SoundboardCueList {
+    guard revision > 0, cueIDs.count <= 64, Set(cueIDs).count == cueIDs.count,
+      cueIDs.allSatisfy(Self.validCueID), Self.validIdempotencyKey(idempotencyKey)
+    else { throw PhaseOneClientError.invalidRequest }
+    _ = try await request(
+      method: "PUT", path: "/v1/soundboard/cues/order", bearer: controlToken,
+      headers: ["Idempotency-Key": idempotencyKey],
+      jsonBody: SoundboardOrderBody(expectedOrderRevision: revision, cueIDs: cueIDs),
+      success: [200])
+    return try await soundboardCues()
+  }
+
+  public func triggerSoundboardCue(
+    _ cueID: String, intent: SoundboardTriggerIntent, idempotencyKey: String
+  ) async throws -> SoundboardTriggerReceipt {
+    guard Self.validCueID(cueID), Self.validIdempotencyKey(idempotencyKey)
+    else { throw PhaseOneClientError.invalidRequest }
+    let response = try await request(
+      method: "POST", path: "/v1/soundboard/cues/\(cueID)/trigger", bearer: controlToken,
+      headers: ["Idempotency-Key": idempotencyKey],
+      jsonBody: SoundboardTriggerBody(
+        audience: .init(kind: intent.route.rawValue), delivery: intent.delivery.rawValue,
+        includeOrigin: intent.includeOrigin,
+        fallbackConfirmation: intent.fallback.map {
+          .init(token: $0.token, delivery: $0.delivery.rawValue)
+        }), success: [200, 201])
+    let value: SoundboardTriggerResponse = try decode(response.data)
+    guard Self.validPublicID(value.executionID, prefix: "mx_"),
+      Self.validTransmissionID(value.transmissionID),
+      let requested = PhaseOneDelivery(rawValue: value.requestedDelivery),
+      let effective = PhaseOneDelivery(rawValue: value.effectiveDelivery), !value.status.isEmpty
+    else { throw PhaseOneClientError.invalidResponse }
+    return SoundboardTriggerReceipt(
+      executionID: value.executionID,
+      transmission: .init(
+        transmissionID: value.transmissionID, requestedDelivery: requested,
+        effectiveDelivery: effective, downgradeReason: value.downgradeReason,
+        status: value.status, reused: value.reused ?? false))
+  }
+
   private func request<Body: Encodable>(
     method: String,
     path: String,
@@ -830,11 +936,21 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
       requiresJSONResponse: requiresJSONResponse, success: success)
   }
 
-  private func apiError(_ response: HTTPTransportResponse) throws -> PhaseOneClientError {
+  private func apiError(_ response: HTTPTransportResponse) throws -> Error {
     let envelope: ErrorEnvelope
     do { envelope = try JSONDecoder().decode(ErrorEnvelope.self, from: response.data) }
     catch { throw PhaseOneClientError.invalidResponse }
-    return .rejected(
+    if envelope.error.code == "requires_confirmation" {
+      guard let details = envelope.error.details, let token = details.confirmationToken,
+        token.hasPrefix("fc_"), token.count == 67
+      else { throw PhaseOneClientError.invalidResponse }
+      let alternatives = (details.alternatives ?? []).compactMap {
+        $0.available ? PhaseOneDelivery(rawValue: $0.delivery) : nil
+      }
+      guard !alternatives.isEmpty else { throw PhaseOneClientError.invalidResponse }
+      return PhaseOneConfirmationChallenge(token: token, alternatives: alternatives)
+    }
+    return PhaseOneClientError.rejected(
       status: response.response.statusCode,
       code: envelope.error.code,
       retryAfterSeconds: envelope.error.retryAfterSeconds)
@@ -930,7 +1046,12 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
     validPublicID(value, prefix: "tr_")
   }
   private static func validHistoryID(_ value: String) -> Bool {
-    validPublicID(value, prefix: "hi_")
+    if validPublicID(value, prefix: "hi_") { return true }
+    let suffix = value.dropFirst(4)
+    let lowerHex = CharacterSet(charactersIn: "0123456789abcdef")
+    return value.hasPrefix("hi_a") && suffix.count == 25 && suffix.unicodeScalars.allSatisfy {
+      lowerHex.contains($0)
+    }
   }
 
   private static func validReportDetails(_ value: String) -> Bool {
@@ -943,6 +1064,7 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
   private static func validHistoryActions(_ values: [String]) -> Bool {
     let allowed = Set([
       "cancel", "delete", "replay", "report", "block_actor", "block_orbit", "unblock",
+      "disable_schedule", "revoke_principal", "emergency_disable_automation",
     ])
     return Set(values).count == values.count && values.allSatisfy(allowed.contains)
   }
@@ -962,6 +1084,58 @@ public final class PhaseOneAppClient: PhaseOneAppServicing, @unchecked Sendable 
       CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
         .contains($0)
     }
+  }
+
+  private static func validCueID(_ value: String) -> Bool { validPublicID(value, prefix: "cq_") }
+  private static func validCueTitle(_ value: String) -> Bool {
+    let clean = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    return value == clean && !clean.isEmpty && clean.utf8.count <= 128
+  }
+
+  private static func validatedCue(_ value: SoundboardCueResponse) throws -> SoundboardCue {
+    guard validCueID(value.cueID), validCueTitle(value.title), value.state == "active",
+      value.revision > 0, value.sourceGeneration > 0, value.sourceBytes > 0,
+      value.sourceDurationMS > 0, value.sourceSHA256.count == 64,
+      value.sourceSHA256.allSatisfy({ $0.isHexDigit && !$0.isUppercase }),
+      (value.sourceKind == "media" && value.mediaID.map(validMediaID) == true && value.builtinAssetID == nil
+        || value.sourceKind == "builtin" && value.mediaID == nil && value.builtinAssetID == "pulsar.recording-cue.v1")
+    else { throw PhaseOneClientError.invalidResponse }
+    return .init(id: value.cueID, title: value.title, sourceKind: value.sourceKind,
+      mediaID: value.mediaID, builtinAssetID: value.builtinAssetID,
+      sourceSHA256: value.sourceSHA256, sourceBytes: value.sourceBytes,
+      sourceDurationMS: value.sourceDurationMS, revision: value.revision,
+      sourceGeneration: value.sourceGeneration, position: value.position ?? -1)
+  }
+
+  private static func validatedCueList(_ value: SoundboardListResponse) throws -> SoundboardCueList {
+    guard value.orderRevision >= 0, value.cues.count <= 64 else { throw PhaseOneClientError.invalidResponse }
+    let cues = try value.cues.map(validatedCue).sorted { $0.position < $1.position }
+    guard Set(cues.map(\.id)).count == cues.count, cues.allSatisfy({ $0.position >= 0 })
+    else { throw PhaseOneClientError.invalidResponse }
+    return .init(orderRevision: value.orderRevision, cues: cues)
+  }
+
+  private static func validatedCueMutation(_ value: SoundboardMutationResponse) throws -> SoundboardCueList {
+    guard value.orderRevision >= 0 else { throw PhaseOneClientError.invalidResponse }
+    return .init(orderRevision: value.orderRevision, cues: [try validatedCue(value.cue)])
+  }
+
+  private static func validatedAutomation(
+    _ value: HistoryResponse.Item.Automation?
+  ) throws -> PhaseOneAutomationHistory? {
+    guard let value else { return nil }
+    guard ["manual_soundboard", "scoped_api", "schedule"].contains(value.triggerKind),
+      validCueID(value.cueID), !value.outcome.isEmpty, value.resolvedTargetCount >= 0,
+      value.executionID.map({ validPublicID($0, prefix: $0.hasPrefix("mx_") ? "mx_" : "ax_") }) != false,
+      value.scheduleID.map({ validPublicID($0, prefix: "sch_") }) != false
+    else { throw PhaseOneClientError.invalidResponse }
+    return .init(triggerKind: value.triggerKind, principalRef: value.principalRef,
+      principalLabel: value.principalLabel, scheduleID: value.scheduleID,
+      scheduleLabel: value.scheduleLabel, scheduleRevision: value.scheduleRevision,
+      executionID: value.executionID, cueID: value.cueID, cueLabel: value.cueLabel,
+      cueRevision: value.cueRevision, audienceKind: value.audienceKind,
+      resolvedTargetCount: value.resolvedTargetCount, outcome: value.outcome,
+      reasonCode: value.reasonCode)
   }
 }
 
@@ -1200,6 +1374,31 @@ private struct HistoryResponse: Decodable {
     struct Media: Decodable { let title: String }
     struct Sender: Decodable { let displayName: String }
     struct Counts: Decodable { let played: Int; let other: Int }
+    struct Automation: Decodable {
+      let triggerKind: String
+      let principalRef: String?
+      let principalLabel: String?
+      let scheduleID: String?
+      let scheduleLabel: String?
+      let scheduleRevision: Int64?
+      let executionID: String?
+      let cueID: String
+      let cueLabel: String?
+      let cueRevision: Int64?
+      let audienceKind: String?
+      let resolvedTargetCount: Int
+      let outcome: String
+      let reasonCode: String?
+      enum CodingKeys: String, CodingKey {
+        case outcome
+        case triggerKind = "trigger_kind", principalRef = "principal_ref"
+        case principalLabel = "principal_label", scheduleID = "schedule_id"
+        case scheduleLabel = "schedule_label", scheduleRevision = "schedule_revision"
+        case executionID = "execution_id", cueID = "cue_id", cueLabel = "cue_label"
+        case cueRevision = "cue_revision", audienceKind = "audience_kind"
+        case resolvedTargetCount = "resolved_target_count", reasonCode = "reason_code"
+      }
+    }
     let historyItemID: String
     let direction: String
     let occurredAt: String
@@ -1212,6 +1411,7 @@ private struct HistoryResponse: Decodable {
     let reasonCode: String?
     let targetCounts: Counts?
     let actions: [String]
+    let automation: Automation?
 
     enum CodingKeys: String, CodingKey {
       case historyItemID = "history_item_id"
@@ -1224,7 +1424,7 @@ private struct HistoryResponse: Decodable {
       case status
       case reasonCode = "reason_code"
       case targetCounts = "target_counts"
-      case actions
+      case actions, automation
     }
   }
   let contract: String
@@ -1239,12 +1439,114 @@ private struct HistoryResponse: Decodable {
 
 private struct ErrorEnvelope: Decodable {
   struct APIError: Decodable {
+    struct Details: Decodable {
+      struct Alternative: Decodable { let delivery: String; let available: Bool }
+      let confirmationToken: String?
+      let alternatives: [Alternative]?
+      enum CodingKeys: String, CodingKey {
+        case confirmationToken = "confirmation_token", alternatives
+      }
+    }
     let code: String
     let retryAfterSeconds: Int?
+    let details: Details?
     enum CodingKeys: String, CodingKey {
       case code
       case retryAfterSeconds = "retry_after_seconds"
+      case details
     }
   }
   let error: APIError
+}
+
+private struct SoundboardCreateBody: Encodable {
+  struct Source: Encodable {
+    let kind: String
+    let mediaID: String
+    enum CodingKeys: String, CodingKey { case kind; case mediaID = "media_id" }
+  }
+  let title: String
+  let source: Source
+}
+
+private struct SoundboardRenameBody: Encodable {
+  let title: String
+  let expectedRevision: Int64
+  enum CodingKeys: String, CodingKey { case title; case expectedRevision = "expected_revision" }
+}
+
+private struct ExpectedRevisionBody: Encodable {
+  let expectedRevision: Int64
+  enum CodingKeys: String, CodingKey { case expectedRevision = "expected_revision" }
+}
+
+private struct SoundboardOrderBody: Encodable {
+  let expectedOrderRevision: Int64
+  let cueIDs: [String]
+  enum CodingKeys: String, CodingKey {
+    case expectedOrderRevision = "expected_order_revision", cueIDs = "cue_ids"
+  }
+}
+
+private struct SoundboardTriggerBody: Encodable {
+  struct Audience: Encodable { let kind: String }
+  struct Fallback: Encodable { let token: String; let delivery: String }
+  let audience: Audience
+  let delivery: String
+  let includeOrigin: Bool
+  let fallbackConfirmation: Fallback?
+  enum CodingKeys: String, CodingKey {
+    case audience, delivery, includeOrigin = "include_origin"
+    case fallbackConfirmation = "fallback_confirmation"
+  }
+}
+
+private struct SoundboardCueResponse: Decodable {
+  let cueID: String
+  let title: String
+  let sourceKind: String
+  let mediaID: String?
+  let builtinAssetID: String?
+  let sourceSHA256: String
+  let sourceBytes: Int64
+  let sourceDurationMS: Int64
+  let state: String
+  let revision: Int64
+  let sourceGeneration: Int64
+  let position: Int?
+  enum CodingKeys: String, CodingKey {
+    case title, state, revision, position
+    case cueID = "cue_id", sourceKind = "source_kind", mediaID = "media_id"
+    case builtinAssetID = "builtin_asset_id", sourceSHA256 = "source_sha256"
+    case sourceBytes = "source_bytes", sourceDurationMS = "source_duration_ms"
+    case sourceGeneration = "source_generation"
+  }
+}
+
+private struct SoundboardListResponse: Decodable {
+  let orderRevision: Int64
+  let cues: [SoundboardCueResponse]
+  enum CodingKeys: String, CodingKey { case orderRevision = "order_revision", cues }
+}
+
+private struct SoundboardMutationResponse: Decodable {
+  let cue: SoundboardCueResponse
+  let orderRevision: Int64
+  enum CodingKeys: String, CodingKey { case cue; case orderRevision = "order_revision" }
+}
+
+private struct SoundboardTriggerResponse: Decodable {
+  let executionID: String
+  let transmissionID: String
+  let requestedDelivery: String
+  let effectiveDelivery: String
+  let downgradeReason: String?
+  let status: String
+  let reused: Bool?
+  enum CodingKeys: String, CodingKey {
+    case status, reused
+    case executionID = "execution_id", transmissionID = "transmission_id"
+    case requestedDelivery = "requested_delivery", effectiveDelivery = "effective_delivery"
+    case downgradeReason = "downgrade_reason"
+  }
 }

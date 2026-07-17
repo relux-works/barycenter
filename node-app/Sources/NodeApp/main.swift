@@ -274,6 +274,7 @@ final class CoreRuntime {
 var runtime: CoreRuntime?
 @MainActor var macCaptureComposition: MacCaptureAppComposition?
 @MainActor var macPhaseOneComposition: MacPhaseOneAppComposition?
+@MainActor var macSoundboardComposition: MacSoundboardAppComposition?
 @MainActor var macTargetsInboxComposition: MacTargetsInboxAppComposition?
 @MainActor var macStreamTrackComposition: MacStreamTrackAppComposition?
 @MainActor var macAirComposition: MacAirAppComposition?
@@ -351,6 +352,7 @@ func startCore(with config: NodeConfig) {
         startShellRefresh(identity: connectionIdentity(config))
         startMacCaptureComposition(audio: rt.engine, log: rt.log)
         startMacPhaseOneComposition(log: rt.log)
+        startMacSoundboardComposition(log: rt.log)
         startMacTargetsInboxComposition(log: rt.log)
         startMacStreamTrackComposition(log: rt.log)
         startMacAirComposition(log: rt.log)
@@ -497,7 +499,10 @@ func configureShell() {
         toggleRecording: { macCaptureComposition?.toggleRecording() },
         cancelRecording: { macCaptureComposition?.cancelRecording() },
         setCaptureDevice: { macCaptureComposition?.selectDevice($0) },
-        setRecordingShortcut: { macCaptureComposition?.setShortcut($0) },
+        setRecordingShortcut: {
+            macCaptureComposition?.setShortcut($0)
+            macSoundboardComposition?.recordingShortcutChanged()
+        },
         playBuiltinCue: { macCaptureComposition?.playBuiltinCue() },
         recordFiveSeconds: { macCaptureComposition?.recordFiveSeconds() },
         reviewLocalFile: { macCaptureComposition?.reviewFile($0) },
@@ -531,6 +536,18 @@ func configureShell() {
         historyAction: { id, request in
             macPhaseOneComposition?.performHistoryAction(id, request: request)
         },
+        refreshSoundboard: { macSoundboardComposition?.refresh(force: true) },
+        selectSoundboardCue: { macSoundboardComposition?.select($0) },
+        triggerSoundboardCue: { macSoundboardComposition?.trigger($0) },
+        createSoundboardCue: { macSoundboardComposition?.create(from: $0, rightsAcknowledged: $1) },
+        renameSoundboardCue: { macSoundboardComposition?.rename($0, title: $1) },
+        moveSoundboardCue: { macSoundboardComposition?.move($0, delta: $1) },
+        deleteSoundboardCue: { macSoundboardComposition?.delete($0) },
+        setSoundboardRoute: { macSoundboardComposition?.setRoute($0) },
+        setSoundboardDelivery: { macSoundboardComposition?.setDelivery($0) },
+        setSoundboardIncludeOrigin: { macSoundboardComposition?.setIncludeOrigin($0) },
+        cycleSoundboardShortcut: { macSoundboardComposition?.cycleShortcut($0) },
+        openAutomationAdmin: { showShellSection(.settings) },
         submitCreateOrbit: { macIdentityComposition?.create(title: $0) },
         submitJoinOrbit: { macIdentityComposition?.join(code: $0) },
         exportRecovery: { macIdentityComposition?.exportRecovery() },
@@ -557,6 +574,7 @@ func configureShell() {
         streamTrackActions: streamTrackActions)
     statusMenu = StatusMenuController()
     statusMenu.targetsInboxModel = targetsInboxModel
+    statusMenu.triggerSelectedSoundboardCue = { macSoundboardComposition?.triggerSelected() }
     startMacIdentityComposition()
 }
 
@@ -619,6 +637,23 @@ func startMacPhaseOneComposition(log: Logger) {
         shellModel.setPhaseOneData(
             presenceSummary: nil,
             failure: "Authenticated app data is unavailable")
+    }
+}
+
+@MainActor
+func startMacSoundboardComposition(log: Logger) {
+    guard let capture = macCaptureComposition else { return }
+    do {
+        guard let bundle = try CredentialsStore.loadBundle(besideConfig: configPath) else { return }
+        let composition = try MacSoundboardAppComposition(
+            bundle: bundle, model: shellModel,
+            recordingShortcut: { capture.currentShortcut })
+        macSoundboardComposition = composition
+        composition.start()
+    } catch {
+        log.error("mac soundboard unavailable", ["reason": "initialization_failed"])
+        var state = PulsarSoundboardState(); state.failure = "credential_unavailable"
+        shellModel.setSoundboard(state)
     }
 }
 
@@ -694,6 +729,8 @@ func startAccountlessMacCapture(config: NodeConfig) {
 
 @MainActor
 func stopMacCaptureComposition() {
+    macSoundboardComposition?.shutdown()
+    macSoundboardComposition = nil
     macAirComposition?.shutdown()
     macAirComposition = nil
     macPhaseOneComposition?.shutdown()
@@ -749,6 +786,7 @@ func refreshShell(identity: String) {
         dndMode: dnd,
         volume: status.volume)
     macPhaseOneComposition?.refresh()
+    macSoundboardComposition?.refresh()
     macTargetsInboxComposition?.refresh()
     macAirComposition?.refresh()
 }

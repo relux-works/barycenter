@@ -357,6 +357,73 @@ struct PhaseOneAppClientTests {
     #expect(transport.requests().count == 3)
   }
 
+  @Test("Soundboard CRUD, automation history, and interrupt confirmation stay on canonical control auth")
+  func soundboardContracts() async throws {
+    let cueID = "cq_" + String(repeating: "A", count: 26)
+    let mediaID = "m_" + String(repeating: "B", count: 26)
+    let executionID = "mx_" + String(repeating: "C", count: 26)
+    let transmissionID = "tr_" + String(repeating: "D", count: 26)
+    let historyID = "hi_" + String(repeating: "E", count: 26)
+    let hash = String(repeating: "a", count: 64)
+    let token = "fc_" + String(repeating: "b", count: 64)
+    let index = PhaseOneRequestIndex()
+    let transport = ScriptedTransport { request, _ in
+      #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer \(testControlToken)")
+      switch index.next() {
+      case 0:
+        #expect(request.httpMethod == "GET" && request.url?.path == "/v1/soundboard/cues")
+        return testHTTPResponse(request: request, status: 200,
+          json: #"{"order_revision":1,"cues":[{"cue_id":"\#(cueID)","title":"Bell","source_kind":"media","media_id":"\#(mediaID)","source_sha256":"\#(hash)","source_bytes":1024,"source_duration_ms":500,"state":"active","revision":1,"source_generation":1,"position":0}]}"#)
+      case 1:
+        #expect(request.httpMethod == "POST" && request.url?.path == "/v1/soundboard/cues")
+        #expect(request.value(forHTTPHeaderField: "Idempotency-Key") == "mac-soundboard-create-test")
+        return testHTTPResponse(request: request, status: 201,
+          json: #"{"cue":{"cue_id":"\#(cueID)","title":"Bell","source_kind":"media","media_id":"\#(mediaID)","source_sha256":"\#(hash)","source_bytes":1024,"source_duration_ms":500,"state":"active","revision":1,"source_generation":1},"order_revision":1,"replayed":false}"#)
+      case 2:
+        #expect(request.url?.path == "/v1/history")
+        return testHTTPResponse(request: request, status: 200,
+          json: #"{"contract":"p1-history-presence-telegram-v1","items":[{"history_item_id":"\#(historyID)","item_kind":"automation_attempt","direction":"sent","occurred_at":"2026-07-17T00:00:00.000Z","media":{"title":"Bell"},"status":"denied","reason_code":"automation_disabled","automation":{"trigger_kind":"schedule","schedule_id":"sch_AAAAAAAAAAAAAAAAAAAAAAAAAA","schedule_label":"Morning","schedule_revision":2,"cue_id":"\#(cueID)","cue_label":"Bell","cue_revision":1,"resolved_target_count":0,"outcome":"denied","reason_code":"automation_disabled"},"actions":["disable_schedule","emergency_disable_automation"]}]}"#)
+      case 3:
+        #expect(request.url?.path == "/v1/soundboard/cues/\(cueID)/trigger")
+        return testHTTPResponse(request: request, status: 409,
+          json: #"{"error":{"code":"requires_confirmation","message":"confirm","details":{"confirmation_token":"\#(token)","alternatives":[{"delivery":"overlay","available":false},{"delivery":"after_current","available":true}]}}}"#)
+      case 4:
+        let object = try #require(JSONSerialization.jsonObject(with: request.httpBody!) as? [String: Any])
+        let fallback = try #require(object["fallback_confirmation"] as? [String: Any])
+        #expect(fallback["token"] as? String == token)
+        #expect(fallback["delivery"] as? String == "after_current")
+        return testHTTPResponse(request: request, status: 201,
+          json: #"{"execution_id":"\#(executionID)","transmission_id":"\#(transmissionID)","requested_delivery":"interrupt","effective_delivery":"after_current","downgrade_reason":"confirmed_fallback","status":"accepted","reused":false}"#)
+      default:
+        Issue.record("unexpected soundboard request")
+        return testHTTPResponse(request: request, status: 500, json: "{}")
+      }
+    }
+    let client = try PhaseOneAppClient(bundle: credentialBundle(), transport: transport)
+    #expect(try await client.soundboardCues().cues.first?.id == cueID)
+    _ = try await client.createSoundboardMediaCue(
+      title: "Bell", mediaID: mediaID, idempotencyKey: "mac-soundboard-create-test")
+    let history = try await client.history(limit: 30, cursor: nil)
+    #expect(history.items.first?.automation?.scheduleLabel == "Morning")
+    #expect(history.items.first?.actions.contains("emergency_disable_automation") == true)
+    let key = "mac-soundboard-trigger-test"
+    do {
+      _ = try await client.triggerSoundboardCue(
+        cueID, intent: .init(route: .ownBarycenter, delivery: .interrupt, includeOrigin: true),
+        idempotencyKey: key)
+      Issue.record("confirmation challenge was not surfaced")
+    } catch let challenge as PhaseOneConfirmationChallenge {
+      #expect(challenge.token == token && challenge.alternatives == [.afterCurrent])
+    }
+    let receipt = try await client.triggerSoundboardCue(
+      cueID, intent: .init(
+        route: .ownBarycenter, delivery: .interrupt, includeOrigin: true,
+        fallback: .init(token: token, delivery: .afterCurrent)), idempotencyKey: key)
+    #expect(receipt.executionID == executionID)
+    #expect(receipt.transmission.effectiveDelivery == .afterCurrent)
+    #expect(transport.requests().count == 5)
+  }
+
   private func credentialBundle() throws -> CredentialBundle {
     CredentialBundle(
       coordinatorOrigin: try CoordinatorOrigin("https://coord.example"),

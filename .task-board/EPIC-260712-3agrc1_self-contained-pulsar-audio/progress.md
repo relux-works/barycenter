@@ -8,7 +8,7 @@ codex-inline-orchestrator
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-17T05:09:55Z
+2026-07-17T05:44:06Z
 
 ## Blocked By
 - STORY-260712-sskhip
@@ -60,6 +60,7 @@ User mandate 2026-07-12: do not accept agent code without scrupulous root review
 2026-07-17 strict checkpoint: TASK-260712-2f0gpu automation safety engineering handoff accepted on exact f7f52a5 after clean 12/12, focused race x3 and hosted run 29554336162 4/4; PR #225 merged at 793f8ae. Progress is 142/205 overall (69.3%) and 142/186 engineering (76.3%); 44 engineering tasks remain. Strict execution advances to TASK-260712-2e2ymn. Manual epic remains 0/19 and no signed-app, hardware, audible/accessibility, real-client recovery or soak result is claimed.
 2026-07-17 strict checkpoint: TASK-260712-2e2ymn E2EE threat model accepted on exact 847a90b after clean 12/12 and hosted run 29555290473 4/4; PR #227 merged at 868789c. Progress is 143/205 overall (69.8%) and 143/186 engineering (76.9%); 43 engineering tasks remain. Strict execution advances to TASK-260712-16xmy2. E2EE remains disabled and unclaimed; independent review is not-run; manual epic remains 0/19.
 2026-07-17 strict checkpoint: TASK-260712-16xmy2 protected-media container spike accepted via explicit production no-go on exact 00b5bb0 after clean 16/16 and hosted run 29556420828 4/4; PR 229 merged at 478e1aa. Progress is 144/205 overall (70.2%) and 144/186 engineering (77.4%); 42 engineering tasks remain. Strict execution advances to TASK-260712-3er89x. Manual epic remains 0/19; no signed-app, physical performance, cross-platform E2EE or independent-review result is claimed.
+2026-07-17 strict checkpoint: TASK-260712-3er89x group-crypto library spike accepted via explicit production no-go on exact 7dc56d9 after clean 16/16 and hosted run 29557397257 attempt 2 passed 4/4; PR 231 merged at b3a64ba. Progress is 145/205 overall (70.7%) and 145/186 engineering (78.0%); 41 engineering tasks remain. Strict execution advances to TASK-260712-2ys1ww. Manual epic remains 0/19; no selected crypto stack, cross-platform E2EE, signed-app, secret-lifecycle or independent-review result is claimed.
 
 ## Precondition Resources
 (none)

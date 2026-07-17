@@ -1,0 +1,322 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-group-crypto-library-spike.v1",
+  "task": "TASK-260712-3er89x",
+  "publishedAt": "2026-07-17",
+  "baselineCommit": "747f6862706d7a6f68be1cc2013f3f69ff8ce84c",
+  "decision": {
+    "result": "rfc9420-protocol-fit-production-library-no-go",
+    "standardizedProtocolCandidate": "RFC 9420 Messaging Layer Security",
+    "productionLibrarySelected": false,
+    "productionCipherSuiteSelected": false,
+    "platformBindingsSelected": false,
+    "canonicalSerializationSelected": false,
+    "implementationAuthorized": false,
+    "e2eeFeatureEnabled": false,
+    "productClaimAllowed": false,
+    "independentReview": "not-run"
+  },
+  "upstreamContracts": [
+    {
+      "id": "threat-model",
+      "path": "acceptance/phase3/e2ee-threat-model-v1.json",
+      "sha256": "a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"
+    },
+    {
+      "id": "container-spike",
+      "path": "acceptance/phase3/protected-media-container-spike-v1.json",
+      "sha256": "320eb4221598e2a607e80614e349d15d447d92141f501567161b7a779f7492bb",
+      "production": "no-go"
+    }
+  ],
+  "rubric": [
+    {
+      "id": "GC-R01",
+      "requirements": ["E2EE-004", "E2EE-005"],
+      "rule": "Bind every MLS credential and signature key to an actor-visible device identity; MLS does not make coordinator-issued identity assertions independently trustworthy."
+    },
+    {
+      "id": "GC-R02",
+      "requirements": ["E2EE-006", "E2EE-011", "E2EE-020"],
+      "rule": "A current verified client owns each signed add, remove, update and commit; accepted commits advance the epoch with fresh client entropy."
+    },
+    {
+      "id": "GC-R03",
+      "requirements": ["E2EE-007", "E2EE-008", "E2EE-009"],
+      "rule": "Use one canonical MLS wire format and application-owned target, media, generation and replay state; reject forks, stale epochs and nonce reuse before plaintext release."
+    },
+    {
+      "id": "GC-R04",
+      "requirements": ["E2EE-010", "E2EE-018"],
+      "rule": "Negotiate one reviewed capability and suite without downgrade; unsupported or legacy targets fail or are explicitly excluded."
+    },
+    {
+      "id": "GC-R05",
+      "requirements": ["E2EE-012", "E2EE-013"],
+      "rule": "New devices receive no history automatically and the coordinator never escrows group, epoch, recovery or history-grant secrets."
+    },
+    {
+      "id": "GC-R06",
+      "requirements": ["E2EE-002", "E2EE-014", "E2EE-017"],
+      "rule": "Persist secrets only in reviewed client storage, delete consumed and obsolete representations, and keep keys out of logs, crash reports, metrics and backups."
+    },
+    {
+      "id": "GC-R07",
+      "requirements": ["E2EE-003", "E2EE-021"],
+      "rule": "Treat delivery as malicious for content while using secure transport and separately detecting withholding, reordering, replay, forks and device-set equivocation."
+    }
+  ],
+  "protocolAssessment": [
+    {
+      "id": "ietf-mls-rfc9420",
+      "status": "only-standardized-fit-candidate",
+      "fits": [
+        "two-to-many-asynchronous-groups",
+        "offline-key-packages-and-welcome",
+        "client-authored-proposals-and-commits",
+        "forward-secrecy-and-post-compromise-security",
+        "per-sender-generation-and-epoch-state",
+        "canonical-mls-wire-format",
+        "standardized-cipher-suite-registry"
+      ],
+      "applicationResponsibilities": [
+        "device-identity-verification-and-authentication-service-equivocation",
+        "delivery-loss-fork-and-concurrent-commit-policy",
+        "key-package-single-use-and-directory-freshness",
+        "secure-storage-and-actual-secret-deletion",
+        "history-grant-recovery-and-multi-device-policy",
+        "capability-downgrade-and-mixed-version-policy",
+        "target-media-container-live-frame-and-report-binding"
+      ],
+      "productionLibraryAvailable": false
+    },
+    {
+      "id": "pairwise-sender-key-or-custom-tree",
+      "status": "rejected",
+      "reason": "A learned sender key can permit indefinite passive decryption until redistributed, group rekey cost grows linearly, and a custom group protocol violates the no-custom-cryptography rule while duplicating standardized MLS state and analysis."
+    }
+  ],
+  "libraryCandidates": [
+    {
+      "id": "openmls",
+      "snapshot": {
+        "version": "0.8.1",
+        "tag": "openmls-v0.8.1",
+        "commit": "47dbedecad0c1fd8eb5368d582250ebfcc1e1ce6",
+        "commitDate": "2026-02-13T15:33:38Z",
+        "commitVerified": true,
+        "license": "MIT"
+      },
+      "protocol": "RFC 9420",
+      "advertisedSuites": [
+        "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
+        "MLS_128_DHKEMP256_AES128GCM_SHA256_P256",
+        "MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519"
+      ],
+      "providerSnapshot": {
+        "candidate": "openmls_libcrux_crypto",
+        "version": "0.3.1",
+        "libcruxPrimitiveVersion": "0.0.6",
+        "hpkeRsVersion": "0.6.0",
+        "selected": false
+      },
+      "security": {
+        "externalAudit": "SRLabs-2026-complete",
+        "auditFindings": 8,
+        "highestFinding": "high",
+        "highFindingRemediatedInCandidate": true,
+        "remainingAuditFinding": "one-low-open",
+        "repositoryAdvisories": [
+          {
+            "id": "GHSA-8x3w-qj7j-gqhf",
+            "severity": "high",
+            "patchedVersion": "0.7.2",
+            "candidateAffected": false
+          },
+          {
+            "id": "GHSA-qr9h-x63w-vqfm",
+            "severity": "medium",
+            "patchedVersion": "0.7.1",
+            "candidateAffected": false
+          }
+        ],
+        "providerAdvisoriesPatchedBySnapshot": [
+          "GHSA-435g-fcv3-8j26-libcrux-0.0.6",
+          "GHSA-g433-pq76-6cmf-hpke-rs-0.6.0"
+        ],
+        "fullDependencyAuditPerformedByThisTask": false
+      },
+      "platform": {
+        "officiallyTested": [
+          "x86_64-pc-windows-msvc",
+          "i686-pc-windows-msvc",
+          "x86_64-apple-darwin"
+        ],
+        "buildOnlyRelevantTargets": [
+          "aarch64-apple-darwin",
+          "aarch64-apple-ios",
+          "aarch64-apple-ios-sim"
+        ],
+        "officialSwiftBinding": false,
+        "officialGoBinding": false,
+        "signedMSIXEvidence": "not-run",
+        "signedNotarizedMacOSEvidence": "not-run"
+      },
+      "result": "no-go-missing-supported-bindings-arm64-tests-packaging-and-closed-audit-scope"
+    },
+    {
+      "id": "mls-rs",
+      "snapshot": {
+        "version": "0.55.2",
+        "tag": "0.55.2",
+        "commit": "42131c9959efb1d3928428259bc89853027f730d",
+        "commitDate": "2026-06-17T16:23:01Z",
+        "commitVerified": true,
+        "license": "Apache-2.0 OR MIT",
+        "minimumRust": "1.82.0"
+      },
+      "protocol": "RFC 9420",
+      "security": {
+        "maintainerStatement": "not-yet-fully-audited-by-a-third-party",
+        "repositoryAdvisoriesPublished": 0,
+        "zeroPublishedAdvisoriesMeansNoKnownVulnerabilities": false,
+        "fullDependencyAuditPerformedByThisTask": false
+      },
+      "bindingSnapshot": {
+        "crate": "mls-rs-uniffi",
+        "version": "0.13.0",
+        "uniffiVersion": "0.31",
+        "cryptoProvider": "mls-rs-crypto-openssl-0.21.0",
+        "officialForeignTests": ["Kotlin", "Python"],
+        "officialSwiftTests": false,
+        "officialGoBinding": false,
+        "cryptoKitProviderVersion": "0.11.0",
+        "uniffiUsesCryptoKitProvider": false
+      },
+      "platform": {
+        "upstreamNativeMatrix": ["ubuntu-latest", "macos-14", "windows-latest"],
+        "windowsDependencyProvisioning": "vcpkg-installs-dynamic-openssl-sqlcipher-sqlite",
+        "upstreamInterop": "mls-rs-full-vs-mls-rs-feature-variants-only",
+        "independentImplementationInterop": false,
+        "signedMSIXEvidence": "not-run",
+        "signedNotarizedMacOSEvidence": "not-run"
+      },
+      "result": "no-go-no-full-third-party-audit-no-swift-binding-tests-and-no-store-supply-proof"
+    },
+    {
+      "id": "mlspp",
+      "snapshot": {
+        "latestTag": "v0.1.0",
+        "latestTagCommit": "21c9a937ac24a2e0bd9b2d062e598fd9161119d9",
+        "latestTagCommitDate": "2021-05-26T03:22:45Z",
+        "mainAssessmentCommit": "92aaa4134fa45ec39957a7c81a342401fba7feb2",
+        "mainAssessmentDate": "2026-04-13T19:29:45Z",
+        "mainAssessmentCommitVerified": true,
+        "license": "BSD-2-Clause"
+      },
+      "protocol": "MLS C++ implementation",
+      "supply": {
+        "language": "C++17",
+        "crypto": "OpenSSL-1.1.1-or-3.0-or-BoringSSL",
+        "otherRuntimeDependency": "nlohmann-json",
+        "recommendedDependencyManager": "vcpkg",
+        "currentVersionedReleaseForMain": false,
+        "externalAuditEvidenceFound": false,
+        "officialSwiftBinding": false,
+        "officialGoBinding": false,
+        "signedPackageEvidence": "not-run"
+      },
+      "result": "no-go-no-current-release-audit-bindings-or-store-supply-proof"
+    }
+  ],
+  "localProbe": {
+    "scope": "repository-and-upstream-metadata-only",
+    "rustc": "not-installed",
+    "cargo": "not-installed",
+    "swift": "6.2.3-x86_64-apple-macos",
+    "customCryptographicPrimitiveImplemented": false,
+    "thirdPartyCryptoDownloaded": false,
+    "runtimeExecutableDownloadAdded": false,
+    "reasonNoCryptoPrototypeWasFabricated": "No candidate simultaneously cleared audit, platform binding, exact supply, signed packaging and cross-implementation evidence gates; installing an unpinned global Rust toolchain or writing custom crypto would weaken the rubric."
+  },
+  "evidenceMatrix": {
+    "manualEpic": "EPIC-260714-th54l3",
+    "manualEvidence": "not-run",
+    "rfcKnownAnswerVectors": "not-run-no-selected-stack",
+    "independentImplementationInterop": "not-run",
+    "windowsToWindows": "not-run",
+    "windowsToMacOS": "not-run",
+    "macOSToMacOS": "not-run",
+    "multiDeviceOfflineJoin": "not-run",
+    "concurrentCommitFork": "not-run",
+    "removeThenStaleEpoch": "not-run",
+    "applicationReplay": "not-run",
+    "secretDeletionAndRollback": "not-run",
+    "signedMSIX": "not-run",
+    "signedNotarizedMacOS": "not-run",
+    "performanceAndMemory": "not-run",
+    "independentSecurityReview": "not-run"
+  },
+  "rulesFrozenForProtocolContract": [
+    "use-rfc9420-semantics-only-no-sender-key-or-custom-group-crypto",
+    "use-private-messages-for-application-data",
+    "current-verified-client-authors-membership-commit",
+    "authentication-service-device-binding-requires-independent-verification",
+    "one-time-key-packages-and-fresh-group-identifiers",
+    "application-tracks-epoch-generation-fork-and-replay-state",
+    "secure-transport-remains-required",
+    "consumed-and-obsolete-secret-representations-must-be-deleted",
+    "new-device-history-requires-explicit-client-owned-grant",
+    "no-coordinator-content-key-generation-unwrap-escrow-or-recovery",
+    "no-capability-or-cipher-suite-downgrade"
+  ],
+  "blockingFindings": [
+    {"id": "GCL-001", "severity": "critical", "status": "open", "reason": "No exact production MLS library, provider, cipher suite, serialization and binding stack clears every gate."},
+    {"id": "GCL-002", "severity": "high", "status": "open", "reason": "OpenMLS has no official Swift or Go binding and does not test Apple arm64 in its published test matrix."},
+    {"id": "GCL-003", "severity": "high", "status": "open", "reason": "OpenMLS audit reports one unresolved low finding and this task did not independently audit its complete dependency closure."},
+    {"id": "GCL-004", "severity": "high", "status": "open", "reason": "mls-rs explicitly has not received a full third-party security audit."},
+    {"id": "GCL-005", "severity": "high", "status": "open", "reason": "mls-rs UniFFI lacks official Swift tests and uses an OpenSSL provider with dynamic Windows vcpkg provisioning rather than a reviewed Store package closure."},
+    {"id": "GCL-006", "severity": "high", "status": "open", "reason": "MLS++ has no current versioned release from assessed main, external audit evidence, supported app bindings or Store supply proof."},
+    {"id": "GCL-007", "severity": "high", "status": "open", "reason": "No independent Windows/macOS known-answer, interop, lifecycle, replay, stale-epoch or fork vector was run."},
+    {"id": "GCL-008", "severity": "high", "status": "open", "reason": "Device verification and malicious authentication-service equivocation detection remain undefined; MLS alone does not solve them."},
+    {"id": "GCL-009", "severity": "high", "status": "open", "reason": "Secret persistence, deletion, crash rollback, cloning, history grants and recovery are not proven in either client."},
+    {"id": "GCL-010", "severity": "high", "status": "open", "reason": "Exact SBOM, vulnerability closure, notices, signed packaging and update response are not accepted for any candidate."}
+  ],
+  "sources": [
+    {"id": "RFC9420", "url": "https://www.rfc-editor.org/rfc/rfc9420.html", "status": "IETF Proposed Standard", "use": "MLS protocol, wire format, suites, key packages, epochs, generation, deletion, delivery and authentication-service limits."},
+    {"id": "RFC9750", "url": "https://www.rfc-editor.org/rfc/rfc9750.html", "status": "IETF RFC", "use": "MLS architecture, offline groups, delivery compromise, identity compromise, replay and sender-key tradeoffs."},
+    {"id": "OPENMLS-RELEASE", "url": "https://github.com/openmls/openmls/releases/tag/openmls-v0.8.1", "gitCommit": "47dbedecad0c1fd8eb5368d582250ebfcc1e1ce6"},
+    {"id": "OPENMLS-README", "url": "https://github.com/openmls/openmls/blob/openmls-v0.8.1/README.md", "gitBlobSHA": "5254ba24979998ed565d6f177af7031b51affc9d"},
+    {"id": "OPENMLS-BUILD", "url": "https://github.com/openmls/openmls/blob/openmls-v0.8.1/.github/workflows/build.yml", "gitBlobSHA": "428ab378d5cb485fb9ae4b67b3509d6d9bc08d10"},
+    {"id": "OPENMLS-TESTS", "url": "https://github.com/openmls/openmls/blob/openmls-v0.8.1/.github/workflows/tests.yml", "gitBlobSHA": "6eeb49c5bc524ca5be060b8352ab21437091291c"},
+    {"id": "OPENMLS-LIBCRUX", "url": "https://github.com/openmls/openmls/blob/openmls-v0.8.1/libcrux_crypto/Cargo.toml", "gitBlobSHA": "a9d8121466968dbb98c3c735d9e7a81b25b7baf1"},
+    {"id": "OPENMLS-AUDIT", "url": "https://blog.openmls.tech/posts/2026-05-27-independent-audit/", "status": "maintainer audit summary"},
+    {"id": "OPENMLS-HIGH", "url": "https://github.com/openmls/openmls/security/advisories/GHSA-8x3w-qj7j-gqhf", "patched": "0.7.2"},
+    {"id": "OPENMLS-MEDIUM", "url": "https://github.com/openmls/openmls/security/advisories/GHSA-qr9h-x63w-vqfm", "patched": "0.7.1"},
+    {"id": "MLSRS-README", "url": "https://github.com/awslabs/mls-rs/blob/0.55.2/README.md", "gitBlobSHA": "310de7ec01e92486f8454e6ca6c3b0bbb85b0d30"},
+    {"id": "MLSRS-CARGO", "url": "https://github.com/awslabs/mls-rs/blob/0.55.2/mls-rs/Cargo.toml", "gitBlobSHA": "3c20ffa66f2ac966599e8094170a3cd4507a407a"},
+    {"id": "MLSRS-UNIFFI", "url": "https://github.com/awslabs/mls-rs/blob/0.55.2/mls-rs-uniffi/Cargo.toml", "version": "0.13.0", "gitBlobSHA": "dae831e85082e2ce8b69385b08c97f0e7252bbbb"},
+    {"id": "MLSRS-CRYPTOKIT", "url": "https://github.com/awslabs/mls-rs/blob/0.55.2/mls-rs-crypto-cryptokit/Cargo.toml", "gitBlobSHA": "7fa0cc33d6d232dd084cc4d2c827b339485d9426"},
+    {"id": "MLSRS-OPENSSL", "url": "https://github.com/awslabs/mls-rs/blob/0.55.2/mls-rs-crypto-openssl/Cargo.toml", "gitBlobSHA": "b352a2e0e1602684c76c13e7ee244173f36dc5fa"},
+    {"id": "MLSRS-NATIVE-CI", "url": "https://github.com/awslabs/mls-rs/blob/0.55.2/.github/workflows/native_build.yml", "gitBlobSHA": "d5c237331669697b45a337411841dcb809d2777a"},
+    {"id": "MLSRS-INTEROP-CI", "url": "https://github.com/awslabs/mls-rs/blob/0.55.2/.github/workflows/interop_tests.yml", "gitBlobSHA": "150d35d84aafe3795af4a3efce0405cf1d2de15f"},
+    {"id": "MLSPP-README", "url": "https://github.com/cisco/mlspp/blob/92aaa4134fa45ec39957a7c81a342401fba7feb2/README.md", "gitBlobSHA": "61d2cc15adfba17a30f99987a1e53813e1b60767"},
+    {"id": "MLSPP-LICENSE", "url": "https://github.com/cisco/mlspp/blob/92aaa4134fa45ec39957a7c81a342401fba7feb2/LICENSE", "spdx": "BSD-2-Clause"}
+  ],
+  "exit": {
+    "taskAcceptedAsNoGo": true,
+    "nextTask": "TASK-260712-2ys1ww",
+    "e2eeMediaBlocked": true,
+    "downstreamMode": "rfc9420-semantics-and-candidate-neutral-contract-only",
+    "unblockRequires": [
+      "exact-audited-library-provider-suite-and-binding-selection",
+      "closed-critical-high-and-reviewed-residual-findings",
+      "independent-cross-implementation-known-answer-and-lifecycle-vectors",
+      "signed-windows-macos-platform-and-store-supply-evidence",
+      "verified-device-and-authentication-service-equivocation-design",
+      "client-secret-storage-deletion-rollback-history-and-recovery-proof",
+      "complete-sbom-license-notices-vulnerability-and-update-plan",
+      "independent-cryptographic-design-review"
+    ]
+  }
+}

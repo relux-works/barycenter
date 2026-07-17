@@ -335,6 +335,35 @@ func (c *WindowsCaptureWorkflowController) ChooseStreamTrackFile(owner uintptr, 
 	}()
 }
 
+func (c *WindowsCaptureWorkflowController) ChooseSoundboardFile(owner uintptr, accept func(WindowsBrokeredAudioFile)) {
+	if c == nil || accept == nil || c.recordingBusy() || c.selfTestBusy() {
+		return
+	}
+	c.mu.RLock()
+	picker := c.picker
+	c.mu.RUnlock()
+	if picker == nil || !c.beginOperation() {
+		return
+	}
+	go func() {
+		defer c.pending.Done()
+		file, err := picker(c.ctx, owner)
+		if err != nil {
+			if c.ctx.Err() == nil {
+				c.setLocalFailure("soundboard_file_picker_failed")
+			}
+			return
+		}
+		if c.ctx.Err() != nil {
+			if file.Release != nil {
+				file.Release()
+			}
+			return
+		}
+		accept(file)
+	}()
+}
+
 func (c *WindowsCaptureWorkflowController) setLocalFailure(code string) {
 	c.mu.Lock()
 	c.snapshot.Failure = code

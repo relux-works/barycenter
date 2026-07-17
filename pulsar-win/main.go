@@ -201,6 +201,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	} else {
 		phaseOne = configured
 	}
+	var soundboard *WindowsSoundboardComposition
+	if configured, soundboardErr := newProductionWindowsSoundboardComposition(dir, workflow); soundboardErr != nil {
+		log.Error("Windows soundboard unavailable")
+	} else {
+		soundboard = configured
+	}
 	var airs *WindowsAirComposition
 	if configured, airErr := newProductionWindowsAirComposition(dir); airErr != nil {
 		log.Error("Air app data unavailable")
@@ -329,6 +335,11 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		if phaseOne != nil {
 			phaseOne.ApplyShellSnapshot(&snapshot)
 		}
+		if soundboard != nil {
+			soundboard.ApplyShellSnapshot(&snapshot, currentWindowsSoundboardShortcutStates())
+		} else {
+			snapshot.SoundboardFailure = "credential_unavailable"
+		}
 		if airs != nil {
 			airs.ApplyShellSnapshot(&snapshot)
 		} else {
@@ -423,6 +434,56 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		BlockSelectedHistoryActor: func() {
 			if phaseOne != nil {
 				phaseOne.BlockSelectedHistoryActor()
+			}
+		},
+		SelectNextSoundboardCue: func() {
+			if soundboard != nil {
+				soundboard.SelectNextCue()
+			}
+		},
+		TriggerSelectedSoundboardCue: func() {
+			if soundboard != nil {
+				soundboard.TriggerSelected()
+			}
+		},
+		SelectNextSoundboardRoute: func() {
+			if soundboard != nil {
+				soundboard.SelectNextRoute()
+			}
+		},
+		SelectNextSoundboardDelivery: func() {
+			if soundboard != nil {
+				soundboard.SelectNextDelivery()
+			}
+		},
+		ToggleSoundboardIncludeOrigin: func() {
+			if soundboard != nil {
+				soundboard.ToggleIncludeOrigin()
+			}
+		},
+		DeleteSelectedSoundboardCue: func() {
+			if soundboard != nil {
+				soundboard.DeleteSelected()
+			}
+		},
+		MoveSelectedSoundboardCue: func(delta int) {
+			if soundboard != nil {
+				soundboard.MoveSelected(delta)
+			}
+		},
+		CycleSelectedSoundboardShortcut: func() {
+			if soundboard != nil {
+				soundboard.CycleSelectedShortcut()
+			}
+		},
+		ChooseSoundboardFile: func() {
+			if soundboard != nil {
+				workflow.ChooseSoundboardFile(currentMainWindowOwner(), soundboard.AcceptBrokeredCue)
+			}
+		},
+		RenameSelectedSoundboardCue: func(title string) {
+			if soundboard != nil {
+				soundboard.RenameSelected(title)
 			}
 		},
 		RefreshTargetsInbox: func() {
@@ -674,6 +735,7 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		Recording:     workflow,
 		Shortcut:      shortcutStore.Load(),
 		ShortcutStore: shortcutStore,
+		Soundboard:    soundboard,
 		Connected:     func() bool { return ws.Healthy() },
 		Identity:      identityLine(*creds),
 		OnRePair: func() {
@@ -693,6 +755,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		},
 		OnQuit: func() { close(quit) },
 	}
+	if soundboard != nil {
+		tray.SoundboardPreferences = soundboard.Preferences()
+	}
 	awaitShutdown(tray, quit)
 	if streamTracks != nil {
 		streamTracks.Close()
@@ -702,6 +767,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	}
 	if phaseOne != nil {
 		phaseOne.Close()
+	}
+	if soundboard != nil {
+		soundboard.Close()
 	}
 	if airs != nil {
 		airs.Close()

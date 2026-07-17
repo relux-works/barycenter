@@ -151,6 +151,13 @@ type expectedRevisionHTTPRequest struct {
 	ExpectedRevision int64 `json:"expected_revision"`
 }
 
+type manualSoundboardTriggerHTTPRequest struct {
+	Audience             transmissionAudienceRequest  `json:"audience"`
+	Delivery             string                       `json:"delivery"`
+	IncludeOrigin        *bool                        `json:"include_origin,omitempty"`
+	FallbackConfirmation *transmissionFallbackRequest `json:"fallback_confirmation,omitempty"`
+}
+
 type savedCueOrderHTTPRequest struct {
 	ExpectedOrderRevision int64     `json:"expected_order_revision"`
 	CueIDs                *[]string `json:"cue_ids"`
@@ -280,7 +287,13 @@ func (api *onboardingAPI) soundboardCueItem(w http.ResponseWriter, r *http.Reque
 		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
 		return
 	}
-	id := strings.TrimPrefix(r.URL.Path, "/v1/soundboard/cues/")
+	suffix := strings.TrimPrefix(r.URL.Path, "/v1/soundboard/cues/")
+	parts := strings.Split(suffix, "/")
+	if len(parts) == 2 && savedCueHTTPIDPattern.MatchString(parts[0]) && parts[1] == "trigger" {
+		api.manualSoundboardTrigger(w, r, parts[0])
+		return
+	}
+	id := suffix
 	if !savedCueHTTPIDPattern.MatchString(id) || !automationJSONRequest(r) {
 		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
 		return
@@ -328,6 +341,102 @@ func (api *onboardingAPI) soundboardCueItem(w http.ResponseWriter, r *http.Reque
 	default:
 		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
 	}
+}
+
+func (api *onboardingAPI) manualSoundboardTrigger(w http.ResponseWriter, r *http.Request, cueID string) {
+	if r.Method != http.MethodPost || r.URL.RawQuery != "" || !automationJSONRequest(r) {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	idempotencyKey, ok := singleRequestHeader(r, "Idempotency-Key")
+	if !ok || !transmissionIdempotencyKey.MatchString(idempotencyKey) {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	var request manualSoundboardTriggerHTTPRequest
+	if !decodeStrictTransmissionJSON(w, r, &request) {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	includeOrigin := true
+	if request.IncludeOrigin != nil {
+		includeOrigin = *request.IncludeOrigin
+	}
+	probe := createTransmissionRequest{MediaID: "m_00000000000000000000000000",
+		Audience: request.Audience, Delivery: request.Delivery, OriginKind: "file",
+		IncludeOrigin: &includeOrigin, FallbackConfirmation: request.FallbackConfirmation}
+	valid, selectors := validateTransmissionCreateRequest(probe)
+	if !valid || request.Delivery == "queue" || request.Delivery == "replace" {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	actor := r.Context().Value(actorRequestKey{}).(actorRequest)
+	if !api.reserveTransmission(w, actor.Context) {
+		return
+	}
+	now := api.transmissionNow().UTC().UnixMilli()
+	if err := api.prepareManualSoundboardBuiltin(actor, cueID, now); err != nil {
+		api.automationControlError(w, "prepare manual soundboard cue", errorAutomationCueNotFound, err)
+		return
+	}
+	requestHash, err := canonicalHistoryActionHash(struct {
+		CueID         string                      `json:"cue_id"`
+		Audience      transmissionAudienceRequest `json:"audience"`
+		Delivery      string                      `json:"delivery"`
+		IncludeOrigin bool                        `json:"include_origin"`
+	}{cueID, request.Audience, request.Delivery, includeOrigin})
+	if err != nil {
+		api.internalError(w, "hash manual soundboard trigger", err)
+		return
+	}
+	challengeToken := ""
+	if request.Delivery == "interrupt" {
+		challengeToken, err = api.transmissionToken()
+		if err != nil || !transmissionConfirmationToken.MatchString(challengeToken) {
+			api.internalError(w, "mint manual soundboard confirmation", err)
+			return
+		}
+	}
+	params := store.CreateResolvedTransmissionParams{
+		ExpectedActorID: actor.Context.ActorID, Bearer: actor.Bearer,
+		IdempotencyKeyHash: transmissionDigest(idempotencyKey), RequestHash: requestHash,
+		AudienceKind: store.TransmissionAudienceKind(request.Audience.Kind), Selectors: selectors,
+		IncludeOrigin: includeOrigin, RequestedDelivery: store.TransmissionDelivery(request.Delivery),
+		AcceptedAt: now, Availability: api.transmissionAvailability(),
+	}
+	if challengeToken != "" {
+		params.ChallengeTokenHash = transmissionDigest(challengeToken)
+	}
+	if request.FallbackConfirmation != nil {
+		params.Confirmation = &store.ConfirmTransmissionFallback{
+			TokenHash: transmissionDigest(request.FallbackConfirmation.Token),
+			Delivery:  store.TransmissionDelivery(request.FallbackConfirmation.Delivery)}
+	}
+	result, err := api.store.TriggerManualSoundboard(store.ManualSoundboardTriggerParams{
+		CueID: cueID, Transmission: params})
+	if errors.Is(err, store.ErrAutomationDisabled) || errors.Is(err, store.ErrSavedCueNotFound) ||
+		errors.Is(err, store.ErrSavedCueStateConflict) || errors.Is(err, store.ErrAutomationInvalid) {
+		api.automationControlError(w, "trigger manual soundboard cue", errorAutomationCueNotFound, err)
+		return
+	}
+	if api.transmissionStoreError(w, "trigger manual soundboard cue", err) {
+		return
+	}
+	if result.Challenge != nil {
+		writeTransmissionChallenge(w, *result.Challenge, challengeToken)
+		return
+	}
+	if !result.Reused {
+		api.transmissionAccepted(result.Creation.Transmission.ID)
+	}
+	status := http.StatusCreated
+	if result.Reused {
+		status = http.StatusOK
+	}
+	reused := result.Reused
+	response := transmissionResponseForCreation(result.Creation, &reused)
+	response.ExecutionID = result.ExecutionID
+	writeJSON(w, status, response)
 }
 
 type automationFeatureHTTPRequest struct {

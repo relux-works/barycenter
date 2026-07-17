@@ -136,13 +136,23 @@ func (c *WindowsPhaseOneComposition) ApplyShellSnapshot(shell *ShellSnapshot) {
 		})
 	}
 	for _, item := range state.History {
-		shell.PhaseOneHistory = append(shell.PhaseOneHistory, ShellPhaseOneHistoryItem{
+		projected := ShellPhaseOneHistoryItem{
 			Title: item.Title, SenderName: item.SenderName, Direction: item.Direction, Status: item.Status,
 			RequestedDelivery: item.RequestedDelivery, EffectiveDelivery: item.EffectiveDelivery,
 			DowngradeReason: item.DowngradeReason, PlayedCount: item.PlayedCount, OtherCount: item.OtherCount,
 			CanDelete: phaseOneActionAllowed(item.Actions, "delete"), CanReplay: phaseOneActionAllowed(item.Actions, "replay"),
 			CanReport: phaseOneActionAllowed(item.Actions, "report"), CanBlock: phaseOneActionAllowed(item.Actions, "block_actor"),
-		})
+			CanDisableSchedule: phaseOneActionAllowed(item.Actions, "disable_schedule"), CanRevokePrincipal: phaseOneActionAllowed(item.Actions, "revoke_principal"),
+			CanEmergencyDisable: phaseOneActionAllowed(item.Actions, "emergency_disable_automation"),
+		}
+		if item.Automation != nil {
+			projected.AutomationTrigger = item.Automation.TriggerKind
+			projected.AutomationActor = item.Automation.PrincipalLabel
+			if projected.AutomationActor == "" { projected.AutomationActor = item.Automation.PrincipalRef }
+			projected.AutomationSchedule, projected.AutomationCue = item.Automation.ScheduleLabel, item.Automation.CueLabel
+			projected.AutomationReason = item.Automation.ReasonCode
+		}
+		shell.PhaseOneHistory = append(shell.PhaseOneHistory, projected)
 	}
 }
 

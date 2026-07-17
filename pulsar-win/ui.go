@@ -16,9 +16,11 @@ type TrayState struct {
 	Identity string
 	// Recording and Shortcut are single owners shared by hidden tray, visible
 	// window and Win32 lifecycle messages.
-	Recording     WindowsRecordingControl
-	Shortcut      WindowsRecordingShortcut
-	ShortcutStore WindowsRecordingShortcutStore
+	Recording             WindowsRecordingControl
+	Shortcut              WindowsRecordingShortcut
+	ShortcutStore         WindowsRecordingShortcutStore
+	Soundboard            *WindowsSoundboardComposition
+	SoundboardPreferences WindowsSoundboardPreferences
 	// OnRePair opens the onboarding window to re-pair in place (F3).
 	OnRePair func()
 	// OnQuit tears the process down cleanly.

@@ -34,11 +34,19 @@ func (api *onboardingAPI) prepareAutomationBuiltinCue(input automationTriggerInp
 	if !builtin {
 		return nil
 	}
+	if err := api.materializeAutomationBuiltinFile(principal.OwnerOrbitID); err != nil {
+		return err
+	}
+	_, err = api.store.EnsureAutomationBuiltinMedia(input.Secret, input.CueID, input.Now)
+	return err
+}
+
+func (api *onboardingAPI) materializeAutomationBuiltinFile(ownerOrbitID int64) error {
 	payload, err := automationcontract.BuiltinRecordingCueWAV()
 	if err != nil {
 		return err
 	}
-	storageKey := store.AutomationBuiltinStorageKey(principal.OwnerOrbitID)
+	storageKey := store.AutomationBuiltinStorageKey(ownerOrbitID)
 	path, ok := media.CanonicalPath(filepath.Join(api.config.MediaDir, "canonical"), storageKey)
 	if !ok {
 		return fmt.Errorf("invalid automation builtin storage key")
@@ -46,8 +54,7 @@ func (api *onboardingAPI) prepareAutomationBuiltinCue(input automationTriggerInp
 	if raw, readErr := os.ReadFile(path); readErr == nil {
 		digest := sha256.Sum256(raw)
 		if len(raw) == len(payload) && fmt.Sprintf("%x", digest) == automationcontract.BuiltinCueSHA256 {
-			_, err = api.store.EnsureAutomationBuiltinMedia(input.Secret, input.CueID, input.Now)
-			return err
+			return nil
 		}
 	} else if !os.IsNotExist(readErr) {
 		return readErr
@@ -79,7 +86,29 @@ func (api *onboardingAPI) prepareAutomationBuiltinCue(input automationTriggerInp
 	if err := os.Rename(temporaryPath, path); err != nil {
 		return err
 	}
-	_, err = api.store.EnsureAutomationBuiltinMedia(input.Secret, input.CueID, input.Now)
+	return nil
+}
+
+func (api *onboardingAPI) prepareManualSoundboardBuiltin(actor actorRequest, cueID string, now int64) error {
+	list, err := api.store.AuthorizedSavedCueControlList(actor.Context.ActorID, actor.Bearer)
+	if err != nil {
+		return err
+	}
+	builtin := false
+	for _, item := range list.Items {
+		if item.Cue.ID == cueID {
+			builtin = item.Cue.SourceKind == store.SavedCueSourceBuiltin
+			break
+		}
+	}
+	if !builtin {
+		return nil
+	}
+	if err := api.materializeAutomationBuiltinFile(actor.Context.OrbitID); err != nil {
+		return err
+	}
+	_, err = api.store.EnsureAuthorizedAutomationBuiltinMedia(actor.Context.ActorID,
+		actor.Bearer, cueID, now)
 	return err
 }
 

@@ -63,6 +63,7 @@ const (
 	idShellAirs            = 3006
 	idShellSettings        = 3007
 	idShellInbox           = 3008
+	idShellSoundboard      = 3009
 	idShellAction          = 3010
 	idShellRecord          = 3011
 	idShellDND             = 3012
@@ -175,7 +176,7 @@ func shellSectionControlID(section ShellSection) int {
 	return map[ShellSection]int{
 		ShellHome: idShellHome, ShellCreate: idShellCreate, ShellJoin: idShellJoin,
 		ShellTryLocally: idShellTry, ShellHistory: idShellHistory, ShellInbox: idShellInbox,
-		ShellAirs: idShellAirs, ShellSettings: idShellSettings,
+		ShellSoundboard: idShellSoundboard, ShellAirs: idShellAirs, ShellSettings: idShellSettings,
 	}[section]
 }
 
@@ -715,8 +716,9 @@ func (ctx *mainWindowCtx) render() {
 	showControl(ctx.english, section == ShellSettings)
 	showControl(ctx.russian, section == ShellSettings)
 	historyPage := section == ShellHistory
+	soundboardPage := section == ShellSoundboard
 	for _, control := range []windows.Handle{ctx.draftNext, ctx.route, ctx.delivery, ctx.send, ctx.phaseDelete, ctx.outgoingFile, ctx.historyNext, ctx.historyDelete, ctx.historyReplay, ctx.historyBlock, ctx.reportReason, ctx.reportLabel, ctx.reportDetails, ctx.historyReport} {
-		showControl(control, historyPage)
+		showControl(control, historyPage || soundboardPage && (control == ctx.draftNext || control == ctx.route || control == ctx.delivery || control == ctx.send || control == ctx.phaseDelete || control == ctx.outgoingFile || control == ctx.historyNext || control == ctx.historyDelete || control == ctx.historyReplay || control == ctx.historyBlock || control == ctx.reportLabel || control == ctx.reportDetails || control == ctx.historyReport))
 	}
 	trackControls := []windows.Handle{
 		ctx.trackFile, ctx.trackRefresh, ctx.trackPolicy, ctx.trackUpload,
@@ -785,6 +787,39 @@ func (ctx *mainWindowCtx) render() {
 	pEnableWindow.Call(uintptr(ctx.reportReason), boolWord(hasHistory && selectedHistory.CanReport))
 	pEnableWindow.Call(uintptr(ctx.reportDetails), boolWord(hasHistory && selectedHistory.CanReport))
 	pEnableWindow.Call(uintptr(ctx.historyReport), boolWord(hasHistory && selectedHistory.CanReport))
+	if soundboardPage {
+		hasCue := len(snapshot.SoundboardCues) > 0
+		setText(ctx.draftNext, map[bool]string{true: "Move cue down", false: "Звук ниже"}[copy.locale == ShellEnglish])
+		setText(ctx.route, copy.Route(snapshot.SoundboardRoute))
+		setText(ctx.delivery, copy.Delivery(snapshot.SoundboardDelivery))
+		setText(ctx.historyNext, map[bool]string{true: "Next cue", false: "След. звук"}[copy.locale == ShellEnglish])
+		setText(ctx.send, map[bool]string{true: "Configure shortcut", false: "Настроить hotkey"}[copy.locale == ShellEnglish])
+		setText(ctx.outgoingFile, map[bool]string{true: "Add cue from file...", false: "Добавить звук из файла..."}[copy.locale == ShellEnglish])
+		setText(ctx.reportLabel, map[bool]string{true: "New cue name", false: "Новое имя звука"}[copy.locale == ShellEnglish])
+		setText(ctx.historyReport, map[bool]string{true: "Rename cue", false: "Переименовать звук"}[copy.locale == ShellEnglish])
+		setText(ctx.phaseDelete, map[bool]string{true: "Toggle this Pulsar", false: "Включить/убрать этот Пульсар"}[copy.locale == ShellEnglish])
+		setText(ctx.historyReplay, map[bool]string{true: "Play sound", false: "Проиграть"}[copy.locale == ShellEnglish])
+		setText(ctx.historyDelete, map[bool]string{true: "Delete cue", false: "Удалить звук"}[copy.locale == ShellEnglish])
+		setText(ctx.historyBlock, map[bool]string{true: "Automation schedules →", false: "Расписания automation →"}[copy.locale == ShellEnglish])
+		pEnableWindow.Call(uintptr(ctx.draftNext), boolWord(hasCue && len(snapshot.SoundboardCues) > 1 && !snapshot.SoundboardBusy))
+		pEnableWindow.Call(uintptr(ctx.route), boolWord(hasCue && !snapshot.SoundboardBusy))
+		pEnableWindow.Call(uintptr(ctx.delivery), boolWord(hasCue && !snapshot.SoundboardBusy))
+		pEnableWindow.Call(uintptr(ctx.historyNext), boolWord(len(snapshot.SoundboardCues) > 1 && !snapshot.SoundboardBusy))
+		pEnableWindow.Call(uintptr(ctx.send), boolWord(hasCue && !snapshot.SoundboardBusy))
+		pEnableWindow.Call(uintptr(ctx.outgoingFile), boolWord(!snapshot.SoundboardBusy))
+		pEnableWindow.Call(uintptr(ctx.reportDetails), boolWord(hasCue && !snapshot.SoundboardBusy))
+		pEnableWindow.Call(uintptr(ctx.historyReport), boolWord(hasCue && !snapshot.SoundboardBusy))
+		pEnableWindow.Call(uintptr(ctx.phaseDelete), boolWord(hasCue && !snapshot.SoundboardBusy))
+		pEnableWindow.Call(uintptr(ctx.historyReplay), boolWord(hasCue && !snapshot.SoundboardBusy))
+		pEnableWindow.Call(uintptr(ctx.historyDelete), boolWord(hasCue && !snapshot.SoundboardBusy))
+		pEnableWindow.Call(uintptr(ctx.historyBlock), 1)
+		showControl(ctx.historyDelete, soundboardPage && hasCue)
+		showControl(ctx.historyReplay, soundboardPage && hasCue)
+		showControl(ctx.historyBlock, true)
+		showControl(ctx.reportLabel, hasCue)
+		showControl(ctx.reportDetails, hasCue)
+		showControl(ctx.historyReport, hasCue)
+	}
 
 	track := snapshot.StreamTrack
 	trackReady := historyPage && track.State == TargetsInboxReady && !snapshot.StreamTrackBusy
@@ -1097,7 +1132,7 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		sectionByID := map[int]ShellSection{
 			idShellHome: ShellHome, idShellCreate: ShellCreate, idShellJoin: ShellJoin,
 			idShellTry: ShellTryLocally, idShellHistory: ShellHistory, idShellInbox: ShellInbox,
-			idShellAirs: ShellAirs, idShellSettings: ShellSettings,
+			idShellAirs: ShellAirs, idShellSoundboard: ShellSoundboard, idShellSettings: ShellSettings,
 		}
 		if section, ok := sectionByID[id]; ok {
 			ctx.shell.Select(section)
@@ -1162,44 +1197,69 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 				}
 			}
 		case idShellDraftNext:
-			if actions.SelectNextPhaseOneDraft != nil {
+			if ctx.shell.Section() == ShellSoundboard && actions.MoveSelectedSoundboardCue != nil {
+				actions.MoveSelectedSoundboardCue(1)
+			} else if actions.SelectNextPhaseOneDraft != nil {
 				actions.SelectNextPhaseOneDraft()
 			}
 		case idShellRoute:
-			if actions.SelectNextPhaseOneRoute != nil {
+			if ctx.shell.Section() == ShellSoundboard && actions.SelectNextSoundboardRoute != nil {
+				actions.SelectNextSoundboardRoute()
+			} else if actions.SelectNextPhaseOneRoute != nil {
 				actions.SelectNextPhaseOneRoute()
 			}
 		case idShellDelivery:
-			if actions.SelectNextPhaseOneDelivery != nil {
+			if ctx.shell.Section() == ShellSoundboard && actions.SelectNextSoundboardDelivery != nil {
+				actions.SelectNextSoundboardDelivery()
+			} else if actions.SelectNextPhaseOneDelivery != nil {
 				actions.SelectNextPhaseOneDelivery()
 			}
 		case idShellSend:
-			if actions.SendSelectedDraft != nil && confirmWindowsUploadRights(hwnd, ctx.shell.Locale()) {
+			if ctx.shell.Section() == ShellSoundboard && actions.CycleSelectedSoundboardShortcut != nil {
+				actions.CycleSelectedSoundboardShortcut()
+				if curTray != nil && curTray.Soundboard != nil && curSoundboardShortcuts != nil {
+					curSoundboardShortcuts.Configure(curTray.Soundboard.Preferences().Shortcuts)
+				}
+			} else if actions.SendSelectedDraft != nil && confirmWindowsUploadRights(hwnd, ctx.shell.Locale()) {
 				actions.SendSelectedDraft()
 			}
 		case idShellPhaseDelete:
-			if actions.DeleteSelectedDraft != nil {
+			if ctx.shell.Section() == ShellSoundboard && actions.ToggleSoundboardIncludeOrigin != nil {
+				actions.ToggleSoundboardIncludeOrigin()
+			} else if actions.DeleteSelectedDraft != nil {
 				actions.DeleteSelectedDraft()
 			}
 		case idShellOutgoingFile:
-			if actions.ChooseOutgoingFile != nil {
+			if ctx.shell.Section() == ShellSoundboard && actions.ChooseSoundboardFile != nil {
+				if confirmWindowsUploadRights(hwnd, ctx.shell.Locale()) {
+					actions.ChooseSoundboardFile()
+				}
+			} else if actions.ChooseOutgoingFile != nil {
 				actions.ChooseOutgoingFile()
 			}
 		case idShellHistoryNext:
-			if actions.SelectNextHistoryItem != nil {
+			if ctx.shell.Section() == ShellSoundboard && actions.SelectNextSoundboardCue != nil {
+				actions.SelectNextSoundboardCue()
+			} else if actions.SelectNextHistoryItem != nil {
 				actions.SelectNextHistoryItem()
 				setText(ctx.reportDetails, "")
 			}
 		case idShellHistoryDelete:
-			if actions.DeleteSelectedHistoryItem != nil {
+			if ctx.shell.Section() == ShellSoundboard && actions.DeleteSelectedSoundboardCue != nil {
+				actions.DeleteSelectedSoundboardCue()
+			} else if actions.DeleteSelectedHistoryItem != nil {
 				actions.DeleteSelectedHistoryItem()
 			}
 		case idShellHistoryReplay:
-			if actions.ReplaySelectedHistoryItem != nil {
+			if ctx.shell.Section() == ShellSoundboard && actions.TriggerSelectedSoundboardCue != nil {
+				actions.TriggerSelectedSoundboardCue()
+			} else if actions.ReplaySelectedHistoryItem != nil {
 				actions.ReplaySelectedHistoryItem()
 			}
 		case idShellHistoryBlock:
-			if actions.BlockSelectedHistoryActor != nil {
+			if ctx.shell.Section() == ShellSoundboard {
+				ctx.shell.Select(ShellSettings)
+			} else if actions.BlockSelectedHistoryActor != nil {
 				actions.BlockSelectedHistoryActor()
 			}
 		case idShellReportReason:
@@ -1207,7 +1267,9 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 				actions.SelectNextReportReason()
 			}
 		case idShellHistoryReport:
-			if actions.ReportSelectedHistoryItem != nil {
+			if ctx.shell.Section() == ShellSoundboard && actions.RenameSelectedSoundboardCue != nil {
+				actions.RenameSelectedSoundboardCue(windowText(ctx.reportDetails))
+			} else if actions.ReportSelectedHistoryItem != nil {
 				actions.ReportSelectedHistoryItem(windowText(ctx.reportDetails))
 			}
 		case idTargetsRefresh:

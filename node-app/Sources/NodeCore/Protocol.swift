@@ -5,6 +5,7 @@
 import Foundation
 
 public enum ProtocolCapabilities {
+    public static let captureQuality = CaptureQualityContract.capability
     public static let interruptResume = "interrupt_resume_v1"
     public static let livePTT = LivePTTConstants.capability
     public static let mediaClip = "media_clip_v1"
@@ -34,6 +35,7 @@ public enum ProtocolCapabilities {
 
 // Source-compatible names used by existing and upcoming client hooks.
 public let interruptResumeCapability = ProtocolCapabilities.interruptResume
+public let captureQualityCapability = ProtocolCapabilities.captureQuality
 public let livePTTCapability = ProtocolCapabilities.livePTT
 public let mediaClipCapability = ProtocolCapabilities.mediaClip
 public let overlayMixCapability = ProtocolCapabilities.overlayMix
@@ -573,11 +575,14 @@ public struct StatePayload: Codable, Equatable {
     public var underruns: Int64
     public var rttMs: Int64
     public var speakers: [SpeakerState]
+    /// Optional observational state; absence is legacy/mixed-version and no
+    /// field grants remote microphone authority.
+    public var captureQuality: CaptureQualityState?
     // v1.1 additive (spec-providers §7): the node's active provider ("" / nil = spotify).
     public var provider: String?
     public init(playback: String, uri: String?, positionMs: Int64, volume: Int,
                 degraded: Bool, underruns: Int64, rttMs: Int64, speakers: [SpeakerState],
-                provider: String? = nil) {
+                provider: String? = nil, captureQuality: CaptureQualityState? = nil) {
         self.playback = playback
         self.uri = uri
         self.positionMs = positionMs
@@ -587,10 +592,12 @@ public struct StatePayload: Codable, Equatable {
         self.rttMs = rttMs
         self.speakers = speakers
         self.provider = provider
+        self.captureQuality = captureQuality
     }
     enum CodingKeys: String, CodingKey {
         case playback, uri, positionMs = "position_ms", volume, degraded,
-             underruns, rttMs = "rtt_ms", speakers, provider
+             underruns, rttMs = "rtt_ms", speakers, provider,
+             captureQuality = "capture_quality"
     }
 
     // `uri` is nullable-but-present (docs/protocol.md). `provider` is additive and
@@ -606,6 +613,7 @@ public struct StatePayload: Codable, Equatable {
         try c.encode(rttMs, forKey: .rttMs)
         try c.encode(speakers, forKey: .speakers)
         try c.encodeIfPresent(provider, forKey: .provider)
+        try c.encodeIfPresent(captureQuality, forKey: .captureQuality)
     }
 }
 
@@ -933,10 +941,12 @@ public enum ProtocolCodec {
         default: throw ProtocolError.unknownType(head.type)
         }
         try LivePTTValidation.validate(message)
+        try CaptureQualityContract.validate(message)
         return (head, message)
     }
 
     public static func encode(id: String, ts: Int64, message: Message) throws -> Data {
+        try CaptureQualityContract.validate(message)
         let enc = JSONEncoder()
         func w<T: Codable>(_ payload: T) throws -> Data {
             try enc.encode(Wire(v: ProtocolConstants.version, id: id, ts: ts,

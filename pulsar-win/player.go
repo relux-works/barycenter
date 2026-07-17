@@ -108,6 +108,7 @@ type Player struct {
 	metadataPosition   *int64
 	metadataTitle      string
 	speakerName        string
+	captureQuality     *protocol.CaptureQualityState
 	interruptAnchor    *windowsInterruptAnchor
 }
 

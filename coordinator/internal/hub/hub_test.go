@@ -438,3 +438,150 @@ func TestRTTSampleBelongsOnlyToCurrentAuthenticatedSocket(t *testing.T) {
 		t.Fatalf("reconnect retained predecessor RTT=%+v", after)
 	}
 }
+
+func captureQualityState(generation, updatedMS int64) map[string]any {
+	return map[string]any{
+		"contract": "capture-quality.v1", "generation": generation,
+		"workflow": "live_ptt", "requested_mode": "auto", "resolved_mode": "speaker",
+		"lifecycle": "capturing", "quality": "accepted", "aec": "active",
+		"ns": "active", "agc": "active", "input_health": "ok", "reason": "none",
+		"input_ceiling_dbfs": -3, "updated_monotonic_ms": updatedMS,
+		"reference_age_ms": 18, "processor_overruns": 0,
+	}
+}
+
+func captureQualityStateWire(generation, updatedMS int64, includeQuality bool) map[string]any {
+	payload := map[string]any{
+		"playback": "stopped", "uri": nil, "position_ms": 0, "volume": 80,
+		"degraded": false, "underruns": 0, "rtt_ms": 20, "speakers": []any{},
+	}
+	if includeQuality {
+		payload["capture_quality"] = captureQualityState(generation, updatedMS)
+	}
+	return map[string]any{
+		"v": 1, "id": "msg_capture_quality", "ts": time.Now().UnixMilli(),
+		"type": protocol.TypeState, "payload": payload,
+	}
+}
+
+func TestCaptureQualityStateIsCapabilityBoundGenerationSafeAndDefensive(t *testing.T) {
+	h := New(slog.Default(), func(token string) (int64, string, bool) {
+		return 9, "a", token == "valid"
+	}, time.Second)
+	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
+	defer server.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(websocketTestURL(server.URL), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := conn.WriteJSON(registerWire([]any{protocol.CapabilityCaptureQuality})); err != nil {
+		t.Fatal(err)
+	}
+	waitEvent := func(messageType string) EvMessage {
+		t.Helper()
+		deadline := time.After(time.Second)
+		for {
+			select {
+			case event := <-h.Events:
+				message, ok := event.(EvMessage)
+				if ok && message.Env.Type == messageType {
+					return message
+				}
+			case <-deadline:
+				t.Fatalf("timed out waiting for %s", messageType)
+			}
+		}
+	}
+
+	if err := conn.WriteJSON(captureQualityStateWire(7, 42_420, true)); err != nil {
+		t.Fatal(err)
+	}
+	waitEvent(protocol.TypeState)
+	key := NodeKey{Orbit: 9, Slot: "a"}
+	snapshot := h.NodeSnapshots()[key]
+	if snapshot.CaptureQuality == nil || snapshot.CaptureQuality.Generation != 7 ||
+		snapshot.CaptureQuality.UpdatedMonotonicMS != 42_420 {
+		t.Fatalf("capture quality snapshot=%+v", snapshot.CaptureQuality)
+	}
+	snapshot.CaptureQuality.Generation = 99
+	if got := h.NodeSnapshots()[key].CaptureQuality.Generation; got != 7 {
+		t.Fatalf("snapshot mutation escaped defensive copy: %d", got)
+	}
+
+	if err := conn.WriteJSON(captureQualityStateWire(7, 42_419, true)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case event := <-h.Events:
+		if message, ok := event.(EvMessage); ok && message.Env.Type == protocol.TypeState {
+			t.Fatalf("stale capture quality reached consumers: %+v", message)
+		}
+	case <-time.After(100 * time.Millisecond):
+	}
+	if got := h.NodeSnapshots()[key].CaptureQuality.UpdatedMonotonicMS; got != 42_420 {
+		t.Fatalf("stale state replaced snapshot: %d", got)
+	}
+}
+
+func TestCaptureQualityStateWithoutAdvertisedCapabilityIsRejected(t *testing.T) {
+	h := New(slog.Default(), func(token string) (int64, string, bool) {
+		return 10, "a", token == "valid"
+	}, time.Second)
+	server := httptest.NewServer(http.HandlerFunc(h.HandleWS))
+	defer server.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(websocketTestURL(server.URL), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := conn.WriteJSON(registerWire([]any{})); err != nil {
+		t.Fatal(err)
+	}
+	registerDeadline := time.After(time.Second)
+	for {
+		select {
+		case event := <-h.Events:
+			if _, ok := event.(EvRegistered); ok {
+				goto registered
+			}
+		case <-registerDeadline:
+			t.Fatal("legacy node did not register")
+		}
+	}
+
+registered:
+	if err := conn.WriteJSON(captureQualityStateWire(7, 42_420, true)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case event := <-h.Events:
+		if message, ok := event.(EvMessage); ok && message.Env.Type == protocol.TypeState {
+			t.Fatalf("unadvertised capture quality reached consumers: %+v", message)
+		}
+	case <-time.After(100 * time.Millisecond):
+	}
+	key := NodeKey{Orbit: 10, Slot: "a"}
+	if got := h.NodeSnapshots()[key].CaptureQuality; got != nil {
+		t.Fatalf("unadvertised capture quality was retained: %+v", got)
+	}
+
+	// Rejection is message-local: the authenticated legacy connection remains
+	// usable and can continue its ordinary heartbeat without a false claim.
+	if err := conn.WriteJSON(captureQualityStateWire(0, 0, false)); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case event := <-h.Events:
+			if message, ok := event.(EvMessage); ok && message.Env.Type == protocol.TypeState {
+				return
+			}
+		case <-deadline:
+			t.Fatal("legacy heartbeat did not recover after rejected quality extension")
+		}
+	}
+}

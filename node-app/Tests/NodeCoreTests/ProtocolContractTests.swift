@@ -113,10 +113,18 @@ private func isMessageID(_ value: String) -> Bool {
                     capabilities: [], interruptResumeReady: false)]))
         )
         #expect(!String(decoding: presence, as: UTF8.self).contains("dnd_until_coord_ms"))
+
+        let state = try ProtocolCodec.encode(
+            id: "msg_x", ts: 1,
+            message: .state(StatePayload(
+                playback: "stopped", uri: nil, positionMs: 0, volume: 80,
+                degraded: false, underruns: 0, rttMs: 20, speakers: [])))
+        #expect(!String(decoding: state, as: UTF8.self).contains("capture_quality"))
     }
 
     @Test func capabilityListsAreCanonicalAndAdditive() {
         let capabilities = [
+            captureQualityCapability,
             interruptResumeCapability,
             livePTTCapability,
             mediaClipCapability,

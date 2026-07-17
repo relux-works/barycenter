@@ -9,6 +9,14 @@ capability remains unadvertised until the later runtime and platform gates pass.
 The coordinator implementation and its environment-only dark-launch boundary
 are documented in the [bounded live PTT runtime handoff](analysis/p3-live-ptt-coordinator-runtime.md).
 
+The additive `capture_quality_v1` heartbeat vocabulary, connection-scoped
+generation guard, mixed-version presentation and privacy-safe diagnostic
+projection are documented in the
+[P3 capture diagnostics capability handoff](analysis/p3-capture-diagnostics-capability-v1.md).
+The wire surface is implemented in coordinator, Windows and Swift mirrors, but
+production builds still do not advertise the capability and no physical or
+acoustic result is implied.
+
 The normative Phase 3 soundboard/automation entry point, cue-only boundary,
 principal scope, quiet-hours/DST rules, denial vocabulary and fail-closed
 mixed-version behavior are frozen in the

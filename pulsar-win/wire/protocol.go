@@ -28,6 +28,7 @@ const (
 )
 
 const (
+	CapabilityCaptureQuality   = "capture_quality_v1"
 	CapabilityInterruptResume  = "interrupt_resume_v1"
 	CapabilityLivePTT          = LivePTTCapability
 	CapabilityMediaClip        = "media_clip_v1"
@@ -534,6 +535,9 @@ type StatePayload struct {
 	Underruns  int64     `json:"underruns"`
 	RTTMS      int64     `json:"rtt_ms"`
 	Speakers   []Speaker `json:"speakers"`
+	// Additive, observational P3 state. Absence means legacy/mixed-version;
+	// it never grants remote microphone authority.
+	CaptureQuality *CaptureQualityState `json:"capture_quality,omitempty"`
 	// v1.1: the node's active provider ("" = spotify).
 	Provider string `json:"provider,omitempty"`
 }

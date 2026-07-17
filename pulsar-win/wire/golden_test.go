@@ -150,7 +150,7 @@ func TestMirrorMatchesCoordinatorSource(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	wireDir := filepath.Dir(thisFile)
 
-	for _, name := range []string{"protocol.go", "codec.go", "live_ptt.go"} {
+	for _, name := range []string{"protocol.go", "codec.go", "live_ptt.go", "capture_quality.go"} {
 		src, err := os.ReadFile(filepath.Join(srcDir, name))
 		if err != nil {
 			t.Fatalf("read coordinator source %s: %v", name, err)
@@ -197,7 +197,7 @@ func TestV11AdditiveFieldsOmittedWhenEmpty(t *testing.T) {
 		{"solo_inject", TypeSoloInject, &SoloInjectPayload{URI: "spotify:track:x"},
 			[]string{`"provider"`, `"ref"`, `"ctid"`}},
 		{"state", TypeState, &StatePayload{Playback: "playing", Speakers: []Speaker{}},
-			[]string{`"provider"`}},
+			[]string{`"provider"`, `"capture_quality"`}},
 		{"external_playback", TypeExternalPlayback, &ExternalPlaybackPayload{URI: "spotify:track:x"},
 			[]string{`"position_ms"`}},
 	}

@@ -134,6 +134,7 @@ class AcceptanceHarnessTests(unittest.TestCase):
         self.assertIn("scripts/acceptance/test_automation_safety_handoff.py", command.argv)
         self.assertIn("scripts/acceptance/test_e2ee_threat_model.py", command.argv)
         self.assertIn("scripts/acceptance/test_protected_media_container_spike.py", command.argv)
+        self.assertIn("scripts/acceptance/test_group_crypto_library_spike.py", command.argv)
 
     def test_protected_media_probe_is_pinned_and_cross_built(self):
         coordinator = harness.suite_commands("coordinator", {"GOTOOLCHAIN": "go1.25.12"}, None)

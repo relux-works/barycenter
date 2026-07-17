@@ -1,0 +1,291 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-e2ee-threat-model.v1",
+  "task": "TASK-260712-2e2ymn",
+  "publishedAt": "2026-07-17",
+  "baselineCommit": "ee52cb7cb4a838a05e8815ee5e2b5d8a58069f8e",
+  "decision": {
+    "result": "threat-model-frozen-spikes-and-review-required",
+    "threatModelFrozen": true,
+    "spikesAuthorized": true,
+    "implementationAuthorized": false,
+    "e2eeFeatureEnabled": false,
+    "productClaimAllowed": false,
+    "independentReview": "not-run"
+  },
+  "trustRoles": [
+    {
+      "id": "client-endpoint",
+      "trust": "content-secret-holder",
+      "boundary": "A verified Pulsar device may create, store, unwrap and use content secrets for epochs and grants it is authorized to access."
+    },
+    {
+      "id": "coordinator-delivery-service",
+      "trust": "untrusted-for-content",
+      "boundary": "The coordinator may route signed public membership state, ciphertext, recipient wraps and documented metadata but must not create, unwrap, escrow, log or recover content secrets."
+    },
+    {
+      "id": "coordinator-authentication-service",
+      "trust": "identity-authority-requiring-independent-detection",
+      "boundary": "Coordinator-issued identity alone is insufficient for a verified-device claim; device changes and inconsistent views require client-visible verification or an independently reviewed consistency mechanism."
+    },
+    {
+      "id": "object-storage-backup",
+      "trust": "untrusted-for-content",
+      "boundary": "Primary storage, backups and traffic captures retain opaque protected bytes and disclosed metadata only."
+    },
+    {
+      "id": "moderation",
+      "trust": "metadata-only-until-voluntary-export",
+      "boundary": "Moderators cannot decrypt protected media unless a recipient deliberately attaches a purpose-limited evidence copy."
+    },
+    {
+      "id": "telegram-spotify",
+      "trust": "outside-e2ee-boundary",
+      "boundary": "Telegram has already seen uploaded plaintext; Spotify playback or control remains provider-side and is never covered by the Pulsar E2EE claim."
+    }
+  ],
+  "protectedAssets": [
+    "media-plaintext",
+    "content-and-session-keys",
+    "device-signing-and-init-private-keys",
+    "group-epoch-state",
+    "recipient-wraps-and-history-grants",
+    "encrypted-content-manifest-fields",
+    "report-evidence-plaintext-after-export",
+    "local-decrypt-cache-and-temporary-plaintext"
+  ],
+  "attackerClasses": [
+    {
+      "id": "network-storage-backup-capture",
+      "inScope": true,
+      "guarantee": "Protected content confidentiality and integrity; traffic and retained metadata remain visible as disclosed."
+    },
+    {
+      "id": "honest-but-curious-coordinator",
+      "inScope": true,
+      "guarantee": "Cannot obtain protected plaintext or content secrets from normal routing, storage, backup, history or observability state."
+    },
+    {
+      "id": "malicious-delivery-coordinator",
+      "inScope": true,
+      "guarantee": "Cannot decrypt or inject content accepted as an honest sender; withholding, delay and denial of service are not prevented. Forks, stale epochs and replays must fail or become detectable."
+    },
+    {
+      "id": "malicious-identity-coordinator",
+      "inScope": true,
+      "guarantee": "Credential or device-set equivocation must be detectable and must block the verified E2EE claim. Prevention requires the separately reviewed device-verification or consistency design; MLS alone is not treated as sufficient."
+    },
+    {
+      "id": "malicious-group-member",
+      "inScope": true,
+      "guarantee": "Cannot forge another verified sender or decrypt epochs outside its authorized membership, but can retain, record, copy or disclose every plaintext and key legitimately received while authorized."
+    },
+    {
+      "id": "compromised-or-cloned-device",
+      "inScope": true,
+      "guarantee": "Compromise exposes that endpoint's accessible plaintext and key state; future security can return only after removal, fresh client-owned rotation and honest state update."
+    },
+    {
+      "id": "lost-device-or-state",
+      "inScope": true,
+      "guarantee": "Recovery without a surviving authorized device or explicit user-held recovery capability may be impossible; history is not silently escrowed."
+    },
+    {
+      "id": "local-os-compromise",
+      "inScope": false,
+      "guarantee": "No confidentiality claim while malware, an administrator, accessibility abuse, a debugger or another process can read active endpoint plaintext, memory, screen, audio or keystrokes."
+    },
+    {
+      "id": "physical-recipient-recording",
+      "inScope": false,
+      "guarantee": "E2EE cannot prevent an authorized recipient from recording speakers, copying files or otherwise capturing rendered plaintext."
+    },
+    {
+      "id": "availability-and-traffic-analysis",
+      "inScope": false,
+      "guarantee": "E2EE does not promise delivery, anonymity, membership hiding, constant-size traffic, timing hiding or denial-of-service resistance."
+    }
+  ],
+  "mediaPaths": [
+    {
+      "id": "clip",
+      "targetState": "required-protected",
+      "currentState": "plaintext-coordinator-processing",
+      "claim": "Allowed only for an item carried by the reviewed protected container and negotiated e2ee_media_v1 path."
+    },
+    {
+      "id": "track",
+      "targetState": "required-protected",
+      "currentState": "plaintext-coordinator-storage",
+      "claim": "Allowed only for authenticated seekable chunks and manifest fields under the protected path."
+    },
+    {
+      "id": "saved-cue",
+      "targetState": "required-protected",
+      "currentState": "plaintext-canonical-media-reference",
+      "claim": "A cue inherits the protection state of its exact immutable media revision; a label alone never upgrades it."
+    },
+    {
+      "id": "live-ptt",
+      "targetState": "required-protected",
+      "currentState": "engineering-live-transport-without-e2ee",
+      "claim": "Allowed only for fresh authenticated session keys and frames authenticated before jitter decode."
+    },
+    {
+      "id": "telegram-upload-or-delivery",
+      "targetState": "excluded-plaintext-boundary",
+      "currentState": "telegram-and-bot-see-plaintext",
+      "claim": "Never described as Pulsar end-to-end encrypted."
+    },
+    {
+      "id": "spotify-playback-or-control",
+      "targetState": "excluded-provider-boundary",
+      "currentState": "provider-controlled",
+      "claim": "Never described as protected by Pulsar E2EE."
+    },
+    {
+      "id": "legacy-or-mixed-version-target",
+      "targetState": "fail-closed-or-explicitly-excluded",
+      "currentState": "no-e2ee-capability",
+      "claim": "No silent plaintext downgrade; the user explicitly excludes unsupported targets or the send fails."
+    },
+    {
+      "id": "voluntary-report-evidence",
+      "targetState": "explicit-boundary-exit",
+      "currentState": "not-implemented",
+      "claim": "The UI must disclose that the selected plaintext copy leaves E2EE and becomes accessible to moderation under purpose, ACL, audit and retention controls."
+    }
+  ],
+  "metadataDisclosure": {
+    "coordinatorVisible": [
+      "account-actor-and-device-identifiers",
+      "orbit-air-and-membership-identifiers",
+      "recipient-and-target-snapshots",
+      "group-epoch-and-public-commit-identifiers",
+      "protocol-container-and-capability-versions",
+      "media-class-delivery-mode-and-policy-state",
+      "ciphertext-size-chunk-count-and-declared-duration",
+      "upload-send-play-receipt-and-revoke-timestamps",
+      "network-address-connection-and-request-metadata",
+      "retention-delete-report-and-audit-state"
+    ],
+    "encryptedOrLocalOnly": [
+      "audio-plaintext-and-decoded-samples",
+      "content-session-epoch-and-history-grant-secrets",
+      "user-file-name-title-caption-waveform-and-loudness-analysis",
+      "encrypted-manifest-fields-not-required-for-routing",
+      "local-decrypt-cache-and-temporary-plaintext"
+    ],
+    "moderationVisibleWithoutEvidence": [
+      "reporter-reported-subject-policy-category-and-target-metadata",
+      "documented-routing-retention-and-audit-metadata",
+      "cryptographic-validation-status-without-content-secrets"
+    ],
+    "moderationVisibleAfterExplicitEvidence": [
+      "purpose-limited-recipient-exported-plaintext-copy",
+      "evidence-copy-hash-format-size-and-retention-state"
+    ]
+  },
+  "requirements": [
+    {"id": "E2EE-001", "text": "Keep e2ee_media_v1 absent or disabled until threat model, both spikes, protocol design review, cross-platform vectors and implementation review close critical/high findings."},
+    {"id": "E2EE-002", "text": "Create content, session, device and group secrets only on Pulsar clients and keep them out of coordinator rows, logs, traces, metrics, crash reports and backups."},
+    {"id": "E2EE-003", "text": "Treat coordinator delivery and storage as malicious for confidentiality and integrity while excluding delivery availability and traffic-analysis resistance."},
+    {"id": "E2EE-004", "text": "Bind each device key to an actor-visible device identity and expose verification state, fingerprint or safety code, and device-change warnings."},
+    {"id": "E2EE-005", "text": "Do not treat coordinator-issued credentials alone as peer verification; inconsistent device or epoch views must fail closed and produce a privacy-safe diagnostic."},
+    {"id": "E2EE-006", "text": "Require client-owned signed membership commits and fresh epoch entropy for join, leave, role removal, credential revoke and suspected compromise."},
+    {"id": "E2EE-007", "text": "Authenticate group, epoch, sender device, immutable target snapshot, media identity, container version and chunk or frame position; reject mismatch before plaintext release."},
+    {"id": "E2EE-008", "text": "Provide application-level replay, fork, stale-epoch, generation and downgrade handling; do not assume AEAD or HPKE supplies these policies."},
+    {"id": "E2EE-009", "text": "Use unique nonces under every key across devices, crashes and restarts, with deterministic domain separation for media chunks, live frames, wraps and exports."},
+    {"id": "E2EE-010", "text": "Never silently send protected content to an unsupported Telegram, Spotify, legacy or mixed-version target."},
+    {"id": "E2EE-011", "text": "A removed member cannot receive or derive keys for later epochs, but revoke and delete copy must not claim to erase previously obtained keys, plaintext or recordings."},
+    {"id": "E2EE-012", "text": "A new device receives no protected history without an explicit scoped history grant from a surviving authorized device or reviewed recovery capability."},
+    {"id": "E2EE-013", "text": "Recovery without surviving authorization or user-held recovery capability is allowed to end in irreversible protected-history loss; coordinator escrow is forbidden."},
+    {"id": "E2EE-014", "text": "Bound and wipe local plaintext, decrypt cache, temporary files, pasteboard state and obsolete keys on success, cancel, crash recovery, sign-out, revoke and uninstall where the OS permits."},
+    {"id": "E2EE-015", "text": "A malicious or compromised authorized member is allowed by the model to exfiltrate received plaintext; product copy must not promise otherwise."},
+    {"id": "E2EE-016", "text": "A voluntary report evidence copy requires recipient intent, an exact preview and disclosure, purpose limitation, least-privilege moderation ACL, audit, short retention and delete flow."},
+    {"id": "E2EE-017", "text": "Moderation, analytics, search and observability have no hidden decrypt or key export path; capability loss is disclosed rather than bypassed."},
+    {"id": "E2EE-018", "text": "Each media item exposes its actual protection state; UI, Telegram, Store and policy copy cannot infer E2EE from room privacy, TLS, authentication or an unrelated passing capability."},
+    {"id": "E2EE-019", "text": "Encrypt clips, tracks and saved cues with an authenticated seekable container and protect live PTT with separate fresh session keys and authenticated bounded frames."},
+    {"id": "E2EE-020", "text": "Delete obsolete keys promptly enough for claimed forward secrecy and require an honest post-compromise update before claiming future recovery."},
+    {"id": "E2EE-021", "text": "Use secure transport despite message-level protection to reduce exposed membership metadata and network manipulation."},
+    {"id": "E2EE-022", "text": "No primitive, algorithm suite, library, key-transparency design or container is selected by this threat-model task; downstream spikes and independent review own those decisions."}
+  ],
+  "abuseCases": [
+    {"id": "JOIN-FAKE-DEVICE", "requirements": ["E2EE-004", "E2EE-005", "E2EE-006", "E2EE-012"]},
+    {"id": "REVOKE-STALE-EPOCH", "requirements": ["E2EE-006", "E2EE-008", "E2EE-011", "E2EE-020"]},
+    {"id": "HISTORY-GRANT-CONFUSED-DEPUTY", "requirements": ["E2EE-007", "E2EE-012", "E2EE-013"]},
+    {"id": "RECOVERY-SERVER-ESCROW", "requirements": ["E2EE-002", "E2EE-013"]},
+    {"id": "REPORT-HIDDEN-DECRYPT", "requirements": ["E2EE-016", "E2EE-017"]},
+    {"id": "SILENT-PLAINTEXT-DOWNGRADE", "requirements": ["E2EE-001", "E2EE-010", "E2EE-018"]},
+    {"id": "COORDINATOR-EQUIVOCATION", "requirements": ["E2EE-003", "E2EE-004", "E2EE-005", "E2EE-008"]},
+    {"id": "NONCE-REUSE-AFTER-CRASH", "requirements": ["E2EE-007", "E2EE-009"]},
+    {"id": "AUTHORIZED-MEMBER-EXFILTRATION", "requirements": ["E2EE-011", "E2EE-015"]},
+    {"id": "LOCAL-PLAINTEXT-REMANENCE", "requirements": ["E2EE-014", "E2EE-017"]}
+  ],
+  "acceptanceScenarios": {
+    "C4": {
+      "requirements": ["E2EE-004", "E2EE-005", "E2EE-006", "E2EE-008", "E2EE-011", "E2EE-012", "E2EE-020"],
+      "claim": "After B is removed and the accepted client-owned commit advances the epoch, B cannot decrypt later clips, tracks, cues or live PTT; a new D receives no earlier history without an explicit grant."
+    },
+    "C5": {
+      "requirements": ["E2EE-002", "E2EE-003", "E2EE-007", "E2EE-009", "E2EE-014", "E2EE-017", "E2EE-019", "E2EE-021"],
+      "claim": "Coordinator storage, backups, logs and captured traffic cannot produce playable protected content, while the observed metadata exactly matches the disclosure inventory."
+    },
+    "C6": {
+      "requirements": ["E2EE-016", "E2EE-017", "E2EE-018"],
+      "claim": "A recipient can deliberately export one disclosed evidence copy into the moderation workflow without any coordinator or moderator decrypt capability."
+    }
+  },
+  "claimRules": {
+    "allowedOnlyAfterAllGates": [
+      "End-to-end encrypted between the verified Pulsar devices shown for this item.",
+      "The coordinator routes this protected item but cannot read its audio content.",
+      "This report copy leaves end-to-end encryption and will be available to authorized moderators."
+    ],
+    "requiredLimitations": [
+      "Telegram uploads and deliveries are not Pulsar end-to-end encrypted.",
+      "Removing a member or deleting an item cannot erase copies, keys or recordings already obtained by another device.",
+      "Protected history may be irrecoverable without a surviving authorized device or user-held recovery capability.",
+      "Size, duration, timing, participants, targets and delivery metadata remain visible as documented."
+    ],
+    "forbidden": [
+      "all Pulsar audio is end-to-end encrypted",
+      "the coordinator can never add or substitute a device",
+      "deletion erases every copy",
+      "moderators can inspect protected content without a report copy",
+      "end-to-end encryption makes users anonymous",
+      "TLS or a private Air means end-to-end encrypted",
+      "unsupported targets transparently fall back to plaintext"
+    ]
+  },
+  "externalReviewEntry": [
+    "exact-threat-model-contract-and-source-hashes",
+    "exact-library-algorithm-version-license-sbom-and-cve-decision",
+    "exact-container-format-nonce-domain-and-cross-platform-vectors",
+    "protocol-state-machines-for-device-join-remove-fork-replay-grant-recovery-report-and-downgrade",
+    "device-verification-and-coordinator-equivocation-design",
+    "key-and-plaintext-lifecycle-with-crash-log-backup-and-cache-analysis",
+    "reproducible-windows-macos-and-go-known-answer-negative-and-fuzz-results",
+    "residual-risk-owner-and-claim-language",
+    "critical-and-high-findings-closed-on-the-same-reviewed-hash"
+  ],
+  "residualRisks": [
+    {"id": "RR-01", "risk": "Coordinator and network traffic analysis reveals the documented metadata and can deny service.", "disposition": "accepted-disclosed"},
+    {"id": "RR-02", "risk": "A malicious identity authority can attempt device-set equivocation until the reviewed verification or consistency mechanism detects it.", "disposition": "blocks-verified-claim"},
+    {"id": "RR-03", "risk": "Authorized, compromised or malicious recipients can retain and redistribute plaintext.", "disposition": "accepted-disclosed"},
+    {"id": "RR-04", "risk": "Endpoint or OS compromise exposes active plaintext, audio, memory and available keys.", "disposition": "outside-cryptographic-guarantee"},
+    {"id": "RR-05", "risk": "Loss of every authorized device and recovery capability can permanently lose protected history.", "disposition": "accepted-disclosed"},
+    {"id": "RR-06", "risk": "A voluntary moderation evidence copy creates a new controlled plaintext copy.", "disposition": "explicit-consent-retention-audit-required"},
+    {"id": "RR-07", "risk": "Ciphertext retained in backups remains exposed to future cryptanalytic or implementation failures.", "disposition": "retention-and-crypto-agility-required"},
+    {"id": "RR-08", "risk": "Security depends on correct library integration, randomness, nonce discipline, key deletion and constant-time implementations.", "disposition": "spikes-independent-review-and-implementation-review-required"}
+  ],
+  "sources": [
+    {"id": "RFC9750", "url": "https://www.rfc-editor.org/rfc/rfc9750.html", "status": "IETF RFC", "use": "MLS trust roles, malicious delivery service, identity service compromise, membership, recovery, metadata, endpoint compromise and replay limits."},
+    {"id": "RFC9420", "url": "https://www.rfc-editor.org/rfc/rfc9420.html", "status": "IETF Proposed Standard", "use": "Client-owned epochs, current-member entropy, transport metadata, authentication and bounded generation handling."},
+    {"id": "RFC9180", "url": "https://www.rfc-editor.org/rfc/rfc9180.html", "status": "IETF Proposed Standard", "use": "HPKE is not selected here; its documented lack of replay, downgrade and length hiding constrains any downstream use."},
+    {"id": "RFC5116", "url": "https://www.rfc-editor.org/rfc/rfc5116.html", "status": "IETF Proposed Standard", "use": "AEAD nonce uniqueness, authenticated associated data and the fact that AEAD does not provide access control or replay policy."},
+    {"id": "RFC3552", "url": "https://www.rfc-editor.org/rfc/rfc3552.html", "status": "IETF Best Current Practice", "use": "Internet attacker model with network control."},
+    {"id": "NIST-SP-800-154-IPD", "url": "https://csrc.nist.gov/pubs/sp/800/154/ipd", "status": "NIST initial public draft", "use": "Non-normative data-centric threat-model structure; explicitly not treated as a final standard."}
+  ]
+}

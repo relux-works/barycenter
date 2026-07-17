@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 142 accepted, 63 remain.
-- Routed inventory: 186 engineering tasks (142 accepted, 44 remain) and 19
+- Combined inventory: 205 original tasks; 143 accepted, 62 remain.
+- Routed inventory: 186 engineering tasks (143 accepted, 43 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2e2ymn` — e2ee-threat-model-claims
-- Next engineering task: `TASK-260712-16xmy2` — protected-media-container-prep-spike
-- Most recently accepted: `TASK-260712-2f0gpu` — automation-safety-evidence-handoff
-- Current branch: `task/task-260712-2e2ymn-e2ee-threat-model-claims`
+- Current engineering task: `TASK-260712-16xmy2` — protected-media-container-prep-spike
+- Next engineering task: `TASK-260712-3er89x` — group-crypto-library-spike
+- Most recently accepted: `TASK-260712-2e2ymn` — e2ee-threat-model-claims
+- Current branch: `task/task-260712-16xmy2-protected-media-container-prep-spike`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 142 / 205 tasks (69.3%); 63 remain
-- Engineering progress: 142 / 186 tasks (approximately 76.3%); 44 remain
+- Accepted overall: 143 / 205 tasks (69.8%); 62 remain
+- Engineering progress: 143 / 186 tasks (approximately 76.9%); 43 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3350,7 +3350,17 @@ Story: `STORY-260712-326wd5` — P3 Soundboard and safe automation.
 Story: `STORY-260712-1frfmi` — P3 End-to-end encrypted media. This story is
 executed before capture quality because it is on the epic critical path.
 
-- [ ] `TASK-260712-2e2ymn` — e2ee-threat-model-claims
+- [x] `TASK-260712-2e2ymn` — e2ee-threat-model-claims (accepted on exact code
+  head `847a90b8e3fdde89b6d5744d14397bfd11c4d04c`; frozen 22-requirement
+  threat/claim contract separates malicious delivery and identity-coordinator
+  roles, makes device-set equivocation detectable and claim-blocking, covers
+  clips/tracks/cues/live plus Telegram/Spotify exclusions, discloses metadata,
+  maps 10 abuse cases and C4-C6, and records external-review entry criteria and
+  eight residual risks. Clean exact-head all-suite acceptance passed 12/12
+  with `manualEvidence=not-run`; hosted run `29555290473` passed 4/4; PR #227
+  merged at `868789cdc828ae6ed08505a35a7e42e9484566d6`. Only the two spikes are
+  authorized; implementation, E2EE flag, product claims and independent review
+  remain false/not-run.)
 - [ ] `TASK-260712-16xmy2` — protected-media-container-prep-spike
 - [ ] `TASK-260712-3er89x` — group-crypto-library-spike
 - [ ] `TASK-260712-2ys1ww` — e2ee-protocol-key-lifecycle-contract

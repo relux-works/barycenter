@@ -23,8 +23,12 @@ var (
 // AutomationControlAuth binds a mutation to an exact current primary and to a
 // durable actor-scoped idempotency key. Only digests enter SQLite.
 type AutomationControlAuth struct {
-	ExpectedActorID    int64
-	Bearer             string
+	ExpectedActorID int64
+	Bearer          string
+	// Identity is the verified proof used by non-HTTP adapters such as
+	// Telegram. Callers must provide exactly one of Bearer or Identity; bearer
+	// secrets are never minted for or exposed to transport adapters.
+	Identity           Identity
 	IdempotencyKeyHash string
 	RequestHash        string
 	Now                int64
@@ -41,7 +45,7 @@ func normalizeAutomationControlAuth(auth AutomationControlAuth) (AutomationContr
 	if auth.Now <= 0 {
 		auth.Now = time.Now().UnixMilli()
 	}
-	if auth.ExpectedActorID <= 0 || auth.Bearer == "" ||
+	if _, valid := transmissionProofIdentity(auth.Bearer, auth.Identity); auth.ExpectedActorID <= 0 || !valid ||
 		!lowerHexTokenPattern.MatchString(auth.IdempotencyKeyHash) ||
 		!lowerHexTokenPattern.MatchString(auth.RequestHash) {
 		return AutomationControlAuth{}, ErrAutomationInvalid
@@ -58,10 +62,16 @@ func (s *Store) beginAutomationControlMutation(auth AutomationControlAuth, opera
 	if err != nil {
 		return automationControlMutationState{}, auth, err
 	}
-	ctx, err := authorizeSavedCueMutationTx(tx, auth.ExpectedActorID, auth.Bearer)
+	ctx, _, err := authorizeTransmissionProofTx(tx, auth.ExpectedActorID,
+		auth.Bearer, auth.Identity)
 	if err != nil {
 		tx.Rollback()
 		return automationControlMutationState{}, auth, err
+	}
+	if ctx.Role != "primary" || (!ctx.Capabilities.Has(CapabilityControl) &&
+		!ctx.Capabilities.Has(CapabilityTelegram)) {
+		tx.Rollback()
+		return automationControlMutationState{}, auth, ErrInsufficientCapability
 	}
 	var storedOperation, storedRequest, raw string
 	err = tx.QueryRow(`SELECT operation, request_hash, response_json
@@ -126,14 +136,23 @@ func replayAutomationControlMutation[T any](state automationControlMutationState
 }
 
 func beginAutomationControlRead(s *Store, expectedActorID int64, bearer string) (*sql.Tx, ActorContext, error) {
+	return beginAutomationControlReadProof(s, expectedActorID, bearer, Identity{})
+}
+
+func beginAutomationControlReadProof(s *Store, expectedActorID int64, bearer string, identity Identity) (*sql.Tx, ActorContext, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, ActorContext{}, err
 	}
-	ctx, err := authorizeSavedCueMutationTx(tx, expectedActorID, bearer)
+	ctx, _, err := authorizeTransmissionProofTx(tx, expectedActorID, bearer, identity)
 	if err != nil {
 		tx.Rollback()
 		return nil, ActorContext{}, err
+	}
+	if ctx.Role != "primary" || (!ctx.Capabilities.Has(CapabilityControl) &&
+		!ctx.Capabilities.Has(CapabilityTelegram)) {
+		tx.Rollback()
+		return nil, ActorContext{}, ErrInsufficientCapability
 	}
 	return tx, ctx, nil
 }
@@ -315,7 +334,15 @@ ORDER BY CASE WHEN o.position IS NULL THEN 1 ELSE 0 END, o.position,
 }
 
 func (s *Store) AuthorizedSavedCueControlList(expectedActorID int64, bearer string) (SavedCueControlList, error) {
-	tx, ctx, err := beginAutomationControlRead(s, expectedActorID, bearer)
+	return s.authorizedSavedCueControlList(expectedActorID, bearer, Identity{})
+}
+
+func (s *Store) AuthorizedSavedCueControlListForIdentity(expectedActorID int64, identity Identity) (SavedCueControlList, error) {
+	return s.authorizedSavedCueControlList(expectedActorID, "", identity)
+}
+
+func (s *Store) authorizedSavedCueControlList(expectedActorID int64, bearer string, identity Identity) (SavedCueControlList, error) {
+	tx, ctx, err := beginAutomationControlReadProof(s, expectedActorID, bearer, identity)
 	if err != nil {
 		return SavedCueControlList{}, err
 	}
@@ -328,7 +355,15 @@ func (s *Store) AuthorizedSavedCueControlList(expectedActorID int64, bearer stri
 }
 
 func (s *Store) AuthorizedAutomationFeatureState(expectedActorID int64, bearer string) (AutomationFeatureState, error) {
-	tx, ctx, err := beginAutomationControlRead(s, expectedActorID, bearer)
+	return s.authorizedAutomationFeatureState(expectedActorID, bearer, Identity{})
+}
+
+func (s *Store) AuthorizedAutomationFeatureStateForIdentity(expectedActorID int64, identity Identity) (AutomationFeatureState, error) {
+	return s.authorizedAutomationFeatureState(expectedActorID, "", identity)
+}
+
+func (s *Store) authorizedAutomationFeatureState(expectedActorID int64, bearer string, identity Identity) (AutomationFeatureState, error) {
+	tx, ctx, err := beginAutomationControlReadProof(s, expectedActorID, bearer, identity)
 	if err != nil {
 		return AutomationFeatureState{}, err
 	}
@@ -384,7 +419,15 @@ FROM automation_schedule_targets WHERE schedule_id = ? ORDER BY target_digest`, 
 }
 
 func (s *Store) AuthorizedAutomationSchedules(expectedActorID int64, bearer string) ([]AutomationScheduleControl, error) {
-	tx, ctx, err := beginAutomationControlRead(s, expectedActorID, bearer)
+	return s.authorizedAutomationSchedules(expectedActorID, bearer, Identity{})
+}
+
+func (s *Store) AuthorizedAutomationSchedulesForIdentity(expectedActorID int64, identity Identity) ([]AutomationScheduleControl, error) {
+	return s.authorizedAutomationSchedules(expectedActorID, "", identity)
+}
+
+func (s *Store) authorizedAutomationSchedules(expectedActorID int64, bearer string, identity Identity) ([]AutomationScheduleControl, error) {
+	tx, ctx, err := beginAutomationControlReadProof(s, expectedActorID, bearer, identity)
 	if err != nil {
 		return nil, err
 	}

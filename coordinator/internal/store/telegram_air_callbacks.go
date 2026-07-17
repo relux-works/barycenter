@@ -108,7 +108,9 @@ func (s *Store) MintTelegramAirCallback(params MintTelegramAirCallbackParams) (s
 		if err := tx.QueryRow(`SELECT
   (SELECT COUNT(*) FROM telegram_inline_callbacks WHERE token_hash = ?) +
   (SELECT COUNT(*) FROM telegram_history_callbacks WHERE token_hash = ?) +
-  (SELECT COUNT(*) FROM telegram_air_callbacks WHERE token_hash = ?)`, hash, hash, hash).Scan(&conflicts); err != nil {
+  (SELECT COUNT(*) FROM telegram_air_callbacks WHERE token_hash = ?) +
+  (SELECT COUNT(*) FROM telegram_automation_callbacks WHERE token_hash = ?)`,
+			hash, hash, hash, hash).Scan(&conflicts); err != nil {
 			return "", err
 		}
 		if conflicts != 0 {

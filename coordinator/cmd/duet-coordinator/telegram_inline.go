@@ -447,6 +447,23 @@ func (l *loop) handleTelegramInlineCallback(ev bot.Event) {
 		l.handleTelegramHistoryCallback(ev, historyResult)
 		return
 	}
+	automationResult, err := l.st.ClaimTelegramAutomationCallback(
+		store.ClaimTelegramAutomationCallbackParams{
+			TelegramUserID: ev.FromUserID, QueryID: callback.QueryID,
+			Token: callback.Data, ChatID: ev.ChatID, MessageID: ev.MessageID,
+			Now: time.Now().UnixMilli(),
+		})
+	if err != nil {
+		l.log.Error("claim Telegram automation callback", "err", err)
+		if callback.Answer != nil {
+			callback.Answer(bot.CallbackFailed)
+		}
+		return
+	}
+	if automationResult.Found {
+		l.handleTelegramAutomationCallback(ev, automationResult)
+		return
+	}
 	result, err := l.st.ApplyTelegramInlineCallback(store.ApplyTelegramInlineCallbackParams{
 		TelegramUserID: ev.FromUserID, QueryID: callback.QueryID, Token: callback.Data,
 		ChatID: ev.ChatID, MessageID: ev.MessageID, Now: time.Now().UnixMilli(),

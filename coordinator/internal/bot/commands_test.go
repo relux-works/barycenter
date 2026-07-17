@@ -25,6 +25,8 @@ func TestParse(t *testing.T) {
 		{"air list", "/air", Command{Kind: KindAir}},
 		{"air create", "/air create Friends", Command{Kind: KindAir, Target: "create Friends"}},
 		{"air join secret case preserved", "/air join AbC_123", Command{Kind: KindAir, Target: "join AbC_123"}},
+		{"soundboard", "/soundboard", Command{Kind: KindSoundboard}},
+		{"automation", "/automation", Command{Kind: KindAutomation}},
 		{"content policy defaults ru", "/content_policy", Command{Kind: KindContentPolicy, Target: "ru"}},
 		{"content policy en", "/content_policy en", Command{Kind: KindContentPolicy, Target: "en"}},
 		{"accept content policy ru", "/accept_content_policy ru", Command{Kind: KindAcceptContentPolicy, Target: "ru"}},

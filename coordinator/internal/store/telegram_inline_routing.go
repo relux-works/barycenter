@@ -400,6 +400,18 @@ func (s *Store) MintTelegramInlineCallback(
 		return "", errors.New("invalid Telegram callback token")
 	}
 	tokenHash := telegramKeyedDigest(key, "token", token)
+	var conflicts int
+	if err := tx.QueryRow(`SELECT
+  (SELECT COUNT(*) FROM telegram_inline_callbacks WHERE token_hash = ?) +
+  (SELECT COUNT(*) FROM telegram_history_callbacks WHERE token_hash = ?) +
+  (SELECT COUNT(*) FROM telegram_air_callbacks WHERE token_hash = ?) +
+  (SELECT COUNT(*) FROM telegram_automation_callbacks WHERE token_hash = ?)`,
+		tokenHash, tokenHash, tokenHash, tokenHash).Scan(&conflicts); err != nil {
+		return "", err
+	}
+	if conflicts != 0 {
+		return "", errors.New("Telegram callback token collision")
+	}
 	parentAction, parentDelivery, parentAudience := params.Action, params.Delivery, params.Audience
 	if params.RouteV2 {
 		// An old binary recognizes the schema value but deliberately has no

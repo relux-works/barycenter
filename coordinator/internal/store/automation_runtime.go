@@ -468,7 +468,15 @@ FROM media_items WHERE id = ?`, mediaID))
 }
 
 func (s *Store) EnsureAuthorizedAutomationBuiltinMedia(expectedActorID int64, bearer, cueID string, now int64) (MediaItem, error) {
-	if expectedActorID <= 0 || bearer == "" || now <= 0 || !savedCueIDPattern.MatchString(cueID) {
+	return s.ensureAuthorizedAutomationBuiltinMedia(expectedActorID, bearer, Identity{}, cueID, now)
+}
+
+func (s *Store) EnsureAuthorizedAutomationBuiltinMediaForIdentity(expectedActorID int64, identity Identity, cueID string, now int64) (MediaItem, error) {
+	return s.ensureAuthorizedAutomationBuiltinMedia(expectedActorID, "", identity, cueID, now)
+}
+
+func (s *Store) ensureAuthorizedAutomationBuiltinMedia(expectedActorID int64, bearer string, identity Identity, cueID string, now int64) (MediaItem, error) {
+	if expectedActorID <= 0 || now <= 0 || !savedCueIDPattern.MatchString(cueID) {
 		return MediaItem{}, ErrAutomationInvalid
 	}
 	tx, err := s.db.Begin()
@@ -476,9 +484,13 @@ func (s *Store) EnsureAuthorizedAutomationBuiltinMedia(expectedActorID int64, be
 		return MediaItem{}, err
 	}
 	defer tx.Rollback()
-	ctx, err := authorizeSavedCueMutationTx(tx, expectedActorID, bearer)
+	ctx, _, err := authorizeTransmissionProofTx(tx, expectedActorID, bearer, identity)
 	if err != nil {
 		return MediaItem{}, err
+	}
+	if ctx.Role != "primary" || (!ctx.Capabilities.Has(CapabilityControl) &&
+		!ctx.Capabilities.Has(CapabilityTelegram)) {
+		return MediaItem{}, ErrInsufficientCapability
 	}
 	feature, err := scanAutomationFeatureState(tx.QueryRow(`SELECT `+automationFeatureColumns+`
 FROM automation_feature_state WHERE owner_orbit_id = ?`, ctx.OrbitID))

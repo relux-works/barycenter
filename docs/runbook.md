@@ -170,6 +170,12 @@ For the Telegram `/approach`, `/accept`, `/decline` and `/apart` cutover
 boundary, restart behavior and stale-link rollback guard, use
 `docs/analysis/p2-approach-air-alias-compat.md`.
 
+For P3 saved-cue and automation enablement, emergency disable, scoped-principal
+revocation, cancellation reconciliation and additive rollback order, use
+`docs/analysis/p3-automation-safety-evidence-handoff.md`. Its repository
+evidence does not replace signed-app, audible, accessibility, physical-clock or
+hardware acceptance in manual task `TASK-260712-1gyohk`.
+
 ## 6a. Build machine: signing identity (once, before the first release)
 
 `scripts/setup-signing.sh` creates the self-signed identity `duet-nodeapp` in a

@@ -1,0 +1,80 @@
+@startuml
+!theme plain
+
+title P3 capture-quality v1 — one shared processor and the two ceilings
+left to right direction
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "Local capture control" {
+  [Explicit local action] as Action
+  [Visible + accessible\ncapture indicator] as Indicator
+  [Generation / route controller] as Control
+}
+
+package "Realtime boundaries" {
+  [Input device callback\ntimestamp + bounded enqueue] as CaptureCB
+  [Playback render callback\npost-local-gain reference tap] as RenderCB
+  [Output device] as Output
+}
+
+package "Shared capture-quality worker" {
+  [Clock + 48 kHz mono\nformat alignment] as Align
+  [Reference alignment\n<= 100 ms age, +/-200 ppm] as RefAlign
+  [AEC] as AEC
+  [Noise suppression] as NS
+  [Bounded input AGC\n-20 dBFS RMS target\n-3 dBFS peak ceiling] as AGC
+}
+
+package "Workflow sinks" {
+  [Recorded clip\ndraft writer] as Clip
+  [Five-second local\nself-test writer] as SelfTest
+  [Live PTT\nOpus encoder] as Live
+}
+
+package "Receiver playback graph — separate policy" {
+  [Program + overlay +\ninterrupt + received live] as Mix
+  [Post-mix limiter\n-1 dBFS ceiling] as Limiter
+  [Final non-amplifying\nrecipient-local volume] as Volume
+}
+
+Action --> Indicator : preparing before device activation
+Action --> Control : fresh generation + requested route
+Control --> CaptureCB : open accepted/degraded-consented route
+CaptureCB --> Align : timestamped native PCM
+RenderCB --> RefAlign : bounded memory-only reference
+Align --> RefAlign : capture clock
+RefAlign --> AEC
+AEC --> NS
+NS --> AGC
+AGC --> Clip
+AGC --> SelfTest
+AGC --> Live
+
+Mix --> Limiter
+Limiter --> Volume
+Volume --> RenderCB : exact samples before device submission
+RenderCB --> Output
+
+Control ..> RefAlign : generation + route change resets
+Control ..> Clip : exactly one selected sink
+Control ..> SelfTest : exactly one selected sink
+Control ..> Live : exactly one selected sink
+
+note bottom of AGC
+Input AGC cannot change the receiver ceiling.
+The coordinator controls neither ceiling.
+end note
+
+note bottom of Control
+Route/device change stops sample commit,
+keeps the indicator visible, advances generation,
+and re-arms within 1500 ms or terminates explicitly.
+end note
+
+note bottom of RenderCB
+No allocation, blocking lock, I/O or logging.
+Reference is never persisted or uploaded.
+end note
+
+@enduml

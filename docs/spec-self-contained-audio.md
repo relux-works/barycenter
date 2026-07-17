@@ -1313,6 +1313,12 @@ Input gain ceiling не равен receiver-side local volume ceiling: посл�
 coordinator. AEC использует явный синхронизированный render reference; speaker
 route без пригодного reference не может называться accepted молча.
 
+Нормативный общий graph, route/state/fallback vocabulary, два независимых
+ceiling, additive heartbeat fields и objective/blinded C3 rubric зафиксированы
+в [`docs/analysis/p3-capture-quality-contract-v1.md`](analysis/p3-capture-quality-contract-v1.md).
+Контракт не является доказательством платформенной реализации или реального
+акустического прохождения C3.
+
 #### P3.3 End-to-end encryption
 
 **[SPIKE P3-E2EE]** Выбрать стандартизованный, независимо проверяемый group-key

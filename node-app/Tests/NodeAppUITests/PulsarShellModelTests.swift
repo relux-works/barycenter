@@ -95,7 +95,8 @@ struct PulsarShellModelTests {
         let model = PulsarShellModel(locale: .en)
         #expect(model.snapshot.connection == .unpaired)
         #expect(PulsarShellSection.allCases == [
-            .home, .airs, .inbox, .create, .join, .tryLocally, .soundboard, .history, .settings,
+            .home, .airs, .inbox, .create, .join, .tryLocally, .soundboard, .automation,
+            .history, .settings,
         ])
 
         model.selectedSection = .tryLocally
@@ -107,6 +108,53 @@ struct PulsarShellModelTests {
         model.selectedSection = .settings
         #expect(model.snapshot.recording == .recording)
         #expect(model.selectedSection == .settings)
+    }
+
+    @MainActor
+    @Test("Automation projection exposes metadata and action seams but no credential value")
+    func automationProjectionAndActions() {
+        let model = PulsarShellModel()
+        var state = PulsarAutomationState()
+        state.available = true
+        state.feature = .init(
+            soundboardEnabled: true, automationEnabled: false, emergencyDisabled: false,
+            timezone: "Asia/Yerevan", quietHours: "Mon 22:00-07:00",
+            policyVersion: "policy-v1", revision: 3)
+        state.schedules = [.init(
+            id: "sch_AAAAAAAAAAAAAAAAAAAAAAAAAA",
+            cueID: "cq_BBBBBBBBBBBBBBBBBBBBBBBBBB", displayName: "Morning",
+            timezone: "Asia/Yerevan", weekdays: "Mon,Tue", localTime: "09:00",
+            quietHours: "", audience: "own_barycenter", enabled: true,
+            nextRun: Date(timeIntervalSince1970: 1_800_000_000), quietHoursSkip: false,
+            revision: 2)]
+        state.selectedScheduleID = state.schedules[0].id
+        state.secretAvailable = true
+        model.setAutomation(state)
+
+        #expect(model.snapshot.automation.schedules[0].id == state.selectedScheduleID)
+        #expect(model.snapshot.automation.secretAvailable)
+        #expect(Mirror(reflecting: model.snapshot.automation).children.allSatisfy {
+            $0.label != "secret" && $0.label != "token" && $0.label != "credential"
+        })
+
+        var calls: [String] = []
+        let actions = PulsarShellActions(
+            selectAutomationSchedule: { calls.append("schedule:\($0 ?? "nil")") },
+            saveAutomationFeature: { calls.append("feature:\($0):\($1)") },
+            requestAutomationAction: { calls.append("request:\($0.rawValue)") },
+            confirmAutomationAction: { calls.append("confirm:\($0)") },
+            copyAutomationSecret: { calls.append("copy") },
+            hideAutomationSecret: { calls.append("hide") })
+        actions.selectAutomationSchedule(state.schedules[0].id)
+        actions.saveAutomationFeature(timezone: "UTC", quietHours: "")
+        actions.requestAutomationAction(.emergencyDisable)
+        actions.confirmAutomationAction(principalName: "Build agent")
+        actions.copyAutomationSecret()
+        actions.hideAutomationSecret()
+        #expect(calls == [
+            "schedule:sch_AAAAAAAAAAAAAAAAAAAAAAAAAA", "feature:UTC:",
+            "request:emergency_disable", "confirm:Build agent", "copy", "hide",
+        ])
     }
 
     @MainActor

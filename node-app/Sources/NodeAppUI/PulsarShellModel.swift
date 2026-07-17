@@ -20,6 +20,7 @@ public enum PulsarShellSection: String, CaseIterable, Identifiable, Sendable {
     case join
     case tryLocally
     case soundboard
+    case automation
     case history
     case settings
 
@@ -345,6 +346,160 @@ public struct PulsarSoundboardState: Equatable, Sendable {
     public init() {}
 }
 
+public enum PulsarAutomationConfirmation: String, Equatable, Sendable {
+    case scheduleToggle = "schedule_toggle"
+    case scheduleDelete = "schedule_delete"
+    case principalIssue = "principal_issue"
+    case principalRevoke = "principal_revoke"
+    case automationToggle = "automation_toggle"
+    case emergencyDisable = "emergency_disable"
+    case historyCancel = "history_cancel"
+}
+
+public struct PulsarAutomationFeatureState: Equatable, Sendable {
+    public let soundboardEnabled: Bool
+    public let automationEnabled: Bool
+    public let emergencyDisabled: Bool
+    public let timezone: String
+    public let quietHours: String
+    public let policyVersion: String
+    public let revision: Int64
+
+    public init(
+        soundboardEnabled: Bool, automationEnabled: Bool, emergencyDisabled: Bool,
+        timezone: String, quietHours: String, policyVersion: String, revision: Int64
+    ) {
+        self.soundboardEnabled = soundboardEnabled
+        self.automationEnabled = automationEnabled
+        self.emergencyDisabled = emergencyDisabled
+        self.timezone = timezone
+        self.quietHours = quietHours
+        self.policyVersion = policyVersion
+        self.revision = revision
+    }
+}
+
+public struct PulsarAutomationScheduleState: Equatable, Identifiable, Sendable {
+    public let id: String
+    public let cueID: String
+    public let displayName: String
+    public let timezone: String
+    public let weekdays: String
+    public let localTime: String
+    public let quietHours: String
+    public let audience: String
+    public let enabled: Bool
+    public let nextRun: Date?
+    public let quietHoursSkip: Bool
+    public let revision: Int64
+
+    public init(
+        id: String, cueID: String, displayName: String, timezone: String,
+        weekdays: String, localTime: String, quietHours: String, audience: String,
+        enabled: Bool, nextRun: Date?, quietHoursSkip: Bool, revision: Int64
+    ) {
+        self.id = id
+        self.cueID = cueID
+        self.displayName = displayName
+        self.timezone = timezone
+        self.weekdays = weekdays
+        self.localTime = localTime
+        self.quietHours = quietHours
+        self.audience = audience
+        self.enabled = enabled
+        self.nextRun = nextRun
+        self.quietHoursSkip = quietHoursSkip
+        self.revision = revision
+    }
+}
+
+public struct PulsarAutomationPrincipalState: Equatable, Identifiable, Sendable {
+    public let id: String
+    public let displayName: String
+    public let permission: String
+    public let allowedCueCount: Int
+    public let allowedAudiences: [String]
+    public let expiresAt: Date
+    public let revoked: Bool
+    public let revision: Int64
+
+    public init(
+        id: String, displayName: String, permission: String, allowedCueCount: Int,
+        allowedAudiences: [String], expiresAt: Date, revoked: Bool, revision: Int64
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.permission = permission
+        self.allowedCueCount = allowedCueCount
+        self.allowedAudiences = allowedAudiences
+        self.expiresAt = expiresAt
+        self.revoked = revoked
+        self.revision = revision
+    }
+}
+
+public struct PulsarAutomationHistoryState: Equatable, Identifiable, Sendable {
+    public let id: String
+    public let title: String
+    public let status: String
+    public let triggerKind: String
+    public let actorLabel: String?
+    public let scheduleLabel: String?
+    public let reasonCode: String?
+    public let occurredAt: Date
+    public let canCancel: Bool
+
+    public init(
+        id: String, title: String, status: String, triggerKind: String,
+        actorLabel: String?, scheduleLabel: String?, reasonCode: String?,
+        occurredAt: Date, canCancel: Bool
+    ) {
+        self.id = id
+        self.title = title
+        self.status = status
+        self.triggerKind = triggerKind
+        self.actorLabel = actorLabel
+        self.scheduleLabel = scheduleLabel
+        self.reasonCode = reasonCode
+        self.occurredAt = occurredAt
+        self.canCancel = canCancel
+    }
+}
+
+public struct PulsarAutomationState: Equatable, Sendable {
+    public var available = false
+    public var feature: PulsarAutomationFeatureState?
+    public var cueCount = 0
+    public var schedules: [PulsarAutomationScheduleState] = []
+    public var principals: [PulsarAutomationPrincipalState] = []
+    public var history: [PulsarAutomationHistoryState] = []
+    public var selectedScheduleID: String?
+    public var selectedPrincipalID: String?
+    public var selectedHistoryID: String?
+    public var secretAvailable = false
+    public var busy = false
+    public var confirmation: PulsarAutomationConfirmation?
+    public var outcome: String?
+    public var failure: String?
+    public init() {}
+}
+
+public struct PulsarAutomationScheduleEditor: Equatable, Sendable {
+    public let name: String
+    public let timezone: String
+    public let weekdays: String
+    public let localTime: String
+    public let quietHours: String
+
+    public init(name: String, timezone: String, weekdays: String, localTime: String, quietHours: String) {
+        self.name = name
+        self.timezone = timezone
+        self.weekdays = weekdays
+        self.localTime = localTime
+        self.quietHours = quietHours
+    }
+}
+
 public struct PulsarShellSnapshot: Equatable, Sendable {
     public var connection: PulsarConnectionState
     public var connectionIdentity: String?
@@ -354,6 +509,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
     public var playbackState: String
     public var history: [PulsarHistoryItem]
     public var soundboard: PulsarSoundboardState
+    public var automation: PulsarAutomationState
     public var outgoingDrafts: [PulsarOutgoingDraft]
     public var phaseOneActionOutcome: String?
     public var phaseOneFailure: String?
@@ -383,6 +539,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         playbackState: String = "stopped",
         history: [PulsarHistoryItem] = [],
         soundboard: PulsarSoundboardState = .init(),
+        automation: PulsarAutomationState = .init(),
         outgoingDrafts: [PulsarOutgoingDraft] = [],
         phaseOneActionOutcome: String? = nil,
         phaseOneFailure: String? = nil,
@@ -411,6 +568,7 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         self.playbackState = playbackState
         self.history = history
         self.soundboard = soundboard
+        self.automation = automation
         self.outgoingDrafts = outgoingDrafts
         self.phaseOneActionOutcome = phaseOneActionOutcome
         self.phaseOneFailure = phaseOneFailure
@@ -478,6 +636,7 @@ public final class PulsarShellModel {
     }
 
     public func setSoundboard(_ state: PulsarSoundboardState) { snapshot.soundboard = state }
+    public func setAutomation(_ state: PulsarAutomationState) { snapshot.automation = state }
 
     public func setPhaseOneData(
         presenceSummary: String?,
@@ -606,6 +765,17 @@ public final class PulsarShellActions {
     private let onSetSoundboardIncludeOrigin: (Bool) -> Void
     private let onCycleSoundboardShortcut: (String) -> Void
     private let onOpenAutomationAdmin: () -> Void
+    private let onRefreshAutomation: () -> Void
+    private let onSelectAutomationSchedule: (String?) -> Void
+    private let onSelectAutomationPrincipal: (String) -> Void
+    private let onSelectAutomationHistory: (String) -> Void
+    private let onSaveAutomationFeature: (String, String) -> Void
+    private let onSaveAutomationSchedule: (PulsarAutomationScheduleEditor) -> Void
+    private let onRequestAutomationAction: (PulsarAutomationConfirmation) -> Void
+    private let onCancelAutomationConfirmation: () -> Void
+    private let onConfirmAutomationAction: (String) -> Void
+    private let onCopyAutomationSecret: () -> Void
+    private let onHideAutomationSecret: () -> Void
     private let onSubmitCreateOrbit: (String) -> Void
     private let onSubmitJoinOrbit: (String) -> Void
     private let onExportRecovery: () -> Void
@@ -656,6 +826,17 @@ public final class PulsarShellActions {
         setSoundboardIncludeOrigin: @escaping @MainActor (Bool) -> Void = { _ in },
         cycleSoundboardShortcut: @escaping @MainActor (String) -> Void = { _ in },
         openAutomationAdmin: @escaping @MainActor () -> Void = {},
+        refreshAutomation: @escaping @MainActor () -> Void = {},
+        selectAutomationSchedule: @escaping @MainActor (String?) -> Void = { _ in },
+        selectAutomationPrincipal: @escaping @MainActor (String) -> Void = { _ in },
+        selectAutomationHistory: @escaping @MainActor (String) -> Void = { _ in },
+        saveAutomationFeature: @escaping @MainActor (String, String) -> Void = { _, _ in },
+        saveAutomationSchedule: @escaping @MainActor (PulsarAutomationScheduleEditor) -> Void = { _ in },
+        requestAutomationAction: @escaping @MainActor (PulsarAutomationConfirmation) -> Void = { _ in },
+        cancelAutomationConfirmation: @escaping @MainActor () -> Void = {},
+        confirmAutomationAction: @escaping @MainActor (String) -> Void = { _ in },
+        copyAutomationSecret: @escaping @MainActor () -> Void = {},
+        hideAutomationSecret: @escaping @MainActor () -> Void = {},
         submitCreateOrbit: @escaping @MainActor (String) -> Void = { _ in },
         submitJoinOrbit: @escaping @MainActor (String) -> Void = { _ in },
         exportRecovery: @escaping @MainActor () -> Void = {},
@@ -705,6 +886,17 @@ public final class PulsarShellActions {
         self.onSetSoundboardIncludeOrigin = setSoundboardIncludeOrigin
         self.onCycleSoundboardShortcut = cycleSoundboardShortcut
         self.onOpenAutomationAdmin = openAutomationAdmin
+        self.onRefreshAutomation = refreshAutomation
+        self.onSelectAutomationSchedule = selectAutomationSchedule
+        self.onSelectAutomationPrincipal = selectAutomationPrincipal
+        self.onSelectAutomationHistory = selectAutomationHistory
+        self.onSaveAutomationFeature = saveAutomationFeature
+        self.onSaveAutomationSchedule = saveAutomationSchedule
+        self.onRequestAutomationAction = requestAutomationAction
+        self.onCancelAutomationConfirmation = cancelAutomationConfirmation
+        self.onConfirmAutomationAction = confirmAutomationAction
+        self.onCopyAutomationSecret = copyAutomationSecret
+        self.onHideAutomationSecret = hideAutomationSecret
         self.onSubmitCreateOrbit = submitCreateOrbit
         self.onSubmitJoinOrbit = submitJoinOrbit
         self.onExportRecovery = exportRecovery
@@ -773,6 +965,25 @@ public final class PulsarShellActions {
     public func setSoundboardIncludeOrigin(_ value: Bool) { onSetSoundboardIncludeOrigin(value) }
     public func cycleSoundboardShortcut(_ id: String) { onCycleSoundboardShortcut(id) }
     public func openAutomationAdmin() { onOpenAutomationAdmin() }
+    public func refreshAutomation() { onRefreshAutomation() }
+    public func selectAutomationSchedule(_ id: String?) { onSelectAutomationSchedule(id) }
+    public func selectAutomationPrincipal(_ id: String) { onSelectAutomationPrincipal(id) }
+    public func selectAutomationHistory(_ id: String) { onSelectAutomationHistory(id) }
+    public func saveAutomationFeature(timezone: String, quietHours: String) {
+        onSaveAutomationFeature(timezone, quietHours)
+    }
+    public func saveAutomationSchedule(_ editor: PulsarAutomationScheduleEditor) {
+        onSaveAutomationSchedule(editor)
+    }
+    public func requestAutomationAction(_ action: PulsarAutomationConfirmation) {
+        onRequestAutomationAction(action)
+    }
+    public func cancelAutomationConfirmation() { onCancelAutomationConfirmation() }
+    public func confirmAutomationAction(principalName: String) {
+        onConfirmAutomationAction(principalName)
+    }
+    public func copyAutomationSecret() { onCopyAutomationSecret() }
+    public func hideAutomationSecret() { onHideAutomationSecret() }
     public func submitCreateOrbit(title: String) { onSubmitCreateOrbit(title) }
     public func submitJoinOrbit(code: String) { onSubmitJoinOrbit(code) }
     public func exportRecovery() { onExportRecovery() }
@@ -798,7 +1009,7 @@ public final class PulsarShellActions {
 }
 
 public enum PulsarShellText: String, CaseIterable, Sendable {
-    case appName, home, airs, inbox, create, join, tryLocally, soundboard, history, settings
+    case appName, home, airs, inbox, create, join, tryLocally, soundboard, automation, history, settings
     case openMainWindow, primaryActions, status, presence, routing, nowPlaying
     case localControls, noHistory, noRoute, silence, volume, dnd, recording
     case startRecording, stopRecording, recordingUnavailable, selfTestUnavailable
@@ -846,6 +1057,7 @@ public struct PulsarShellCopy: Sendable {
         case .join: text(.join)
         case .tryLocally: text(.tryLocally)
         case .soundboard: text(.soundboard)
+        case .automation: text(.automation)
         case .history: text(.history)
         case .settings: text(.settings)
         }
@@ -1012,7 +1224,7 @@ public struct PulsarShellCopy: Sendable {
     private static let en: [PulsarShellText: String] = [
         .appName: "Pulsar", .home: "Home", .airs: "Airs", .inbox: "Inbox & targets",
         .create: "Create", .join: "Join",
-        .tryLocally: "Try locally", .soundboard: "Soundboard", .history: "History", .settings: "Settings",
+        .tryLocally: "Try locally", .soundboard: "Soundboard", .automation: "Automation", .history: "History", .settings: "Settings",
         .openMainWindow: "Open Pulsar", .primaryActions: "Primary actions",
         .status: "Status", .presence: "Presence", .routing: "Routing",
         .nowPlaying: "Now playing", .localControls: "Local controls",
@@ -1086,7 +1298,7 @@ public struct PulsarShellCopy: Sendable {
     private static let ru: [PulsarShellText: String] = [
         .appName: "Пульсар", .home: "Главная", .airs: "Эфиры", .inbox: "Входящие и адресаты",
         .create: "Создать", .join: "Присоединиться",
-        .tryLocally: "Попробовать локально", .soundboard: "Саундборд", .history: "История", .settings: "Настройки",
+        .tryLocally: "Попробовать локально", .soundboard: "Саундборд", .automation: "Автоматизация", .history: "История", .settings: "Настройки",
         .openMainWindow: "Открыть Пульсар", .primaryActions: "Основные действия",
         .status: "Статус", .presence: "Присутствие", .routing: "Маршрут звука",
         .nowPlaying: "Сейчас играет", .localControls: "Локальные настройки",

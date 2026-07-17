@@ -143,6 +143,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
             title: copy.text(.soundboard), action: #selector(showSoundboard), keyEquivalent: "5")
         soundboard.target = self
         menu.addItem(soundboard)
+        let automation = NSMenuItem(
+            title: copy.text(.automation), action: #selector(showAutomation), keyEquivalent: "6")
+        automation.target = self
+        menu.addItem(automation)
         let selectedCue = shellModel?.snapshot.soundboard.cues.first {
             $0.id == shellModel?.snapshot.soundboard.selectedCueID
         }
@@ -376,6 +380,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
 
     @objc private func showSoundboard() {
         shellModel?.selectedSection = .soundboard
+        showMainWindowAction?()
+    }
+
+    @objc private func showAutomation() {
+        shellModel?.selectedSection = .automation
         showMainWindowAction?()
     }
 

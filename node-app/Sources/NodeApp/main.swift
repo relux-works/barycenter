@@ -275,6 +275,7 @@ var runtime: CoreRuntime?
 @MainActor var macCaptureComposition: MacCaptureAppComposition?
 @MainActor var macPhaseOneComposition: MacPhaseOneAppComposition?
 @MainActor var macSoundboardComposition: MacSoundboardAppComposition?
+@MainActor var macAutomationAdminComposition: MacAutomationAdminAppComposition?
 @MainActor var macTargetsInboxComposition: MacTargetsInboxAppComposition?
 @MainActor var macStreamTrackComposition: MacStreamTrackAppComposition?
 @MainActor var macAirComposition: MacAirAppComposition?
@@ -353,6 +354,7 @@ func startCore(with config: NodeConfig) {
         startMacCaptureComposition(audio: rt.engine, log: rt.log)
         startMacPhaseOneComposition(log: rt.log)
         startMacSoundboardComposition(log: rt.log)
+        startMacAutomationAdminComposition(log: rt.log)
         startMacTargetsInboxComposition(log: rt.log)
         startMacStreamTrackComposition(log: rt.log)
         startMacAirComposition(log: rt.log)
@@ -547,7 +549,18 @@ func configureShell() {
         setSoundboardDelivery: { macSoundboardComposition?.setDelivery($0) },
         setSoundboardIncludeOrigin: { macSoundboardComposition?.setIncludeOrigin($0) },
         cycleSoundboardShortcut: { macSoundboardComposition?.cycleShortcut($0) },
-        openAutomationAdmin: { showShellSection(.settings) },
+        openAutomationAdmin: { showShellSection(.automation) },
+        refreshAutomation: { macAutomationAdminComposition?.refresh(force: true) },
+        selectAutomationSchedule: { macAutomationAdminComposition?.selectSchedule($0) },
+        selectAutomationPrincipal: { macAutomationAdminComposition?.selectPrincipal($0) },
+        selectAutomationHistory: { macAutomationAdminComposition?.selectHistory($0) },
+        saveAutomationFeature: { macAutomationAdminComposition?.saveFeature(timezone: $0, quietHours: $1) },
+        saveAutomationSchedule: { macAutomationAdminComposition?.saveSchedule($0) },
+        requestAutomationAction: { macAutomationAdminComposition?.request($0) },
+        cancelAutomationConfirmation: { macAutomationAdminComposition?.cancelConfirmation() },
+        confirmAutomationAction: { macAutomationAdminComposition?.confirm(principalName: $0) },
+        copyAutomationSecret: { macAutomationAdminComposition?.copySecret() },
+        hideAutomationSecret: { macAutomationAdminComposition?.hideSecret() },
         submitCreateOrbit: { macIdentityComposition?.create(title: $0) },
         submitJoinOrbit: { macIdentityComposition?.join(code: $0) },
         exportRecovery: { macIdentityComposition?.exportRecovery() },
@@ -658,6 +671,20 @@ func startMacSoundboardComposition(log: Logger) {
 }
 
 @MainActor
+func startMacAutomationAdminComposition(log: Logger) {
+    do {
+        guard let bundle = try CredentialsStore.loadBundle(besideConfig: configPath) else { return }
+        let composition = try MacAutomationAdminAppComposition(bundle: bundle, model: shellModel)
+        macAutomationAdminComposition = composition
+        composition.start()
+    } catch {
+        log.error("mac automation administration unavailable", ["reason": "initialization_failed"])
+        var state = PulsarAutomationState(); state.failure = "credential_unavailable"
+        shellModel.setAutomation(state)
+    }
+}
+
+@MainActor
 func startMacTargetsInboxComposition(log: Logger) {
     do {
         guard let bundle = try CredentialsStore.loadBundle(besideConfig: configPath) else { return }
@@ -729,6 +756,8 @@ func startAccountlessMacCapture(config: NodeConfig) {
 
 @MainActor
 func stopMacCaptureComposition() {
+    macAutomationAdminComposition?.shutdown()
+    macAutomationAdminComposition = nil
     macSoundboardComposition?.shutdown()
     macSoundboardComposition = nil
     macAirComposition?.shutdown()
@@ -787,6 +816,7 @@ func refreshShell(identity: String) {
         volume: status.volume)
     macPhaseOneComposition?.refresh()
     macSoundboardComposition?.refresh()
+    macAutomationAdminComposition?.refresh()
     macTargetsInboxComposition?.refresh()
     macAirComposition?.refresh()
 }

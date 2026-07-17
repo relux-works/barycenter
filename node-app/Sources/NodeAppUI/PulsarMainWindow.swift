@@ -83,6 +83,7 @@ private struct PulsarSidebar: View {
         case .join: "person.2"
         case .tryLocally: "waveform.circle"
         case .soundboard: "square.grid.3x3"
+        case .automation: "calendar.badge.clock"
         case .history: "clock.arrow.circlepath"
         case .settings: "gear"
         }
@@ -131,6 +132,8 @@ private struct PulsarDetail: View {
             PulsarSelfTestView(model: model, actions: actions)
         case .soundboard:
             PulsarSoundboardView(model: model, actions: actions)
+        case .automation:
+            PulsarAutomationAdminView(model: model, actions: actions)
         case .history:
             PulsarHistoryView(
                 model: model, actions: actions,
@@ -156,7 +159,7 @@ private struct PulsarSoundboardView: View {
                 Spacer()
                 Button(localized("Refresh", "Обновить"), action: actions.refreshSoundboard)
                 Button(localized("Automation schedules →", "Расписания automation →")) {
-                    model.selectedSection = .settings
+                    model.selectedSection = .automation
                 }
             }
             HStack {
@@ -253,6 +256,354 @@ private struct PulsarSoundboardCueRow: View {
         .accessibilityElement(children: .contain)
     }
 
+    private func localized(_ en: String, _ ru: String) -> String { locale == .ru ? ru : en }
+}
+
+private struct PulsarAutomationAdminView: View {
+    let model: PulsarShellModel
+    let actions: PulsarShellActions
+    @State private var featureTimezone = "UTC"
+    @State private var featureQuietHours = ""
+    @State private var scheduleName = ""
+    @State private var scheduleTimezone = "UTC"
+    @State private var scheduleWeekdays = "Mon,Tue,Wed,Thu,Fri"
+    @State private var scheduleLocalTime = "09:00"
+    @State private var scheduleQuietHours = ""
+    @State private var principalName = ""
+
+    var body: some View {
+        let state = model.snapshot.automation
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text(localized("Automation administration", "Управление автоматизацией"))
+                        .font(.title2.bold())
+                    Spacer()
+                    Button(localized("Manual soundboard →", "Ручной саундборд →")) {
+                        model.selectedSection = .soundboard
+                    }
+                    Button(localized("Refresh", "Обновить"), action: actions.refreshAutomation)
+                }
+
+                if !state.available {
+                    ContentUnavailableView(
+                        localized("Automation controls unavailable", "Управление автоматизацией недоступно"),
+                        systemImage: "lock.shield",
+                        description: Text(localized(
+                            "Configuration remains hidden until an authorized refresh succeeds.",
+                            "Конфигурация скрыта до успешного авторизованного обновления.")))
+                } else {
+                    PulsarAutomationFeatureSection(
+                        state: state, locale: model.locale,
+                        timezone: $featureTimezone, quietHours: $featureQuietHours,
+                        actions: actions)
+                    PulsarAutomationScheduleSection(
+                        state: state, locale: model.locale,
+                        name: $scheduleName, timezone: $scheduleTimezone,
+                        weekdays: $scheduleWeekdays, localTime: $scheduleLocalTime,
+                        quietHours: $scheduleQuietHours, actions: actions)
+                    PulsarAutomationPrincipalSection(
+                        state: state, locale: model.locale,
+                        principalName: $principalName, actions: actions)
+                    PulsarAutomationHistorySection(
+                        state: state, locale: model.locale, actions: actions)
+                }
+
+                if let outcome = state.outcome {
+                    Label(displayCode(outcome), systemImage: "checkmark.circle")
+                        .foregroundStyle(.green)
+                        .accessibilityLabel(localized("Automation action completed", "Действие автоматизации выполнено"))
+                        .accessibilityValue(displayCode(outcome))
+                }
+                if let failure = state.failure {
+                    Label(displayCode(failure), systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                        .accessibilityLabel(localized("Automation action failed", "Ошибка действия автоматизации"))
+                        .accessibilityValue(displayCode(failure))
+                }
+            }
+            .padding(24)
+        }
+        .navigationTitle(PulsarShellCopy(locale: model.locale).text(.automation))
+        .onAppear { loadEditors(from: state) }
+        .onChange(of: state.feature) { _, _ in loadFeature(from: state) }
+        .onChange(of: state.schedules) { _, _ in loadSchedule(from: state) }
+        .onChange(of: state.selectedScheduleID) { _, _ in loadSchedule(from: state) }
+        .confirmationDialog(
+            confirmationTitle(state.confirmation),
+            isPresented: Binding(
+                get: { state.confirmation != nil },
+                set: { if !$0 { actions.cancelAutomationConfirmation() } })
+        ) {
+            Button(confirmationButton(state.confirmation), role: confirmationRole(state.confirmation)) {
+                actions.confirmAutomationAction(principalName: principalName)
+            }
+            Button(localized("Cancel", "Отмена"), role: .cancel) {
+                actions.cancelAutomationConfirmation()
+            }
+        } message: {
+            Text(localized(
+                "The coordinator will re-check your current role, revision and policy before applying this action.",
+                "Координатор повторно проверит роль, ревизию и политику перед выполнением действия."))
+        }
+    }
+
+    private func loadEditors(from state: PulsarAutomationState) {
+        loadFeature(from: state)
+        loadSchedule(from: state)
+    }
+
+    private func loadFeature(from state: PulsarAutomationState) {
+        guard let feature = state.feature else { return }
+        featureTimezone = feature.timezone
+        featureQuietHours = feature.quietHours
+    }
+
+    private func loadSchedule(from state: PulsarAutomationState) {
+        guard let id = state.selectedScheduleID,
+              let schedule = state.schedules.first(where: { $0.id == id }) else {
+            scheduleName = ""
+            scheduleTimezone = state.feature?.timezone ?? "UTC"
+            scheduleWeekdays = "Mon,Tue,Wed,Thu,Fri"
+            scheduleLocalTime = "09:00"
+            scheduleQuietHours = ""
+            return
+        }
+        scheduleName = schedule.displayName
+        scheduleTimezone = schedule.timezone
+        scheduleWeekdays = schedule.weekdays
+        scheduleLocalTime = schedule.localTime
+        scheduleQuietHours = schedule.quietHours
+    }
+
+    private func confirmationTitle(_ value: PulsarAutomationConfirmation?) -> String {
+        switch value {
+        case .scheduleToggle: localized("Change schedule state?", "Изменить состояние расписания?")
+        case .scheduleDelete: localized("Delete schedule?", "Удалить расписание?")
+        case .principalIssue: localized("Issue a one-time secret?", "Выдать одноразовый секрет?")
+        case .principalRevoke: localized("Revoke principal?", "Отозвать principal?")
+        case .automationToggle: localized("Change automation state?", "Изменить состояние автоматизации?")
+        case .emergencyDisable: localized("Emergency-disable automation?", "Экстренно отключить автоматизацию?")
+        case .historyCancel: localized("Cancel pending delivery?", "Отменить ожидающую доставку?")
+        case nil: localized("Confirm action", "Подтвердите действие")
+        }
+    }
+
+    private func confirmationButton(_ value: PulsarAutomationConfirmation?) -> String {
+        value == .principalIssue ? localized("Issue once", "Выдать один раз")
+            : localized("Confirm", "Подтвердить")
+    }
+
+    private func confirmationRole(_ value: PulsarAutomationConfirmation?) -> ButtonRole? {
+        value == .principalIssue ? nil : .destructive
+    }
+
+    private func localized(_ en: String, _ ru: String) -> String { model.locale == .ru ? ru : en }
+    private func displayCode(_ value: String) -> String { value.replacingOccurrences(of: "_", with: " ") }
+}
+
+private struct PulsarAutomationFeatureSection: View {
+    let state: PulsarAutomationState
+    let locale: PulsarShellLocale
+    @Binding var timezone: String
+    @Binding var quietHours: String
+    let actions: PulsarShellActions
+
+    var body: some View {
+        GroupBox(localized("Orbit automation", "Автоматизация орбиты")) {
+            VStack(alignment: .leading, spacing: 10) {
+                if let feature = state.feature {
+                    LabeledContent(localized("Automation", "Автоматизация"), value: feature.automationEnabled ? localized("Enabled", "Включена") : localized("Disabled", "Отключена"))
+                    LabeledContent(localized("Emergency stop", "Экстренная остановка"), value: feature.emergencyDisabled ? localized("Active", "Активна") : localized("Clear", "Не активна"))
+                    LabeledContent(localized("Manual soundboard", "Ручной саундборд"), value: feature.soundboardEnabled ? localized("Available", "Доступен") : localized("Disabled by policy", "Отключён политикой"))
+                    LabeledContent(localized("Policy", "Политика"), value: feature.policyVersion)
+                    TextField(localized("IANA timezone", "Часовой пояс IANA"), text: $timezone)
+                        .accessibilityHint(localized("For example Asia/Yerevan", "Например Asia/Yerevan"))
+                    TextField(localized("Quiet hours", "Тихие часы"), text: $quietHours)
+                        .accessibilityHint(localized("Example: Mon 22:00-07:00; Fri 23:00-08:00", "Пример: Mon 22:00-07:00; Fri 23:00-08:00"))
+                    HStack {
+                        Button(localized("Save policy settings", "Сохранить настройки политики")) {
+                            actions.saveAutomationFeature(timezone: timezone, quietHours: quietHours)
+                        }
+                        Button(feature.automationEnabled ? localized("Disable automation", "Отключить автоматизацию") : localized("Enable automation", "Включить автоматизацию")) {
+                            actions.requestAutomationAction(.automationToggle)
+                        }
+                        Button(localized("Emergency disable", "Экстренно отключить"), role: .destructive) {
+                            actions.requestAutomationAction(.emergencyDisable)
+                        }
+                        .disabled(feature.emergencyDisabled)
+                    }
+                    .disabled(state.busy)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func localized(_ en: String, _ ru: String) -> String { locale == .ru ? ru : en }
+}
+
+private struct PulsarAutomationScheduleSection: View {
+    let state: PulsarAutomationState
+    let locale: PulsarShellLocale
+    @Binding var name: String
+    @Binding var timezone: String
+    @Binding var weekdays: String
+    @Binding var localTime: String
+    @Binding var quietHours: String
+    let actions: PulsarShellActions
+
+    var body: some View {
+        GroupBox(localized("Schedules", "Расписания")) {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker(localized("Selected schedule", "Выбранное расписание"), selection: Binding(
+                    get: { state.selectedScheduleID },
+                    set: actions.selectAutomationSchedule)) {
+                    Text(localized("New schedule", "Новое расписание")).tag(String?.none)
+                    ForEach(state.schedules) { schedule in
+                        Text(schedule.displayName).tag(Optional(schedule.id))
+                    }
+                }
+                if let selected {
+                    LabeledContent(localized("State", "Состояние"), value: selected.enabled ? localized("Enabled", "Включено") : localized("Disabled", "Отключено"))
+                    LabeledContent(localized("Audience", "Аудитория"), value: selected.audience)
+                    if let nextRun = selected.nextRun {
+                        HStack {
+                            Text(localized("Next fire", "Следующий запуск"))
+                            Spacer()
+                            Text(nextRun, format: .dateTime.year().month().day().hour().minute().timeZone())
+                        }
+                        Text(selected.quietHoursSkip
+                            ? localized("This candidate is skipped by quiet hours.", "Этот запуск пропускается из-за тихих часов.")
+                            : localized("Spring gaps do not fire; the earliest fall-fold instant wins.", "Весенний разрыв не запускается; при осеннем повторе выбирается первый момент."))
+                            .font(.caption).foregroundStyle(selected.quietHoursSkip ? .orange : .secondary)
+                    } else {
+                        Text(localized("No next fire while this schedule is disabled.", "Нет следующего запуска, пока расписание отключено."))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                    editorRow(localized("Name", "Название")) { TextField("Morning", text: $name) }
+                    editorRow(localized("IANA timezone", "Часовой пояс IANA")) { TextField("Asia/Yerevan", text: $timezone) }
+                    editorRow(localized("Weekdays", "Дни недели")) { TextField("Mon,Tue,Wed,Thu,Fri", text: $weekdays) }
+                    editorRow(localized("Local time", "Местное время")) { TextField("09:00", text: $localTime) }
+                    editorRow(localized("Extra quiet hours", "Доп. тихие часы")) { TextField("Fri 23:00-08:00", text: $quietHours) }
+                }
+                HStack {
+                    Button(selected == nil ? localized("Create disabled schedule", "Создать отключённое расписание") : localized("Save schedule", "Сохранить расписание")) {
+                        actions.saveAutomationSchedule(.init(
+                            name: name, timezone: timezone, weekdays: weekdays,
+                            localTime: localTime, quietHours: quietHours))
+                    }
+                    Button(selected?.enabled == true ? localized("Disable", "Отключить") : localized("Enable", "Включить")) {
+                        actions.requestAutomationAction(.scheduleToggle)
+                    }.disabled(selected == nil)
+                    Button(localized("Delete", "Удалить"), role: .destructive) {
+                        actions.requestAutomationAction(.scheduleDelete)
+                    }.disabled(selected == nil)
+                }
+                .disabled(state.busy || state.cueCount == 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var selected: PulsarAutomationScheduleState? {
+        state.schedules.first { $0.id == state.selectedScheduleID }
+    }
+
+    private func editorRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        GridRow { Text(title); content() }
+    }
+
+    private func localized(_ en: String, _ ru: String) -> String { locale == .ru ? ru : en }
+}
+
+private struct PulsarAutomationPrincipalSection: View {
+    let state: PulsarAutomationState
+    let locale: PulsarShellLocale
+    @Binding var principalName: String
+    let actions: PulsarShellActions
+
+    var body: some View {
+        GroupBox(localized("Scoped principals", "Ограниченные principals")) {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker(localized("Selected principal", "Выбранный principal"), selection: Binding(
+                    get: { state.selectedPrincipalID },
+                    set: { if let id = $0 { actions.selectAutomationPrincipal(id) } })) {
+                    Text(localized("None", "Нет")).tag(String?.none)
+                    ForEach(state.principals) { principal in
+                        Text(principal.displayName).tag(Optional(principal.id))
+                    }
+                }
+                if let selected {
+                    LabeledContent(localized("Permission", "Разрешение"), value: selected.permission)
+                    LabeledContent(localized("Cue scope", "Область сигналов"), value: String(selected.allowedCueCount))
+                    LabeledContent(localized("Audience scope", "Область аудитории"), value: selected.allowedAudiences.joined(separator: ", "))
+                    HStack { Text(localized("Expires", "Истекает")); Spacer(); Text(selected.expiresAt, format: .dateTime.year().month().day().hour().minute()) }
+                }
+                HStack {
+                    TextField(localized("New principal name", "Имя нового principal"), text: $principalName)
+                    Button(localized("Issue one-time secret", "Выдать одноразовый секрет")) {
+                        actions.requestAutomationAction(.principalIssue)
+                    }
+                    Button(localized("Revoke", "Отозвать"), role: .destructive) {
+                        actions.requestAutomationAction(.principalRevoke)
+                    }.disabled(selected == nil)
+                }.disabled(state.busy || state.cueCount == 0)
+                if state.secretAvailable {
+                    HStack {
+                        Label(localized("One-time secret is available in memory", "Одноразовый секрет доступен в памяти"), systemImage: "key")
+                            .accessibilityLabel(localized("One-time secret available", "Одноразовый секрет доступен"))
+                        Spacer()
+                        Button(localized("Copy for 60 seconds", "Копировать на 60 секунд"), action: actions.copyAutomationSecret)
+                        Button(localized("Hide permanently", "Скрыть навсегда"), role: .destructive, action: actions.hideAutomationSecret)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var selected: PulsarAutomationPrincipalState? {
+        state.principals.first { $0.id == state.selectedPrincipalID }
+    }
+    private func localized(_ en: String, _ ru: String) -> String { locale == .ru ? ru : en }
+}
+
+private struct PulsarAutomationHistorySection: View {
+    let state: PulsarAutomationState
+    let locale: PulsarShellLocale
+    let actions: PulsarShellActions
+
+    var body: some View {
+        GroupBox(localized("Automation history", "История автоматизации")) {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker(localized("Selected event", "Выбранное событие"), selection: Binding(
+                    get: { state.selectedHistoryID },
+                    set: { if let id = $0 { actions.selectAutomationHistory(id) } })) {
+                    Text(localized("None", "Нет")).tag(String?.none)
+                    ForEach(state.history) { item in Text(item.title).tag(Optional(item.id)) }
+                }
+                if let selected {
+                    LabeledContent(localized("Status", "Статус"), value: selected.status)
+                    LabeledContent(localized("Trigger", "Триггер"), value: selected.triggerKind)
+                    if let actor = selected.actorLabel { LabeledContent(localized("Actor", "Инициатор"), value: actor) }
+                    if let schedule = selected.scheduleLabel { LabeledContent(localized("Schedule", "Расписание"), value: schedule) }
+                    if let reason = selected.reasonCode { LabeledContent(localized("Reason", "Причина"), value: reason) }
+                    HStack { Text(localized("Occurred", "Время")); Spacer(); Text(selected.occurredAt, format: .dateTime.year().month().day().hour().minute()) }
+                    Button(localized("Cancel pending delivery", "Отменить ожидающую доставку"), role: .destructive) {
+                        actions.requestAutomationAction(.historyCancel)
+                    }.disabled(!selected.canCancel || state.busy)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var selected: PulsarAutomationHistoryState? {
+        state.history.first { $0.id == state.selectedHistoryID }
+    }
     private func localized(_ en: String, _ ru: String) -> String { locale == .ru ? ru : en }
 }
 

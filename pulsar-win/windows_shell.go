@@ -26,11 +26,12 @@ const (
 	ShellSoundboard ShellSection = "soundboard"
 	ShellInbox      ShellSection = "inbox"
 	ShellAirs       ShellSection = "airs"
+	ShellAutomation ShellSection = "automation"
 	ShellSettings   ShellSection = "settings"
 )
 
 var shellSections = []ShellSection{
-	ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellSoundboard, ShellHistory, ShellInbox, ShellAirs, ShellSettings,
+	ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellSoundboard, ShellHistory, ShellInbox, ShellAirs, ShellAutomation, ShellSettings,
 }
 
 type ShellConnection string
@@ -216,6 +217,7 @@ type ShellSnapshot struct {
 	AirConfirmAction          string
 	AirOutcome                string
 	AirFailure                string
+	Automation                WindowsAutomationSnapshot
 }
 
 func (s ShellSnapshot) normalized() ShellSnapshot {
@@ -321,6 +323,15 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 	if s.AirInviteRole != AirRoleAdmin {
 		s.AirInviteRole = AirRoleMember
 	}
+	if s.Automation.SelectedSchedule < 0 || s.Automation.SelectedSchedule >= len(s.Automation.Schedules) {
+		s.Automation.SelectedSchedule = 0
+	}
+	if s.Automation.SelectedPrincipal < 0 || s.Automation.SelectedPrincipal >= len(s.Automation.Principals) {
+		s.Automation.SelectedPrincipal = 0
+	}
+	if s.Automation.SelectedHistory < 0 || s.Automation.SelectedHistory >= len(s.Automation.History) {
+		s.Automation.SelectedHistory = 0
+	}
 	return s
 }
 
@@ -413,6 +424,17 @@ type ShellActions struct {
 	CycleAirPolicy                  func()
 	ConfirmAirDisruptive            func()
 	CancelAirDisruptive             func()
+	RefreshAutomation               func()
+	SelectNextAutomationSchedule    func()
+	SaveAutomationSchedule          func(string, string, string, string, string)
+	RequestAutomationAction         func(string)
+	ConfirmAutomationAction         func(string)
+	CancelAutomationConfirmation    func()
+	SelectNextAutomationPrincipal   func()
+	SelectNextAutomationHistory     func()
+	SaveAutomationFeature           func(string, string)
+	CopyAutomationSecret            func()
+	HideAutomationSecret            func()
 }
 
 type WindowsShell struct {
@@ -581,6 +603,12 @@ func (c ShellCopy) Text(key shellText) string {
 }
 
 func (c ShellCopy) Section(section ShellSection) string {
+	if section == ShellAutomation {
+		if c.locale == ShellRussian {
+			return "Автоматизация"
+		}
+		return "Automation"
+	}
 	return c.Text(map[ShellSection]shellText{
 		ShellHome: txtHome, ShellCreate: txtCreate, ShellJoin: txtJoin,
 		ShellTryLocally: txtTry, ShellSoundboard: txtSoundboard, ShellHistory: txtHistory, ShellInbox: txtInbox, ShellAirs: txtAirs, ShellSettings: txtSettings,
@@ -688,6 +716,8 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 		return c.TargetsInboxProjection(snapshot)
 	case ShellAirs:
 		return c.AirProjection(snapshot)
+	case ShellAutomation:
+		return c.AutomationProjection(snapshot)
 	case ShellSettings:
 		return c.Text(txtLanguage) + "\r\n\r\n" + c.Text(txtDND) + ": " + c.DND(snapshot.DND) +
 			"\r\n" + c.Text(txtVolume) + fmt.Sprintf(": %d%%", snapshot.Volume) +
@@ -702,6 +732,115 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 		}
 		return ""
 	}
+}
+
+func (c ShellCopy) AutomationProjection(snapshot ShellSnapshot) string {
+	state := snapshot.Automation
+	if !state.Available {
+		if c.locale == ShellRussian {
+			return "Управление автоматизацией недоступно. Конфигурация не раскрывается без текущих прав primary/control.\r\n\r\n[!] " + state.Failure
+		}
+		return "Automation administration is unavailable. Configuration is not disclosed without current primary/control authority.\r\n\r\n[!] " + state.Failure
+	}
+	featureState := "enabled"
+	if !state.Feature.AutomationEnabled {
+		featureState = "disabled"
+	}
+	if state.Feature.EmergencyDisabled {
+		featureState = "emergency disabled"
+	}
+	body := "Automation: " + featureState + " · soundboard " + map[bool]string{true: "enabled", false: "disabled"}[state.Feature.SoundboardEnabled] +
+		"\r\nPolicy: " + state.Feature.Timezone + fmt.Sprintf(" · %d quiet-hour windows · revision %d", len(state.Feature.QuietHours), state.Feature.Revision) +
+		"\r\nEditor: name · IANA timezone · Sun,Mon,… weekdays · HH:MM · quiet windows like Mon 22:00-06:00; Tue 12:00-13:00."
+	if c.locale == ShellRussian {
+		featureState = map[string]string{"enabled": "включена", "disabled": "выключена", "emergency disabled": "аварийно выключена"}[featureState]
+		body = "Автоматизация: " + featureState + " · soundboard " + map[bool]string{true: "включён", false: "выключен"}[state.Feature.SoundboardEnabled] +
+			"\r\nПолитика: " + state.Feature.Timezone + fmt.Sprintf(" · окон тишины %d · ревизия %d", len(state.Feature.QuietHours), state.Feature.Revision) +
+			"\r\nРедактор: имя · IANA timezone · дни Sun,Mon,… · HH:MM · окна тишины Mon 22:00-06:00; Tue 12:00-13:00."
+	}
+	if len(state.Schedules) == 0 {
+		if c.locale == ShellRussian {
+			body += "\r\n\r\nРасписаний нет. Новое расписание создаётся выключенным."
+		} else {
+			body += "\r\n\r\nNo schedules. A new schedule is created disarmed."
+		}
+	} else {
+		item := state.Schedules[state.SelectedSchedule]
+		status := map[bool]string{true: "enabled", false: "disabled"}[item.Schedule.Enabled]
+		next := "no next run while disabled"
+		if item.NextRunAvailable {
+			next = item.NextRun.In(time.Local).Format("2006-01-02 15:04 MST")
+		}
+		if item.QuietHoursSkip {
+			next += " · skipped by quiet hours"
+		}
+		line := fmt.Sprintf("\r\n\r\nSchedule %d/%d: %s · %s\r\n%s %s · next: %s", state.SelectedSchedule+1, len(state.Schedules), item.Schedule.DisplayName, status, item.Schedule.Timezone, item.Schedule.LocalTime, next)
+		if c.locale == ShellRussian {
+			line = strings.NewReplacer("Schedule ", "Расписание ", " · enabled", " · включено", " · disabled", " · выключено", " · next: ", " · следующий запуск: ", "no next run while disabled", "нет запуска, пока выключено", " · skipped by quiet hours", " · будет пропущено из-за часов тишины").Replace(line)
+		}
+		body += line
+	}
+	if len(state.Principals) == 0 {
+		if c.locale == ShellRussian {
+			body += "\r\n\r\nScoped principals отсутствуют."
+		} else {
+			body += "\r\n\r\nNo scoped principals."
+		}
+	} else {
+		principal := state.Principals[state.SelectedPrincipal]
+		status := "active"
+		if !principal.RevokedAt.IsZero() {
+			status = "revoked"
+		} else if !principal.DisabledAt.IsZero() {
+			status = "disabled"
+		} else if !principal.ExpiresAt.After(time.Now()) {
+			status = "expired"
+		}
+		line := fmt.Sprintf("\r\n\r\nPrincipal %d/%d: %s · %s\r\nScopes: %d cues · %d audiences · max %d targets · expires %s", state.SelectedPrincipal+1, len(state.Principals), principal.DisplayName, status, len(principal.AllowedCueIDs), len(principal.AllowedAudiences), principal.MaxTargetCount, principal.ExpiresAt.Local().Format("2006-01-02 15:04 MST"))
+		if c.locale == ShellRussian {
+			line = strings.NewReplacer("Scopes:", "Права:", " cues · ", " звуков · ", " audiences · max ", " аудиторий · максимум ", " targets · expires ", " получателей · истекает ").Replace(line)
+		}
+		body += line
+	}
+	if len(state.History) > 0 {
+		item := state.History[state.SelectedHistory]
+		attribution := "manual"
+		if item.Automation != nil {
+			attribution = item.Automation.TriggerKind + " · " + item.Automation.CueLabel
+			if item.Automation.PrincipalLabel != "" {
+				attribution += " · " + item.Automation.PrincipalLabel
+			}
+			if item.Automation.ScheduleLabel != "" {
+				attribution += " · " + item.Automation.ScheduleLabel
+			}
+		}
+		body += fmt.Sprintf("\r\n\r\nHistory %d/%d: %s · %s · %s", state.SelectedHistory+1, len(state.History), item.Title, item.Status, attribution)
+	}
+	if state.SecretAvailable {
+		if c.locale == ShellRussian {
+			body += "\r\n\r\n[!] Одноразовый secret готов: скопируйте или скройте. Значение исключено из текста и accessibility."
+		} else {
+			body += "\r\n\r\n[!] One-time secret is ready: copy or hide it. The value is excluded from text and accessibility."
+		}
+	}
+	if c.locale == ShellRussian {
+		body += "\r\n\r\nDST: весенний пропуск не запускается; при осеннем повторе запускается только первое UTC-соответствие. Ручной Soundboard остаётся отдельным и доступен при выключенной automation."
+	} else {
+		body += "\r\n\r\nDST: a spring-forward gap does not run; a fall-back fold runs only its first UTC mapping. Manual Soundboard stays separate and available while automation is disabled."
+	}
+	if state.Busy {
+		body += "\r\n\r\n[~] Updating…"
+	}
+	if state.ConfirmAction != "" {
+		body += "\r\n\r\n[!] Confirm: " + state.ConfirmAction
+	}
+	if state.Outcome != "" {
+		body += "\r\n\r\n[+] " + state.Outcome
+	}
+	if state.Failure != "" {
+		body += "\r\n\r\n[!] " + state.Failure
+	}
+	return body
 }
 
 func (c ShellCopy) IdentityStatus(snapshot ShellSnapshot) string {
@@ -1321,7 +1460,7 @@ func shellPrimaryAction(section ShellSection) shellText {
 
 func shellActionEnabled(snapshot ShellSnapshot, action ShellSection) bool {
 	switch action {
-	case ShellCreate, ShellJoin, ShellTryLocally, ShellSoundboard, ShellHistory, ShellInbox, ShellAirs, ShellSettings, ShellHome:
+	case ShellCreate, ShellJoin, ShellTryLocally, ShellSoundboard, ShellHistory, ShellInbox, ShellAirs, ShellAutomation, ShellSettings, ShellHome:
 		return true
 	default:
 		return false
@@ -1513,6 +1652,7 @@ var shellShortcuts = []ShellShortcut{
 	{Key: "3", Control: true, Section: ShellAirs, Command: "section"},
 	{Key: "4", Control: true, Section: ShellInbox, Command: "section"},
 	{Key: "5", Control: true, Section: ShellSoundboard, Command: "section"},
+	{Key: "6", Control: true, Section: ShellAutomation, Command: "section"},
 	{Key: "T", Control: true, Shift: true, Section: ShellTryLocally, Command: "section"},
 	{Key: "R", Control: true, Shift: true, Command: "record"},
 	{Key: "R", Control: true, Command: "refresh_targets_inbox"},

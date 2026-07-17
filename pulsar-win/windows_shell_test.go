@@ -20,7 +20,7 @@ func TestWindowsShellCatalogAndInformationArchitecture(t *testing.T) {
 			}
 		}
 	}
-	want := []ShellSection{ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellSoundboard, ShellHistory, ShellInbox, ShellAirs, ShellSettings}
+	want := []ShellSection{ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellSoundboard, ShellHistory, ShellInbox, ShellAirs, ShellAutomation, ShellSettings}
 	if !reflect.DeepEqual(shellSections, want) {
 		t.Fatalf("sections=%v want %v", shellSections, want)
 	}
@@ -47,9 +47,13 @@ func TestWindowsHistoryRendersAutomationAttributionAndAvailableQuickControls(t *
 		AutomationReason: "automation_disabled", CanDisableSchedule: true, CanRevokePrincipal: true, CanEmergencyDisable: true}
 	line := NewShellCopy(ShellEnglish).HistoryItem(item, 1, 1)
 	for _, expected := range []string{"Kitchen timer", "Morning", "automation_disabled", "disable schedule", "revoke principal", "emergency disable"} {
-		if !strings.Contains(line, expected) { t.Fatalf("history=%q missing %q", line, expected) }
+		if !strings.Contains(line, expected) {
+			t.Fatalf("history=%q missing %q", line, expected)
+		}
 	}
-	if strings.Contains(line, "token") || strings.Contains(line, "selector") { t.Fatalf("history leaked secret vocabulary: %q", line) }
+	if strings.Contains(line, "token") || strings.Contains(line, "selector") {
+		t.Fatalf("history leaked secret vocabulary: %q", line)
+	}
 }
 
 func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
@@ -88,6 +92,9 @@ func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
 		"idShellInbox", "idTargetsRefresh", "idTargetsSend", "idInboxReplay", "idTargetsHistoryDelete",
 		"layoutWindowsTargetsInboxControls", "confirmWindowsPermanentDelete", "ReportSelectedTargetsHistory(windowText(ctx.targetsDetails))",
 		"projection.ContentPolicyState == \"current\"", "TargetsInboxReady", "Ctrl+R",
+		"idShellAutomation", "idAutomationEmergency", "idAutomationSecretCopy", "idAutomationSecretHide",
+		"RequestAutomationAction(\"principal_issue\")", "ConfirmAutomationAction(windowText(ctx.automationName))",
+		"windowText(ctx.automationTimezone)", "windowText(ctx.automationQuiet)",
 	} {
 		if !strings.Contains(nativeText, seam) {
 			t.Errorf("native shell missing %q", seam)

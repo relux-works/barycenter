@@ -207,6 +207,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	} else {
 		soundboard = configured
 	}
+	var automationAdmin *WindowsAutomationAdmin
+	if configured, automationErr := newProductionWindowsAutomationAdmin(dir); automationErr != nil {
+		log.Error("Windows automation administration unavailable")
+	} else {
+		automationAdmin = configured
+	}
 	var airs *WindowsAirComposition
 	if configured, airErr := newProductionWindowsAirComposition(dir); airErr != nil {
 		log.Error("Air app data unavailable")
@@ -339,6 +345,11 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 			soundboard.ApplyShellSnapshot(&snapshot, currentWindowsSoundboardShortcutStates())
 		} else {
 			snapshot.SoundboardFailure = "credential_unavailable"
+		}
+		if automationAdmin != nil {
+			automationAdmin.ApplyShellSnapshot(&snapshot)
+		} else {
+			snapshot.Automation.Failure = "credential_unavailable"
 		}
 		if airs != nil {
 			airs.ApplyShellSnapshot(&snapshot)
@@ -727,6 +738,61 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 				airs.CancelDisruptive()
 			}
 		},
+		RefreshAutomation: func() {
+			if automationAdmin != nil {
+				automationAdmin.Refresh()
+			}
+		},
+		SelectNextAutomationSchedule: func() {
+			if automationAdmin != nil {
+				automationAdmin.SelectNextSchedule()
+			}
+		},
+		SaveAutomationSchedule: func(name, timezone, weekdays, localTime, quiet string) {
+			if automationAdmin != nil {
+				automationAdmin.SaveSchedule(name, timezone, weekdays, localTime, quiet)
+			}
+		},
+		RequestAutomationAction: func(action string) {
+			if automationAdmin != nil {
+				automationAdmin.Request(action)
+			}
+		},
+		ConfirmAutomationAction: func(principalName string) {
+			if automationAdmin != nil {
+				automationAdmin.Confirm(principalName)
+			}
+		},
+		CancelAutomationConfirmation: func() {
+			if automationAdmin != nil {
+				automationAdmin.CancelConfirmation()
+			}
+		},
+		SelectNextAutomationPrincipal: func() {
+			if automationAdmin != nil {
+				automationAdmin.SelectNextPrincipal()
+			}
+		},
+		SelectNextAutomationHistory: func() {
+			if automationAdmin != nil {
+				automationAdmin.SelectNextHistory()
+			}
+		},
+		SaveAutomationFeature: func(timezone, quiet string) {
+			if automationAdmin != nil {
+				automationAdmin.SaveFeature(timezone, quiet)
+			}
+		},
+		CopyAutomationSecret: func() {
+			if automationAdmin != nil {
+				automationAdmin.CopySecret()
+			}
+		},
+		HideAutomationSecret: func() {
+			if automationAdmin != nil {
+				automationAdmin.HideSecret()
+			}
+		},
 	})
 
 	shortcutStore := WindowsRecordingShortcutStore{Path: filepath.Join(dir, "recording-shortcut.v1.json")}
@@ -770,6 +836,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	}
 	if soundboard != nil {
 		soundboard.Close()
+	}
+	if automationAdmin != nil {
+		automationAdmin.Close()
 	}
 	if airs != nil {
 		airs.Close()

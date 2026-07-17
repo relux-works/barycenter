@@ -55,98 +55,121 @@ const (
 
 	mainRefreshTimer = 1
 
-	idShellHome            = 3001
-	idShellCreate          = 3002
-	idShellJoin            = 3003
-	idShellTry             = 3004
-	idShellHistory         = 3005
-	idShellAirs            = 3006
-	idShellSettings        = 3007
-	idShellInbox           = 3008
-	idShellSoundboard      = 3009
-	idShellAction          = 3010
-	idShellRecord          = 3011
-	idShellDND             = 3012
-	idShellEnglish         = 3013
-	idShellRussian         = 3014
-	idShellOpen            = 3020
-	idShellCancel          = 3021
-	idShellCue             = 3022
-	idShellFile            = 3023
-	idShellDelete          = 3024
-	idShellInput           = 3025
-	idShellOutput          = 3026
-	idShellIdentityInput   = 3027
-	idShellRecovery        = 3028
-	idShellDraftNext       = 3030
-	idShellRoute           = 3031
-	idShellDelivery        = 3032
-	idShellSend            = 3033
-	idShellPhaseDelete     = 3034
-	idShellHistoryNext     = 3035
-	idShellHistoryDelete   = 3036
-	idShellHistoryReplay   = 3037
-	idShellHistoryBlock    = 3038
-	idShellOutgoingFile    = 3039
-	idShellReportReason    = 3040
-	idShellReportDetails   = 3041
-	idShellHistoryReport   = 3042
-	idShellAirTitle        = 3050
-	idShellAirCode         = 3051
-	idShellAirNext         = 3052
-	idShellAirCreate       = 3053
-	idShellAirConsume      = 3054
-	idShellAirJoinSaved    = 3055
-	idShellAirJoinActive   = 3056
-	idShellAirDecline      = 3057
-	idShellAirRole         = 3058
-	idShellAirInvite       = 3059
-	idShellAirCopy         = 3060
-	idShellAirHide         = 3061
-	idShellAirWithdraw     = 3062
-	idShellAirActivate     = 3063
-	idShellAirLeave        = 3064
-	idShellAirDissolve     = 3065
-	idShellAirPolicy       = 3066
-	idShellAirConfirm      = 3067
-	idShellAirCancel       = 3068
-	idTargetsRefresh       = 3070
-	idTargetsAudience      = 3071
-	idTargetsNext          = 3072
-	idTargetsToggle        = 3073
-	idTargetsOrigin        = 3074
-	idTargetsDelivery      = 3075
-	idTargetsSend          = 3076
-	idInboxNext            = 3077
-	idInboxReplay          = 3078
-	idInboxDismiss         = 3079
-	idInboxMute            = 3080
-	idInboxMore            = 3081
-	idTargetsHistoryNext   = 3082
-	idTargetsHistoryDelete = 3083
-	idTargetsHistoryMute   = 3084
-	idTargetsHistoryMore   = 3085
-	idTargetsReceipts      = 3086
-	idTargetsReason        = 3087
-	idTargetsDetails       = 3088
-	idTargetsReportInbox   = 3089
-	idTargetsReportHistory = 3090
-	idTrackFile            = 3091
-	idTrackRefresh         = 3092
-	idTrackPolicy          = 3093
-	idTrackUpload          = 3094
-	idTrackDelete          = 3095
-	idTrackAudience        = 3096
-	idTrackTargetNext      = 3097
-	idTrackTargetToggle    = 3098
-	idTrackInsertion       = 3099
-	idTrackQueue           = 3100
-	idTrackReplace         = 3101
-	idTrackPause           = 3102
-	idTrackSeek            = 3103
-	idTrackResume          = 3104
-	idTrackRetry           = 3105
-	idTrackReport          = 3106
+	idShellHome                 = 3001
+	idShellCreate               = 3002
+	idShellJoin                 = 3003
+	idShellTry                  = 3004
+	idShellHistory              = 3005
+	idShellAirs                 = 3006
+	idShellSettings             = 3007
+	idShellInbox                = 3008
+	idShellSoundboard           = 3009
+	idShellAction               = 3010
+	idShellRecord               = 3011
+	idShellDND                  = 3012
+	idShellEnglish              = 3013
+	idShellRussian              = 3014
+	idShellAutomation           = 3015
+	idShellOpen                 = 3020
+	idShellCancel               = 3021
+	idShellCue                  = 3022
+	idShellFile                 = 3023
+	idShellDelete               = 3024
+	idShellInput                = 3025
+	idShellOutput               = 3026
+	idShellIdentityInput        = 3027
+	idShellRecovery             = 3028
+	idShellDraftNext            = 3030
+	idShellRoute                = 3031
+	idShellDelivery             = 3032
+	idShellSend                 = 3033
+	idShellPhaseDelete          = 3034
+	idShellHistoryNext          = 3035
+	idShellHistoryDelete        = 3036
+	idShellHistoryReplay        = 3037
+	idShellHistoryBlock         = 3038
+	idShellOutgoingFile         = 3039
+	idShellReportReason         = 3040
+	idShellReportDetails        = 3041
+	idShellHistoryReport        = 3042
+	idShellAirTitle             = 3050
+	idShellAirCode              = 3051
+	idShellAirNext              = 3052
+	idShellAirCreate            = 3053
+	idShellAirConsume           = 3054
+	idShellAirJoinSaved         = 3055
+	idShellAirJoinActive        = 3056
+	idShellAirDecline           = 3057
+	idShellAirRole              = 3058
+	idShellAirInvite            = 3059
+	idShellAirCopy              = 3060
+	idShellAirHide              = 3061
+	idShellAirWithdraw          = 3062
+	idShellAirActivate          = 3063
+	idShellAirLeave             = 3064
+	idShellAirDissolve          = 3065
+	idShellAirPolicy            = 3066
+	idShellAirConfirm           = 3067
+	idShellAirCancel            = 3068
+	idTargetsRefresh            = 3070
+	idTargetsAudience           = 3071
+	idTargetsNext               = 3072
+	idTargetsToggle             = 3073
+	idTargetsOrigin             = 3074
+	idTargetsDelivery           = 3075
+	idTargetsSend               = 3076
+	idInboxNext                 = 3077
+	idInboxReplay               = 3078
+	idInboxDismiss              = 3079
+	idInboxMute                 = 3080
+	idInboxMore                 = 3081
+	idTargetsHistoryNext        = 3082
+	idTargetsHistoryDelete      = 3083
+	idTargetsHistoryMute        = 3084
+	idTargetsHistoryMore        = 3085
+	idTargetsReceipts           = 3086
+	idTargetsReason             = 3087
+	idTargetsDetails            = 3088
+	idTargetsReportInbox        = 3089
+	idTargetsReportHistory      = 3090
+	idTrackFile                 = 3091
+	idTrackRefresh              = 3092
+	idTrackPolicy               = 3093
+	idTrackUpload               = 3094
+	idTrackDelete               = 3095
+	idTrackAudience             = 3096
+	idTrackTargetNext           = 3097
+	idTrackTargetToggle         = 3098
+	idTrackInsertion            = 3099
+	idTrackQueue                = 3100
+	idTrackReplace              = 3101
+	idTrackPause                = 3102
+	idTrackSeek                 = 3103
+	idTrackResume               = 3104
+	idTrackRetry                = 3105
+	idTrackReport               = 3106
+	idAutomationRefresh         = 3110
+	idAutomationScheduleNext    = 3111
+	idAutomationScheduleSave    = 3112
+	idAutomationScheduleState   = 3113
+	idAutomationScheduleDelete  = 3114
+	idAutomationPrincipalNext   = 3115
+	idAutomationPrincipalIssue  = 3116
+	idAutomationPrincipalRevoke = 3117
+	idAutomationHistoryNext     = 3118
+	idAutomationHistoryCancel   = 3119
+	idAutomationToggle          = 3120
+	idAutomationEmergency       = 3121
+	idAutomationFeatureSave     = 3122
+	idAutomationSecretCopy      = 3123
+	idAutomationSecretHide      = 3124
+	idAutomationConfirm         = 3125
+	idAutomationCancel          = 3126
+	idAutomationName            = 3127
+	idAutomationTimezone        = 3128
+	idAutomationTime            = 3129
+	idAutomationQuiet           = 3130
+	idAutomationWeekdays        = 3131
 
 	bsPushButton = 0x00000000
 	bsMultiline  = 0x00002000
@@ -177,6 +200,7 @@ func shellSectionControlID(section ShellSection) int {
 		ShellHome: idShellHome, ShellCreate: idShellCreate, ShellJoin: idShellJoin,
 		ShellTryLocally: idShellTry, ShellHistory: idShellHistory, ShellInbox: idShellInbox,
 		ShellSoundboard: idShellSoundboard, ShellAirs: idShellAirs, ShellSettings: idShellSettings,
+		ShellAutomation: idShellAutomation,
 	}[section]
 }
 
@@ -186,102 +210,124 @@ type mainFonts struct {
 }
 
 type mainWindowCtx struct {
-	hwnd                 windows.Handle
-	shell                *WindowsShell
-	nav                  map[ShellSection]windows.Handle
-	title                windows.Handle
-	banner               windows.Handle
-	body                 windows.Handle
-	home                 [3]windows.Handle
-	cards                [3]windows.Handle
-	footer               windows.Handle
-	detail               windows.Handle
-	identityInput        windows.Handle
-	recovery             windows.Handle
-	cue                  windows.Handle
-	file                 windows.Handle
-	outgoingFile         windows.Handle
-	delete               windows.Handle
-	input                windows.Handle
-	output               windows.Handle
-	draftNext            windows.Handle
-	route                windows.Handle
-	delivery             windows.Handle
-	send                 windows.Handle
-	phaseDelete          windows.Handle
-	historyNext          windows.Handle
-	historyDelete        windows.Handle
-	historyReplay        windows.Handle
-	historyBlock         windows.Handle
-	reportReason         windows.Handle
-	reportLabel          windows.Handle
-	reportDetails        windows.Handle
-	historyReport        windows.Handle
-	airTitleLabel        windows.Handle
-	airTitle             windows.Handle
-	airCodeLabel         windows.Handle
-	airCode              windows.Handle
-	airNext              windows.Handle
-	airCreate            windows.Handle
-	airConsume           windows.Handle
-	airJoinSaved         windows.Handle
-	airJoinActive        windows.Handle
-	airDecline           windows.Handle
-	airRole              windows.Handle
-	airInvite            windows.Handle
-	airCopy              windows.Handle
-	airHide              windows.Handle
-	airWithdraw          windows.Handle
-	airActivate          windows.Handle
-	airLeave             windows.Handle
-	airDissolve          windows.Handle
-	airPolicy            windows.Handle
-	airConfirm           windows.Handle
-	airCancel            windows.Handle
-	targetsRefresh       windows.Handle
-	targetsAudience      windows.Handle
-	targetsNext          windows.Handle
-	targetsToggle        windows.Handle
-	targetsOrigin        windows.Handle
-	targetsDelivery      windows.Handle
-	targetsSend          windows.Handle
-	inboxNext            windows.Handle
-	inboxReplay          windows.Handle
-	inboxDismiss         windows.Handle
-	inboxMute            windows.Handle
-	inboxMore            windows.Handle
-	targetsHistoryNext   windows.Handle
-	targetsHistoryDelete windows.Handle
-	targetsHistoryMute   windows.Handle
-	targetsHistoryMore   windows.Handle
-	targetsReceipts      windows.Handle
-	targetsReason        windows.Handle
-	targetsDetails       windows.Handle
-	targetsReportInbox   windows.Handle
-	targetsReportHistory windows.Handle
-	trackFile            windows.Handle
-	trackRefresh         windows.Handle
-	trackPolicy          windows.Handle
-	trackUpload          windows.Handle
-	trackDelete          windows.Handle
-	trackAudience        windows.Handle
-	trackTargetNext      windows.Handle
-	trackTargetToggle    windows.Handle
-	trackInsertion       windows.Handle
-	trackQueue           windows.Handle
-	trackReplace         windows.Handle
-	trackPause           windows.Handle
-	trackSeek            windows.Handle
-	trackResume          windows.Handle
-	trackRetry           windows.Handle
-	trackReport          windows.Handle
-	record               windows.Handle
-	dnd                  windows.Handle
-	english              windows.Handle
-	russian              windows.Handle
-	all                  []windows.Handle
-	fonts                mainFonts
-	laidOutSection       ShellSection
+	hwnd                      windows.Handle
+	shell                     *WindowsShell
+	nav                       map[ShellSection]windows.Handle
+	title                     windows.Handle
+	banner                    windows.Handle
+	body                      windows.Handle
+	home                      [3]windows.Handle
+	cards                     [3]windows.Handle
+	footer                    windows.Handle
+	detail                    windows.Handle
+	identityInput             windows.Handle
+	recovery                  windows.Handle
+	cue                       windows.Handle
+	file                      windows.Handle
+	outgoingFile              windows.Handle
+	delete                    windows.Handle
+	input                     windows.Handle
+	output                    windows.Handle
+	draftNext                 windows.Handle
+	route                     windows.Handle
+	delivery                  windows.Handle
+	send                      windows.Handle
+	phaseDelete               windows.Handle
+	historyNext               windows.Handle
+	historyDelete             windows.Handle
+	historyReplay             windows.Handle
+	historyBlock              windows.Handle
+	reportReason              windows.Handle
+	reportLabel               windows.Handle
+	reportDetails             windows.Handle
+	historyReport             windows.Handle
+	airTitleLabel             windows.Handle
+	airTitle                  windows.Handle
+	airCodeLabel              windows.Handle
+	airCode                   windows.Handle
+	airNext                   windows.Handle
+	airCreate                 windows.Handle
+	airConsume                windows.Handle
+	airJoinSaved              windows.Handle
+	airJoinActive             windows.Handle
+	airDecline                windows.Handle
+	airRole                   windows.Handle
+	airInvite                 windows.Handle
+	airCopy                   windows.Handle
+	airHide                   windows.Handle
+	airWithdraw               windows.Handle
+	airActivate               windows.Handle
+	airLeave                  windows.Handle
+	airDissolve               windows.Handle
+	airPolicy                 windows.Handle
+	airConfirm                windows.Handle
+	airCancel                 windows.Handle
+	targetsRefresh            windows.Handle
+	targetsAudience           windows.Handle
+	targetsNext               windows.Handle
+	targetsToggle             windows.Handle
+	targetsOrigin             windows.Handle
+	targetsDelivery           windows.Handle
+	targetsSend               windows.Handle
+	inboxNext                 windows.Handle
+	inboxReplay               windows.Handle
+	inboxDismiss              windows.Handle
+	inboxMute                 windows.Handle
+	inboxMore                 windows.Handle
+	targetsHistoryNext        windows.Handle
+	targetsHistoryDelete      windows.Handle
+	targetsHistoryMute        windows.Handle
+	targetsHistoryMore        windows.Handle
+	targetsReceipts           windows.Handle
+	targetsReason             windows.Handle
+	targetsDetails            windows.Handle
+	targetsReportInbox        windows.Handle
+	targetsReportHistory      windows.Handle
+	trackFile                 windows.Handle
+	trackRefresh              windows.Handle
+	trackPolicy               windows.Handle
+	trackUpload               windows.Handle
+	trackDelete               windows.Handle
+	trackAudience             windows.Handle
+	trackTargetNext           windows.Handle
+	trackTargetToggle         windows.Handle
+	trackInsertion            windows.Handle
+	trackQueue                windows.Handle
+	trackReplace              windows.Handle
+	trackPause                windows.Handle
+	trackSeek                 windows.Handle
+	trackResume               windows.Handle
+	trackRetry                windows.Handle
+	trackReport               windows.Handle
+	automationRefresh         windows.Handle
+	automationScheduleNext    windows.Handle
+	automationScheduleSave    windows.Handle
+	automationScheduleState   windows.Handle
+	automationScheduleDelete  windows.Handle
+	automationPrincipalNext   windows.Handle
+	automationPrincipalIssue  windows.Handle
+	automationPrincipalRevoke windows.Handle
+	automationHistoryNext     windows.Handle
+	automationHistoryCancel   windows.Handle
+	automationToggle          windows.Handle
+	automationEmergency       windows.Handle
+	automationFeatureSave     windows.Handle
+	automationSecretCopy      windows.Handle
+	automationSecretHide      windows.Handle
+	automationConfirm         windows.Handle
+	automationCancel          windows.Handle
+	automationName            windows.Handle
+	automationTimezone        windows.Handle
+	automationTime            windows.Handle
+	automationQuiet           windows.Handle
+	automationWeekdays        windows.Handle
+	record                    windows.Handle
+	dnd                       windows.Handle
+	english                   windows.Handle
+	russian                   windows.Handle
+	all                       []windows.Handle
+	fonts                     mainFonts
+	laidOutSection            ShellSection
 }
 
 var (
@@ -457,6 +503,33 @@ func (ctx *mainWindowCtx) createControls() {
 	ctx.trackResume = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackResume)
 	ctx.trackRetry = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackRetry)
 	ctx.trackReport = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idTrackReport)
+	ctx.automationRefresh = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationRefresh)
+	ctx.automationScheduleNext = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationScheduleNext)
+	ctx.automationScheduleSave = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationScheduleSave)
+	ctx.automationScheduleState = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationScheduleState)
+	ctx.automationScheduleDelete = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationScheduleDelete)
+	ctx.automationPrincipalNext = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationPrincipalNext)
+	ctx.automationPrincipalIssue = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationPrincipalIssue)
+	ctx.automationPrincipalRevoke = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationPrincipalRevoke)
+	ctx.automationHistoryNext = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationHistoryNext)
+	ctx.automationHistoryCancel = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationHistoryCancel)
+	ctx.automationToggle = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationToggle)
+	ctx.automationEmergency = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationEmergency)
+	ctx.automationFeatureSave = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationFeatureSave)
+	ctx.automationSecretCopy = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationSecretCopy)
+	ctx.automationSecretHide = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationSecretHide)
+	ctx.automationConfirm = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationConfirm)
+	ctx.automationCancel = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idAutomationCancel)
+	ctx.automationName = mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop, idAutomationName)
+	ctx.automationTimezone = mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop, idAutomationTimezone)
+	ctx.automationTime = mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop, idAutomationTime)
+	ctx.automationQuiet = mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop, idAutomationQuiet)
+	ctx.automationWeekdays = mk(wsExClientEdge, "EDIT", "", wsChild|wsVisible|wsTabStop, idAutomationWeekdays)
+	pSendMessageW.Call(uintptr(ctx.automationName), emSetLimitText, 128, 0)
+	pSendMessageW.Call(uintptr(ctx.automationTimezone), emSetLimitText, 128, 0)
+	pSendMessageW.Call(uintptr(ctx.automationTime), emSetLimitText, 5, 0)
+	pSendMessageW.Call(uintptr(ctx.automationQuiet), emSetLimitText, 512, 0)
+	pSendMessageW.Call(uintptr(ctx.automationWeekdays), emSetLimitText, 64, 0)
 	ctx.record = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellRecord)
 	ctx.dnd = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDND)
 	ctx.english = mk(0, "BUTTON", "English", buttonStyle|bsPushButton, idShellEnglish)
@@ -471,6 +544,8 @@ func (ctx *mainWindowCtx) installAccelerators() {
 		{fVirtKey | fControl, 0, '2', idShellJoin},
 		{fVirtKey | fControl, 0, '3', idShellAirs},
 		{fVirtKey | fControl, 0, '4', idShellInbox},
+		{fVirtKey | fControl, 0, '5', idShellSoundboard},
+		{fVirtKey | fControl, 0, '6', idShellAutomation},
 		{fVirtKey | fControl | fShift, 0, 'T', idShellTry},
 		{fVirtKey | fControl | fShift, 0, 'R', idShellRecord},
 		{fVirtKey | fControl, 0, 'R', idTargetsRefresh},
@@ -542,6 +617,9 @@ func (ctx *mainWindowCtx) layout() {
 	}
 	if ctx.shell != nil && ctx.shell.Section() == ShellHistory {
 		layout.Body.Height = dip(210, layout.DPI)
+	}
+	if ctx.shell != nil && ctx.shell.Section() == ShellAutomation {
+		layout.Body.Height = dip(230, layout.DPI)
 	}
 	gap, pad := dip(8, layout.DPI), dip(10, layout.DPI)
 	navHeight := dip(42, layout.DPI)
@@ -627,6 +705,25 @@ func (ctx *mainWindowCtx) layout() {
 	}
 	for index, control := range targetControls {
 		move(control, targetLayout.Rect[index])
+	}
+	automationY := layout.Body.Bottom() + gap
+	move(ctx.automationName, ShellRect{X: layout.Content.X, Y: automationY, Width: dip(120, layout.DPI), Height: dip(34, layout.DPI)})
+	move(ctx.automationTimezone, ShellRect{X: layout.Content.X + dip(128, layout.DPI), Y: automationY, Width: dip(128, layout.DPI), Height: dip(34, layout.DPI)})
+	move(ctx.automationWeekdays, ShellRect{X: layout.Content.X + dip(264, layout.DPI), Y: automationY, Width: dip(104, layout.DPI), Height: dip(34, layout.DPI)})
+	move(ctx.automationTime, ShellRect{X: layout.Content.X + dip(376, layout.DPI), Y: automationY, Width: dip(64, layout.DPI), Height: dip(34, layout.DPI)})
+	move(ctx.automationQuiet, ShellRect{X: layout.Content.X + dip(448, layout.DPI), Y: automationY, Width: layout.Content.Width - dip(448, layout.DPI), Height: dip(34, layout.DPI)})
+	rows := [][]windows.Handle{
+		{ctx.automationRefresh, ctx.automationScheduleNext, ctx.automationScheduleSave, ctx.automationScheduleState, ctx.automationScheduleDelete},
+		{ctx.automationPrincipalNext, ctx.automationPrincipalIssue, ctx.automationPrincipalRevoke, ctx.automationHistoryNext, ctx.automationHistoryCancel},
+		{ctx.automationToggle, ctx.automationEmergency, ctx.automationFeatureSave, ctx.automationSecretCopy, ctx.automationSecretHide},
+		{ctx.automationConfirm, ctx.automationCancel},
+	}
+	for rowIndex, row := range rows {
+		y := automationY + dip(42+rowIndex*48, layout.DPI)
+		width := (layout.Content.Width - gap*(len(row)-1)) / len(row)
+		for column, control := range row {
+			move(control, ShellRect{X: layout.Content.X + column*(width+gap), Y: y, Width: width, Height: dip(40, layout.DPI)})
+		}
 	}
 }
 
@@ -992,6 +1089,100 @@ func (ctx *mainWindowCtx) render() {
 	pEnableWindow.Call(uintptr(ctx.targetsReportInbox), boolWord(ready && targetsInboxHasAction(selectedInboxItem.Actions, "report")))
 	pEnableWindow.Call(uintptr(ctx.targetsReportHistory), boolWord(ready && targetsInboxHasAction(selectedTargetsHistory.Actions, "report")))
 
+	automationPage := section == ShellAutomation
+	automationControls := []windows.Handle{
+		ctx.automationRefresh, ctx.automationScheduleNext, ctx.automationScheduleSave, ctx.automationScheduleState,
+		ctx.automationScheduleDelete, ctx.automationPrincipalNext, ctx.automationPrincipalIssue,
+		ctx.automationPrincipalRevoke, ctx.automationHistoryNext, ctx.automationHistoryCancel,
+		ctx.automationToggle, ctx.automationEmergency, ctx.automationFeatureSave, ctx.automationSecretCopy,
+		ctx.automationSecretHide, ctx.automationConfirm, ctx.automationCancel, ctx.automationName,
+		ctx.automationTimezone, ctx.automationWeekdays, ctx.automationTime, ctx.automationQuiet,
+	}
+	for _, control := range automationControls {
+		showControl(control, automationPage)
+	}
+	automation := snapshot.Automation
+	automationReady := automationPage && automation.Available && !automation.Busy
+	if windowText(ctx.automationName) == "" {
+		if len(automation.Schedules) > 0 {
+			schedule := automation.Schedules[automation.SelectedSchedule].Schedule
+			setText(ctx.automationName, schedule.DisplayName)
+			setText(ctx.automationTimezone, schedule.Timezone)
+			setText(ctx.automationWeekdays, formatAutomationWeekdays(schedule.Weekdays))
+			setText(ctx.automationTime, schedule.LocalTime)
+			setText(ctx.automationQuiet, formatAutomationQuietHours(schedule.AdditionalQuietHours))
+		} else {
+			setText(ctx.automationTimezone, automation.Feature.Timezone)
+			setText(ctx.automationWeekdays, "Sun,Mon,Tue,Wed,Thu,Fri,Sat")
+			setText(ctx.automationTime, "09:00")
+		}
+	}
+	if copy.locale == ShellRussian {
+		setText(ctx.automationRefresh, "Обновить")
+		setText(ctx.automationScheduleNext, "След. расписание")
+		setText(ctx.automationScheduleSave, "Создать / сохранить")
+		setText(ctx.automationScheduleState, "Включить / выключить")
+		setText(ctx.automationScheduleDelete, "Удалить расписание")
+		setText(ctx.automationPrincipalNext, "След. principal")
+		setText(ctx.automationPrincipalIssue, "Выпустить principal")
+		setText(ctx.automationPrincipalRevoke, "Отозвать principal")
+		setText(ctx.automationHistoryNext, "След. история")
+		setText(ctx.automationHistoryCancel, "Отменить ожидающее")
+		setText(ctx.automationToggle, "Automation вкл/выкл")
+		setText(ctx.automationEmergency, "Аварийно остановить")
+		setText(ctx.automationFeatureSave, "Сохранить политику")
+		setText(ctx.automationSecretCopy, "Скопировать secret")
+		setText(ctx.automationSecretHide, "Скрыть secret")
+		setText(ctx.automationConfirm, "Подтвердить действие")
+		setText(ctx.automationCancel, "Отменить подтверждение")
+	} else {
+		setText(ctx.automationRefresh, "Refresh")
+		setText(ctx.automationScheduleNext, "Next schedule")
+		setText(ctx.automationScheduleSave, "Create / save")
+		setText(ctx.automationScheduleState, "Enable / disable")
+		setText(ctx.automationScheduleDelete, "Delete schedule")
+		setText(ctx.automationPrincipalNext, "Next principal")
+		setText(ctx.automationPrincipalIssue, "Issue principal")
+		setText(ctx.automationPrincipalRevoke, "Revoke principal")
+		setText(ctx.automationHistoryNext, "Next history")
+		setText(ctx.automationHistoryCancel, "Cancel pending")
+		setText(ctx.automationToggle, "Automation on/off")
+		setText(ctx.automationEmergency, "Emergency stop")
+		setText(ctx.automationFeatureSave, "Save policy")
+		setText(ctx.automationSecretCopy, "Copy secret")
+		setText(ctx.automationSecretHide, "Hide secret")
+		setText(ctx.automationConfirm, "Confirm action")
+		setText(ctx.automationCancel, "Cancel confirmation")
+	}
+	hasSchedule := len(automation.Schedules) > 0
+	hasPrincipal := len(automation.Principals) > 0
+	hasAutomationHistory := len(automation.History) > 0
+	canCancelHistory := hasAutomationHistory && phaseOneActionAllowed(automation.History[automation.SelectedHistory].Actions, "cancel")
+	pEnableWindow.Call(uintptr(ctx.automationRefresh), boolWord(automationPage && !automation.Busy))
+	pEnableWindow.Call(uintptr(ctx.automationScheduleNext), boolWord(automationReady && len(automation.Schedules) > 1))
+	pEnableWindow.Call(uintptr(ctx.automationScheduleSave), boolWord(automationReady && len(automation.Cues) > 0))
+	pEnableWindow.Call(uintptr(ctx.automationScheduleState), boolWord(automationReady && hasSchedule))
+	pEnableWindow.Call(uintptr(ctx.automationScheduleDelete), boolWord(automationReady && hasSchedule))
+	pEnableWindow.Call(uintptr(ctx.automationPrincipalNext), boolWord(automationReady && len(automation.Principals) > 1))
+	pEnableWindow.Call(uintptr(ctx.automationPrincipalIssue), boolWord(automationReady && len(automation.Cues) > 0))
+	pEnableWindow.Call(uintptr(ctx.automationPrincipalRevoke), boolWord(automationReady && hasPrincipal && automation.Principals[automation.SelectedPrincipal].RevokedAt.IsZero()))
+	pEnableWindow.Call(uintptr(ctx.automationHistoryNext), boolWord(automationReady && len(automation.History) > 1))
+	pEnableWindow.Call(uintptr(ctx.automationHistoryCancel), boolWord(automationReady && canCancelHistory))
+	pEnableWindow.Call(uintptr(ctx.automationToggle), boolWord(automationReady))
+	pEnableWindow.Call(uintptr(ctx.automationEmergency), boolWord(automationReady && !automation.Feature.EmergencyDisabled))
+	pEnableWindow.Call(uintptr(ctx.automationFeatureSave), boolWord(automationReady))
+	pEnableWindow.Call(uintptr(ctx.automationSecretCopy), boolWord(automationReady && automation.SecretAvailable))
+	pEnableWindow.Call(uintptr(ctx.automationSecretHide), boolWord(automationReady && automation.SecretAvailable))
+	pEnableWindow.Call(uintptr(ctx.automationName), boolWord(automationReady))
+	pEnableWindow.Call(uintptr(ctx.automationTimezone), boolWord(automationReady))
+	pEnableWindow.Call(uintptr(ctx.automationWeekdays), boolWord(automationReady))
+	pEnableWindow.Call(uintptr(ctx.automationTime), boolWord(automationReady))
+	pEnableWindow.Call(uintptr(ctx.automationQuiet), boolWord(automationReady))
+	showControl(ctx.automationConfirm, automationPage && automation.ConfirmAction != "")
+	showControl(ctx.automationCancel, automationPage && automation.ConfirmAction != "")
+	pEnableWindow.Call(uintptr(ctx.automationConfirm), boolWord(automationReady && automation.ConfirmAction != ""))
+	pEnableWindow.Call(uintptr(ctx.automationCancel), boolWord(automationReady && automation.ConfirmAction != ""))
+
 	airPage := section == ShellAirs
 	for _, control := range []windows.Handle{ctx.airTitleLabel, ctx.airTitle, ctx.airCodeLabel, ctx.airCode, ctx.airNext, ctx.airCreate, ctx.airConsume,
 		ctx.airJoinSaved, ctx.airJoinActive, ctx.airDecline, ctx.airRole, ctx.airInvite, ctx.airCopy, ctx.airHide,
@@ -1132,7 +1323,7 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		sectionByID := map[int]ShellSection{
 			idShellHome: ShellHome, idShellCreate: ShellCreate, idShellJoin: ShellJoin,
 			idShellTry: ShellTryLocally, idShellHistory: ShellHistory, idShellInbox: ShellInbox,
-			idShellAirs: ShellAirs, idShellSoundboard: ShellSoundboard, idShellSettings: ShellSettings,
+			idShellAirs: ShellAirs, idShellSoundboard: ShellSoundboard, idShellAutomation: ShellAutomation, idShellSettings: ShellSettings,
 		}
 		if section, ok := sectionByID[id]; ok {
 			ctx.shell.Select(section)
@@ -1258,7 +1449,7 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 			}
 		case idShellHistoryBlock:
 			if ctx.shell.Section() == ShellSoundboard {
-				ctx.shell.Select(ShellSettings)
+				ctx.shell.Select(ShellAutomation)
 			} else if actions.BlockSelectedHistoryActor != nil {
 				actions.BlockSelectedHistoryActor()
 			}
@@ -1417,6 +1608,75 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		case idTrackReport:
 			if actions.ReportStreamTrack != nil {
 				actions.ReportStreamTrack("")
+			}
+		case idAutomationRefresh:
+			if actions.RefreshAutomation != nil {
+				actions.RefreshAutomation()
+			}
+		case idAutomationScheduleNext:
+			if actions.SelectNextAutomationSchedule != nil {
+				actions.SelectNextAutomationSchedule()
+				setText(ctx.automationName, "")
+			}
+		case idAutomationScheduleSave:
+			if actions.SaveAutomationSchedule != nil {
+				actions.SaveAutomationSchedule(windowText(ctx.automationName), windowText(ctx.automationTimezone), windowText(ctx.automationWeekdays), windowText(ctx.automationTime), windowText(ctx.automationQuiet))
+			}
+		case idAutomationScheduleState:
+			if actions.RequestAutomationAction != nil {
+				actions.RequestAutomationAction("schedule_toggle")
+			}
+		case idAutomationScheduleDelete:
+			if actions.RequestAutomationAction != nil {
+				actions.RequestAutomationAction("schedule_delete")
+			}
+		case idAutomationPrincipalNext:
+			if actions.SelectNextAutomationPrincipal != nil {
+				actions.SelectNextAutomationPrincipal()
+			}
+		case idAutomationPrincipalIssue:
+			if actions.RequestAutomationAction != nil {
+				actions.RequestAutomationAction("principal_issue")
+			}
+		case idAutomationPrincipalRevoke:
+			if actions.RequestAutomationAction != nil {
+				actions.RequestAutomationAction("principal_revoke")
+			}
+		case idAutomationHistoryNext:
+			if actions.SelectNextAutomationHistory != nil {
+				actions.SelectNextAutomationHistory()
+			}
+		case idAutomationHistoryCancel:
+			if actions.RequestAutomationAction != nil {
+				actions.RequestAutomationAction("history_cancel")
+			}
+		case idAutomationToggle:
+			if actions.RequestAutomationAction != nil {
+				actions.RequestAutomationAction("automation_toggle")
+			}
+		case idAutomationEmergency:
+			if actions.RequestAutomationAction != nil {
+				actions.RequestAutomationAction("emergency_disable")
+			}
+		case idAutomationFeatureSave:
+			if actions.SaveAutomationFeature != nil {
+				actions.SaveAutomationFeature(windowText(ctx.automationTimezone), windowText(ctx.automationQuiet))
+			}
+		case idAutomationSecretCopy:
+			if actions.CopyAutomationSecret != nil {
+				actions.CopyAutomationSecret()
+			}
+		case idAutomationSecretHide:
+			if actions.HideAutomationSecret != nil {
+				actions.HideAutomationSecret()
+			}
+		case idAutomationConfirm:
+			if actions.ConfirmAutomationAction != nil {
+				actions.ConfirmAutomationAction(windowText(ctx.automationName))
+			}
+		case idAutomationCancel:
+			if actions.CancelAutomationConfirmation != nil {
+				actions.CancelAutomationConfirmation()
 			}
 		case idShellAirNext:
 			if actions.SelectNextAir != nil {

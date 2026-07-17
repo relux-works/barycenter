@@ -1,5 +1,5 @@
 ## Status
-development
+done
 
 ## Assigned To
 codex-inline-engineer
@@ -8,7 +8,7 @@ codex-inline-engineer
 2026-07-12T16:25:28Z
 
 ## Last Update
-2026-07-17T06:54:05Z
+2026-07-17T07:33:53Z
 
 ## Blocked By
 - TASK-260712-1gmsvh
@@ -18,17 +18,20 @@ codex-inline-engineer
 - TASK-260712-1getbv
 
 ## Checklist
-- [ ] Extend shared state or protocol surfaces and keep codec mirrors in sync
-- [ ] Surface route mode, effect status and input-health guidance in Windows and macOS shells
-- [ ] Add sanitized counters or logs for degradation, clipping, low-input and device loss
-- [ ] Verify mixed-version and unsupported-target wording stays honest on both platforms
+- [x] Extend shared state or protocol surfaces and keep codec mirrors in sync
+- [x] Surface route mode, effect status and input-health guidance in Windows and macOS shells
+- [x] Add sanitized counters or logs for degradation, clipping, low-input and device loss
+- [x] Verify mixed-version and unsupported-target wording stays honest on both platforms
 
 ## Notes
 2026-07-17 strict sequential engineering start queued after capture-quality contract merged. Manual Windows/macOS platform probes remain in EPIC-260714-th54l3 and are skipped in the engineering lane. Implement exact additive protocol/heartbeat/diagnostics mirrors from capture-quality.v1 without advertising production capability or inventing hardware parity.
+2026-07-17 accepted after local review, clean 16/16 acceptance and hosted 4/4 CI. No physical, acoustic or production capability claim; those remain not-run in EPIC-260714-th54l3.
 
 ## Precondition Resources
 - [p3-capture-quality-components.puml](file://TASK-260712-1pw1l1/p3-capture-quality-components.puml) — Task seam and dependency view for diagnostics and capability surfaces
 - [p3-capture-quality-validation.puml](file://TASK-260712-1pw1l1/p3-capture-quality-validation.puml) — Live capture and degraded-surface flow for shared diagnostics work
 
 ## Outcome Resources
-(none)
+- [TASK-260712-1pw1l1_implementation.md](file://TASK-260712-1pw1l1/TASK-260712-1pw1l1_implementation.md) — Implementation and merge outcome
+- [TASK-260712-1pw1l1_validation.md](file://TASK-260712-1pw1l1/TASK-260712-1pw1l1_validation.md) — Automated validation evidence
+- [TASK-260712-1pw1l1_handoff.md](file://TASK-260712-1pw1l1/TASK-260712-1pw1l1_handoff.md) — Downstream handoff and remaining boundary

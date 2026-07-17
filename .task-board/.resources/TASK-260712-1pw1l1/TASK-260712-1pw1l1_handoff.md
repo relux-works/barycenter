@@ -1,0 +1,1 @@
+Shared vectors, capability-bound generation guard, native presentation seams and privacy-safe diagnostics are ready. Production capability remains unadvertised; DSP and real-app hardware evidence remain downstream/manual.

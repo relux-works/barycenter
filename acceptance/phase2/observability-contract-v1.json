@@ -60,7 +60,7 @@
   "sourceAnchors": [
     {"path": "coordinator/internal/store/phase2_observability.go", "sha256": "dc8863826a8bd3de6e1cdfbefad6b0912fc9267542439e9f0e5ba7bde5c13924"},
     {"path": "coordinator/cmd/duet-coordinator/stream_accounting_http.go", "sha256": "97d47070d5b8624faa95af26d5dcc0179647cf8846e6a24eeb8fd3ac8392a2cf"},
-    {"path": "coordinator/cmd/duet-coordinator/onboarding.go", "sha256": "62bd937392ffd6320de6e56a170322493301ee425ca3a6f3559318d5fae07159"},
+    {"path": "coordinator/cmd/duet-coordinator/onboarding.go", "sha256": "fae361e4f7eeeba55086d6fb69f21689a2cbd698d9cbb5a332ee019e1037f0e9"},
     {"path": "coordinator/internal/store/stream_accounting.go", "sha256": "deff714aad019a7cb4300d2df3cd5f7f4f5bb1ea936bebdedc22add0be9ba7f7"},
     {"path": "acceptance/streamed-track-rollout-handoff-v1.json", "sha256": "6d2450b122e56d053a6d4c503bf72b28ff5460827f69addcfb37d7588ba3c380"},
     {"path": "acceptance/phase2/gate-matrix-v1.json", "sha256": "85f120bd7376b853f3f3ad88988979dc9d4ebc241f9304aa3fde47a6a2d80297"}

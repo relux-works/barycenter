@@ -32,8 +32,17 @@
     {"path": "coordinator/internal/media/download.go", "sha256": "0dcc7c0effbd7452b2c4b3d9c95673d357f4b90bcc9862b566b62b405dd963c6"},
     {"path": "coordinator/cmd/duet-coordinator/content_policy_http.go", "sha256": "0088398adcc1e6a5280c93729c1f3c010706461925772d289e9c99639a7840ac"},
     {"path": "coordinator/internal/store/moderation.go", "sha256": "bef67c7229f6daa972668b908242940eb45a7ac9114a9a575d3c4561beb2e25a"},
-    {"path": "coordinator/internal/store/telegram_history_callbacks.go", "sha256": "493488a41c1ea64bcedf65a74fd3b28a651874043ddee3213318028a0a34a03d"},
+    {"path": "coordinator/internal/store/telegram_history_callbacks.go", "sha256": "d4aaba48c30c1737135c86be358600da1fae0c8867b0cf51be450c42b3e38cc0"},
     {"path": "acceptance/phase2/gate-matrix-v1.json", "sha256": "85f120bd7376b853f3f3ad88988979dc9d4ebc241f9304aa3fde47a6a2d80297"}
+  ],
+  "deltaReviews": [
+    {
+      "task": "TASK-260712-uht9e2",
+      "reviewedAt": "2026-07-17",
+      "scope": "extend cross-family opaque callback token collision detection to the additive Telegram automation callback table",
+      "result": "history callback actor, chat, message, expiry, query replay, moderation authorization, target rights and mutation behavior are unchanged; only pre-insert collision detection gained the new opaque namespace",
+      "verification": "target security validator, complete coordinator suite, focused callback race tests and Telegram parity integration pass against the new exact telegram_history_callbacks.go hash"
+    }
   ],
   "reruns": [
     {

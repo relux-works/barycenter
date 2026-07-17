@@ -31,6 +31,8 @@ const (
 	KindStatus              CommandKind = "status"
 	KindHistory             CommandKind = "history"
 	KindAir                 CommandKind = "air" // /air [create TITLE|join SECRET]
+	KindSoundboard          CommandKind = "soundboard"
+	KindAutomation          CommandKind = "automation"
 	KindContentPolicy       CommandKind = "content_policy"
 	KindAcceptContentPolicy CommandKind = "accept_content_policy"
 	KindSync                CommandKind = "sync"
@@ -175,6 +177,10 @@ func Parse(text string) (Command, error) {
 		return Command{Kind: KindHistory}, nil
 	case "/air":
 		return Command{Kind: KindAir, Target: strings.Join(args, " ")}, nil
+	case "/soundboard":
+		return Command{Kind: KindSoundboard}, nil
+	case "/automation":
+		return Command{Kind: KindAutomation}, nil
 	case "/content_policy", "/accept_content_policy":
 		locale := "ru"
 		if len(args) > 1 || (len(args) == 1 && args[0] != "en" && args[0] != "ru") {
@@ -335,7 +341,7 @@ const helpText = `<b>Барицентр</b> — общая музыка на д�
 Ссылки, плейлисты и альбомы в чат тоже работают как очередь.
 Запиши голосовое — встанет между песнями (подпись «лично» — только партнёру).
 /skip — дальше · /pause — пауза · /resume — продолжить
-/now — что играет · /queue — очередь · /history — история и действия · /air — Air-комнаты · /vol 60 — громкость
+/now — что играет · /queue — очередь · /history — история и действия · /air — Air-комнаты · /soundboard — звуковая панель · /automation — расписания · /vol 60 — громкость
 
 <b>Слушать вместе или порознь</b>
 /together — общий эфир на оба дома · /solo — каждый слушает своё

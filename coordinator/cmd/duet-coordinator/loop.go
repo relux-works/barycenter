@@ -1625,6 +1625,12 @@ func (l *loop) handleBot(ev bot.Event) {
 	case bot.KindAir:
 		l.handleTelegramAirCommand(ev, cmd.Target)
 
+	case bot.KindSoundboard:
+		l.sendTelegramSoundboard(ev)
+
+	case bot.KindAutomation:
+		l.sendTelegramAutomation(ev)
+
 	case bot.KindContentPolicy:
 		l.handleTelegramContentPolicy(ev, false)
 

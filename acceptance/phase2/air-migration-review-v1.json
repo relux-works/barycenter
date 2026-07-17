@@ -61,7 +61,7 @@
     },
     {
       "path": "coordinator/cmd/duet-coordinator/loop.go",
-      "sha256": "77a288ecb745069a4300f8a5497b98c4866f6193a307757d3be0fdca4674ac07"
+      "sha256": "eb2c18fbfa56663a2f19db5406b7e8ad18ab41085b212e64dbf15eff626543c4"
     },
     {
       "path": "coordinator/cmd/duet-coordinator/air_runtime_control.go",
@@ -102,6 +102,13 @@
       "scope": "additive env-dark live PTT event dispatch, watchdogs and overlay scheduler serialization in loop.go",
       "result": "no Air invite, lifecycle, authority generation, migration, alias, Telegram or rollback mutation changed; live target resolution is read-only and continues to delegate current-Air membership and overlay authorization to the reviewed store authority",
       "verification": "the fail-closed Air review validator, deterministic Air regression rehearsal and repository acceptance suite pass against the new exact loop.go hash"
+    },
+    {
+      "task": "TASK-260712-uht9e2",
+      "reviewedAt": "2026-07-17",
+      "scope": "additive Telegram soundboard and automation command dispatch cases in loop.go",
+      "result": "no Air invite, lifecycle, authority generation, migration, alias, runtime ownership or Telegram Air callback behavior changed; soundboard current-Air triggers continue to re-resolve through the reviewed Air policy authority",
+      "verification": "the complete Air migration review validator, Air regression rehearsal and Telegram automation parity tests pass against the new exact loop.go hash"
     }
   ],
   "reruns": [

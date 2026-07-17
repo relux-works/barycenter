@@ -42,12 +42,16 @@ func (api *onboardingAPI) prepareAutomationBuiltinCue(input automationTriggerInp
 }
 
 func (api *onboardingAPI) materializeAutomationBuiltinFile(ownerOrbitID int64) error {
+	return materializeAutomationBuiltinFile(api.config.MediaDir, ownerOrbitID)
+}
+
+func materializeAutomationBuiltinFile(mediaDir string, ownerOrbitID int64) error {
 	payload, err := automationcontract.BuiltinRecordingCueWAV()
 	if err != nil {
 		return err
 	}
 	storageKey := store.AutomationBuiltinStorageKey(ownerOrbitID)
-	path, ok := media.CanonicalPath(filepath.Join(api.config.MediaDir, "canonical"), storageKey)
+	path, ok := media.CanonicalPath(filepath.Join(mediaDir, "canonical"), storageKey)
 	if !ok {
 		return fmt.Errorf("invalid automation builtin storage key")
 	}

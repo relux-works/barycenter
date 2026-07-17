@@ -1,5 +1,5 @@
 ## Status
-development
+to-review
 
 ## Assigned To
 codex-inline-orchestrator
@@ -8,7 +8,7 @@ codex-inline-orchestrator
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-17T12:10:15Z
+2026-07-17T13:00:03Z
 
 ## Blocked By
 - STORY-260712-sskhip

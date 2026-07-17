@@ -4,23 +4,26 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 156 accepted, 49 remain.
-- Routed inventory: 186 engineering tasks (156 accepted, 30 remain) and 19
+- Combined inventory: 205 original tasks; 157 accepted, 48 remain.
+- Routed inventory: 186 engineering tasks (157 accepted, 29 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3g0axs` — phase3-root-line-review
-- Next engineering task: `TASK-260712-1ulshp` — phase3-external-security-review-closure
+- Current engineering task: `TASK-260712-3j4a06` — phase3-independent-realtime-review
+- Next engineering task: `TASK-260712-1x5jfo` — phase3-independent-automation-review
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
   E2EE implementation task are deferred outside the current engineering epic,
   so strict execution resumes at section 17 without claiming them complete.
-- Most recently accepted: `TASK-260712-2uo81g` — phase3-observability-health-evidence-views
-- Current branch: `task/task-260712-3g0axs-phase3-root-line-review`
+  `TASK-260712-1ulshp` is also retained in that deferred E2EE epic: it remains
+  blocked by `TASK-260712-aniuyy` and `TASK-260712-1bcpda` and cannot be
+  self-certified by the implementation session.
+- Most recently accepted: `TASK-260712-3g0axs` — phase3-root-line-review
+- Current branch: `task/task-260712-3g0axs-tracking`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -41,8 +44,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 156 / 205 tasks (76.1%); 49 remain
-- Engineering progress: 156 / 186 tasks (approximately 83.9%); 30 remain
+- Accepted overall: 157 / 205 tasks (76.6%); 48 remain
+- Engineering progress: 157 / 186 tasks (approximately 84.4%); 29 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3621,8 +3624,28 @@ capability is released merely because another capability passed its gate.
   contract tests passed. Clean exact-head acceptance passed all 16 commands
   with clean start/end and `manualEvidence=not-run`; hosted run `29578990210`
   passed 4/4. The external evidence stays in `EPIC-260714-th54l3`.)
-- [ ] `TASK-260712-3g0axs` — phase3-root-line-review
-- [ ] `TASK-260712-1ulshp` — phase3-external-security-review-closure
+- [x] `TASK-260712-3g0axs` — phase3-root-line-review (accepted on exact
+  reviewed non-E2EE source candidate
+  `d94f51644a3acf37601b4a869b4247380372f9ec`, tree
+  `4e4cca878db806650eda6f1e1642051b87a18b93`; review packet
+  `7388459356ec3a6ed976cdc779fec939adfa8d7b`, merged by PR #256 at
+  `0d6f85d43909737ff717464d8f427ea315f870b2`. The deterministic manifest
+  inventories all 75 first-parent intervals, 420 paths and 1,700 aggregate
+  hunk headers from the Phase 2 handoff, with zero unmapped paths, exact task
+  scope/AC hashes and explicit exclusion of four deferred E2EE tasks. Direct
+  review found and fixed two High issues: macOS `audible_started` now requires
+  render-consumed PCM instead of route activation, and new live/capture logs
+  no longer expose raw identifiers or arbitrary errors. Runtime reject payload
+  validation and a race-safe log fixture were also fixed and re-reviewed. Full
+  coordinator and Windows vet/race suites, 308 Swift tests, 116 acceptance
+  tests and clean exact-packet all-suite 16/16 passed; hosted run
+  `29582027620` passed 4/4. No unresolved critical/high non-E2EE engineering
+  finding remains. Manual real-app/hardware evidence is still `not-run`, E2EE
+  remains `deferred-unavailable`, and independent review, production,
+  promotion and beta claims remain blocked.)
+- ↪ deferred E2EE `TASK-260712-1ulshp` — phase3-external-security-review-closure
+  (open in `EPIC-260716-3qsztl`, blocked by the independent design review and
+  complete C4-C6 evidence pack; no completion or progress credit claimed)
 - [ ] `TASK-260712-3j4a06` — phase3-independent-realtime-review
 - [ ] `TASK-260712-1x5jfo` — phase3-independent-automation-review
 - [ ] `TASK-260712-7ng1vs` — phase3-independent-privacy-store-review

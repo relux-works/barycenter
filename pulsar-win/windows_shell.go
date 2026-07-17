@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	protocol "relux.works/duet/pulsar-win/wire"
 )
 
 type ShellLocale string
@@ -144,80 +146,84 @@ type ShellPendingAirJoin struct {
 }
 
 type ShellSnapshot struct {
-	Connection                ShellConnection
-	ConnectionDetail          string
-	Identity                  string
-	PresenceOnline            int
-	PresenceTotal             int
-	PresenceReady             int
-	PresenceAvailable         bool
-	RouteName                 string
-	NowPlaying                string
-	PlaybackState             string
-	HistoryCount              int
-	DND                       ShellDND
-	Recording                 ShellRecording
-	RecordingAvailable        bool
-	RecordingShortcut         WindowsRecordingShortcutStatus
-	RecordingShortcutKey      WindowsRecordingShortcut
-	SelfTestAvailable         bool
-	SelfTestPhase             WindowsLocalSelfTestPhase
-	SelfTestMeter             float32
-	LocalDraftAvailable       bool
-	LocalDraftName            string
-	RecordingDraftAvailable   bool
-	LocalFailure              string
-	CaptureInputs             []WindowsCaptureInput
-	SelectedCaptureInput      int
-	AudioOutputs              []WindowsAudioOutput
-	SelectedAudioOutput       int
-	Volume                    int
-	IdentityOperation         ShellIdentityOperation
-	IdentityFailure           string
-	RecoveryExportRequired    bool
-	PhaseOneDrafts            []ShellPhaseOneDraft
-	SelectedPhaseOneDraft     int
-	SelectedPhaseOneRoute     PhaseOneRoute
-	SelectedPhaseOneDelivery  PhaseOneDelivery
-	PhaseOneHistory           []ShellPhaseOneHistoryItem
-	SelectedHistoryItem       int
-	SelectedReportReason      PhaseOneModerationReason
-	PhaseOneActionOutcome     string
-	PhaseOneFailure           string
-	SoundboardCues            []ShellSoundboardCue
-	SelectedSoundboardCue     int
-	SoundboardRoute           PhaseOneRoute
-	SoundboardDelivery        PhaseOneDelivery
-	SoundboardIncludeOrigin   bool
-	SoundboardBusy            bool
-	SoundboardOutcome         string
-	SoundboardFailure         string
-	SoundboardHistoryCount    int
-	TargetsInbox              TargetsInboxSnapshot
-	SelectedTarget            int
-	SelectedInbox             int
-	SelectedTargetsHistory    int
-	TargetsInboxDelivery      PhaseOneDelivery
-	TargetsInboxReason        PhaseOneModerationReason
-	TargetsInboxActionOutcome string
-	TargetsInboxFailure       string
-	TargetsInboxBusy          bool
-	StreamTrack               StreamTrackSnapshot
-	SelectedStreamTrackTarget int
-	StreamTrackBusy           bool
-	StreamTrackOutcome        string
-	Airs                      []ShellAirItem
-	SelectedAir               int
-	PendingAirJoin            *ShellPendingAirJoin
-	AirInviteAvailable        bool
-	AirInviteExpires          time.Time
-	AirInviteRole             AirRole
-	AirAvailable              bool
-	AirBusy                   bool
-	AirConfirmAction          string
-	AirOutcome                string
-	AirFailure                string
-	Automation                WindowsAutomationSnapshot
+	Connection                     ShellConnection
+	ConnectionDetail               string
+	Identity                       string
+	PresenceOnline                 int
+	PresenceTotal                  int
+	PresenceReady                  int
+	PresenceAvailable              bool
+	RouteName                      string
+	NowPlaying                     string
+	PlaybackState                  string
+	HistoryCount                   int
+	DND                            ShellDND
+	Recording                      ShellRecording
+	RecordingAvailable             bool
+	RecordingShortcut              WindowsRecordingShortcutStatus
+	RecordingShortcutKey           WindowsRecordingShortcut
+	CaptureQualityMode             WindowsCaptureQualityMode
+	CaptureQualityDegradedConsent  bool
+	CaptureQualityBackendAvailable bool
+	CaptureQualityState            *protocol.CaptureQualityState
+	SelfTestAvailable              bool
+	SelfTestPhase                  WindowsLocalSelfTestPhase
+	SelfTestMeter                  float32
+	LocalDraftAvailable            bool
+	LocalDraftName                 string
+	RecordingDraftAvailable        bool
+	LocalFailure                   string
+	CaptureInputs                  []WindowsCaptureInput
+	SelectedCaptureInput           int
+	AudioOutputs                   []WindowsAudioOutput
+	SelectedAudioOutput            int
+	Volume                         int
+	IdentityOperation              ShellIdentityOperation
+	IdentityFailure                string
+	RecoveryExportRequired         bool
+	PhaseOneDrafts                 []ShellPhaseOneDraft
+	SelectedPhaseOneDraft          int
+	SelectedPhaseOneRoute          PhaseOneRoute
+	SelectedPhaseOneDelivery       PhaseOneDelivery
+	PhaseOneHistory                []ShellPhaseOneHistoryItem
+	SelectedHistoryItem            int
+	SelectedReportReason           PhaseOneModerationReason
+	PhaseOneActionOutcome          string
+	PhaseOneFailure                string
+	SoundboardCues                 []ShellSoundboardCue
+	SelectedSoundboardCue          int
+	SoundboardRoute                PhaseOneRoute
+	SoundboardDelivery             PhaseOneDelivery
+	SoundboardIncludeOrigin        bool
+	SoundboardBusy                 bool
+	SoundboardOutcome              string
+	SoundboardFailure              string
+	SoundboardHistoryCount         int
+	TargetsInbox                   TargetsInboxSnapshot
+	SelectedTarget                 int
+	SelectedInbox                  int
+	SelectedTargetsHistory         int
+	TargetsInboxDelivery           PhaseOneDelivery
+	TargetsInboxReason             PhaseOneModerationReason
+	TargetsInboxActionOutcome      string
+	TargetsInboxFailure            string
+	TargetsInboxBusy               bool
+	StreamTrack                    StreamTrackSnapshot
+	SelectedStreamTrackTarget      int
+	StreamTrackBusy                bool
+	StreamTrackOutcome             string
+	Airs                           []ShellAirItem
+	SelectedAir                    int
+	PendingAirJoin                 *ShellPendingAirJoin
+	AirInviteAvailable             bool
+	AirInviteExpires               time.Time
+	AirInviteRole                  AirRole
+	AirAvailable                   bool
+	AirBusy                        bool
+	AirConfirmAction               string
+	AirOutcome                     string
+	AirFailure                     string
+	Automation                     WindowsAutomationSnapshot
 }
 
 func (s ShellSnapshot) normalized() ShellSnapshot {
@@ -242,6 +248,15 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 		WindowsShortcutUnavailable, WindowsShortcutSuspended:
 	default:
 		s.RecordingShortcut = WindowsShortcutInactive
+	}
+	if s.CaptureQualityMode != WindowsCaptureQualitySpeaker && s.CaptureQualityMode != WindowsCaptureQualityHeadphone {
+		s.CaptureQualityMode = WindowsCaptureQualityAuto
+	}
+	if protocol.ValidateCaptureQualityState(s.CaptureQualityState) != nil {
+		s.CaptureQualityState = nil
+		s.CaptureQualityBackendAvailable = false
+	} else {
+		s.CaptureQualityState = protocol.CloneCaptureQualityState(s.CaptureQualityState)
 	}
 	if s.Volume < 0 {
 		s.Volume = 0
@@ -349,6 +364,8 @@ type ShellActions struct {
 	SelectNextOutput                func()
 	ToggleRecording                 func()
 	CancelRecording                 func()
+	SetCaptureQuality               func(WindowsCaptureQualityMode, bool)
+	StopActiveCapture               func()
 	SetDND                          func(ShellDND)
 	SendSelectedDraft               func()
 	DeleteSelectedDraft             func()
@@ -567,6 +584,14 @@ const (
 	txtUploadRights         shellText = "upload_rights"
 	txtSupport              shellText = "support"
 	txtQuit                 shellText = "quit"
+	txtCaptureQuality       shellText = "capture_quality"
+	txtCaptureMode          shellText = "capture_mode"
+	txtCaptureAllowDegraded shellText = "capture_allow_degraded"
+	txtCaptureStopLocal     shellText = "capture_stop_local"
+	txtCaptureInputCeiling  shellText = "capture_input_ceiling"
+	txtCaptureOutputCeiling shellText = "capture_output_ceiling"
+	txtCaptureCeilingHelp   shellText = "capture_ceiling_help"
+	txtCaptureConsentHelp   shellText = "capture_consent_help"
 )
 
 var shellTextKeys = []shellText{
@@ -583,6 +608,8 @@ var shellTextKeys = []shellText{
 	txtRecordingHelp, txtShortcutRegistered, txtShortcutConflict, txtShortcutUnavailable,
 	txtShortcutSuspended, txtShortcutInactive, txtShortcut, txtPair, txtRepair, txtHowToSound, txtNoPulsar, txtPrivacy,
 	txtTerms, txtGuidelines, txtUploadRights, txtSupport, txtQuit,
+	txtCaptureQuality, txtCaptureMode, txtCaptureAllowDegraded, txtCaptureStopLocal,
+	txtCaptureInputCeiling, txtCaptureOutputCeiling, txtCaptureCeilingHelp, txtCaptureConsentHelp,
 }
 
 type ShellCopy struct{ locale ShellLocale }
@@ -669,6 +696,159 @@ func (c ShellCopy) DND(mode ShellDND) string {
 	}[mode])
 }
 
+func (c ShellCopy) CaptureQualityMode(mode WindowsCaptureQualityMode) string {
+	en := map[WindowsCaptureQualityMode]string{
+		WindowsCaptureQualityAuto: "Auto", WindowsCaptureQualitySpeaker: "Speaker",
+		WindowsCaptureQualityHeadphone: "Headphones",
+	}
+	ru := map[WindowsCaptureQualityMode]string{
+		WindowsCaptureQualityAuto: "Авто", WindowsCaptureQualitySpeaker: "Динамики",
+		WindowsCaptureQualityHeadphone: "Наушники",
+	}
+	if c.locale == ShellRussian {
+		return ru[mode]
+	}
+	return en[mode]
+}
+
+func (c ShellCopy) CaptureQualityLabel(quality string) string {
+	en := map[string]string{
+		protocol.CaptureQualityAccepted:    "[OK] Accepted processing",
+		protocol.CaptureQualityDegraded:    "[!] Degraded processing",
+		protocol.CaptureQualityUnsupported: "[X] Processing unavailable",
+	}
+	ru := map[string]string{
+		protocol.CaptureQualityAccepted:    "[OK] Обработка принята",
+		protocol.CaptureQualityDegraded:    "[!] Ограниченная обработка",
+		protocol.CaptureQualityUnsupported: "[X] Обработка недоступна",
+	}
+	if c.locale == ShellRussian {
+		return ru[quality]
+	}
+	return en[quality]
+}
+
+func (c ShellCopy) CaptureQualityReason(reason string) string {
+	en := map[string]string{
+		"none":                      "The exact route and effects are accepted for this generation.",
+		"mixed_version":             "This build cannot expose the reviewed capture-quality contract. Recording stays fail-closed.",
+		"permission_denied":         "Microphone permission is denied. Allow Pulsar in Windows Settings.",
+		"no_device":                 "No usable microphone is available.",
+		"reference_unavailable":     "The speaker render reference is not proven. Use headphones or explicitly allow degraded capture.",
+		"reference_stale":           "The speaker render reference is stale. Stop or use headphones.",
+		"route_unknown":             "The output route is ambiguous. Choose headphones or explicitly allow degraded capture.",
+		"route_excluded":            "The resolved route does not match the selected capture mode.",
+		"aec_unavailable":           "Echo cancellation is not verified on this Windows path.",
+		"ns_unavailable":            "Noise suppression is unavailable.",
+		"agc_unavailable":           "Input gain control is unavailable.",
+		"silent":                    "No microphone signal is detected.",
+		"too_quiet":                 "Microphone input is too quiet. Move closer or select another microphone.",
+		"clipping":                  "Microphone input is clipping. Reduce input level or move farther away.",
+		"clock_unstable":            "Capture and render clocks are unstable. Stop and retry on a local route.",
+		"processor_overrun":         "Capture processing could not keep up. Audio capture was stopped.",
+		"device_lost":               "The microphone or output device was disconnected.",
+		"user_selected_unprocessed": "Processing is disabled for this capture.",
+		"rearm_timeout":             "The route change could not be applied safely. Stop and retry.",
+	}
+	ru := map[string]string{
+		"none":                      "Маршрут и эффекты приняты для этого поколения записи.",
+		"mixed_version":             "Эта сборка не показывает проверенный контракт качества. Запись блокируется безопасно.",
+		"permission_denied":         "Нет разрешения на микрофон. Разрешите Пульсар в настройках Windows.",
+		"no_device":                 "Подходящий микрофон недоступен.",
+		"reference_unavailable":     "Опорный звук динамиков не доказан. Используйте наушники или явно разрешите ограниченную запись.",
+		"reference_stale":           "Опорный звук динамиков устарел. Остановите запись или используйте наушники.",
+		"route_unknown":             "Маршрут выхода неоднозначен. Выберите наушники или явно разрешите ограниченную запись.",
+		"route_excluded":            "Определённый маршрут не совпадает с выбранным режимом записи.",
+		"aec_unavailable":           "Подавление эха не подтверждено для этого пути Windows.",
+		"ns_unavailable":            "Подавление шума недоступно.",
+		"agc_unavailable":           "Управление входным усилением недоступно.",
+		"silent":                    "Сигнал микрофона не обнаружен.",
+		"too_quiet":                 "Сигнал микрофона слишком тихий. Подойдите ближе или выберите другой микрофон.",
+		"clipping":                  "Сигнал микрофона перегружен. Уменьшите уровень или отойдите дальше.",
+		"clock_unstable":            "Часы записи и воспроизведения нестабильны. Остановите и повторите на локальном маршруте.",
+		"processor_overrun":         "Обработка не успевает за записью. Запись звука остановлена.",
+		"device_lost":               "Микрофон или устройство вывода отключено.",
+		"user_selected_unprocessed": "Обработка для этой записи выключена.",
+		"rearm_timeout":             "Не удалось безопасно применить смену маршрута. Остановите и повторите.",
+	}
+	if c.locale == ShellRussian {
+		if value := ru[reason]; value != "" {
+			return value
+		}
+		return "Состояние обработки неизвестно; запись не считается принятой."
+	}
+	if value := en[reason]; value != "" {
+		return value
+	}
+	return "Processing state is unknown and is not treated as accepted."
+}
+
+func (c ShellCopy) CaptureEffect(state string) string {
+	en := map[string]string{
+		protocol.CaptureEffectActive: "active", protocol.CaptureEffectNotRequired: "not required on this route",
+		protocol.CaptureEffectUnavailable: "unavailable", protocol.CaptureEffectFaulted: "failed during capture",
+	}
+	ru := map[string]string{
+		protocol.CaptureEffectActive: "активно", protocol.CaptureEffectNotRequired: "не требуется для этого маршрута",
+		protocol.CaptureEffectUnavailable: "недоступно", protocol.CaptureEffectFaulted: "сбой во время записи",
+	}
+	if c.locale == ShellRussian {
+		return ru[state]
+	}
+	return en[state]
+}
+
+func (c ShellCopy) CaptureLifecycle(lifecycle string) string {
+	en := map[string]string{
+		protocol.CaptureLifecycleIdle:             "local capture idle",
+		protocol.CaptureLifecyclePreparing:        "preparing local capture",
+		protocol.CaptureLifecycleAwaitingFallback: "waiting for degraded-capture consent",
+		protocol.CaptureLifecycleCapturing:        "capturing locally",
+		protocol.CaptureLifecycleReconfiguring:    "applying route change",
+		protocol.CaptureLifecycleStopping:         "stopping local capture",
+		protocol.CaptureLifecycleFailed:           "capture stopped with an error",
+	}
+	ru := map[string]string{
+		protocol.CaptureLifecycleIdle:             "ожидание локальной записи",
+		protocol.CaptureLifecyclePreparing:        "подготовка локальной записи",
+		protocol.CaptureLifecycleAwaitingFallback: "ожидание согласия на ограниченную запись",
+		protocol.CaptureLifecycleCapturing:        "локальная запись",
+		protocol.CaptureLifecycleReconfiguring:    "применение смены маршрута",
+		protocol.CaptureLifecycleStopping:         "остановка локальной записи",
+		protocol.CaptureLifecycleFailed:           "запись остановлена с ошибкой",
+	}
+	if c.locale == ShellRussian {
+		return ru[lifecycle]
+	}
+	return en[lifecycle]
+}
+
+func (c ShellCopy) CaptureResolvedMode(mode string) string {
+	if mode == protocol.CaptureRouteSpeaker || mode == protocol.CaptureRouteHeadphone {
+		return c.CaptureQualityMode(WindowsCaptureQualityMode(mode))
+	}
+	if c.locale == ShellRussian {
+		return "Неизвестный маршрут"
+	}
+	return "Unknown route"
+}
+
+func (c ShellCopy) CaptureQualityProjection(snapshot ShellSnapshot) string {
+	presentation := presentWindowsCaptureQuality(snapshot)
+	line := c.Text(txtCaptureQuality) + ": " + c.CaptureQualityLabel(presentation.Quality)
+	line += "\r\n" + c.Text(txtCaptureMode) + ": " + c.CaptureQualityMode(presentation.Mode)
+	line += " · " + c.CaptureResolvedMode(presentation.ResolvedMode)
+	line += "\r\n" + c.CaptureLifecycle(presentation.Lifecycle)
+	line += "\r\nAEC: " + c.CaptureEffect(presentation.AEC) + " · NS: " + c.CaptureEffect(presentation.NS) + " · AGC: " + c.CaptureEffect(presentation.AGC)
+	line += fmt.Sprintf("\r\n%s: %.0f dBFS · %s: %.0f dBFS", c.Text(txtCaptureInputCeiling), presentation.InputCeilingDBFS, c.Text(txtCaptureOutputCeiling), presentation.ReceiverOutputCeilingDBFS)
+	line += "\r\n" + c.CaptureQualityReason(presentation.Reason)
+	line += "\r\n" + c.Text(txtCaptureCeilingHelp)
+	if presentation.RequiresDegradedConsent {
+		line += "\r\n[!] " + c.Text(txtCaptureConsentHelp)
+	}
+	return line
+}
+
 func (c ShellCopy) Presence(snapshot ShellSnapshot) string {
 	if !snapshot.PresenceAvailable {
 		return c.Connection(snapshot)
@@ -686,10 +866,11 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 	case ShellJoin:
 		return c.Text(txtJoinBody) + c.IdentityStatus(snapshot)
 	case ShellTryLocally:
+		quality := "\r\n\r\n" + c.CaptureQualityProjection(snapshot)
 		if !snapshot.SelfTestAvailable {
-			return c.Text(txtTryBody) + "\r\n\r\n" + c.Text(txtSelfTestUnavailable)
+			return c.Text(txtTryBody) + "\r\n\r\n" + c.Text(txtSelfTestUnavailable) + quality
 		}
-		return c.Text(txtTryBody) + "\r\n\r\n" + c.LocalSelfTest(snapshot)
+		return c.Text(txtTryBody) + "\r\n\r\n" + c.LocalSelfTest(snapshot) + quality
 	case ShellHistory:
 		if len(snapshot.PhaseOneHistory) == 0 {
 			body := c.Text(txtNoHistory)
@@ -721,6 +902,7 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 	case ShellSettings:
 		return c.Text(txtLanguage) + "\r\n\r\n" + c.Text(txtDND) + ": " + c.DND(snapshot.DND) +
 			"\r\n" + c.Text(txtVolume) + fmt.Sprintf(": %d%%", snapshot.Volume) +
+			"\r\n\r\n" + c.CaptureQualityProjection(snapshot) +
 			"\r\n\r\n" + c.Text(txtIntegrations) + "\r\n" +
 			"• " + c.Text(txtSpotifyOptional) + "\r\n• " + c.Text(txtTelegramOptional)
 	default:
@@ -1704,6 +1886,11 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtNoPulsar: "Troubleshoot optional Spotify integration", txtPrivacy: "Privacy", txtTerms: "Terms of use",
 		txtGuidelines: "Content guidelines", txtUploadRights: "Recording and upload rights",
 		txtSupport: "Support and safety", txtQuit: "Quit Pulsar",
+		txtCaptureQuality: "Capture quality", txtCaptureMode: "Capture mode",
+		txtCaptureAllowDegraded: "Allow degraded capture", txtCaptureStopLocal: "Stop local capture",
+		txtCaptureInputCeiling: "Input AGC ceiling", txtCaptureOutputCeiling: "Receiver output ceiling",
+		txtCaptureCeilingHelp: "Input gain is capped separately from receiver output; changing receiver volume never raises microphone gain.",
+		txtCaptureConsentHelp: "Speaker processing is degraded or unsupported. Capture remains blocked until you explicitly allow this one local attempt.",
 	},
 	ShellRussian: {
 		txtApp: "Пульсар", txtHome: "Главная", txtCreate: "Создать", txtJoin: "Присоединиться", txtTry: "Попробовать локально",
@@ -1736,5 +1923,10 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtNoPulsar: "Диагностика необязательной интеграции Spotify", txtPrivacy: "Конфиденциальность", txtTerms: "Условия использования",
 		txtGuidelines: "Правила содержимого", txtUploadRights: "Права на запись и загрузку",
 		txtSupport: "Поддержка и безопасность", txtQuit: "Выйти из Пульсара",
+		txtCaptureQuality: "Качество записи", txtCaptureMode: "Режим записи",
+		txtCaptureAllowDegraded: "Разрешить ограниченную запись", txtCaptureStopLocal: "Остановить локальную запись",
+		txtCaptureInputCeiling: "Предел входного AGC", txtCaptureOutputCeiling: "Предел выхода получателя",
+		txtCaptureCeilingHelp: "Усиление входа ограничено отдельно от выхода получателя; громкость воспроизведения не повышает усиление микрофона.",
+		txtCaptureConsentHelp: "Обработка динамиков ограничена или недоступна. Запись заблокирована, пока вы явно не разрешите одну локальную попытку.",
 	},
 }

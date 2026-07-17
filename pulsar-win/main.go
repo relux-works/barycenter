@@ -195,6 +195,13 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	} else {
 		workflow = configured
 	}
+	workflow.ConfigureCaptureQuality(WindowsCaptureQualityRequest{
+		Mode: WindowsCaptureQualityAuto, ProcessingRequested: true,
+	}, func(state *protocol.CaptureQualityState) {
+		if err := player.SetCaptureQualityState(state); err != nil {
+			log.Error("capture quality state rejected")
+		}
+	})
 	var phaseOne *WindowsPhaseOneComposition
 	if configured, phaseErr := newProductionWindowsPhaseOneComposition(dir, workflow); phaseErr != nil {
 		log.Error("Phase 1 app data unavailable")
@@ -327,10 +334,14 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 			PresenceAvailable: presenceAvailable, RouteName: route,
 			NowPlaying: nowPlaying, PlaybackState: state.Playback,
 			DND: dnd, Recording: recordingState,
-			RecordingAvailable:   recordingAvailable,
-			RecordingShortcut:    currentWindowsRecordingShortcutStatus(),
-			RecordingShortcutKey: currentWindowsRecordingShortcut(),
-			SelfTestAvailable:    local.Available, SelfTestPhase: local.SelfTestPhase,
+			RecordingAvailable:             recordingAvailable,
+			RecordingShortcut:              currentWindowsRecordingShortcutStatus(),
+			RecordingShortcutKey:           currentWindowsRecordingShortcut(),
+			CaptureQualityMode:             local.CaptureQualityMode,
+			CaptureQualityDegradedConsent:  local.CaptureQualityDegradedConsent,
+			CaptureQualityBackendAvailable: local.CaptureQualityBackendAvailable,
+			CaptureQualityState:            local.CaptureQualityState,
+			SelfTestAvailable:              local.Available, SelfTestPhase: local.SelfTestPhase,
 			SelfTestMeter: local.Meter, LocalDraftAvailable: local.DraftAvailable,
 			LocalDraftName: local.DraftName, LocalFailure: local.Failure,
 			RecordingDraftAvailable: local.RecordingDraftAvailable,
@@ -380,6 +391,8 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		SelectNextOutput:   func() { go outputControl.SelectNext() },
 		ToggleRecording:    workflow.Toggle,
 		CancelRecording:    workflow.Cancel,
+		SetCaptureQuality:  workflow.SetCaptureQuality,
+		StopActiveCapture:  workflow.Cancel,
 		SetDND: func(mode ShellDND) {
 			if mode != ShellDNDAllowAll && mode != ShellDNDMessagesOnly {
 				return

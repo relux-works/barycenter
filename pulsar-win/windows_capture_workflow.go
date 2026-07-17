@@ -18,16 +18,20 @@ type WindowsCaptureInput struct {
 // WindowsCaptureWorkflowSnapshot is the local-only projection shared by the
 // main window and tray. Draft paths deliberately stay out of this type.
 type WindowsCaptureWorkflowSnapshot struct {
-	Available               bool
-	SelfTestPhase           WindowsLocalSelfTestPhase
-	Meter                   float32
-	Failure                 string
-	DraftAvailable          bool
-	DraftName               string
-	RecordingDraftAvailable bool
-	Review                  *WindowsShortAudioReview
-	Inputs                  []WindowsCaptureInput
-	SelectedInput           int
+	Available                      bool
+	SelfTestPhase                  WindowsLocalSelfTestPhase
+	Meter                          float32
+	Failure                        string
+	DraftAvailable                 bool
+	DraftName                      string
+	RecordingDraftAvailable        bool
+	Review                         *WindowsShortAudioReview
+	Inputs                         []WindowsCaptureInput
+	SelectedInput                  int
+	CaptureQualityMode             WindowsCaptureQualityMode
+	CaptureQualityDegradedConsent  bool
+	CaptureQualityBackendAvailable bool
+	CaptureQualityState            *protocol.CaptureQualityState
 }
 
 type WindowsCaptureWorkflowController struct {
@@ -39,7 +43,7 @@ type WindowsCaptureWorkflowController struct {
 	recoveredDrafts []CaptureMediaHandle
 	onNormalDraft   func(CaptureMediaHandle, PhaseOneOriginKind)
 	qualityRequest  WindowsCaptureQualityRequest
-	qualityState    func(*protocol.CaptureQualityState)
+	qualityObserver func(*protocol.CaptureQualityState)
 
 	mu                sync.RWMutex
 	snapshot          WindowsCaptureWorkflowSnapshot
@@ -127,14 +131,19 @@ func (c *WindowsCaptureWorkflowController) SetOutgoingIntake(intake *WindowsShor
 func NewWindowsCaptureWorkflowController(recording *WindowsRecordingController, selfTest *WindowsLocalSelfTestService, inputs []WindowsCaptureInput) *WindowsCaptureWorkflowController {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &WindowsCaptureWorkflowController{recording: recording, selfTest: selfTest, ctx: ctx, cancel: cancel}
-	c.qualityRequest = WindowsCaptureQualityLegacy
+	c.qualityRequest = WindowsCaptureQualityRequest{
+		Mode: WindowsCaptureQualityAuto, ProcessingRequested: true,
+	}
 	c.snapshot = WindowsCaptureWorkflowSnapshot{
-		Available:     recording != nil && selfTest != nil,
-		SelfTestPhase: WindowsLocalSelfTestIdle,
-		Inputs:        append([]WindowsCaptureInput(nil), inputs...),
+		Available:                      recording != nil && selfTest != nil,
+		SelfTestPhase:                  WindowsLocalSelfTestIdle,
+		Inputs:                         append([]WindowsCaptureInput(nil), inputs...),
+		CaptureQualityMode:             WindowsCaptureQualityAuto,
+		CaptureQualityBackendAvailable: recording != nil && selfTest != nil,
 	}
 	if selfTest != nil {
 		selfTest.SetEventHandler(c.handleSelfTestEvent)
+		selfTest.ConfigureCaptureQuality(c.qualityRequest, c.handleCaptureQualityState)
 	}
 	if recording != nil {
 		recording.ConfigureRequest(c.recordingRequest, c.handleRecordingOutcome)
@@ -154,10 +163,62 @@ func (c *WindowsCaptureWorkflowController) ConfigureCaptureQuality(
 	}
 	c.mu.Lock()
 	c.qualityRequest = request
-	c.qualityState = onState
+	c.qualityObserver = onState
+	c.snapshot.CaptureQualityMode = request.Mode
+	c.snapshot.CaptureQualityDegradedConsent = request.DegradedConsent
+	c.snapshot.CaptureQualityState = nil
 	c.mu.Unlock()
 	if c.selfTest != nil {
-		c.selfTest.ConfigureCaptureQuality(request, onState)
+		c.selfTest.ConfigureCaptureQuality(request, c.handleCaptureQualityState)
+	}
+}
+
+func (c *WindowsCaptureWorkflowController) SetCaptureQuality(
+	mode WindowsCaptureQualityMode,
+	degradedConsent bool,
+) {
+	if c == nil || c.recordingBusy() || c.selfTestBusy() {
+		return
+	}
+	if mode != WindowsCaptureQualityAuto && mode != WindowsCaptureQualitySpeaker && mode != WindowsCaptureQualityHeadphone {
+		return
+	}
+	c.mu.RLock()
+	observer := c.qualityObserver
+	c.mu.RUnlock()
+	c.ConfigureCaptureQuality(WindowsCaptureQualityRequest{
+		Mode: mode, ProcessingRequested: true, DegradedConsent: degradedConsent,
+	}, observer)
+}
+
+func (c *WindowsCaptureWorkflowController) handleCaptureQualityState(state *protocol.CaptureQualityState) {
+	if c == nil || protocol.ValidateCaptureQualityState(state) != nil {
+		return
+	}
+	cloned := protocol.CloneCaptureQualityState(state)
+	resetConsent := false
+	c.mu.Lock()
+	if cloned == nil {
+		if c.snapshot.CaptureQualityState == nil ||
+			c.snapshot.CaptureQualityState.Lifecycle != protocol.CaptureLifecycleFailed {
+			c.snapshot.CaptureQualityState = nil
+		}
+		if c.qualityRequest.DegradedConsent {
+			c.qualityRequest.DegradedConsent = false
+			c.snapshot.CaptureQualityDegradedConsent = false
+			resetConsent = true
+		}
+	} else {
+		c.snapshot.CaptureQualityState = cloned
+	}
+	request := c.qualityRequest
+	observer := c.qualityObserver
+	c.mu.Unlock()
+	if resetConsent && c.selfTest != nil {
+		c.selfTest.ConfigureCaptureQuality(request, c.handleCaptureQualityState)
+	}
+	if observer != nil {
+		observer(protocol.CloneCaptureQualityState(state))
 	}
 }
 
@@ -199,6 +260,7 @@ func (c *WindowsCaptureWorkflowController) LocalSnapshot() WindowsCaptureWorkflo
 	defer c.mu.RUnlock()
 	result := c.snapshot
 	result.Inputs = append([]WindowsCaptureInput(nil), c.snapshot.Inputs...)
+	result.CaptureQualityState = protocol.CloneCaptureQualityState(c.snapshot.CaptureQualityState)
 	if c.snapshot.Review != nil {
 		review := *c.snapshot.Review
 		result.Review = &review
@@ -454,6 +516,9 @@ func (c *WindowsCaptureWorkflowController) Shutdown() {
 	}
 	c.mu.Lock()
 	c.snapshot.Available = false
+	c.snapshot.CaptureQualityBackendAvailable = false
+	c.snapshot.CaptureQualityState = nil
+	c.snapshot.CaptureQualityDegradedConsent = false
 	if c.cancel != nil {
 		c.cancel()
 	}
@@ -506,11 +571,10 @@ func (c *WindowsCaptureWorkflowController) beginOperation() bool {
 func (c *WindowsCaptureWorkflowController) recordingRequest() WindowsCaptureRequest {
 	c.mu.RLock()
 	qualityRequest := c.qualityRequest
-	qualityState := c.qualityState
 	c.mu.RUnlock()
 	return WindowsCaptureRequest{
 		DeviceID: c.selectedInputID(), Workflow: "recorded_clip",
-		QualityRequest: qualityRequest, QualityState: qualityState,
+		QualityRequest: qualityRequest, QualityState: c.handleCaptureQualityState,
 		Meter: func(value float32) {
 			c.mu.Lock()
 			c.snapshot.Meter = value

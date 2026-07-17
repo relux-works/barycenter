@@ -170,6 +170,9 @@ const (
 	idAutomationTime            = 3129
 	idAutomationQuiet           = 3130
 	idAutomationWeekdays        = 3131
+	idCaptureQualityMode        = 3132
+	idCaptureQualityConsent     = 3133
+	idCaptureQualityStop        = 3134
 
 	bsPushButton = 0x00000000
 	bsMultiline  = 0x00002000
@@ -180,6 +183,7 @@ const (
 	fShift         = 0x04
 	fControl       = 0x08
 	vkComma        = 0xBC
+	vkPeriod       = 0xBE
 	vkEscape       = 0x1B
 	emSetLimitText = 0x00C5
 )
@@ -321,6 +325,9 @@ type mainWindowCtx struct {
 	automationTime            windows.Handle
 	automationQuiet           windows.Handle
 	automationWeekdays        windows.Handle
+	captureQualityMode        windows.Handle
+	captureQualityConsent     windows.Handle
+	captureQualityStop        windows.Handle
 	record                    windows.Handle
 	dnd                       windows.Handle
 	english                   windows.Handle
@@ -530,6 +537,9 @@ func (ctx *mainWindowCtx) createControls() {
 	pSendMessageW.Call(uintptr(ctx.automationTime), emSetLimitText, 5, 0)
 	pSendMessageW.Call(uintptr(ctx.automationQuiet), emSetLimitText, 512, 0)
 	pSendMessageW.Call(uintptr(ctx.automationWeekdays), emSetLimitText, 64, 0)
+	ctx.captureQualityMode = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idCaptureQualityMode)
+	ctx.captureQualityConsent = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idCaptureQualityConsent)
+	ctx.captureQualityStop = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idCaptureQualityStop)
 	ctx.record = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellRecord)
 	ctx.dnd = mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellDND)
 	ctx.english = mk(0, "BUTTON", "English", buttonStyle|bsPushButton, idShellEnglish)
@@ -552,6 +562,7 @@ func (ctx *mainWindowCtx) installAccelerators() {
 		{fVirtKey | fControl | fShift, 0, 'L', idTrackFile},
 		{fVirtKey | fControl | fShift, 0, 'D', idShellDND},
 		{fVirtKey | fControl, 0, vkComma, idShellSettings},
+		{fVirtKey | fControl, 0, vkPeriod, idCaptureQualityStop},
 		{fVirtKey, 0, vkEscape, idShellCancel},
 	}
 	h, _, _ := pCreateAcceleratorTableW.Call(uintptr(unsafe.Pointer(&entries[0])), uintptr(len(entries)))
@@ -609,6 +620,9 @@ func (ctx *mainWindowCtx) layout() {
 	var client winRect
 	pGetClientRect.Call(uintptr(ctx.hwnd), uintptr(unsafe.Pointer(&client)))
 	layout := layoutWindowsShell(int(client.right-client.left), int(client.bottom-client.top), ctx.dpi())
+	if ctx.shell != nil && (ctx.shell.Section() == ShellTryLocally || ctx.shell.Section() == ShellSettings) {
+		layout.Body.Height = dip(300, layout.DPI)
+	}
 	if ctx.shell != nil && ctx.shell.Section() == ShellAirs {
 		layout.Body.Height = dip(210, layout.DPI)
 	}
@@ -630,6 +644,7 @@ func (ctx *mainWindowCtx) layout() {
 	move(ctx.title, ShellRect{X: layout.Header.X, Y: layout.Header.Y, Width: layout.Header.Width - dndWidth - recordWidth - gap*2, Height: layout.Header.Height})
 	move(ctx.dnd, ShellRect{X: layout.Header.Right() - dndWidth - recordWidth - gap, Y: layout.Header.Y, Width: dndWidth, Height: layout.Header.Height})
 	move(ctx.record, ShellRect{X: layout.Header.Right() - recordWidth, Y: layout.Header.Y, Width: recordWidth, Height: layout.Header.Height})
+	move(ctx.captureQualityStop, ShellRect{X: layout.Header.Right() - recordWidth, Y: layout.Header.Y, Width: recordWidth, Height: layout.Header.Height})
 	move(ctx.banner, ShellRect{X: layout.Banner.X + pad, Y: layout.Banner.Y + pad, Width: layout.Banner.Width - pad*2, Height: layout.Banner.Height - pad*2})
 	move(ctx.body, layout.Body)
 	for index := range ctx.home {
@@ -647,6 +662,13 @@ func (ctx *mainWindowCtx) layout() {
 	move(ctx.output, ShellRect{X: layout.Content.X + dip(192, layout.DPI), Y: layout.Body.Bottom() + gap + dip(104, layout.DPI), Width: dip(180, layout.DPI), Height: dip(44, layout.DPI)})
 	move(ctx.english, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap, Width: dip(130, layout.DPI), Height: dip(42, layout.DPI)})
 	move(ctx.russian, ShellRect{X: layout.Content.X + dip(142, layout.DPI), Y: layout.Body.Bottom() + gap, Width: dip(130, layout.DPI), Height: dip(42, layout.DPI)})
+	qualityY := layout.Body.Bottom() + gap + dip(52, layout.DPI)
+	if ctx.shell != nil && ctx.shell.Section() == ShellTryLocally {
+		qualityY = layout.Body.Bottom() + gap + dip(156, layout.DPI)
+	}
+	qualityWidth := (layout.Content.Width - gap) / 2
+	move(ctx.captureQualityMode, ShellRect{X: layout.Content.X, Y: qualityY, Width: qualityWidth, Height: dip(44, layout.DPI)})
+	move(ctx.captureQualityConsent, ShellRect{X: layout.Content.X + qualityWidth + gap, Y: qualityY, Width: qualityWidth, Height: dip(44, layout.DPI)})
 	move(ctx.draftNext, ShellRect{X: layout.Content.X, Y: layout.Body.Bottom() + gap, Width: dip(132, layout.DPI), Height: dip(44, layout.DPI)})
 	move(ctx.route, ShellRect{X: layout.Content.X + dip(140, layout.DPI), Y: layout.Body.Bottom() + gap, Width: dip(160, layout.DPI), Height: dip(44, layout.DPI)})
 	move(ctx.delivery, ShellRect{X: layout.Content.X + dip(308, layout.DPI), Y: layout.Body.Bottom() + gap, Width: dip(160, layout.DPI), Height: dip(44, layout.DPI)})
@@ -732,6 +754,7 @@ func (ctx *mainWindowCtx) render() {
 		return
 	}
 	snapshot := ctx.shell.Snapshot()
+	quality := presentWindowsCaptureQuality(snapshot)
 	section := ctx.shell.Section()
 	if ctx.laidOutSection != section {
 		ctx.laidOutSection = section
@@ -753,6 +776,9 @@ func (ctx *mainWindowCtx) render() {
 	if snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing {
 		banner += "\r\n" + copy.Text(txtRecordingHelp)
 	}
+	if quality.Active {
+		banner += "\r\n[REC] " + copy.CaptureLifecycle(quality.Lifecycle) + " · " + copy.CaptureQualityLabel(quality.Quality)
+	}
 	setText(ctx.banner, banner)
 	recordText := copy.Text(txtStartRecording)
 	if snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing {
@@ -760,6 +786,10 @@ func (ctx *mainWindowCtx) render() {
 	}
 	setText(ctx.record, recordText)
 	pEnableWindow.Call(uintptr(ctx.record), boolWord(shellRecordingEnabled(snapshot)))
+	showControl(ctx.record, !quality.Active)
+	setText(ctx.captureQualityStop, copy.Text(txtCaptureStopLocal)+" (Ctrl+.)")
+	showControl(ctx.captureQualityStop, quality.Active)
+	pEnableWindow.Call(uintptr(ctx.captureQualityStop), boolWord(quality.CanStop && ctx.shell.Actions().StopActiveCapture != nil))
 	setText(ctx.dnd, copy.Text(txtDND)+": "+copy.DND(snapshot.DND))
 	pEnableWindow.Call(uintptr(ctx.dnd), boolWord(shellDNDEnabled(snapshot)))
 
@@ -812,6 +842,21 @@ func (ctx *mainWindowCtx) render() {
 	}
 	showControl(ctx.english, section == ShellSettings)
 	showControl(ctx.russian, section == ShellSettings)
+	qualityPage := tryPage || section == ShellSettings
+	showControl(ctx.captureQualityMode, qualityPage)
+	showControl(ctx.captureQualityConsent, qualityPage)
+	setText(ctx.captureQualityMode, copy.Text(txtCaptureMode)+": "+copy.CaptureQualityMode(quality.Mode))
+	consentState := "off"
+	if quality.DegradedConsent {
+		consentState = "on (one attempt)"
+	}
+	if copy.locale == ShellRussian {
+		consentState = map[bool]string{false: "выкл.", true: "вкл. (одна попытка)"}[quality.DegradedConsent]
+	}
+	setText(ctx.captureQualityConsent, copy.Text(txtCaptureAllowDegraded)+": "+consentState)
+	qualityEditable := quality.BackendAvailable && !quality.Active && ctx.shell.Actions().SetCaptureQuality != nil
+	pEnableWindow.Call(uintptr(ctx.captureQualityMode), boolWord(qualityEditable))
+	pEnableWindow.Call(uintptr(ctx.captureQualityConsent), boolWord(qualityEditable))
 	historyPage := section == ShellHistory
 	soundboardPage := section == ShellSoundboard
 	for _, control := range []windows.Handle{ctx.draftNext, ctx.route, ctx.delivery, ctx.send, ctx.phaseDelete, ctx.outgoingFile, ctx.historyNext, ctx.historyDelete, ctx.historyReplay, ctx.historyBlock, ctx.reportReason, ctx.reportLabel, ctx.reportDetails, ctx.historyReport} {
@@ -1358,8 +1403,24 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 			if snapshot.AirConfirmAction != "" && actions.CancelAirDisruptive != nil {
 				actions.CancelAirDisruptive()
 			}
-			if (snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing || shellLocalCaptureBusy(snapshot)) && actions.CancelRecording != nil {
+			if presentWindowsCaptureQuality(snapshot).Active && actions.StopActiveCapture != nil {
+				actions.StopActiveCapture()
+			} else if (snapshot.Recording == ShellRecordingActive || snapshot.Recording == ShellRecordingProcessing || shellLocalCaptureBusy(snapshot)) && actions.CancelRecording != nil {
 				actions.CancelRecording()
+			}
+		case idCaptureQualityMode:
+			quality := presentWindowsCaptureQuality(snapshot)
+			if quality.BackendAvailable && !quality.Active && actions.SetCaptureQuality != nil {
+				actions.SetCaptureQuality(nextWindowsCaptureQualityMode(quality.Mode), quality.DegradedConsent)
+			}
+		case idCaptureQualityConsent:
+			quality := presentWindowsCaptureQuality(snapshot)
+			if quality.BackendAvailable && !quality.Active && actions.SetCaptureQuality != nil {
+				actions.SetCaptureQuality(quality.Mode, !quality.DegradedConsent)
+			}
+		case idCaptureQualityStop:
+			if presentWindowsCaptureQuality(snapshot).CanStop && actions.StopActiveCapture != nil {
+				actions.StopActiveCapture()
 			}
 		case idShellCue:
 			if actions.PlayBuiltinCue != nil {

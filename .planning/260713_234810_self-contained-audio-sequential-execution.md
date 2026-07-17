@@ -4,23 +4,23 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 149 accepted, 56 remain.
-- Routed inventory: 186 engineering tasks (149 accepted, 37 remain) and 19
+- Combined inventory: 205 original tasks; 150 accepted, 55 remain.
+- Routed inventory: 186 engineering tasks (150 accepted, 36 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-2egweh` — macos-live-capture-effects
-- Next engineering task: `TASK-260712-wcdz08` — windows-live-capture-effects
+- Current engineering task: `TASK-260712-wcdz08` — windows-live-capture-effects
+- Next engineering task: `TASK-260712-1getbv` — macos-capture-quality-ui
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
   E2EE implementation task are deferred outside the current engineering epic,
   so strict execution resumes at section 17 without claiming them complete.
-- Most recently accepted: `TASK-260712-39czd2` — capture-quality-regression-harness
-- Current branch: `tracking/task-260712-39czd2-complete`
+- Most recently accepted: `TASK-260712-2egweh` — macos-live-capture-effects
+- Current branch: `tracking/task-260712-2egweh-complete`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -41,8 +41,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 149 / 205 tasks (72.7%); 56 remain
-- Engineering progress: 149 / 186 tasks (approximately 80.1%); 37 remain
+- Accepted overall: 150 / 205 tasks (73.2%); 55 remain
+- Engineering progress: 150 / 186 tasks (approximately 80.6%); 36 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3478,7 +3478,26 @@ Story: `STORY-260712-3pt00e` — P3 Capture quality and diagnostics.
   correlation does not replace canonical STOI; signed app, physical hardware,
   acoustic, listening and physical resource evidence remains `not-run` in
   `EPIC-260714-th54l3`.)
-- [ ] `TASK-260712-2egweh` — macos-live-capture-effects
+- [x] `TASK-260712-2egweh` — macos-live-capture-effects (accepted on exact
+  engineering commit `1ccbb16a30ee1d6c5c1d60e479e911d8ea24b4af`, merged
+  by PR #242 at `a81e8fd3254ee342ba04594916e79298486e781b`. One shared
+  macOS backend selects recorded clip, local self-test, or live PTT, enables
+  public AVAudioInputNode voice processing, and applies the product-owned
+  bounded AGC with +12 dB gain, 3 dB/s slew, and the final -3 dBFS input
+  ceiling. Its realtime tap only downmixes into a fixed 16,384-sample mailbox
+  through nonblocking signalling; resampling, DSP and client callbacks run on
+  the serial worker. Headphone can become code-eligible for accepted only when
+  native processing is active; speaker stays degraded/reference_unavailable,
+  unknown and mismatched routes remain degraded, and live PTT fails closed as
+  capture_quality_unsupported without fresh degraded consent. The distinct
+  receiver -1 dBFS ceiling is unchanged, live/diagnostic audio is not
+  persisted, and production still does not advertise capture_quality_v1.
+  Clean exact-head acceptance passed both contract and Swift commands with 304
+  Swift tests, `manualEvidence=not-run`; hosted run `29567251374` passed 4/4.
+  Native deterministic AEC/NS C3, signed-app, physical speaker/headphone,
+  Bluetooth/external-route, resource and blinded-listening evidence remains
+  explicitly not-run in `EPIC-260714-th54l3`; the real-hardware checklist item
+  is closed here only as routed, not as a claimed pass.)
 - [ ] `TASK-260712-wcdz08` — windows-live-capture-effects
 - [ ] `TASK-260712-1getbv` — macos-capture-quality-ui
 - [ ] `TASK-260712-39zh8g` — windows-capture-quality-ui

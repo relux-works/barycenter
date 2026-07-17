@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-engineer
 
 ## Created
 2026-07-12T16:25:28Z
 
 ## Last Update
-2026-07-14T00:48:45Z
+2026-07-17T08:46:24Z
 
 ## Blocked By
 - TASK-260712-1gmsvh
@@ -27,6 +27,7 @@ backlog
 - [ ] Prove accepted speaker or headphone cases and degraded surfacing on signed Windows hardware
 
 ## Notes
+2026-07-17 strict sequential engineering start after TASK-260712-2egweh merged. Implement best-effort Windows shared capture DSP and deterministic coverage only; signed-app acoustic and physical hardware proof remains not-run in EPIC-260714-th54l3.
 
 ## Precondition Resources
 - [p3-capture-quality-components.puml](file://TASK-260712-wcdz08/p3-capture-quality-components.puml) — Task seam and dependency view for the Windows live capture implementation

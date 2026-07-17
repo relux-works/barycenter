@@ -1,0 +1,88 @@
+{
+  "artifacts": [
+    {
+      "bytes": 243,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "107e2dea4b15f3bd2b27efa394efa930383d7608edc2ac39b8049a688905e59e"
+    },
+    {
+      "bytes": 220739,
+      "path": "02-swift-tests.log",
+      "sha256": "9a9d2e2c318257beb1c247c41595529af29dbaa6885ac2491322d1876e00f24a"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/acceptance/test_targets_inbox_parity.py",
+        "scripts/acceptance/test_targets_inbox_rollout.py",
+        "scripts/acceptance/test_streamed_track_rollout.py",
+        "scripts/acceptance/test_phase2_gate_matrix.py",
+        "scripts/acceptance/test_stream_performance_review.py",
+        "scripts/acceptance/test_air_migration_review.py",
+        "scripts/acceptance/test_target_security_review.py",
+        "scripts/acceptance/test_phase2_observability.py",
+        "scripts/acceptance/test_p2_root_review.py",
+        "scripts/acceptance/test_phase2_engineering_handoff.py",
+        "scripts/acceptance/test_automation_safety_handoff.py",
+        "scripts/acceptance/test_e2ee_threat_model.py",
+        "scripts/acceptance/test_protected_media_container_spike.py",
+        "scripts/acceptance/test_group_crypto_library_spike.py",
+        "scripts/acceptance/test_e2ee_protocol_key_lifecycle.py",
+        "scripts/acceptance/test_capture_quality_contract.py",
+        "scripts/capture_quality/test_harness.py",
+        "scripts/live_ptt/test_transport_model.py",
+        "scripts/live_ptt/test_codec_transport.py",
+        "scripts/codec_spike/test_codec_spike.py",
+        "scripts/codec_spike/test_independent_supply_review.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "test"
+      ],
+      "cwd": "node-app",
+      "exitCode": 0,
+      "log": "02-swift-tests.log",
+      "name": "swift-tests"
+    }
+  ],
+  "finishedAt": "2026-07-17T08:40:21Z",
+  "git": {
+    "dirty": false,
+    "endDirty": false,
+    "endDirtyPaths": [],
+    "head": "1ccbb16a30ee1d6c5c1d60e479e911d8ea24b4af",
+    "startDirty": false
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-17T08:38:09Z",
+  "status": "pass",
+  "suite": "swift",
+  "toolchains": {
+    "apple": {
+      "developerDir": "/Applications/Xcode.app/Contents/Developer",
+      "swiftVersion": "6.2.3",
+      "xcodeBuild": "17C52",
+      "xcodeVersion": "26.2"
+    },
+    "go": null
+  }
+}

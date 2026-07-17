@@ -4,18 +4,18 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 137 accepted, 68 remain.
-- Routed inventory: 186 engineering tasks (137 accepted, 49 remain) and 19
+- Combined inventory: 205 original tasks; 138 accepted, 67 remain.
+- Routed inventory: 186 engineering tasks (138 accepted, 48 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-288j4a` — macos-soundboard-hotkeys-schedules
-- Next engineering task: `TASK-260712-uht9e2` — telegram-soundboard-automation-parity
-- Most recently accepted: `TASK-260712-1yw7fo` — windows-soundboard-hotkeys-schedules
-- Current branch: `tracking/task-260712-1yw7fo-windows-soundboard-hotkeys-schedules`
+- Current engineering task: `TASK-260712-uht9e2` — telegram-soundboard-automation-parity
+- Next engineering task: `TASK-260712-89fzlc` — windows-automation-admin-ui
+- Most recently accepted: `TASK-260712-288j4a` — macos-soundboard-hotkeys-schedules
+- Current branch: `tracking/task-260712-288j4a-macos-soundboard-hotkeys-schedules`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -36,8 +36,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 135 / 205 tasks (65.9%); 70 remain
-- Engineering progress: 135 / 186 tasks (approximately 72.6%); 51 remain
+- Accepted overall: 138 / 205 tasks (67.3%); 67 remain
+- Engineering progress: 138 / 186 tasks (approximately 74.2%); 48 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3289,7 +3289,18 @@ Story: `STORY-260712-326wd5` — P3 Soundboard and safe automation.
   focused race, clean acceptance 12/12 and hosted run `29547008907` 4/4
   passed; PR #215 merge `47615c4`. Manual signed MSIX, audible output,
   physical keyboard and real-hardware evidence remains deferred)
-- [ ] `TASK-260712-288j4a` — macos-soundboard-hotkeys-schedules
+- [x] `TASK-260712-288j4a` — macos-soundboard-hotkeys-schedules (accepted on
+  exact code head `ef77913`; the macOS window and status menu now provide
+  stable-ID cue CRUD/order, security-scoped brokered upload, route/delivery,
+  canonical manual trigger and interrupt fallback confirmation. Bounded
+  exclusive Carbon bindings report recording/OS conflicts, release across
+  sleep/session transitions, retain button fallback and persist no token,
+  media ID, path or capture state. Display-safe shared automation lineage and
+  downstream admin navigation are rendered without taking ownership of the
+  next admin task. Clean exact-head pinned Swift acceptance passed 286 tests
+  in 46 suites and hosted run `29548357370` passed 4/4; PR #217 merge
+  `00df382`. Signed app, audible playback, physical keyboard, prompt and real-
+  hardware evidence remains manual in `EPIC-260714-th54l3`)
 - [ ] `TASK-260712-uht9e2` — telegram-soundboard-automation-parity
 - [ ] `TASK-260712-89fzlc` — windows-automation-admin-ui
 - [ ] `TASK-260712-1oodka` — macos-automation-admin-ui

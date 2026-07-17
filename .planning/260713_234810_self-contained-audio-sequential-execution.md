@@ -4,16 +4,16 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 160 accepted, 45 remain.
-- Routed inventory: 186 engineering tasks (160 accepted, 26 remain) and 19
+- Combined inventory: 205 original tasks; 161 accepted, 44 remain.
+- Routed inventory: 186 engineering tasks (161 accepted, 25 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-6mz9xg` — phase3-independent-migration-recovery-review
-- Next engineering task: `TASK-260712-3b7bp4` — phase3-engineering-handoff-disclosures
+- Current engineering task: `TASK-260712-3b7bp4` — phase3-engineering-handoff-disclosures
+- Next engineering task: `TASK-260712-2b5685` — phase3-root-engineering-completion-audit
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
@@ -22,8 +22,8 @@
   `TASK-260712-1ulshp` is also retained in that deferred E2EE epic: it remains
   blocked by `TASK-260712-aniuyy` and `TASK-260712-1bcpda` and cannot be
   self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-7ng1vs` — phase3-independent-privacy-store-review
-- Current branch: `tracking/task-260712-7ng1vs-privacy-store-review`
+- Most recently accepted: `TASK-260712-6mz9xg` — phase3-independent-migration-recovery-review
+- Current branch: `tracking/task-260712-6mz9xg-migration-recovery-review`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -44,7 +44,9 @@
   and mailbox evidence, exact Partner Center evidence and implementation-
   independent privacy/Store approval `TASK-260717-35bll1`; that task consumes
   `TASK-260714-200ib8`, `TASK-260715-24ube9` and the later disclosure packet
-  `TASK-260712-3b7bp4`.
+  `TASK-260712-3b7bp4`. Phase 3 beta and promotion are additionally blocked on
+  manual rollout/rollback/recovery task `TASK-260712-30xwu2`, deferred E2EE and
+  implementation-independent migration/recovery approval `TASK-260717-1sgb5r`.
 - Current external-input gate: all seven legal/operations groups are approved
   by Ivan Oparin; exact head `3b12371` passed all four hosted jobs in run
   `29338589269`; tracking head `5af1b56` passed all four jobs in run
@@ -54,8 +56,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 160 / 205 tasks (78.0%); 45 remain
-- Engineering progress: 160 / 186 tasks (approximately 86.0%); 26 remain
+- Accepted overall: 161 / 205 tasks (78.5%); 44 remain
+- Engineering progress: 161 / 186 tasks (approximately 86.6%); 25 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3722,7 +3724,24 @@ capability is released merely because another capability passed its gate.
 - ↪ manual `TASK-260712-yj668d` — phase3-c4-c6-reviewed-e2ee-acceptance
 - ↪ manual `TASK-260712-1gyohk` — phase3-c7-automation-safety-acceptance
 - ↪ manual `TASK-260712-30xwu2` — phase3-rollout-rollback-recovery-drills
-- [ ] `TASK-260712-6mz9xg` — phase3-independent-migration-recovery-review
+- [x] `TASK-260712-6mz9xg` — phase3-independent-migration-recovery-review
+  (engineering pre-review accepted on exact packet commit `e68b59e`, merged by
+  PR #264 at `8f5c15ae6f8867762ef4eeef17756e645be790c4`. The machine packet pins
+  29 schema, rollback, recovery, feature-kill, client, backup and Phase 3 gate
+  sources to root-reviewed candidate
+  `d94f51644a3acf37601b4a869b4247380372f9ec`. The migration/recovery store
+  matrix passed race×10 in 419.239 seconds, command/feature-kill passed race×10
+  in 93.612 seconds, and the twelve-test exact-predecessor matrix passed ten
+  repetitions in 483.746 seconds. Windows passed four packages under race×10,
+  macOS passed 49 tests in five suites and 35 Phase 3/E2EE contract tests passed
+  with production E2EE disabled. Clean exact-packet coordinator acceptance
+  passed 7/7; hosted run `29589199967` passed 4/4. No new Critical/High
+  technical finding remains. Actual E2EE fork/transfer/key-loss, destructive
+  provider restore, signed mixed-fleet feature kills and manual drills are not
+  claimed; checklist item 3 remains open. External closure is
+  `TASK-260717-1sgb5r`, manual closure is `TASK-260712-30xwu2`, deferred E2EE
+  remains in `EPIC-260716-3qsztl`, and all Phase 3 flags, beta and promotion
+  remain blocked.)
 - ↪ manual `TASK-260712-1actom` — phase3-beta-soak-incident-review
 - [ ] `TASK-260712-3b7bp4` — phase3-engineering-handoff-disclosures
 - [ ] `TASK-260712-2b5685` — phase3-root-engineering-completion-audit

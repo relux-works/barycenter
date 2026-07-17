@@ -1,0 +1,177 @@
+{
+  "artifacts": [
+    {
+      "bytes": 284,
+      "path": "01-acceptance-contract-tests.log",
+      "sha256": "0d41b6731ba707995cfd71aa727807704867c8abb626f320683ded3bc3a5fa83"
+    },
+    {
+      "bytes": 124,
+      "path": "02-protected-media-container-probe-tests.log",
+      "sha256": "c50b3b925a1dadaac639355ead2d54a9aba2cb06f90ae2934bc1dee143f971d6"
+    },
+    {
+      "bytes": 124,
+      "path": "03-protected-media-container-probe-race.log",
+      "sha256": "c50b3b925a1dadaac639355ead2d54a9aba2cb06f90ae2934bc1dee143f971d6"
+    },
+    {
+      "bytes": 0,
+      "path": "04-coordinator-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 2008,
+      "path": "05-coordinator-tests.log",
+      "sha256": "361b26fd1f28b2de6bc4fc661a3f23dde1c1bae33d4b7ab2a0b9dab777637532"
+    },
+    {
+      "bytes": 68,
+      "path": "06-moderation-contract.log",
+      "sha256": "461fdcf0892fae2772307ccb9b42b9e908a64612d72feda14a0b64b25b257c1f"
+    },
+    {
+      "bytes": 57,
+      "path": "07-previous-head-rollback.log",
+      "sha256": "8678231c13d4fdbe95dc65b8eef6e324308496b82c43e14e6ffed20f3e02bd38"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_acceptance.py",
+        "scripts/acceptance/test_targets_inbox_parity.py",
+        "scripts/acceptance/test_targets_inbox_rollout.py",
+        "scripts/acceptance/test_streamed_track_rollout.py",
+        "scripts/acceptance/test_phase2_gate_matrix.py",
+        "scripts/acceptance/test_stream_performance_review.py",
+        "scripts/acceptance/test_air_migration_review.py",
+        "scripts/acceptance/test_target_security_review.py",
+        "scripts/acceptance/test_phase2_observability.py",
+        "scripts/acceptance/test_p2_root_review.py",
+        "scripts/acceptance/test_phase2_engineering_handoff.py",
+        "scripts/acceptance/test_automation_safety_handoff.py",
+        "scripts/acceptance/test_e2ee_threat_model.py",
+        "scripts/acceptance/test_protected_media_container_spike.py",
+        "scripts/acceptance/test_group_crypto_library_spike.py",
+        "scripts/acceptance/test_e2ee_protocol_key_lifecycle.py",
+        "scripts/acceptance/test_capture_quality_contract.py",
+        "scripts/acceptance/test_phase3_gate_matrix.py",
+        "scripts/acceptance/test_phase3_observability.py",
+        "scripts/acceptance/test_p3_root_review.py",
+        "scripts/acceptance/test_p3_realtime_pre_review.py",
+        "scripts/acceptance/test_p3_automation_pre_review.py",
+        "scripts/acceptance/test_p3_privacy_store_pre_review.py",
+        "scripts/acceptance/test_p3_migration_recovery_pre_review.py",
+        "scripts/capture_quality/test_harness.py",
+        "scripts/capture_quality/test_integrated.py",
+        "scripts/live_ptt/test_transport_model.py",
+        "scripts/live_ptt/test_codec_transport.py",
+        "scripts/codec_spike/test_codec_spike.py",
+        "scripts/codec_spike/test_independent_supply_review.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-acceptance-contract-tests.log",
+      "name": "acceptance-contract-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "scripts/e2ee_container/probe",
+      "exitCode": 0,
+      "log": "02-protected-media-container-probe-tests.log",
+      "name": "protected-media-container-probe-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "./..."
+      ],
+      "cwd": "scripts/e2ee_container/probe",
+      "exitCode": 0,
+      "log": "03-protected-media-container-probe-race.log",
+      "name": "protected-media-container-probe-race"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "04-coordinator-vet.log",
+      "name": "coordinator-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "05-coordinator-tests.log",
+      "name": "coordinator-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "run",
+        "./cmd/moderation-ops-check"
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "06-moderation-contract.log",
+      "name": "moderation-contract"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-tags",
+        "previoushead",
+        "-count=1",
+        "./internal/store",
+        "-run",
+        "^(TestR8ExactPreviousHEAD(AuthorityRoundTrip|TwoGenerationProjectionComposition|ConfigBootstrapContract)|TestMediaIngestExactPreviousHeadRollback|TestMediaUploadExactPreviousHeadRollback|TestMediaProcessingExactPreviousHeadRollback|TestMediaLifecycleExactPreviousHeadRollback|TestMediaIntegrationExactPreviousHeadRollback|TestTransmissionStoreExactPreviousHeadRollback|TestModerationExactPreviousHeadRollback|TestAutomationExactPreviousHeadRollback|TestAirExactPreviousCoordinatorLegacyServicePreservesPhase2Rows)$"
+      ],
+      "cwd": "coordinator",
+      "exitCode": 0,
+      "log": "07-previous-head-rollback.log",
+      "name": "previous-head-rollback"
+    }
+  ],
+  "finishedAt": "2026-07-17T14:43:32Z",
+  "git": {
+    "dirty": false,
+    "endDirty": false,
+    "endDirtyPaths": [],
+    "head": "e68b59e1adb7d1ba586e8808800dfd249dab80eb",
+    "startDirty": false
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "repository-automated-only",
+  "startedAt": "2026-07-17T14:41:08Z",
+  "status": "pass",
+  "suite": "coordinator",
+  "toolchains": {
+    "apple": null,
+    "go": "go version go1.25.12 darwin/amd64"
+  }
+}

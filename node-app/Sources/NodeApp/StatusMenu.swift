@@ -84,6 +84,13 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
             keyEquivalent: "")
         cancel.target = self
         actionMenu.addItem(cancel)
+        let stopCapture = NSMenuItem(
+            title: copy.text(.captureStopLocal),
+            action: #selector(stopActiveCapture),
+            keyEquivalent: ".")
+        stopCapture.keyEquivalentModifierMask = [.command]
+        stopCapture.target = self
+        actionMenu.addItem(stopCapture)
         let dnd = NSMenuItem(
             title: copy.text(.dnd), action: #selector(toggleDND), keyEquivalent: "d")
         dnd.keyEquivalentModifierMask = [.command, .shift]
@@ -181,6 +188,26 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
                 keyEquivalent: "")
             cancel.target = self
             menu.addItem(cancel)
+        }
+        if let snapshot = shellModel?.snapshot {
+            let quality = PulsarCaptureQualityPresentation(snapshot: snapshot)
+            menu.addItem(disabled(
+                "\(copy.text(.captureQuality)): \(copy.captureQualityLabel(quality.quality))"))
+            menu.addItem(disabled(copy.captureQualityReason(quality.reason)))
+            menu.addItem(disabled(String(
+                format: "%@ %.0f dBFS · %@ %.0f dBFS",
+                copy.text(.captureInputCeiling), quality.inputCeilingDBFS,
+                copy.text(.receiverOutputCeiling), quality.outputCeilingDBFS)))
+            if quality.isActive {
+                let stop = NSMenuItem(
+                    title: copy.text(.captureStopLocal),
+                    action: #selector(stopActiveCapture),
+                    keyEquivalent: ".")
+                stop.keyEquivalentModifierMask = [.command]
+                stop.target = self
+                stop.isEnabled = quality.canStop
+                menu.addItem(stop)
+            }
         }
 
         let dnd = NSMenuItem(
@@ -313,6 +340,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
                     || shellModel?.snapshot.recording == .recording)
         case #selector(cancelRecording):
             shellModel?.snapshot.recording == .recording
+        case #selector(stopActiveCapture):
+            shellModel.map {
+                PulsarCaptureQualityPresentation(snapshot: $0.snapshot).canStop
+            } ?? false
         case #selector(toggleDND):
             shellModel?.snapshot.connection.isPaired == true
         default:
@@ -396,6 +427,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
 
     @objc private func cancelRecording() {
         shellActions.cancelRecording()
+    }
+
+    @objc private func stopActiveCapture() {
+        shellActions.stopActiveCapture()
     }
 
     @objc private func toggleDND() {

@@ -42,9 +42,14 @@ public struct PulsarMainView: View {
         .toolbar {
             PulsarToolbar(model: model, actions: actions)
         }
+        .safeAreaInset(edge: .bottom) {
+            if PulsarCaptureQualityPresentation(snapshot: model.snapshot).isActive {
+                PulsarCaptureActiveBar(model: model, actions: actions)
+            }
+        }
         .onExitCommand {
-            if model.snapshot.recording == .recording {
-                actions.cancelRecording()
+            if PulsarCaptureQualityPresentation(snapshot: model.snapshot).isActive {
+                actions.stopActiveCapture()
             }
         }
         .frame(minWidth: 760, minHeight: 520)
@@ -1314,6 +1319,7 @@ private struct PulsarSelfTestView: View {
                             .font(.title2.bold())
                         Text(copy.text(.tryBody))
                             .foregroundStyle(.secondary)
+                        PulsarCaptureQualityControls(model: model, actions: actions)
                         Label(
                             copy.selfTestLabel(model.snapshot.selfTestState),
                             systemImage: selfTestSymbol(model.snapshot.selfTestState))
@@ -1475,6 +1481,9 @@ private struct PulsarSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+            }
+            Section(copy.text(.captureQuality)) {
+                PulsarCaptureQualityControls(model: model, actions: actions)
             }
             Section(copy.text(.integrations)) {
                 Label(copy.text(.spotifyOptional), systemImage: "music.note")

@@ -12,12 +12,15 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
+- Current engineering task: `TASK-260712-1gmsvh` — freeze-capture-quality-contract
+- Next engineering task: `TASK-260712-265o0f` — probe-windows-voice-processing-path
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
-  self-approve an independent cryptographic review.
-- Next engineering task after that gate: `TASK-260712-3w1cst` — encrypted-media-schema-epoch-foundation
+  self-approve an independent cryptographic review. That gate and every later
+  E2EE implementation task are deferred outside the current engineering epic,
+  so strict execution resumes at section 17 without claiming them complete.
 - Most recently accepted: `TASK-260712-2ys1ww` — e2ee-protocol-key-lifecycle-contract
-- Current branch: `tracking/task-260712-2ys1ww-complete`
+- Current branch: `tracking/task-260712-1gmsvh-start`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -3402,6 +3405,13 @@ executed before capture quality because it is on the epic critical path.
   remain empty, `e2ee_media_v1` is not advertised, runtime wiring and
   cryptography are absent, and independent gate `TASK-260712-aniuyy` remains
   mandatory.)
+
+The remaining unchecked E2EE items below are now owned by deferred epic
+`EPIC-260716-3qsztl` and keep their internal order there. They are not counted
+as accepted and cannot begin before the independent gate, but they no longer
+block strict best-effort execution of the current engineering epic, which
+continues at section 17.
+
 - [ ] `TASK-260712-aniuyy` — e2ee-independent-design-review
 - [ ] `TASK-260712-3w1cst` — encrypted-media-schema-epoch-foundation
 - [ ] `TASK-260712-20j5tm` — coordinator-ciphertext-routing-rotation

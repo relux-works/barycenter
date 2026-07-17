@@ -1,5 +1,5 @@
 ## Status
-development
+done
 
 ## Assigned To
 (none)
@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-17T03:50:46Z
+2026-07-17T04:19:51Z
 
 ## Blocked By
 - STORY-260712-1qfbiw
@@ -36,6 +36,7 @@ agent completed: [analyst] solution-architect (codex) (exit=0)
 agent spawned: codex (pid=88663, exit=0)
 Root line-by-line decomposition review found and closed three omissions: saved cues now have explicit retention quota ACL and delete semantics; platform soundboard and automation-administration scopes are separate; secure Telegram cue and emergency-control parity is tracked. Runtime wording now correctly leaves the local output ceiling on each recipient rather than pretending the coordinator enforces it. Implementation remains unstarted.
 2026-07-17 strict sequential checkpoint: macOS automation admin TASK-260712-1oodka accepted on exact code head a83450f4eae625b8f7ae3c54dcb0eac0bb533775 and PR #223 merge fa6bc8e3f3908c9bd0abed5efab00613b7ba9476 after hosted run 29553117460 passed 4/4. Strict execution advances to final story task TASK-260712-2f0gpu; manual signed-app and hardware evidence remains unexecuted in EPIC-260714-th54l3.
+2026-07-17 engineering story complete: all 12 strict tasks are done; deterministic automation safety handoff f7f52a5 passed clean 12/12 and hosted 4/4, merged via PR #225 at 793f8ae. This closes best-effort code/unit/integration evidence only. Manual C7 signed-app, hardware, audible, accessibility, physical-clock, recovery and soak acceptance remains not-run in EPIC-260714-th54l3 and is not implied by story completion.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-326wd5/spec-entry.md) — Authoritative specification entry point

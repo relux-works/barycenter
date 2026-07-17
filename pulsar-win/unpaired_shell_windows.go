@@ -43,7 +43,11 @@ func runUnpairedShell(dir, coordinatorBase string) (paired, supported bool) {
 		snapshot := ShellSnapshot{
 			Connection: ShellUnpaired, Recording: recording, RecordingAvailable: recordingAvailable,
 			RecordingShortcut: currentWindowsRecordingShortcutStatus(), RecordingShortcutKey: currentWindowsRecordingShortcut(),
-			SelfTestAvailable: local.Available, SelfTestPhase: local.SelfTestPhase, SelfTestMeter: local.Meter,
+			CaptureQualityMode:             local.CaptureQualityMode,
+			CaptureQualityDegradedConsent:  local.CaptureQualityDegradedConsent,
+			CaptureQualityBackendAvailable: local.CaptureQualityBackendAvailable,
+			CaptureQualityState:            local.CaptureQualityState,
+			SelfTestAvailable:              local.Available, SelfTestPhase: local.SelfTestPhase, SelfTestMeter: local.Meter,
 			LocalDraftAvailable: local.DraftAvailable, LocalDraftName: local.DraftName, LocalFailure: local.Failure,
 			RecordingDraftAvailable: local.RecordingDraftAvailable,
 			CaptureInputs:           local.Inputs, SelectedCaptureInput: local.SelectedInput,
@@ -77,6 +81,7 @@ func runUnpairedShell(dir, coordinatorBase string) (paired, supported bool) {
 		ChooseLocalFile: func() { workflow.ChooseFile(currentMainWindowOwner()) }, DeleteLocalDraft: workflow.DeleteLocalDraft,
 		AcceptDroppedFile: workflow.AcceptBrokeredFile,
 		SelectNextInput:   workflow.SelectNextInput, ToggleRecording: workflow.Toggle, CancelRecording: workflow.Cancel,
+		SetCaptureQuality: workflow.SetCaptureQuality, StopActiveCapture: workflow.Cancel,
 		SelectNextOutput: func() { go outputControl.SelectNext() },
 	})
 	shortcutStore := WindowsRecordingShortcutStore{Path: filepath.Join(dir, "recording-shortcut.v1.json")}

@@ -6,7 +6,59 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	protocol "relux.works/duet/pulsar-win/wire"
 )
+
+func TestWindowsCaptureWorkflowOwnsQualityConfigurationAndOneShotConsent(t *testing.T) {
+	store := NewCaptureMediaStore(t.TempDir())
+	selfTest := newWindowsSelfTestServiceForTest(t, failingWindowsSelfTestCapture{err: ErrWindowsCapturePermission}, &fakeWindowsLocalOutput{}, store, time.Hour)
+	workflow := NewWindowsCaptureWorkflowController(NewWindowsRecordingController(nil), selfTest, nil)
+	var observed []*protocol.CaptureQualityState
+	workflow.ConfigureCaptureQuality(WindowsCaptureQualityRequest{
+		Mode: WindowsCaptureQualitySpeaker, ProcessingRequested: true, DegradedConsent: true,
+	}, func(state *protocol.CaptureQualityState) {
+		observed = append(observed, protocol.CloneCaptureQualityState(state))
+	})
+
+	state := acceptedCaptureQualityState()
+	workflow.handleCaptureQualityState(state)
+	state.Reason = "device_lost"
+	snapshot := workflow.LocalSnapshot()
+	if snapshot.CaptureQualityState == nil || snapshot.CaptureQualityState.Reason != "none" ||
+		snapshot.CaptureQualityMode != WindowsCaptureQualitySpeaker || !snapshot.CaptureQualityDegradedConsent {
+		t.Fatalf("quality snapshot was not defensively owned: %+v", snapshot)
+	}
+	workflow.handleCaptureQualityState(nil)
+	snapshot = workflow.LocalSnapshot()
+	if snapshot.CaptureQualityState != nil || snapshot.CaptureQualityDegradedConsent {
+		t.Fatalf("completed generation retained state or one-shot consent: %+v", snapshot)
+	}
+	if len(observed) != 2 || observed[0] == nil || observed[1] != nil {
+		t.Fatalf("observer sequence=%+v", observed)
+	}
+}
+
+func TestWindowsCaptureWorkflowRetainsExactFailedGenerationUntilNextAttempt(t *testing.T) {
+	store := NewCaptureMediaStore(t.TempDir())
+	selfTest := newWindowsSelfTestServiceForTest(t, failingWindowsSelfTestCapture{err: ErrWindowsCapturePermission}, &fakeWindowsLocalOutput{}, store, time.Hour)
+	workflow := NewWindowsCaptureWorkflowController(NewWindowsRecordingController(nil), selfTest, nil)
+	failed := acceptedCaptureQualityState()
+	failed.Quality = protocol.CaptureQualityDegraded
+	failed.Lifecycle = protocol.CaptureLifecycleFailed
+	failed.AEC = protocol.CaptureEffectFaulted
+	failed.InputHealth = protocol.CaptureHealthProcessorOverrun
+	failed.Reason = "processor_overrun"
+	workflow.handleCaptureQualityState(failed)
+	workflow.handleCaptureQualityState(nil)
+	if got := workflow.LocalSnapshot().CaptureQualityState; got == nil || got.Lifecycle != protocol.CaptureLifecycleFailed || got.Reason != "processor_overrun" {
+		t.Fatalf("failed generation was hidden: %+v", got)
+	}
+	workflow.SetCaptureQuality(WindowsCaptureQualityHeadphone, false)
+	if got := workflow.LocalSnapshot(); got.CaptureQualityState != nil || got.CaptureQualityMode != WindowsCaptureQualityHeadphone {
+		t.Fatalf("next local attempt did not clear old failure: %+v", got)
+	}
+}
 
 func TestWindowsCaptureWorkflowSerializesRecordingAndSelfTest(t *testing.T) {
 	root := t.TempDir()

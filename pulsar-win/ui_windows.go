@@ -7,6 +7,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -148,6 +149,7 @@ const (
 	menuShortcutDefault     = 2017
 	menuShortcutAlternative = 2018
 	menuSoundboardTrigger   = 2019
+	menuCaptureStop         = 2020
 
 	pbtApmSuspend         = 0x0004
 	pbtApmResumeAutomatic = 0x0012
@@ -730,6 +732,14 @@ func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintp
 					actions.CancelRecording()
 				}
 			}
+		case menuCaptureStop:
+			if curTray != nil && curTray.Shell != nil {
+				snapshot := curTray.Shell.Snapshot()
+				actions := curTray.Shell.Actions()
+				if presentWindowsCaptureQuality(snapshot).CanStop && actions.StopActiveCapture != nil {
+					actions.StopActiveCapture()
+				}
+			}
 		case menuShortcutDefault, menuShortcutAlternative:
 			if curTray != nil && curRecordingShortcut != nil {
 				shortcut := DefaultWindowsRecordingShortcut()
@@ -841,6 +851,17 @@ func showTrayMenu(hwnd windows.Handle) {
 		}
 		add(recordFlags, menuRecord, recordText)
 		add(mfString|mfGrayed, 0, copy.RecordingShortcut(snapshot.RecordingShortcut, snapshot.RecordingShortcutKey))
+		quality := presentWindowsCaptureQuality(snapshot)
+		add(mfString|mfGrayed, 0, copy.CaptureQualityLabel(quality.Quality)+" · "+copy.CaptureLifecycle(quality.Lifecycle))
+		add(mfString|mfGrayed, 0, copy.CaptureQualityMode(quality.Mode)+" → "+copy.CaptureResolvedMode(quality.ResolvedMode))
+		add(mfString|mfGrayed, 0, fmt.Sprintf("%s %.0f dBFS · %s %.0f dBFS", copy.Text(txtCaptureInputCeiling), quality.InputCeilingDBFS, copy.Text(txtCaptureOutputCeiling), quality.ReceiverOutputCeilingDBFS))
+		if quality.Active {
+			flags := uint32(mfString)
+			if !quality.CanStop || curTray.Shell.Actions().StopActiveCapture == nil {
+				flags |= mfGrayed
+			}
+			add(flags, menuCaptureStop, copy.Text(txtCaptureStopLocal)+" (Ctrl+.)")
+		}
 		selectedShortcut := snapshot.RecordingShortcutKey
 		defaultShortcut := DefaultWindowsRecordingShortcut()
 		alternativeShortcut := WindowsRecordingShortcut{VirtualKey: WindowsShortcutVKR, Modifiers: WindowsShortcutModControl | WindowsShortcutModAlt}

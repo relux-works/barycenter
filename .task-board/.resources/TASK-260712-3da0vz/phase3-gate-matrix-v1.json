@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-gate-matrix-evidence.v1",
+  "task": "TASK-260712-3da0vz",
+  "frozenAt": "2026-07-17",
+  "owner": "Ivan Oparin",
+  "scope": "engineering-contract-only",
+  "executionStatus": "frozen-not-executed",
+  "manualEpic": "EPIC-260714-th54l3",
+  "sourceAnchors": [
+    {"path": "docs/spec-self-contained-audio.md", "sha256": "f092e753485605267d9b14f6504bdd24a356d45ab5ad0b3ddf3eaba7bdb49025"},
+    {"path": "docs/analysis/p3-root-review-amendments.md", "sha256": "837c2c5a50ade03f124c5653a415118a9d5e86c357068e9309f27e36264addb3"},
+    {"path": "docs/analysis/p3-live-ptt-wire-contract.md", "sha256": "06879199bf423f21f2167ff26de35ccc211948d3999ad383e441b73bd4abb0f2"},
+    {"path": "acceptance/phase3/capture-quality-harness-lock-v1.json", "sha256": "1545311227c29b972cc08d8f5db6ea4c934396c655f8f52492c7a26d32424338"},
+    {"path": "acceptance/phase3/capture-quality-integrated-regressions-v1.json", "sha256": "a8e9bed5bf060ccbfb5622c935f340086801d25579f1ec44904c801da13b2e93"},
+    {"path": "acceptance/phase3/e2ee-threat-model-v1.json", "sha256": "a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
+    {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "54255ef7307d679db97f1c6a219ebb3eff7556d2fe1e34115b4639ac7917a205"},
+    {"path": "acceptance/phase3/automation-safety-evidence-v1.json", "sha256": "f5c70f080fc0b09fc17e7fc632ee82459a3287285036e2974c1178bcf93ef906"},
+    {"path": "docs/compliance/legal-ops-inputs.json", "sha256": "adf48d5cba2c8b65f0d3a11a089f4b61b0f300c3286ab2b4a267d51186b4f9d7"}
+  ],
+  "claimClasses": {
+    "repositoryEngineering": "May prove deterministic protocol, state, boundedness, lifecycle and synthetic fixture invariants only.",
+    "manualFinal": "Requires exact signed builds, named physical hardware, real routes and provenance-tracked human or acoustic execution.",
+    "independentReview": "Requires a reviewer other than implementers, an exact root hash, findings, fixes and retests.",
+    "betaFinal": "Requires seven consecutive immutable 24-hour records from approved real multi-home participants.",
+    "forbidden": [
+      "repository or synthetic result represented as real-app, audible, acoustic or hardware evidence",
+      "implementation-agent review represented as independent sign-off",
+      "one platform, route, flag or capability result averaged into another",
+      "missing person, credential, hardware, network or daily record represented as pass"
+    ]
+  },
+  "provenance": {
+    "required": [
+      "root git commit and first-parent review range",
+      "coordinator artifact sha256",
+      "Windows MSIX sha256, package identity and signing receipt",
+      "macOS app sha256, signing identity and notarization receipt",
+      "configuration and four-feature-flag snapshot sha256",
+      "database schema and sanitized data-shape sha256",
+      "fixture, measurement script and dependency lock sha256 values",
+      "OS build, architecture, machine role, audio route and device class",
+      "network profile, clock-sync source and pre/post offsets",
+      "operator, reviewer and participant-consent record ids"
+    ],
+    "sameBuildRule": "C1-C7, independent reviews, drills and beta bind one root commit and artifact set; an affected tested-path delta requires root delta review and reruns every affected gate.",
+    "failureRule": "failed, cancelled and timed-out samples remain in their cell and denominator; no averaging or exclusion by outcome is allowed"
+  },
+  "fixturePack": {
+    "captureLock": "acceptance/phase3/capture-quality-harness-lock-v1.json",
+    "captureLockSHA256": "1545311227c29b972cc08d8f5db6ea4c934396c655f8f52492c7a26d32424338",
+    "liveModel": "scripts/live_ptt/transport_model.py",
+    "livePreflight": "python3 -m unittest scripts/live_ptt/test_transport_model.py scripts/live_ptt/test_codec_transport.py",
+    "e2eeThreatModel": "acceptance/phase3/e2ee-threat-model-v1.json",
+    "e2eeLifecycle": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json",
+    "automationEngineeringEvidence": "acceptance/phase3/automation-safety-evidence-v1.json",
+    "campaignLockRule": "freeze hashes before the first sample; any fixture, script, dependency, topology or threshold change starts a new campaign"
+  },
+  "environmentRoster": {
+    "directedPlatformPairings": ["windows_windows", "windows_macos", "macos_windows", "macos_macos"],
+    "windows": [
+      {"id": "windows10_x64", "minimumBuild": "19044", "package": "signed MSIX", "physical": true},
+      {"id": "windows11_x64", "minimumBuild": "record supported build", "package": "signed MSIX", "physical": true},
+      {"id": "windows11_arm64", "minimumBuild": "record supported build", "package": "signed MSIX", "physical": true, "requiredWhenShipped": true}
+    ],
+    "macos": [
+      {"id": "macos14_arm64", "minimumVersion": "14.0", "package": "signed notarized app", "physical": true}
+    ],
+    "captureRoutes": ["speaker", "headphone", "unknown"],
+    "captureWorkflows": ["recorded_clip", "local_self_test", "live_ptt"],
+    "networkProfiles": ["home_a", "home_b", "controlled_2_percent_loss"],
+    "realHomeMinimum": {"homes": 2, "participants": 3, "distinctInternetConnections": 2},
+    "mixedFleet": "at least one legacy node and one exact Phase 3 node; capability and flag claims stay per node",
+    "telegram": "one real private chat using opaque callbacks; exported evidence contains no raw chat or user id",
+    "status": "missing-real-roster"
+  },
+  "featureFlagOrder": ["live_ptt", "e2ee_media", "soundboard_cues", "automation"],
+  "featureFlagMatrix": [
+    {"id": "0000", "live_ptt": false, "e2ee_media": false, "soundboard_cues": false, "automation": false, "classification": "valid-dark"},
+    {"id": "0001", "live_ptt": false, "e2ee_media": false, "soundboard_cues": false, "automation": true, "classification": "invalid-automation-requires-soundboard"},
+    {"id": "0010", "live_ptt": false, "e2ee_media": false, "soundboard_cues": true, "automation": false, "classification": "valid-manual-soundboard"},
+    {"id": "0011", "live_ptt": false, "e2ee_media": false, "soundboard_cues": true, "automation": true, "classification": "valid"},
+    {"id": "0100", "live_ptt": false, "e2ee_media": true, "soundboard_cues": false, "automation": false, "classification": "valid-e2ee-stored-media"},
+    {"id": "0101", "live_ptt": false, "e2ee_media": true, "soundboard_cues": false, "automation": true, "classification": "invalid-automation-requires-soundboard"},
+    {"id": "0110", "live_ptt": false, "e2ee_media": true, "soundboard_cues": true, "automation": false, "classification": "valid-manual-soundboard"},
+    {"id": "0111", "live_ptt": false, "e2ee_media": true, "soundboard_cues": true, "automation": true, "classification": "valid"},
+    {"id": "1000", "live_ptt": true, "e2ee_media": false, "soundboard_cues": false, "automation": false, "classification": "valid-live-only"},
+    {"id": "1001", "live_ptt": true, "e2ee_media": false, "soundboard_cues": false, "automation": true, "classification": "invalid-automation-requires-soundboard"},
+    {"id": "1010", "live_ptt": true, "e2ee_media": false, "soundboard_cues": true, "automation": false, "classification": "valid-manual-soundboard"},
+    {"id": "1011", "live_ptt": true, "e2ee_media": false, "soundboard_cues": true, "automation": true, "classification": "valid"},
+    {"id": "1100", "live_ptt": true, "e2ee_media": true, "soundboard_cues": false, "automation": false, "classification": "valid"},
+    {"id": "1101", "live_ptt": true, "e2ee_media": true, "soundboard_cues": false, "automation": true, "classification": "invalid-automation-requires-soundboard"},
+    {"id": "1110", "live_ptt": true, "e2ee_media": true, "soundboard_cues": true, "automation": false, "classification": "valid-manual-soundboard"},
+    {"id": "1111", "live_ptt": true, "e2ee_media": true, "soundboard_cues": true, "automation": true, "classification": "valid"}
+  ],
+  "promotionCapabilities": {
+    "live_ptt": {"requires": ["C1", "C2", "NF-jitter", "NF-reconnect", "NF-root-review", "NF-realtime-review", "NF-rollout-recovery", "NF-beta"], "status": "not-ready"},
+    "e2ee_media": {"requires": ["C4", "C5", "C6", "NF-secure-storage", "NF-external-security-review", "NF-root-review", "NF-privacy-store-review", "NF-rollout-recovery", "NF-beta"], "status": "blocked-by-deferred-e2ee-and-review"},
+    "soundboard_cues": {"requires": ["NF-root-review", "NF-automation-review", "NF-privacy-store-review", "NF-rollout-recovery", "NF-beta"], "status": "not-ready"},
+    "automation": {"requires": ["C7", "NF-root-review", "NF-automation-review", "NF-privacy-store-review", "NF-rollout-recovery", "NF-beta"], "status": "not-ready"}
+  },
+  "artifactLayout": {
+    "campaignIdPattern": "p3-YYYYMMDDTHHMMSSZ-<12hex-root-head>",
+    "privateWorkingRoot": ".temp/acceptance/phase3/<campaign-id>",
+    "relativePattern": "<gate-id>/<flag-id>/<pairing-or-role>/<run-id>/<artifact-kind>.<ext>",
+    "requiredPerRun": ["result.json", "artifact-manifest.json", "commands.json", "environment.json", "metrics.csv", "sanitization-report.json"],
+    "manifestRule": "every artifact records campaign-relative path, byte length and sha256; signed manifests are append-only",
+    "exportRule": "promotion packets index sanitized content-addressed manifests; raw audio, traffic payloads, key material and participant data are never committed",
+    "retention": {"privateRawDays": 30, "sanitizedManifestDays": 365, "securityFindingRetention": "through closure plus 365 days", "deletionOwner": "Ivan Oparin"}
+  },
+  "gates": {
+    "C1": {"source": "21.3 C1", "manualTask": "TASK-260712-flaiie", "preflightCommand": "python3 scripts/acceptance/run_automated.py --suite all --require-clean --run-id <campaign>-c1-preflight", "labPath": "manual/TASK-260712-flaiie/C1-hold-release", "finalArtifact": "C1/<flag-id>/<pairing>/<run-id>/result.json", "threshold": {"cyclesPerForegroundApp": 100, "stuckCaptureAllowed": 0, "lostReleaseAllowed": 0, "captureAfterLockAllowed": 0}, "status": "manual-required"},
+    "C2": {"source": "21.3 C2", "manualTask": "TASK-260712-flaiie", "preflightCommand": "python3 -m unittest scripts/live_ptt/test_transport_model.py scripts/live_ptt/test_codec_transport.py", "labPath": "manual/TASK-260712-flaiie/C2-two-home-latency", "finalArtifact": "C2/<flag-id>/<directed-pairing>/<run-id>/result.json", "threshold": {"mouthToEarP50MSMax": 800, "mouthToEarP95MSMax": 1500, "packetLossPercent": 2, "unintelligibleSamplesAllowed": 0, "mainProgramRecoveryFailuresAllowed": 0}, "status": "manual-required"},
+    "C3": {"source": "21.3 C3", "manualPreconditionTask": "TASK-260712-2e80pr", "manualTask": "TASK-260712-flaiie", "preflightCommand": "python3 scripts/capture_quality/validate_integrated.py", "labPath": "manual/TASK-260712-flaiie/C3-speaker-headphone-acoustic", "finalArtifact": "C3/<flag-id>/<platform>/<route>/<workflow>/<run-id>/result.json", "thresholdSource": "acceptance/phase3/capture-quality-harness-v1.json", "status": "manual-required"},
+    "C4": {"source": "21.3 C4", "manualTask": "TASK-260712-yj668d", "preflightCommand": "python3 scripts/acceptance/validate_e2ee_protocol_key_lifecycle.py", "labPath": "manual/TASK-260712-yj668d/C4-membership-history", "finalArtifact": "C4/<flag-id>/<pairing>/<run-id>/result.json", "threshold": {"removedMemberNewDecryptionsAllowed": 0, "ungrantedHistoryDecryptionsAllowed": 0}, "status": "blocked-by-deferred-e2ee-and-independent-review"},
+    "C5": {"source": "21.3 C5", "manualTask": "TASK-260712-yj668d", "preflightCommand": "python3 scripts/acceptance/validate_e2ee_threat_model.py", "labPath": "manual/TASK-260712-yj668d/C5-coordinator-storage-traffic", "finalArtifact": "C5/<flag-id>/<topology>/<run-id>/result.json", "threshold": {"coordinatorContentRecoveriesAllowed": 0, "undocumentedMetadataFieldsAllowed": 0}, "status": "blocked-by-deferred-e2ee-and-independent-review"},
+    "C6": {"source": "21.3 C6", "manualTask": "TASK-260712-yj668d", "preflightCommand": "python3 scripts/acceptance/validate_e2ee_threat_model.py", "labPath": "manual/TASK-260712-yj668d/C6-voluntary-report", "finalArtifact": "C6/<flag-id>/<platform>/<run-id>/result.json", "threshold": {"hiddenServerDecryptionsAllowed": 0, "reportsWithoutRecipientConsentAllowed": 0}, "status": "blocked-by-deferred-e2ee-and-independent-review"},
+    "C7": {"source": "21.3 C7", "manualTask": "TASK-260712-1gyohk", "preflightCommand": "python3 scripts/acceptance/validate_automation_safety_handoff.py", "labPath": "manual/TASK-260712-1gyohk/C7-timezone-dst-dnd-revoke", "finalArtifact": "C7/<flag-id>/<surface>/<run-id>/result.json", "threshold": {"duplicateEventsAllowed": 0, "catchUpEventsAllowed": 0, "dndBypassesAllowed": 0, "captureActivationsAllowed": 0}, "status": "manual-required"},
+    "NF-jitter": {"source": "21.4 live jitter buffer bounded", "engineeringTask": "TASK-260712-2uo81g", "preflightCommand": "python3 -m unittest scripts/live_ptt/test_transport_model.py scripts/live_ptt/test_codec_transport.py", "labPath": "manual/TASK-260712-flaiie/NF-jitter-bounded", "finalArtifact": "NF-jitter/<flag-id>/<pairing>/<run-id>/result.json", "status": "engineering-pending-and-manual-required"},
+    "NF-reconnect": {"source": "21.4 reconnect does not continue old capture", "engineeringTask": "TASK-260712-2uo81g", "preflightCommand": "python3 scripts/acceptance/run_automated.py --suite all --require-clean --run-id <campaign>-reconnect-preflight", "labPath": "manual/TASK-260712-flaiie/NF-reconnect-generation", "finalArtifact": "NF-reconnect/<flag-id>/<pairing>/<run-id>/result.json", "status": "engineering-pending-and-manual-required"},
+    "NF-secure-storage": {"source": "21.4 key material only in OS secure storage and never logs", "manualTask": "TASK-260712-yj668d", "preflightCommand": "python3 scripts/acceptance/validate_e2ee_protocol_key_lifecycle.py", "labPath": "manual/TASK-260712-yj668d/NF-secure-storage-log-redaction", "finalArtifact": "NF-secure-storage/<platform>/<run-id>/result.json", "status": "blocked-by-deferred-e2ee"},
+    "NF-external-security-review": {"source": "21.4 external security review", "reviewTask": "TASK-260712-1ulshp", "preflightCommand": "python3 scripts/acceptance/validate_e2ee_threat_model.py", "labPath": "review/TASK-260712-1ulshp/findings-and-retests", "finalArtifact": "NF-external-security-review/<root-head>/report.json", "status": "missing-independent-reviewer-and-deferred-e2ee"},
+    "NF-root-review": {"source": "21.4 root-agent line review", "engineeringTask": "TASK-260712-3g0axs", "preflightCommand": "python3 scripts/acceptance/run_automated.py --suite all --require-clean --run-id <campaign>-root-review", "labPath": "review/TASK-260712-3g0axs/line-map", "finalArtifact": "NF-root-review/<root-head>/report.json", "status": "engineering-pending"},
+    "NF-realtime-review": {"source": "21.4 independent realtime review", "reviewTask": "TASK-260712-3j4a06", "preflightCommand": "python3 scripts/capture_quality/validate_integrated.py", "labPath": "review/TASK-260712-3j4a06/findings-and-retests", "finalArtifact": "NF-realtime-review/<root-head>/report.json", "status": "missing-independent-reviewer"},
+    "NF-automation-review": {"source": "21.4 independent automation review", "reviewTask": "TASK-260712-1x5jfo", "preflightCommand": "python3 scripts/acceptance/validate_automation_safety_handoff.py", "labPath": "review/TASK-260712-1x5jfo/findings-and-retests", "finalArtifact": "NF-automation-review/<root-head>/report.json", "status": "missing-independent-reviewer"},
+    "NF-privacy-store-review": {"source": "21.4 independent privacy and Store review", "reviewTask": "TASK-260712-7ng1vs", "preflightCommand": "python3 scripts/acceptance/run_automated.py --suite coordinator --require-clean --run-id <campaign>-privacy-store-preflight", "labPath": "review/TASK-260712-7ng1vs/findings-and-retests", "finalArtifact": "NF-privacy-store-review/<root-head>/report.json", "status": "missing-independent-reviewer-and-publication-evidence"},
+    "NF-migration-recovery-review": {"source": "21.4 independent migration and recovery review", "reviewTask": "TASK-260712-6mz9xg", "preflightCommand": "python3 scripts/acceptance/run_automated.py --suite coordinator --require-clean --run-id <campaign>-migration-preflight", "labPath": "review/TASK-260712-6mz9xg/findings-and-retests", "finalArtifact": "NF-migration-recovery-review/<root-head>/report.json", "status": "missing-independent-reviewer"},
+    "NF-disclosures": {"source": "21.4 privacy policy and Store disclosure before rollout", "engineeringTask": "TASK-260712-3b7bp4", "preflightCommand": "python3 scripts/acceptance/run_automated.py --suite coordinator --require-clean --run-id <campaign>-disclosure-preflight", "labPath": "external/TASK-260712-7ng1vs/public-policy-and-store-record", "finalArtifact": "NF-disclosures/<locale>/<run-id>/result.json", "status": "external-publication-and-store-action-required"},
+    "NF-rollout-recovery": {"source": "21.5 independent enable hold disable and rollback", "manualTask": "TASK-260712-30xwu2", "preflightCommand": "python3 scripts/acceptance/run_automated.py --suite all --require-clean --run-id <campaign>-rollout-preflight", "labPath": "manual/TASK-260712-30xwu2/rollout-rollback-recovery", "finalArtifact": "NF-rollout-recovery/<flag-id>/<run-id>/result.json", "status": "manual-required"},
+    "NF-beta": {"source": "21.4 seven-day real beta", "manualTask": "TASK-260712-1actom", "preflightCommand": "python3 scripts/validate_phase3_campaign.py --contract acceptance/phase3/gate-matrix-v1.json --campaign <campaign-dir> --require-beta", "labPath": "manual/TASK-260712-1actom/day-01-through-day-07", "finalArtifact": "NF-beta/day-01..day-07/result.json", "status": "manual-required-after-all-reviews-and-drills"}
+  },
+  "reviewRoster": [
+    {"role": "root-line-review", "task": "TASK-260712-3g0axs", "owner": "Ivan Oparin", "independent": false, "status": "pending"},
+    {"role": "external-crypto-implementation", "task": "TASK-260712-1ulshp", "owner": null, "independent": true, "status": "missing-input"},
+    {"role": "independent-realtime", "task": "TASK-260712-3j4a06", "owner": null, "independent": true, "status": "missing-input"},
+    {"role": "independent-automation", "task": "TASK-260712-1x5jfo", "owner": null, "independent": true, "status": "missing-input"},
+    {"role": "independent-privacy-store", "task": "TASK-260712-7ng1vs", "owner": null, "independent": true, "status": "missing-input"},
+    {"role": "independent-migration-recovery", "task": "TASK-260712-6mz9xg", "owner": null, "independent": true, "status": "missing-input"}
+  ],
+  "approvedInputs": {
+    "operator": "Relux Works",
+    "accountableOwner": "Ivan Oparin",
+    "supportMailbox": "support@barycenter.live",
+    "moderationMailbox": "moderator@barycenter.live",
+    "urgentModerationMailbox": "moderation-urgent@barycenter.live",
+    "privacyURL": "https://barycenter.live/legal/privacy",
+    "termsURL": "https://barycenter.live/legal/terms",
+    "contentGuidelinesURL": "https://barycenter.live/legal/content-guidelines",
+    "supportURL": "https://barycenter.live/legal/support",
+    "hostingOperator": "Relux Works LLC-operated Coolify infrastructure",
+    "primaryDataRegion": "United States",
+    "backupProvider": "Relux Works LLC-operated S3-compatible object storage",
+    "backupRegion": "United States",
+    "subprocessors": "none for coordinator hosting or object backups",
+    "minimumAge": "13+",
+    "governingLawAndCourts": "Armenia",
+    "controllingLanguage": "English",
+    "partnerCenterListingOwner": "Ivan Oparin",
+    "finalSubmitAuthority": "Ivan Oparin",
+    "emergencyWithdrawalAuthority": "Ivan Oparin",
+    "englishReviewer": "Ivan Oparin",
+    "russianReviewer": "Ivan Oparin",
+    "legalCounselReviewRequired": false,
+    "moderationCoverage": "Monday-Friday 10:00-19:00 GMT+4",
+    "normalResponseTarget": "2 business days",
+    "urgentRemovalResponseTarget": "24 hours"
+  },
+  "beta": {
+    "consecutiveDays": 7,
+    "windowHours": 24,
+    "immutableDailyRecords": 7,
+    "prohibitedIncidents": ["stuck capture", "runaway automation", "key loss caused by defect", "open critical or high finding", "missing daily evidence"],
+    "resetTriggers": ["any prohibited incident", "material tested-path code change", "material configuration or flag change", "fixture or measurement-script change", "review reopened by affected delta"],
+    "resetAction": "stop affected cohort, disable affected flag, preserve sanitized evidence, root-review correction and restart at day one"
+  },
+  "privacy": {
+    "consentOwner": "Ivan Oparin",
+    "requiredBeforeManualRun": true,
+    "allowedIdentifiers": ["campaign id", "opaque installation role", "opaque participant role", "campaign-scoped hashed object ids"],
+    "forbiddenArtifacts": ["audio bytes", "traffic payload", "key material", "original filename", "transcript", "bearer token", "raw actor id", "raw chat id", "email", "local filesystem path"],
+    "sanitizationRequired": true
+  },
+  "blockers": [
+    {"id": "real-windows-macos-audio-hardware-roster", "owner": "Ivan Oparin", "blocks": ["C1", "C2", "C3", "C4", "C6", "NF-jitter", "NF-reconnect", "NF-secure-storage"], "status": "manual-input-missing"},
+    {"id": "two-home-network-and-beta-participant-roster", "owner": "Ivan Oparin", "blocks": ["C2", "C4", "C5", "C6", "C7", "NF-beta"], "status": "manual-input-missing"},
+    {"id": "deferred-e2ee-design-implementation-and-review", "ownerTask": "TASK-260712-aniuyy", "blocks": ["C4", "C5", "C6", "NF-secure-storage", "NF-external-security-review", "e2ee_media"], "status": "external-owner-gate-open"},
+    {"id": "independent-domain-reviewers", "owner": "Ivan Oparin", "blocks": ["NF-external-security-review", "NF-realtime-review", "NF-automation-review", "NF-privacy-store-review", "NF-migration-recovery-review", "NF-beta"], "status": "reviewers-unassigned"},
+    {"id": "public-policy-hosting-mail-delivery-and-store-record", "owner": "Ivan Oparin", "blocks": ["NF-disclosures", "NF-privacy-store-review", "NF-beta"], "status": "external-verification-required"},
+    {"id": "phase3-observability-export", "ownerTask": "TASK-260712-2uo81g", "blocks": ["NF-jitter", "NF-reconnect", "NF-beta"], "status": "engineering-pending"}
+  ]
+}

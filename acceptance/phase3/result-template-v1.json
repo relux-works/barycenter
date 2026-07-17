@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-gate-result.v1",
+  "gateContract": "p3-gate-matrix-evidence.v1",
+  "campaignId": null,
+  "gateId": null,
+  "featureFlagId": null,
+  "rootCommit": null,
+  "status": "not-run",
+  "startedAt": null,
+  "finishedAt": null,
+  "environment": null,
+  "commands": [],
+  "samples": [],
+  "artifacts": [],
+  "blockers": [],
+  "manualEvidence": "not-run",
+  "reviewer": null,
+  "sanitization": null
+}

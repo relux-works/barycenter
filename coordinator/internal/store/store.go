@@ -187,6 +187,10 @@ func openWithOptionsAndCheckpoint(path string, opts Options, checkpoint func(str
 		db.Close()
 		return nil, fmt.Errorf("store: init automation runtime schema: %w", err)
 	}
+	if err := s.initAutomationHistorySchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init automation history schema: %w", err)
+	}
 	if _, err := s.ReconcileAutomationExecutionLeases(time.Now().UnixMilli()); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: reconcile automation execution leases: %w", err)

@@ -282,7 +282,12 @@ intact. No production behavior is enabled by this contract task.
   bounds, revoke/disable disarm and the no-capture dependency test.
 - `TASK-260712-11e4e3` owns privacy-bounded history/audit and quick-disable.
 - Platform and Telegram tasks may render/control this model but cannot mint a
-  second token type, listener, webhook, bypass or fallback.
+second token type, listener, webhook, bypass or fallback.
+
+The accepted implementation detail for `TASK-260712-11e4e3` is frozen in
+`p3-automation-history-audit-v1.md`: canonical history enrichment, terminal
+denial items, append-only control attribution, and revision/idempotency-bound
+quick actions all reuse the shared transmission and automation authorities.
 
 Unit, integration, race and contract tests may prove deterministic repository
 behavior. Real scheduled audible playback, packaged-app controls, local volume,

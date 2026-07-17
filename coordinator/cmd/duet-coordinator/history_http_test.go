@@ -206,6 +206,11 @@ func TestHistoryHTTPTransmissionListAndDetail(t *testing.T) {
 			t.Fatalf("detail leaked %q: %s", forbidden, detail.Body.String())
 		}
 	}
+	cancelled := historyActionRequest(harness.mux,
+		"/v1/history/"+historyID+"/actions/cancel", `{}`, owner.ControlToken, "")
+	if cancelled.Code != http.StatusOK || decodeObject(t, cancelled)["reason_code"] != "sender_cancelled" {
+		t.Fatalf("cancel=%d %s", cancelled.Code, cancelled.Body.String())
+	}
 
 	if _, err := harness.store.DeleteMediaItem(media.ID, media.Revision, current+1); err != nil {
 		t.Fatal(err)

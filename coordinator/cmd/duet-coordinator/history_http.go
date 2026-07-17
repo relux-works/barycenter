@@ -32,6 +32,27 @@ type historyCountsJSON struct {
 	Other  int `json:"other"`
 }
 
+type historyAutomationJSON struct {
+	TriggerKind         string `json:"trigger_kind"`
+	PrincipalRef        string `json:"principal_ref,omitempty"`
+	PrincipalLabel      string `json:"principal_label,omitempty"`
+	ScheduleID          string `json:"schedule_id,omitempty"`
+	ScheduleLabel       string `json:"schedule_label,omitempty"`
+	ScheduleRevision    int64  `json:"schedule_revision,omitempty"`
+	ExecutionID         string `json:"execution_id,omitempty"`
+	CueID               string `json:"cue_id"`
+	CueLabel            string `json:"cue_label,omitempty"`
+	CueRevision         int64  `json:"cue_revision,omitempty"`
+	AudienceKind        string `json:"audience_kind,omitempty"`
+	ResolvedTargetCount int    `json:"resolved_target_count"`
+	Outcome             string `json:"outcome"`
+	ReasonCode          string `json:"reason_code,omitempty"`
+	RetryAfterMS        int64  `json:"retry_after_ms,omitempty"`
+	ScheduledAt         string `json:"scheduled_at,omitempty"`
+	AcceptedAt          string `json:"accepted_at,omitempty"`
+	TerminalAt          string `json:"terminal_at,omitempty"`
+}
+
 type historyListItemJSON struct {
 	HistoryItemID     string                               `json:"history_item_id"`
 	ItemKind          string                               `json:"item_kind"`
@@ -46,6 +67,7 @@ type historyListItemJSON struct {
 	Status            string                               `json:"status"`
 	ReasonCode        string                               `json:"reason_code,omitempty"`
 	TargetCounts      *historyCountsJSON                   `json:"target_counts,omitempty"`
+	Automation        *historyAutomationJSON               `json:"automation,omitempty"`
 	Actions           []string                             `json:"actions"`
 	Presentation      presentation.HistoryItemPresentation `json:"presentation"`
 }
@@ -99,7 +121,7 @@ func historyMediaState(media store.MediaItem) (string, string) {
 }
 
 func historyActions(item store.HistoryQueryItem) []string {
-	result := make([]string, 0, 7)
+	result := make([]string, 0, 10)
 	if item.CanCancel {
 		result = append(result, "cancel")
 	}
@@ -120,6 +142,40 @@ func historyActions(item store.HistoryQueryItem) []string {
 	}
 	if item.CanUnblock {
 		result = append(result, "unblock")
+	}
+	if item.CanDisableSchedule {
+		result = append(result, "disable_schedule")
+	}
+	if item.CanRevokePrincipal {
+		result = append(result, "revoke_principal")
+	}
+	if item.CanEmergencyDisable {
+		result = append(result, "emergency_disable_automation")
+	}
+	return result
+}
+
+func historyAutomation(value *store.AutomationHistory) *historyAutomationJSON {
+	if value == nil {
+		return nil
+	}
+	result := &historyAutomationJSON{
+		TriggerKind: value.TriggerKind, PrincipalRef: value.PrincipalRef,
+		PrincipalLabel: value.PrincipalLabel, ScheduleID: value.ScheduleID,
+		ScheduleLabel: value.ScheduleLabel, ScheduleRevision: value.ScheduleRevision,
+		ExecutionID: value.ExecutionID, CueID: value.CueID, CueLabel: value.CueLabel,
+		CueRevision: value.CueRevision, AudienceKind: value.AudienceKind,
+		ResolvedTargetCount: value.ResolvedTargetCount, Outcome: value.Outcome,
+		ReasonCode: value.ReasonCode, RetryAfterMS: value.RetryAfterMS,
+	}
+	if value.ScheduledAt > 0 {
+		result.ScheduledAt = coordTime(value.ScheduledAt)
+	}
+	if value.AcceptedAt > 0 {
+		result.AcceptedAt = coordTime(value.AcceptedAt)
+	}
+	if value.TerminalAt > 0 {
+		result.TerminalAt = coordTime(value.TerminalAt)
 	}
 	return result
 }
@@ -155,8 +211,16 @@ func (api *onboardingAPI) historySender(actor actorRequest, item store.HistoryQu
 func (api *onboardingAPI) historyListResponse(actor actorRequest, item store.HistoryQueryItem, now int64) (historyListItemJSON, error) {
 	result := historyListItemJSON{HistoryItemID: item.HistoryItemID, ItemKind: item.ItemKind,
 		Direction: item.Direction, OccurredAt: coordTime(item.OccurredAt), Media: historyMedia(item, now),
-		Actions: historyActions(item)}
+		Actions: historyActions(item), Automation: historyAutomation(item.Automation)}
 	if item.Transmission == nil {
+		if item.Automation != nil {
+			result.Status, result.ReasonCode = item.Automation.Outcome, item.Automation.ReasonCode
+			result.Presentation = presentation.PresentHistoryItem(
+				item.Direction, "", "", "overlay", "overlay", result.Status,
+				store.TransmissionReason(result.ReasonCode), result.Actions,
+			)
+			return result, nil
+		}
 		result.Status, result.ReasonCode = historyMediaState(item.Media)
 		result.Presentation = presentation.PresentHistoryItem(
 			item.Direction, "", "", "", "", result.Status,
@@ -262,6 +326,7 @@ type historyDetailJSON struct {
 	Status            string                               `json:"status"`
 	ReasonCode        string                               `json:"reason_code,omitempty"`
 	TargetCounts      *transmissionTargetCountsResponse    `json:"target_counts,omitempty"`
+	Automation        *historyAutomationJSON               `json:"automation,omitempty"`
 	Actions           []string                             `json:"actions"`
 	Presentation      presentation.HistoryItemPresentation `json:"presentation"`
 }
@@ -305,7 +370,8 @@ func (api *onboardingAPI) historyItem(w http.ResponseWriter, r *http.Request) {
 	result := historyDetailJSON{Contract: presencePolicyContract, HistoryItemID: id, ItemKind: item.ItemKind,
 		Direction: item.Direction, OccurredAt: base.OccurredAt, Media: base.Media, Sender: base.Sender,
 		Audience: base.Audience, RequestedDelivery: base.RequestedDelivery, EffectiveDelivery: base.EffectiveDelivery,
-		DowngradeReason: base.DowngradeReason, Status: base.Status, ReasonCode: base.ReasonCode, Actions: base.Actions}
+		DowngradeReason: base.DowngradeReason, Status: base.Status, ReasonCode: base.ReasonCode,
+		Actions: base.Actions, Automation: base.Automation}
 	result.Presentation = base.Presentation
 	if item.Transmission != nil {
 		result.AcceptedAt = coordTime(item.Transmission.AcceptedAt)
@@ -392,6 +458,31 @@ func (api *onboardingAPI) historyAction(w http.ResponseWriter, r *http.Request, 
 		Identity: store.Identity{Kind: store.IdentityBearer, Token: actorRequest.Bearer}}
 	now := api.transmissionNow().UTC().UnixMilli()
 	switch action {
+	case "cancel":
+		var request struct{}
+		if !decodeStrictTransmissionJSON(w, r, &request) {
+			apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+			return
+		}
+		item, err := api.store.GetAuthorizedHistoryItem(actorRequest.Context.ActorID,
+			store.Identity{Kind: store.IdentityBearer, Token: actorRequest.Bearer}, historyItemID, now)
+		if err != nil || item.Transmission == nil || !item.CanCancel {
+			if err == nil {
+				err = store.ErrTransmissionNotFound
+			}
+			api.historyActionError(w, "cancel history transmission", err)
+			return
+		}
+		cancelled, err := api.store.CancelAuthorizedTransmission(actorRequest.Context.ActorID,
+			actorRequest.Bearer, item.Transmission.ID, now)
+		if api.historyActionError(w, "cancel history transmission", err) {
+			return
+		}
+		api.transmissionCancelled(cancelled)
+		writeJSON(w, http.StatusOK, map[string]any{
+			"history_item_id": historyItemID, "cancelled": true,
+			"reason_code": string(store.TransmissionReasonSenderCancelled),
+		})
 	case "replay":
 		api.replayHistoryAction(w, r, service, actorRequest, actor, historyItemID, now)
 	case "delete":
@@ -433,8 +524,104 @@ func (api *onboardingAPI) historyAction(w http.ResponseWriter, r *http.Request, 
 		writeJSON(w, status, response)
 	case "block_actor", "block_orbit":
 		api.blockHistoryAction(w, r, service, actorRequest, actor, historyItemID, action, now)
+	case "disable_schedule", "revoke_principal", "emergency_disable_automation":
+		api.automationHistoryControlAction(w, r, actorRequest, historyItemID, action, now)
 	default:
 		apiError(w, http.StatusNotFound, errorHistoryNotFound, 0)
+	}
+}
+
+func (api *onboardingAPI) automationHistoryControlAction(w http.ResponseWriter, r *http.Request,
+	actor actorRequest, historyItemID, action string, now int64) {
+	var request expectedRevisionHTTPRequest
+	if !automationJSONRequest(r) || !decodeStrictJSON(w, r, automationRequestMaxBytes, &request) || request.ExpectedRevision <= 0 {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	item, err := api.store.GetAuthorizedHistoryItem(actor.Context.ActorID,
+		store.Identity{Kind: store.IdentityBearer, Token: actor.Bearer}, historyItemID, now)
+	if err != nil || item.Automation == nil {
+		if err == nil {
+			err = store.ErrTransmissionNotFound
+		}
+		api.historyActionError(w, "authorize automation history action", err)
+		return
+	}
+	auth, ok := automationControlMutationAuth(r, actor, request, api.automationNow())
+	if !ok {
+		apiError(w, http.StatusBadRequest, errorInvalidRequest, 0)
+		return
+	}
+	switch action {
+	case "disable_schedule":
+		if !item.CanDisableSchedule || item.Automation.ScheduleID == "" {
+			apiError(w, http.StatusConflict, errorHistoryActionUnavailable, 0)
+			return
+		}
+		result, err := api.store.SetAuthorizedAutomationScheduleEnabled(auth,
+			item.Automation.ScheduleID, request.ExpectedRevision, false)
+		if api.automationControlError(w, "disable automation schedule from history", errorAutomationSchedule, err) {
+			return
+		}
+		if !result.Replayed {
+			if err := api.reconcileAutomationCancellations(auth.Now); err != nil {
+				api.internalError(w, "cancel disabled automation schedule", err)
+				return
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"history_item_id": historyItemID,
+			"schedule": automationScheduleHTTP(result.Control), "replayed": result.Replayed})
+	case "revoke_principal":
+		if !item.CanRevokePrincipal || item.Automation.PrincipalRef == "" {
+			apiError(w, http.StatusConflict, errorHistoryActionUnavailable, 0)
+			return
+		}
+		result, err := api.store.RevokeAuthorizedAutomationPrincipal(auth,
+			item.Automation.PrincipalID, request.ExpectedRevision)
+		if api.automationControlError(w, "revoke automation principal from history", errorAutomationPrincipal, err) {
+			return
+		}
+		if !result.Replayed {
+			if err := api.reconcileAutomationCancellations(auth.Now); err != nil {
+				api.internalError(w, "cancel revoked automation principal", err)
+				return
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"history_item_id": historyItemID,
+			"principal": automationPrincipalHTTP(result.Principal), "replayed": result.Replayed})
+	case "emergency_disable_automation":
+		if !item.CanEmergencyDisable {
+			apiError(w, http.StatusConflict, errorHistoryActionUnavailable, 0)
+			return
+		}
+		current, err := api.store.AuthorizedAutomationFeatureState(actor.Context.ActorID, actor.Bearer)
+		if err != nil || current.Revision != request.ExpectedRevision {
+			if err == nil {
+				err = store.ErrAutomationStateConflict
+			}
+			api.automationControlError(w, "read automation emergency state", errorAutomationSchedule, err)
+			return
+		}
+		var quiet []store.AutomationQuietWindow
+		if err := json.Unmarshal([]byte(current.QuietHoursJSON), &quiet); err != nil {
+			api.internalError(w, "decode automation quiet hours", err)
+			return
+		}
+		result, err := api.store.ReplaceAuthorizedAutomationFeatureState(auth,
+			store.AutomationFeatureControlParams{SoundboardEnabled: current.SoundboardEnabled,
+				AutomationEnabled: current.AutomationEnabled, EmergencyDisabled: true,
+				Timezone: current.Timezone, QuietHours: quiet, ExpectedRevision: current.Revision})
+		if api.automationControlError(w, "emergency disable automation from history", errorAutomationSchedule, err) {
+			return
+		}
+		if !result.Replayed {
+			if err := api.reconcileAutomationCancellations(auth.Now); err != nil {
+				api.internalError(w, "cancel emergency-disabled automation", err)
+				return
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"history_item_id": historyItemID,
+			"automation": automationFeatureHTTP(result.State), "replayed": result.Replayed})
 	}
 }
 

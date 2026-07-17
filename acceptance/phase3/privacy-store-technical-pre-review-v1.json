@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-privacy-store-technical-pre-review.v1",
+  "task": "TASK-260712-7ng1vs",
+  "reviewedAt": "2026-07-17",
+  "rootReview": {
+    "sourceCommit": "d94f51644a3acf37601b4a869b4247380372f9ec",
+    "sourceTree": "4e4cca878db806650eda6f1e1642051b87a18b93"
+  },
+  "reviewer": {
+    "id": "codex-inline-pre-reviewer",
+    "independenceRequired": true,
+    "independenceSatisfied": false,
+    "accountableOwner": "Ivan Oparin",
+    "independentApprovalTask": "TASK-260717-35bll1",
+    "approvalStatus": "required"
+  },
+  "decision": {
+    "result": "engineering-pre-review-complete-external-blocked",
+    "repositoryPreflightPassed": true,
+    "criticalOrHighTechnicalFindingsOpen": false,
+    "storeSubmissionAllowed": false,
+    "policyPublicationClaimed": false,
+    "mailboxDeliveryClaimed": false,
+    "partnerCenterEvidenceClaimed": false,
+    "affectedPhase3FlagsAllowed": false,
+    "phase3PromotionAllowed": false,
+    "manualEvidenceClaimed": false,
+    "nextEngineeringTaskMayStart": true
+  },
+  "approvedDefaults": {
+    "source": "docs/compliance/legal-ops-inputs.json",
+    "publicationGate": "approved",
+    "accountableOwner": "Ivan Oparin",
+    "counselReviewRequired": false,
+    "controllingLanguage": "English",
+    "minimumAge": "13+",
+    "governingLawAndCourts": "Armenia",
+    "primaryDataRegion": "United States",
+    "backupRegion": "United States",
+    "finalSubmitAuthority": "Ivan Oparin",
+    "emergencyWithdrawalAuthority": "Ivan Oparin"
+  },
+  "sourceAnchors": [
+    {"path": "coordinator/internal/store/moderation.go", "sha256": "bef67c7229f6daa972668b908242940eb45a7ac9114a9a575d3c4561beb2e25a"},
+    {"path": "coordinator/internal/store/moderation_enforcement.go", "sha256": "2d8ef3849382d15ae04b36564318746a111a0d77aebba8265c1519ce1e8b72d8"},
+    {"path": "coordinator/internal/store/moderation_schema.go", "sha256": "d30b5fb74ba93da0fdb1634e8f0eb27b3261879183e110763f7e5357968703d6"},
+    {"path": "coordinator/internal/store/content_policy.go", "sha256": "b74b1b105b1381d53e51785ce37821f2d6d4d13e0eb92b950ecddad11ebd879d"},
+    {"path": "coordinator/internal/moderation/service.go", "sha256": "6b70200e21531c825c6ebf5f6bd96d8eff13c8b2a04c93e9a3ecba2336d2c668"},
+    {"path": "coordinator/cmd/duet-coordinator/moderation_http.go", "sha256": "a4961caa5b3e2811cbe01948d3e8938acbd7fc244afcf355cfe7cf413337e5c7"},
+    {"path": "coordinator/cmd/duet-coordinator/content_policy_http.go", "sha256": "0088398adcc1e6a5280c93729c1f3c010706461925772d289e9c99639a7840ac"},
+    {"path": "docs/compliance/legal-ops-inputs.json", "sha256": "adf48d5cba2c8b65f0d3a11a089f4b61b0f300c3286ab2b4a267d51186b4f9d7"},
+    {"path": "docs/compliance/moderation-operations.json", "sha256": "666f00248ac846623c2881f40f415750da2a0f876c6d5f8545f6ae85cc0d5513"},
+    {"path": "docs/compliance/policy-pack-2026-07-14.json", "sha256": "0626909361f478c372243af1a488ddbccfc3dad33493f8c3f4f8e12b414aabe7"},
+    {"path": "docs/compliance/store-public-links.json", "sha256": "3dcf1bb944e297ac504421e76510dab87e89aedba1e036da86e02f63c2bb5c4f"},
+    {"path": "docs/compliance/store-policy-pre-submit.json", "sha256": "a648b4831d54d4e51a217a1b5a0aa1e9e65397e434b735e511663a417b8aa35a"},
+    {"path": "docs/legal/en/privacy.md", "sha256": "1fed3103d6a12444555e32e8f51bab15d3554e83166b6c6473e43cd1dcfc6e8e"},
+    {"path": "docs/legal/en/terms.md", "sha256": "e7178680659c74c9f7e092dc9b839fdc03a9f55e47ed15ee34199613b9083590"},
+    {"path": "docs/legal/en/content-guidelines.md", "sha256": "b8a9116d35169830fb03180a150f586c83c96560fc63c8993d1c60e40b97411b"},
+    {"path": "docs/legal/en/support.md", "sha256": "f851e4cfcdde8e1cf013c09aa5335b4c26f7b35b0d86aa4e7b8c302c3588ba14"},
+    {"path": "docs/legal/ru/privacy.md", "sha256": "7dc8156489a4385b128bc7e65f4e2da4b4a4672eedaa3f292fd8301507e8c3dc"},
+    {"path": "docs/legal/ru/terms.md", "sha256": "0eb8b1a29b5b25064a9337a3d506d2227f907352540439285f640d3a67a8ac7a"},
+    {"path": "docs/legal/ru/content-guidelines.md", "sha256": "9efa31c86d4e3700ac97c1ee56cc7c724bc832dc866d2b8a56ed379a184f6506"},
+    {"path": "docs/legal/ru/support.md", "sha256": "ffb0138bcfe5c05c1c9a3e8d42792410dda83238a15f9329517427248d8c6f17"},
+    {"path": "docs/store/phase1/listing-en-US.json", "sha256": "ba7a55bf24f5d7fb9c5c4c3063fe415e0c7211eb9cae77f438b8b0259fb6bc79"},
+    {"path": "docs/store/phase1/listing-ru-RU.json", "sha256": "168efa8394d0bc67325a4b4602ea4266ad5b59a76a02db26662268cdc3ac2283"},
+    {"path": "docs/store/phase1/iarc-answer-profile.json", "sha256": "1f6b0ed8afc1dcce1bcb236adbdbeb97c89d18f557e02bbadc4402c758516dbd"},
+    {"path": "docs/store/phase1/screenshots.json", "sha256": "58747b690ec78a8a381875cb539ef935f1e96aefbc8f77b3552f3afa3498196c"},
+    {"path": "docs/store/phase1/certification-notes.json", "sha256": "df9a92db46fdcf680923f24cbeb269acee1ad76a81bf52e644a876e79c454aba"},
+    {"path": "docs/store/phase1/partner-center-package.json", "sha256": "bdb07899dd7d77d4f38404ed9a0150718c94f4ab9cb5191451902160cef93e66"},
+    {"path": "pulsar-win/ui_common.go", "sha256": "fab55a348a443745721f23eaef74a65360b8c51a0a6849c876818f8c8a635499"},
+    {"path": "pulsar-win/phase_one_client.go", "sha256": "6d9ab16d799a96ed6fc830a65945d2a4ff3f36cbc5de296df2550fcfafcf810f"},
+    {"path": "pulsar-win/e2ee_contract_audit.go", "sha256": "73b2ee8b2304b1648c6a1394eec24068281f84927774526585b35990a81378b9"},
+    {"path": "node-app/Sources/NodeCore/PublicPolicyLinks.swift", "sha256": "fd00b0fd7e8136b82925bd0b22925c9bb29857969397f1fda037da130af987c0"},
+    {"path": "node-app/Sources/NodeCore/E2EEAuditContract.swift", "sha256": "3c03962b38e78298c6ae6f2a591d6714b513652337e80322123804abf0f3f061"},
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "6beb9260acea0e5eb98bfd02c3e7dcc8c9a88055e16b0a4d13bc73b552787318"}
+  ],
+  "reviewedClaims": [
+    {"id": "encryption", "result": "match", "claim": "Phase 1 coordinator-readable audio is explicitly not end-to-end encrypted; Phase 3 e2ee_media remains deferred and disabled."},
+    {"id": "metadata", "result": "match", "claim": "Policy names coordinator-visible identifiers, routing, receipts, reports and restricted evidence metadata without claiming content secrecy."},
+    {"id": "deletion", "result": "match", "claim": "Access revocation is immediate while physical cleanup is asynchronous and cannot erase recipient, integration, evidence-hold, lawful-hold or expiring backup copies."},
+    {"id": "recovery", "result": "match", "claim": "Recovery requires surviving authority and does not promise recovery after all authorized credentials are lost."},
+    {"id": "telegram", "result": "match", "claim": "Telegram is optional, Telegram-controlled copies remain outside Pulsar deletion, and linked actor policy still gates upload and transmission."},
+    {"id": "report-evidence", "result": "match", "claim": "Evidence is report-bound, capability-gated, auditable, expires after 30 days and cannot be read through list-only or revoked credentials."},
+    {"id": "ugc-and-store", "result": "hold", "claim": "Repository copy is internally consistent, but public URLs, mailbox delivery, exact IARC portal output, screenshots, WACK, exact-build certification and submission authority evidence are not claimed."}
+  ],
+  "reviewedInvariants": [
+    "reporter-protection-never-censors-the-foreign-evidence-target",
+    "report-evidence-access-requires-an-unrevoked-matching-evidence-capability",
+    "evidence-read-and-decision-actions-append-content-free-audit-records",
+    "free-form-report-text-and-evidence-access-expire-after-thirty-days",
+    "content-policy-consent-is-versioned-actor-bound-and-rechecked-before-upload",
+    "phase1-copy-discloses-coordinator-readable-non-e2ee-audio",
+    "deletion-copy-preserves-recipient-integration-hold-and-backup-limits",
+    "recovery-copy-does-not-promise-recovery-after-total-credential-loss",
+    "telegram-is-optional-and-third-party-copies-remain-third-party-controlled",
+    "partner-center-readiness-cannot-pass-with-placeholder-build-or-manual-evidence"
+  ],
+  "reruns": [
+    {
+      "id": "coordinator-moderation-store-race-stress",
+      "command": "cd coordinator && go test -race -count=10 ./internal/store -run '^(TestModerationReportUsesPersistedForeignTargetAndIsPrivacySafe|TestModerationReportProtectsOnlyReporterFetchInboxReplayAndFutureDelivery|TestModerationOperatorDomainsCapabilitiesEvidenceAuditAndRevocation|TestModerationEvidenceHoldDefersCanonicalCleanup|TestModerationDisableRevokesCanonicalCredentialsIdempotently|TestModerationReportRateLimitAndMigrationRollback|TestModerationSharedTargetMigrationRollsBackAndPreservesEvidence)$'",
+      "status": "pass",
+      "durationSeconds": 119.540
+    },
+    {
+      "id": "coordinator-moderation-service-http-race-stress",
+      "command": "cd coordinator && go test -race -count=10 ./internal/moderation ./cmd/duet-coordinator -run '^(TestServiceEvidenceBlockAndDeleteUseCanonicalServices|TestServiceReportDisarmsOnlyReporterAndRetryIsIdempotent|TestServiceDisableActorRevokesFetchCancelsAndDisconnects|TestModerationHTTPAuthPrivacyEvidenceAndDecision|TestModerationHTTPRevokedAndLeastPrivilegeOperatorsFailClosed)$'",
+      "status": "pass",
+      "packages": 2
+    },
+    {
+      "id": "coordinator-content-policy-race-stress",
+      "command": "cd coordinator && go test -race -count=10 ./internal/store ./cmd/duet-coordinator -run '^(TestCurrentContentPolicyPublishesApprovedEquivalentLocales|TestContentPolicyGrantAuthorizationLifecycleAndAudit|TestContentPolicyMaterialChangeAndRateLimitFailClosed|TestContentPolicyAcceptsLinkedTelegramActorContext|TestContentPolicyGatesNewUploadAndTransmissionWithoutChangingAcceptedMedia|TestContentPolicyHTTPDisplayAcceptRevokeAndServerTime|TestContentPolicyHTTPRequiresGrantAndPerUploadRightsAcknowledgement|TestTelegramContentPolicyDisplayAcceptAndAttachmentGate)$'",
+      "status": "pass",
+      "packages": 2
+    },
+    {
+      "id": "moderation-exact-previous-head-rollback",
+      "command": "cd coordinator && go test -tags previoushead -count=10 ./internal/store -run '^TestModerationExactPreviousHeadRollback$'",
+      "status": "pass",
+      "durationSeconds": 43.610
+    },
+    {
+      "id": "windows-privacy-policy-race-stress",
+      "command": "cd pulsar-win && go test -race -count=10 ./... -run '^(TestPublicPolicyLinksUseStableRussianHTTPSRoutes|TestWindowsModerationCopyCoversFrozenReasonsAndPrivacySafeOutcomes|TestPhaseOneClientVersionedContentPolicyConsent|TestPhaseOneClientPreservesRepeatedModerationOutcomesAndValidatesInput|TestWindowsE2EEAuditModelConsumesSharedMalformedVectors|TestWindowsE2EEAuditCommitOrderingAndForks|TestWindowsE2EEAuditModelRejectsCoordinatorSecrets|TestRecoveryDismissReturnsExactLossWarning|TestWindowsHistoryModerationUsesAllowedActionsAndPrivacySafeOutcomes)$'",
+      "status": "pass",
+      "packages": 4
+    },
+    {
+      "id": "macos-privacy-policy-suite",
+      "command": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter 'PublicPolicyLinks|E2EEAuditContract|RecoveryExport|PhaseOneAppClient'",
+      "status": "pass",
+      "tests": 25,
+      "suites": 4,
+      "host": "x86_64-apple-macos14.0"
+    },
+    {
+      "id": "legal-policy-store-static-gates",
+      "command": "cd coordinator && go test ./internal/legalops ./internal/policypack ./internal/policypublication ./internal/storelisting ./internal/storepolicy ./internal/moderation ./internal/moderationops && go run ./cmd/legal-ops-check --require-approved ../docs/compliance/legal-ops-inputs.json && go run ./cmd/policy-pack-check && go run ./cmd/policy-site-check && go run ./cmd/store-listing-check && go run ./cmd/store-policy-check",
+      "status": "pass",
+      "policySourceDecision": "proceed",
+      "storeSubmissionDecision": "hold"
+    }
+  ],
+  "findings": [],
+  "evidenceBoundary": {
+    "automated": [
+      "moderation actor target and operator-capability isolation",
+      "report evidence expiry audit and retention transitions",
+      "versioned content-policy consent and Telegram linkage",
+      "EN and RU policy and listing source consistency",
+      "client policy links recovery warnings and E2EE audit decoders",
+      "fail-closed Store package and pre-submit gate state"
+    ],
+    "notProved": [
+      "live barycenter.live policy page publication and cache behavior",
+      "support moderation and urgent mailbox delivery",
+      "exact Partner Center IARC answers generated rating and rating id",
+      "twelve real exact-build screenshots and WACK evidence",
+      "implementation-independent privacy and Store reviewer approval"
+    ]
+  },
+  "openGates": [
+    {
+      "id": "P3-PRIV-GATE-001",
+      "status": "external-review-blocking",
+      "ownerEpic": "EPIC-260714-zmnd4n",
+      "task": "TASK-260717-35bll1",
+      "reviewerIdentity": null,
+      "approval": "required"
+    },
+    {
+      "id": "P3-PRIV-GATE-002",
+      "status": "external-mail-blocking",
+      "ownerEpic": "EPIC-260714-zmnd4n",
+      "task": "TASK-260714-200ib8",
+      "deliveryEvidence": "not-provided"
+    },
+    {
+      "id": "P3-PRIV-GATE-003",
+      "status": "external-store-blocking",
+      "ownerEpic": "EPIC-260714-zmnd4n",
+      "task": "TASK-260715-24ube9",
+      "partnerCenterEvidence": "not-provided"
+    },
+    {
+      "id": "P3-PRIV-GATE-004",
+      "status": "future-disclosure-blocking",
+      "task": "TASK-260712-3b7bp4",
+      "publicationEvidence": "not-provided"
+    }
+  ],
+  "heldCapabilities": ["e2ee_media", "soundboard_cues", "automation"],
+  "nextEngineeringTask": "TASK-260712-6mz9xg"
+}

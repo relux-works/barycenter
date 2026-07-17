@@ -8,7 +8,7 @@ development
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-17T04:42:54Z
+2026-07-17T05:09:55Z
 
 ## Blocked By
 - STORY-260712-1qfbiw
@@ -39,6 +39,7 @@ Root rejected the initial server-rotation and two-monolithic-client decompositio
 Owner direction 2026-07-16: split E2EE at the independent design-audit boundary. Seventeen post-audit implementation and implementation-review tasks moved to EPIC-260716-3qsztl / STORY-260716-1qp4gp. This story now owns five pre-implementation gate tasks only.
 2026-07-16 correction to the E2EE split: TASK-260712-aniuyy moved to EPIC-260716-3qsztl as requested. This story now owns four audit-preparation tasks only and completes when the reproducible audit packet is ready; it does not wait for an external reviewer.
 2026-07-17 strict checkpoint: threat-model TASK-260712-2e2ymn accepted on exact 847a90b and PR #227 merge 868789c after clean 12/12 and hosted 4/4. The audit-preparation story advances to container spike TASK-260712-16xmy2; only spikes are authorized. E2EE implementation, feature enablement, claims and independent review remain blocked/false/not-run.
+2026-07-17 strict checkpoint: container spike TASK-260712-16xmy2 accepted through its explicit production no-go on exact 00b5bb0 after clean 16/16 and hosted run 29556420828 4/4; PR 229 merged at 478e1aa. Repository-only chunk/AAD/nonce/range/resume structure is frozen, while codec/toolchain selection, signed physical evidence, cross-platform vectors, network integration, replay state, zeroization and independent review remain open. Execution advances to TASK-260712-3er89x; E2EE remains disabled and unclaimed.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-1frfmi/spec-entry.md) — Authoritative specification entry point

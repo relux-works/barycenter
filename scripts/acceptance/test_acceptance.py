@@ -97,7 +97,11 @@ class AcceptanceHarnessTests(unittest.TestCase):
     def test_frozen_contract_matches_modules_ci_and_manual_boundary(self):
         pins = harness.load_pins()
         root = harness.ROOT
-        for module in (root / "coordinator/go.mod", root / "pulsar-win/go.mod"):
+        for module in (
+            root / "coordinator/go.mod",
+            root / "pulsar-win/go.mod",
+            root / "scripts/e2ee_container/probe/go.mod",
+        ):
             self.assertIn(f"\ngo {pins['go']['version']}\n", module.read_text(encoding="utf-8"))
         workflow = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         self.assertNotIn("runs-on: ubuntu-latest", workflow)
@@ -129,6 +133,21 @@ class AcceptanceHarnessTests(unittest.TestCase):
         self.assertIn("scripts/acceptance/test_phase2_engineering_handoff.py", command.argv)
         self.assertIn("scripts/acceptance/test_automation_safety_handoff.py", command.argv)
         self.assertIn("scripts/acceptance/test_e2ee_threat_model.py", command.argv)
+        self.assertIn("scripts/acceptance/test_protected_media_container_spike.py", command.argv)
+
+    def test_protected_media_probe_is_pinned_and_cross_built(self):
+        coordinator = harness.suite_commands("coordinator", {"GOTOOLCHAIN": "go1.25.12"}, None)
+        windows = harness.suite_commands("windows", {"GOTOOLCHAIN": "go1.25.12"}, None)
+        coordinator_names = {command.name for command in coordinator}
+        windows_by_name = {command.name: command for command in windows}
+        self.assertIn("protected-media-container-probe-tests", coordinator_names)
+        self.assertIn("protected-media-container-probe-race", coordinator_names)
+        for architecture in ("amd64", "arm64"):
+            command = windows_by_name[f"protected-media-container-probe-windows-{architecture}"]
+            self.assertEqual(command.cwd, harness.ROOT / "scripts/e2ee_container/probe")
+            self.assertEqual(command.env["GOTOOLCHAIN"], "go1.25.12")
+            self.assertEqual(command.env["GOOS"], "windows")
+            self.assertEqual(command.env["GOARCH"], architecture)
 
     def test_wack_runner_fails_closed_on_noninteractive_execution(self):
         source = (harness.ROOT / "scripts/acceptance/run_wack.ps1").read_text(encoding="utf-8")

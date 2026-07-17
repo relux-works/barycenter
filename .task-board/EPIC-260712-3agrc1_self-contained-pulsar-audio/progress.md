@@ -1,14 +1,14 @@
 ## Status
-to-review
+development
 
 ## Assigned To
-(none)
+codex-inline-orchestrator
 
 ## Created
 2026-07-12T15:19:03Z
 
 ## Last Update
-2026-07-17T03:08:19Z
+2026-07-17T03:50:46Z
 
 ## Blocked By
 - STORY-260712-sskhip
@@ -56,6 +56,7 @@ User mandate 2026-07-12: do not accept agent code without scrupulous root review
 2026-07-16 strict sequential checkpoint: 126/186 engineering tasks accepted (67.7%) and 126/205 combined tasks accepted (61.5%). TASK-260712-26mnp1 landed through PR 193 at merge eac1c183 after hosted run 29523191600 passed 4/4. The bounded generation-safe macOS live sender is accepted; live_ptt_v1 remains unadvertised because the Apple engineering encoder does not expose exact libopus FEC and complexity controls, and physical hold, microphone, lifecycle and audible evidence remains manual in TASK-260712-1rzqh9. Strict engineering execution advances to TASK-260712-1ckdr7.
 2026-07-16 strict progress checkpoint: TASK-260712-1ckdr7 accepted at merge 365fb117e04d2bb8f462b7cd3bd29b7339d797a5 after hosted run 29525402024 passed 4/4. Original inventory 127/205 accepted (62.0%, 78 remain); engineering 127/186 accepted (68.3%, 59 remain); manual hardware 0/19 remains deferred in EPIC-260714-th54l3. Strict next engineering task is TASK-260712-ezdhpf.
 2026-07-16 strict progress checkpoint: TASK-260712-ezdhpf engineering accepted at merge 6d569e3216fd6fe72be9c683e299ddcfa10e6fa4 after hosted run 29527709243 passed 4/4. Original inventory 128/205 accepted (62.4%, 77 remain); engineering 128/186 accepted (68.8%, 58 remain); manual hardware 0/19 remains deferred in EPIC-260714-th54l3. Signed Windows 10/11 sender stress remains deliberately unchecked in engineering and owned by manual TASK-260712-1rzqh9. Strict next engineering task is TASK-260712-2kj9kj.
+2026-07-17 strict sequential checkpoint: 141/186 engineering tasks accepted (75.8%) and 141/205 combined tasks accepted (68.8%). TASK-260712-1oodka landed through PR #223 at merge fa6bc8e3f3908c9bd0abed5efab00613b7ba9476 after hosted run 29553117460 passed 4/4 and clean exact-head Swift acceptance passed. Execution advances to TASK-260712-2f0gpu; the separate manual epic remains 0/19 and no real-app, hardware, accessibility, audible or physical-DST result is claimed.
 
 ## Precondition Resources
 (none)

@@ -17,6 +17,10 @@ public struct MacRecordingShortcut: Codable, Equatable, Sendable {
     public enum Key: UInt32, Codable, CaseIterable, Sendable {
         case space = 49
         case r = 15
+        case f1 = 122, f2 = 120, f3 = 99, f4 = 118
+        case f5 = 96, f6 = 97, f7 = 98, f8 = 100
+        case f9 = 101, f10 = 109, f11 = 103, f12 = 111
+        case f13 = 105, f14 = 107, f15 = 113, f16 = 106
     }
 
     public let key: Key
@@ -150,7 +154,7 @@ public final class MacRecordingShortcutController {
 @MainActor
 public final class CarbonGlobalShortcutRegistrar: MacGlobalShortcutRegistering {
     private static let signature: OSType = 0x504C5352 // PLSR
-    private var nextID: UInt32 = 0
+    private static var nextID: UInt32 = 0
 
     public init() {}
 
@@ -158,9 +162,9 @@ public final class CarbonGlobalShortcutRegistrar: MacGlobalShortcutRegistering {
         _ shortcut: MacRecordingShortcut,
         handler: @escaping () -> Void
     ) -> Result<MacGlobalShortcutRegistration, MacGlobalShortcutRegistrationError> {
-        nextID &+= 1
-        if nextID == 0 { nextID = 1 }
-        let identifier = EventHotKeyID(signature: Self.signature, id: nextID)
+        Self.nextID &+= 1
+        if Self.nextID == 0 { Self.nextID = 1 }
+        let identifier = EventHotKeyID(signature: Self.signature, id: Self.nextID)
         let box = CarbonHotKeyBox(identifier: identifier, handler: handler)
         var eventSpec = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),

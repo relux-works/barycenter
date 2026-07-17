@@ -314,6 +314,18 @@ final class MacPhaseOneAppComposition {
             }
         }
         let actions = item.actions.compactMap(PulsarHistoryAction.init(rawValue:))
+        let automation = item.automation.map { value in
+            PulsarAutomationHistory(
+                triggerKind: value.triggerKind,
+                principalLabel: value.principalLabel ?? value.principalRef,
+                scheduleLabel: value.scheduleLabel,
+                cueLabel: value.cueLabel,
+                outcome: value.outcome,
+                reasonCode: value.reasonCode,
+                canDisableSchedule: item.actions.contains("disable_schedule"),
+                canRevokePrincipal: item.actions.contains("revoke_principal"),
+                canEmergencyDisable: item.actions.contains("emergency_disable_automation"))
+        }
         return PulsarHistoryItem(
             id: item.id,
             title: item.title,
@@ -325,7 +337,8 @@ final class MacPhaseOneAppComposition {
             requestedDelivery: item.requestedDelivery,
             effectiveDelivery: item.effectiveDelivery,
             downgradeReason: item.downgradeReason,
-            allowedActions: actions)
+            allowedActions: actions,
+            automation: automation)
     }
 
     private func shellDraft(_ draft: PhaseOneDraftSnapshot) -> PulsarOutgoingDraft {

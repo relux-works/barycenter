@@ -26,6 +26,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
     var shellActions = PulsarShellActions()
     var targetsInboxModel: PulsarTargetsInboxModel?
     var showMainWindowAction: (() -> Void)?
+    var triggerSelectedSoundboardCue: (() -> Void)?
 
     func install() {
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -138,6 +139,20 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
         local.keyEquivalentModifierMask = [.command, .shift]
         local.target = self
         menu.addItem(local)
+        let soundboard = NSMenuItem(
+            title: copy.text(.soundboard), action: #selector(showSoundboard), keyEquivalent: "5")
+        soundboard.target = self
+        menu.addItem(soundboard)
+        let selectedCue = shellModel?.snapshot.soundboard.cues.first {
+            $0.id == shellModel?.snapshot.soundboard.selectedCueID
+        }
+        let triggerCue = NSMenuItem(
+            title: selectedCue.map { localized(en: "Trigger: ", ru: "Запустить: ") + $0.title }
+                ?? localized(en: "Trigger selected cue", ru: "Запустить выбранный сигнал"),
+            action: #selector(triggerSoundboard), keyEquivalent: "")
+        triggerCue.target = self
+        triggerCue.isEnabled = selectedCue != nil && shellModel?.snapshot.soundboard.busy == false
+        menu.addItem(triggerCue)
 
         let record = NSMenuItem(
             title: shellModel?.snapshot.recording == .recording
@@ -358,6 +373,13 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
         shellModel?.selectedSection = .tryLocally
         showMainWindowAction?()
     }
+
+    @objc private func showSoundboard() {
+        shellModel?.selectedSection = .soundboard
+        showMainWindowAction?()
+    }
+
+    @objc private func triggerSoundboard() { triggerSelectedSoundboardCue?() }
 
     @objc private func toggleRecording() {
         shellActions.toggleRecording()

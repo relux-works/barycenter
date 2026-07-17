@@ -82,6 +82,7 @@ private struct PulsarSidebar: View {
         case .create: "plus.circle"
         case .join: "person.2"
         case .tryLocally: "waveform.circle"
+        case .soundboard: "square.grid.3x3"
         case .history: "clock.arrow.circlepath"
         case .settings: "gear"
         }
@@ -128,6 +129,8 @@ private struct PulsarDetail: View {
             )
         case .tryLocally:
             PulsarSelfTestView(model: model, actions: actions)
+        case .soundboard:
+            PulsarSoundboardView(model: model, actions: actions)
         case .history:
             PulsarHistoryView(
                 model: model, actions: actions,
@@ -137,6 +140,120 @@ private struct PulsarDetail: View {
             PulsarSettingsView(model: model, actions: actions)
         }
     }
+}
+
+private struct PulsarSoundboardView: View {
+    let model: PulsarShellModel
+    let actions: PulsarShellActions
+    @State private var showingImporter = false
+    @State private var rightsAcknowledged = false
+
+    var body: some View {
+        let state = model.snapshot.soundboard
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(localized("Saved cues", "Сохранённые сигналы")).font(.title2.bold())
+                Spacer()
+                Button(localized("Refresh", "Обновить"), action: actions.refreshSoundboard)
+                Button(localized("Automation schedules →", "Расписания automation →")) {
+                    model.selectedSection = .settings
+                }
+            }
+            HStack {
+                Picker(localized("Target", "Цель"), selection: Binding(
+                    get: { state.route }, set: actions.setSoundboardRoute)) {
+                    ForEach(PulsarRouteTarget.allCases) { Text($0.rawValue).tag($0) }
+                }
+                Picker(localized("Delivery", "Доставка"), selection: Binding(
+                    get: { state.delivery }, set: actions.setSoundboardDelivery)) {
+                    ForEach(PulsarDeliveryMode.allCases) { Text($0.rawValue).tag($0) }
+                }
+                Toggle(localized("Include this Pulsar", "Включить этот Pulsar"), isOn: Binding(
+                    get: { state.includeOrigin }, set: actions.setSoundboardIncludeOrigin))
+            }
+            if state.cues.isEmpty {
+                ContentUnavailableView(
+                    localized("No saved cues", "Нет сохранённых сигналов"),
+                    systemImage: "square.grid.3x3")
+            } else {
+                List(state.cues) { cue in
+                    PulsarSoundboardCueRow(
+                        cue: cue, selected: cue.id == state.selectedCueID,
+                        busy: state.busy, locale: model.locale, actions: actions)
+                }
+            }
+            HStack {
+                Toggle(localized("I have rights to upload this audio", "У меня есть права на загрузку"),
+                       isOn: $rightsAcknowledged)
+                Button(localized("Add audio cue…", "Добавить аудиосигнал…")) { showingImporter = true }
+                    .disabled(!rightsAcknowledged || state.busy)
+            }
+            if let outcome = state.outcome {
+                Label(outcome.replacingOccurrences(of: "_", with: " "), systemImage: "checkmark.circle")
+                    .foregroundStyle(.green)
+            }
+            if let failure = state.failure {
+                Label(failure.replacingOccurrences(of: "_", with: " "), systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
+        }
+        .padding(24)
+        .navigationTitle(PulsarShellCopy(locale: model.locale).text(.soundboard))
+        .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.audio], allowsMultipleSelection: false) {
+            guard case .success(let urls) = $0, let url = urls.first else { return }
+            actions.createSoundboardCue(url, rightsAcknowledged: rightsAcknowledged)
+        }
+    }
+
+    private func localized(_ en: String, _ ru: String) -> String { model.locale == .ru ? ru : en }
+}
+
+private struct PulsarSoundboardCueRow: View {
+    let cue: PulsarSoundboardCue
+    let selected: Bool
+    let busy: Bool
+    let locale: PulsarShellLocale
+    let actions: PulsarShellActions
+    @State private var title = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Button {
+                    actions.selectSoundboardCue(cue.id)
+                } label: {
+                    Label(cue.title, systemImage: selected ? "checkmark.circle.fill" : "circle")
+                }
+                .buttonStyle(.borderless)
+                Spacer()
+                Text(cue.shortcutLabel ?? localized("No hotkey", "Без хоткея"))
+                    .font(.caption).foregroundStyle(.secondary)
+                Text(cue.shortcutStatus).font(.caption)
+            }
+            HStack {
+                Button(localized("Trigger", "Запустить")) { actions.triggerSoundboardCue(cue.id) }
+                    .buttonStyle(.borderedProminent)
+                TextField(localized("Cue name", "Название"), text: $title)
+                    .onAppear { title = cue.title }
+                    .onSubmit { actions.renameSoundboardCue(cue.id, title: title) }
+                Button(localized("Rename", "Переименовать")) {
+                    actions.renameSoundboardCue(cue.id, title: title)
+                }
+                Button("↑") { actions.moveSoundboardCue(cue.id, delta: -1) }
+                    .accessibilityLabel(localized("Move up", "Переместить вверх"))
+                Button("↓") { actions.moveSoundboardCue(cue.id, delta: 1) }
+                    .accessibilityLabel(localized("Move down", "Переместить вниз"))
+                Button(localized("Hotkey", "Хоткей")) { actions.cycleSoundboardShortcut(cue.id) }
+                Button(localized("Delete", "Удалить"), role: .destructive) {
+                    actions.deleteSoundboardCue(cue.id)
+                }
+            }
+            .disabled(busy)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func localized(_ en: String, _ ru: String) -> String { locale == .ru ? ru : en }
 }
 
 private struct PulsarToolbar: ToolbarContent {
@@ -496,6 +613,24 @@ private struct PulsarHistoryRow: View {
                 Text(downgrade)
                     .font(.caption)
                     .foregroundStyle(.orange)
+            }
+            if let automation = item.automation {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Automation: \(automation.triggerKind) · \(automation.cueLabel ?? item.title)")
+                    if let actor = automation.principalLabel { Text("By: \(actor)") }
+                    if let schedule = automation.scheduleLabel { Text("Schedule: \(schedule)") }
+                    if let reason = automation.reasonCode { Text(reason).foregroundStyle(.orange) }
+                    if automation.canDisableSchedule || automation.canRevokePrincipal
+                        || automation.canEmergencyDisable {
+                        Button(locale == .ru ? "Открыть управление automation →" : "Open automation controls →") {
+                            actions?.openAutomationAdmin()
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(actions == nil)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             Text(item.occurredAt, format: .dateTime.year().month().day().hour().minute())
                 .font(.caption)

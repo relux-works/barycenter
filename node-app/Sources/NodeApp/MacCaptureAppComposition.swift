@@ -123,6 +123,8 @@ final class MacCaptureAppComposition {
         model.setRecordingShortcut(choice, state: Self.shellShortcutState(shortcutController.state))
     }
 
+    var currentShortcut: MacRecordingShortcut { shortcutController.shortcut }
+
     func shutdown() {
         guard !stopped else { return }
         stopped = true

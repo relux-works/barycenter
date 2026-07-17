@@ -4,23 +4,23 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 146 accepted, 59 remain.
-- Routed inventory: 186 engineering tasks (146 accepted, 40 remain) and 19
+- Combined inventory: 205 original tasks; 147 accepted, 58 remain.
+- Routed inventory: 186 engineering tasks (147 accepted, 39 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1gmsvh` — freeze-capture-quality-contract
-- Next engineering task: `TASK-260712-265o0f` — probe-windows-voice-processing-path
+- Current engineering task: `TASK-260712-1pw1l1` — capture-diagnostics-capability-surface
+- Next engineering task: `TASK-260712-39czd2` — capture-quality-regression-harness
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
   E2EE implementation task are deferred outside the current engineering epic,
   so strict execution resumes at section 17 without claiming them complete.
-- Most recently accepted: `TASK-260712-2ys1ww` — e2ee-protocol-key-lifecycle-contract
-- Current branch: `tracking/task-260712-1gmsvh-start`
+- Most recently accepted: `TASK-260712-1gmsvh` — freeze-capture-quality-contract
+- Current branch: `tracking/task-260712-1gmsvh-complete`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -41,8 +41,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 146 / 205 tasks (71.2%); 59 remain
-- Engineering progress: 146 / 186 tasks (approximately 78.5%); 40 remain
+- Accepted overall: 147 / 205 tasks (71.7%); 58 remain
+- Engineering progress: 147 / 186 tasks (approximately 79.0%); 39 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3434,7 +3434,19 @@ continues at section 17.
 
 Story: `STORY-260712-3pt00e` — P3 Capture quality and diagnostics.
 
-- [ ] `TASK-260712-1gmsvh` — freeze-capture-quality-contract
+- [x] `TASK-260712-1gmsvh` — freeze-capture-quality-contract (accepted on
+  exact engineering commit `70d4cda548dc82025996b2587ac98bac6078ef49`,
+  merged by PR #236 as `5163b7fbe21f12ac57dcf2de3a7e7a66c9359c13`.
+  The dated candidate-neutral contract freezes one shared processor for
+  recorded clip, five-second local self-test and live PTT, exact graph and
+  callback ownership, synchronized memory-only render reference, honest
+  route/effect/health/fallback states, distinct `-3 dBFS` input and `-1 dBFS`
+  receiver ceilings, additive heartbeat/history decisions, privacy, rollback,
+  and a 14-case objective plus blinded C3 rubric. Runtime still does not
+  advertise `capture_quality_v1`. Dirty and clean exact-head acceptance passed
+  16/16; hosted run `29561196208` passed 4/4. AEC/NS/AGC implementation,
+  signed hardware, acoustic, accessibility and blinded evidence remain
+  explicitly `not-run` in `EPIC-260714-th54l3`.)
 - ↪ manual `TASK-260712-265o0f` — probe-windows-voice-processing-path
 - ↪ manual `TASK-260712-2gaswa` — probe-macos-voice-processing-path
 - [ ] `TASK-260712-1pw1l1` — capture-diagnostics-capability-surface

@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-observability-health-evidence.v1",
+  "task": "TASK-260712-2uo81g",
+  "status": "engineering-ready-manual-and-review-evidence-not-run",
+  "operatorEndpoint": {
+    "method": "GET",
+    "path": "/v1/moderation/phase3-observability",
+    "authentication": "moderation bearer with list capability",
+    "queryParameters": [],
+    "cacheControl": "no-store"
+  },
+  "publicHealth": {
+    "path": "/healthz",
+    "fields": ["runtime_ready", "live_ptt", "capture_quality", "e2ee_media", "soundboard", "automation"],
+    "disabledRule": "a disabled optional Phase 3 subsystem cannot degrade the established product health",
+    "enabledRule": "an enabled subsystem with missing, unsafe or contradictory runtime telemetry degrades health",
+    "promotionRule": "public health is runtime readiness only and never proves manual, review, beta or promotion evidence"
+  },
+  "window": {
+    "seconds": 86400,
+    "rolling": true,
+    "generatedAtClock": "coordinator wall-clock Unix milliseconds",
+    "captureFreshnessClock": "client monotonic clock scoped to the authenticated connection generation",
+    "clientTimingClock": "process monotonic clock archived by the manual campaign"
+  },
+  "metricGroups": {
+    "livePTT": ["starts_total", "rejected_starts_total", "frames_relayed_total", "duplicate_frames_total", "stale_frames_total", "invalid_frames_total", "target_backpressure_total", "target_policy_drops_total", "sessions_ended_total", "watchdog_cancellations_total", "active_sessions", "retained_audio_bytes", "persisted_audio_bytes", "mouth_to_ear_latency_sample_count", "mouth_to_ear_latency_p95_ms", "jitter_sample_count", "jitter_p95_ms", "client_timing_evidence_status"],
+    "captureQuality": ["nodes_observed", "nodes_connected", "nodes_capable", "nodes_reporting", "missing_while_connected", "processor_overruns_total", "lifecycle", "quality", "input_health", "requested_mode", "resolved_mode", "aec", "ns", "agc", "capture_stop_callback_samples", "capture_callback_evidence_status", "monotonic_freshness_semantics"],
+    "e2eeMedia": ["state", "epoch_samples", "revocation_samples", "secret_material_exposed"],
+    "automationFeature": ["observed_scopes", "soundboard_enabled_scopes", "automation_enabled_scopes", "emergency_disabled_scopes", "automation_emergency_disabled_scopes", "invalid_automation_without_soundboard_scopes", "maximum_revision", "most_recent_update_at_ms"],
+    "automationAttempts": ["total_24h", "accepted_24h", "denied_24h", "reserved_current", "rate_limited_24h", "execution_in_progress_24h", "quiet_hours_24h", "policy_denied_24h"],
+    "automationResources": ["schedules_total", "schedules_enabled", "principals_active", "principals_revoked", "audit_events_24h", "control_events_24h"],
+    "provenance": ["build_version", "environment_ref_sha256", "generated_at_ms", "window_seconds", "archive_binding_required"]
+  },
+  "featureState": {
+    "livePTT": "DUET_LIVE_PTT runtime flag",
+    "e2eeMedia": "deferred_unavailable and false until the deferred E2EE implementation exists",
+    "soundboard": "count of canonical automation feature-state scopes",
+    "automation": "count of canonical automation feature-state scopes",
+    "invalidCombination": "automation enabled without soundboard is blocked and alerted"
+  },
+  "readiness": {
+    "runtimeReady": "all enabled runtime subsystems have present, safe and non-contradictory telemetry",
+    "promotionEvidenceReady": "always false on this runtime view; the signed campaign manifest owns promotion evidence",
+    "provenanceReady": "both non-empty build_version and one-way environment_ref_sha256 are present",
+    "missingEvidence": ["c1_c3_manual_app_hardware_matrix", "c4_c6_reviewed_e2ee_acceptance", "c7_automation_safety_acceptance", "phase3_independent_reviews", "phase3_beta_incident_review", "phase3_rollout_recovery_drills"],
+    "manualStatus": "not_run"
+  },
+  "cardinality": {
+    "dynamicLabelsAllowed": false,
+    "fixedDimensions": ["subsystem", "feature state", "readiness state", "capture lifecycle", "capture quality", "capture input health", "automation outcome", "automation denial class"],
+    "forbidden": ["raw actor id", "raw orbit id", "raw node id", "raw session id", "raw principal id", "raw cue id", "raw schedule id", "raw transmission id", "raw media id", "device fingerprint", "filename", "title", "caption", "transcript", "audio bytes", "ciphertext", "cryptographic key", "bearer token", "credential hash", "filesystem path", "arbitrary error text"]
+  },
+  "privacy": {
+    "environmentBinding": "SHA-256 over a domain-separated deployment reference; the raw URL or host is not exported",
+    "contentRetention": "the observability layer creates no audio, ciphertext, caption, transcript or filename rows",
+    "secretRule": "keys, tokens, credential hashes and local paths are prohibited from health, operator JSON and archived evidence",
+    "hostileInputRule": "untrusted identifiers, labels and arbitrary errors are never dimensions"
+  },
+  "alerts": [
+    {"id": "live_ptt_runtime_missing", "condition": "live_ptt_enabled and runtime metrics source absent", "severity": "critical"},
+    {"id": "live_ptt_prohibited_audio_retention", "condition": "retained_audio_bytes or persisted_audio_bytes is non-zero", "severity": "critical"},
+    {"id": "capture_quality_telemetry_missing", "condition": "a connected capable node has no capture-quality heartbeat", "severity": "critical"},
+    {"id": "automation_enabled_without_soundboard", "condition": "automation enabled in any scope while soundboard is disabled in every scope", "severity": "critical"},
+    {"id": "automation_all_scopes_emergency_disabled", "condition": "all observed automation scopes are emergency disabled", "severity": "warning-block-promotion"},
+    {"id": "build_environment_provenance_missing", "condition": "build version or environment reference hash is absent", "severity": "warning-block-archive"}
+  ],
+  "evidence": {
+    "artifact": "phase3/observability/<run-id>/sanitized-metrics.json",
+    "manifestFields": ["artifact_sha256", "artifact_bytes", "build_version", "environment_ref_sha256", "generated_at_ms", "feature_flag_permutation", "collector", "collected_at"],
+    "query": "curl --fail --silent --show-error -H 'Authorization: Bearer $MODERATION_LIST_TOKEN' https://<coordinator>/v1/moderation/phase3-observability",
+    "validation": "python3 scripts/acceptance/validate_phase3_observability.py",
+    "manualBoundary": ["mouth-to-ear latency, jitter, audible quality and capture stop/callback require process-monotonic evidence from the real apps", "physical Windows and macOS hardware, accessibility, route changes and acoustic fixtures remain not_run in EPIC-260714-th54l3", "independent reviews, rollout/recovery drills and beta incident evidence remain not_run", "the deferred E2EE capability remains disabled and cannot produce C4-C6 evidence"]
+  },
+  "sourceAnchors": [
+    {"path": "coordinator/internal/store/phase3_observability.go", "sha256": "0894e7594ce9a7166b86a9281e6b90048433a7b6d8a635ef283ced22f226bd30"},
+    {"path": "coordinator/cmd/duet-coordinator/phase3_observability_http.go", "sha256": "3c2acda91eb80b179b553f62514f7e61b2a6feee1a98e7266da69423cff33ab0"},
+    {"path": "coordinator/cmd/duet-coordinator/onboarding.go", "sha256": "fae361e4f7eeeba55086d6fb69f21689a2cbd698d9cbb5a332ee019e1037f0e9"},
+    {"path": "coordinator/cmd/duet-coordinator/main.go", "sha256": "c31512df77f36ed82be588cddc3f776c7bfc57151dfba767162f02b634f3433a"},
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "6beb9260acea0e5eb98bfd02c3e7dcc8c9a88055e16b0a4d13bc73b552787318"},
+    {"path": "docs/compliance/legal-ops-inputs.json", "sha256": "adf48d5cba2c8b65f0d3a11a089f4b61b0f300c3286ab2b4a267d51186b4f9d7"}
+  ]
+}

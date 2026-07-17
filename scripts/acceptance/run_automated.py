@@ -152,7 +152,11 @@ def verify_go(pins: dict) -> tuple[dict[str, str], str]:
     actual = next((line for line in reversed(raw.splitlines()) if line.startswith("go version ")), raw)
     if f"go version {toolchain} " not in actual:
         raise RuntimeError(f"Go toolchain mismatch: expected {toolchain}, got {actual}")
-    for module in (ROOT / "coordinator" / "go.mod", ROOT / "pulsar-win" / "go.mod"):
+    for module in (
+        ROOT / "coordinator" / "go.mod",
+        ROOT / "pulsar-win" / "go.mod",
+        ROOT / "scripts" / "e2ee_container" / "probe" / "go.mod",
+    ):
         match = re.search(r"^go\s+(\S+)$", module.read_text(encoding="utf-8"), re.MULTILINE)
         if not match or match.group(1) != pins["go"]["version"]:
             raise RuntimeError(f"{module.relative_to(ROOT)} does not pin Go {pins['go']['version']}")
@@ -180,6 +184,7 @@ def suite_commands(suite: str, go_env: dict[str, str] | None, apple_env: dict[st
                 "scripts/acceptance/test_phase2_engineering_handoff.py",
                 "scripts/acceptance/test_automation_safety_handoff.py",
                 "scripts/acceptance/test_e2ee_threat_model.py",
+                "scripts/acceptance/test_protected_media_container_spike.py",
                 "scripts/live_ptt/test_transport_model.py",
                 "scripts/live_ptt/test_codec_transport.py",
                 "scripts/codec_spike/test_codec_spike.py",
@@ -187,6 +192,34 @@ def suite_commands(suite: str, go_env: dict[str, str] | None, apple_env: dict[st
             ),
             {"PYTHONDONTWRITEBYTECODE": "1"},
         )
+    ]
+    container_probe = [
+        Command(
+            "protected-media-container-probe-tests",
+            ROOT / "scripts/e2ee_container/probe",
+            ("go", "test", "./..."),
+            go_env,
+        ),
+        Command(
+            "protected-media-container-probe-race",
+            ROOT / "scripts/e2ee_container/probe",
+            ("go", "test", "-race", "./..."),
+            go_env,
+        ),
+    ]
+    container_probe_windows = [
+        Command(
+            "protected-media-container-probe-windows-amd64",
+            ROOT / "scripts/e2ee_container/probe",
+            ("go", "build", "./..."),
+            {**go_env, "CGO_ENABLED": "0", "GOOS": "windows", "GOARCH": "amd64"},
+        ),
+        Command(
+            "protected-media-container-probe-windows-arm64",
+            ROOT / "scripts/e2ee_container/probe",
+            ("go", "build", "./..."),
+            {**go_env, "CGO_ENABLED": "0", "GOOS": "windows", "GOARCH": "arm64"},
+        ),
     ]
     coordinator = [
         Command("coordinator-vet", ROOT / "coordinator", ("go", "vet", "./..."), go_env),
@@ -226,10 +259,10 @@ def suite_commands(suite: str, go_env: dict[str, str] | None, apple_env: dict[st
     if apple_env is not None:
         swift.append(Command("swift-tests", ROOT / "node-app", ("xcrun", "swift", "test"), apple_env))
     return {
-        "coordinator": contract + coordinator,
-        "windows": contract + windows,
+        "coordinator": contract + container_probe + coordinator,
+        "windows": contract + container_probe + container_probe_windows + windows,
         "swift": contract + swift,
-        "all": contract + coordinator + windows + swift,
+        "all": contract + container_probe + container_probe_windows + coordinator + windows + swift,
     }[suite]
 
 

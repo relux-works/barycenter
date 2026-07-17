@@ -4,16 +4,17 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 161 accepted, 44 remain.
-- Routed inventory: 186 engineering tasks (161 accepted, 25 remain) and 19
+- Combined inventory: 205 original tasks; 162 accepted, 43 remain.
+- Routed inventory: 186 engineering tasks (162 accepted, 24 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-3b7bp4` — phase3-engineering-handoff-disclosures
-- Next engineering task: `TASK-260712-2b5685` — phase3-root-engineering-completion-audit
+- Current engineering task: `TASK-260712-2b5685` — phase3-root-engineering-completion-audit
+- Next engineering task: none; `TASK-260712-2b5685` is the final engineering
+  audit and does not close deferred manual, E2EE or external-owner work
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
@@ -22,8 +23,8 @@
   `TASK-260712-1ulshp` is also retained in that deferred E2EE epic: it remains
   blocked by `TASK-260712-aniuyy` and `TASK-260712-1bcpda` and cannot be
   self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-6mz9xg` — phase3-independent-migration-recovery-review
-- Current branch: `tracking/task-260712-6mz9xg-migration-recovery-review`
+- Most recently accepted: `TASK-260712-3b7bp4` — phase3-engineering-handoff-disclosures
+- Current branch: `tracking/task-260712-3b7bp4-engineering-handoff-disclosures`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -56,8 +57,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 161 / 205 tasks (78.5%); 44 remain
-- Engineering progress: 161 / 186 tasks (approximately 86.6%); 25 remain
+- Accepted overall: 162 / 205 tasks (79.0%); 43 remain
+- Engineering progress: 162 / 186 tasks (approximately 87.1%); 24 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3743,7 +3744,23 @@ capability is released merely because another capability passed its gate.
   remains in `EPIC-260716-3qsztl`, and all Phase 3 flags, beta and promotion
   remain blocked.)
 - ↪ manual `TASK-260712-1actom` — phase3-beta-soak-incident-review
-- [ ] `TASK-260712-3b7bp4` — phase3-engineering-handoff-disclosures
+- [x] `TASK-260712-3b7bp4` — phase3-engineering-handoff-disclosures (accepted
+  exact packet commit `3d3ef4a3d7f8419512b80efd4a09c0909155e230`,
+  merged by PR #266 at `ebbf02d421fe29ec44cd89b51373357444b3e5bb`.
+  The fail-closed handoff pins 35 source authorities, indexes all 19 C1-C7/NF
+  gates, all 19 deferred manual tasks, all 18 deferred E2EE tasks, four
+  implementation-independent Phase 3 approval tasks, rollback commands and
+  conditional EN/RU disclosure surfaces. `live_ptt` is explicitly
+  coordinator-readable and not E2EE; `e2ee_media` is absent and disabled; the
+  Store draft has `eligibleForSubmission=false`. Exact-head clean all-suite
+  acceptance passed 16/16 with 188 contract tests, coordinator vet/tests and
+  previous-head rollback, protected-container test/race/cross-build, Windows
+  vet/test/race/cross-build and 308 Swift tests in 52 suites; manual evidence
+  remained `not-run`. Hosted run `29591121063` passed 4/4. No production
+  artifact, physical C1-C7 result, independent approval, public policy,
+  Partner Center action, signed rollout drill, beta day, E2EE implementation
+  or release was claimed. The packet authorizes only the next root engineering
+  completion audit.)
 - [ ] `TASK-260712-2b5685` — phase3-root-engineering-completion-audit
 
 ## Milestone gates

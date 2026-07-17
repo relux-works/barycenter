@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-realtime-technical-pre-review.v1",
+  "task": "TASK-260712-3j4a06",
+  "reviewedAt": "2026-07-17",
+  "rootReview": {
+    "sourceCommit": "d94f51644a3acf37601b4a869b4247380372f9ec",
+    "sourceTree": "4e4cca878db806650eda6f1e1642051b87a18b93",
+    "packetCommit": "7388459356ec3a6ed976cdc779fec939adfa8d7b",
+    "mergeCommit": "0d6f85d43909737ff717464d8f427ea315f870b2",
+    "findingStatus": {
+      "P3-ROOT-001": "fixed-re-reviewed",
+      "P3-ROOT-002": "fixed-re-reviewed",
+      "P3-ROOT-003": "fixed-re-reviewed",
+      "P3-ROOT-004": "fixed-re-reviewed"
+    }
+  },
+  "reviewer": {
+    "id": "codex-inline-pre-reviewer",
+    "independenceRequired": true,
+    "independenceSatisfied": false,
+    "independentApprover": "Ivan Oparin",
+    "independentApprovalTask": "TASK-260717-3dbi2v",
+    "approvalStatus": "required"
+  },
+  "decision": {
+    "result": "engineering-pre-review-complete-external-and-manual-blocked",
+    "repositoryPreflightPassed": true,
+    "criticalOrHighTechnicalFindingsOpen": false,
+    "livePTTActivationAllowed": false,
+    "c1ThroughC3Accepted": false,
+    "phase3PromotionAllowed": false,
+    "manualEvidenceClaimed": false,
+    "nextEngineeringTaskMayStart": true
+  },
+  "sourceAnchors": [
+    {"path": "coordinator/internal/session/live_ptt_runtime.go", "sha256": "ca1ea1d36ef436e463b7234158d2e5c55776ab7dfa00fac0950eb134148888ec"},
+    {"path": "coordinator/internal/protocol/live_ptt.go", "sha256": "7312797b7353fbea2d549f15a93c7881e1f656cad8ea2901fcb608a701d8dd91"},
+    {"path": "coordinator/cmd/duet-coordinator/live_ptt_runtime.go", "sha256": "6b43699172883b90195e285de422842f48da952ac24b375f4d48c35a4225f171"},
+    {"path": "acceptance/live-ptt/codec-transport-decision-v1.json", "sha256": "dc6436605133f00f55662dd218ab0dadeeec2b05d64824aa6144b172fc1d8855"},
+    {"path": "scripts/live_ptt/transport_model.py", "sha256": "5fe3d731a49f639f1cdd608ea9a8646ec962e2985afe6f88f8105e1effe7159f"},
+    {"path": "pulsar-win/windows_live_capture_sender.go", "sha256": "180d9bc2c030523ab01272d5b2e2cae01a3a981d6b15ce04d51c54d5c701bd8e"},
+    {"path": "pulsar-win/windows_live_jitter_receiver.go", "sha256": "da9ace429038af2f357680e1519e90a7a1b3ef588da344c5dee0dad22fc202eb"},
+    {"path": "pulsar-win/windows_live_ptt_node.go", "sha256": "c9b3b1097d1c33ef5d7ad3010ce5c127c162e40c95f2c64b984401bf91183a08"},
+    {"path": "pulsar-win/windows_capture_quality.go", "sha256": "ab4e741a39f141684f8d9ac97e30833e1f167dc7a772c1dcf8291ea7f2347fcf"},
+    {"path": "pulsar-win/native/pulsar-capture/pulsar_capture.cpp", "sha256": "f75582f1f245cbd5ef78232fcde4fb2f758dfb98b6194f3001b4d16156542d0f"},
+    {"path": "pulsar-win/overlay_mixer.go", "sha256": "2963434b39b7c9bd0fee4cdf7b8a2ec9325405a7da64a8a3fb5b44fbaf5cab10"},
+    {"path": "pulsar-win/capture_media_lifecycle.go", "sha256": "4d061a1d1831f7091d332a21bedb1184ea4863b00bb9921a68b09563a9c6bf21"},
+    {"path": "pulsar-win/wire/live_ptt.go", "sha256": "b3d0cba2413a20f2c7ee86a5ef2712b3d7c58718b6c4b958aab18228ea5a313b"},
+    {"path": "node-app/Sources/NodeCore/MacLiveCaptureSender.swift", "sha256": "b8a2753da40b3d23fd131a939309d1c368f818cf300b0ff7e1e5da0c06046354"},
+    {"path": "node-app/Sources/NodeCore/MacLiveJitterReceiver.swift", "sha256": "7dd0768dd9f3e6022a8cb0355c950690c17f789de2342e92aa844ce34651fc72"},
+    {"path": "node-app/Sources/NodeCore/MacLivePTTNode.swift", "sha256": "129ff8304c7d5ed6b3871108706dca8f905baa02f4658c6bfdc5f3a478024cba"},
+    {"path": "node-app/Sources/NodeCore/AudioEngine.swift", "sha256": "5d63fcd20d6b7b80c0a70b871cd85e33425955f4c9f1dcb75ae0b15d4e682150"},
+    {"path": "node-app/Sources/NodeCore/MacCaptureQualityProcessor.swift", "sha256": "c8a1e3b569a0c716b1cf59ef208c28a35808ff6d469ff4638a77b2c845216690"},
+    {"path": "node-app/Sources/NodeCore/MacAVAudioCaptureBackend.swift", "sha256": "2281a29e3e857b92906bae8d247a717eaac53123f6f1bd827e6fb1318123d270"},
+    {"path": "node-app/Sources/NodeCore/MacOverlayMediaClipMixer.swift", "sha256": "753e7ad9baa3e72f19ef0025df15b13662ebd6ce7a6eb8de089a6336289fcced"},
+    {"path": "node-app/Sources/NodeCore/CaptureMediaLifecycle.swift", "sha256": "afbdbe4c61979fd0329f6e80edd0b6922aa52aa3342c93990741dc8bf57fd1c4"},
+    {"path": "node-app/Sources/NodeCore/RingBuffer.swift", "sha256": "cc90cb9b3d68c426f3c4ca0d48f4c1beda32385aa2c5a461efd35246c667a055"},
+    {"path": "node-app/Sources/NodeCore/LivePTTProtocol.swift", "sha256": "269d38d12ef411dd92bbe0c820391efdfde7ad77cd7ada7da1fe033939d8bb4c"},
+    {"path": "acceptance/phase3/capture-quality-integrated-regressions-v1.json", "sha256": "a8e9bed5bf060ccbfb5622c935f340086801d25579f1ec44904c801da13b2e93"},
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "6beb9260acea0e5eb98bfd02c3e7dcc8c9a88055e16b0a4d13bc73b552787318"}
+  ],
+  "reviewedInvariants": [
+    "one-generation-one-capture-owner",
+    "lost-release-watchdog-and-terminal-cleanup",
+    "bounded-coordinator-session-and-target-state",
+    "bounded-jitter-window-with-fec-before-plc",
+    "slow-target-backpressure-does-not-stall-fast-targets",
+    "callback-paths-have-no-network-storage-lock-or-allocation",
+    "audible-start-follows-render-consumption",
+    "post-mix-limiter-and-input-ceiling-cannot-be-bypassed",
+    "route-or-processing-ambiguity-degrades-fail-closed"
+  ],
+  "reruns": [
+    {
+      "id": "coordinator-live-race-stress",
+      "command": "cd coordinator && go test -race -count=10 ./internal/session ./internal/protocol ./internal/hub && go test -race -count=10 ./internal/store -run 'LivePTT|Phase3' && go test -race -count=10 ./cmd/duet-coordinator -run 'LivePTT|Phase3'",
+      "status": "pass"
+    },
+    {
+      "id": "windows-live-capture-race-stress",
+      "command": "cd pulsar-win && go test -race -count=10 ./... -run 'Live|Capture|Audio|Mixer|PTT|Jitter'",
+      "status": "pass",
+      "packages": 4
+    },
+    {
+      "id": "macos-live-capture-suite",
+      "command": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter 'Live|Capture|Audio|Mixer|PTT|Jitter'",
+      "status": "pass",
+      "tests": 75,
+      "suites": 14,
+      "host": "x86_64-apple-macos14.0"
+    },
+    {
+      "id": "transport-capture-contracts",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v scripts/live_ptt/test_transport_model.py scripts/live_ptt/test_codec_transport.py scripts/capture_quality/test_harness.py scripts/capture_quality/test_integrated.py && python3 scripts/capture_quality/validate_integrated.py",
+      "status": "pass",
+      "tests": 23,
+      "fixtureRuns": 252
+    }
+  ],
+  "nonAcceptedAttempts": [
+    {
+      "id": "coordinator-unrelated-full-store-race-times-ten",
+      "command": "cd coordinator && go test -race -count=10 ./internal/session ./internal/protocol ./internal/hub ./internal/store",
+      "status": "timeout-not-counted",
+      "reason": "the whole 302-test store package exceeded Go's default 10-minute package timeout while running unrelated identity rollback coverage; the realtime-scoped store rerun passed separately"
+    }
+  ],
+  "findings": [],
+  "evidenceBoundary": {
+    "automated": [
+      "deterministic state and generation transitions",
+      "race-free exercised Go paths",
+      "bounded synthetic jitter and target backpressure",
+      "source-guarded callback boundaries",
+      "synthetic limiter and capture-quality thresholds",
+      "privacy-safe fixed-code diagnostics"
+    ],
+    "notProved": [
+      "physical hold and release from foreground applications",
+      "mouth-to-ear latency across two homes",
+      "audible intelligibility at two-percent packet loss",
+      "speaker and headphone echo or double-talk quality",
+      "device route changes in signed packaged applications"
+    ]
+  },
+  "openGates": [
+    {
+      "id": "P3-RT-GATE-001",
+      "status": "manual-blocking",
+      "ownerEpic": "EPIC-260714-th54l3",
+      "task": "TASK-260712-flaiie",
+      "manualEvidence": "not-run",
+      "hardwareIdentity": null
+    },
+    {
+      "id": "P3-RT-GATE-002",
+      "status": "external-review-blocking",
+      "ownerEpic": "EPIC-260714-zmnd4n",
+      "task": "TASK-260717-3dbi2v",
+      "reviewerIdentity": null,
+      "approval": "required"
+    }
+  ],
+  "nextEngineeringTask": "TASK-260712-1x5jfo"
+}

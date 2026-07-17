@@ -20,13 +20,36 @@ func TestWindowsShellCatalogAndInformationArchitecture(t *testing.T) {
 			}
 		}
 	}
-	want := []ShellSection{ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellInbox, ShellAirs, ShellSettings}
+	want := []ShellSection{ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellSoundboard, ShellHistory, ShellInbox, ShellAirs, ShellSettings}
 	if !reflect.DeepEqual(shellSections, want) {
 		t.Fatalf("sections=%v want %v", shellSections, want)
 	}
 	if NewShellCopy(ShellEnglish).Text(txtOnline) == NewShellCopy(ShellRussian).Text(txtOnline) {
 		t.Fatal("EN and RU catalogs unexpectedly alias")
 	}
+}
+
+func TestWindowsSoundboardProjectionShowsHonestShortcutAndRouting(t *testing.T) {
+	snapshot := ShellSnapshot{SoundboardCues: []ShellSoundboardCue{{Title: "Bell", SourceKind: "builtin",
+		ShortcutLabel: "Ctrl+Alt+F1", ShortcutStatus: WindowsShortcutConflict}}, SoundboardRoute: PhaseOneOwnBarycenter,
+		SoundboardDelivery: PhaseOneOverlay, SoundboardIncludeOrigin: true, SoundboardHistoryCount: 2}
+	for _, locale := range []ShellLocale{ShellEnglish, ShellRussian} {
+		body := NewShellCopy(locale).Body(ShellSoundboard, snapshot)
+		if !strings.Contains(body, "Bell") || !strings.Contains(body, "Ctrl+Alt+F1") || !strings.Contains(body, "conflict") || !strings.Contains(body, "2") {
+			t.Fatalf("%s projection=%q", locale, body)
+		}
+	}
+}
+
+func TestWindowsHistoryRendersAutomationAttributionAndAvailableQuickControls(t *testing.T) {
+	item := ShellPhaseOneHistoryItem{Title: "Bell", Status: "denied", AutomationTrigger: "schedule",
+		AutomationActor: "Kitchen timer", AutomationSchedule: "Morning", AutomationCue: "Bell",
+		AutomationReason: "automation_disabled", CanDisableSchedule: true, CanRevokePrincipal: true, CanEmergencyDisable: true}
+	line := NewShellCopy(ShellEnglish).HistoryItem(item, 1, 1)
+	for _, expected := range []string{"Kitchen timer", "Morning", "automation_disabled", "disable schedule", "revoke principal", "emergency disable"} {
+		if !strings.Contains(line, expected) { t.Fatalf("history=%q missing %q", line, expected) }
+	}
+	if strings.Contains(line, "token") || strings.Contains(line, "selector") { t.Fatalf("history leaked secret vocabulary: %q", line) }
 }
 
 func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {

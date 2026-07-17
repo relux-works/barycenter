@@ -37,6 +37,28 @@ CREATE INDEX IF NOT EXISTS automation_audit_orbit_history
 CREATE INDEX IF NOT EXISTS automation_audit_transmission
   ON automation_audit_events(transmission_id) WHERE transmission_id <> '';
 
+-- Manual soundboard delivery intentionally uses the ordinary transmission
+-- delivery matrix. Keeping its lineage beside (rather than inside) the
+-- overlay-only automation execution table preserves the frozen scheduler
+-- constraints while still giving canonical history one attribution source.
+CREATE TABLE IF NOT EXISTS manual_soundboard_executions (
+  id TEXT PRIMARY KEY CHECK(length(id) = 29 AND substr(id, 1, 3) = 'mx_'),
+  transmission_id TEXT NOT NULL UNIQUE REFERENCES transmissions(id),
+  owner_orbit_id INTEGER NOT NULL CHECK(owner_orbit_id > 0),
+  actor_id INTEGER NOT NULL CHECK(actor_id > 0),
+  cue_id TEXT NOT NULL REFERENCES saved_cues(id),
+  cue_revision INTEGER NOT NULL CHECK(cue_revision > 0),
+  cue_source_generation INTEGER NOT NULL CHECK(cue_source_generation > 0),
+  feature_revision INTEGER NOT NULL CHECK(feature_revision > 0),
+  audience_kind TEXT NOT NULL CHECK(audience_kind IN (
+    'this_pulsar', 'own_barycenter', 'current_air', 'explicit')),
+  delivery TEXT NOT NULL CHECK(delivery IN ('overlay', 'interrupt', 'after_current')),
+  resolved_target_count INTEGER NOT NULL CHECK(resolved_target_count BETWEEN 1 AND 64),
+  created_at INTEGER NOT NULL CHECK(created_at > 0)
+);
+CREATE INDEX IF NOT EXISTS manual_soundboard_history
+  ON manual_soundboard_executions(owner_orbit_id, created_at DESC, transmission_id);
+
 CREATE TRIGGER IF NOT EXISTS automation_audit_events_no_update
 BEFORE UPDATE ON automation_audit_events
 BEGIN

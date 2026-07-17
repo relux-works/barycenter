@@ -147,6 +147,7 @@ const (
 	menuCancel              = 2016
 	menuShortcutDefault     = 2017
 	menuShortcutAlternative = 2018
+	menuSoundboardTrigger   = 2019
 
 	pbtApmSuspend         = 0x0004
 	pbtApmResumeAutomatic = 0x0012
@@ -510,6 +511,7 @@ func pumpMessages() {
 var curTray *TrayState
 var trayHwnd windows.Handle
 var curRecordingShortcut *WindowsRecordingShortcutController
+var curSoundboardShortcuts *WindowsSoundboardShortcutController
 var traySessionNotifications bool
 
 func currentWindowsRecordingShortcutStatus() WindowsRecordingShortcutStatus {
@@ -524,6 +526,13 @@ func currentWindowsRecordingShortcut() WindowsRecordingShortcut {
 		return DefaultWindowsRecordingShortcut()
 	}
 	return curRecordingShortcut.Shortcut()
+}
+
+func currentWindowsSoundboardShortcutStates() []WindowsSoundboardShortcutState {
+	if curSoundboardShortcuts == nil {
+		return nil
+	}
+	return curSoundboardShortcuts.States()
 }
 
 // awaitShutdown runs the tray's Win32 message loop as the main-thread
@@ -566,6 +575,12 @@ func runTrayLoop(state *TrayState) {
 			traySessionNotifications = registered != 0
 		}
 	}
+	if state != nil && state.Soundboard != nil {
+		curSoundboardShortcuts = NewWindowsSoundboardShortcutController(
+			&win32RecordingShortcutRegistrar{hwnd: trayHwnd}, state.Shortcut,
+			state.SoundboardPreferences.Shortcuts, state.Soundboard.TriggerCue)
+		curSoundboardShortcuts.Start()
+	}
 
 	addTrayIcon(trayHwnd)
 	showMainWindow(false)
@@ -576,6 +591,9 @@ func runTrayLoop(state *TrayState) {
 	if curRecordingShortcut != nil {
 		curRecordingShortcut.Stop()
 	}
+	if curSoundboardShortcuts != nil {
+		curSoundboardShortcuts.Stop()
+	}
 	if traySessionNotifications {
 		pWTSUnregisterSessionNotification.Call(uintptr(trayHwnd))
 		traySessionNotifications = false
@@ -584,6 +602,7 @@ func runTrayLoop(state *TrayState) {
 	destroyMainWindow()
 	curTray = nil
 	curRecordingShortcut = nil
+	curSoundboardShortcuts = nil
 }
 
 // requestTrayLoopExit is called only from a callback already executing on the
@@ -617,8 +636,10 @@ func removeTrayIcon(hwnd windows.Handle) {
 func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintptr {
 	switch message {
 	case wmHotKey:
-		if curRecordingShortcut != nil {
-			curRecordingShortcut.HandleHotKey(WindowsShortcutRegistration(wParam))
+		if curRecordingShortcut == nil || !curRecordingShortcut.HandleHotKey(WindowsShortcutRegistration(wParam)) {
+			if curSoundboardShortcuts != nil {
+				curSoundboardShortcuts.HandleHotKey(WindowsShortcutRegistration(wParam))
+			}
 		}
 		return 0
 	case wmWtsSessionChange:
@@ -629,9 +650,15 @@ func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintp
 			if curRecordingShortcut != nil {
 				curRecordingShortcut.Suspend(WindowsShortcutSessionLocked)
 			}
+			if curSoundboardShortcuts != nil {
+				curSoundboardShortcuts.Suspend(WindowsShortcutSessionLocked)
+			}
 		} else if wParam == wtsSessionUnlock {
 			if curRecordingShortcut != nil {
 				curRecordingShortcut.Resume(WindowsShortcutSessionLocked)
+			}
+			if curSoundboardShortcuts != nil {
+				curSoundboardShortcuts.Resume(WindowsShortcutSessionLocked)
 			}
 		}
 		return 0
@@ -643,9 +670,15 @@ func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintp
 			if curRecordingShortcut != nil {
 				curRecordingShortcut.Suspend(WindowsShortcutSystemSuspend)
 			}
+			if curSoundboardShortcuts != nil {
+				curSoundboardShortcuts.Suspend(WindowsShortcutSystemSuspend)
+			}
 		} else if wParam == pbtApmResumeAutomatic {
 			if curRecordingShortcut != nil {
 				curRecordingShortcut.Resume(WindowsShortcutSystemSuspend)
+			}
+			if curSoundboardShortcuts != nil {
+				curSoundboardShortcuts.Resume(WindowsShortcutSystemSuspend)
 			}
 		}
 		return 1
@@ -685,6 +718,10 @@ func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintp
 				if shellRecordingEnabled(snapshot) && actions.ToggleRecording != nil {
 					actions.ToggleRecording()
 				}
+			}
+		case menuSoundboardTrigger:
+			if curTray != nil && curTray.Soundboard != nil {
+				curTray.Soundboard.TriggerSelected()
 			}
 		case menuCancel:
 			if curTray != nil && curTray.Shell != nil {
@@ -777,6 +814,18 @@ func showTrayMenu(hwnd windows.Handle) {
 		add(mfString, menuCreate, copy.Text(txtCreate))
 		add(mfString, menuJoin, copy.Text(txtJoin))
 		add(mfString, menuTry, copy.Text(txtTry))
+		if len(snapshot.SoundboardCues) > 0 {
+			cue := snapshot.SoundboardCues[snapshot.SelectedSoundboardCue]
+			flags := uint32(mfString)
+			if snapshot.SoundboardBusy {
+				flags |= mfGrayed
+			}
+			label := "Play sound: " + cue.Title
+			if copy.locale == ShellRussian {
+				label = "Проиграть звук: " + cue.Title
+			}
+			add(flags, menuSoundboardTrigger, label)
+		}
 		add(mfSeparator, 0, "")
 		add(mfString|mfGrayed, 0, copy.Connection(snapshot))
 		if curTray.Identity != "" {

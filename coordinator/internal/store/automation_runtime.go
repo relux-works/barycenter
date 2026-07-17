@@ -417,43 +417,86 @@ FROM automation_feature_state WHERE owner_orbit_id = ?`, principal.OwnerOrbitID)
 	if err != nil {
 		return MediaItem{}, err
 	}
+	item, err := ensureAutomationBuiltinMediaTx(tx, principal.OwnerOrbitID,
+		principal.IssuedByActorID, now)
+	if err != nil {
+		return MediaItem{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return MediaItem{}, err
+	}
+	return item, nil
+}
+
+func ensureAutomationBuiltinMediaTx(tx *sql.Tx, ownerOrbitID, actorID, now int64) (MediaItem, error) {
 	var mediaID string
-	err = tx.QueryRow(`SELECT media_id FROM automation_builtin_media
-WHERE owner_orbit_id = ?`, principal.OwnerOrbitID).Scan(&mediaID)
+	err := tx.QueryRow(`SELECT media_id FROM automation_builtin_media
+WHERE owner_orbit_id = ?`, ownerOrbitID).Scan(&mediaID)
 	if err == nil {
-		item, err := scanMediaItem(tx.QueryRow(`SELECT `+mediaItemColumns+`
+		return scanMediaItem(tx.QueryRow(`SELECT `+mediaItemColumns+`
 FROM media_items WHERE id = ?`, mediaID))
-		if err != nil {
-			return MediaItem{}, err
-		}
-		if err := tx.Commit(); err != nil {
-			return MediaItem{}, err
-		}
-		return item, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return MediaItem{}, err
 	}
 	mediaID = ulid.NewMediaID(time.UnixMilli(now))
-	storageKey := AutomationBuiltinStorageKey(principal.OwnerOrbitID)
+	storageKey := AutomationBuiltinStorageKey(ownerOrbitID)
 	expiresAt := now + (10 * 365 * 24 * time.Hour).Milliseconds()
 	_, err = tx.Exec(`INSERT INTO media_items(
   id, owner_orbit_id, actor_id, kind, source, title, mime, codec, duration_ms,
   size_bytes, sha256, storage_key, status, created_at, updated_at, expires_at, published_at
 ) VALUES(?, ?, ?, 'builtin_cue', 'system', 'Pulsar recording cue', 'audio/wav',
-  'pcm_s16le', ?, ?, ?, ?, 'ready', ?, ?, ?, ?)`, mediaID, principal.OwnerOrbitID,
-		principal.IssuedByActorID, BuiltinRecordingCueDuration, BuiltinRecordingCueBytes,
+  'pcm_s16le', ?, ?, ?, ?, 'ready', ?, ?, ?, ?)`, mediaID, ownerOrbitID,
+		actorID, BuiltinRecordingCueDuration, BuiltinRecordingCueBytes,
 		BuiltinRecordingCueSHA256, storageKey, now, now, expiresAt, now)
 	if err != nil {
 		return MediaItem{}, err
 	}
+	// owner_orbit_id is also the singleton key preventing duplicate system
+	// media when scoped automation and manual soundboard race.
 	if _, err := tx.Exec(`INSERT INTO automation_builtin_media(
 owner_orbit_id, media_id, storage_key, created_at, updated_at)
-VALUES(?, ?, ?, ?, ?)`, principal.OwnerOrbitID, mediaID, storageKey, now, now); err != nil {
+VALUES(?, ?, ?, ?, ?)`, ownerOrbitID, mediaID, storageKey, now, now); err != nil {
 		return MediaItem{}, err
 	}
 	item, err := scanMediaItem(tx.QueryRow(`SELECT `+mediaItemColumns+`
 FROM media_items WHERE id = ?`, mediaID))
+	if err != nil {
+		return MediaItem{}, err
+	}
+	return item, nil
+}
+
+func (s *Store) EnsureAuthorizedAutomationBuiltinMedia(expectedActorID int64, bearer, cueID string, now int64) (MediaItem, error) {
+	if expectedActorID <= 0 || bearer == "" || now <= 0 || !savedCueIDPattern.MatchString(cueID) {
+		return MediaItem{}, ErrAutomationInvalid
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return MediaItem{}, err
+	}
+	defer tx.Rollback()
+	ctx, err := authorizeSavedCueMutationTx(tx, expectedActorID, bearer)
+	if err != nil {
+		return MediaItem{}, err
+	}
+	feature, err := scanAutomationFeatureState(tx.QueryRow(`SELECT `+automationFeatureColumns+`
+FROM automation_feature_state WHERE owner_orbit_id = ?`, ctx.OrbitID))
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && !feature.SoundboardEnabled) {
+		return MediaItem{}, ErrAutomationDisabled
+	}
+	if err != nil {
+		return MediaItem{}, err
+	}
+	cue, err := savedCueOwnedActiveTx(tx, cueID, ctx.OrbitID)
+	if err != nil || cue.SourceKind != SavedCueSourceBuiltin ||
+		cue.BuiltinAssetID != BuiltinRecordingCueAssetID || cue.BuiltinSHA256 != BuiltinRecordingCueSHA256 {
+		if err != nil {
+			return MediaItem{}, err
+		}
+		return MediaItem{}, ErrAutomationCueNotReady
+	}
+	item, err := ensureAutomationBuiltinMediaTx(tx, ctx.OrbitID, ctx.ActorID, now)
 	if err != nil {
 		return MediaItem{}, err
 	}

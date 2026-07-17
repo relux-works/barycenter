@@ -716,6 +716,7 @@ type transmissionTargetResponse struct {
 
 type transmissionHTTPResponse struct {
 	TransmissionID    string                           `json:"transmission_id"`
+	ExecutionID       string                           `json:"execution_id,omitempty"`
 	MediaID           string                           `json:"media_id"`
 	Audience          transmissionAudienceResponse     `json:"audience"`
 	OriginKind        string                           `json:"origin_kind"`

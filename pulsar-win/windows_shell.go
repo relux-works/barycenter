@@ -23,13 +23,14 @@ const (
 	ShellJoin       ShellSection = "join"
 	ShellTryLocally ShellSection = "try_locally"
 	ShellHistory    ShellSection = "history"
+	ShellSoundboard ShellSection = "soundboard"
 	ShellInbox      ShellSection = "inbox"
 	ShellAirs       ShellSection = "airs"
 	ShellSettings   ShellSection = "settings"
 )
 
 var shellSections = []ShellSection{
-	ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellInbox, ShellAirs, ShellSettings,
+	ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellSoundboard, ShellHistory, ShellInbox, ShellAirs, ShellSettings,
 }
 
 type ShellConnection string
@@ -84,19 +85,34 @@ type ShellPhaseOneDraft struct {
 }
 
 type ShellPhaseOneHistoryItem struct {
-	Title             string
-	SenderName        string
-	Direction         string
-	Status            string
-	RequestedDelivery string
-	EffectiveDelivery string
-	DowngradeReason   string
-	PlayedCount       int
-	OtherCount        int
-	CanDelete         bool
-	CanReplay         bool
-	CanReport         bool
-	CanBlock          bool
+	Title               string
+	SenderName          string
+	Direction           string
+	Status              string
+	RequestedDelivery   string
+	EffectiveDelivery   string
+	DowngradeReason     string
+	PlayedCount         int
+	OtherCount          int
+	CanDelete           bool
+	CanReplay           bool
+	CanReport           bool
+	CanBlock            bool
+	AutomationTrigger   string
+	AutomationActor     string
+	AutomationSchedule  string
+	AutomationCue       string
+	AutomationReason    string
+	CanDisableSchedule  bool
+	CanRevokePrincipal  bool
+	CanEmergencyDisable bool
+}
+
+type ShellSoundboardCue struct {
+	Title          string
+	SourceKind     string
+	ShortcutLabel  string
+	ShortcutStatus WindowsRecordingShortcutStatus
 }
 
 type ShellAirItem struct {
@@ -167,6 +183,15 @@ type ShellSnapshot struct {
 	SelectedReportReason      PhaseOneModerationReason
 	PhaseOneActionOutcome     string
 	PhaseOneFailure           string
+	SoundboardCues            []ShellSoundboardCue
+	SelectedSoundboardCue     int
+	SoundboardRoute           PhaseOneRoute
+	SoundboardDelivery        PhaseOneDelivery
+	SoundboardIncludeOrigin   bool
+	SoundboardBusy            bool
+	SoundboardOutcome         string
+	SoundboardFailure         string
+	SoundboardHistoryCount    int
 	TargetsInbox              TargetsInboxSnapshot
 	SelectedTarget            int
 	SelectedInbox             int
@@ -266,6 +291,15 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 	if !validPhaseOneModerationReason(s.SelectedReportReason) {
 		s.SelectedReportReason = PhaseOneReportSpam
 	}
+	if s.SelectedSoundboardCue < 0 || s.SelectedSoundboardCue >= len(s.SoundboardCues) {
+		s.SelectedSoundboardCue = 0
+	}
+	if !validPhaseOneRoute(s.SoundboardRoute) {
+		s.SoundboardRoute = PhaseOneOwnBarycenter
+	}
+	if !validPhaseOneDelivery(s.SoundboardDelivery) {
+		s.SoundboardDelivery = PhaseOneOverlay
+	}
 	if s.SelectedTarget < 0 || s.SelectedTarget >= len(s.TargetsInbox.Targets) {
 		s.SelectedTarget = 0
 	}
@@ -291,84 +325,94 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 }
 
 type ShellActions struct {
-	Create                         func(string)
-	Join                           func(string)
-	SaveRecovery                   func(string)
-	TryLocally                     func()
-	PlayBuiltinCue                 func()
-	ChooseLocalFile                func()
-	ChooseOutgoingFile             func()
-	AcceptDroppedFile              func(WindowsBrokeredAudioFile)
-	DeleteLocalDraft               func()
-	SelectNextInput                func()
-	SelectNextOutput               func()
-	ToggleRecording                func()
-	CancelRecording                func()
-	SetDND                         func(ShellDND)
-	SendSelectedDraft              func()
-	DeleteSelectedDraft            func()
-	SelectNextPhaseOneDraft        func()
-	SelectNextPhaseOneRoute        func()
-	SelectNextPhaseOneDelivery     func()
-	SelectNextHistoryItem          func()
-	SelectNextReportReason         func()
-	DeleteSelectedHistoryItem      func()
-	ReportSelectedHistoryItem      func(string)
-	ReplaySelectedHistoryItem      func()
-	BlockSelectedHistoryActor      func()
-	RefreshTargetsInbox            func()
-	SelectNextTargetAudience       func()
-	SelectNextTarget               func()
-	ToggleSelectedTarget           func()
-	ToggleTargetIncludeOrigin      func()
-	SelectNextTargetsDelivery      func()
-	SendTargetsDraft               func()
-	SelectNextInboxItem            func()
-	ReplaySelectedInbox            func()
-	DismissSelectedInbox           func()
-	ReportSelectedInbox            func(string)
-	MuteSelectedInbox              func()
-	LoadMoreInbox                  func()
-	SelectNextTargetsHistory       func()
-	DeleteSelectedTargetsHistory   func()
-	ReportSelectedTargetsHistory   func(string)
-	MuteSelectedTargetsHistory     func()
-	LoadMoreTargetsHistory         func()
-	LoadMoreTargetReceipts         func()
-	SelectNextTargetsReason        func()
-	ChooseStreamTrackFile          func()
-	AcceptDroppedStreamTrack       func(WindowsBrokeredAudioFile)
-	RefreshStreamTrack             func()
-	AcceptStreamTrackPolicy        func()
-	UploadStreamTrack              func()
-	DeleteStreamTrack              func(bool)
-	SelectNextStreamTrackAudience  func()
-	SelectNextStreamTrackTarget    func()
-	ToggleStreamTrackTarget        func()
-	SelectNextStreamTrackInsertion func()
-	QueueStreamTrack               func()
-	ReplaceStreamTrack             func()
-	PauseStreamTrack               func()
-	SeekStreamTrack                func()
-	ResumeStreamTrack              func()
-	RetryStreamTrack               func()
-	ReportStreamTrack              func(string)
-	SelectNextAir                  func()
-	CreateAir                      func(string)
-	ConsumeAirInvite               func(string)
-	ConfirmAirJoin                 func(bool)
-	DeclineAirJoin                 func()
-	SelectNextAirInviteRole        func()
-	IssueAirInvite                 func()
-	CopyAirInvite                  func()
-	HideAirInvite                  func()
-	WithdrawAirInvite              func()
-	RequestAirActivation           func()
-	RequestAirLeave                func()
-	RequestAirDissolve             func()
-	CycleAirPolicy                 func()
-	ConfirmAirDisruptive           func()
-	CancelAirDisruptive            func()
+	Create                          func(string)
+	Join                            func(string)
+	SaveRecovery                    func(string)
+	TryLocally                      func()
+	PlayBuiltinCue                  func()
+	ChooseLocalFile                 func()
+	ChooseOutgoingFile              func()
+	AcceptDroppedFile               func(WindowsBrokeredAudioFile)
+	DeleteLocalDraft                func()
+	SelectNextInput                 func()
+	SelectNextOutput                func()
+	ToggleRecording                 func()
+	CancelRecording                 func()
+	SetDND                          func(ShellDND)
+	SendSelectedDraft               func()
+	DeleteSelectedDraft             func()
+	SelectNextPhaseOneDraft         func()
+	SelectNextPhaseOneRoute         func()
+	SelectNextPhaseOneDelivery      func()
+	SelectNextHistoryItem           func()
+	SelectNextReportReason          func()
+	DeleteSelectedHistoryItem       func()
+	ReportSelectedHistoryItem       func(string)
+	ReplaySelectedHistoryItem       func()
+	BlockSelectedHistoryActor       func()
+	SelectNextSoundboardCue         func()
+	TriggerSelectedSoundboardCue    func()
+	SelectNextSoundboardRoute       func()
+	SelectNextSoundboardDelivery    func()
+	ToggleSoundboardIncludeOrigin   func()
+	DeleteSelectedSoundboardCue     func()
+	MoveSelectedSoundboardCue       func(int)
+	CycleSelectedSoundboardShortcut func()
+	ChooseSoundboardFile            func()
+	RenameSelectedSoundboardCue     func(string)
+	RefreshTargetsInbox             func()
+	SelectNextTargetAudience        func()
+	SelectNextTarget                func()
+	ToggleSelectedTarget            func()
+	ToggleTargetIncludeOrigin       func()
+	SelectNextTargetsDelivery       func()
+	SendTargetsDraft                func()
+	SelectNextInboxItem             func()
+	ReplaySelectedInbox             func()
+	DismissSelectedInbox            func()
+	ReportSelectedInbox             func(string)
+	MuteSelectedInbox               func()
+	LoadMoreInbox                   func()
+	SelectNextTargetsHistory        func()
+	DeleteSelectedTargetsHistory    func()
+	ReportSelectedTargetsHistory    func(string)
+	MuteSelectedTargetsHistory      func()
+	LoadMoreTargetsHistory          func()
+	LoadMoreTargetReceipts          func()
+	SelectNextTargetsReason         func()
+	ChooseStreamTrackFile           func()
+	AcceptDroppedStreamTrack        func(WindowsBrokeredAudioFile)
+	RefreshStreamTrack              func()
+	AcceptStreamTrackPolicy         func()
+	UploadStreamTrack               func()
+	DeleteStreamTrack               func(bool)
+	SelectNextStreamTrackAudience   func()
+	SelectNextStreamTrackTarget     func()
+	ToggleStreamTrackTarget         func()
+	SelectNextStreamTrackInsertion  func()
+	QueueStreamTrack                func()
+	ReplaceStreamTrack              func()
+	PauseStreamTrack                func()
+	SeekStreamTrack                 func()
+	ResumeStreamTrack               func()
+	RetryStreamTrack                func()
+	ReportStreamTrack               func(string)
+	SelectNextAir                   func()
+	CreateAir                       func(string)
+	ConsumeAirInvite                func(string)
+	ConfirmAirJoin                  func(bool)
+	DeclineAirJoin                  func()
+	SelectNextAirInviteRole         func()
+	IssueAirInvite                  func()
+	CopyAirInvite                   func()
+	HideAirInvite                   func()
+	WithdrawAirInvite               func()
+	RequestAirActivation            func()
+	RequestAirLeave                 func()
+	RequestAirDissolve              func()
+	CycleAirPolicy                  func()
+	ConfirmAirDisruptive            func()
+	CancelAirDisruptive             func()
 }
 
 type WindowsShell struct {
@@ -433,6 +477,7 @@ const (
 	txtJoin                 shellText = "join"
 	txtTry                  shellText = "try"
 	txtHistory              shellText = "history"
+	txtSoundboard           shellText = "soundboard"
 	txtInbox                shellText = "inbox"
 	txtAirs                 shellText = "airs"
 	txtSettings             shellText = "settings"
@@ -503,7 +548,7 @@ const (
 )
 
 var shellTextKeys = []shellText{
-	txtApp, txtHome, txtCreate, txtJoin, txtTry, txtHistory, txtInbox, txtAirs, txtSettings, txtOpen,
+	txtApp, txtHome, txtCreate, txtJoin, txtTry, txtSoundboard, txtHistory, txtInbox, txtAirs, txtSettings, txtOpen,
 	txtPrimary, txtStatus, txtPresence, txtRouting, txtNowPlaying, txtLocalControls,
 	txtNoHistory, txtNoRoute, txtSilence, txtVolume, txtDND, txtRecording,
 	txtStartRecording, txtStopRecording, txtCancelRecording, txtRecordingUnavailable, txtSelfTestUnavailable,
@@ -538,7 +583,7 @@ func (c ShellCopy) Text(key shellText) string {
 func (c ShellCopy) Section(section ShellSection) string {
 	return c.Text(map[ShellSection]shellText{
 		ShellHome: txtHome, ShellCreate: txtCreate, ShellJoin: txtJoin,
-		ShellTryLocally: txtTry, ShellHistory: txtHistory, ShellInbox: txtInbox, ShellAirs: txtAirs, ShellSettings: txtSettings,
+		ShellTryLocally: txtTry, ShellSoundboard: txtSoundboard, ShellHistory: txtHistory, ShellInbox: txtInbox, ShellAirs: txtAirs, ShellSettings: txtSettings,
 	}[section])
 }
 
@@ -637,6 +682,8 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 			body += "\r\n\r\n[!] " + c.PhaseOneActionMessage(snapshot.PhaseOneFailure)
 		}
 		return body
+	case ShellSoundboard:
+		return c.SoundboardProjection(snapshot)
 	case ShellInbox:
 		return c.TargetsInboxProjection(snapshot)
 	case ShellAirs:
@@ -790,7 +837,69 @@ func (c ShellCopy) HistoryItem(item ShellPhaseOneHistoryItem, index, count int) 
 		line += "\r\n[~] " + item.DowngradeReason
 	}
 	line += fmt.Sprintf("\r\nplayed %d · other %d", item.PlayedCount, item.OtherCount)
+	if item.AutomationTrigger != "" {
+		line += "\r\nAutomation: " + item.AutomationTrigger
+		if item.AutomationCue != "" {
+			line += " · " + item.AutomationCue
+		}
+		if item.AutomationActor != "" {
+			line += "\r\nBy: " + item.AutomationActor
+		}
+		if item.AutomationSchedule != "" {
+			line += " · schedule: " + item.AutomationSchedule
+		}
+		if item.AutomationReason != "" {
+			line += "\r\n[!] " + item.AutomationReason
+		}
+		var controls []string
+		if item.CanDisableSchedule {
+			controls = append(controls, "disable schedule")
+		}
+		if item.CanRevokePrincipal {
+			controls = append(controls, "revoke principal")
+		}
+		if item.CanEmergencyDisable {
+			controls = append(controls, "emergency disable")
+		}
+		if len(controls) > 0 {
+			line += "\r\nQuick controls: " + strings.Join(controls, " · ")
+		}
+	}
 	return line
+}
+
+func (c ShellCopy) SoundboardProjection(snapshot ShellSnapshot) string {
+	if len(snapshot.SoundboardCues) == 0 {
+		if c.locale == ShellRussian {
+			return "Нет доступных звуков. Встроенный сигнал появится после включения soundboard владельцем.\r\n\r\n[!] " + snapshot.SoundboardFailure
+		}
+		return "No soundboard cues are available. The built-in cue appears after an owner enables soundboard.\r\n\r\n[!] " + snapshot.SoundboardFailure
+	}
+	cue := snapshot.SoundboardCues[snapshot.SelectedSoundboardCue]
+	shortcut := cue.ShortcutLabel
+	if shortcut == "" {
+		shortcut = "button only"
+		if c.locale == ShellRussian {
+			shortcut = "только кнопка"
+		}
+	}
+	result := "Cue " + fmt.Sprintf("%d/%d", snapshot.SelectedSoundboardCue+1, len(snapshot.SoundboardCues)) + ": " + cue.Title +
+		"\r\nSource: " + cue.SourceKind + "\r\nShortcut: " + shortcut + " (" + string(cue.ShortcutStatus) + ")" +
+		"\r\nRoute: " + c.Route(snapshot.SoundboardRoute) + "\r\nDelivery: " + c.Delivery(snapshot.SoundboardDelivery) +
+		fmt.Sprintf("\r\nInclude this Pulsar: %t\r\nAutomation history items: %d", snapshot.SoundboardIncludeOrigin, snapshot.SoundboardHistoryCount)
+	if c.locale == ShellRussian {
+		result = "Звук " + fmt.Sprintf("%d/%d", snapshot.SelectedSoundboardCue+1, len(snapshot.SoundboardCues)) + ": " + cue.Title +
+			"\r\nИсточник: " + cue.SourceKind + "\r\nГорячая клавиша: " + shortcut + " (" + string(cue.ShortcutStatus) + ")" +
+			"\r\nМаршрут: " + c.Route(snapshot.SoundboardRoute) + "\r\nДоставка: " + c.Delivery(snapshot.SoundboardDelivery) +
+			fmt.Sprintf("\r\nВключая этот Пульсар: %t\r\nЗаписей automation в истории: %d", snapshot.SoundboardIncludeOrigin, snapshot.SoundboardHistoryCount)
+	}
+	if snapshot.SoundboardOutcome != "" {
+		result += "\r\n\r\n[+] " + snapshot.SoundboardOutcome
+	}
+	if snapshot.SoundboardFailure != "" {
+		result += "\r\n\r\n[!] " + snapshot.SoundboardFailure
+	}
+	return result
 }
 
 func (c ShellCopy) ModerationReason(reason PhaseOneModerationReason) string {
@@ -1212,7 +1321,7 @@ func shellPrimaryAction(section ShellSection) shellText {
 
 func shellActionEnabled(snapshot ShellSnapshot, action ShellSection) bool {
 	switch action {
-	case ShellCreate, ShellJoin, ShellTryLocally, ShellHistory, ShellInbox, ShellAirs, ShellSettings, ShellHome:
+	case ShellCreate, ShellJoin, ShellTryLocally, ShellSoundboard, ShellHistory, ShellInbox, ShellAirs, ShellSettings, ShellHome:
 		return true
 	default:
 		return false
@@ -1403,6 +1512,7 @@ var shellShortcuts = []ShellShortcut{
 	{Key: "2", Control: true, Section: ShellJoin, Command: "section"},
 	{Key: "3", Control: true, Section: ShellAirs, Command: "section"},
 	{Key: "4", Control: true, Section: ShellInbox, Command: "section"},
+	{Key: "5", Control: true, Section: ShellSoundboard, Command: "section"},
 	{Key: "T", Control: true, Shift: true, Section: ShellTryLocally, Command: "section"},
 	{Key: "R", Control: true, Shift: true, Command: "record"},
 	{Key: "R", Control: true, Command: "refresh_targets_inbox"},
@@ -1425,7 +1535,7 @@ func catalogMissing(locale ShellLocale) []string {
 var shellCatalog = map[ShellLocale]map[shellText]string{
 	ShellEnglish: {
 		txtApp: "Pulsar", txtHome: "Home", txtCreate: "Create", txtJoin: "Join", txtTry: "Try locally",
-		txtHistory: "History", txtInbox: "Inbox & targets", txtAirs: "Airs", txtSettings: "Settings", txtOpen: "Open Pulsar", txtPrimary: "Primary actions",
+		txtHistory: "History", txtSoundboard: "Soundboard", txtInbox: "Inbox & targets", txtAirs: "Airs", txtSettings: "Settings", txtOpen: "Open Pulsar", txtPrimary: "Primary actions",
 		txtStatus: "Status", txtPresence: "Presence", txtRouting: "Routing", txtNowPlaying: "Now playing",
 		txtLocalControls: "Local controls", txtNoHistory: "No recent activity", txtNoRoute: "No output route",
 		txtSilence: "Nothing is playing", txtVolume: "Volume", txtDND: "Do Not Disturb", txtRecording: "Recording",
@@ -1457,7 +1567,7 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 	},
 	ShellRussian: {
 		txtApp: "Пульсар", txtHome: "Главная", txtCreate: "Создать", txtJoin: "Присоединиться", txtTry: "Попробовать локально",
-		txtHistory: "История", txtInbox: "Входящие и получатели", txtAirs: "Эфиры", txtSettings: "Настройки", txtOpen: "Открыть Пульсар", txtPrimary: "Основные действия",
+		txtHistory: "История", txtSoundboard: "Soundboard", txtInbox: "Входящие и получатели", txtAirs: "Эфиры", txtSettings: "Настройки", txtOpen: "Открыть Пульсар", txtPrimary: "Основные действия",
 		txtStatus: "Статус", txtPresence: "Присутствие", txtRouting: "Маршрут звука", txtNowPlaying: "Сейчас играет",
 		txtLocalControls: "Локальные настройки", txtNoHistory: "Недавних событий нет", txtNoRoute: "Выход звука не выбран",
 		txtSilence: "Сейчас ничего не играет", txtVolume: "Громкость", txtDND: "Не беспокоить", txtRecording: "Запись",

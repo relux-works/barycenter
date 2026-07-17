@@ -100,6 +100,9 @@ func NewAutomationPrincipalID(t time.Time) string { return "ap_" + New(t) }
 // NewAutomationExecutionID returns "ax_<ULID>".
 func NewAutomationExecutionID(t time.Time) string { return "ax_" + New(t) }
 
+// NewManualSoundboardExecutionID returns "mx_<ULID>".
+func NewManualSoundboardExecutionID(t time.Time) string { return "mx_" + New(t) }
+
 // NewUploadSessionID returns "up_<ULID>".
 func NewUploadSessionID(t time.Time) string { return "up_" + New(t) }
 

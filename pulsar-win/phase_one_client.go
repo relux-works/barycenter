@@ -118,6 +118,27 @@ type PhaseOneHistoryItem struct {
 	PlayedCount       int
 	OtherCount        int
 	Actions           []string
+	Automation        *PhaseOneAutomationHistory
+}
+
+// PhaseOneAutomationHistory is deliberately display-safe. The coordinator
+// never projects principal credentials, selectors, private paths or request
+// digests into this model.
+type PhaseOneAutomationHistory struct {
+	TriggerKind         string
+	PrincipalRef        string
+	PrincipalLabel      string
+	ScheduleID          string
+	ScheduleLabel       string
+	ScheduleRevision    int64
+	ExecutionID         string
+	CueID               string
+	CueLabel            string
+	CueRevision         int64
+	AudienceKind        string
+	ResolvedTargetCount int
+	Outcome             string
+	ReasonCode          string
 }
 
 type PhaseOneHistoryPage struct {
@@ -467,26 +488,30 @@ func (c *PhaseOneAppClient) History(ctx context.Context, limit int, cursor strin
 	page := PhaseOneHistoryPage{NextCursor: response.NextCursor}
 	for _, item := range response.Items {
 		occurred, parseErr := time.Parse(time.RFC3339Nano, item.OccurredAt)
-		if parseErr != nil || !validPhaseOnePublicID(item.HistoryItemID, "hi_") || item.Direction != "sent" && item.Direction != "received" ||
+		if parseErr != nil || !validPhaseOneHistoryID(item.HistoryItemID) || item.Direction != "sent" && item.Direction != "received" && item.Direction != "sent_and_received" ||
 			!validPhaseOneDisplayText(item.Media.Title, 512, false) || !validPhaseOneDisplayText(item.Sender.DisplayName, 256, true) ||
 			!validOptionalPhaseOneDelivery(item.RequestedDelivery) || !validOptionalPhaseOneDelivery(item.EffectiveDelivery) ||
 			!validPhaseOneBoundedLabel(item.Status) || item.TargetCounts.Played < 0 || item.TargetCounts.Other < 0 ||
 			!validPhaseOneHistoryActions(item.Actions) {
 			return PhaseOneHistoryPage{}, phaseOneError(PhaseOneInvalidResponse)
 		}
+		automation, automationErr := decodePhaseOneAutomationHistory(item.Automation)
+		if automationErr != nil {
+			return PhaseOneHistoryPage{}, automationErr
+		}
 		page.Items = append(page.Items, PhaseOneHistoryItem{
 			ID: item.HistoryItemID, Direction: item.Direction, OccurredAt: occurred, Title: item.Media.Title,
 			SenderName: item.Sender.DisplayName, RequestedDelivery: item.RequestedDelivery,
 			EffectiveDelivery: item.EffectiveDelivery, DowngradeReason: item.DowngradeReason,
 			Status: item.Status, ReasonCode: item.ReasonCode, PlayedCount: item.TargetCounts.Played,
-			OtherCount: item.TargetCounts.Other, Actions: append([]string(nil), item.Actions...),
+			OtherCount: item.TargetCounts.Other, Actions: append([]string(nil), item.Actions...), Automation: automation,
 		})
 	}
 	return page, nil
 }
 
 func (c *PhaseOneAppClient) DeleteHistoryItem(ctx context.Context, historyID string) (PhaseOneHistoryActionReceipt, error) {
-	if !validPhaseOnePublicID(historyID, "hi_") {
+	if !validPhaseOneHistoryID(historyID) {
 		return PhaseOneHistoryActionReceipt{}, phaseOneError(PhaseOneInvalidRequest)
 	}
 	raw, _, err := c.requestJSON(ctx, http.MethodPost, "/v1/history/"+historyID+"/actions/delete", c.token, nil, struct{}{}, http.StatusOK)
@@ -501,7 +526,7 @@ func (c *PhaseOneAppClient) DeleteHistoryItem(ctx context.Context, historyID str
 }
 
 func (c *PhaseOneAppClient) ReportHistoryItem(ctx context.Context, historyID string, reason PhaseOneModerationReason, details string) (PhaseOneHistoryActionReceipt, error) {
-	if !validPhaseOnePublicID(historyID, "hi_") || !validPhaseOneModerationReason(reason) ||
+	if !validPhaseOneHistoryID(historyID) || !validPhaseOneModerationReason(reason) ||
 		!validPhaseOneDisplayText(details, 2000, true) {
 		return PhaseOneHistoryActionReceipt{}, phaseOneError(PhaseOneInvalidRequest)
 	}
@@ -528,7 +553,7 @@ func (c *PhaseOneAppClient) ReportHistoryItem(ctx context.Context, historyID str
 }
 
 func (c *PhaseOneAppClient) BlockHistoryActor(ctx context.Context, historyID, idempotencyKey string) (PhaseOneHistoryActionReceipt, error) {
-	if !validPhaseOnePublicID(historyID, "hi_") || !validPhaseOneIdempotencyKey(idempotencyKey) {
+	if !validPhaseOneHistoryID(historyID) || !validPhaseOneIdempotencyKey(idempotencyKey) {
 		return PhaseOneHistoryActionReceipt{}, phaseOneError(PhaseOneInvalidRequest)
 	}
 	raw, _, err := c.requestJSON(ctx, http.MethodPost, "/v1/history/"+historyID+"/actions/block_actor", c.token,
@@ -548,7 +573,7 @@ func (c *PhaseOneAppClient) BlockHistoryActor(ctx context.Context, historyID, id
 }
 
 func (c *PhaseOneAppClient) ReplayHistoryItem(ctx context.Context, historyID string, route PhaseOneRoute, delivery PhaseOneDelivery, idempotencyKey string, fallback *PhaseOneFallbackConfirmation) (PhaseOneTransmissionReceipt, error) {
-	if !validPhaseOnePublicID(historyID, "hi_") || !validPhaseOneRoute(route) || !validPhaseOneDelivery(delivery) || !validPhaseOneIdempotencyKey(idempotencyKey) {
+	if !validPhaseOneHistoryID(historyID) || !validPhaseOneRoute(route) || !validPhaseOneDelivery(delivery) || !validPhaseOneIdempotencyKey(idempotencyKey) {
 		return PhaseOneTransmissionReceipt{}, phaseOneError(PhaseOneInvalidRequest)
 	}
 	if fallback != nil && (!validPhaseOneConfirmationToken(fallback.Token) || fallback.Delivery != PhaseOneAfterCurrent || delivery != PhaseOneInterrupt) {
@@ -814,6 +839,16 @@ func validPhaseOnePublicID(value, prefix string) bool {
 	return true
 }
 
+func validPhaseOneHistoryID(value string) bool {
+	if validPhaseOnePublicID(value, "hi_") {
+		return true
+	}
+	if len(value) != 29 || !strings.HasPrefix(value, "hi_a") {
+		return false
+	}
+	return strings.Trim(value[4:], "0123456789abcdef") == ""
+}
+
 func validPhaseOneConfirmationToken(value string) bool {
 	return strings.HasPrefix(value, "fc_") && lowerHexTokenPattern.MatchString(strings.TrimPrefix(value, "fc_"))
 }
@@ -849,7 +884,8 @@ func validPhaseOneDisplayText(value string, maximum int, allowEmpty bool) bool {
 }
 
 func validPhaseOneHistoryActions(actions []string) bool {
-	allowed := map[string]bool{"cancel": true, "delete": true, "replay": true, "report": true, "block_actor": true, "block_orbit": true, "unblock": true}
+	allowed := map[string]bool{"cancel": true, "delete": true, "replay": true, "report": true, "block_actor": true, "block_orbit": true, "unblock": true,
+		"disable_schedule": true, "revoke_principal": true, "emergency_disable_automation": true}
 	seen := map[string]bool{}
 	for _, action := range actions {
 		if !allowed[action] || seen[action] {
@@ -962,8 +998,49 @@ type phaseOneHistoryResponse struct {
 		Sender struct {
 			DisplayName string `json:"display_name"`
 		} `json:"sender"`
-		TargetCounts struct{ Played, Other int } `json:"target_counts"`
+		TargetCounts struct{ Played, Other int }        `json:"target_counts"`
+		Automation   *phaseOneAutomationHistoryResponse `json:"automation"`
 	} `json:"items"`
+}
+
+type phaseOneAutomationHistoryResponse struct {
+	TriggerKind         string `json:"trigger_kind"`
+	PrincipalRef        string `json:"principal_ref"`
+	PrincipalLabel      string `json:"principal_label"`
+	ScheduleID          string `json:"schedule_id"`
+	ScheduleLabel       string `json:"schedule_label"`
+	ScheduleRevision    int64  `json:"schedule_revision"`
+	ExecutionID         string `json:"execution_id"`
+	CueID               string `json:"cue_id"`
+	CueLabel            string `json:"cue_label"`
+	CueRevision         int64  `json:"cue_revision"`
+	AudienceKind        string `json:"audience_kind"`
+	ResolvedTargetCount int    `json:"resolved_target_count"`
+	Outcome             string `json:"outcome"`
+	ReasonCode          string `json:"reason_code"`
+}
+
+func decodePhaseOneAutomationHistory(value *phaseOneAutomationHistoryResponse) (*PhaseOneAutomationHistory, error) {
+	if value == nil {
+		return nil, nil
+	}
+	validExecution := value.ExecutionID == "" || validPhaseOnePublicID(value.ExecutionID, "ax_") || validPhaseOnePublicID(value.ExecutionID, "mx_")
+	validSchedule := value.ScheduleID == "" || validPhaseOnePublicID(value.ScheduleID, "sch_")
+	validPrincipal := value.PrincipalRef == "" || strings.HasPrefix(value.PrincipalRef, "apf_") && len(value.PrincipalRef) == 20
+	if !validPhaseOneBoundedLabel(value.TriggerKind) || value.CueID != "" && !validPhaseOnePublicID(value.CueID, "cq_") ||
+		!validExecution || !validSchedule || !validPrincipal || value.ScheduleRevision < 0 || value.CueRevision < 0 ||
+		value.ResolvedTargetCount < 0 || !validPhaseOneBoundedLabel(value.Outcome) ||
+		(value.AudienceKind != "" && !validPhaseOneBoundedLabel(value.AudienceKind)) ||
+		(value.ReasonCode != "" && !validPhaseOneBoundedLabel(value.ReasonCode)) ||
+		!validPhaseOneDisplayText(value.PrincipalLabel, 128, true) || !validPhaseOneDisplayText(value.ScheduleLabel, 128, true) ||
+		!validPhaseOneDisplayText(value.CueLabel, 128, true) {
+		return nil, phaseOneError(PhaseOneInvalidResponse)
+	}
+	return &PhaseOneAutomationHistory{TriggerKind: value.TriggerKind, PrincipalRef: value.PrincipalRef,
+		PrincipalLabel: value.PrincipalLabel, ScheduleID: value.ScheduleID, ScheduleLabel: value.ScheduleLabel,
+		ScheduleRevision: value.ScheduleRevision, ExecutionID: value.ExecutionID, CueID: value.CueID,
+		CueLabel: value.CueLabel, CueRevision: value.CueRevision, AudienceKind: value.AudienceKind,
+		ResolvedTargetCount: value.ResolvedTargetCount, Outcome: value.Outcome, ReasonCode: value.ReasonCode}, nil
 }
 
 type phaseOneHistoryDeleteResponse struct {

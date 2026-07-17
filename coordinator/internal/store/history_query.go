@@ -133,6 +133,25 @@ func automationHistoryFromExecutionTx(tx *sql.Tx, execution AutomationExecution)
 	return result, nil
 }
 
+func manualSoundboardHistoryTx(tx *sql.Tx, transmissionID string) (*AutomationHistory, error) {
+	var result AutomationHistory
+	var cueSourceGeneration, featureRevision int64
+	err := tx.QueryRow(`SELECT m.id, m.cue_id, c.title, m.cue_revision,
+m.cue_source_generation, m.feature_revision, m.audience_kind,
+m.resolved_target_count, m.created_at
+FROM manual_soundboard_executions m JOIN saved_cues c ON c.id = m.cue_id
+WHERE m.transmission_id = ?`, transmissionID).Scan(&result.ExecutionID,
+		&result.CueID, &result.CueLabel, &result.CueRevision,
+		&cueSourceGeneration, &featureRevision, &result.AudienceKind,
+		&result.ResolvedTargetCount, &result.AcceptedAt)
+	if err != nil {
+		return nil, err
+	}
+	result.TriggerKind = "manual_soundboard"
+	result.Outcome = "accepted"
+	return &result, nil
+}
+
 func historyDirection(sent, received bool) HistoryDirection {
 	if sent && received {
 		return HistorySentAndReceived
@@ -298,6 +317,17 @@ FROM automation_executions WHERE transmission_id = ?`, t.ID))
 		item.CanDisableSchedule = showAll && ctx.Role == "primary" && execution.ScheduleID != ""
 		item.CanRevokePrincipal = showAll && ctx.Role == "primary" && execution.PrincipalID != ""
 		item.CanEmergencyDisable = showAll && ctx.Role == "primary"
+	} else if errors.Is(executionErr, sql.ErrNoRows) {
+		item.Automation, executionErr = manualSoundboardHistoryTx(tx, t.ID)
+		if errors.Is(executionErr, sql.ErrNoRows) {
+			item.Automation = nil
+		} else if executionErr != nil {
+			return HistoryQueryItem{}, false, executionErr
+		}
+	} else {
+		return HistoryQueryItem{}, false, executionErr
+	}
+	if item.Automation != nil {
 		item.Automation.AcceptedAt = t.AcceptedAt
 		item.Automation.TerminalAt = t.CompletedAt
 		item.Automation.Outcome = string(t.Status)
@@ -306,8 +336,6 @@ FROM automation_executions WHERE transmission_id = ?`, t.ID))
 		} else if t.ReasonCode != "" {
 			item.Automation.ReasonCode = string(t.ReasonCode)
 		}
-	} else if !errors.Is(executionErr, sql.ErrNoRows) {
-		return HistoryQueryItem{}, false, executionErr
 	}
 	return item, true, nil
 }

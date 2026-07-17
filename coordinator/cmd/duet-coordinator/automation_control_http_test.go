@@ -405,3 +405,66 @@ func TestAutomationControlHTTPForeignCueAndStaleBearerFailClosed(t *testing.T) {
 	close(release)
 	assertAPIError(t, <-response, http.StatusUnauthorized, errorUnauthorized, nil)
 }
+
+func TestManualSoundboardTriggerUsesCanonicalTransmissionAndHistory(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	created := createViaAPI(t, harness)
+	control := created["control_token"].(string)
+	node := created["node_token"].(string)
+	now := time.Now().UTC().Truncate(time.Second)
+	harness.api.automationNow = func() time.Time { return now }
+	harness.api.transmissionNow = func() time.Time { return now }
+	ctx, err := harness.store.ResolveTokenActorContext(control)
+	if err != nil {
+		t.Fatal(err)
+	}
+	harness.api.transmissionPresence = func() map[transmissionPresenceKey]transmissionPresenceState {
+		return map[transmissionPresenceKey]transmissionPresenceState{
+			{OrbitID: ctx.OrbitID, Slot: ctx.Slot}: {
+				Connected: true, LastSeenAt: now.UnixMilli(),
+				CredentialTokenHash: transmissionDigest(node), MediaClipCapable: true,
+				OverlayCapable: true, InterruptCapable: true, MainActive: true,
+				InterruptResumeReady: true,
+			},
+		}
+	}
+	feature := automationAPIRequest(harness.mux, http.MethodPut, "/v1/automation/status",
+		`{"soundboard_enabled":true,"automation_enabled":false,"emergency_disabled":false,"timezone":"UTC","quiet_hours":[],"expected_revision":0}`,
+		control, "manual-soundboard-feature-0001")
+	if feature.Code != http.StatusOK {
+		t.Fatalf("feature=%d %s", feature.Code, feature.Body.String())
+	}
+	cue := automationAPIRequest(harness.mux, http.MethodPost, "/v1/soundboard/cues",
+		`{"title":"Manual bell","source":{"kind":"builtin","asset_id":"pulsar.recording-cue.v1","sha256":"479b1a9d605ac12454e3449e129991b7ce8599251506ca54a93be0b6144730fd"}}`,
+		control, "manual-soundboard-cue-0001")
+	if cue.Code != http.StatusCreated {
+		t.Fatalf("cue=%d %s", cue.Code, cue.Body.String())
+	}
+	cueID := automationResponseObject(t, cue)["cue"].(map[string]any)["cue_id"].(string)
+	body := `{"audience":{"kind":"own_barycenter"},"delivery":"overlay"}`
+	trigger := automationAPIRequest(harness.mux, http.MethodPost,
+		"/v1/soundboard/cues/"+cueID+"/trigger", body, control,
+		"manual-soundboard-trigger-0001")
+	if trigger.Code != http.StatusCreated {
+		t.Fatalf("trigger=%d %s", trigger.Code, trigger.Body.String())
+	}
+	response := automationResponseObject(t, trigger)
+	executionID, _ := response["execution_id"].(string)
+	transmissionID, _ := response["transmission_id"].(string)
+	if !strings.HasPrefix(executionID, "mx_") || !strings.HasPrefix(transmissionID, "tr_") ||
+		response["origin_kind"] != "builtin" || response["reused"] != false {
+		t.Fatalf("response=%v", response)
+	}
+	replay := automationAPIRequest(harness.mux, http.MethodPost,
+		"/v1/soundboard/cues/"+cueID+"/trigger", body, control,
+		"manual-soundboard-trigger-0001")
+	if replay.Code != http.StatusOK || automationResponseObject(t, replay)["execution_id"] != executionID {
+		t.Fatalf("replay=%d %s", replay.Code, replay.Body.String())
+	}
+	history := apiRequest(harness.mux, http.MethodGet, "/v1/history?view=sent", "", control)
+	if history.Code != http.StatusOK || !strings.Contains(history.Body.String(), `"trigger_kind":"manual_soundboard"`) ||
+		!strings.Contains(history.Body.String(), `"execution_id":"`+executionID+`"`) ||
+		strings.Contains(history.Body.String(), node) || strings.Contains(history.Body.String(), control) {
+		t.Fatalf("history=%d %s", history.Code, history.Body.String())
+	}
+}

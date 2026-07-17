@@ -14,6 +14,8 @@ func currentWindowsRecordingShortcut() WindowsRecordingShortcut {
 	return DefaultWindowsRecordingShortcut()
 }
 
+func currentWindowsSoundboardShortcutStates() []WindowsSoundboardShortcutState { return nil }
+
 // errNoGUI is returned by showOnboardingWindow off Windows so main falls back
 // to the CLI onboarding message.
 var errNoGUI = errors.New("onboarding window is available only on Windows; use --pair CODE")

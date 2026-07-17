@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-automation-technical-pre-review.v1",
+  "task": "TASK-260712-1x5jfo",
+  "reviewedAt": "2026-07-17",
+  "rootReview": {
+    "sourceCommit": "d94f51644a3acf37601b4a869b4247380372f9ec",
+    "sourceTree": "4e4cca878db806650eda6f1e1642051b87a18b93",
+    "packetCommit": "7388459356ec3a6ed976cdc779fec939adfa8d7b",
+    "mergeCommit": "0d6f85d43909737ff717464d8f427ea315f870b2"
+  },
+  "reviewer": {
+    "id": "codex-inline-pre-reviewer",
+    "independenceRequired": true,
+    "independenceSatisfied": false,
+    "independentApprover": "Ivan Oparin",
+    "independentApprovalTask": "TASK-260717-1pyg62",
+    "approvalStatus": "required"
+  },
+  "decision": {
+    "result": "engineering-pre-review-complete-external-and-manual-blocked",
+    "repositoryPreflightPassed": true,
+    "criticalOrHighTechnicalFindingsOpen": false,
+    "automationActivationAllowed": false,
+    "c7Accepted": false,
+    "phase3PromotionAllowed": false,
+    "manualEvidenceClaimed": false,
+    "nextEngineeringTaskMayStart": true
+  },
+  "sourceAnchors": [
+    {"path": "coordinator/internal/automation/contract.go", "sha256": "984e4a504f7e6ea71e87917497c1f6e938c7cf1b68b11fc75ab861f22b02e942"},
+    {"path": "coordinator/internal/store/automation_control.go", "sha256": "e0166f478ad878955ce7674f958e561c49a8f7bda7e5b964009da9a985eee608"},
+    {"path": "coordinator/internal/store/automation_control_automation.go", "sha256": "2bd237c20b345989ac4013d9c56706c1752f7b3e59de20edb2d74634efd98b84"},
+    {"path": "coordinator/internal/store/automation_control_cues.go", "sha256": "03318e47414fdddb93bd33d001d8f99360a64586ded550a18894994dd1762921"},
+    {"path": "coordinator/internal/store/automation_lineage.go", "sha256": "d918dc19d4a4c4234a631532e8b3218d07865cd39a87a4f49aa869a4a63d88e2"},
+    {"path": "coordinator/internal/store/automation_runtime.go", "sha256": "39c5308ba899fd8ac3549074033b2f0f33c316289053bac145e08c0e7ead2e14"},
+    {"path": "coordinator/internal/store/manual_soundboard.go", "sha256": "aad8129099b03474d463c98986fec3b75af80f2ef510a0a44f95af1023f4b037"},
+    {"path": "coordinator/internal/store/saved_cue.go", "sha256": "3c1fe331b31e5ebf9e3dcf2433cbf7a0e0cedd5acbf3481b71ee858d0ec8e677"},
+    {"path": "coordinator/internal/store/transmission_scheduler.go", "sha256": "5fecd7f82e572bb0b09896c537c56228d8ebf42a47d86f2d5f2e886dff78083a"},
+    {"path": "coordinator/internal/store/telegram_automation_callbacks.go", "sha256": "89267f5d676875c53bc6e2f4906cb92085004542135fcad1af45d4b80f60c9cb"},
+    {"path": "coordinator/cmd/duet-coordinator/automation_runtime.go", "sha256": "f25b3cf6e3a017911ad93b6cfeb46d6dfb53ccb2bd13ee07514dcfb6398175c9"},
+    {"path": "coordinator/cmd/duet-coordinator/automation_control_http.go", "sha256": "bc161fe70010e947a5756319d14a329d213b7bd767b3d0863e4ad2a4a22894cd"},
+    {"path": "coordinator/cmd/duet-coordinator/telegram_automation.go", "sha256": "f2c0d6eb6b9b298cc04986784f984abc059b0b2a7ad501cf5e759eb6f0e2ca86"},
+    {"path": "pulsar-win/automation_admin_client.go", "sha256": "a1cd2e532237905c76ab8aed14a64bbbf267c163b5c29846243f33d56a593e6b"},
+    {"path": "pulsar-win/soundboard_client.go", "sha256": "75c71bce7f399355008fd985a8f62e487c37caa4c1121c9ddf399c5b9db0d341"},
+    {"path": "pulsar-win/windows_automation_admin.go", "sha256": "baa4ae85e5f81d67bbee84f89cd526fc1badb2aeeac34985c89845fe3d91c38d"},
+    {"path": "pulsar-win/windows_soundboard_composition.go", "sha256": "0a477f22780e187022a7337b3120036d63ec979d13acb078760526f7455dd924"},
+    {"path": "pulsar-win/windows_soundboard_shortcuts.go", "sha256": "2daac503296ba17f56d629fbb3a7afa513a87e13dac1097ded9c89192c45ebaa"},
+    {"path": "node-app/Sources/NodeCore/AutomationAdminClient.swift", "sha256": "3ee7db8f178fa76d87e90158a72dfd733b8aab52abbe0a0cffdbf7661a3f56b7"},
+    {"path": "node-app/Sources/NodeCore/MacSoundboard.swift", "sha256": "e2c82e7568ddda81cfe8082de5462289f23783f2a5db03cc03b58353cd7990be"},
+    {"path": "node-app/Sources/NodeCore/MacOverlayMediaClipMixer.swift", "sha256": "753e7ad9baa3e72f19ef0025df15b13662ebd6ce7a6eb8de089a6336289fcced"},
+    {"path": "acceptance/phase3/automation-safety-evidence-v1.json", "sha256": "f5c70f080fc0b09fc17e7fc632ee82459a3287285036e2974c1178bcf93ef906"},
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "6beb9260acea0e5eb98bfd02c3e7dcc8c9a88055e16b0a4d13bc73b552787318"}
+  ],
+  "reviewedInvariants": [
+    "actor-and-orbit-authority-rechecked-on-every-mutation",
+    "principal-secrets-are-one-time-hashed-and-revocable",
+    "idempotency-conflicts-never-create-replacement-work",
+    "schedule-dst-fold-gap-and-clock-jump-are-canonical-and-no-catch-up",
+    "dnd-block-air-membership-and-target-capability-are-last-mile-rechecked",
+    "principal-and-orbit-rates-concurrency-and-retention-are-bounded",
+    "disable-revoke-delete-and-emergency-stop-use-canonical-cancellation",
+    "telegram-callbacks-are-opaque-bound-one-shot-and-live-state-rechecked",
+    "recipient-local-ceiling-remains-after-automation-mix",
+    "soundboard-and-automation-never-enter-microphone-capture"
+  ],
+  "reruns": [
+    {
+      "id": "coordinator-automation-race-stress",
+      "command": "cd coordinator && go test -race -count=10 ./internal/store -run '^(TestAutomationRuntimeAirDNDAndBlockPolicyMatrix|TestAutomationRuntimeAtomicallyCreatesOneTransmissionAndReplays|TestAutomationRuntimeBoundsAttemptsConcurrencyAndPruning|TestAutomationRuntimeEnforcesPrincipalAndOrbitConcurrencyCaps|TestAutomationRuntimeRevokeCancelsOrdinarySchedulerWork|TestAutomationRuntimeScheduleUsesOnlyCurrentCanonicalMinute|TestAutomationScheduleDSTGapFoldClockJumpAndConcurrentClaims|TestAutomationClaimAndLeaseCrashBoundariesReconcile|TestAutomationQuickDisableAndScheduleDisableExposePendingCancellation|TestAutomationControlForeignAndUnknownTargetReferencesCollapse)$' && go test -race -count=10 ./cmd/duet-coordinator -run 'Automation|Soundboard|TelegramSchedule' && go test -tags previoushead -count=10 ./internal/store -run '^TestAutomationExactPreviousHeadRollback$'",
+      "status": "pass"
+    },
+    {
+      "id": "windows-automation-race-stress",
+      "command": "cd pulsar-win && go test -race -count=10 ./... -run 'Automation|Soundboard|OverlayContinuouslyConsumesMain'",
+      "status": "pass",
+      "packages": 4
+    },
+    {
+      "id": "macos-automation-suite",
+      "command": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter 'Automation|Soundboard|Overlay'",
+      "status": "pass",
+      "tests": 19,
+      "suites": 3,
+      "host": "x86_64-apple-macos14.0"
+    },
+    {
+      "id": "automation-handoff-contracts",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v scripts/acceptance/test_automation_safety_handoff.py && python3 scripts/acceptance/validate_automation_safety_handoff.py",
+      "status": "pass",
+      "tests": 4
+    }
+  ],
+  "nonAcceptedAttempts": [
+    {
+      "id": "coordinator-broad-automation-store-race-times-ten",
+      "command": "cd coordinator && go test -race -count=10 ./internal/store -run 'Automation|SavedCue|Soundboard|TransmissionScheduler'",
+      "status": "timeout-not-counted",
+      "selectedTests": 54,
+      "reason": "the broad expression selected 54 store tests and exceeded Go's default 10-minute package timeout while running an unrelated transmission scheduler case; the frozen ten-test automation adversarial group passed separately"
+    }
+  ],
+  "findings": [],
+  "evidenceBoundary": {
+    "automated": [
+      "deterministic authority and idempotency transitions",
+      "race-free exercised Go and Windows paths",
+      "DST gap fold and clock-jump schedule rules",
+      "bounded rate concurrency lease and retention state",
+      "DND block Air target and revoke policy rechecks",
+      "source-level no-microphone and local-ceiling composition"
+    ],
+    "notProved": [
+      "signed Windows and macOS application interaction",
+      "physical forward backward clock and timezone manipulation",
+      "audible DND block Air-leave and local ceiling behavior",
+      "live Telegram transport and stale callback behavior",
+      "real-client kill-switch latency accessibility and secret-leak observation"
+    ]
+  },
+  "openGates": [
+    {
+      "id": "P3-AUTO-GATE-001",
+      "status": "manual-blocking",
+      "ownerEpic": "EPIC-260714-th54l3",
+      "task": "TASK-260712-1gyohk",
+      "manualEvidence": "not-run",
+      "environmentIdentity": null
+    },
+    {
+      "id": "P3-AUTO-GATE-002",
+      "status": "external-review-blocking",
+      "ownerEpic": "EPIC-260714-zmnd4n",
+      "task": "TASK-260717-1pyg62",
+      "reviewerIdentity": null,
+      "approval": "required"
+    }
+  ],
+  "nextEngineeringTask": "TASK-260712-7ng1vs"
+}

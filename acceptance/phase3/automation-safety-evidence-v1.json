@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-automation-safety-evidence.v1",
+  "task": "TASK-260712-2f0gpu",
+  "publishedAt": "2026-07-17",
+  "upstreamBaselineCommit": "9a2b5f1b5d8802b1633f1d4f077f28330b620aa7",
+  "decision": {
+    "result": "engineering-evidence-complete-manual-c7-required",
+    "engineeringHandoffReady": true,
+    "c7Accepted": false,
+    "productionPromotionAllowed": false,
+    "manualEvidence": "not-run",
+    "maximumRolloutStage": 4
+  },
+  "frozenContract": {
+    "version": "automation-safety-v1",
+    "delivery": "overlay",
+    "maximumExplicitSelectors": 64,
+    "maximumAcceptedPerPrincipalMinute": 5,
+    "maximumAcceptedPerOrbitHour": 20,
+    "maximumConcurrentPerPrincipal": 1,
+    "maximumConcurrentPerOrbit": 2,
+    "missedMinuteCatchUpAllowed": false,
+    "recipientLocalCeilingLast": true,
+    "automationMayEnterCapture": false
+  },
+  "coverage": {
+    "timezone-dst-clock": {
+      "repositoryStatus": "pass-deterministic",
+      "tests": [
+        "TestAutomationScheduleDSTGapFoldClockJumpAndConcurrentClaims",
+        "TestAutomationRuntimeScheduleUsesOnlyCurrentCanonicalMinute",
+        "Calendar rules preserve spring gaps, earliest fall folds and wrapping quiet hours"
+      ]
+    },
+    "quiet-hours": {
+      "repositoryStatus": "pass-deterministic",
+      "tests": [
+        "TestAutomationControlFeatureScheduleAndOneTimePrincipal",
+        "TestAutomationControlMixedVersionMalformedQuietPolicyFailsClosed",
+        "TestAutomationRuntimeAirDNDAndBlockPolicyMatrix"
+      ]
+    },
+    "dnd-block-air": {
+      "repositoryStatus": "pass-deterministic",
+      "tests": [
+        "TestAutomationRuntimeAirDNDAndBlockPolicyMatrix",
+        "TestTransmissionSchedulerRechecksBlockDNDOfflineAndClockEvidence"
+      ]
+    },
+    "explicit-target-acl": {
+      "repositoryStatus": "pass-deterministic",
+      "tests": [
+        "TestAutomationControlForeignAndUnknownTargetReferencesCollapse",
+        "TestAutomationAPIExecutionIdempotencyScopeAndRevocationLineage"
+      ]
+    },
+    "dedupe-restart-queue": {
+      "repositoryStatus": "pass-deterministic",
+      "tests": [
+        "TestAutomationRuntimeAtomicallyCreatesOneTransmissionAndReplays",
+        "TestAutomationClaimAndLeaseCrashBoundariesReconcile",
+        "TestAutomationRuntimeReconcilesPastMinuteUnlinkedClaim",
+        "TestAutomationStartupReconcilesExpiredLeaseAndAccounting"
+      ]
+    },
+    "revoke-disable-cancel-limits": {
+      "repositoryStatus": "pass-deterministic",
+      "tests": [
+        "TestAutomationRuntimeRevokeCancelsOrdinarySchedulerWork",
+        "TestAutomationQuickDisableAndScheduleDisableExposePendingCancellation",
+        "TestAutomationRuntimeBoundsAttemptsConcurrencyAndPruning",
+        "TestAutomationRuntimeEnforcesPrincipalAndOrbitConcurrencyCaps"
+      ]
+    },
+    "local-ceiling": {
+      "repositoryStatus": "pass-synthetic-mixer",
+      "tests": [
+        "TestWindowsOverlayContinuouslyConsumesMainAndLimitsFinalMix",
+        "macOS overlay graph keeps limiter before final local master gain"
+      ]
+    },
+    "no-microphone": {
+      "repositoryStatus": "pass-source-and-composition",
+      "tests": [
+        "TestWindowsSoundboardCompositionTriggersWithoutCaptureAndProjectsAutomationHistory",
+        "TestWindowsSoundboardWindowsSourceUsesRegisterHotKeyAndNoCaptureHook",
+        "Soundboard sources use Carbon registration and never capture or monitor keys broadly"
+      ]
+    },
+    "surface-history-parity": {
+      "repositoryStatus": "pass-deterministic",
+      "tests": [
+        "TestWindowsAutomationAdminDSTQuietHoursSecretsAndManualSoundboardSeparation",
+        "macOS source keeps secrets out of projections and retains explicit authorization controls",
+        "TestTelegramSoundboardAutomationParityUsesCanonicalServices",
+        "TestAutomationHistoryProjectsLineageDenialsAndForeignIsolation"
+      ]
+    },
+    "rollback": {
+      "repositoryStatus": "pass-exact-previous-head",
+      "tests": [
+        "TestAutomationExactPreviousHeadRollback"
+      ]
+    }
+  },
+  "clientMatrix": {
+    "windows": {
+      "repositoryBuild": "pass",
+      "repositoryTests": "pass",
+      "signedAppInteraction": "not-run",
+      "accessibility": "not-run",
+      "audibleOutput": "not-run"
+    },
+    "macos": {
+      "repositoryBuild": "pass",
+      "repositoryTests": "pass",
+      "signedAppInteraction": "not-run",
+      "accessibility": "not-run",
+      "audibleOutput": "not-run"
+    },
+    "telegram": {
+      "repositoryBuild": "pass",
+      "repositoryTests": "pass",
+      "liveBotTransport": "not-run",
+      "audibleOutput": "not-run"
+    }
+  },
+  "manualAcceptance": {
+    "epic": "EPIC-260714-th54l3",
+    "c7Task": "TASK-260712-1gyohk",
+    "status": "not-run",
+    "remainingGaps": [
+      "signed-windows-app",
+      "signed-macos-app",
+      "physical-clock-and-timezone",
+      "audible-dnd-block-air-and-ceiling",
+      "windows-keyboard-and-narrator",
+      "macos-keyboard-and-voiceover",
+      "live-telegram-transport",
+      "clipboard-manager-and-screenshots",
+      "real-client-kill-switch-latency",
+      "mixed-fleet-hardware",
+      "rollout-recovery-drills",
+      "seven-day-beta"
+    ]
+  },
+  "rollbackOrder": [
+    {"stage": 1, "action": "emergency-disable-orbit-automation", "preservesManualSoundboard": true},
+    {"stage": 2, "action": "revoke-principals-and-disable-schedules"},
+    {"stage": 3, "action": "reconcile-invalid-pending-work"},
+    {"stage": 4, "action": "withdraw-callers-and-drain"},
+    {"stage": 5, "action": "deploy-retained-predecessor-with-additive-rows-preserved"}
+  ],
+  "rerunCommands": [
+    "go test ./internal/store -run 'TestAutomationRuntimeAirDNDAndBlockPolicyMatrix|TestAutomationRuntimeAtomicallyCreatesOneTransmissionAndReplays|TestAutomationRuntimeBoundsAttemptsConcurrencyAndPruning|TestAutomationRuntimeEnforcesPrincipalAndOrbitConcurrencyCaps|TestAutomationRuntimeRevokeCancelsOrdinarySchedulerWork|TestAutomationRuntimeScheduleUsesOnlyCurrentCanonicalMinute|TestAutomationScheduleDSTGapFoldClockJumpAndConcurrentClaims|TestAutomationClaimAndLeaseCrashBoundariesReconcile|TestAutomationQuickDisableAndScheduleDisableExposePendingCancellation|TestAutomationControlForeignAndUnknownTargetReferencesCollapse' -count=1",
+    "go test -tags previoushead ./internal/store -run TestAutomationExactPreviousHeadRollback -count=1",
+    "go test ./cmd/duet-coordinator -run 'Test(TelegramSoundboardAutomationParityUsesCanonicalServices|TelegramScheduleNextRunUsesCanonicalDSTOrdering)' -count=1",
+    "go test ./... -run 'Test(WindowsSoundboardCompositionTriggersWithoutCaptureAndProjectsAutomationHistory|WindowsSoundboardWindowsSourceUsesRegisterHotKeyAndNoCaptureHook|WindowsAutomationAdminDSTQuietHoursSecretsAndManualSoundboardSeparation|AutomationAdminClientStrictControlAndOneTimeSecretContracts|WindowsOverlayContinuouslyConsumesMainAndLimitsFinalMix)$' -count=1",
+    "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app",
+    "python3 scripts/acceptance/run_automated.py --suite all --require-clean --run-id <run-id>"
+  ],
+  "sourceAnchors": [
+    {"path": "docs/analysis/p3-automation-safety-contract-v1.md", "sha256": "cc8d1e879cf63adc007e193213f5c6bf99291b11ba6bc5c9fb243cbb485391da"},
+    {"path": "docs/analysis/p3-automation-runtime-v1.md", "sha256": "edc736db4f4bbc0380b98e32421bb95248ae9ae323778d38343e2375959e1160"},
+    {"path": "docs/analysis/p3-automation-history-audit-v1.md", "sha256": "261f6ee8bf83135171527f7b201de69f57a0f686b5da0e5c317143426f96bda6"},
+    {"path": "docs/analysis/p3-windows-soundboard-v1.md", "sha256": "bac1e38f9e8589b8bddbd7ee192ffd3f07c6b498628ae2e2cdd8da49edc1b076"},
+    {"path": "docs/analysis/p3-macos-soundboard-v1.md", "sha256": "4e7885f076dd9c49e04bff0f335caab56d13ec0034a5a9e7fbdcbf2b580c4b43"},
+    {"path": "docs/analysis/p3-telegram-soundboard-automation-parity.md", "sha256": "965a0c1d8a71aebb597977d1d1f80321e2ad18c71aa0fafaa549fa1e17133deb"},
+    {"path": "docs/analysis/p3-windows-automation-admin-ui.md", "sha256": "f3733df13682af5d271388a37db6d3aabe7d6e0ba05c4bd913b3947e9d8500e2"},
+    {"path": "docs/analysis/p3-macos-automation-admin-ui.md", "sha256": "4d6e6b3db6cd3c25341e74725c7b1c19fd52f8cb425a6a7e5b6369a39110c578"},
+    {"path": "docs/analysis/p3-automation-safety-evidence-handoff.md", "sha256": "82d5cd32476e65ca1f33a178bc8618fcd887c6a38b0bd63299bf3faa2b346f78"},
+    {"path": "coordinator/internal/store/automation_runtime.go", "sha256": "39c5308ba899fd8ac3549074033b2f0f33c316289053bac145e08c0e7ead2e14"},
+    {"path": "coordinator/internal/store/automation_runtime_test.go", "sha256": "7aacfb64e597d71516895419ce0c4ca64b6d85caf7ff0303288992c00448cd8d"},
+    {"path": "coordinator/internal/store/automation_lineage_test.go", "sha256": "15715d6df888f010b73727732e7b2da2f14ae752003a36af98a884db8484949f"},
+    {"path": "coordinator/internal/store/automation_history_test.go", "sha256": "a79f7c9cfd25c715c87eea92df8045eb293956fb6d635564cdc00fe1eea5a814"},
+    {"path": "coordinator/internal/store/automation_control_test.go", "sha256": "8d20ea1c4b1a28e6bc77cfdd01b5bac4a0dcb8a6df5a65012ddaac21f335f0df"},
+    {"path": "coordinator/internal/store/transmission_scheduler_test.go", "sha256": "65f94ed6a7542936d1a799ef8b03fcf43913ee5fd3449cac30152ef7b3ed0f41"},
+    {"path": "coordinator/internal/store/automation_previous_head_test.go", "sha256": "e01e4c49eed4e2f4288a293f9745b3f9950d76e73c98db1d9fdd7efcd17ba9d1"},
+    {"path": "coordinator/cmd/duet-coordinator/telegram_automation_test.go", "sha256": "1022df1c7d48baccd71bd6726a07ed6b3a53c77066c8f79c24fbbf54e0ce882b"},
+    {"path": "pulsar-win/overlay_mixer_test.go", "sha256": "26b76451e51aba9a0c8019913bcd6050dd02f1e580316a7a9c75ffc2316f5d74"},
+    {"path": "pulsar-win/windows_soundboard_test.go", "sha256": "1878c3c17778b9bab859f0da720d82a23c18babc446703784832e54782af0959"},
+    {"path": "pulsar-win/windows_automation_admin_test.go", "sha256": "801bec6b6f9be0e2b0e243b0dc8bf47b677892090a97c83b577df4435dbf3260"},
+    {"path": "node-app/Tests/NodeCoreTests/RenderSafetySourceTests.swift", "sha256": "d02ec739feb60465e035f9e16e72b2f7716a8f4cfbf004044339e4454a3664d2"},
+    {"path": "node-app/Tests/NodeCoreTests/MacSoundboardTests.swift", "sha256": "bc4551fb07821bfa17eeb08b1f1577a11ca7284762003f7c0f905b567d708779"},
+    {"path": "node-app/Tests/NodeCoreTests/AutomationAdminClientTests.swift", "sha256": "10656728e3416be3161da431c7038b04bee642f5acfb44f3779dbe5f269d6a66"}
+  ]
+}

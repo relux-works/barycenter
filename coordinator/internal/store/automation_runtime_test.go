@@ -61,6 +61,174 @@ func runtimeTriggerParams(fixture automationLineageFixture, secret, key string, 
 	}
 }
 
+func automationAirRuntimeFixture(
+	t *testing.T,
+) (airSchedulerFixture, SavedCue, AutomationPrincipalIssue, int64) {
+	t.Helper()
+	fixture := newAirSchedulerFixture(t)
+	media := readySavedCueMedia(
+		t, fixture.store, fixture.source, fixture.now+7,
+		fixture.now+int64((30*24*time.Hour)/time.Millisecond), "e", 4096, 500,
+	)
+	cue := createMediaSavedCue(
+		t, fixture.store, fixture.source, media, "Air automation cue", fixture.now+10,
+	)
+	feature, err := fixture.store.SetAutomationFeatureState(SetAutomationFeatureStateParams{
+		ExpectedActorID: fixture.source.ActorID, Bearer: fixture.source.ControlToken,
+		SoundboardEnabled: true, AutomationEnabled: true, Timezone: "UTC",
+		QuietHoursJSON: `[]`, ExpectedRevision: 0, OccurredAt: fixture.now + 11,
+	})
+	if err != nil || feature.Revision != 1 {
+		t.Fatalf("automation feature=%+v err=%v", feature, err)
+	}
+	issued, err := fixture.store.IssueAutomationPrincipal(IssueAutomationPrincipalParams{
+		ExpectedActorID: fixture.source.ActorID, Bearer: fixture.source.ControlToken,
+		DisplayName: "Air policy automation", AllowedCueIDs: []string{cue.ID},
+		AllowedAudiences: []automationcontract.AudienceKind{automationcontract.AudienceCurrentAir},
+		BoundAirID:       fixture.airID, MaxTargetCount: 8, IssuedAt: fixture.now + 12,
+		ExpiresAt: fixture.now + int64((30*24*time.Hour)/time.Millisecond),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fixture, cue, issued, fixture.now + 20
+}
+
+func triggerAirAutomation(
+	t *testing.T, fixture airSchedulerFixture, cue SavedCue, issued AutomationPrincipalIssue,
+	now int64, suffix string,
+) (AutomationRuntimeResult, error) {
+	t.Helper()
+	return fixture.store.TriggerAutomationRuntime(AutomationRuntimeTriggerParams{
+		Secret: issued.Secret, IdempotencyKey: "automation-air-policy-" + suffix,
+		RequestDigest: telegramRoutingDigest("automation-air-policy", suffix, "request"),
+		CueID:         cue.ID, AudienceKind: automationcontract.AudienceCurrentAir,
+		Availability: []TransmissionTargetAvailability{
+			fullTransmissionAvailability(fixture.source, now),
+			fullTransmissionAvailability(fixture.peer, now),
+		},
+		AttemptedAt: now,
+	})
+}
+
+func automationTargetStatus(
+	t *testing.T, result AutomationRuntimeResult, actorID int64,
+) (TransmissionTargetStatus, TransmissionReason) {
+	t.Helper()
+	for _, target := range result.Transmission.Targets {
+		if target.ActorID == actorID {
+			return target.Status, target.ReasonCode
+		}
+	}
+	t.Fatalf("actor %d absent from targets=%+v", actorID, result.Transmission.Targets)
+	return "", ""
+}
+
+func TestAutomationRuntimeAirDNDAndBlockPolicyMatrix(t *testing.T) {
+	t.Run("quiet hours deny before target resolution", func(t *testing.T) {
+		fixture, cue, issued, now := automationAirRuntimeFixture(t)
+		instant := time.UnixMilli(now).UTC()
+		startMinute := instant.Hour()*60 + instant.Minute()
+		if _, err := fixture.store.ReplaceAuthorizedAutomationFeatureState(
+			automationControlTestAuth(
+				fixture.source, "automation-quiet-policy-0001", "quiet", now-1,
+			),
+			AutomationFeatureControlParams{
+				SoundboardEnabled: true, AutomationEnabled: true, Timezone: "UTC",
+				QuietHours: []AutomationQuietWindow{{
+					Weekday: int(instant.Weekday()), StartMinute: startMinute,
+					EndMinute: (startMinute + 1) % 1440,
+				}},
+				ExpectedRevision: 1,
+			},
+		); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := triggerAirAutomation(t, fixture, cue, issued, now, "quiet-0001"); !errors.Is(err, ErrAutomationQuietHours) {
+			t.Fatalf("quiet-hours denial=%v", err)
+		}
+		var transmissions int
+		if err := fixture.store.db.QueryRow(`SELECT COUNT(*) FROM transmissions`).Scan(
+			&transmissions,
+		); err != nil || transmissions != 0 {
+			t.Fatalf("quiet-hours transmissions=%d err=%v", transmissions, err)
+		}
+	})
+
+	t.Run("recipient DND remains last-mile authoritative", func(t *testing.T) {
+		fixture, cue, issued, now := automationAirRuntimeFixture(t)
+		if _, err := fixture.store.SetNodeDND(SetNodeDNDParams{
+			OrbitID: fixture.peer.OrbitID, ActorID: fixture.peer.ActorID, Slot: fixture.peer.Slot,
+			Mode: DNDMutedUntil, MutedUntil: now + 60_000, Revision: 1, UpdatedAt: now - 1,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		result, err := triggerAirAutomation(t, fixture, cue, issued, now, "dnd-0001")
+		if err != nil {
+			t.Fatal(err)
+		}
+		status, reason := automationTargetStatus(t, result, fixture.peer.ActorID)
+		if status != TransmissionTargetMissedDND || reason != TransmissionReasonLocalDND {
+			t.Fatalf("DND target status=%s reason=%s", status, reason)
+		}
+	})
+
+	t.Run("recipient block rejects the automation sender", func(t *testing.T) {
+		fixture, cue, issued, now := automationAirRuntimeFixture(t)
+		if _, err := fixture.store.CreateTransmissionBlock(CreateTransmissionBlockParams{
+			OwnerScope: BlockOwnerActor, OwnerOrbitID: fixture.peer.OrbitID,
+			OwnerActorID: fixture.peer.ActorID, BlockedKind: BlockedSubjectActor,
+			BlockedActorID: fixture.source.ActorID, AuthorizedByActorID: fixture.peer.ActorID,
+			CreatedAt: now - 1,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		result, err := triggerAirAutomation(t, fixture, cue, issued, now, "block-0001")
+		if err != nil {
+			t.Fatal(err)
+		}
+		status, reason := automationTargetStatus(t, result, fixture.peer.ActorID)
+		if status != TransmissionTargetBlocked || reason != TransmissionReasonActorBlocked {
+			t.Fatalf("blocked target status=%s reason=%s", status, reason)
+		}
+	})
+
+	t.Run("Air leave invalidates the bound audience before snapshot", func(t *testing.T) {
+		fixture, cue, issued, now := automationAirRuntimeFixture(t)
+		fixture.leavePeer(t, "automation-policy-leave-0001", now-1)
+		if _, err := triggerAirAutomation(t, fixture, cue, issued, now, "leave-0001"); !errors.Is(err, ErrAutomationAudienceNotAllowed) {
+			t.Fatalf("post-leave denial=%v", err)
+		}
+		var transmissions int
+		if err := fixture.store.db.QueryRow(`SELECT COUNT(*) FROM transmissions`).Scan(
+			&transmissions,
+		); err != nil || transmissions != 0 {
+			t.Fatalf("post-leave transmissions=%d err=%v", transmissions, err)
+		}
+	})
+
+	t.Run("Air overlay policy denies before transmission creation", func(t *testing.T) {
+		fixture, cue, issued, now := automationAirRuntimeFixture(t)
+		policy, err := fixture.store.AirPolicy(fixture.airID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		policy.Overlay = "disabled"
+		if err := fixture.store.ReplaceAirPolicy(*policy, policy.Revision, now-1); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := triggerAirAutomation(t, fixture, cue, issued, now, "denied-0001"); !errors.Is(err, ErrAutomationAudienceNotAllowed) {
+			t.Fatalf("Air policy denial=%v", err)
+		}
+		var transmissions int
+		if err := fixture.store.db.QueryRow(`SELECT COUNT(*) FROM transmissions`).Scan(
+			&transmissions,
+		); err != nil || transmissions != 0 {
+			t.Fatalf("denied transmissions=%d err=%v", transmissions, err)
+		}
+	})
+}
+
 func TestAutomationRuntimeAtomicallyCreatesOneTransmissionAndReplays(t *testing.T) {
 	fixture := newAutomationLineageFixture(t, "UTC")
 	issued := issueAutomationPrincipal(t, fixture,
@@ -159,6 +327,49 @@ func TestAutomationRuntimeBoundsAttemptsConcurrencyAndPruning(t *testing.T) {
 		base+AutomationExecutionRetention.Milliseconds()+100, 1000)
 	if err != nil || pruned != automationcontract.MaxAcceptedPerMinute+1 {
 		t.Fatalf("pruned=%d err=%v", pruned, err)
+	}
+}
+
+func TestAutomationRuntimeEnforcesPrincipalAndOrbitConcurrencyCaps(t *testing.T) {
+	fixture := newAutomationLineageFixture(t, "UTC")
+	principals := make([]AutomationPrincipalIssue, 3)
+	for index := range principals {
+		principals[index] = issueAutomationPrincipal(t, fixture,
+			[]automationcontract.AudienceKind{automationcontract.AudienceOwnBarycenter}, nil, "")
+	}
+	now := fixture.now + 100
+	first := runtimeTriggerParams(fixture, principals[0].Secret,
+		"automation-concurrency-first-0001", now)
+	if _, err := fixture.store.TriggerAutomationRuntime(first); err != nil {
+		t.Fatal(err)
+	}
+	principalLimited := runtimeTriggerParams(fixture, principals[0].Secret,
+		"automation-concurrency-principal-0001", now+1)
+	principalLimited.RequestDigest = strings.Repeat("b", 64)
+	if _, err := fixture.store.TriggerAutomationRuntime(principalLimited); !errors.Is(err, ErrAutomationExecutionInProgress) {
+		t.Fatalf("principal concurrency error=%v", err)
+	}
+	second := runtimeTriggerParams(fixture, principals[1].Secret,
+		"automation-concurrency-second-0001", now+2)
+	second.RequestDigest = strings.Repeat("c", 64)
+	if _, err := fixture.store.TriggerAutomationRuntime(second); err != nil {
+		t.Fatal(err)
+	}
+	orbitLimited := runtimeTriggerParams(fixture, principals[2].Secret,
+		"automation-concurrency-orbit-0001", now+3)
+	orbitLimited.RequestDigest = strings.Repeat("d", 64)
+	if _, err := fixture.store.TriggerAutomationRuntime(orbitLimited); !errors.Is(err, ErrAutomationExecutionInProgress) {
+		t.Fatalf("orbit concurrency error=%v", err)
+	}
+	var transmissions, denied int
+	if err := fixture.store.db.QueryRow(`SELECT
+  (SELECT COUNT(*) FROM transmissions),
+  (SELECT COUNT(*) FROM automation_runtime_attempts WHERE outcome = 'denied'
+    AND reason_code = 'execution_in_progress')`).Scan(&transmissions, &denied); err != nil {
+		t.Fatal(err)
+	}
+	if transmissions != automationcontract.MaxConcurrentPerOrbit || denied != 2 {
+		t.Fatalf("concurrency transmissions=%d denied=%d", transmissions, denied)
 	}
 }
 

@@ -4,23 +4,23 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 153 accepted, 52 remain.
-- Routed inventory: 186 engineering tasks (153 accepted, 33 remain) and 19
+- Combined inventory: 205 original tasks; 154 accepted, 51 remain.
+- Routed inventory: 186 engineering tasks (154 accepted, 32 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1023d7` — capture-quality-integrated-regressions
-- Next engineering task: `TASK-260712-3da0vz` — phase3-gate-matrix-evidence-contract
+- Current engineering task: `TASK-260712-3da0vz` — phase3-gate-matrix-evidence-contract
+- Next engineering task: `TASK-260712-2uo81g` — phase3-observability-health-evidence-views
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
   E2EE implementation task are deferred outside the current engineering epic,
   so strict execution resumes at section 17 without claiming them complete.
-- Most recently accepted: `TASK-260712-39zh8g` — windows-capture-quality-ui
-- Current branch: `tracking/task-260712-39zh8g-complete`
+- Most recently accepted: `TASK-260712-1023d7` — capture-quality-integrated-regressions
+- Current branch: `tracking/task-260712-1023d7-capture-quality-integrated-regressions`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -41,8 +41,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 153 / 205 tasks (74.6%); 52 remain
-- Engineering progress: 153 / 186 tasks (approximately 82.3%); 33 remain
+- Accepted overall: 154 / 205 tasks (75.1%); 51 remain
+- Engineering progress: 154 / 186 tasks (approximately 82.8%); 32 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3556,7 +3556,25 @@ Story: `STORY-260712-3pt00e` — P3 Capture quality and diagnostics.
   permission, physical route/reconnect, acoustic and stop-latency checks remain
   in `EPIC-260714-th54l3`; checklist item 5 closes source/unit native-control,
   keyboard, DPI-aware layout, lifecycle and no-remote-start semantics only.)
-- [ ] `TASK-260712-1023d7` — capture-quality-integrated-regressions
+- [x] `TASK-260712-1023d7` — capture-quality-integrated-regressions (accepted
+  on exact engineering evidence head
+  `93489c1cde6799e9b563fd4530712783aa29aa06`, merged by PR #250 at
+  `97ec5ac77285e5c2a6c9f2cc19c375b79480e004`. Repository-built Windows and
+  macOS safety adapters processed all 14 frozen fixtures across recorded clip,
+  local self-test and live PTT on speaker, headphone and unknown routes: 18
+  independent cells and 252 fixture runs with no cross-cell averaging. Every
+  run enforced finite output, bounded +12 dB gain, 3 dB/s slew and the final
+  -3 dBFS capture ceiling; separate assertions preserve the receiver -1 dBFS
+  ceiling. Fresh generations, explicit degraded consent, fail-closed states,
+  callback guards and existing hostile permission/device/route/cancel/lock/
+  sleep/reconnect/rollback suites passed. Sanitized evidence retains only
+  hashes, content-free metrics and exact blockers; no audio or device identity
+  is retained. Clean exact-head acceptance passed all 16 commands with a clean
+  start/end worktree; hosted run `29575552543` passed 4/4. Native Windows
+  AEC/NS, signed macOS VPIO, render-reference age, acoustic ERLE/SNR, canonical
+  STOI, blinded listening, accessibility and physical CPU/memory remain
+  explicitly `manualEvidence=not-run` in `EPIC-260714-th54l3`; production
+  capability advertising and C3 acceptance remain false.)
 - ↪ manual `TASK-260712-2e80pr` — c3-evidence-capability-matrix
 
 ## 18. P3 security and engineering completion

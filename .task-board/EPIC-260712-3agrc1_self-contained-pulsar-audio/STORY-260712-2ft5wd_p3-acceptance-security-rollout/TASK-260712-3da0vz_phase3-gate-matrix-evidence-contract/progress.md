@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-engineer
 
 ## Created
 2026-07-12T16:38:53Z
 
 ## Last Update
-2026-07-12T16:57:11Z
+2026-07-17T11:07:59Z
 
 ## Blocked By
 - TASK-260712-3a0cf9
@@ -26,6 +26,7 @@ backlog
 - [ ] Name missing hardware, reviewers, participants, or credentials as explicit blockers
 
 ## Notes
+2026-07-17 strict sequential inline engineering start after TASK-260712-1023d7 merged. Execute outside task-board spawn workflow. Real-app, signed-build, hardware, acoustic, accessibility, independent-review and beta evidence remains manual/external and must not be invented.
 
 ## Precondition Resources
 - [p3-acceptance-evidence-map.puml](file://TASK-260712-3da0vz/p3-acceptance-evidence-map.puml) — Task boundary map for the shared phase-three evidence contract

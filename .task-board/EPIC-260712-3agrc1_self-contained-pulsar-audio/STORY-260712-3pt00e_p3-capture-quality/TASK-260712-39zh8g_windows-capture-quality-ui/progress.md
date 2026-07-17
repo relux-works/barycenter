@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-inline-engineer
 
 ## Created
 2026-07-12T16:42:28Z
 
 ## Last Update
-2026-07-12T16:44:05Z
+2026-07-17T09:56:49Z
 
 ## Blocked By
 - TASK-260712-wcdz08
@@ -26,6 +26,7 @@ backlog
 - [ ] Run signed accessibility DPI lifecycle and no-remote-start checks
 
 ## Notes
+2026-07-17 strict sequential engineering start after TASK-260712-1getbv merged; execute inline outside task-board spawn workflow. Real signed-app accessibility, DPI, visual, physical route and acoustic evidence remains manual in EPIC-260714-th54l3.
 
 ## Precondition Resources
 (none)

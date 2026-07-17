@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-macos-capture-quality-ui-engineering.v1",
+  "task": "TASK-260712-1getbv",
+  "publishedAt": "2026-07-17",
+  "owner": "Ivan Oparin",
+  "decision": {
+    "result": "best-effort-ui-engineering-ready-manual-real-app-proof-required",
+    "engineeringImplemented": true,
+    "productionCapabilityAdvertised": false,
+    "livePTTProductionIntegration": false,
+    "c3Accepted": false,
+    "manualEvidence": "not-run",
+    "manualEpic": "EPIC-260714-th54l3"
+  },
+  "productionWiring": {
+    "recordedClip": true,
+    "localSelfTest": true,
+    "livePTTPresentationModel": true,
+    "livePTTNodeInstantiatedByApp": false,
+    "remoteStartAuthority": false,
+    "coordinatorModeAuthority": false,
+    "degradedConsent": "fresh local one-generation consent, cleared at terminal state"
+  },
+  "surface": {
+    "locations": ["main window local self-test", "main window settings", "active bottom bar", "menu bar"],
+    "requestedModes": ["auto", "speaker", "headphone"],
+    "states": ["accepted", "degraded", "unsupported"],
+    "effects": ["active", "not_required", "unavailable", "faulted"],
+    "inputCeilingDBFS": -3.0,
+    "receiverOutputCeilingDBFS": -1.0,
+    "ceilingsEditable": false,
+    "receiverVolumeChangesCeilings": false,
+    "localStopCommands": ["native window button", "Command-period", "foreground Escape", "menu bar item"]
+  },
+  "automatedCoverage": [
+    "English and Russian shell catalog completeness",
+    "mode, route, lifecycle, effects, input health and distinct ceiling projection",
+    "speaker preflight degraded warning and explicit one-generation consent seam",
+    "stale quality state clearing on local configuration change",
+    "quality generation and local Stop retention across reconnect projection",
+    "recorded clip and live_ptt active lifecycle projection",
+    "native Button, Command-period, foreground Escape and menu Stop source contracts",
+    "accessibility label, value and hint source contracts",
+    "local composition-only action wiring with no coordinator or runtime start seam"
+  ],
+  "notRun": [
+    "signed application visual inspection",
+    "VoiceOver reading order and announcements",
+    "full keyboard traversal and focus order",
+    "real TCC permission prompts",
+    "physical speaker, headphone, Bluetooth, USB and route-change behavior",
+    "acoustic AEC, noise suppression and AGC C3 matrix",
+    "physical immediate-stop latency",
+    "production live PTT UI integration"
+  ],
+  "documents": [
+    "docs/analysis/p3-macos-capture-quality-ui.md",
+    "docs/analysis/p3-capture-quality-contract-v1.md",
+    "docs/analysis/p3-macos-capture-quality-implementation.md"
+  ]
+}

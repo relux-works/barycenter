@@ -4,23 +4,23 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 151 accepted, 54 remain.
-- Routed inventory: 186 engineering tasks (151 accepted, 35 remain) and 19
+- Combined inventory: 205 original tasks; 152 accepted, 53 remain.
+- Routed inventory: 186 engineering tasks (152 accepted, 34 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: `TASK-260712-1getbv` — macos-capture-quality-ui
-- Next engineering task: `TASK-260712-39zh8g` — windows-capture-quality-ui
+- Current engineering task: `TASK-260712-39zh8g` — windows-capture-quality-ui
+- Next engineering task: `TASK-260712-1023d7` — capture-quality-integrated-regressions
 - Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
   in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
   self-approve an independent cryptographic review. That gate and every later
   E2EE implementation task are deferred outside the current engineering epic,
   so strict execution resumes at section 17 without claiming them complete.
-- Most recently accepted: `TASK-260712-wcdz08` — windows-live-capture-effects
-- Current branch: `tracking/task-260712-wcdz08-complete`
+- Most recently accepted: `TASK-260712-1getbv` — macos-capture-quality-ui
+- Current branch: `tracking/task-260712-1getbv-complete`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -41,8 +41,8 @@
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
   the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
   reversible best-effort engineering. Store submission remains fail-closed.
-- Accepted overall: 151 / 205 tasks (73.7%); 54 remain
-- Engineering progress: 151 / 186 tasks (approximately 81.2%); 35 remain
+- Accepted overall: 152 / 205 tasks (74.1%); 53 remain
+- Engineering progress: 152 / 186 tasks (approximately 81.7%); 34 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3517,7 +3517,25 @@ Story: `STORY-260712-3pt00e` — P3 Capture quality and diagnostics.
   accessibility remain explicitly not-run in `EPIC-260714-th54l3`; the
   real-hardware checklist item is closed here only as routed, not as a claimed
   pass.)
-- [ ] `TASK-260712-1getbv` — macos-capture-quality-ui
+- [x] `TASK-260712-1getbv` — macos-capture-quality-ui (accepted on exact
+  engineering commit `c589c59ce252f12d4c50e453a5bd1d260d13e6a9`, merged
+  by PR #246 at `8706dbd88d11d02f59a2bf5a6878ca64524fc8e1`. The
+  macOS shell now exposes local auto, speaker and headphone selection, explicit
+  one-generation degraded consent, truthful route/lifecycle/AEC/NS/AGC/health
+  state, and the distinct fixed -3 dBFS input and -1 dBFS receiver ceilings.
+  A persistent window bar, foreground Escape, Command-period and menu item all
+  invoke the local capture composition only; the coordinator has no microphone
+  start, route or consent seam. English/Russian copy and non-color symbols
+  distinguish accepted, degraded, unsupported, not-required, unavailable and
+  faulted states plus the frozen failure reasons. Production clips and local
+  self-test are wired; generic live_ptt presentation is covered, but the
+  production MacLivePTTNode remains intentionally dark and no live UI pass is
+  claimed. Clean exact-head acceptance passed 142 contract tests and 307 Swift
+  tests, the release build passed, and hosted run `29571493442` passed 4/4.
+  Real signed-app VoiceOver/focus, visual, TCC, hardware-route, acoustic and
+  stop-latency checks remain `manualEvidence=not-run` in
+  `EPIC-260714-th54l3`; the accessibility checklist item is closed only for
+  source/unit semantics and explicit routing, not as a manual pass.)
 - [ ] `TASK-260712-39zh8g` — windows-capture-quality-ui
 - [ ] `TASK-260712-1023d7` — capture-quality-integrated-regressions
 - ↪ manual `TASK-260712-2e80pr` — c3-evidence-capability-matrix

@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-macos-e2ee-key-state.v1",
+  "task": "TASK-260712-1x9ruo",
+  "publishedAt": "2026-07-20",
+  "decision": {
+    "result": "production-dark-device-only-key-state-foundation",
+    "productionEnabled": false,
+    "runtimeWired": false,
+    "capabilityAdvertised": false,
+    "productionLibrarySelected": false,
+    "productionSuiteSelected": false,
+    "productionContainerSelected": false,
+    "hardwareKeychainTested": false,
+    "signedPackageTested": false,
+    "plaintextFallbackAllowed": false,
+    "deltaReviewRequired": true
+  },
+  "artifacts": [
+    {"id":"repository","path":"node-app/Sources/NodeCore/MacE2EEKeyState.swift","sha256":"bdc12d1e87e39b68b999dce701eb44879a733f8e01a6bf2f1c9512e7c6a32443"},
+    {"id":"repository-tests","path":"node-app/Tests/NodeCoreTests/MacE2EEKeyStateTests.swift","sha256":"0a5063c5fe3efedb4a11fefd2551e0c96de6504ea5b6c20329d6f6a74f2aa9e5"},
+    {"id":"state-vectors","path":"protocol/e2ee-key-state-v1-vectors.json","sha256":"846685c8c16dea57d3b0e4022b08e72615e4cd9fa2149e76c8168e5f5d693326"},
+    {"id":"adr","path":"docs/analysis/p3-macos-e2ee-key-state-v1.md","sha256":"a92438d509730a991ffac80953155b8ee61931ed757f5b0e02cff94fb3869c8d"},
+    {"id":"threat-model","path":"acceptance/phase3/e2ee-threat-model-v1.json","sha256":"a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
+    {"id":"key-lifecycle","path":"acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json","sha256":"6015b911f8e83c8228c4c3f3b763c2e9852c2ea7f773be488d45ced0fc80578c"},
+    {"id":"schema-foundation","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"d0b3ac300224bd95472bcc72b9237c562a9074432c1e1f9596e4a55d6a7433eb"},
+    {"id":"routing-rotation","path":"acceptance/phase3/e2ee-coordinator-routing-rotation-v1.json","sha256":"620205a0758541d4d22057b7e375efdebdb9cc8c854cb087c0addedcc4ca56dd"},
+    {"id":"opaque-router","path":"acceptance/phase3/e2ee-opaque-media-router-v1.json","sha256":"01cb20948e881568c01da085f098fed0d2b28ee9dad01e05df8205b004c13280"}
+  ],
+  "keychainSlots": [
+    "device_metadata",
+    "device_signing",
+    "device_agreement",
+    "group",
+    "grant",
+    "content_cache"
+  ],
+  "keychainPolicy": {
+    "service": "works.relux.pulsar.e2ee",
+    "accessibility": "kSecAttrAccessibleWhenUnlockedThisDeviceOnly",
+    "synchronizable": false,
+    "dataProtectionKeychain": true,
+    "preferencesStorage": false,
+    "installationRandomBytes": 32
+  },
+  "bounds": {
+    "privateKeyBytes": 4096,
+    "opaqueGroupStateBytes": 1048576,
+    "grantBytes": 65536,
+    "cachedContentKeys": 32,
+    "cachedContentKeyBytes": 65536,
+    "individualContentKeyBytes": 4096
+  },
+  "stateInvariants": [
+    "device-metadata-signing-and-agreement-use-distinct-slots",
+    "every-state-slot-has-an-independent-witness",
+    "all-dependent-state-binds-to-device-only-installation-id",
+    "state-and-witness-readback-complete-before-ack",
+    "ambiguous-success-consumes-revision-and-generation",
+    "partial-write-and-partial-device-install-fail-closed",
+    "group-epoch-advances-exactly-one-with-exact-predecessor-digest",
+    "stale-replay-fork-clone-and-generation-overflow-fail-closed",
+    "grant-coverage-and-expiry-are-monotonic-and-revocable",
+    "content-key-cache-is-bounded-expiring-and-clearable",
+    "secret-leases-are-redacted-and-best-effort-cleared",
+    "no-preferences-logs-telemetry-crash-or-runtime-capability-wiring",
+    "revoked-only-active-member-is-a-removed-endpoint"
+  ],
+  "fixtures": {
+    "deviceSlotSeparation": "covered",
+    "partialDeviceInstall": "covered",
+    "epochKnownStateTransitions": "covered",
+    "staleRevisionReplay": "covered",
+    "epochGapAndWrongPredecessorFork": "covered",
+    "recordWrittenWitnessMissing": "covered",
+    "recordAndWitnessWrittenReadbackLost": "covered",
+    "crossInstallationCopiedGroup": "covered",
+    "groupDeletion": "covered",
+    "grantMonotonicExpiryRevoke": "covered",
+    "contentCacheBoundExpiryClear": "covered",
+    "secretLeaseRedactionAndDestroy": "covered",
+    "revokedOnlyTargetSemantics": "covered",
+    "productionDarkSourceScan": "covered"
+  },
+  "automatedEvidence": {
+    "focused": "xcrun swift test --package-path node-app --filter MacE2EEKeyStateTests",
+    "nodeCore": "xcrun swift test --package-path node-app",
+    "format": "xcrun swift-format lint node-app/Sources/NodeCore/MacE2EEKeyState.swift node-app/Tests/NodeCoreTests/MacE2EEKeyStateTests.swift",
+    "acceptance": "python3 -m unittest scripts.acceptance.test_macos_e2ee_key_state"
+  },
+  "deferredScope": [
+    "reviewed-group-crypto-library-and-real-key-generation",
+    "production-cipher-suite-container-and-signature-verification",
+    "send-playback-live-ptt-and-ux-runtime-integration",
+    "device-recovery-transfer-and-reenrollment-runtime",
+    "signed-entitlement-keychain-backup-and-restore-evidence",
+    "physical-device-memory-and-crash-diagnostic-inspection"
+  ],
+  "manualEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "signedNotarizedMacOS": "not-run",
+    "physicalKeychainAccessibility": "not-run",
+    "backupRestoreAndDeviceMigration": "not-run",
+    "realCryptoInterop": "not-run-no-selected-stack",
+    "memoryForensics": "not-run",
+    "crashDiagnosticInspection": "not-run"
+  },
+  "openProductionGates": ["EPC-001", "EPC-002", "EPC-004", "EPC-005", "TASK-260712-1ulshp"]
+}

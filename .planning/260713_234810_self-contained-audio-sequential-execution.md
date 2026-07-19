@@ -14,8 +14,8 @@
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
 - Current engineering task: `TASK-260712-1x9ruo` — macos-e2ee-key-state in
-  deferred epic `EPIC-260716-3qsztl`; implementation starts only after the
-  accepted opaque-router delta completes PR/hosted-CI integration to `main`.
+  deferred epic `EPIC-260716-3qsztl`; production-dark implementation and local
+  evidence are complete, with exact-SHA independent review still pending.
 - Current original-plan frontier: `TASK-260712-1x9ruo` —
   macos-e2ee-key-state in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
@@ -126,14 +126,26 @@
   212/212 acceptance and previous-head rollback, then APPROVED with zero
   Critical/High/Medium findings. The broad race is honestly producer-only
   evidence and a non-blocking independent follow-up before activation.
+- macOS E2EE key state (review pending): the current branch separates device
+  metadata, signing, agreement, group, grant and bounded content-cache state
+  into dedicated device-only non-synchronizing Keychain slots with an
+  independent witness per slot. Exact predecessor epochs, persist/readback
+  before ack, partial-install/clone/replay/fork failure, ambiguous-success
+  generation consumption, expiry/deletion, redacted leases and EPC-005 target
+  semantics are covered. Focused Swift passed 10/10, full NodeCore passed
+  318/318, acceptance passed 217/217 and swift-format is clean. Runtime
+  capability, production crypto selection, physical Keychain, signed package,
+  backup/restore and memory-forensics claims remain absent. Acceptance waits
+  for the owner-authorized Claude Fable 5 max exact-SHA delta review.
 - Next deferred coding line: E2EE continues with `TASK-260712-1x9ruo`, limited
   to disabled best-effort macOS key state. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-1yz5ca` —
   coordinator-opaque-media-router (dormant engineering scope only)
-- Current branch: `feat/task-260712-1yz5ca`
-- Current review evidence: independent opaque-router delta verdict
+- Current branch: `feat/task-260712-1x9ruo`
+- Current review evidence: macOS key-state review is pending producer commit;
+  the preceding independent opaque-router delta verdict is
   `TASK-260712-1yz5ca_independent-delta-review-v1.md` from terminal completion
   run `RUN-260719-91776a`. The preceding Store-package run `RUN-260719-85bf38`
   accepted exact `e3bf985` for engineering scope in
@@ -3625,8 +3637,15 @@ continues at section 17.
   Critical/High/Medium findings. L1 multi-cause audit reason fidelity and I1
   only-revoked-device membership semantics are tracked as non-blocking
   downstream notes; production activation and EPC gates remain open.)
-- [ ] `TASK-260712-1yz5ca` — coordinator-opaque-media-router
-- [ ] `TASK-260712-1x9ruo` — macos-e2ee-key-state
+- [x] `TASK-260712-1yz5ca` — coordinator-opaque-media-router (accepted on exact
+  producer commit `e4488ed2c0335e57910d704cf4bb4119593bbfdd`; independent
+  Claude Fable 5 max completion run `RUN-260719-91776a` reproduced all pins,
+  full tests/vet, focused race, acceptance 212/212 and previous-head rollback,
+  then APPROVED with zero Critical/High/Medium findings. PR #286 passed 4/4
+  hosted jobs and merged to main as `3b08b745590d36e17c6daf8ffe7ef8007decc33a`.)
+- [ ] `TASK-260712-1x9ruo` — macos-e2ee-key-state (production-dark code and
+  automated evidence complete: focused Swift 10/10, NodeCore 318/318,
+  acceptance 217/217, format clean; independent exact-SHA review pending.)
 - [ ] `TASK-260712-25dzp4` — windows-e2ee-key-state
 - [ ] `TASK-260712-2i0w6x` — report-evidence-moderation-export
 - [ ] `TASK-260712-1rziyo` — recovery-device-transfer-history-grants

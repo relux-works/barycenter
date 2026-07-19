@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 166 accepted, 39 remain.
-- Routed inventory: 186 engineering tasks (166 accepted, 20 remain) and 19
+- Combined inventory: 205 original tasks; 167 accepted, 38 remain.
+- Routed inventory: 186 engineering tasks (167 accepted, 19 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -29,7 +29,8 @@
   run `29692957096` passing 4/4 jobs. The original security review is accepted
   (`TASK-260712-wy05n6` done, checklist item 1 checked). Remaining Store/IARC
   completion is the strict hold and requires its own evidence and verdict; this
-  signoff makes no real-app or hardware claim.
+  signoff makes no real-app or hardware claim. Tracking PR #279 merged at
+  `aee65ba`; its post-review hosted run `29693870942` passed 4/4 jobs.
 - Migration gate: the owner-authorized independent migration review ran on
   2026-07-19 (Claude Fable 5, run `RUN-260719-d82ed0`) at exact main head
   `06ce330` containing audit merge `d7e0065`. The audit packet was validated
@@ -60,13 +61,13 @@
   That gate and every later E2EE implementation task live in
   `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there as well and
   cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-1xkn75` —
-  p1-independent-migration-review
-- Current branch: `review/task-260715-unbb7c-fable5`
-- Current review evidence: migration review action `TASK-260715-unbb7c` is
-  accepted with final outcome
-  `TASK-260715-unbb7c_final-approval-verdict.md`; no manual, hardware,
-  production, Store or release claim is inferred.
+- Most recently accepted: `TASK-260712-wy05n6` —
+  p1-independent-security-review
+- Current branch: `tracking/task-260715-10ksxz-completion`
+- Current review evidence: security review action `TASK-260715-10ksxz` is
+  accepted with outcome
+  `TASK-260715-10ksxz_independent-security-review-verdict.md`; no manual,
+  hardware, production, Store or release claim is inferred.
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -106,8 +107,8 @@
   `TASK-260716-tlxe3s`. The protocol and realtime-audio reviewers have since
   returned independent APPROVE verdicts; the other withheld external verdicts
   and production activation remain open. Store submission remains fail-closed.
-- Accepted overall: 166 / 205 tasks (81.0%); 39 remain
-- Engineering progress: 166 / 186 tasks (approximately 89.2%); 20 remain
+- Accepted overall: 167 / 205 tasks (81.5%); 38 remain
+- Engineering progress: 167 / 186 tasks (approximately 89.8%); 19 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to

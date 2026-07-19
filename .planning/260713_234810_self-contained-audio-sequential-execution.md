@@ -30,7 +30,7 @@
   `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there as well and
   cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2b5685` — phase3-root-engineering-completion-audit
-- Current branch: `task/task-260715-3ffm3r-protocol-reviewer-handoff-refresh`
+- Current branch: `tracking/task-260715-3ffm3r-protocol-reviewer-handoff-refresh`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -2967,7 +2967,8 @@ acceptance.
   39-to-59-message delta, exact object hashes and green Go/race plus pinned
   Swift contract suites. Exact packet commit `76e950a` also passed the clean
   coordinator acceptance suite 7/7 with clean start/end and
-  `manualEvidence=not-run`; remains `to-review` and unaccepted until an
+  `manualEvidence=not-run`; PR #271 merged at `326d60f` after hosted run
+  `29684355308` passed 4/4. The task remains `to-review` and unaccepted until an
   independent reviewer records identity and verdict)
 - [ ] `TASK-260712-1uz0za` — p1-independent-realtime-audio-review
 - [ ] `TASK-260712-1xkn75` — p1-independent-migration-review

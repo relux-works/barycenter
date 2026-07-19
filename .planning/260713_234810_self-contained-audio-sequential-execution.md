@@ -13,14 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `BUG-260719-1rsd49` —
-  store-connection-pragma-defense-in-depth; producer implementation and full
-  coordinator race verification are complete, independent review is pending.
+- Current engineering task: `TASK-260712-aniuyy` —
+  e2ee-independent-design-review in deferred epic `EPIC-260716-3qsztl`.
 - Current original-plan frontier: `TASK-260712-aniuyy` —
   e2ee-independent-design-review in deferred epic `EPIC-260716-3qsztl`.
-  It remains held until the only open follow-up in the main engineering epic,
-  `BUG-260719-1rsd49`, is resolved. The preceding
-  p1-independent-security-review
+  The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
   task `TASK-260715-10ksxz`. The reviewer verified exact main head `1b9207e`
@@ -36,6 +33,16 @@
   completion is the strict hold and requires its own evidence and verdict; this
   signoff makes no real-app or hardware claim. Tracking PR #279 merged at
   `aee65ba`; its post-review hosted run `29693870942` passed 4/4 jobs.
+- Security hardening follow-up: `BUG-260719-1rsd49` is accepted and done.
+  Producer commit `da6b4cb` carries SQLite pragmas onto every replacement
+  connection, requires persisted Store authorization or a descriptor-pinning
+  lease for media target readers, and documents `withControl` as preflight-only.
+  Focused, full and full race suites passed (Store race 441.840 s). Independent
+  Claude Fable 5 max runs `RUN-260719-f2757d` and `RUN-260719-c395cf` inspected
+  all three boundaries with no HIGH issue; terminal run `RUN-260719-0e576a`
+  reconfirmed byte-identical production code, ran fresh focused checks and
+  recorded APPROVE in `BUG-260719-1rsd49_reviewer-verdict.md`. This closed the
+  last open item in `EPIC-260712-3agrc1` and releases the deferred E2EE line.
 - Migration gate: the owner-authorized independent migration review ran on
   2026-07-19 (Claude Fable 5, run `RUN-260719-d82ed0`) at exact main head
   `06ce330` containing audit merge `d7e0065`. The audit packet was validated
@@ -61,20 +68,21 @@
   consumed hosted CI run `29691922727` (4/4). It recorded APPROVE and closed
   P1-MIG-003. Final evidence:
   `TASK-260715-unbb7c_final-approval-verdict.md`.
-- Next deferred coding line: E2EE resumes with `TASK-260712-aniuyy` only after
-  an implementation-independent design reviewer accepts its exact packet.
+- Next deferred coding line: E2EE resumes with `TASK-260712-aniuyy`; an
+  implementation-independent design reviewer must accept its exact packet.
   That gate and every later E2EE implementation task live in
   `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there as well and
   cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2s4e9p` —
   store-listing-iarc-assets (engineering scope only)
 - Current branch: `fix/bug-260719-1rsd49`
-- Current review evidence: independent Store package run
-  `RUN-260719-85bf38` accepted exact `e3bf985` for engineering scope in
-  `TASK-260712-2s4e9p_engineering-review-verdict.md`. Manual screenshots/WACK
+- Current review evidence: independent hardening verdict
+  `BUG-260719-1rsd49_reviewer-verdict.md` from terminal run
+  `RUN-260719-0e576a`. The preceding Store-package run `RUN-260719-85bf38`
+  accepted exact `e3bf985` for engineering scope in
+  `TASK-260712-2s4e9p_engineering-review-verdict.md`; manual screenshots/WACK
   and exact Partner Center/IARC owner inputs remain open in
-  `TASK-260712-e5mfqj` and `TASK-260715-24ube9`; no Store-ready, hardware,
-  rating, submission or release claim is inferred.
+  `TASK-260712-e5mfqj` and `TASK-260715-24ube9`.
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The

@@ -28,6 +28,22 @@
   engineering scope only. The later P1 independent migration and security
   reviews plus Store/IARC completion remain strict holds and require their own
   evidence and verdicts.
+- Migration gate: the owner-authorized independent migration review ran on
+  2026-07-19 (Claude Fable 5, run `RUN-260719-d82ed0`) at exact main head
+  `06ce330` containing audit merge `d7e0065`. The audit packet was validated
+  across all six layers; `P1-MIG-001`/`P1-MIG-002` were confirmed closed with
+  failure, partial, ten-run concurrent, 14/14 exact-predecessor and
+  full-module race reruns green locally plus hosted run `29690180035` (4/4
+  jobs). Approval is withheld on one new post-audit HIGH: `P1-MIG-003`, a
+  dissolution-reconciler ordering regression — `reconcileOrphanedMediaItems`
+  (inside `initMediaIngestSchema`, `store.go:146`) now revokes through
+  `saved_cues`/`transmission_inbox_items` (`media_ingest.go:1727/1733`)
+  before `store.go:158/170` create them, so a pre-inbox/pre-cue-generation
+  database holding an active predecessor-dissolution orphan fails roll-forward
+  startup deterministically. `TASK-260715-unbb7c` is routed `to-dev` for the
+  fix plus a generation-skip fixture; `TASK-260712-1xkn75` remains `to-review`
+  and unaccepted until a non-implementing re-review records approval. Verdict
+  evidence: `TASK-260715-unbb7c_independent-migration-review-verdict.md`.
 - Next deferred coding line: E2EE resumes with `TASK-260712-aniuyy` only after
   an implementation-independent design reviewer accepts its exact packet.
   That gate and every later E2EE implementation task live in

@@ -98,7 +98,11 @@ func openWithOptionsAndCheckpoint(path string, opts Options, checkpoint func(str
 	// (architecture review #10 / #1.7). Foreign keys protect only additive
 	// tables (legacy tables declare no REFERENCES), and _txlock=immediate makes
 	// every database/sql transaction acquire the SQLite writer lock up front.
-	dsn := path + "?_txlock=immediate"
+	// Keep the connection-local pragmas in the DSN as well as the ordered startup
+	// sequence below. database/sql may discard an interrupted driver connection;
+	// every lazily-created replacement must retain the same integrity and lock
+	// waiting policy without requiring a process restart.
+	dsn := path + "?_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_txlock=immediate"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("store: open %s: %w", path, err)

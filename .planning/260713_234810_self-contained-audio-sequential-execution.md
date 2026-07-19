@@ -14,7 +14,8 @@
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
 - Current engineering task: `BUG-260719-1rsd49` —
-  store-connection-pragma-defense-in-depth.
+  store-connection-pragma-defense-in-depth; producer implementation and full
+  coordinator race verification are complete, independent review is pending.
 - Current original-plan frontier: `TASK-260712-aniuyy` —
   e2ee-independent-design-review in deferred epic `EPIC-260716-3qsztl`.
   It remains held until the only open follow-up in the main engineering epic,
@@ -67,7 +68,7 @@
   cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2s4e9p` —
   store-listing-iarc-assets (engineering scope only)
-- Current branch: `review/task-260712-2s4e9p-engineering`
+- Current branch: `fix/bug-260719-1rsd49`
 - Current review evidence: independent Store package run
   `RUN-260719-85bf38` accepted exact `e3bf985` for engineering scope in
   `TASK-260712-2s4e9p_engineering-review-verdict.md`. Manual screenshots/WACK

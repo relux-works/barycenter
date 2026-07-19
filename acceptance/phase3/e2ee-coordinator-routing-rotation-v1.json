@@ -17,8 +17,8 @@
     "deltaReviewRequired": true
   },
   "artifacts": [
-    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"2fcae6ae7f87366b2b3ef22a06833f50108c9f7907a030580b596333ff1bf738"},
-    {"id":"foundation-repository","path":"coordinator/internal/store/e2ee.go","sha256":"4bf5b99aba1a951ffc6ea17f9adad22ff0553efbf0451cd3c9660e8865877da0"},
+    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"b869346c51d5e7be80e8f8e7eaf15894248d247a02f2c71126f6364f058ccd51"},
+    {"id":"foundation-repository","path":"coordinator/internal/store/e2ee.go","sha256":"4f5322abf41e2db5cf31ccbb492d6ea53ceec5239720980cf5803be1ab1b3269"},
     {"id":"routing-repository","path":"coordinator/internal/store/e2ee_routing.go","sha256":"ad979df0a341cff0cc67ea664a0f4eaf383eba01879b96071270f2a2ee2f9fb0"},
     {"id":"routing-tests","path":"coordinator/internal/store/e2ee_routing_test.go","sha256":"18747501a5b465aad37cd7a7432c305b2e0dd192f194fe2b451820ac648be867"},
     {"id":"coordinator-contract","path":"coordinator/internal/e2eecontract/contract.go","sha256":"3844a8a0d1bad60b464ff9d8f5568b8bcd526b83c79da556b2a6de09208030f0"},
@@ -27,7 +27,7 @@
     {"id":"protocol-vectors","path":"protocol/e2ee-media-audit-v1-vectors.json","sha256":"2a8c71b909b2117921a6ee6b5415229ee8328e047f3c8f19d0db48e58fbf37cd"},
     {"id":"threat-model","path":"acceptance/phase3/e2ee-threat-model-v1.json","sha256":"a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
     {"id":"key-lifecycle-packet","path":"acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json","sha256":"6015b911f8e83c8228c4c3f3b763c2e9852c2ea7f773be488d45ced0fc80578c"},
-    {"id":"schema-foundation-packet","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"d0b3ac300224bd95472bcc72b9237c562a9074432c1e1f9596e4a55d6a7433eb"},
+    {"id":"schema-foundation-packet","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"25e6945eed4fd429c37968048f83b48fef0ca6f366e89eaed7e50b0ef7b15db9"},
     {"id":"adr","path":"docs/analysis/p3-e2ee-coordinator-routing-rotation-v1.md","sha256":"f47b3e6279755ed4aa1f21096a1a63e956112dccf9bc27d9d56a3eac0dea8d91"}
   ],
   "additiveTables": [

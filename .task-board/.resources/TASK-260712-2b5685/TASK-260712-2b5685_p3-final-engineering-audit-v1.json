@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-final-engineering-audit.v1",
+  "task": "TASK-260712-2b5685",
+  "auditedAt": "2026-07-17",
+  "auditBaselineCommit": "f9c85aabeed9bcb1cb104884a543ca29b66a9977",
+  "rootReviewedSourceCommit": "d94f51644a3acf37601b4a869b4247380372f9ec",
+  "rootReviewedSourceTree": "4e4cca878db806650eda6f1e1642051b87a18b93",
+  "decision": {
+    "result": "non-e2ee-phase3-engineering-complete-release-blocked",
+    "phase3NonE2EEEngineeringComplete": true,
+    "engineeringPacketAccepted": true,
+    "originalEpicComplete": false,
+    "productionAccepted": false,
+    "storeSubmissionAllowed": false,
+    "promotionAllowed": false,
+    "betaAccepted": false,
+    "manualEvidenceClaimed": false,
+    "independentReviewClaimed": false,
+    "e2eeAccepted": false,
+    "releaseAuthorityGranted": false,
+    "openReviewedScopeCriticalOrHighFindings": []
+  },
+  "postRootReviewDelta": {
+    "fromMergeExclusive": "0d6f85d43909737ff717464d8f427ea315f870b2",
+    "toBaselineInclusive": "f9c85aabeed9bcb1cb104884a543ca29b66a9977",
+    "firstParentMergeCount": 11,
+    "changedPathsNoRenames": 59,
+    "addedLines": 15593,
+    "deletedLines": 69,
+    "nameStatusSHA256": "be27f24ff81b2483cc8b768a5e3fba96736106257f1293b16ee478b7298a6cb7",
+    "numstatSHA256": "bb2f351811679e2503b97b2016166d44360748f6ff50d4e4df78fc187e64afd7",
+    "allowedTopLevels": [".planning", ".task-board", "acceptance", "docs", "scripts"],
+    "classifications": {
+      "planning": 1,
+      "taskBoardAndEvidenceCopies": 34,
+      "acceptancePackets": 5,
+      "reviewRunbookAndDisclosureDocs": 8,
+      "acceptanceValidatorsAndTests": 11
+    },
+    "productRuntimeChangedPaths": [],
+    "dependencyLockChangedPaths": [],
+    "workflowOrDeployChangedPaths": [],
+    "conclusion": "post-root changes are review, tracking, disclosure and fail-closed verification only; the frozen product source did not change"
+  },
+  "firstParentMerges": [
+    {"commit": "9fa6f866a041fe42ec465c79b44c525d3c933028", "pullRequest": 257, "purpose": "root-review-tracking"},
+    {"commit": "2ad49cdd89e1345696183240a15ab87165a88480", "pullRequest": 258, "purpose": "realtime-technical-pre-review"},
+    {"commit": "65f86310c50f05b173e44602d538e2671e7760d9", "pullRequest": 259, "purpose": "realtime-review-tracking"},
+    {"commit": "e41f17144412b4bfc54e8351657070b92ed8fa1f", "pullRequest": 260, "purpose": "automation-technical-pre-review"},
+    {"commit": "db8637baa30d9874bd56633ef5c6010412ddc5c3", "pullRequest": 261, "purpose": "automation-review-tracking"},
+    {"commit": "bb2adae52ad1bf83c1e813adf16888bc97c9727e", "pullRequest": 262, "purpose": "privacy-store-technical-pre-review"},
+    {"commit": "3d5ecf102f89e76658f84944be1233389bd4b73b", "pullRequest": 263, "purpose": "privacy-store-review-tracking"},
+    {"commit": "8f5c15ae6f8867762ef4eeef17756e645be790c4", "pullRequest": 264, "purpose": "migration-recovery-technical-pre-review"},
+    {"commit": "5e2daffa784f42dc2e736714f537cdf99d3e873b", "pullRequest": 265, "purpose": "migration-recovery-review-tracking"},
+    {"commit": "ebbf02d421fe29ec44cd89b51373357444b3e5bb", "pullRequest": 266, "purpose": "phase3-engineering-handoff"},
+    {"commit": "f9c85aabeed9bcb1cb104884a543ca29b66a9977", "pullRequest": 267, "purpose": "phase3-engineering-handoff-tracking"}
+  ],
+  "reviewDisposition": {
+    "rootLineReview": {
+      "source": "acceptance/phase3/root-line-review-v1.json",
+      "result": "accepted-non-e2ee-production-blocked",
+      "criticalOrHighOpen": false,
+      "manualOrExternalClaim": false
+    },
+    "realtime": {
+      "source": "acceptance/phase3/realtime-technical-pre-review-v1.json",
+      "result": "technical-pass-independent-and-manual-pending",
+      "criticalOrHighOpen": false,
+      "externalTask": "TASK-260717-3dbi2v"
+    },
+    "automation": {
+      "source": "acceptance/phase3/automation-technical-pre-review-v1.json",
+      "result": "technical-pass-independent-and-manual-pending",
+      "criticalOrHighOpen": false,
+      "externalTask": "TASK-260717-1pyg62"
+    },
+    "privacyStore": {
+      "source": "acceptance/phase3/privacy-store-technical-pre-review-v1.json",
+      "result": "technical-copy-pass-independent-publication-and-store-pending",
+      "criticalOrHighOpen": false,
+      "externalTask": "TASK-260717-35bll1"
+    },
+    "migrationRecovery": {
+      "source": "acceptance/phase3/migration-recovery-technical-pre-review-v1.json",
+      "result": "technical-pass-independent-manual-and-e2ee-pending",
+      "criticalOrHighOpen": false,
+      "externalTask": "TASK-260717-1sgb5r"
+    }
+  },
+  "capabilityDecisions": {
+    "live_ptt": {
+      "engineeringDecision": "complete",
+      "promotionDecision": "hold",
+      "productionActivationAllowed": false,
+      "disclosure": "coordinator-readable and not end-to-end encrypted",
+      "rollbackOwner": "Ivan Oparin as operator; unset DUET_LIVE_PTT, restart, withdraw capability and drain",
+      "openTasks": ["TASK-260712-1rzqh9", "TASK-260712-flaiie", "TASK-260717-3dbi2v", "TASK-260712-30xwu2", "TASK-260712-1actom"]
+    },
+    "capture_quality": {
+      "engineeringDecision": "complete-with-native-effects-unverified",
+      "promotionDecision": "hold",
+      "productionActivationAllowed": false,
+      "disclosure": "synthetic shared-path regressions pass; native AEC/NS, acoustic and signed-route evidence are not run",
+      "rollbackOwner": "Ivan Oparin as operator; keep capture_quality_v1 unadvertised and use degraded fail-closed path only with local consent",
+      "openTasks": ["TASK-260712-265o0f", "TASK-260712-2gaswa", "TASK-260712-2e80pr", "TASK-260712-flaiie"]
+    },
+    "soundboard_cues": {
+      "engineeringDecision": "complete",
+      "promotionDecision": "hold",
+      "productionActivationAllowed": false,
+      "disclosure": "coordinator-readable saved media; audible, accessibility and signed-app evidence are not run",
+      "rollbackOwner": "Ivan Oparin as operator; withdraw callers, drain canonical transmissions and preserve cue/media rows",
+      "openTasks": ["TASK-260712-1gyohk", "TASK-260717-1pyg62", "TASK-260717-35bll1", "TASK-260712-30xwu2", "TASK-260712-1actom"]
+    },
+    "automation": {
+      "engineeringDecision": "complete",
+      "promotionDecision": "hold",
+      "productionActivationAllowed": false,
+      "disclosure": "never opens microphone; C7, independent review, signed clocks/accessibility and beta are not run",
+      "rollbackOwner": "Ivan Oparin as operator; emergency-disable, revoke principals, disable schedules, reconcile cancellation and preserve audit rows",
+      "openTasks": ["TASK-260712-1gyohk", "TASK-260717-1pyg62", "TASK-260717-35bll1", "TASK-260712-30xwu2", "TASK-260712-1actom"]
+    },
+    "e2ee_media": {
+      "engineeringDecision": "deferred-out-of-scope-unavailable",
+      "promotionDecision": "hold",
+      "productionActivationAllowed": false,
+      "disclosure": "no selected library, implementation, key lifecycle, recovery or advertised capability exists",
+      "rollbackOwner": "Ivan Oparin as operator; keep e2ee_media_v1 absent and defer to EPIC-260716-3qsztl",
+      "openTasks": ["EPIC-260716-3qsztl", "TASK-260712-aniuyy", "TASK-260712-1ulshp", "TASK-260712-yj668d", "TASK-260712-30xwu2", "TASK-260712-1actom"]
+    }
+  },
+  "evidenceBoundary": {
+    "handoff": "acceptance/phase3/engineering-handoff-v1.json",
+    "gateCount": 19,
+    "manualEpic": "EPIC-260714-th54l3",
+    "manualTaskCount": 19,
+    "manualTaskStatus": "backlog-not-run",
+    "deferredE2EEEpic": "EPIC-260716-3qsztl",
+    "deferredE2EETaskCount": 18,
+    "externalApprovalEpic": "EPIC-260714-zmnd4n",
+    "phase3IndependentApprovalCount": 4,
+    "rawC1ThroughC7ArtifactsCommitted": false,
+    "signedProductionArtifactsAccepted": false,
+    "publicPolicyEvidenceAccepted": false,
+    "partnerCenterEvidenceAccepted": false,
+    "rolloutRecoveryEvidenceAccepted": false,
+    "betaDailyRecordsAccepted": 0
+  },
+  "betaContinuity": {
+    "status": "not-started",
+    "acceptedConsecutiveDays": 0,
+    "sameBuildOrFlagClaim": false,
+    "resetRule": "any prohibited incident, missing daily record or material tested-path code, config, flag, fixture or measurement change resets the affected cohort to day one",
+    "incidentHandling": "disable affected capability, preserve sanitized evidence, root-review the correction and restart only after every prerequisite closes",
+    "task": "TASK-260712-1actom"
+  },
+  "placeholderAndClaimAudit": {
+    "unownedPlaceholders": [],
+    "productionHashFields": "null-and-blocking",
+    "storeCertificationTemplate": "owned-by-TASK-260715-24ube9-and-TASK-260717-35bll1",
+    "publicURLAndMailboxEvidence": "owned-by-TASK-260714-200ib8-and-TASK-260717-35bll1",
+    "manualArtifactPatterns": "owned-by-EPIC-260714-th54l3",
+    "conclusion": "every absent value is null, pending or task-owned; none is represented as pass"
+  },
+  "sourceAnchors": [
+    {"path": "acceptance/phase3/engineering-handoff-v1.json", "sha256": "54eec8e43654369712255c371bea54fe9cf1def3e6517de5dc0ebe1ba01882cf"},
+    {"path": "docs/acceptance/phase3-engineering-handoff.md", "sha256": "5f8ede3e55a533adaa0764f91f47d928c42f7c22a59ff718defa7de76fb464cb"},
+    {"path": "docs/compliance/phase3-disclosure-delta.md", "sha256": "d415f6263576a1c8be6b23bec3eba0d901fe60385753deb7f4fd44ecfb9633b7"},
+    {"path": "docs/store/phase3/disclosure-draft-v1.json", "sha256": "b722bca5872f6eb6d14cc546fd5f5e3d26568adba78a63b71bf89d0bcd1dd12d"},
+    {"path": "acceptance/phase3/root-line-review-v1.json", "sha256": "9a359f9021916f70c9187b9c3e35cf14ca133f3b65bb73154c774b26370142b0"},
+    {"path": "docs/analysis/p3-root-review-manifest.json", "sha256": "38f1f435a626704d7399bf81783f2323db29ca0133cefe426e15564464144094"},
+    {"path": "acceptance/phase3/realtime-technical-pre-review-v1.json", "sha256": "65cae9aa50fea4aeafb295e49f065775ed662b11c146dd24d54e8a35ca507461"},
+    {"path": "acceptance/phase3/automation-technical-pre-review-v1.json", "sha256": "6280c61b68310d777222c9f2c8115e1db6acefb286a71b2a8ea0f54a6526d01c"},
+    {"path": "acceptance/phase3/privacy-store-technical-pre-review-v1.json", "sha256": "777176ff7df5a6ba7e6a032f42a29febc37743d19da070c8025d2e90dadcbe20"},
+    {"path": "acceptance/phase3/migration-recovery-technical-pre-review-v1.json", "sha256": "a688491ccd5923e9d55f0ffce49d782b05e57f3e384ab9338c452af6876b8c6a"},
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "6beb9260acea0e5eb98bfd02c3e7dcc8c9a88055e16b0a4d13bc73b552787318"},
+    {"path": "acceptance/phase3/observability-contract-v1.json", "sha256": "dd1117f6636bdbc812ede60ce93b1a11a78385e0149d3097425d8d4c60821ce3"},
+    {"path": "acceptance/phase3/automation-safety-evidence-v1.json", "sha256": "f5c70f080fc0b09fc17e7fc632ee82459a3287285036e2974c1178bcf93ef906"},
+    {"path": "acceptance/phase3/capture-quality-integrated-regressions-v1.json", "sha256": "a8e9bed5bf060ccbfb5622c935f340086801d25579f1ec44904c801da13b2e93"},
+    {"path": "acceptance/phase3/e2ee-threat-model-v1.json", "sha256": "a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
+    {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "54255ef7307d679db97f1c6a219ebb3eff7556d2fe1e34115b4639ac7917a205"},
+    {"path": "docs/compliance/legal-ops-inputs.json", "sha256": "adf48d5cba2c8b65f0d3a11a089f4b61b0f300c3286ab2b4a267d51186b4f9d7"},
+    {"path": "scripts/acceptance/run_automated.py", "sha256": "4a875a3eafc81981005f9b965f479fecaa0f0616c1ce079cdc801456b71212b4"}
+  ],
+  "requiredReproduction": [
+    "python3 scripts/acceptance/validate_p3_final_engineering_audit.py",
+    "python3 scripts/acceptance/validate_phase3_engineering_handoff.py",
+    "python3 scripts/acceptance/validate_p3_root_review.py",
+    "python3 scripts/validate_phase3_gate_matrix.py",
+    "python3 scripts/acceptance/run_automated.py --suite all --require-clean --run-id <unique-run-id>"
+  ],
+  "nextState": {
+    "strictInlineEngineeringTask": null,
+    "manualWork": "EPIC-260714-th54l3",
+    "deferredE2EEWork": "EPIC-260716-3qsztl",
+    "externalOwnerWork": "EPIC-260714-zmnd4n",
+    "originalEpicMayCloseNow": false
+  }
+}

@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 170 accepted, 35 remain.
-- Routed inventory: 186 engineering tasks (170 accepted, 16 remain) and 19
+- Combined inventory: 205 original tasks; 171 accepted, 34 remain.
+- Routed inventory: 186 engineering tasks (171 accepted, 15 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,14 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-20j5tm` —
-  coordinator-ciphertext-routing-rotation in deferred epic
-  `EPIC-260716-3qsztl`; only disabled, reversible routing/rotation foundation
-  may proceed while production E2EE selection, activation and claims remain
-  blocked.
-- Current original-plan frontier: `TASK-260712-20j5tm` —
-  coordinator-ciphertext-routing-rotation in deferred epic
-  `EPIC-260716-3qsztl`.
+- Current engineering task: `TASK-260712-1yz5ca` —
+  coordinator-opaque-media-router in deferred epic `EPIC-260716-3qsztl`;
+  execution starts only after the accepted routing/rotation delta is merged.
+- Current original-plan frontier: `TASK-260712-1yz5ca` —
+  coordinator-opaque-media-router in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -99,16 +96,32 @@
   coverage, rejected-replay auditing and evidence-ref digest binding. The
   verdict does not accept production E2EE; later protocol changes require
   another delta review.
-- Next deferred coding line: E2EE continues with `TASK-260712-20j5tm`, limited
-  to disabled best-effort routing/rotation work. Every later E2EE implementation
+- E2EE coordinator routing/rotation foundation: exact producer commit
+  `e97717bfad6348279430012ecf0ce3de404eae0d` adds four additive production-dark
+  tables for protocol-actor bindings, exact member lineage, rotation
+  requirements and durable per-device delivery. It serializes only
+  client-produced signed proposals/commits through an injected verifier,
+  reconciles join/leave/rejoin/role/revoke/disable changes fail closed, gates
+  protected writes against current membership, and provides restart-safe
+  collision-safe delivery/ack without selecting crypto or exposing runtime
+  capability. Producer full test/vet, acceptance 207/207 and race suites passed
+  (Store 502.193 s). Independent Claude Fable 5 max run
+  `RUN-260719-47433f` reproduced all 12 pins, full/race/acceptance evidence
+  (Store race 525.144 s), and APPROVED the exact SHA with zero open
+  Critical/High/Medium findings. Non-blocking L1 records multi-cause
+  `reason_code` audit fidelity; I1 requires downstream key-state work to pin
+  the member-with-only-revoked-devices semantic. Production EPC gates and
+  external security acceptance remain open.
+- Next deferred coding line: E2EE continues with `TASK-260712-1yz5ca`, limited
+  to disabled best-effort opaque media routing. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-3w1cst` —
-  encrypted-media-schema-epoch-foundation (dormant engineering scope only)
+- Most recently accepted: `TASK-260712-20j5tm` —
+  coordinator-ciphertext-routing-rotation (dormant engineering scope only)
 - Current branch: `feat/task-260712-20j5tm`
-- Current review evidence: independent schema/epoch delta verdict
-  `TASK-260712-3w1cst_independent-delta-review-v1.md` from terminal run
-  `RUN-260719-b1df39`. The preceding Store-package run `RUN-260719-85bf38`
+- Current review evidence: independent routing/rotation delta verdict
+  `TASK-260712-20j5tm_independent-delta-review-v1.md` from terminal run
+  `RUN-260719-47433f`. The preceding Store-package run `RUN-260719-85bf38`
   accepted exact `e3bf985` for engineering scope in
   `TASK-260712-2s4e9p_engineering-review-verdict.md`; manual screenshots/WACK
   and exact Partner Center/IARC owner inputs remain open in
@@ -3586,7 +3599,18 @@ continues at section 17.
   SQLite adversarial constraints, then APPROVED with zero Critical/High/Medium.
   L1 and I1-I4 remain tracked non-blocking follow-ups; production E2EE and all
   EPC/manual/external gates remain open.)
-- [ ] `TASK-260712-20j5tm` — coordinator-ciphertext-routing-rotation
+- [x] `TASK-260712-20j5tm` — coordinator-ciphertext-routing-rotation (accepted
+  on exact producer commit `e97717bfad6348279430012ecf0ce3de404eae0d`.
+  The additive production-dark coordinator serializes client-produced signed
+  proposal/commit events, binds exact protocol-actor/device/Air lineage,
+  requires rotation for membership and endpoint changes, gates protected
+  writes, and recovers durable per-device delivery without creating, unwrapping,
+  escrowing or logging secrets. Producer full/race/vet and acceptance 207/207
+  passed. Independent Claude Fable 5 max run `RUN-260719-47433f` reproduced
+  all 12 evidence pins and suites, then APPROVED with zero open
+  Critical/High/Medium findings. L1 multi-cause audit reason fidelity and I1
+  only-revoked-device membership semantics are tracked as non-blocking
+  downstream notes; production activation and EPC gates remain open.)
 - [ ] `TASK-260712-1yz5ca` — coordinator-opaque-media-router
 - [ ] `TASK-260712-1x9ruo` — macos-e2ee-key-state
 - [ ] `TASK-260712-25dzp4` — windows-e2ee-key-state

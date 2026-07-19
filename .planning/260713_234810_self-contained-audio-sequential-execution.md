@@ -15,7 +15,8 @@
   spawn is used only for explicitly owner-authorized independent reviewers.
 - Current engineering task: `TASK-260712-2i0w6x` —
   report-evidence-moderation-export in deferred epic `EPIC-260716-3qsztl`;
-  implementation starts only after the accepted Windows key-state branch lands.
+  strict production-dark implementation is in progress from merged Windows
+  key-state main `80cfef995adcb34313b1fa0b1513eb999f853c31`.
 - Current original-plan frontier: `TASK-260712-2i0w6x` —
   report-evidence-moderation-export in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
@@ -170,7 +171,7 @@
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-25dzp4` —
   windows-e2ee-key-state (dormant engineering scope only)
-- Current branch: `feat/task-260712-25dzp4`
+- Current branch: `feat/task-260712-2i0w6x`
 - Current review evidence:
   `TASK-260712-25dzp4_independent-delta-review-v1.md` from Claude Fable 5 max
   run `RUN-260719-c050cd` on first producer commit `8f9ab2b` and final cleanup

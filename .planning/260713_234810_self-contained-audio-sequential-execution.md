@@ -4,42 +4,38 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 163 accepted, 42 remain.
-- Routed inventory: 186 engineering tasks (163 accepted, 23 remain) and 19
+- Combined inventory: 205 original tasks; 164 accepted, 41 remain.
+- Routed inventory: 186 engineering tasks (164 accepted, 22 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
 
 - Started: 2026-07-14
-- Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: blocked; the strict non-E2EE Phase 3 engineering
-  sequence passed its final root audit, and no later task may start before the
-  unresolved original-plan frontier is independently accepted.
-- Current original-plan frontier: `TASK-260712-176b74` —
-  p1-independent-protocol-review. Its technical audit and corrective work are
-  complete, and on 2026-07-19 Ivan Oparin approved the proposed default to
-  select a qualified non-implementing reviewer, but no independent reviewer
-  identity or verdict has been recorded. After the third consecutive blocked
-  audit on 2026-07-19, both this task and external action
-  `TASK-260715-3ffm3r` are explicitly `blocked`. A fail-closed v2 handoff pins
-  exact later `main` candidate `191ae263`, the 51-path protocol-authority delta
-  from Phase 1 merge `524eb78`, all 39 original goldens, 20 additive P2/P3
-  goldens and the sole modified original `state` golden. The later P1 independent audio,
-  migration and security reviews plus Store/IARC completion remain external
-  holds in the same strict section; they cannot be self-certified.
+- Mode: strict sequential inline engineering execution; task-board tracked
+  spawn is used only for explicitly owner-authorized independent reviewers.
+- Current engineering task: `TASK-260712-1uz0za` —
+  p1-independent-realtime-audio-review.
+- Current original-plan frontier: `TASK-260712-1uz0za` —
+  p1-independent-realtime-audio-review. The preceding protocol gate was
+  independently approved on 2026-07-19 by Claude Fable 5, spawned through
+  task-board at native effort `max` as run `RUN-260719-a723c8`. The reviewer
+  verified candidate `191ae263`, its byte-identical authority surface through
+  main `9e9da97`, all 39 original messages and 20 additive messages, reran full
+  coordinator and Windows race suites plus 308 Swift tests, found no open
+  critical/high issue and recorded an APPROVE verdict. The later P1 independent
+  audio, migration and security reviews plus Store/IARC completion remain
+  strict holds and require their own evidence and verdicts.
 - Next deferred coding line: E2EE resumes with `TASK-260712-aniuyy` only after
   an implementation-independent design reviewer accepts its exact packet.
   That gate and every later E2EE implementation task live in
   `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there as well and
   cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-2b5685` — phase3-root-engineering-completion-audit
-- Current branch: `tracking/task-260715-3ffm3r-independent-review-blocked`
-- Blocked condition: name a qualified reviewer who implemented none of the
-  reviewed protocol or scheduler paths, then record their identity,
-  independence, exact reviewed revision, findings and reruns, and explicit
-  approve or reject verdict. PR #68 and refreshed handoff PR #271 currently
-  contain no reviews; board state contains no reviewer identity. No remaining
-  repository-only action can satisfy this condition honestly.
+- Most recently accepted: `TASK-260712-176b74` — p1-independent-protocol-review
+- Current branch: `review/task-260715-3ffm3r-fable5`
+- Current review evidence: external action `TASK-260715-3ffm3r` is accepted
+  with signed outcome resource
+  `TASK-260715-3ffm3r_independent-protocol-review-verdict.md`; no manual,
+  hardware, production, Store or release claim is inferred.
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -76,10 +72,11 @@
   provider mutation and delivery evidence remain open. The same approval
   accepted the non-implementing protocol-reviewer selection default in
   `TASK-260715-3ffm3r` and the dark-only bundled FFmpeg candidate default in
-  `TASK-260716-tlxe3s`. These decisions do not constitute the withheld external
-  verdicts or production activation. Store submission remains fail-closed.
-- Accepted overall: 163 / 205 tasks (79.5%); 42 remain
-- Engineering progress: 163 / 186 tasks (approximately 87.6%); 23 remain
+  `TASK-260716-tlxe3s`. The protocol reviewer has since returned an independent
+  APPROVE verdict; the other withheld external verdicts and production
+  activation remain open. Store submission remains fail-closed.
+- Accepted overall: 164 / 205 tasks (80.0%); 41 remain
+- Engineering progress: 164 / 186 tasks (approximately 88.2%); 22 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2969,7 +2966,7 @@ acceptance.
   exact engineering head `918b377`; clean 12-stage repository acceptance and
   all four hosted jobs passed in run `29398604558`; production EN/RU PRI/MSIX
   schema packed on Windows SDK; actual WACK UI and hardware stay manual; PR #67)
-- [ ] `TASK-260712-176b74` — p1-independent-protocol-review (technical audit
+- [x] `TASK-260712-176b74` — p1-independent-protocol-review (technical audit
   and HIGH fix landed through PR #68; external non-implementing signoff is
   tracked in `TASK-260715-3ffm3r`; on 2026-07-19 the reviewer packet was
   refreshed against exact later `main` candidate `191ae263` with a validated
@@ -2977,9 +2974,13 @@ acceptance.
   Swift contract suites. Exact packet commit `76e950a` also passed the clean
   coordinator acceptance suite 7/7 with clean start/end and
   `manualEvidence=not-run`; PR #271 merged at `326d60f` after hosted run
-  `29684355308` passed 4/4. The task remains `to-review` and unaccepted until an
-  independent reviewer records identity and verdict; status `blocked` after
-  the third consecutive external-block audit)
+  `29684355308` passed 4/4. Owner-authorized independent reviewer Claude Fable
+  5 ran through task-board as `RUN-260719-a723c8` at native effort `max`,
+  verified the exact candidate and unchanged authority surface through main
+  `9e9da97`, reran full coordinator/Windows race suites and 308 Swift tests,
+  found no open critical/high issue and recorded APPROVE in
+  `TASK-260715-3ffm3r_independent-protocol-review-verdict.md`; repository/CI
+  evidence only, with manual/hardware/Store claims still withheld)
 - [ ] `TASK-260712-1uz0za` — p1-independent-realtime-audio-review
 - [ ] `TASK-260712-1xkn75` — p1-independent-migration-review
 - [ ] `TASK-260712-wy05n6` — p1-independent-security-review

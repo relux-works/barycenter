@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 173 accepted, 32 remain.
-- Routed inventory: 186 engineering tasks (173 accepted, 13 remain) and 19
+- Combined inventory: 205 original tasks; 174 accepted, 31 remain.
+- Routed inventory: 186 engineering tasks (174 accepted, 12 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,11 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-25dzp4` — windows-e2ee-key-state in
-  deferred epic `EPIC-260716-3qsztl`; production-dark implementation and local
-  evidence are complete, with exact-SHA independent review pending.
-- Current original-plan frontier: `TASK-260712-25dzp4` —
-  windows-e2ee-key-state in deferred epic `EPIC-260716-3qsztl`.
+- Current engineering task: `TASK-260712-2i0w6x` —
+  report-evidence-moderation-export in deferred epic `EPIC-260716-3qsztl`;
+  implementation starts only after the accepted Windows key-state branch lands.
+- Current original-plan frontier: `TASK-260712-2i0w6x` —
+  report-evidence-moderation-export in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -146,7 +146,8 @@
   inherits partial-install reset/re-enrollment and expired-grant cleanup. PR
   #287 then passed hosted CI run `29705960146` (4/4) and merged to `main` as
   `5f1756d57df16a476b2df353f60656d24b02f752`.
-- Windows E2EE key state (review pending): the current branch adds distinct
+- Windows E2EE key state: exact final producer commit
+  `c7c9b0206f61aa98920e8a21db55265fc9543b96` adds distinct
   current-user-DPAPI state/witness files for device metadata, signing,
   agreement, groups, grants and the bounded content-key cache. A
   repository-wide in-process plus Win32 share-none lock covers validation,
@@ -154,20 +155,27 @@
   double-reservation inside this foundation. Shared predecessor, crash,
   replay, clone, expiry, delete, target and lock vectors pass 10/10 and 20×
   under race; full test/vet/race, Windows amd64/arm64 vet/test-compile and
-  acceptance 222/222 pass. Runtime wiring, production crypto, native DPAPI,
+  acceptance 222/222 pass. A detached clean-worktree full harness also passed
+  all 16/16 stages on the exact final SHA. Runtime wiring, production crypto, native DPAPI,
   signed MSIX, NTFS and profile backup/restore claims remain absent. Acceptance
-  waits for owner-authorized Claude Fable 5 max exact-SHA delta review.
-- Next deferred coding line: E2EE continues with `TASK-260712-25dzp4`, limited
-  to disabled best-effort Windows key state after macOS integration. Every later E2EE implementation
+  was granted by owner-authorized Claude Fable 5 max run
+  `RUN-260719-c050cd`: APPROVE WITH NON-BLOCKING FOLLOW-UPS, zero
+  Critical/High/Medium code findings. Its one Low finding on early decode-error
+  secret cleanup at the first producer SHA was fixed by `c7c9b02`; the reviewer
+  independently re-ran the full battery and 14/14 packet hashes at that final
+  SHA. Manual evidence remains in `EPIC-260714-th54l3`.
+- Next deferred coding line: E2EE continues with `TASK-260712-2i0w6x`, limited
+  to report-evidence moderation export after Windows key state. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-1x9ruo` —
-  macos-e2ee-key-state (dormant engineering scope only)
+- Most recently accepted: `TASK-260712-25dzp4` —
+  windows-e2ee-key-state (dormant engineering scope only)
 - Current branch: `feat/task-260712-25dzp4`
 - Current review evidence:
-  `TASK-260712-1x9ruo_independent-delta-review-v1.md` from Claude Fable 5 max
-  run `RUN-260719-20ab4a` on exact producer commit `498957e`. The preceding
-  opaque-router completion run was `RUN-260719-91776a`. The Store-package run `RUN-260719-85bf38`
+  `TASK-260712-25dzp4_independent-delta-review-v1.md` from Claude Fable 5 max
+  run `RUN-260719-c050cd` on first producer commit `8f9ab2b` and final cleanup
+  commit `c7c9b02`. The preceding macOS key-state review was
+  `RUN-260719-20ab4a`; opaque-router completion was `RUN-260719-91776a`. The Store-package run `RUN-260719-85bf38`
   accepted exact `e3bf985` for engineering scope in
   `TASK-260712-2s4e9p_engineering-review-verdict.md`; manual screenshots/WACK
   and exact Partner Center/IARC owner inputs remain open in
@@ -3672,10 +3680,16 @@ continues at section 17.
   hashes and the full 16/16 automated battery, then APPROVED WITH NON-BLOCKING
   FOLLOW-UPS with zero Critical/High. Cross-process ownership is a hard
   downstream integration DoD; manual and production crypto gates remain open.)
-- [ ] `TASK-260712-25dzp4` — windows-e2ee-key-state (production-dark code and
-  automated evidence complete: focused 10/10 and race x20, full
-  test/vet/race, Windows amd64/arm64 compile, acceptance 222/222; independent
-  exact-SHA review pending.)
+- [x] `TASK-260712-25dzp4` — windows-e2ee-key-state (accepted on exact final
+  producer commit `c7c9b0206f61aa98920e8a21db55265fc9543b96`.
+  Production-dark current-user DPAPI state uses distinct device metadata,
+  signing, agreement, group, grant and bounded cache slots with independent
+  witnesses, cross-process share-none serialization and persist-before-ack.
+  Producer and detached clean-worktree harnesses passed 16/16 with 222/222
+  contract tests. Independent Claude Fable 5 max run `RUN-260719-c050cd`
+  re-verified 14/14 hashes and the full battery at the final SHA, then APPROVED
+  WITH NON-BLOCKING FOLLOW-UPS with no Critical/High/Medium code finding. Native
+  DPAPI/MSIX/NTFS/profile and forensic evidence remains manual.)
 - [ ] `TASK-260712-2i0w6x` — report-evidence-moderation-export
 - [ ] `TASK-260712-1rziyo` — recovery-device-transfer-history-grants
 - [ ] `TASK-260712-2kcduo` — macos-protected-media-send

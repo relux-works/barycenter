@@ -237,13 +237,7 @@ ADD COLUMN cleanup_completed_at INTEGER NOT NULL DEFAULT 0 CHECK(cleanup_complet
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	if err := s.reconcileTelegramLegacyLinks(); err != nil {
-		return err
-	}
-	if err := s.reconcileOrphanedMediaItems(); err != nil {
-		return err
-	}
-	return s.reconcileMediaLifecycleOutboxes()
+	return nil
 }
 
 func txColumnExists(tx *sql.Tx, table, column string) (bool, error) {

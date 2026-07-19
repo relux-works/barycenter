@@ -1,10 +1,11 @@
 # Phase 1 migration and rollback technical audit
 
-- Date: 2026-07-15
+- Date: 2026-07-15; P1-MIG-003 corrective addendum 2026-07-19
 - Task: `TASK-260712-1xkn75`
 - Frozen review base: `635a8d3e3e9d7929a474ae6a5278187071c520c9`
 - Review mode: rigorous inline self-audit with corrective patch
-- Acceptance state: technical audit complete; independent signoff open
+- Acceptance state: P1-MIG-003 producer correction validated locally;
+  independent re-review open
 
 ## Independence and production boundary
 
@@ -80,7 +81,33 @@ database. Both complete, all three columns exist once, legacy media/member/slot
 rows remain singular and the final database passes the global integrity/FK
 checks. The test passed ten consecutive runs after the correction.
 
-No other critical or high technical finding remains in this inline audit.
+### P1-MIG-003 — HIGH — producer correction complete, re-review open
+
+**Independent finding.** A post-audit regression made the Phase 1 media
+dissolution reconciler call current saved-cue and transmission-inbox revocation
+helpers while `initMediaIngestSchema` was still running. A direct roll-forward
+from a generation that had media ingest but predated `saved_cues` and
+`transmission_inbox_items` therefore failed startup with `no such table` when
+an older coordinator had dissolved an orbit owning active media. The
+transaction failed closed, but the supported roll-forward was blocked.
+
+**Correction.** `initMediaIngestSchema` is DDL-only again. The three media
+reconcilers now run from the store open path after both transmission and
+saved-cue schema installation, before saved-cue reconciliation. This preserves
+the DDL-then-reconcile discipline and ensures every table reached by terminal
+media cleanup exists before the cleanup transaction starts.
+
+**Producer evidence.** `TestGenerationSkippingMediaReconcileWaitsForLaterSchemas`
+models a database with an active orphaned media item and neither late-generation
+table. Current startup recreates both tables, revokes the orphan, clears its
+canonical storage key, records exactly one cleanup receipt, and a second open
+proves the transition is idempotent. The focused migration race set, full
+coordinator suite, full coordinator race suite, and the complete
+`previoushead`-tagged store race suite pass after the correction. A
+non-implementing reviewer must still verify the correction before this HIGH is
+accepted as closed.
+
+No other open critical or high producer finding remains in this audit packet.
 
 ## Transaction, worker and rollback evidence
 
@@ -123,8 +150,9 @@ A non-implementing migration reviewer must still:
 1. inspect the frozen base and corrective patch across every source in the
    inventory;
 2. reproduce the failure, partial, concurrent and exact-predecessor commands;
-3. verify `P1-MIG-001` and `P1-MIG-002` close the startup gaps without moving
-   contract-authorized cleanup ahead of rollback reconciliation;
+3. verify `P1-MIG-001`, `P1-MIG-002` and the P1-MIG-003 corrective ordering
+   close the startup gaps without moving contract-authorized cleanup ahead of
+   rollback reconciliation;
 4. inspect backup/restore prerequisites and record reviewer identity, exact
    revision, findings and approve/reject decision.
 

@@ -40,10 +40,16 @@
   `saved_cues`/`transmission_inbox_items` (`media_ingest.go:1727/1733`)
   before `store.go:158/170` create them, so a pre-inbox/pre-cue-generation
   database holding an active predecessor-dissolution orphan fails roll-forward
-  startup deterministically. `TASK-260715-unbb7c` is routed `to-dev` for the
-  fix plus a generation-skip fixture; `TASK-260712-1xkn75` remains `to-review`
-  and unaccepted until a non-implementing re-review records approval. Verdict
-  evidence: `TASK-260715-unbb7c_independent-migration-review-verdict.md`.
+  startup deterministically. The producer correction now makes media-ingest
+  initialization DDL-only and runs all media reconciliation after transmission
+  inbox and saved-cue schema installation. The new generation-skip fixture
+  proves both absent tables are recreated before orphan revocation, exactly one
+  cleanup receipt is recorded, and restart is idempotent. Focused migration
+  race tests, the full coordinator suite, full coordinator race suite and the
+  complete `previoushead`-tagged store race suite pass. The task remains in
+  development and unaccepted until a non-implementing re-review records
+  approval. Verdict evidence:
+  `TASK-260715-unbb7c_independent-migration-review-verdict.md`.
 - Next deferred coding line: E2EE resumes with `TASK-260712-aniuyy` only after
   an implementation-independent design reviewer accepts its exact packet.
   That gate and every later E2EE implementation task live in
@@ -51,11 +57,12 @@
   cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-1uz0za` —
   p1-independent-realtime-audio-review
-- Current branch: `review/task-260715-s838ym-fable5`
-- Current review evidence: external action `TASK-260715-s838ym` is accepted
-  with signed outcome resource
-  `TASK-260715-s838ym_independent-realtime-audio-review-verdict.md`; no
-  manual, hardware, production, Store or release claim is inferred.
+- Current branch: `review/task-260715-unbb7c-fable5`
+- Current review evidence: migration review action `TASK-260715-unbb7c`
+  recorded CHANGES REQUESTED in
+  `TASK-260715-unbb7c_independent-migration-review-verdict.md`; producer fix
+  and test evidence are ready for an independent re-review. No manual,
+  hardware, production, Store or release claim is inferred.
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The

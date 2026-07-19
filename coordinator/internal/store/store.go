@@ -171,6 +171,22 @@ func openWithOptionsAndCheckpoint(path string, opts Options, checkpoint func(str
 		db.Close()
 		return nil, fmt.Errorf("store: init saved cue schema: %w", err)
 	}
+	// Media reconciliation can revoke inbox entries and saved cues. Keep it
+	// after every schema it may touch so a generation-skipping roll-forward
+	// cannot execute current cleanup logic against tables that did not exist in
+	// the predecessor database.
+	if err := s.reconcileTelegramLegacyLinks(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: reconcile Telegram media links: %w", err)
+	}
+	if err := s.reconcileOrphanedMediaItems(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: reconcile orphaned media: %w", err)
+	}
+	if err := s.reconcileMediaLifecycleOutboxes(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: reconcile media lifecycle outboxes: %w", err)
+	}
 	if err := s.ReconcileSavedCues(time.Now().UnixMilli()); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: reconcile saved cues: %w", err)

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -343,6 +344,86 @@ VALUES(3, 11, 'proposed', 11001, 'PARTIAL1', 10)`); err != nil {
 	}
 	if orbitID != 11 || provider != "apple_music" || displayName != "" || code != "PARTIAL1" {
 		t.Fatalf("partial resume orbit=%d provider=%q display=%q code=%q", orbitID, provider, displayName, code)
+	}
+	assertDatabaseHealthy(t, store)
+}
+
+func TestGenerationSkippingMediaReconcileWaitsForLaterSchemas(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "generation-skipping-media.db")
+	seed, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mediaID := "m_" + strings.Repeat("g", 26)
+	storageKey := "media/v1/" + strings.Repeat("b", 64)
+	if _, err := seed.db.Exec(`INSERT INTO media_items(
+  id, owner_orbit_id, actor_id, kind, source, title, mime, codec,
+  duration_ms, size_bytes, sha256, storage_key, status, revision,
+  created_at, updated_at, expires_at, published_at
+) VALUES(?, 77001, 77002, 'audio_clip', 'app', 'generation skip',
+  'audio/wav', 'pcm_s16le', 1000, 32000, ?, ?, 'ready', 1,
+  100, 101, 1000, 101)`, mediaID, strings.Repeat("a", 64), storageKey); err != nil {
+		t.Fatal(err)
+	}
+	if err := seed.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Model a direct roll-forward from a generation that had media ingest but
+	// predated inbox and saved-cue persistence. The active media owner is absent
+	// because a rollback binary dissolved the orbit while those additive rows
+	// remained intentionally foreign-key-free.
+	raw, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(OFF)&_txlock=immediate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw.SetMaxOpenConns(1)
+	if _, err := raw.Exec(`DROP TABLE transmission_inbox_items;
+DROP TABLE saved_cues`); err != nil {
+		raw.Close()
+		t.Fatal(err)
+	}
+	assertMigrationTable(t, raw, "transmission_inbox_items", false)
+	assertMigrationTable(t, raw, "saved_cues", false)
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err := Open(path)
+	if err != nil {
+		t.Fatalf("generation-skipping roll-forward: %v", err)
+	}
+	item, err := store.GetMediaItem(mediaID)
+	if err != nil || item == nil || item.Status != MediaStatusDeleted ||
+		item.StorageKey != "" || item.Revision != 2 {
+		store.Close()
+		t.Fatalf("orphan after roll-forward=%+v err=%v", item, err)
+	}
+	assertMigrationTable(t, store.db, "transmission_inbox_items", true)
+	assertMigrationTable(t, store.db, "saved_cues", true)
+	var cleanups int
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM media_storage_operations
+WHERE media_id = ? AND kind = 'cleanup'`, mediaID).Scan(&cleanups); err != nil || cleanups != 1 {
+		store.Close()
+		t.Fatalf("cleanup receipts=%d err=%v", cleanups, err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// The reordered reconciliation remains restart-safe and idempotent.
+	store, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM media_storage_operations
+WHERE media_id = ? AND kind = 'cleanup'`, mediaID).Scan(&cleanups); err != nil || cleanups != 1 {
+		t.Fatalf("cleanup receipts after restart=%d err=%v", cleanups, err)
+	}
+	item, err = store.GetMediaItem(mediaID)
+	if err != nil || item == nil || item.Status != MediaStatusDeleted || item.Revision != 2 {
+		t.Fatalf("orphan after restart=%+v err=%v", item, err)
 	}
 	assertDatabaseHealthy(t, store)
 }

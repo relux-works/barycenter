@@ -8,7 +8,7 @@ backlog
 2026-07-12T16:49:11Z
 
 ## Last Update
-2026-07-16T00:15:02Z
+2026-07-19T20:19:59Z
 
 ## Blocked By
 - TASK-260712-aniuyy
@@ -34,6 +34,8 @@ backlog
 
 ## Notes
 Owner gate 2026-07-16: moved to EPIC-260716-3qsztl Deferred E2EE media implementation after independent audit. Do not implement or move this task into development until TASK-260712-aniuyy Pass independent cryptographic design review before implementation is done with no open critical or high finding. Any protocol-affecting delta reopens the audit gate.
+Upstream TASK-260712-20j5tm independent review follow-up L1: if opaque-router work exposes or consumes rotation audit reasons, make multi-cause reason_code selection deterministic or preserve the full cause set. This is audit-fidelity only and did not block the production-dark routing/rotation foundation.
+Upstream schema/routing review carry-over I2: add an explicit opaque-object staging/fetch test against a group already persisted in forked state. Commit coverage exists, but downstream object/replay/grant/transfer paths must prove the persisted fork blocks them fail closed.
 
 ## Precondition Resources
 (none)

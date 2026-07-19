@@ -23,14 +23,14 @@ var (
 )
 
 type E2EEPublicDevice struct {
-	DeviceID, PublicPackageDigest, VerificationState, VerificationDigest string
-	ActorID, Revision, CreatedAt, UpdatedAt, RevokedAt                   int64
+	DeviceID, ProtocolActorID, PublicPackageDigest, VerificationState, VerificationDigest string
+	ActorID, Revision, CreatedAt, UpdatedAt, RevokedAt                                    int64
 }
 
 type RegisterE2EEPublicDeviceParams struct {
-	DeviceID, PublicPackageDigest, VerificationState, VerificationDigest string
-	ActorID, CreatedAt                                                   int64
-	PublicPackage                                                        []byte
+	DeviceID, ProtocolActorID, PublicPackageDigest, VerificationState, VerificationDigest string
+	ActorID, CreatedAt                                                                    int64
+	PublicPackage                                                                         []byte
 }
 
 type E2EEGroup struct {
@@ -138,7 +138,8 @@ actor_id, device_id, epoch, revision, created_at
 }
 
 func (s *Store) RegisterE2EEPublicDevice(params RegisterE2EEPublicDeviceParams) (E2EEPublicDevice, error) {
-	if len(params.DeviceID) < 8 || len(params.DeviceID) > 128 || params.ActorID <= 0 ||
+	if len(params.DeviceID) < 8 || len(params.DeviceID) > 128 ||
+		len(params.ProtocolActorID) < 8 || len(params.ProtocolActorID) > 128 || params.ActorID <= 0 ||
 		params.CreatedAt <= 0 || !validE2EEPayload(params.PublicPackage) ||
 		!payloadDigestMatches(params.PublicPackage, params.PublicPackageDigest) ||
 		(params.VerificationState != "unverified" && params.VerificationState != "verified") ||
@@ -167,6 +168,12 @@ verification_digest, revision, created_at, updated_at, revoked_at
 	if err != nil {
 		return E2EEPublicDevice{}, ErrE2EEConflict
 	}
+	if _, err := tx.Exec(`INSERT INTO e2ee_protocol_actor_bindings(
+device_id, actor_id, protocol_actor_id, created_at
+) VALUES(?, ?, ?, ?)`, params.DeviceID, params.ActorID, params.ProtocolActorID,
+		params.CreatedAt); err != nil {
+		return E2EEPublicDevice{}, ErrE2EEConflict
+	}
 	if err := appendE2EEAuditTx(tx, "", "device", params.DeviceID,
 		"device.public_state.register", "accepted", "", params.ActorID,
 		params.DeviceID, 0, 1, params.CreatedAt); err != nil {
@@ -180,10 +187,13 @@ verification_digest, revision, created_at, updated_at, revoked_at
 
 func (s *Store) GetE2EEPublicDevice(deviceID string) (E2EEPublicDevice, error) {
 	var value E2EEPublicDevice
-	err := s.db.QueryRow(`SELECT device_id, actor_id, public_package_digest,
-verification_state, verification_digest, revision, created_at, updated_at, revoked_at
-FROM e2ee_device_public_state WHERE device_id = ?`, deviceID).Scan(
-		&value.DeviceID, &value.ActorID, &value.PublicPackageDigest,
+	err := s.db.QueryRow(`SELECT d.device_id, d.actor_id, COALESCE(b.protocol_actor_id, ''),
+d.public_package_digest, d.verification_state, d.verification_digest,
+d.revision, d.created_at, d.updated_at, d.revoked_at
+FROM e2ee_device_public_state d
+LEFT JOIN e2ee_protocol_actor_bindings b ON b.device_id = d.device_id
+WHERE d.device_id = ?`, deviceID).Scan(
+		&value.DeviceID, &value.ActorID, &value.ProtocolActorID, &value.PublicPackageDigest,
 		&value.VerificationState, &value.VerificationDigest, &value.Revision,
 		&value.CreatedAt, &value.UpdatedAt, &value.RevokedAt)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -384,6 +394,14 @@ func (s *Store) StageE2EEProtectedObject(params StageE2EEProtectedObjectParams) 
 			params.ObjectKind != "saved_cue" && params.ObjectKind != "live_ptt") {
 		return E2EEProtectedObject{}, ErrE2EEInvalid
 	}
+	// Routing-aware groups must rotate before any later protected object can
+	// be sealed. Legacy foundation fixtures without an initialized routing
+	// snapshot keep their production-dark repository behavior.
+	if requirement, err := s.ReconcileE2EERotation(params.GroupID, params.CreatedAt); err != nil {
+		return E2EEProtectedObject{}, err
+	} else if requirement != nil && requirement.State == "required" {
+		return E2EEProtectedObject{}, ErrE2EERotationRequired
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return E2EEProtectedObject{}, err
@@ -407,6 +425,36 @@ FROM e2ee_groups WHERE id = ?`, params.GroupID).Scan(&epoch, &target, &forkState
 	}
 	if forkState != "clean" || params.Epoch != epoch || params.TargetSnapshotDigest != target {
 		return E2EEProtectedObject{}, ErrE2EEStaleEpoch
+	}
+	if initialized, err := e2eeRoutingInitializedTx(tx, params.GroupID); err != nil {
+		return E2EEProtectedObject{}, err
+	} else if initialized {
+		group, err := e2eeGroupTx(tx, params.GroupID)
+		if err != nil {
+			return E2EEProtectedObject{}, err
+		}
+		var protocolActorID string
+		if err := tx.QueryRow(`SELECT protocol_actor_id
+FROM e2ee_protocol_actor_bindings WHERE device_id = ?`,
+			params.AuthorDeviceID).Scan(&protocolActorID); err != nil {
+			return E2EEProtectedObject{}, err
+		}
+		if _, err := authorizedE2EEGroupMemberTx(tx, group, params.AuthorDeviceID,
+			protocolActorID); err != nil {
+			return E2EEProtectedObject{}, ErrE2EEInvalid
+		}
+		current, err := e2eeCurrentMembersTx(tx, params.GroupID)
+		if err != nil {
+			return E2EEProtectedObject{}, err
+		}
+		snapshot, err := e2eeAirSnapshotTx(tx, group.AirID)
+		if err != nil {
+			return E2EEProtectedObject{}, err
+		}
+		if len(snapshot.UnsupportedActorIDs) > 0 || snapshot.Digest != target ||
+			!sameE2EEMemberSet(current, snapshot.Members) {
+			return E2EEProtectedObject{}, ErrE2EERotationRequired
+		}
 	}
 	id := "em_" + ulid.New(time.UnixMilli(params.CreatedAt))
 	_, err = tx.Exec(`INSERT INTO e2ee_protected_objects(

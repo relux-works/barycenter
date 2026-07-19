@@ -58,7 +58,7 @@
     {"path": "node-app/Sources/NodeCore/RingBuffer.swift", "sha256": "cc90cb9b3d68c426f3c4ca0d48f4c1beda32385aa2c5a461efd35246c667a055"},
     {"path": "node-app/Sources/NodeCore/LivePTTProtocol.swift", "sha256": "269d38d12ef411dd92bbe0c820391efdfde7ad77cd7ada7da1fe033939d8bb4c"},
     {"path": "acceptance/phase3/capture-quality-integrated-regressions-v1.json", "sha256": "a8e9bed5bf060ccbfb5622c935f340086801d25579f1ec44904c801da13b2e93"},
-    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "78963b28f614332e110da017c9929099d29e08af0fa4b543c907b9f3fd74f00c"}
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "ecafd5d5071abdbef7c62822b7ebc53fd27a38cc66f3372dcb5e849fe6c8e1e2"}
   ],
   "reviewedInvariants": [
     "one-generation-one-capture-owner",

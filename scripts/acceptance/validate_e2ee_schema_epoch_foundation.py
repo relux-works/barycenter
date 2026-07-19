@@ -65,7 +65,7 @@ def validate(contract: dict) -> None:
 
     schema = (ROOT / artifacts["schema"]["path"]).read_text(encoding="utf-8")
     tables = contract.get("tables", [])
-    require(len(tables) == 11 and len(set(tables)) == 11, "table inventory drifted")
+    require(len(tables) == 15 and len(set(tables)) == 15, "table inventory drifted")
     for table in tables:
         require(f"CREATE TABLE IF NOT EXISTS {table}" in schema, f"table missing: {table}")
     require(

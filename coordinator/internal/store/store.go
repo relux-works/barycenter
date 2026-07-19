@@ -175,6 +175,10 @@ func openWithOptionsAndCheckpoint(path string, opts Options, checkpoint func(str
 		db.Close()
 		return nil, fmt.Errorf("store: init saved cue schema: %w", err)
 	}
+	if err := s.initE2EESchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: init dormant E2EE schema: %w", err)
+	}
 	// Media reconciliation can revoke inbox entries and saved cues. Keep it
 	// after every schema it may touch so a generation-skipping roll-forward
 	// cannot execute current cleanup logic against tables that did not exist in

@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"strconv"
 	"strings"
 )
 
@@ -44,6 +45,7 @@ type e2eeAuditState struct {
 	commitDigest                 string
 	epoch                        uint64
 	seenEvents, seenNonces       map[string]bool
+	lastSequences                map[string]uint64
 }
 
 type e2eeAuditCommit struct {
@@ -101,11 +103,11 @@ func (s *e2eeAuditState) accept(value e2eeAuditMetadata, trustedManifestDigest s
 	default:
 		return "malformed"
 	}
-	if value.ManifestDigest != trustedManifestDigest {
-		return "tampered_manifest"
-	}
 	if verify == nil || !verify(value.AuthenticatedDataDigest, value.Signature) {
 		return "invalid_signature"
+	}
+	if value.ManifestDigest != trustedManifestDigest {
+		return "tampered_manifest"
 	}
 	if value.GroupID != s.groupID || value.AirID != s.airID || value.TargetSnapshotDigest != s.targetDigest {
 		return "foreign_target"
@@ -125,8 +127,19 @@ func (s *e2eeAuditState) accept(value e2eeAuditMetadata, trustedManifestDigest s
 	if value.ExpiresAtMS <= nowMS {
 		return "expired_grant"
 	}
+	sequenceKey := value.DeviceID + "/" + value.ObjectID + "/" + strconv.FormatUint(value.Generation, 10)
+	if value.Sequence <= s.lastSequences[sequenceKey] {
+		return "replay"
+	}
+	if value.Generation > 1 && value.Sequence != 1 {
+		previousKey := value.DeviceID + "/" + value.ObjectID + "/" + strconv.FormatUint(value.Generation-1, 10)
+		if _, ok := s.lastSequences[previousKey]; ok {
+			return "replay"
+		}
+	}
 	s.seenEvents[value.EventID] = true
 	s.seenNonces[value.Nonce] = true
+	s.lastSequences[sequenceKey] = value.Sequence
 	return ""
 }
 
@@ -164,5 +177,5 @@ func (s *e2eeAuditState) applyCommit(value e2eeAuditCommit, suites map[string]bo
 
 func newE2EEAuditState(groupID, airID, targetDigest string, epoch uint64, commitDigest string) *e2eeAuditState {
 	return &e2eeAuditState{groupID: groupID, airID: airID, targetDigest: targetDigest, epoch: epoch, commitDigest: commitDigest,
-		seenEvents: map[string]bool{}, seenNonces: map[string]bool{}}
+		seenEvents: map[string]bool{}, seenNonces: map[string]bool{}, lastSequences: map[string]uint64{}}
 }

@@ -106,6 +106,21 @@ def validate(contract: dict) -> None:
     require(set(protocol.get("failureCodes", [])) == expected_failures, "failure taxonomy drifted")
     forbidden = set(protocol.get("coordinatorForbiddenFields", []))
     require({"plaintext", "content_key", "epoch_secret", "private_key"} <= forbidden, "secret boundary incomplete")
+    envelope_fields = protocol.get("coordinatorEnvelopeFields", {})
+    require(
+        set(envelope_fields) == {"proposal", "welcome", "key_package", "history_grant"}
+        and all(envelope_fields.values()),
+        "public envelope authority incomplete",
+    )
+    require(
+        protocol.get("failurePrecedence")
+        == [
+            "downgrade", "unknown_suite", "malformed", "invalid_signature",
+            "tampered_manifest", "foreign_target", "stale_epoch", "forked_epoch",
+            "replay", "nonce_reuse", "expired_grant",
+        ],
+        "multi-fault failure precedence drifted",
+    )
 
     vectors = json.loads((ROOT / resources["vectors"]["path"]).read_text(encoding="utf-8"))
     require(vectors.get("status") == "audit-only-production-disabled", "vectors represented as production")
@@ -121,6 +136,28 @@ def validate(contract: dict) -> None:
     malformed = vectors.get("malformedVectors", [])
     require(len(malformed) == 10, "malformed vector count drifted")
     require({record.get("expected") for record in malformed} == expected_failures, "malformed coverage incomplete")
+    require(
+        vectors.get("multiFaultVectors")
+        == [{
+            "name": "invalid-signature-precedes-tampered-manifest",
+            "mutations": {
+                "signature": "fixture-invalid",
+                "manifest_digest": "e" * 64,
+            },
+            "expected": "invalid_signature",
+        }],
+        "dual-fault precedence vector drifted",
+    )
+    replay_vectors = vectors.get("replayStateVectors", [])
+    require(
+        [record.get("name") for record in replay_vectors]
+        == [
+            "sequence-regression", "generation-reset-must-start-at-one",
+            "next-generation-starts-at-one",
+        ]
+        and [record.get("expected") for record in replay_vectors] == ["replay", "replay", ""],
+        "sender sequence/generation vectors incomplete",
+    )
     require("injected deterministic verifier" in vectors.get("fixtureVerifier", ""), "test verifier boundary hidden")
 
     implementations = by_id(contract.get("implementations", []))

@@ -58,3 +58,17 @@ The reviewer for `TASK-260712-aniuyy` must reproduce the Go, Windows, Swift, and
 - all critical/high findings from the two no-go spikes remain explicit.
 
 Production implementation stays blocked until that independent review is accepted and the later implementation tasks select reviewed dependencies and repeat platform/package evidence. Real signed-app and hardware testing remains in `EPIC-260714-th54l3`; no such evidence is claimed here.
+
+## 2026-07-19 schema-foundation delta
+
+`TASK-260712-3w1cst` keeps production disabled while making three low-risk
+review findings executable. The protocol authority now pins one failure
+precedence for multi-fault input, requires a known next sender generation to
+restart at sequence one, and enumerates exact coordinator-visible fields for
+commit, proposal, welcome, key-package and history-grant envelopes. Shared
+multi-fault and replay-state vectors execute on coordinator, Windows and macOS;
+all public-envelope decoders reject forbidden and unknown fields. This delta
+does not select a suite, library, container or serialization and therefore
+does not weaken EPC-001, EPC-002, EPC-004 or EPC-005. The independent verdict
+for the prior hashes must be delta-reviewed before this amended contract is
+relied upon.

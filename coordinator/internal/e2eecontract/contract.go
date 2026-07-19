@@ -118,18 +118,8 @@ func validateCommon(config Config, value RoutingMetadata) error {
 // DecodeCoordinatorMetadata strictly limits the coordinator-visible envelope
 // and rejects secret-bearing or additive fields before routing.
 func DecodeCoordinatorMetadata(raw []byte) (RoutingMetadata, error) {
-	forbidden := []string{
-		"plaintext", "content_key", "epoch_secret", "sender_key", "recovery_secret",
-		"history_grant_secret", "private_key", "key_package_private_key",
-	}
-	var keys map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &keys); err != nil {
-		return RoutingMetadata{}, fail(ErrMalformed)
-	}
-	for _, key := range forbidden {
-		if _, ok := keys[key]; ok {
-			return RoutingMetadata{}, fail(ErrMalformed)
-		}
+	if err := rejectCoordinatorForbiddenFields(raw); err != nil {
+		return RoutingMetadata{}, err
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
@@ -138,6 +128,36 @@ func DecodeCoordinatorMetadata(raw []byte) (RoutingMetadata, error) {
 		return RoutingMetadata{}, fail(ErrMalformed)
 	}
 	return value, nil
+}
+
+var coordinatorForbiddenFields = []string{
+	"plaintext", "content_key", "epoch_secret", "sender_key", "recovery_secret",
+	"history_grant_secret", "private_key", "key_package_private_key",
+}
+
+func rejectCoordinatorForbiddenFields(raw []byte) error {
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		return fail(ErrMalformed)
+	}
+	for _, key := range coordinatorForbiddenFields {
+		if _, ok := keys[key]; ok {
+			return fail(ErrMalformed)
+		}
+	}
+	return nil
+}
+
+func decodeCoordinatorEnvelope(raw []byte, destination any) error {
+	if err := rejectCoordinatorForbiddenFields(raw); err != nil {
+		return err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return fail(ErrMalformed)
+	}
+	return nil
 }
 
 type State struct {
@@ -161,6 +181,9 @@ func NewState(groupID, airID, targetDigest string, epoch uint64, commitDigest st
 
 func (s *State) RememberEvent(eventID string) { s.seenEvents[eventID] = struct{}{} }
 func (s *State) RememberNonce(nonce string)   { s.seenNonces[nonce] = struct{}{} }
+func (s *State) RememberSequence(deviceID, objectID string, generation, sequence uint64) {
+	s.lastSequences[fmt.Sprintf("%s/%s/%d", deviceID, objectID, generation)] = sequence
+}
 
 // AcceptContent validates state before any plaintext release. Callers must
 // persist the updated replay state atomically with accepting the ciphertext.
@@ -194,6 +217,12 @@ func (s *State) AcceptContent(config Config, value RoutingMetadata, trustedManif
 	if previous := s.lastSequences[sequenceKey]; value.Sequence <= previous {
 		return fail(ErrReplay)
 	}
+	if value.Generation > 1 && value.Sequence != 1 {
+		previousGeneration := fmt.Sprintf("%s/%s/%d", value.DeviceID, value.ObjectID, value.Generation-1)
+		if _, ok := s.lastSequences[previousGeneration]; ok {
+			return fail(ErrReplay)
+		}
+	}
 	s.seenEvents[value.EventID] = struct{}{}
 	s.seenNonces[value.Nonce] = struct{}{}
 	s.lastSequences[sequenceKey] = value.Sequence
@@ -216,6 +245,117 @@ type Commit struct {
 	TargetSnapshotDigest    string `json:"target_snapshot_digest"`
 	AuthenticatedDataDigest string `json:"authenticated_data_digest"`
 	Signature               string `json:"signature"`
+}
+
+func DecodeCoordinatorCommit(raw []byte) (Commit, error) {
+	var value Commit
+	if err := decodeCoordinatorEnvelope(raw, &value); err != nil {
+		return Commit{}, err
+	}
+	return value, nil
+}
+
+type Proposal struct {
+	Contract                string `json:"contract"`
+	Capability              string `json:"capability"`
+	Suite                   string `json:"suite"`
+	EventID                 string `json:"event_id"`
+	GroupID                 string `json:"group_id"`
+	ActorID                 string `json:"actor_id"`
+	DeviceID                string `json:"device_id"`
+	AirID                   string `json:"air_id"`
+	PreviousEpoch           uint64 `json:"previous_epoch"`
+	Epoch                   uint64 `json:"epoch"`
+	TargetSnapshotDigest    string `json:"target_snapshot_digest"`
+	ProposalDigest          string `json:"proposal_digest"`
+	AuthenticatedDataDigest string `json:"authenticated_data_digest"`
+	Signature               string `json:"signature"`
+}
+
+func DecodeCoordinatorProposal(raw []byte) (Proposal, error) {
+	var value Proposal
+	if err := decodeCoordinatorEnvelope(raw, &value); err != nil {
+		return Proposal{}, err
+	}
+	return value, nil
+}
+
+type Welcome struct {
+	Contract                string `json:"contract"`
+	Capability              string `json:"capability"`
+	Suite                   string `json:"suite"`
+	EventID                 string `json:"event_id"`
+	GroupID                 string `json:"group_id"`
+	ActorID                 string `json:"actor_id"`
+	DeviceID                string `json:"device_id"`
+	RecipientDeviceID       string `json:"recipient_device_id"`
+	AirID                   string `json:"air_id"`
+	Epoch                   uint64 `json:"epoch"`
+	TargetSnapshotDigest    string `json:"target_snapshot_digest"`
+	WelcomeDigest           string `json:"welcome_digest"`
+	ExpiresAtMS             int64  `json:"expires_at_ms"`
+	CiphertextURL           string `json:"ciphertext_url"`
+	AuthenticatedDataDigest string `json:"authenticated_data_digest"`
+	Signature               string `json:"signature"`
+}
+
+func DecodeCoordinatorWelcome(raw []byte) (Welcome, error) {
+	var value Welcome
+	if err := decodeCoordinatorEnvelope(raw, &value); err != nil {
+		return Welcome{}, err
+	}
+	return value, nil
+}
+
+type KeyPackage struct {
+	Contract                string `json:"contract"`
+	Capability              string `json:"capability"`
+	Suite                   string `json:"suite"`
+	EventID                 string `json:"event_id"`
+	ActorID                 string `json:"actor_id"`
+	DeviceID                string `json:"device_id"`
+	KeyPackageDigest        string `json:"key_package_digest"`
+	PublicPackageURL        string `json:"public_package_url"`
+	ExpiresAtMS             int64  `json:"expires_at_ms"`
+	AuthenticatedDataDigest string `json:"authenticated_data_digest"`
+	Signature               string `json:"signature"`
+}
+
+func DecodeCoordinatorKeyPackage(raw []byte) (KeyPackage, error) {
+	var value KeyPackage
+	if err := decodeCoordinatorEnvelope(raw, &value); err != nil {
+		return KeyPackage{}, err
+	}
+	return value, nil
+}
+
+type HistoryGrant struct {
+	Contract                string `json:"contract"`
+	Capability              string `json:"capability"`
+	Suite                   string `json:"suite"`
+	EventID                 string `json:"event_id"`
+	GroupID                 string `json:"group_id"`
+	ActorID                 string `json:"actor_id"`
+	DeviceID                string `json:"device_id"`
+	RecipientDeviceID       string `json:"recipient_device_id"`
+	AirID                   string `json:"air_id"`
+	ObjectID                string `json:"object_id"`
+	FirstEpoch              uint64 `json:"first_epoch"`
+	LastEpoch               uint64 `json:"last_epoch"`
+	TargetSnapshotDigest    string `json:"target_snapshot_digest"`
+	GrantDigest             string `json:"grant_digest"`
+	ExpiresAtMS             int64  `json:"expires_at_ms"`
+	CiphertextURL           string `json:"ciphertext_url"`
+	AuthenticatedDataDigest string `json:"authenticated_data_digest"`
+	Signature               string `json:"signature"`
+}
+
+func DecodeCoordinatorHistoryGrant(raw []byte) (HistoryGrant, error) {
+	var value HistoryGrant
+	if err := decodeCoordinatorEnvelope(raw, &value); err != nil {
+		return HistoryGrant{}, err
+	}
+	return value, nil
 }
 
 func (s *State) ApplyCommit(config Config, value Commit) error {

@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-e2ee-schema-epoch-foundation.v1",
+  "task": "TASK-260712-3w1cst",
+  "publishedAt": "2026-07-19",
+  "decision": {
+    "result": "additive-dormant-foundation",
+    "productionEnabled": false,
+    "runtimeWired": false,
+    "productionLibrarySelected": false,
+    "productionSuiteSelected": false,
+    "productionContainerSelected": false,
+    "plaintextFallbackAllowed": false,
+    "coordinatorContentKeyAccess": false,
+    "deltaReviewRequired": true
+  },
+  "artifacts": [
+    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"64b304858be5e449465660346aed4ed111cfc2fa22309acfdcd0cd3c43b31b78"},
+    {"id":"repository","path":"coordinator/internal/store/e2ee.go","sha256":"f5ae114752c6346abaa2d7afa2cd5d6aa452a8ea12eab854cb5d138a2c63f2c8"},
+    {"id":"tests","path":"coordinator/internal/store/e2ee_test.go","sha256":"24d7f0a6c6b2356def6c7ce0b0c0024fe51753521b23ca93b5dff18a25c3c3c9"},
+    {"id":"startup","path":"coordinator/internal/store/store.go","sha256":"6a9565015fe55f483d4912e86da8bf39f6e43d86e2445288c3375843a31007c8"},
+    {"id":"protocol","path":"protocol/e2ee-media-audit-v1.json","sha256":"5dc5ac88539fed12b827aa8c3ff6ce14b6a13ae46d063624822c5435f38334ce"},
+    {"id":"vectors","path":"protocol/e2ee-media-audit-v1-vectors.json","sha256":"2a8c71b909b2117921a6ee6b5415229ee8328e047f3c8f19d0db48e58fbf37cd"},
+    {"id":"coordinator-model","path":"coordinator/internal/e2eecontract/contract.go","sha256":"b5c9b9c96e44fba0ede3c95289a769ae5d6ed4cf7b917e123facc401a1c75055"},
+    {"id":"coordinator-model-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"c18b1fba3415bcb0fa5a61e497723b043e08dfbb7ded0c42d4bc260607b32eb2"},
+    {"id":"windows-model","path":"pulsar-win/e2ee_contract_audit.go","sha256":"ad7129c0798946b8a6863b4b7d06813b16ddf91437bcc24749eccf41a1d9d5a1"},
+    {"id":"windows-model-tests","path":"pulsar-win/e2ee_contract_audit_test.go","sha256":"745a05aac5da80a5d69db2faa64ed3c032dd070fa79398df8621e4978d0d9e6b"},
+    {"id":"macos-model","path":"node-app/Sources/NodeCore/E2EEAuditContract.swift","sha256":"927a8b57694d57e3f66acb7746db886f29e02e6baf4892eeecf1c2eff7a512be"},
+    {"id":"macos-model-tests","path":"node-app/Tests/NodeCoreTests/E2EEAuditContractTests.swift","sha256":"734924fcced31c9ae6a191e3bdc2592a64677fb50be6eac9c8b1862d334e24d6"},
+    {"id":"adr","path":"docs/analysis/p3-encrypted-media-schema-epoch-foundation-v1.md","sha256":"ab7669437662bb8ce94e5bd78c937d689e03fb71fe4fb36f2ed0829a102d3ccd"}
+  ],
+  "tables": [
+    "e2ee_feature_state",
+    "e2ee_device_public_state",
+    "e2ee_groups",
+    "e2ee_public_group_events",
+    "e2ee_protected_objects",
+    "e2ee_sender_replay_state",
+    "e2ee_replay_events",
+    "e2ee_history_grants",
+    "e2ee_transfer_packages",
+    "e2ee_report_evidence_metadata",
+    "e2ee_audit_events"
+  ],
+  "forbiddenStorageFields": [
+    "private_key",
+    "key_package_private_key",
+    "epoch_secret",
+    "sender_key",
+    "content_key",
+    "recovery_secret",
+    "history_grant_secret",
+    "plaintext",
+    "decrypted_evidence"
+  ],
+  "conditionalTransitions": [
+    "exact-previous-epoch-and-commit-single-winner",
+    "fork-state-freezes-protected-writes",
+    "staged-ready-revoked-exact-revision",
+    "event-and-nonce-replay-persistence",
+    "monotonic-generation-and-sequence",
+    "history-grant-revoke-single-winner",
+    "immutable-payload-and-audit-triggers"
+  ],
+  "fixtures": {
+    "fresh": "covered",
+    "migrationCrashRollback": "covered",
+    "legacyGenerationSkip": "covered",
+    "legacyCoordinatorRollbackWrite": "covered",
+    "concurrentCommit": "covered",
+    "duplicateFinalize": "covered",
+    "fork": "covered",
+    "grantRevokeRace": "covered",
+    "restartReplayState": "covered",
+    "repositoryAndBackupSentinelScan": "covered"
+  },
+  "reviewFindings": {
+    "IDR-001": "implemented-pending-delta-review",
+    "IDR-002": "implemented-pending-delta-review",
+    "IDR-003": "implemented-pending-delta-review",
+    "IDR-004": "tracked-in-platform-key-state-tasks",
+    "IDR-005": "tracked-in-final-evidence-packet"
+  },
+  "automatedEvidence": {
+    "storeFocused": "go test ./internal/store -run ^TestE2EE -count=1",
+    "coordinator": "go test ./...",
+    "coordinatorRace": "go test -race ./internal/store ./internal/e2eecontract",
+    "windows": "go test ./...",
+    "macOS": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter E2EEAuditContractTests",
+    "acceptance": "python3 -m unittest scripts.acceptance.test_e2ee_schema_epoch_foundation scripts.acceptance.test_e2ee_protocol_key_lifecycle"
+  },
+  "manualEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "signedMSIX": "not-run",
+    "signedNotarizedMacOS": "not-run",
+    "realCryptoInterop": "not-run-no-selected-stack",
+    "physicalRecovery": "not-run",
+    "hardwarePlayback": "not-run"
+  },
+  "openProductionGates": ["EPC-001", "EPC-002", "EPC-004", "EPC-005", "TASK-260712-1ulshp"]
+}

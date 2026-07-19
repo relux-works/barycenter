@@ -61,5 +61,41 @@
     {"name":"foreign-target","mutation":"target_snapshot_digest","value":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","expected":"foreign_target"},
     {"name":"expired-grant","mutation":"expires_at_ms","value":"999","expected":"expired_grant"},
     {"name":"downgrade","mutation":"capability","value":"plaintext_media_v1","expected":"downgrade"}
+  ],
+  "multiFaultVectors": [
+    {
+      "name": "invalid-signature-precedes-tampered-manifest",
+      "mutations": {
+        "signature": "fixture-invalid",
+        "manifest_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "expected": "invalid_signature"
+    }
+  ],
+  "replayStateVectors": [
+    {
+      "name": "sequence-regression",
+      "rememberGeneration": 1,
+      "rememberSequence": 2,
+      "generation": 1,
+      "sequence": 1,
+      "expected": "replay"
+    },
+    {
+      "name": "generation-reset-must-start-at-one",
+      "rememberGeneration": 1,
+      "rememberSequence": 2,
+      "generation": 2,
+      "sequence": 2,
+      "expected": "replay"
+    },
+    {
+      "name": "next-generation-starts-at-one",
+      "rememberGeneration": 1,
+      "rememberSequence": 2,
+      "generation": 2,
+      "sequence": 1,
+      "expected": ""
+    }
   ]
 }

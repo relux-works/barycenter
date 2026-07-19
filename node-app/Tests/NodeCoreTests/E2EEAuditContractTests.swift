@@ -16,12 +16,27 @@ private struct E2EEAuditVectors: Decodable {
         let value: String
         let expected: String
     }
+    struct MultiFault: Decodable {
+        let name: String
+        let mutations: [String: String]
+        let expected: String
+    }
+    struct ReplayState: Decodable {
+        let name: String
+        let rememberGeneration: UInt64
+        let rememberSequence: UInt64
+        let generation: UInt64
+        let sequence: UInt64
+        let expected: String
+    }
     let status: String
     let fixtureSuite: String
     let baseline: Baseline
     let validContent: E2EEAuditMetadata
     let validCommit: E2EEAuditCommit
     let malformedVectors: [Malformed]
+    let multiFaultVectors: [MultiFault]
+    let replayStateVectors: [ReplayState]
 }
 
 private func e2eeVectorsURL() -> URL {
@@ -86,6 +101,43 @@ private func auditState(_ fixture: E2EEAuditVectors) -> E2EEAuditState {
             #expect(throws: expected, "vector \(vector.name)") {
                 try candidateState.accept(candidate, trustedManifestDigest: fixture.validContent.manifestDigest, nowMS: 1000,
                                           configuration: auditConfiguration(fixture.fixtureSuite))
+            }
+        }
+        for vector in fixture.multiFaultVectors {
+            var object = base
+            for (key, value) in vector.mutations { object[key] = value }
+            let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+            let candidate = try E2EEAuditMetadata.decodeCoordinatorVisible(data)
+            let expected = try #require(E2EEAuditFailure(rawValue: vector.expected))
+            var candidateState = auditState(fixture)
+            #expect(throws: expected, "vector \(vector.name)") {
+                try candidateState.accept(candidate, trustedManifestDigest: fixture.validContent.manifestDigest,
+                                          nowMS: 1000,
+                                          configuration: auditConfiguration(fixture.fixtureSuite))
+            }
+        }
+        for vector in fixture.replayStateVectors {
+            var candidate = fixture.validContent
+            candidate.eventID = "state-\(vector.name)"
+            candidate.nonce = "nonce-\(vector.name)"
+            candidate.generation = vector.generation
+            candidate.sequence = vector.sequence
+            var candidateState = auditState(fixture)
+            candidateState.remember(deviceID: candidate.deviceID, objectID: candidate.objectID,
+                                    generation: vector.rememberGeneration,
+                                    sequence: vector.rememberSequence)
+            if vector.expected.isEmpty {
+                try candidateState.accept(candidate, trustedManifestDigest: fixture.validContent.manifestDigest,
+                                          nowMS: 1000,
+                                          configuration: auditConfiguration(fixture.fixtureSuite))
+            } else {
+                let expected = try #require(E2EEAuditFailure(rawValue: vector.expected))
+                #expect(throws: expected, "vector \(vector.name)") {
+                    try candidateState.accept(candidate,
+                                              trustedManifestDigest: fixture.validContent.manifestDigest,
+                                              nowMS: 1000,
+                                              configuration: auditConfiguration(fixture.fixtureSuite))
+                }
             }
         }
     }

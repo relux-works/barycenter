@@ -14,7 +14,8 @@
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
 - Current engineering task: `TASK-260712-aniuyy` —
-  e2ee-independent-design-review in deferred epic `EPIC-260716-3qsztl`.
+  e2ee-independent-design-review in deferred epic `EPIC-260716-3qsztl`;
+  exact review packet is queued for an independent Claude Fable 5 max verdict.
 - Current original-plan frontier: `TASK-260712-aniuyy` —
   e2ee-independent-design-review in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
@@ -75,7 +76,7 @@
   cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2s4e9p` —
   store-listing-iarc-assets (engineering scope only)
-- Current branch: `fix/bug-260719-1rsd49`
+- Current branch: `review/task-260712-aniuyy`
 - Current review evidence: independent hardening verdict
   `BUG-260719-1rsd49_reviewer-verdict.md` from terminal run
   `RUN-260719-0e576a`. The preceding Store-package run `RUN-260719-85bf38`

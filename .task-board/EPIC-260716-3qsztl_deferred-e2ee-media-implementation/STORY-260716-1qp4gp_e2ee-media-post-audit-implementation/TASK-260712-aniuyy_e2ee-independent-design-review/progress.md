@@ -1,14 +1,14 @@
 ## Status
-backlog
+to-review
 
 ## Assigned To
-(none)
+codex-inline-orchestrator
 
 ## Created
 2026-07-12T16:49:10Z
 
 ## Last Update
-2026-07-17T06:24:39Z
+2026-07-19T17:12:38Z
 
 ## Blocked By
 - TASK-260712-2ys1ww
@@ -49,6 +49,7 @@ Owner gate 2026-07-16: acceptance of this independent cryptographic design revie
 - [e2ee-media-audit-v1.json](file://TASK-260712-aniuyy/e2ee-media-audit-v1.json) — Candidate-neutral protocol and lifecycle authority
 - [e2ee-media-audit-v1-vectors.json](file://TASK-260712-aniuyy/e2ee-media-audit-v1-vectors.json) — Shared cross-platform content, commit, and malformed vectors
 - [p3-e2ee-protocol-key-lifecycle-contract-v1.md](file://TASK-260712-aniuyy/p3-e2ee-protocol-key-lifecycle-contract-v1.md) — Review procedure, lifecycle, and trust-boundary ADR
+- [independent-design-review-brief.md](file://TASK-260712-aniuyy/independent-design-review-brief.md) — Terminal independent cryptographic design review contract
 
 ## Outcome Resources
 (none)

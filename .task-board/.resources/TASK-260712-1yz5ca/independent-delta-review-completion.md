@@ -1,0 +1,9 @@
+# Complete the independent verdict
+
+This is a completion pass for exact producer SHA `e4488ed2c0335e57910d704cf4bb4119593bbfdd` after `RUN-260719-84adbc` ended without a verdict. Read that run's captured spawn log and the original `independent-delta-review-brief.md`.
+
+The first run independently established: exact SHA match; 14/14 packet hashes; `go test ./...`; `go vet ./...`; focused E2EE race (store 10.612s, contract 1.427s); opaque validator; exact acceptance-contract 212/212; keyless/production-dark/additive/no-legacy-write/no-runtime-wiring evidence. It launched the broad 15-minute-timeout race as an internal background job but exited before it completed, so that broad race was **not independently reproduced**. Do not claim otherwise. Producer evidence separately records a successful broad race (store 594.955s, contract 1.460s) and an earlier non-accepted default-timeout attempt.
+
+Do not launch another long background job. Review the prior independent findings and producer broad-race evidence, run only any focused foreground checks needed to resolve an actual doubt, and now return explicit `APPROVE` or `REJECT`. Decide whether the missing independent broad-race reproduction blocks this production-dark delta given that the changed-path focused race was independently green and the producer broad race was green. State that judgment explicitly.
+
+Create `TASK-260712-1yz5ca_independent-delta-review-v1.md` as an outcome resource with exact SHA/model/verdict, severity findings, all independently reproduced commands/counts/timings, the producer-only broad-race distinction, hash result, migration/rollback/keyless boundary, and open gates. On APPROVE, check every checklist item and set this dormant engineering task to done. On REJECT, leave it routed for correction. Do not modify repository code.

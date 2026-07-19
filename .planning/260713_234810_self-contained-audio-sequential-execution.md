@@ -18,7 +18,10 @@
   p1-independent-protocol-review. Its technical audit and corrective work are
   complete, and on 2026-07-19 Ivan Oparin approved the proposed default to
   select a qualified non-implementing reviewer, but no independent reviewer
-  identity or verdict has been recorded. The later P1 independent audio,
+  identity or verdict has been recorded. A fail-closed v2 handoff now pins
+  exact later `main` candidate `191ae263`, the 51-path protocol-authority delta
+  from Phase 1 merge `524eb78`, all 39 original goldens, 20 additive P2/P3
+  goldens and the sole modified original `state` golden. The later P1 independent audio,
   migration and security reviews plus Store/IARC completion remain external
   holds in the same strict section; they cannot be self-certified.
 - Next deferred coding line: E2EE resumes with `TASK-260712-aniuyy` only after
@@ -27,7 +30,7 @@
   `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there as well and
   cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2b5685` — phase3-root-engineering-completion-audit
-- Current branch: `tracking/owner-default-approval-20260719`
+- Current branch: `task/task-260715-3ffm3r-protocol-reviewer-handoff-refresh`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -2959,7 +2962,13 @@ acceptance.
   schema packed on Windows SDK; actual WACK UI and hardware stay manual; PR #67)
 - [ ] `TASK-260712-176b74` — p1-independent-protocol-review (technical audit
   and HIGH fix landed through PR #68; external non-implementing signoff is
-  tracked in `TASK-260715-3ffm3r`; remains `to-review` and unaccepted)
+  tracked in `TASK-260715-3ffm3r`; on 2026-07-19 the reviewer packet was
+  refreshed against exact later `main` candidate `191ae263` with a validated
+  39-to-59-message delta, exact object hashes and green Go/race plus pinned
+  Swift contract suites. Exact packet commit `76e950a` also passed the clean
+  coordinator acceptance suite 7/7 with clean start/end and
+  `manualEvidence=not-run`; remains `to-review` and unaccepted until an
+  independent reviewer records identity and verdict)
 - [ ] `TASK-260712-1uz0za` — p1-independent-realtime-audio-review
 - [ ] `TASK-260712-1xkn75` — p1-independent-migration-review
 - [ ] `TASK-260712-wy05n6` — p1-independent-security-review

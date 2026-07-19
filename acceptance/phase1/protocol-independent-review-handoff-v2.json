@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "contract": "p1-independent-protocol-review-handoff.v2",
+  "preparedAt": "2026-07-19",
+  "preparationTask": "TASK-260715-3ffm3r",
+  "originalTask": "TASK-260712-176b74",
+  "decision": {
+    "packetReady": true,
+    "independentReviewComplete": false,
+    "originalTaskAccepted": false,
+    "reviewerIdentity": null,
+    "reviewerDecision": "not-recorded",
+    "productionOrStoreAuthorityGranted": false
+  },
+  "reviewRange": {
+    "phase1AcceptedMerge": "524eb78e2d768ade1628d9170654f5f9c9d06e4b",
+    "phase1AcceptedTree": "a60e933d78bf10a6b861ec0311f5018c868bafde",
+    "currentMainCandidate": "191ae26325ba34d32c94358044635fb7a73651e2",
+    "currentMainTree": "975f2cf6eff03bf52593d5f0fa4daa93594f541b",
+    "reviewPathSet": [
+      "coordinator/internal/protocol",
+      "pulsar-win/wire",
+      "node-app/Sources/NodeCore/Protocol.swift",
+      "node-app/Tests/NodeCoreTests/ProtocolContractTests.swift",
+      "protocol",
+      "docs/protocol.md",
+      "docs/analysis/p1-clip-transmission-wire-contract.md"
+    ],
+    "changedPathCount": 51,
+    "addedLines": 4610,
+    "deletedLines": 25,
+    "nameStatusSHA256": "882013932429a0cb90808eab9be446fab5c398b9d0542620a3d5a7bcf7dedaa6",
+    "numstatSHA256": "948601dfc12be47a3819b425fad91c596155dd04777e77457bfd5410746c6833"
+  },
+  "protocolInventory": {
+    "baselineGoldenCount": 39,
+    "currentGoldenCount": 59,
+    "originalGoldenPreservedCount": 39,
+    "byteUnchangedOriginalGoldenCount": 38,
+    "baselineGoldenNameListSHA256": "8e24b8b41f0db5415d2ba4a9381b95d3fd66bf258893bb91dfddd3b3ef19c372",
+    "currentGoldenNameListSHA256": "e615c4ed16bfb6ea8d0efe439d1dc3432ab68291ad9c5939e087a5ee2db22f4b",
+    "removedOriginalGoldenPaths": [],
+    "modifiedOriginalGoldenPaths": [
+      "protocol/golden/state.json"
+    ],
+    "additiveGoldenPaths": [
+      "protocol/golden/live_ptt_accept.json",
+      "protocol/golden/live_ptt_cancel.json",
+      "protocol/golden/live_ptt_end.json",
+      "protocol/golden/live_ptt_failed.json",
+      "protocol/golden/live_ptt_receipt.json",
+      "protocol/golden/live_ptt_reject.json",
+      "protocol/golden/live_ptt_start.json",
+      "protocol/golden/live_ptt_state.json",
+      "protocol/golden/stream_cancel.json",
+      "protocol/golden/stream_cancelled.json",
+      "protocol/golden/stream_ended.json",
+      "protocol/golden/stream_failed.json",
+      "protocol/golden/stream_load.json",
+      "protocol/golden/stream_pause.json",
+      "protocol/golden/stream_progress.json",
+      "protocol/golden/stream_ready.json",
+      "protocol/golden/stream_rebuffer.json",
+      "protocol/golden/stream_resume_at.json",
+      "protocol/golden/stream_seek.json",
+      "protocol/golden/stream_started.json"
+    ],
+    "stateGoldenDelta": {
+      "classification": "additive-optional-capture-quality-object",
+      "baselineBlob": "68abe1b17e169d9b0f19f840e9040989adc7da32",
+      "candidateBlob": "1e8081b160f628519888475b829928f8f410bcf8",
+      "p1FieldsRemovedOrRenamed": false
+    }
+  },
+  "candidateAuthorityObjects": {
+    "protocolGoldenTree": "6b4850ce8fcf458e146b511debe19089086b1750",
+    "coordinatorProtocolTree": "3d832abc47a4d24ef70d8de83d66fa1a53a57491",
+    "windowsWireTree": "7ad81c2df1cfab5108c3e51eeae5a38271349b43",
+    "swiftProtocolBlob": "77224095167928e2d50dd86eecabbe90f5dcad92",
+    "swiftContractTestsBlob": "1fb87ce55a34392775cc5bb217bb3c0fa5deb224",
+    "coordinatorContractTestsBlob": "8d3c4e7fd9c90553b31e0e2251fa1ec9acd6d23a",
+    "windowsContractTestsBlob": "75fda34a948135b5125f42a86ea8e372d05c484b",
+    "protocolDocumentBlob": "737a2918d5bbb4294a634d77f3e0e73b13c00037",
+    "p1ClipContractBlob": "119509d1713508a4164a3d013e30a164f2b8b47b"
+  },
+  "requiredIndependentReview": [
+    "Confirm the reviewer implemented none of the reviewed protocol or scheduler paths.",
+    "Review the exact candidate and the complete 51-path authority delta from the accepted Phase 1 merge.",
+    "Re-sample all 39 original messages, including the additive state capture_quality object, and verify no original field was removed or renamed.",
+    "Review the 20 additive streamed-track and live-PTT messages for version, unknown-type and capability isolation from Phase 1 clients.",
+    "Confirm P1-PROTO-001 remains closed while unknown v1 message types stay forward compatible.",
+    "Record reviewer identity, independence, exact revision, findings, reruns and approve or reject decision."
+  ],
+  "requiredCommands": [
+    "cd coordinator && go test ./internal/protocol",
+    "cd pulsar-win && go test ./wire",
+    "cd node-app && swift test --filter ProtocolContractTests",
+    "python3 scripts/acceptance/validate_p1_protocol_review_handoff.py"
+  ],
+  "evidenceBoundary": {
+    "repositoryChecksMayBeClaimed": true,
+    "independentVerdictMayBeClaimed": false,
+    "manualRealAppEvidenceMayBeClaimed": false,
+    "storeSubmissionMayBeClaimed": false,
+    "remainingManualEpic": "EPIC-260714-th54l3"
+  }
+}

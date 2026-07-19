@@ -70,10 +70,10 @@
     {"path": "docs/store/phase1/partner-center-package.json", "sha256": "bdb07899dd7d77d4f38404ed9a0150718c94f4ab9cb5191451902160cef93e66"},
     {"path": "pulsar-win/ui_common.go", "sha256": "fab55a348a443745721f23eaef74a65360b8c51a0a6849c876818f8c8a635499"},
     {"path": "pulsar-win/phase_one_client.go", "sha256": "6d9ab16d799a96ed6fc830a65945d2a4ff3f36cbc5de296df2550fcfafcf810f"},
-    {"path": "pulsar-win/e2ee_contract_audit.go", "sha256": "73b2ee8b2304b1648c6a1394eec24068281f84927774526585b35990a81378b9"},
+    {"path": "pulsar-win/e2ee_contract_audit.go", "sha256": "ad7129c0798946b8a6863b4b7d06813b16ddf91437bcc24749eccf41a1d9d5a1"},
     {"path": "node-app/Sources/NodeCore/PublicPolicyLinks.swift", "sha256": "fd00b0fd7e8136b82925bd0b22925c9bb29857969397f1fda037da130af987c0"},
-    {"path": "node-app/Sources/NodeCore/E2EEAuditContract.swift", "sha256": "3c03962b38e78298c6ae6f2a591d6714b513652337e80322123804abf0f3f061"},
-    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "6beb9260acea0e5eb98bfd02c3e7dcc8c9a88055e16b0a4d13bc73b552787318"}
+    {"path": "node-app/Sources/NodeCore/E2EEAuditContract.swift", "sha256": "927a8b57694d57e3f66acb7746db886f29e02e6baf4892eeecf1c2eff7a512be"},
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "78963b28f614332e110da017c9929099d29e08af0fa4b543c907b9f3fd74f00c"}
   ],
   "reviewedClaims": [
     {"id": "encryption", "result": "match", "claim": "Phase 1 coordinator-readable audio is explicitly not end-to-end encrypted; Phase 3 e2ee_media remains deferred and disabled."},

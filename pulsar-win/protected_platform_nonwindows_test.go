@@ -11,6 +11,9 @@ func TestNonWindowsDefaultsNeverCreatePlaintextFallbacks(t *testing.T) {
 	if _, err := newDefaultCredentialRepository(t.TempDir()); !errors.Is(err, errCredentialStorageUnavailable) {
 		t.Fatalf("credential default error=%v", err)
 	}
+	if _, err := newDefaultWindowsE2EEKeyStateRepository(t.TempDir()); !errors.Is(err, ErrWindowsE2EEUnavailable) {
+		t.Fatalf("E2EE key-state default error=%v", err)
+	}
 	if _, err := NewRecoveryClipboard(1, &directTestDispatcher{}); !errors.Is(err, errClipboardUnsupported) {
 		t.Fatalf("clipboard default error=%v", err)
 	}

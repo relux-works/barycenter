@@ -8,7 +8,7 @@ done
 2026-07-12T16:49:11Z
 
 ## Last Update
-2026-07-19T22:18:22Z
+2026-07-19T22:24:36Z
 
 ## Blocked By
 - TASK-260712-aniuyy
@@ -43,6 +43,7 @@ spawn run started: [reviewer] reviewer (claude) (run=RUN-260719-20ab4a)
 Independent delta review of exact SHA 498957eab686a4e6aad0f653813ccfe3d1d3efa6 complete: APPROVE WITH NON-BLOCKING FOLLOW-UPS. All 9 packet hashes reproduced; swift-format clean; focused 10/10, full Swift 318 tests/53 suites green; python acceptance 5/5; validator PASS (production disabled); full run_automated.py 16/16 commands exit 0 with 217/217 contract tests OK at HEAD. No Critical/High findings. Medium M1 (process-local lock only, no cross-process Keychain CAS — duplicate send-generation hazard if two processes share the store) dispositioned outside dormant scope: ADR discloses in-process serialization, repo is unwired/production-dark, single executable target; deferred send/playback/live/UX integration tasks MUST enforce single-instance ownership or add cross-process serialization before runtime wiring. Low: no recovery path for partial device install (deferred to recovery flow), no expired-grant GC, canonical JSON round-trip depends on Foundation encoder stability (fails closed). Production-dark boundary intact: no crypto library/suite/container, no composition-root wiring, no e2ee_media_v1 advertisement, no plaintext fallback; CryptoKit SHA-256 is local integrity only. EPC-005 semantics and all upstream pins verified; manual evidence all not-run, deferred to EPIC-260714-th54l3. Open gates: EPC-001, EPC-002, EPC-004, EPC-005, TASK-260712-1ulshp. Full report: TASK-260712-1x9ruo_independent-delta-review-v1.md. Reviewer authored/modified no reviewed code.
 agent completed: [reviewer] reviewer (claude) (exit=0)
 spawn run completed: claude (run=RUN-260719-20ab4a, pid=10240, exit=0)
+Integration landed: PR #287 merged to main as 5f1756d57df16a476b2df353f60656d24b02f752 after hosted CI run 29705960146 passed 4/4 jobs. Strict execution advanced to TASK-260712-25dzp4.
 
 ## Precondition Resources
 - [independent-delta-review-brief.md](file://TASK-260712-1x9ruo/independent-delta-review-brief.md) — Exact-SHA production-dark macOS E2EE key-state independent review scope and evidence challenge

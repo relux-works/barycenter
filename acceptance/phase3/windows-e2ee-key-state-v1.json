@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-windows-e2ee-key-state.v1",
+  "task": "TASK-260712-25dzp4",
+  "publishedAt": "2026-07-20",
+  "decision": {
+    "result": "production-dark-current-user-dpapi-key-state-foundation",
+    "productionEnabled": false,
+    "runtimeWired": false,
+    "capabilityAdvertised": false,
+    "productionLibrarySelected": false,
+    "productionSuiteSelected": false,
+    "productionContainerSelected": false,
+    "nativeDPAPITested": false,
+    "signedPackageTested": false,
+    "plaintextFallbackAllowed": false,
+    "deltaReviewRequired": true
+  },
+  "artifacts": [
+    {"id":"repository","path":"pulsar-win/windows_e2ee_key_state.go","sha256":"cf7114abc4f86dc6de005e1e4679400c499b80ee94fd69792fe2f67b3aae15e5"},
+    {"id":"windows-default","path":"pulsar-win/windows_e2ee_key_state_default_windows.go","sha256":"9b59e8b6afcb12998175e44fe29e6556fb86b5de2fa2f9518c3f4185ecbde3c5"},
+    {"id":"nonwindows-default","path":"pulsar-win/windows_e2ee_key_state_default_other.go","sha256":"9738bd346e04f0f70a92aac46b0061b927815f13c695bad646ead3b9933ed287"},
+    {"id":"repository-tests","path":"pulsar-win/windows_e2ee_key_state_test.go","sha256":"668be15918cec9c4fae005576097ce30dc1b9bd6c2e26e461d1bc87b23869cb4"},
+    {"id":"dpapi-adapter","path":"pulsar-win/data_protector.go","sha256":"aed6e75cb66dc462169daa0b1a9029766aba2ddc66b02578d9dc16e303057ce2"},
+    {"id":"windows-file-adapter","path":"pulsar-win/protected_platform_windows.go","sha256":"77fd1d18cafd17251d3ce5773e11a3aee1ac2b679c82b290286acedd170cfdb1"},
+    {"id":"state-vectors","path":"protocol/e2ee-key-state-v1-vectors.json","sha256":"846685c8c16dea57d3b0e4022b08e72615e4cd9fa2149e76c8168e5f5d693326"},
+    {"id":"adr","path":"docs/analysis/p3-windows-e2ee-key-state-v1.md","sha256":"0d7481459ee6fc7adeeb15d732b1777cb3557a95f3ea3f2955a53f1602183286"},
+    {"id":"macos-key-state","path":"acceptance/phase3/macos-e2ee-key-state-v1.json","sha256":"87bc770cbdd7e09c642b373af641a7f4942ac0885d0815c6bad4db80f2c2b927"},
+    {"id":"threat-model","path":"acceptance/phase3/e2ee-threat-model-v1.json","sha256":"a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
+    {"id":"key-lifecycle","path":"acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json","sha256":"6015b911f8e83c8228c4c3f3b763c2e9852c2ea7f773be488d45ced0fc80578c"},
+    {"id":"schema-foundation","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"d0b3ac300224bd95472bcc72b9237c562a9074432c1e1f9596e4a55d6a7433eb"},
+    {"id":"routing-rotation","path":"acceptance/phase3/e2ee-coordinator-routing-rotation-v1.json","sha256":"620205a0758541d4d22057b7e375efdebdb9cc8c854cb087c0addedcc4ca56dd"},
+    {"id":"opaque-router","path":"acceptance/phase3/e2ee-opaque-media-router-v1.json","sha256":"01cb20948e881568c01da085f098fed0d2b28ee9dad01e05df8205b004c13280"}
+  ],
+  "protectedSlots": [
+    "device_metadata",
+    "device_signing",
+    "device_agreement",
+    "group",
+    "grant",
+    "content_cache"
+  ],
+  "dpapiPolicy": {
+    "scope": "current-user",
+    "uiForbidden": true,
+    "localMachine": false,
+    "optionalEntropy": false,
+    "secretDescription": false,
+    "nonWindowsPlaintextFallback": false
+  },
+  "durabilityPolicy": {
+    "crossProcessExclusiveLock": true,
+    "temporaryFilesContainCiphertextOnly": true,
+    "writeThroughTemporaryHandle": true,
+    "flushBeforeClose": true,
+    "replaceAndWriteThroughMove": true,
+    "destinationReadback": true,
+    "independentWitness": true
+  },
+  "bounds": {
+    "privateKeyBytes": 4096,
+    "opaqueGroupStateBytes": 1048576,
+    "grantBytes": 65536,
+    "cachedContentKeys": 32,
+    "cachedContentKeyBytes": 65536,
+    "individualContentKeyBytes": 4096,
+    "protectedPlaintextEnvelopeBytes": 3145728,
+    "protectedCiphertextBytes": 4194304
+  },
+  "stateInvariants": [
+    "device-metadata-signing-and-agreement-use-distinct-dpapi-files",
+    "every-state-slot-has-an-independent-dpapi-witness",
+    "repository-wide-share-none-lock-covers-read-validate-write-readback-ack",
+    "all-dependent-state-binds-to-installation-id",
+    "state-and-witness-readback-complete-before-ack",
+    "ambiguous-success-consumes-revision-and-generation",
+    "partial-write-and-partial-device-install-fail-closed",
+    "group-epoch-advances-exactly-one-with-exact-predecessor-digest",
+    "stale-replay-fork-clone-and-generation-overflow-fail-closed",
+    "grant-coverage-and-expiry-are-monotonic-and-revocable",
+    "content-key-cache-is-bounded-expiring-and-clearable",
+    "secret-leases-are-redacted-and-best-effort-cleared",
+    "no-config-logs-telemetry-crash-or-runtime-capability-wiring",
+    "revoked-only-active-member-is-a-removed-endpoint"
+  ],
+  "fixtures": {
+    "deviceSlotSeparation": "covered",
+    "partialDeviceInstall": "covered",
+    "epochKnownStateTransitions": "covered",
+    "staleRevisionReplay": "covered",
+    "epochGapAndWrongPredecessorFork": "covered",
+    "recordWrittenWitnessMissing": "covered",
+    "recordAndWitnessWrittenReadbackLost": "covered",
+    "crossInstallationCopiedGroup": "covered",
+    "crossProcessLockBusy": "covered",
+    "groupDeletion": "covered",
+    "grantMonotonicExpiryRevoke": "covered",
+    "contentCacheBoundExpiryClear": "covered",
+    "secretLeaseRedactionAndDestroy": "covered",
+    "revokedOnlyTargetSemantics": "covered",
+    "productionDarkDPAPISourceScan": "covered",
+    "nonWindowsPlaintextFallbackDenied": "covered"
+  },
+  "automatedEvidence": {
+    "focused": "go test . -run '^TestWindowsE2EE' -count=1",
+    "focusedRace": "go test -race . -run '^TestWindowsE2EE' -count=20",
+    "windowsAMD64": "GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./... && go test -c .",
+    "windowsARM64": "GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go test -c .",
+    "full": "go test ./...",
+    "fullRace": "go test -race ./...",
+    "acceptance": "python3 -m unittest scripts.acceptance.test_windows_e2ee_key_state"
+  },
+  "deferredScope": [
+    "reviewed-group-crypto-library-and-real-key-generation",
+    "production-cipher-suite-container-and-signature-verification",
+    "send-playback-live-ptt-and-ux-runtime-integration",
+    "device-recovery-transfer-and-reenrollment-runtime",
+    "signed-msix-native-dpapi-ntfs-profile-backup-and-restore-evidence",
+    "physical-device-memory-event-log-and-crash-dump-inspection"
+  ],
+  "manualEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "signedMSIX": "not-run",
+    "nativeCurrentUserDPAPI": "not-run",
+    "NTFSDurabilityAndLocking": "not-run",
+    "profileRoamingBackupRestore": "not-run",
+    "realCryptoInterop": "not-run-no-selected-stack",
+    "memoryAndCrashDumpForensics": "not-run",
+    "eventLogInspection": "not-run"
+  },
+  "openProductionGates": ["EPC-001", "EPC-002", "EPC-004", "EPC-005", "TASK-260712-1ulshp"]
+}

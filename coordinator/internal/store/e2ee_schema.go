@@ -48,6 +48,32 @@ CREATE TABLE IF NOT EXISTS e2ee_device_public_state (
 CREATE INDEX IF NOT EXISTS e2ee_device_public_actor_state
   ON e2ee_device_public_state(actor_id, verification_state, device_id);
 
+CREATE TABLE IF NOT EXISTS e2ee_protocol_actor_bindings (
+  device_id TEXT PRIMARY KEY REFERENCES e2ee_device_public_state(device_id),
+  actor_id INTEGER NOT NULL REFERENCES actors(id) CHECK(actor_id > 0),
+  protocol_actor_id TEXT NOT NULL CHECK(length(protocol_actor_id) BETWEEN 8 AND 128),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  UNIQUE(actor_id, device_id),
+  UNIQUE(actor_id, device_id, protocol_actor_id)
+);
+CREATE INDEX IF NOT EXISTS e2ee_protocol_actor_lookup
+  ON e2ee_protocol_actor_bindings(protocol_actor_id, actor_id, device_id);
+CREATE TRIGGER IF NOT EXISTS e2ee_protocol_actor_binding_consistent
+BEFORE INSERT ON e2ee_protocol_actor_bindings
+WHEN EXISTS(
+  SELECT 1 FROM e2ee_protocol_actor_bindings b
+  WHERE (b.actor_id = NEW.actor_id AND b.protocol_actor_id <> NEW.protocol_actor_id)
+     OR (b.protocol_actor_id = NEW.protocol_actor_id AND b.actor_id <> NEW.actor_id)
+)
+BEGIN
+  SELECT RAISE(ABORT, 'E2EE protocol actor binding conflicts');
+END;
+CREATE TRIGGER IF NOT EXISTS e2ee_protocol_actor_binding_immutable
+BEFORE UPDATE ON e2ee_protocol_actor_bindings
+BEGIN
+  SELECT RAISE(ABORT, 'E2EE protocol actor binding is immutable');
+END;
+
 CREATE TABLE IF NOT EXISTS e2ee_groups (
   id TEXT PRIMARY KEY CHECK(length(id) = 30 AND substr(id, 1, 4) = 'egp_'),
   air_id TEXT NOT NULL REFERENCES airs(public_id),
@@ -69,6 +95,56 @@ CREATE TABLE IF NOT EXISTS e2ee_groups (
 CREATE INDEX IF NOT EXISTS e2ee_groups_air_state
   ON e2ee_groups(air_id, fork_state, updated_at, id);
 
+CREATE TABLE IF NOT EXISTS e2ee_group_members (
+  group_id TEXT NOT NULL REFERENCES e2ee_groups(id),
+  device_id TEXT NOT NULL REFERENCES e2ee_device_public_state(device_id),
+  actor_id INTEGER NOT NULL REFERENCES actors(id) CHECK(actor_id > 0),
+  protocol_actor_id TEXT NOT NULL CHECK(length(protocol_actor_id) BETWEEN 8 AND 128),
+  actor_membership_role TEXT NOT NULL
+    CHECK(actor_membership_role IN ('primary', 'companion', 'satellite')),
+  actor_membership_joined_at INTEGER NOT NULL CHECK(actor_membership_joined_at > 0),
+  orbit_id INTEGER NOT NULL REFERENCES orbits(id) CHECK(orbit_id > 0),
+  air_membership_id TEXT NOT NULL REFERENCES air_members(public_id),
+  air_role TEXT NOT NULL CHECK(air_role IN ('owner', 'admin', 'member')),
+  air_membership_revision INTEGER NOT NULL CHECK(air_membership_revision > 0),
+  state TEXT NOT NULL CHECK(state IN ('current', 'removed')),
+  added_epoch INTEGER NOT NULL CHECK(added_epoch > 0),
+  removed_epoch INTEGER NOT NULL DEFAULT 0 CHECK(removed_epoch >= 0),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+  updated_at INTEGER NOT NULL CHECK(updated_at > 0),
+  PRIMARY KEY(group_id, device_id),
+  FOREIGN KEY(actor_id, device_id, protocol_actor_id)
+    REFERENCES e2ee_protocol_actor_bindings(actor_id, device_id, protocol_actor_id),
+  CHECK((state = 'current' AND removed_epoch = 0)
+     OR (state = 'removed' AND removed_epoch >= added_epoch))
+);
+CREATE INDEX IF NOT EXISTS e2ee_group_members_current
+  ON e2ee_group_members(group_id, state, device_id);
+
+CREATE TABLE IF NOT EXISTS e2ee_rotation_requirements (
+  group_id TEXT PRIMARY KEY REFERENCES e2ee_groups(id),
+  base_epoch INTEGER NOT NULL CHECK(base_epoch > 0),
+  observed_snapshot_digest TEXT NOT NULL CHECK(
+    length(observed_snapshot_digest) = 64
+      AND observed_snapshot_digest NOT GLOB '*[^0-9a-f]*'
+  ),
+  required_snapshot_digest TEXT NOT NULL CHECK(
+    length(required_snapshot_digest) = 64
+      AND required_snapshot_digest NOT GLOB '*[^0-9a-f]*'
+  ),
+  reason_code TEXT NOT NULL CHECK(reason_code IN (
+    'actor_disable', 'air_join', 'air_leave', 'device_revoke',
+    'membership_change', 'unsupported_client'
+  )),
+  state TEXT NOT NULL CHECK(state IN ('required', 'satisfied')),
+  satisfied_epoch INTEGER NOT NULL DEFAULT 0 CHECK(satisfied_epoch >= 0),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+  detected_at INTEGER NOT NULL CHECK(detected_at > 0),
+  updated_at INTEGER NOT NULL CHECK(updated_at >= detected_at),
+  CHECK((state = 'required' AND satisfied_epoch = 0)
+     OR (state = 'satisfied' AND satisfied_epoch > base_epoch))
+);
+
 CREATE TABLE IF NOT EXISTS e2ee_public_group_events (
   id TEXT PRIMARY KEY CHECK(length(id) BETWEEN 8 AND 128),
   group_id TEXT NOT NULL REFERENCES e2ee_groups(id),
@@ -88,11 +164,45 @@ CREATE TABLE IF NOT EXISTS e2ee_public_group_events (
   reason_code TEXT NOT NULL DEFAULT '' CHECK(length(reason_code) <= 64),
   created_at INTEGER NOT NULL CHECK(created_at > 0),
   updated_at INTEGER NOT NULL CHECK(updated_at >= created_at),
-  UNIQUE(group_id, event_digest)
+  UNIQUE(group_id, event_digest),
+  UNIQUE(group_id, id)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS e2ee_one_accepted_commit_per_epoch
   ON e2ee_public_group_events(group_id, epoch)
   WHERE kind = 'commit' AND state = 'accepted';
+
+CREATE TABLE IF NOT EXISTS e2ee_group_event_deliveries (
+  event_id TEXT NOT NULL REFERENCES e2ee_public_group_events(id),
+  group_id TEXT NOT NULL REFERENCES e2ee_groups(id),
+  recipient_device_id TEXT NOT NULL REFERENCES e2ee_device_public_state(device_id),
+  event_digest TEXT NOT NULL CHECK(
+    length(event_digest) = 64 AND event_digest NOT GLOB '*[^0-9a-f]*'
+  ),
+  epoch INTEGER NOT NULL CHECK(epoch > 0),
+  state TEXT NOT NULL CHECK(state IN ('pending', 'acknowledged', 'revoked')),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  acknowledged_at INTEGER NOT NULL DEFAULT 0 CHECK(acknowledged_at >= 0),
+  revoked_at INTEGER NOT NULL DEFAULT 0 CHECK(revoked_at >= 0),
+  PRIMARY KEY(event_id, recipient_device_id),
+  FOREIGN KEY(group_id, event_id) REFERENCES e2ee_public_group_events(group_id, id),
+  FOREIGN KEY(group_id, recipient_device_id)
+    REFERENCES e2ee_group_members(group_id, device_id),
+  CHECK((state = 'pending' AND acknowledged_at = 0 AND revoked_at = 0)
+     OR (state = 'acknowledged' AND acknowledged_at > 0 AND revoked_at = 0)
+     OR (state = 'revoked' AND acknowledged_at = 0 AND revoked_at > 0))
+);
+CREATE INDEX IF NOT EXISTS e2ee_group_event_delivery_queue
+  ON e2ee_group_event_deliveries(recipient_device_id, state, created_at, event_id);
+CREATE TRIGGER IF NOT EXISTS e2ee_group_event_delivery_binding_immutable
+BEFORE UPDATE ON e2ee_group_event_deliveries
+WHEN NEW.event_id <> OLD.event_id OR NEW.group_id <> OLD.group_id
+  OR NEW.recipient_device_id <> OLD.recipient_device_id
+  OR NEW.event_digest <> OLD.event_digest OR NEW.epoch <> OLD.epoch
+  OR NEW.created_at <> OLD.created_at
+BEGIN
+  SELECT RAISE(ABORT, 'E2EE delivery binding is immutable');
+END;
 
 CREATE TABLE IF NOT EXISTS e2ee_protected_objects (
   id TEXT PRIMARY KEY CHECK(length(id) = 29 AND substr(id, 1, 3) = 'em_'),

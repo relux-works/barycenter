@@ -105,7 +105,7 @@
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-3w1cst` —
   encrypted-media-schema-epoch-foundation (dormant engineering scope only)
-- Current branch: `feat/task-260712-3w1cst`
+- Current branch: `feat/task-260712-20j5tm`
 - Current review evidence: independent schema/epoch delta verdict
   `TASK-260712-3w1cst_independent-delta-review-v1.md` from terminal run
   `RUN-260719-b1df39`. The preceding Store-package run `RUN-260719-85bf38`

@@ -61,7 +61,8 @@ func newE2EEStoreFixture(t *testing.T) e2eeStoreFixture {
 	register := func(credentials OnboardingCredentials, deviceID string, stamp int64) {
 		payload := []byte("public-package:" + deviceID)
 		_, err := st.RegisterE2EEPublicDevice(RegisterE2EEPublicDeviceParams{
-			DeviceID: deviceID, ActorID: credentials.ActorID,
+			DeviceID: deviceID, ProtocolActorID: "actor_" + deviceID,
+			ActorID:       credentials.ActorID,
 			PublicPackage: payload, PublicPackageDigest: e2eeDigest(payload),
 			VerificationState: "verified", VerificationDigest: strings.Repeat("d", 64),
 			CreatedAt: stamp,

@@ -29,8 +29,8 @@
     {"id":"adr","path":"docs/analysis/p3-e2ee-protocol-key-lifecycle-contract-v1.md"}
   ],
   "implementations": [
-    {"id":"coordinator-keyless-mirror","path":"coordinator/internal/e2eecontract/contract.go","sha256":"b5c9b9c96e44fba0ede3c95289a769ae5d6ed4cf7b917e123facc401a1c75055","runtimeWired":false,"cryptographyImplemented":false},
-    {"id":"coordinator-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"c18b1fba3415bcb0fa5a61e497723b043e08dfbb7ded0c42d4bc260607b32eb2"},
+    {"id":"coordinator-keyless-mirror","path":"coordinator/internal/e2eecontract/contract.go","sha256":"3844a8a0d1bad60b464ff9d8f5568b8bcd526b83c79da556b2a6de09208030f0","runtimeWired":false,"cryptographyImplemented":false},
+    {"id":"coordinator-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"907647dcb7811d28615d6e11111c099c8566f0478f21308fd3a4041f82a7c582"},
     {"id":"windows-audit-model","path":"pulsar-win/e2ee_contract_audit.go","sha256":"ad7129c0798946b8a6863b4b7d06813b16ddf91437bcc24749eccf41a1d9d5a1","runtimeWired":false,"cryptographyImplemented":false},
     {"id":"windows-tests","path":"pulsar-win/e2ee_contract_audit_test.go","sha256":"745a05aac5da80a5d69db2faa64ed3c032dd070fa79398df8621e4978d0d9e6b"},
     {"id":"macos-audit-model","path":"node-app/Sources/NodeCore/E2EEAuditContract.swift","sha256":"927a8b57694d57e3f66acb7746db886f29e02e6baf4892eeecf1c2eff7a512be","runtimeWired":false,"cryptographyImplemented":false},

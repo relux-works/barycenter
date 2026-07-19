@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-root-inline
 
 ## Created
 2026-07-12T16:40:33Z
 
 ## Last Update
-2026-07-16T00:15:02Z
+2026-07-19T19:56:50Z
 
 ## Blocked By
 - TASK-260712-2ys1ww
@@ -35,6 +35,9 @@ backlog
 ## Notes
 Root-reviewed correction: rotate means serialize and route client-produced signed group commits. Coordinator must never create unwrap escrow or log group or content secrets. Original checklist wording is subordinate to this invariant.
 Owner gate 2026-07-16: moved to EPIC-260716-3qsztl Deferred E2EE media implementation after independent audit. Do not implement or move this task into development until TASK-260712-aniuyy Pass independent cryptographic design review before implementation is done with no open critical or high finding. Any protocol-affecting delta reopens the audit gate.
+Execution started 2026-07-19 on branch feat/task-260712-20j5tm from merged schema foundation 2ab8a135. Scope remains feature-off and production-dark; independent delta review required before acceptance.
+Producer implementation in progress: additive protocol-actor bindings, exact group-member snapshots, rotation requirements, durable event deliveries/acks, strict injected-verifier proposal/commit routing, and protected-write rotation gate are implemented production-dark. Focused and focused-race suites pass; full coordinator + go vet pass. Evidence packet and independent delta review remain pending.
+Producer verification complete before commit: focused tests, full coordinator go test ./..., go vet ./..., 207/207 acceptance-contract checks, targeted evidence validators, and full race go test -race ./internal/store ./internal/e2eecontract -count=1 passed (store 502.193s; contract 1.427s). Evidence hashes reproduce; independent review and exact producer SHA still pending.
 
 ## Precondition Resources
 - [p3-e2ee-media-components.puml](file://TASK-260712-20j5tm/p3-e2ee-media-components.puml) — Coordinator ciphertext-routing and rotation boundary diagram

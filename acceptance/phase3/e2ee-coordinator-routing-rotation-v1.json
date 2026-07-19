@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-e2ee-coordinator-routing-rotation.v1",
+  "task": "TASK-260712-20j5tm",
+  "publishedAt": "2026-07-19",
+  "decision": {
+    "result": "dormant-keyless-routing-foundation",
+    "productionEnabled": false,
+    "runtimeHTTPWired": false,
+    "capabilityAdvertised": false,
+    "productionLibrarySelected": false,
+    "productionSuiteSelected": false,
+    "productionContainerSelected": false,
+    "plaintextFallbackAllowed": false,
+    "coordinatorCreatesCommits": false,
+    "coordinatorContentKeyAccess": false,
+    "deltaReviewRequired": true
+  },
+  "artifacts": [
+    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"4af993cf3cca1a522db68359a02f3e194f5653149a24a82d30a58239534e5b38"},
+    {"id":"foundation-repository","path":"coordinator/internal/store/e2ee.go","sha256":"6a42ed360f316a6c8f9168896b5547980557da99102d1e259a55ae478e8378ac"},
+    {"id":"routing-repository","path":"coordinator/internal/store/e2ee_routing.go","sha256":"ad979df0a341cff0cc67ea664a0f4eaf383eba01879b96071270f2a2ee2f9fb0"},
+    {"id":"routing-tests","path":"coordinator/internal/store/e2ee_routing_test.go","sha256":"18747501a5b465aad37cd7a7432c305b2e0dd192f194fe2b451820ac648be867"},
+    {"id":"coordinator-contract","path":"coordinator/internal/e2eecontract/contract.go","sha256":"3844a8a0d1bad60b464ff9d8f5568b8bcd526b83c79da556b2a6de09208030f0"},
+    {"id":"coordinator-contract-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"907647dcb7811d28615d6e11111c099c8566f0478f21308fd3a4041f82a7c582"},
+    {"id":"protocol-authority","path":"protocol/e2ee-media-audit-v1.json","sha256":"5dc5ac88539fed12b827aa8c3ff6ce14b6a13ae46d063624822c5435f38334ce"},
+    {"id":"protocol-vectors","path":"protocol/e2ee-media-audit-v1-vectors.json","sha256":"2a8c71b909b2117921a6ee6b5415229ee8328e047f3c8f19d0db48e58fbf37cd"},
+    {"id":"threat-model","path":"acceptance/phase3/e2ee-threat-model-v1.json","sha256":"a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
+    {"id":"key-lifecycle-packet","path":"acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json","sha256":"e1476ba8056d6b51fca4d9da381b850538cf3cd00c394aee76f1c742a2d74871"},
+    {"id":"schema-foundation-packet","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"75e4facc91882fe6c5a491b11484a0bcb9acecea8da7494e2a15a0839d261b96"},
+    {"id":"adr","path":"docs/analysis/p3-e2ee-coordinator-routing-rotation-v1.md","sha256":"f47b3e6279755ed4aa1f21096a1a63e956112dccf9bc27d9d56a3eac0dea8d91"}
+  ],
+  "additiveTables": [
+    "e2ee_protocol_actor_bindings",
+    "e2ee_group_members",
+    "e2ee_rotation_requirements",
+    "e2ee_group_event_deliveries"
+  ],
+  "routingInvariants": [
+    "device-bound-to-current-actor-air-and-protocol-identity",
+    "canonical-exact-supported-device-snapshot",
+    "client-produced-strictly-decoded-and-injected-verifier-only",
+    "proposal-to-surviving-prior-epoch-members-only",
+    "commit-single-winner-exact-next-epoch-and-predecessor",
+    "commit-delivery-to-new-exact-snapshot-only",
+    "removed-device-no-new-delivery-or-protected-write",
+    "join-leave-device-revoke-actor-disable-require-rotation",
+    "unsupported-target-no-plaintext-downgrade",
+    "durable-restart-delivery-and-exact-acknowledgement",
+    "malformed-predecessor-cannot-poison-fork-state",
+    "coordinator-never-creates-unwraps-escrows-or-logs-secrets"
+  ],
+  "fixtures": {
+    "protocolActorBindingOneToOne": "covered",
+    "productionConfigRejects": "covered",
+    "proposalDeliveryAckRestart": "covered",
+    "sameTimestampDeliveryCursor": "covered",
+    "proposalReplayAudit": "covered",
+    "joinRotationAndProtectedWriteGate": "covered",
+    "leaveRotationRemovedDeviceDenied": "covered",
+    "deviceRevokeRotation": "covered",
+    "actorDisableRotation": "covered",
+    "sameDeviceLeaveRejoinLineageRotation": "covered",
+    "mixedVersionTarget": "covered",
+    "concurrentCommitSingleWinner": "covered",
+    "maliciousForkFreeze": "covered",
+    "malformedPredecessorNoPoison": "covered"
+  },
+  "automatedEvidence": {
+    "focused": "go test ./internal/store -run 'TestE2EE(Routed|Rotation|Routing)' -count=1",
+    "focusedRace": "go test -race ./internal/store -run 'TestE2EE(Routed|Rotation|Routing)' -count=1",
+    "coordinator": "go test ./...",
+    "coordinatorRace": "go test -race ./internal/store ./internal/e2eecontract",
+    "acceptance": "python3 -m unittest scripts.acceptance.test_e2ee_coordinator_routing_rotation scripts.acceptance.test_e2ee_schema_epoch_foundation scripts.acceptance.test_e2ee_protocol_key_lifecycle"
+  },
+  "deferredScope": [
+    "production-crypto-library-suite-and-serialization",
+    "production-protected-media-container",
+    "opaque-ciphertext-upload-fetch-http-runtime",
+    "client-key-state-and-secure-storage",
+    "client-encrypt-decrypt-playback",
+    "history-recovery-transfer-runtime",
+    "report-evidence-export-runtime"
+  ],
+  "manualEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "signedMSIX": "not-run",
+    "signedNotarizedMacOS": "not-run",
+    "realCryptoInterop": "not-run-no-selected-stack",
+    "physicalRecovery": "not-run",
+    "hardwarePlayback": "not-run"
+  },
+  "openProductionGates": ["EPC-001", "EPC-002", "EPC-004", "EPC-005", "TASK-260712-1ulshp"]
+}

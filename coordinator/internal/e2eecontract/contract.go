@@ -280,6 +280,41 @@ func DecodeCoordinatorProposal(raw []byte) (Proposal, error) {
 	return value, nil
 }
 
+// ValidateProposal applies the same fail-closed envelope, suite, signature,
+// target, replay and epoch ordering as ApplyCommit without mutating group
+// state. Membership authorization and durable serialization remain the
+// coordinator store's responsibility because they depend on current actor,
+// device and Air rows.
+func (s *State) ValidateProposal(config Config, value Proposal) error {
+	if value.Contract != Contract || value.Capability != Capability {
+		return fail(ErrDowngrade)
+	}
+	if _, ok := config.AllowedSuites[value.Suite]; !ok {
+		return fail(ErrUnknownSuite)
+	}
+	if value.EventID == "" || value.ActorID == "" || value.DeviceID == "" ||
+		len(value.ProposalDigest) != 64 || len(value.TargetSnapshotDigest) != 64 ||
+		len(value.AuthenticatedDataDigest) != 64 {
+		return fail(ErrMalformed)
+	}
+	if config.Verifier == nil || !config.Verifier.Verify(value.AuthenticatedDataDigest, value.Signature) {
+		return fail(ErrInvalidSignature)
+	}
+	if value.GroupID != s.GroupID || value.AirID != s.AirID {
+		return fail(ErrForeignTarget)
+	}
+	if value.PreviousEpoch < s.Epoch || value.Epoch <= s.Epoch {
+		return fail(ErrStaleEpoch)
+	}
+	if value.PreviousEpoch != s.Epoch || value.Epoch != s.Epoch+1 {
+		return fail(ErrForkedEpoch)
+	}
+	if _, ok := s.seenEvents[value.EventID]; ok {
+		return fail(ErrReplay)
+	}
+	return nil
+}
+
 type Welcome struct {
 	Contract                string `json:"contract"`
 	Capability              string `json:"capability"`

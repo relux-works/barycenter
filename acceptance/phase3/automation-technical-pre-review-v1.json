@@ -50,7 +50,7 @@
     {"path": "node-app/Sources/NodeCore/MacSoundboard.swift", "sha256": "e2c82e7568ddda81cfe8082de5462289f23783f2a5db03cc03b58353cd7990be"},
     {"path": "node-app/Sources/NodeCore/MacOverlayMediaClipMixer.swift", "sha256": "753e7ad9baa3e72f19ef0025df15b13662ebd6ce7a6eb8de089a6336289fcced"},
     {"path": "acceptance/phase3/automation-safety-evidence-v1.json", "sha256": "f5c70f080fc0b09fc17e7fc632ee82459a3287285036e2974c1178bcf93ef906"},
-    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "78963b28f614332e110da017c9929099d29e08af0fa4b543c907b9f3fd74f00c"}
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "ecafd5d5071abdbef7c62822b7ebc53fd27a38cc66f3372dcb5e849fe6c8e1e2"}
   ],
   "reviewedInvariants": [
     "actor-and-orbit-authority-rechecked-on-every-mutation",

@@ -253,6 +253,62 @@ func TestEveryCoordinatorPublicEnvelopeRejectsSecretsAndUnknownFields(t *testing
 	}
 }
 
+func TestProposalValidationUsesCanonicalFailurePrecedence(t *testing.T) {
+	fixture := loadVectors(t)
+	var commit Commit
+	if err := json.Unmarshal(fixture.ValidCommit, &commit); err != nil {
+		t.Fatal(err)
+	}
+	valid := Proposal{Contract: Contract, Capability: Capability, Suite: fixtureSuite,
+		EventID: "proposal-precedence-event", GroupID: commit.GroupID,
+		ActorID: commit.ActorID, DeviceID: commit.DeviceID, AirID: commit.AirID,
+		PreviousEpoch: fixture.Baseline.Epoch, Epoch: fixture.Baseline.Epoch + 1,
+		TargetSnapshotDigest:    fixture.Baseline.TargetSnapshotDigest,
+		ProposalDigest:          strings.Repeat("a", 64),
+		AuthenticatedDataDigest: commit.AuthenticatedDataDigest,
+		Signature:               "fixture-valid"}
+	if err := stateFromVectors(fixture).ValidateProposal(fixtureConfig(), valid); err != nil {
+		t.Fatalf("valid proposal rejected: %v", err)
+	}
+	if got := Code(stateFromVectors(fixture).ValidateProposal(ProductionConfig(), valid)); got != ErrUnknownSuite {
+		t.Fatalf("production proposal = %s", got)
+	}
+	malformed := valid
+	malformed.ActorID = ""
+	malformed.Signature = "invalid"
+	if got := Code(stateFromVectors(fixture).ValidateProposal(fixtureConfig(), malformed)); got != ErrMalformed {
+		t.Fatalf("malformed/signature precedence = %s", got)
+	}
+	invalidSignature := valid
+	invalidSignature.Signature = "invalid"
+	invalidSignature.GroupID = "foreign"
+	if got := Code(stateFromVectors(fixture).ValidateProposal(fixtureConfig(), invalidSignature)); got != ErrInvalidSignature {
+		t.Fatalf("signature/target precedence = %s", got)
+	}
+	foreign := valid
+	foreign.GroupID = "foreign"
+	foreign.PreviousEpoch = fixture.Baseline.Epoch - 1
+	foreign.Epoch = fixture.Baseline.Epoch
+	if got := Code(stateFromVectors(fixture).ValidateProposal(fixtureConfig(), foreign)); got != ErrForeignTarget {
+		t.Fatalf("target/stale precedence = %s", got)
+	}
+	staleState := stateFromVectors(fixture)
+	staleState.RememberEvent(valid.EventID)
+	stale := valid
+	stale.PreviousEpoch = fixture.Baseline.Epoch - 1
+	stale.Epoch = fixture.Baseline.Epoch
+	if got := Code(staleState.ValidateProposal(fixtureConfig(), stale)); got != ErrStaleEpoch {
+		t.Fatalf("stale/replay precedence = %s", got)
+	}
+	forkState := stateFromVectors(fixture)
+	forkState.RememberEvent(valid.EventID)
+	fork := valid
+	fork.Epoch = fixture.Baseline.Epoch + 2
+	if got := Code(forkState.ValidateProposal(fixtureConfig(), fork)); got != ErrForkedEpoch {
+		t.Fatalf("fork/replay precedence = %s", got)
+	}
+}
+
 func TestCommitOrderingRotationAndForkRules(t *testing.T) {
 	fixture := loadVectors(t)
 	var base Commit

@@ -77,8 +77,8 @@
     {"path": "node-app/Sources/NodeCore/MacLivePTTNode.swift", "sha256": "129ff8304c7d5ed6b3871108706dca8f905baa02f4658c6bfdc5f3a478024cba"},
     {"path": "node-app/Sources/NodeCore/E2EEAuditContract.swift", "sha256": "927a8b57694d57e3f66acb7746db886f29e02e6baf4892eeecf1c2eff7a512be"},
     {"path": "acceptance/phase3/root-line-review-v1.json", "sha256": "9a359f9021916f70c9187b9c3e35cf14ca133f3b65bb73154c774b26370142b0"},
-    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "78963b28f614332e110da017c9929099d29e08af0fa4b543c907b9f3fd74f00c"},
-    {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "9d95c382765332cf885925084cd02b0387f25001d332dd3206d8fddb891c3f99"},
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "ecafd5d5071abdbef7c62822b7ebc53fd27a38cc66f3372dcb5e849fe6c8e1e2"},
+    {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "e1476ba8056d6b51fca4d9da381b850538cf3cd00c394aee76f1c742a2d74871"},
     {"path": "acceptance/phase3/automation-safety-evidence-v1.json", "sha256": "f5c70f080fc0b09fc17e7fc632ee82459a3287285036e2974c1178bcf93ef906"},
     {"path": "docs/legal/en/privacy.md", "sha256": "1fed3103d6a12444555e32e8f51bab15d3554e83166b6c6473e43cd1dcfc6e8e"}
   ],

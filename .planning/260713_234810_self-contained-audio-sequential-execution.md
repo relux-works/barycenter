@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 167 accepted, 38 remain.
-- Routed inventory: 186 engineering tasks (167 accepted, 19 remain) and 19
+- Combined inventory: 205 original tasks; 168 accepted, 37 remain.
+- Routed inventory: 186 engineering tasks (168 accepted, 18 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,9 +13,13 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-2s4e9p` — store-listing-iarc-assets.
-- Current original-plan frontier: `TASK-260712-2s4e9p` —
-  store-listing-iarc-assets. The preceding p1-independent-security-review
+- Current engineering task: `BUG-260719-1rsd49` —
+  store-connection-pragma-defense-in-depth.
+- Current original-plan frontier: `TASK-260712-aniuyy` —
+  e2ee-independent-design-review in deferred epic `EPIC-260716-3qsztl`.
+  It remains held until the only open follow-up in the main engineering epic,
+  `BUG-260719-1rsd49`, is resolved. The preceding
+  p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
   task `TASK-260715-10ksxz`. The reviewer verified exact main head `1b9207e`
@@ -61,13 +65,15 @@
   That gate and every later E2EE implementation task live in
   `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there as well and
   cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-wy05n6` —
-  p1-independent-security-review
-- Current branch: `tracking/task-260715-10ksxz-completion`
-- Current review evidence: security review action `TASK-260715-10ksxz` is
-  accepted with outcome
-  `TASK-260715-10ksxz_independent-security-review-verdict.md`; no manual,
-  hardware, production, Store or release claim is inferred.
+- Most recently accepted: `TASK-260712-2s4e9p` —
+  store-listing-iarc-assets (engineering scope only)
+- Current branch: `review/task-260712-2s4e9p-engineering`
+- Current review evidence: independent Store package run
+  `RUN-260719-85bf38` accepted exact `e3bf985` for engineering scope in
+  `TASK-260712-2s4e9p_engineering-review-verdict.md`. Manual screenshots/WACK
+  and exact Partner Center/IARC owner inputs remain open in
+  `TASK-260712-e5mfqj` and `TASK-260715-24ube9`; no Store-ready, hardware,
+  rating, submission or release claim is inferred.
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -107,8 +113,8 @@
   `TASK-260716-tlxe3s`. The protocol and realtime-audio reviewers have since
   returned independent APPROVE verdicts; the other withheld external verdicts
   and production activation remain open. Store submission remains fail-closed.
-- Accepted overall: 167 / 205 tasks (81.5%); 38 remain
-- Engineering progress: 167 / 186 tasks (approximately 89.8%); 19 remain
+- Accepted overall: 168 / 205 tasks (82.0%); 37 remain
+- Engineering progress: 168 / 186 tasks (approximately 90.3%); 18 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3038,7 +3044,11 @@ acceptance.
   medium dispositions, dispositioned migration MED-1 non-blocking with follow-up
   `BUG-260719-1rsd49`, and confirmed suites/govulncheck/hosted CI `29692957096`
   green)
-- [ ] `TASK-260712-2s4e9p` — store-listing-iarc-assets
+- [x] `TASK-260712-2s4e9p` — store-listing-iarc-assets (accepted engineering-
+  only at exact `e3bf985` by independent Claude Fable 5 run
+  `RUN-260719-85bf38`; package/checker/current Microsoft guidance/live URLs
+  verified, while manual checklist items 3/4/5/7 remain intentionally false
+  and routed to `TASK-260712-e5mfqj` and `TASK-260715-24ube9`)
 - [x] `TASK-260712-38lssj` — p1-root-integration-review (accepted as the
   fail-closed engineering root review; exact candidate and unresolved
   independent, Store and manual holds are indexed in

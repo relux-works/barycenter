@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 164 accepted, 41 remain.
-- Routed inventory: 186 engineering tasks (164 accepted, 22 remain) and 19
+- Combined inventory: 205 original tasks; 165 accepted, 40 remain.
+- Routed inventory: 186 engineering tasks (165 accepted, 21 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,29 +13,33 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-1uz0za` —
-  p1-independent-realtime-audio-review.
-- Current original-plan frontier: `TASK-260712-1uz0za` —
-  p1-independent-realtime-audio-review. The preceding protocol gate was
+- Current engineering task: `TASK-260712-1xkn75` —
+  p1-independent-migration-review.
+- Current original-plan frontier: `TASK-260712-1xkn75` —
+  p1-independent-migration-review. The preceding realtime-audio gate was
   independently approved on 2026-07-19 by Claude Fable 5, spawned through
-  task-board at native effort `max` as run `RUN-260719-a723c8`. The reviewer
-  verified candidate `191ae263`, its byte-identical authority surface through
-  main `9e9da97`, all 39 original messages and 20 additive messages, reran full
-  coordinator and Windows race suites plus 308 Swift tests, found no open
-  critical/high issue and recorded an APPROVE verdict. The later P1 independent
-  audio, migration and security reviews plus Store/IARC completion remain
-  strict holds and require their own evidence and verdicts.
+  task-board as run `RUN-260719-3e4ad6`. The reviewer verified exact main head
+  `11b5132` containing audit merge `5aedd68` and corrective `805337d` over
+  frozen base `aed5d7e`, inspected both render boundaries and the three closed
+  HIGH findings, reran the full Windows race suite plus focused
+  soak/leak/memory evidence locally, consumed hosted run `29689344361` (4/4
+  jobs, 308 Swift tests, `manualEvidence=not-run`), found no open
+  critical/high engineering issue and recorded an APPROVE verdict for
+  engineering scope only. The later P1 independent migration and security
+  reviews plus Store/IARC completion remain strict holds and require their own
+  evidence and verdicts.
 - Next deferred coding line: E2EE resumes with `TASK-260712-aniuyy` only after
   an implementation-independent design reviewer accepts its exact packet.
   That gate and every later E2EE implementation task live in
   `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there as well and
   cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-176b74` — p1-independent-protocol-review
-- Current branch: `review/task-260715-3ffm3r-fable5`
-- Current review evidence: external action `TASK-260715-3ffm3r` is accepted
+- Most recently accepted: `TASK-260712-1uz0za` —
+  p1-independent-realtime-audio-review
+- Current branch: `review/task-260715-s838ym-fable5`
+- Current review evidence: external action `TASK-260715-s838ym` is accepted
   with signed outcome resource
-  `TASK-260715-3ffm3r_independent-protocol-review-verdict.md`; no manual,
-  hardware, production, Store or release claim is inferred.
+  `TASK-260715-s838ym_independent-realtime-audio-review-verdict.md`; no
+  manual, hardware, production, Store or release claim is inferred.
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -72,11 +76,11 @@
   provider mutation and delivery evidence remain open. The same approval
   accepted the non-implementing protocol-reviewer selection default in
   `TASK-260715-3ffm3r` and the dark-only bundled FFmpeg candidate default in
-  `TASK-260716-tlxe3s`. The protocol reviewer has since returned an independent
-  APPROVE verdict; the other withheld external verdicts and production
-  activation remain open. Store submission remains fail-closed.
-- Accepted overall: 164 / 205 tasks (80.0%); 41 remain
-- Engineering progress: 164 / 186 tasks (approximately 88.2%); 22 remain
+  `TASK-260716-tlxe3s`. The protocol and realtime-audio reviewers have since
+  returned independent APPROVE verdicts; the other withheld external verdicts
+  and production activation remain open. Store submission remains fail-closed.
+- Accepted overall: 165 / 205 tasks (80.5%); 40 remain
+- Engineering progress: 165 / 186 tasks (approximately 88.7%); 21 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -2981,7 +2985,18 @@ acceptance.
   found no open critical/high issue and recorded APPROVE in
   `TASK-260715-3ffm3r_independent-protocol-review-verdict.md`; repository/CI
   evidence only, with manual/hardware/Store claims still withheld)
-- [ ] `TASK-260712-1uz0za` — p1-independent-realtime-audio-review
+- [x] `TASK-260712-1uz0za` — p1-independent-realtime-audio-review (technical
+  audit and three HIGH fixes landed through PR #70 at merge `5aedd68`;
+  owner-authorized independent reviewer Claude Fable 5 ran through task-board
+  as `RUN-260719-3e4ad6`, reviewed later exact main head `11b5132`, inspected
+  both render boundaries and the P1-AUDIO-001..003 closures, reran the full
+  Windows race suite plus focused soak/leak/memory evidence locally, consumed
+  hosted run `29689344361` (4/4 jobs, 308 Swift tests,
+  `manualEvidence=not-run`), found no open critical/high engineering issue and
+  recorded APPROVE in
+  `TASK-260715-s838ym_independent-realtime-audio-review-verdict.md`;
+  engineering scope only — manual A3/A4, audible quality and physical
+  200/500 ms evidence remain exclusively in `TASK-260712-2hodti`)
 - [ ] `TASK-260712-1xkn75` — p1-independent-migration-review
 - [ ] `TASK-260712-wy05n6` — p1-independent-security-review
 - [ ] `TASK-260712-2s4e9p` — store-listing-iarc-assets

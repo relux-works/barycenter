@@ -265,6 +265,148 @@ BEGIN
   SELECT RAISE(ABORT, 'protected object payload is immutable');
 END;
 
+CREATE TABLE IF NOT EXISTS e2ee_protected_object_recipients (
+  protected_object_id TEXT NOT NULL REFERENCES e2ee_protected_objects(id),
+  recipient_device_id TEXT NOT NULL REFERENCES e2ee_device_public_state(device_id),
+  actor_id INTEGER NOT NULL REFERENCES actors(id),
+  protocol_actor_id TEXT NOT NULL CHECK(length(protocol_actor_id) BETWEEN 8 AND 128),
+  actor_membership_role TEXT NOT NULL CHECK(length(actor_membership_role) BETWEEN 1 AND 32),
+  actor_membership_joined_at INTEGER NOT NULL CHECK(actor_membership_joined_at > 0),
+  orbit_id INTEGER NOT NULL REFERENCES orbits(id),
+  air_membership_id TEXT NOT NULL CHECK(length(air_membership_id) BETWEEN 8 AND 128),
+  air_role TEXT NOT NULL CHECK(air_role IN ('owner', 'member')),
+  air_membership_revision INTEGER NOT NULL CHECK(air_membership_revision > 0),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  PRIMARY KEY(protected_object_id, recipient_device_id)
+);
+CREATE INDEX IF NOT EXISTS e2ee_protected_object_recipient_device
+  ON e2ee_protected_object_recipients(recipient_device_id, protected_object_id);
+CREATE TRIGGER IF NOT EXISTS e2ee_protected_object_recipient_immutable
+BEFORE UPDATE ON e2ee_protected_object_recipients BEGIN
+  SELECT RAISE(ABORT, 'protected object recipient is immutable');
+END;
+
+CREATE TABLE IF NOT EXISTS e2ee_protected_object_chunks (
+  protected_object_id TEXT NOT NULL REFERENCES e2ee_protected_objects(id),
+  chunk_index INTEGER NOT NULL CHECK(chunk_index >= 0 AND chunk_index < 1024),
+  byte_offset INTEGER NOT NULL CHECK(byte_offset >= 0),
+  ciphertext_size INTEGER NOT NULL CHECK(ciphertext_size BETWEEN 1 AND 1048576),
+  ciphertext_digest TEXT NOT NULL CHECK(
+    length(ciphertext_digest) = 64 AND ciphertext_digest NOT GLOB '*[^0-9a-f]*'
+  ),
+  ciphertext BLOB NOT NULL CHECK(length(ciphertext) = ciphertext_size),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  PRIMARY KEY(protected_object_id, chunk_index),
+  UNIQUE(protected_object_id, byte_offset)
+);
+CREATE INDEX IF NOT EXISTS e2ee_protected_object_chunk_range
+  ON e2ee_protected_object_chunks(protected_object_id, byte_offset, chunk_index);
+CREATE TRIGGER IF NOT EXISTS e2ee_protected_object_chunk_immutable
+BEFORE UPDATE ON e2ee_protected_object_chunks BEGIN
+  SELECT RAISE(ABORT, 'protected object chunk is immutable');
+END;
+
+CREATE TABLE IF NOT EXISTS e2ee_protected_egress_usage (
+  recipient_device_id TEXT PRIMARY KEY REFERENCES e2ee_device_public_state(device_id),
+  window_started_at INTEGER NOT NULL CHECK(window_started_at > 0),
+  charged_bytes INTEGER NOT NULL DEFAULT 0 CHECK(charged_bytes >= 0),
+  actual_bytes INTEGER NOT NULL DEFAULT 0 CHECK(actual_bytes >= 0),
+  range_requests INTEGER NOT NULL DEFAULT 0 CHECK(range_requests >= 0),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+  updated_at INTEGER NOT NULL CHECK(updated_at >= window_started_at)
+);
+
+CREATE TABLE IF NOT EXISTS e2ee_opaque_live_sessions (
+  session_id TEXT PRIMARY KEY CHECK(
+    length(session_id) = 32 AND session_id NOT GLOB '*[^0-9a-f]*'
+  ),
+  group_id TEXT NOT NULL REFERENCES e2ee_groups(id),
+  author_device_id TEXT NOT NULL REFERENCES e2ee_device_public_state(device_id),
+  epoch INTEGER NOT NULL CHECK(epoch > 0),
+  generation INTEGER NOT NULL CHECK(generation > 0),
+  target_snapshot_digest TEXT NOT NULL CHECK(
+    length(target_snapshot_digest) = 64
+      AND target_snapshot_digest NOT GLOB '*[^0-9a-f]*'
+  ),
+  header_digest TEXT NOT NULL CHECK(
+    length(header_digest) = 64 AND header_digest NOT GLOB '*[^0-9a-f]*'
+  ),
+  opaque_header BLOB NOT NULL CHECK(length(opaque_header) BETWEEN 1 AND 4096),
+  state TEXT NOT NULL CHECK(state IN ('active', 'terminal')),
+  terminal_reason TEXT NOT NULL DEFAULT '' CHECK(length(terminal_reason) <= 64),
+  last_sequence INTEGER NOT NULL DEFAULT 0 CHECK(last_sequence >= 0),
+  last_capture_us INTEGER NOT NULL DEFAULT 0 CHECK(last_capture_us >= 0),
+  last_frame_digest TEXT NOT NULL DEFAULT '' CHECK(
+    last_frame_digest = '' OR (length(last_frame_digest) = 64
+      AND last_frame_digest NOT GLOB '*[^0-9a-f]*')
+  ),
+  rate_tokens_milli INTEGER NOT NULL DEFAULT 8000 CHECK(rate_tokens_milli BETWEEN 0 AND 8000),
+  rate_at INTEGER NOT NULL CHECK(rate_at > 0),
+  relayed_bytes INTEGER NOT NULL DEFAULT 0 CHECK(relayed_bytes >= 0),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+  started_at INTEGER NOT NULL CHECK(started_at > 0),
+  expires_at INTEGER NOT NULL CHECK(expires_at > started_at),
+  updated_at INTEGER NOT NULL CHECK(updated_at >= started_at),
+  ended_at INTEGER NOT NULL DEFAULT 0 CHECK(ended_at >= 0),
+  CHECK((state = 'active' AND terminal_reason = '' AND ended_at = 0)
+     OR (state = 'terminal' AND terminal_reason <> '' AND ended_at > 0))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS e2ee_one_active_live_session_per_group
+  ON e2ee_opaque_live_sessions(group_id) WHERE state = 'active';
+CREATE UNIQUE INDEX IF NOT EXISTS e2ee_live_sender_generation
+  ON e2ee_opaque_live_sessions(group_id, author_device_id, generation);
+CREATE INDEX IF NOT EXISTS e2ee_live_terminal_cleanup
+  ON e2ee_opaque_live_sessions(state, ended_at, session_id);
+CREATE TRIGGER IF NOT EXISTS e2ee_opaque_live_binding_immutable
+BEFORE UPDATE ON e2ee_opaque_live_sessions
+WHEN NEW.session_id <> OLD.session_id OR NEW.group_id <> OLD.group_id
+  OR NEW.author_device_id <> OLD.author_device_id OR NEW.epoch <> OLD.epoch
+  OR NEW.generation <> OLD.generation
+  OR NEW.target_snapshot_digest <> OLD.target_snapshot_digest
+  OR NEW.header_digest <> OLD.header_digest OR NEW.opaque_header <> OLD.opaque_header
+  OR NEW.started_at <> OLD.started_at OR NEW.expires_at <> OLD.expires_at
+BEGIN
+  SELECT RAISE(ABORT, 'opaque live session binding is immutable');
+END;
+
+CREATE TABLE IF NOT EXISTS e2ee_opaque_live_recipients (
+  session_id TEXT NOT NULL REFERENCES e2ee_opaque_live_sessions(session_id),
+  recipient_device_id TEXT NOT NULL REFERENCES e2ee_device_public_state(device_id),
+  actor_id INTEGER NOT NULL REFERENCES actors(id),
+  protocol_actor_id TEXT NOT NULL CHECK(length(protocol_actor_id) BETWEEN 8 AND 128),
+  actor_membership_joined_at INTEGER NOT NULL CHECK(actor_membership_joined_at > 0),
+  air_membership_id TEXT NOT NULL CHECK(length(air_membership_id) BETWEEN 8 AND 128),
+  air_membership_revision INTEGER NOT NULL CHECK(air_membership_revision > 0),
+  state TEXT NOT NULL DEFAULT 'active' CHECK(state IN ('active', 'terminal')),
+  terminal_reason TEXT NOT NULL DEFAULT '' CHECK(length(terminal_reason) <= 64),
+  last_event_sequence INTEGER NOT NULL DEFAULT 0 CHECK(last_event_sequence >= 0),
+  last_receipt_state TEXT NOT NULL DEFAULT '' CHECK(last_receipt_state IN (
+    '', 'accepted', 'audible_started', 'ended', 'failed', 'rejected', 'unsupported'
+  )),
+  last_receipt_at INTEGER NOT NULL DEFAULT 0 CHECK(last_receipt_at >= 0),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+  created_at INTEGER NOT NULL CHECK(created_at > 0),
+  updated_at INTEGER NOT NULL CHECK(updated_at >= created_at),
+  ended_at INTEGER NOT NULL DEFAULT 0 CHECK(ended_at >= 0),
+  PRIMARY KEY(session_id, recipient_device_id),
+  CHECK((state = 'active' AND terminal_reason = '' AND ended_at = 0)
+     OR (state = 'terminal' AND terminal_reason <> '' AND ended_at > 0))
+);
+CREATE INDEX IF NOT EXISTS e2ee_opaque_live_recipient_active
+  ON e2ee_opaque_live_recipients(session_id, state, recipient_device_id);
+CREATE TRIGGER IF NOT EXISTS e2ee_opaque_live_recipient_binding_immutable
+BEFORE UPDATE ON e2ee_opaque_live_recipients
+WHEN NEW.session_id <> OLD.session_id
+  OR NEW.recipient_device_id <> OLD.recipient_device_id
+  OR NEW.actor_id <> OLD.actor_id OR NEW.protocol_actor_id <> OLD.protocol_actor_id
+  OR NEW.actor_membership_joined_at <> OLD.actor_membership_joined_at
+  OR NEW.air_membership_id <> OLD.air_membership_id
+  OR NEW.air_membership_revision <> OLD.air_membership_revision
+  OR NEW.created_at <> OLD.created_at
+BEGIN
+  SELECT RAISE(ABORT, 'opaque live recipient binding is immutable');
+END;
+
 CREATE TABLE IF NOT EXISTS e2ee_sender_replay_state (
   group_id TEXT NOT NULL REFERENCES e2ee_groups(id),
   author_device_id TEXT NOT NULL CHECK(length(author_device_id) BETWEEN 8 AND 128),

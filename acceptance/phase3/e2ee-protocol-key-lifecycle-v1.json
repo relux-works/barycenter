@@ -30,7 +30,7 @@
   ],
   "implementations": [
     {"id":"coordinator-keyless-mirror","path":"coordinator/internal/e2eecontract/contract.go","sha256":"3844a8a0d1bad60b464ff9d8f5568b8bcd526b83c79da556b2a6de09208030f0","runtimeWired":false,"cryptographyImplemented":false},
-    {"id":"coordinator-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"907647dcb7811d28615d6e11111c099c8566f0478f21308fd3a4041f82a7c582"},
+    {"id":"coordinator-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"e5aa51f8872831d16707dc42e28a06b9627c474098a97de86247e737258b1cb2"},
     {"id":"windows-audit-model","path":"pulsar-win/e2ee_contract_audit.go","sha256":"ad7129c0798946b8a6863b4b7d06813b16ddf91437bcc24749eccf41a1d9d5a1","runtimeWired":false,"cryptographyImplemented":false},
     {"id":"windows-tests","path":"pulsar-win/e2ee_contract_audit_test.go","sha256":"745a05aac5da80a5d69db2faa64ed3c032dd070fa79398df8621e4978d0d9e6b"},
     {"id":"macos-audit-model","path":"node-app/Sources/NodeCore/E2EEAuditContract.swift","sha256":"927a8b57694d57e3f66acb7746db886f29e02e6baf4892eeecf1c2eff7a512be","runtimeWired":false,"cryptographyImplemented":false},

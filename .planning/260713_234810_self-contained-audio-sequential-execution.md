@@ -111,14 +111,15 @@
   Critical/High/Medium findings. Non-blocking L1 records multi-cause
   `reason_code` audit fidelity; I1 requires downstream key-state work to pin
   the member-with-only-revoked-devices semantic. Production EPC gates and
-  external security acceptance remain open.
+  external security acceptance remain open. PR #285 passed hosted CI run
+  `29702340139` (4/4) and merged to `main` as `32fee4ac`.
 - Next deferred coding line: E2EE continues with `TASK-260712-1yz5ca`, limited
   to disabled best-effort opaque media routing. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-20j5tm` —
   coordinator-ciphertext-routing-rotation (dormant engineering scope only)
-- Current branch: `feat/task-260712-20j5tm`
+- Current branch: `feat/task-260712-1yz5ca`
 - Current review evidence: independent routing/rotation delta verdict
   `TASK-260712-20j5tm_independent-delta-review-v1.md` from terminal run
   `RUN-260719-47433f`. The preceding Store-package run `RUN-260719-85bf38`

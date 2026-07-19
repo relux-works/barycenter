@@ -16,7 +16,7 @@
       "result": "producer-fix-validated-independent-re-review-approved",
       "sourcePath": "coordinator/internal/store/store.go",
       "previousSha256": "fb26e0809acb8ce7cfa336cfb9c8d887a88120fef9f6ef54c969181f12edd9e4",
-      "currentSha256": "6a9565015fe55f483d4912e86da8bf39f6e43d86e2445288c3375843a31007c8",
+      "currentSha256": "b77aae2b7ed1cc10e06a23b11485617fc603e5d1823d1940e9d67f9c42257e16",
       "evidence": [
         "focused-migration-race-pass",
         "full-coordinator-pass",
@@ -52,7 +52,7 @@
     "nextEngineeringTaskMayStart": true
   },
   "sourceAnchors": [
-    {"path": "coordinator/internal/store/store.go", "sha256": "6a9565015fe55f483d4912e86da8bf39f6e43d86e2445288c3375843a31007c8"},
+    {"path": "coordinator/internal/store/store.go", "sha256": "b77aae2b7ed1cc10e06a23b11485617fc603e5d1823d1940e9d67f9c42257e16"},
     {"path": "coordinator/internal/store/identity_schema.go", "sha256": "621c2d3bfb24c25bb8a6f1895dfbee612dd26d9734c6a67fbb0db48ea403c1ad"},
     {"path": "coordinator/internal/store/onboarding.go", "sha256": "77f30536883a5798274e0b001bde7299f37bea5f6e64b0d402f1362cc1bba0f9"},
     {"path": "coordinator/internal/store/air_schema.go", "sha256": "fdb79c4e0ff4ed29eb9926430ba9ac2e9e719d77f13ffad6715eecd29919e485"},
@@ -77,8 +77,8 @@
     {"path": "node-app/Sources/NodeCore/MacLivePTTNode.swift", "sha256": "129ff8304c7d5ed6b3871108706dca8f905baa02f4658c6bfdc5f3a478024cba"},
     {"path": "node-app/Sources/NodeCore/E2EEAuditContract.swift", "sha256": "927a8b57694d57e3f66acb7746db886f29e02e6baf4892eeecf1c2eff7a512be"},
     {"path": "acceptance/phase3/root-line-review-v1.json", "sha256": "9a359f9021916f70c9187b9c3e35cf14ca133f3b65bb73154c774b26370142b0"},
-    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "ecafd5d5071abdbef7c62822b7ebc53fd27a38cc66f3372dcb5e849fe6c8e1e2"},
-    {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "e1476ba8056d6b51fca4d9da381b850538cf3cd00c394aee76f1c742a2d74871"},
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "37230e80237ca18a52549db648c17e13a992b60ab816ebf550ebfe19483dd0d2"},
+    {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "6015b911f8e83c8228c4c3f3b763c2e9852c2ea7f773be488d45ced0fc80578c"},
     {"path": "acceptance/phase3/automation-safety-evidence-v1.json", "sha256": "f5c70f080fc0b09fc17e7fc632ee82459a3287285036e2974c1178bcf93ef906"},
     {"path": "docs/legal/en/privacy.md", "sha256": "1fed3103d6a12444555e32e8f51bab15d3554e83166b6c6473e43cd1dcfc6e8e"}
   ],

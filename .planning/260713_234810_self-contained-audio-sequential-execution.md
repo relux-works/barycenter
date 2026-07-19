@@ -13,19 +13,21 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
 - Current engineering task: none; the strict non-E2EE Phase 3 engineering
-  sequence passed its final root audit
-- Next engineering task: deferred E2EE resumes with `TASK-260712-aniuyy` only
-  after an implementation-independent design reviewer accepts its exact packet
-- Current external owner gate: `TASK-260712-aniuyy` — e2ee-independent-design-review
-  in `EPIC-260716-3qsztl`; the exact audit packet is ready but Codex cannot
-  self-approve an independent cryptographic review. That gate and every later
-  E2EE implementation task are deferred outside the current engineering epic,
-  so strict execution resumes at section 17 without claiming them complete.
-  `TASK-260712-1ulshp` is also retained in that deferred E2EE epic: it remains
-  blocked by `TASK-260712-aniuyy` and `TASK-260712-1bcpda` and cannot be
-  self-certified by the implementation session.
+  sequence passed its final root audit.
+- Current original-plan frontier: `TASK-260712-176b74` —
+  p1-independent-protocol-review. Its technical audit and corrective work are
+  complete, and on 2026-07-19 Ivan Oparin approved the proposed default to
+  select a qualified non-implementing reviewer, but no independent reviewer
+  identity or verdict has been recorded. The later P1 independent audio,
+  migration and security reviews plus Store/IARC completion remain external
+  holds in the same strict section; they cannot be self-certified.
+- Next deferred coding line: E2EE resumes with `TASK-260712-aniuyy` only after
+  an implementation-independent design reviewer accepts its exact packet.
+  That gate and every later E2EE implementation task live in
+  `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there as well and
+  cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2b5685` — phase3-root-engineering-completion-audit
-- Current branch: `tracking/task-260712-2b5685-root-engineering-completion-audit`
+- Current branch: `tracking/owner-default-approval-20260719`
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -56,8 +58,14 @@
   `e588fc9b727d6264c289f69cc97ea77e4987f939`.
 - Current external-action ledger: `EPIC-260714-zmnd4n`. DNS inspection found
   no MX for `barycenter.live`; provider-side routing and synthetic delivery for
-  the approved mailboxes are tracked as `TASK-260714-200ib8` and do not block
-  reversible best-effort engineering. Store submission remains fail-closed.
+  the approved mailboxes are tracked as `TASK-260714-200ib8`. On 2026-07-19
+  Ivan Oparin approved Cloudflare Email Routing to one private verified
+  Ivan-controlled destination as the default approach; the destination,
+  provider mutation and delivery evidence remain open. The same approval
+  accepted the non-implementing protocol-reviewer selection default in
+  `TASK-260715-3ffm3r` and the dark-only bundled FFmpeg candidate default in
+  `TASK-260716-tlxe3s`. These decisions do not constitute the withheld external
+  verdicts or production activation. Store submission remains fail-closed.
 - Accepted overall: 163 / 205 tasks (79.5%); 42 remain
 - Engineering progress: 163 / 186 tasks (approximately 87.6%); 23 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
@@ -2956,8 +2964,14 @@ acceptance.
 - [ ] `TASK-260712-1xkn75` — p1-independent-migration-review
 - [ ] `TASK-260712-wy05n6` — p1-independent-security-review
 - [ ] `TASK-260712-2s4e9p` — store-listing-iarc-assets
-- [ ] `TASK-260712-38lssj` — p1-root-integration-review
-- [ ] `TASK-260712-1xik11` — p1-engineering-readiness-handoff
+- [x] `TASK-260712-38lssj` — p1-root-integration-review (accepted as the
+  fail-closed engineering root review; exact candidate and unresolved
+  independent, Store and manual holds are indexed in
+  `docs/analysis/p1-root-integration-review.md`)
+- [x] `TASK-260712-1xik11` — p1-engineering-readiness-handoff (accepted through
+  PR #80 at merge `9bf3d10` after clean 12/12 and hosted run `29409373973`
+  passed 4/4; this authorizes P2 engineering only and does not claim hardware,
+  Store submission or independent signoff)
 
 ## 9. P2 Air rooms and approach migration
 

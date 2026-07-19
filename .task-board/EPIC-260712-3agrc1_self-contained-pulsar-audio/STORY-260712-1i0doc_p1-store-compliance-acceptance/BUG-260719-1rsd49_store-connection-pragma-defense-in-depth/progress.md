@@ -8,7 +8,7 @@ codex
 2026-07-19T15:54:13Z
 
 ## Last Update
-2026-07-19T16:42:30Z
+2026-07-19T16:43:30Z
 
 ## Blocked By
 - (none)
@@ -26,7 +26,7 @@ codex
 ## Notes
 
 ## Precondition Resources
-(none)
+- [independent-review-brief.md](file://BUG-260719-1rsd49/independent-review-brief.md) — Exact independent review scope and verdict contract
 
 ## Outcome Resources
 - [implementation-evidence.md](file://BUG-260719-1rsd49/implementation-evidence.md) — Producer implementation and verification evidence for independent review

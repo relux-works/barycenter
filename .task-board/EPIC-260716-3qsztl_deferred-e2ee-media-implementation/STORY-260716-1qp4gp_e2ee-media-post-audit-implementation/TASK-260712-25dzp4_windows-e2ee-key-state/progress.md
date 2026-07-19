@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-root-inline
 
 ## Created
 2026-07-12T16:49:11Z
 
 ## Last Update
-2026-07-19T20:19:26Z
+2026-07-19T22:24:36Z
 
 ## Blocked By
 - TASK-260712-aniuyy
@@ -32,6 +32,7 @@ backlog
 ## Notes
 Owner gate 2026-07-16: moved to EPIC-260716-3qsztl Deferred E2EE media implementation after independent audit. Do not implement or move this task into development until TASK-260712-aniuyy Pass independent cryptographic design review before implementation is done with no open critical or high finding. Any protocol-affecting delta reopens the audit gate.
 Upstream TASK-260712-20j5tm independent review follow-up I1 / EPC-005: explicitly pin client semantics for an active Air member whose registered device rows are all revoked. Current coordinator treats those devices as removed endpoints rather than an unsupported target; Windows key-state review must confirm or reject that interpretation.
+Execution started 2026-07-20 on branch feat/task-260712-25dzp4 from merged macOS key-state main 5f1756d5. Scope remains production-dark best-effort coding with unit/state-machine evidence; real app and physical DPAPI or packaged behavior stay in EPIC-260714-th54l3, and production crypto activation remains externally gated.
 
 ## Precondition Resources
 (none)

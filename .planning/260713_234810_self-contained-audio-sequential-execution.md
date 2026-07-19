@@ -13,12 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-1x9ruo` — macos-e2ee-key-state in
-  deferred epic `EPIC-260716-3qsztl`; exact-SHA independent review accepted
-  the production-dark scope and PR/hosted-CI integration is pending.
+- Current engineering task: `TASK-260712-25dzp4` — windows-e2ee-key-state in
+  deferred epic `EPIC-260716-3qsztl`; execution started from the accepted and
+  merged macOS key-state baseline.
 - Current original-plan frontier: `TASK-260712-25dzp4` —
-  windows-e2ee-key-state in deferred epic `EPIC-260716-3qsztl`, which starts
-  only after the accepted macOS key-state delta merges cleanly to `main`.
+  windows-e2ee-key-state in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -144,14 +143,16 @@
   records the lack of cross-process Keychain CAS and is now an explicit DoD on
   macOS send/playback/live/client-path integration: runtime must enforce one
   owning process or add cross-process serialization before wiring. Recovery
-  inherits partial-install reset/re-enrollment and expired-grant cleanup.
+  inherits partial-install reset/re-enrollment and expired-grant cleanup. PR
+  #287 then passed hosted CI run `29705960146` (4/4) and merged to `main` as
+  `5f1756d57df16a476b2df353f60656d24b02f752`.
 - Next deferred coding line: E2EE continues with `TASK-260712-25dzp4`, limited
   to disabled best-effort Windows key state after macOS integration. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-1x9ruo` —
   macos-e2ee-key-state (dormant engineering scope only)
-- Current branch: `feat/task-260712-1x9ruo`
+- Current branch: `feat/task-260712-25dzp4`
 - Current review evidence:
   `TASK-260712-1x9ruo_independent-delta-review-v1.md` from Claude Fable 5 max
   run `RUN-260719-20ab4a` on exact producer commit `498957e`. The preceding

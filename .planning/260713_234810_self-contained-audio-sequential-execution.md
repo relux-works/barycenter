@@ -13,21 +13,23 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-wy05n6` —
-  p1-independent-security-review.
-- Current original-plan frontier: `TASK-260712-wy05n6` —
-  p1-independent-security-review. The preceding realtime-audio gate was
-  independently approved on 2026-07-19 by Claude Fable 5, spawned through
-  task-board as run `RUN-260719-3e4ad6`. The reviewer verified exact main head
-  `11b5132` containing audit merge `5aedd68` and corrective `805337d` over
-  frozen base `aed5d7e`, inspected both render boundaries and the three closed
-  HIGH findings, reran the full Windows race suite plus focused
-  soak/leak/memory evidence locally, consumed hosted run `29689344361` (4/4
-  jobs, 308 Swift tests, `manualEvidence=not-run`), found no open
-  critical/high engineering issue and recorded an APPROVE verdict for
-  engineering scope only. The later P1 independent migration and security
-  reviews plus Store/IARC completion remain strict holds and require their own
-  evidence and verdicts.
+- Current engineering task: `TASK-260712-2s4e9p` — store-listing-iarc-assets.
+- Current original-plan frontier: `TASK-260712-2s4e9p` —
+  store-listing-iarc-assets. The preceding p1-independent-security-review
+  (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
+  Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
+  task `TASK-260715-10ksxz`. The reviewer verified exact main head `1b9207e`
+  (a later exact head than the frozen audit merge `dab3999`), confirmed the
+  reviewer implemented none of the reviewed paths, re-reviewed the three closed
+  HIGH findings (P1-SEC-001/002/003, with P1-SEC-002 strengthened post-audit)
+  and all eleven trust boundaries with no secret/audio/tenant leak, accepted
+  every medium disposition (M01/M02/M03) and dispositioned migration MED-1 as
+  non-blocking with tracked follow-up `BUG-260719-1rsd49`, and confirmed
+  coordinator/pulsar-win race suites plus govulncheck clean locally and hosted
+  run `29692957096` passing 4/4 jobs. The original security review is accepted
+  (`TASK-260712-wy05n6` done, checklist item 1 checked). Remaining Store/IARC
+  completion is the strict hold and requires its own evidence and verdict; this
+  signoff makes no real-app or hardware claim.
 - Migration gate: the owner-authorized independent migration review ran on
   2026-07-19 (Claude Fable 5, run `RUN-260719-d82ed0`) at exact main head
   `06ce330` containing audit merge `d7e0065`. The audit packet was validated
@@ -3028,7 +3030,13 @@ acceptance.
   generation-skip fixture; final independent run `RUN-260719-c83d59`
   approved exact PR head `aafcfc2` after reproducing the old failure and
   passing full race, predecessor 13/13 and hosted CI 4/4)
-- [ ] `TASK-260712-wy05n6` — p1-independent-security-review
+- [x] `TASK-260712-wy05n6` — p1-independent-security-review (accepted
+  2026-07-19 via independent owner-gate signoff `TASK-260715-10ksxz`; Claude
+  Fable 5 run `RUN-260719-ca4eaf` verified exact main head `1b9207e`, re-reviewed
+  the three closed HIGH findings and eleven trust boundaries, accepted the
+  medium dispositions, dispositioned migration MED-1 non-blocking with follow-up
+  `BUG-260719-1rsd49`, and confirmed suites/govulncheck/hosted CI `29692957096`
+  green)
 - [ ] `TASK-260712-2s4e9p` — store-listing-iarc-assets
 - [x] `TASK-260712-38lssj` — p1-root-integration-review (accepted as the
   fail-closed engineering root review; exact candidate and unresolved

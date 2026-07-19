@@ -17,7 +17,7 @@
     "deltaReviewRequired": true
   },
   "artifacts": [
-    {"id":"repository","path":"pulsar-win/windows_e2ee_key_state.go","sha256":"61493d376878d5f679836d5d81da7e80c48130caa09b3fa2c66b7752c646762a"},
+    {"id":"repository","path":"pulsar-win/windows_e2ee_key_state.go","sha256":"cf7114abc4f86dc6de005e1e4679400c499b80ee94fd69792fe2f67b3aae15e5"},
     {"id":"windows-default","path":"pulsar-win/windows_e2ee_key_state_default_windows.go","sha256":"9b59e8b6afcb12998175e44fe29e6556fb86b5de2fa2f9518c3f4185ecbde3c5"},
     {"id":"nonwindows-default","path":"pulsar-win/windows_e2ee_key_state_default_other.go","sha256":"9738bd346e04f0f70a92aac46b0061b927815f13c695bad646ead3b9933ed287"},
     {"id":"repository-tests","path":"pulsar-win/windows_e2ee_key_state_test.go","sha256":"668be15918cec9c4fae005576097ce30dc1b9bd6c2e26e461d1bc87b23869cb4"},

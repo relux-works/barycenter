@@ -329,6 +329,8 @@ func (r *WindowsE2EEKeyStateRepository) InstallDeviceIdentity(deviceID, keyForma
 			}
 			var mp windowsE2EEDevicePayload
 			var sp, ap windowsE2EEDeviceSecretPayload
+			defer func() { zeroBytes(sp.PrivateKey) }()
+			defer func() { zeroBytes(ap.PrivateKey) }()
 			if err := decodeWindowsE2EEPayload(currentMetadata, &mp); err != nil {
 				return err
 			}
@@ -338,8 +340,6 @@ func (r *WindowsE2EEKeyStateRepository) InstallDeviceIdentity(deviceID, keyForma
 			if err := decodeWindowsE2EEPayload(currentAgreement, &ap); err != nil {
 				return err
 			}
-			defer zeroBytes(sp.PrivateKey)
-			defer zeroBytes(ap.PrivateKey)
 			if err := validateWindowsE2EEDevicePayloads(mp, sp, ap); err != nil {
 				return err
 			}
@@ -400,6 +400,8 @@ func (r *WindowsE2EEKeyStateRepository) LoadDeviceIdentity(deviceID string) (lea
 		}
 		var mp windowsE2EEDevicePayload
 		var sp, ap windowsE2EEDeviceSecretPayload
+		defer func() { zeroBytes(sp.PrivateKey) }()
+		defer func() { zeroBytes(ap.PrivateKey) }()
 		if err := decodeWindowsE2EEPayload(mr, &mp); err != nil {
 			return err
 		}
@@ -409,8 +411,6 @@ func (r *WindowsE2EEKeyStateRepository) LoadDeviceIdentity(deviceID string) (lea
 		if err := decodeWindowsE2EEPayload(ar, &ap); err != nil {
 			return err
 		}
-		defer zeroBytes(sp.PrivateKey)
-		defer zeroBytes(ap.PrivateKey)
 		if err := validateWindowsE2EEDevicePayloads(mp, sp, ap); err != nil {
 			return err
 		}
@@ -439,10 +439,10 @@ func (r *WindowsE2EEKeyStateRepository) PersistGroupState(installationID, groupI
 		}
 		if current != nil {
 			var previous windowsE2EEGroupPayload
+			defer func() { zeroBytes(previous.OpaqueState) }()
 			if err := decodeWindowsE2EEPayload(current, &previous); err != nil {
 				return err
 			}
-			defer zeroBytes(previous.OpaqueState)
 			if err := validateWindowsE2EEGroupPayload(previous, groupID); err != nil {
 				return err
 			}
@@ -488,10 +488,10 @@ func (r *WindowsE2EEKeyStateRepository) LoadGroupState(installationID, groupID s
 			return ErrWindowsE2EENotFound
 		}
 		var payload windowsE2EEGroupPayload
+		defer func() { zeroBytes(payload.OpaqueState) }()
 		if err := decodeWindowsE2EEPayload(record, &payload); err != nil {
 			return err
 		}
-		defer zeroBytes(payload.OpaqueState)
 		if err := validateWindowsE2EEGroupPayload(payload, groupID); err != nil {
 			return err
 		}
@@ -521,10 +521,10 @@ func (r *WindowsE2EEKeyStateRepository) ReserveSendGeneration(installationID, gr
 			return ErrWindowsE2EEConflict
 		}
 		var payload windowsE2EEGroupPayload
+		defer func() { zeroBytes(payload.OpaqueState) }()
 		if err := decodeWindowsE2EEPayload(record, &payload); err != nil {
 			return err
 		}
-		defer zeroBytes(payload.OpaqueState)
 		if err := validateWindowsE2EEGroupPayload(payload, groupID); err != nil {
 			return err
 		}
@@ -573,10 +573,10 @@ func (r *WindowsE2EEKeyStateRepository) StoreGrant(installationID, grantID, grou
 				return ErrWindowsE2EEConflict
 			}
 			var previous windowsE2EEGrantPayload
+			defer func() { zeroBytes(previous.OpaqueGrant) }()
 			if err := decodeWindowsE2EEPayload(current, &previous); err != nil {
 				return err
 			}
-			defer zeroBytes(previous.OpaqueGrant)
 			if err := validateWindowsE2EEGrantPayload(previous, grantID); err != nil {
 				return err
 			}
@@ -614,10 +614,10 @@ func (r *WindowsE2EEKeyStateRepository) LoadGrant(installationID, grantID string
 			return ErrWindowsE2EENotFound
 		}
 		var payload windowsE2EEGrantPayload
+		defer func() { zeroBytes(payload.OpaqueGrant) }()
 		if err := decodeWindowsE2EEPayload(record, &payload); err != nil {
 			return err
 		}
-		defer zeroBytes(payload.OpaqueGrant)
 		if err := validateWindowsE2EEGrantPayload(payload, grantID); err != nil {
 			return err
 		}
@@ -655,6 +655,7 @@ func (r *WindowsE2EEKeyStateRepository) CacheContentKey(installationID, objectID
 			return err
 		}
 		var payload windowsE2EEContentCachePayload
+		defer func() { zeroWindowsE2EEContentEntries(payload.Entries) }()
 		if current != nil {
 			if current.Revision != expectedRevision {
 				return ErrWindowsE2EEConflict
@@ -668,7 +669,6 @@ func (r *WindowsE2EEKeyStateRepository) CacheContentKey(installationID, objectID
 		} else if expectedRevision != 0 {
 			return ErrWindowsE2EEConflict
 		}
-		defer func() { zeroWindowsE2EEContentEntries(payload.Entries) }()
 		kept := payload.Entries[:0]
 		for _, entry := range payload.Entries {
 			if entry.ExpiresAtMS <= nowMS || entry.ObjectID == objectID {
@@ -713,10 +713,10 @@ func (r *WindowsE2EEKeyStateRepository) LoadContentKey(installationID, objectID 
 			return ErrWindowsE2EENotFound
 		}
 		var payload windowsE2EEContentCachePayload
+		defer func() { zeroWindowsE2EEContentEntries(payload.Entries) }()
 		if err := decodeWindowsE2EEPayload(record, &payload); err != nil {
 			return err
 		}
-		defer zeroWindowsE2EEContentEntries(payload.Entries)
 		if err := validateWindowsE2EEContentEntries(payload.Entries); err != nil {
 			return err
 		}
@@ -788,6 +788,8 @@ func (r *WindowsE2EEKeyStateRepository) requireInstallation(installationID strin
 	}
 	var mp windowsE2EEDevicePayload
 	var sp, ap windowsE2EEDeviceSecretPayload
+	defer func() { zeroBytes(sp.PrivateKey) }()
+	defer func() { zeroBytes(ap.PrivateKey) }()
 	if err := decodeWindowsE2EEPayload(mr, &mp); err != nil {
 		return err
 	}
@@ -797,8 +799,6 @@ func (r *WindowsE2EEKeyStateRepository) requireInstallation(installationID strin
 	if err := decodeWindowsE2EEPayload(ar, &ap); err != nil {
 		return err
 	}
-	defer zeroBytes(sp.PrivateKey)
-	defer zeroBytes(ap.PrivateKey)
 	if err := validateWindowsE2EEDevicePayloads(mp, sp, ap); err != nil {
 		return err
 	}
@@ -899,9 +899,11 @@ func (r *WindowsE2EEKeyStateRepository) loadRecord(kind windowsE2EEKind, scope, 
 	var record windowsE2EERecord
 	var witness windowsE2EEWitness
 	if err := decodeWindowsE2EECanonical(recordBytes, &record); err != nil {
+		zeroBytes(record.Payload)
 		return nil, err
 	}
 	if err := decodeWindowsE2EECanonical(witnessBytes, &witness); err != nil {
+		zeroBytes(record.Payload)
 		return nil, err
 	}
 	if record.Version != 1 || witness.Version != 1 || record.Kind != kind || witness.Kind != kind || record.Scope != scope || witness.Scope != scope || record.InstallationID != witness.InstallationID || (installationID != "" && record.InstallationID != installationID) || record.Revision == 0 || record.Revision != witness.Revision || record.PayloadDigest != windowsE2EEDigest(record.Payload) || witness.RecordDigest != windowsE2EEDigest(recordBytes) || record.CreatedAtMS <= 0 || record.UpdatedAtMS < record.CreatedAtMS {

@@ -1,0 +1,30 @@
+{
+  "contract": "e2ee-key-state.v1",
+  "status": "production-disabled",
+  "installation_random_hex": "4242424242424242424242424242424242424242424242424242424242424242",
+  "device_id": "device-owner-0001",
+  "key_format": "library-opaque-v1",
+  "group_id": "group-state-0001",
+  "initial_epoch": 7,
+  "next_epoch": 8,
+  "commit_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "next_commit_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "target_snapshot_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "next_target_snapshot_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "transitions": [
+    {"name": "reserve-first-generation", "operation": "reserve", "expected": "epoch=7,generation=1,revision=2"},
+    {"name": "replay-old-revision", "operation": "reserve_old_revision", "expected": "conflict"},
+    {"name": "advance-one-epoch", "operation": "advance", "expected": "epoch=8,generation=0,revision=3"},
+    {"name": "reject-stale-epoch", "operation": "stale", "expected": "stale_epoch"},
+    {"name": "reject-epoch-gap", "operation": "gap", "expected": "rollback_or_clone"}
+  ],
+  "crash_vectors": [
+    {"name": "record-written-witness-not-written", "expected": "rollback_or_clone"},
+    {"name": "record-and-witness-written-readback-lost", "expected": "generation-consumed-no-reuse"}
+  ],
+  "target_vectors": [
+    {"name": "verified-supported", "active": true, "registered": 1, "verified": 1, "supported": 1, "expected": "route"},
+    {"name": "only-revoked-devices", "active": true, "registered": 2, "verified": 0, "supported": 0, "expected": "removed_endpoint"},
+    {"name": "verified-unsupported", "active": true, "registered": 1, "verified": 1, "supported": 0, "expected": "unsupported_target"}
+  ]
+}

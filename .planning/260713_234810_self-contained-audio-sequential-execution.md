@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 172 accepted, 33 remain.
-- Routed inventory: 186 engineering tasks (172 accepted, 14 remain) and 19
+- Combined inventory: 205 original tasks; 173 accepted, 32 remain.
+- Routed inventory: 186 engineering tasks (173 accepted, 13 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -14,10 +14,11 @@
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
 - Current engineering task: `TASK-260712-1x9ruo` — macos-e2ee-key-state in
-  deferred epic `EPIC-260716-3qsztl`; implementation starts only after the
-  accepted opaque-router delta completes PR/hosted-CI integration to `main`.
-- Current original-plan frontier: `TASK-260712-1x9ruo` —
-  macos-e2ee-key-state in deferred epic `EPIC-260716-3qsztl`.
+  deferred epic `EPIC-260716-3qsztl`; exact-SHA independent review accepted
+  the production-dark scope and PR/hosted-CI integration is pending.
+- Current original-plan frontier: `TASK-260712-25dzp4` —
+  windows-e2ee-key-state in deferred epic `EPIC-260716-3qsztl`, which starts
+  only after the accepted macOS key-state delta merges cleanly to `main`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -126,16 +127,35 @@
   212/212 acceptance and previous-head rollback, then APPROVED with zero
   Critical/High/Medium findings. The broad race is honestly producer-only
   evidence and a non-blocking independent follow-up before activation.
-- Next deferred coding line: E2EE continues with `TASK-260712-1x9ruo`, limited
-  to disabled best-effort macOS key state. Every later E2EE implementation
+- macOS E2EE key state: exact producer commit
+  `498957eab686a4e6aad0f653813ccfe3d1d3efa6` separates device
+  metadata, signing, agreement, group, grant and bounded content-cache state
+  into dedicated device-only non-synchronizing Keychain slots with an
+  independent witness per slot. Exact predecessor epochs, persist/readback
+  before ack, partial-install/clone/replay/fork failure, ambiguous-success
+  generation consumption, expiry/deletion, redacted leases and EPC-005 target
+  semantics are covered. Focused Swift passed 10/10, full NodeCore passed
+  318/318, acceptance passed 217/217 and swift-format is clean. Runtime
+  capability, production crypto selection, physical Keychain, signed package,
+  backup/restore and memory-forensics claims remain absent. Independent Claude
+  Fable 5 max run `RUN-260719-20ab4a` reproduced all 9 hashes, focused 10/10,
+  full Swift 318/318, full automated 16/16 and acceptance 217/217, then
+  APPROVED WITH NON-BLOCKING FOLLOW-UPS with zero Critical/High. Medium M1
+  records the lack of cross-process Keychain CAS and is now an explicit DoD on
+  macOS send/playback/live/client-path integration: runtime must enforce one
+  owning process or add cross-process serialization before wiring. Recovery
+  inherits partial-install reset/re-enrollment and expired-grant cleanup.
+- Next deferred coding line: E2EE continues with `TASK-260712-25dzp4`, limited
+  to disabled best-effort Windows key state after macOS integration. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-1yz5ca` —
-  coordinator-opaque-media-router (dormant engineering scope only)
-- Current branch: `feat/task-260712-1yz5ca`
-- Current review evidence: independent opaque-router delta verdict
-  `TASK-260712-1yz5ca_independent-delta-review-v1.md` from terminal completion
-  run `RUN-260719-91776a`. The preceding Store-package run `RUN-260719-85bf38`
+- Most recently accepted: `TASK-260712-1x9ruo` —
+  macos-e2ee-key-state (dormant engineering scope only)
+- Current branch: `feat/task-260712-1x9ruo`
+- Current review evidence:
+  `TASK-260712-1x9ruo_independent-delta-review-v1.md` from Claude Fable 5 max
+  run `RUN-260719-20ab4a` on exact producer commit `498957e`. The preceding
+  opaque-router completion run was `RUN-260719-91776a`. The Store-package run `RUN-260719-85bf38`
   accepted exact `e3bf985` for engineering scope in
   `TASK-260712-2s4e9p_engineering-review-verdict.md`; manual screenshots/WACK
   and exact Partner Center/IARC owner inputs remain open in
@@ -3625,8 +3645,21 @@ continues at section 17.
   Critical/High/Medium findings. L1 multi-cause audit reason fidelity and I1
   only-revoked-device membership semantics are tracked as non-blocking
   downstream notes; production activation and EPC gates remain open.)
-- [ ] `TASK-260712-1yz5ca` — coordinator-opaque-media-router
-- [ ] `TASK-260712-1x9ruo` — macos-e2ee-key-state
+- [x] `TASK-260712-1yz5ca` — coordinator-opaque-media-router (accepted on exact
+  producer commit `e4488ed2c0335e57910d704cf4bb4119593bbfdd`; independent
+  Claude Fable 5 max completion run `RUN-260719-91776a` reproduced all pins,
+  full tests/vet, focused race, acceptance 212/212 and previous-head rollback,
+  then APPROVED with zero Critical/High/Medium findings. PR #286 passed 4/4
+  hosted jobs and merged to main as `3b08b745590d36e17c6daf8ffe7ef8007decc33a`.)
+- [x] `TASK-260712-1x9ruo` — macos-e2ee-key-state (accepted on exact producer
+  commit `498957eab686a4e6aad0f653813ccfe3d1d3efa6`. Production-dark device-only
+  Keychain state uses distinct metadata/signing/agreement/group/grant/cache
+  slots with witnesses, exact predecessor epochs and persist-before-ack crash
+  recovery. Producer focused 10/10, NodeCore 318/318 and acceptance 217/217
+  passed. Independent Claude Fable 5 max run `RUN-260719-20ab4a` reproduced 9/9
+  hashes and the full 16/16 automated battery, then APPROVED WITH NON-BLOCKING
+  FOLLOW-UPS with zero Critical/High. Cross-process ownership is a hard
+  downstream integration DoD; manual and production crypto gates remain open.)
 - [ ] `TASK-260712-25dzp4` — windows-e2ee-key-state
 - [ ] `TASK-260712-2i0w6x` — report-evidence-moderation-export
 - [ ] `TASK-260712-1rziyo` — recovery-device-transfer-history-grants

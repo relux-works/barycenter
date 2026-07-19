@@ -12,13 +12,16 @@
 
 - Started: 2026-07-14
 - Mode: strict sequential inline execution; no task-board spawn workflow
-- Current engineering task: none; the strict non-E2EE Phase 3 engineering
-  sequence passed its final root audit.
+- Current engineering task: blocked; the strict non-E2EE Phase 3 engineering
+  sequence passed its final root audit, and no later task may start before the
+  unresolved original-plan frontier is independently accepted.
 - Current original-plan frontier: `TASK-260712-176b74` —
   p1-independent-protocol-review. Its technical audit and corrective work are
   complete, and on 2026-07-19 Ivan Oparin approved the proposed default to
   select a qualified non-implementing reviewer, but no independent reviewer
-  identity or verdict has been recorded. A fail-closed v2 handoff now pins
+  identity or verdict has been recorded. After the third consecutive blocked
+  audit on 2026-07-19, both this task and external action
+  `TASK-260715-3ffm3r` are explicitly `blocked`. A fail-closed v2 handoff pins
   exact later `main` candidate `191ae263`, the 51-path protocol-authority delta
   from Phase 1 merge `524eb78`, all 39 original goldens, 20 additive P2/P3
   goldens and the sole modified original `state` golden. The later P1 independent audio,
@@ -30,7 +33,13 @@
   `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there as well and
   cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2b5685` — phase3-root-engineering-completion-audit
-- Current branch: `tracking/task-260715-3ffm3r-protocol-reviewer-handoff-refresh`
+- Current branch: `tracking/task-260715-3ffm3r-independent-review-blocked`
+- Blocked condition: name a qualified reviewer who implemented none of the
+  reviewed protocol or scheduler paths, then record their identity,
+  independence, exact reviewed revision, findings and reruns, and explicit
+  approve or reject verdict. PR #68 and refreshed handoff PR #271 currently
+  contain no reviews; board state contains no reviewer identity. No remaining
+  repository-only action can satisfy this condition honestly.
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -2969,7 +2978,8 @@ acceptance.
   coordinator acceptance suite 7/7 with clean start/end and
   `manualEvidence=not-run`; PR #271 merged at `326d60f` after hosted run
   `29684355308` passed 4/4. The task remains `to-review` and unaccepted until an
-  independent reviewer records identity and verdict)
+  independent reviewer records identity and verdict; status `blocked` after
+  the third consecutive external-block audit)
 - [ ] `TASK-260712-1uz0za` — p1-independent-realtime-audio-review
 - [ ] `TASK-260712-1xkn75` — p1-independent-migration-review
 - [ ] `TASK-260712-wy05n6` — p1-independent-security-review

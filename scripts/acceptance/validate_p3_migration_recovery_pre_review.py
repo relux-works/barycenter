@@ -55,7 +55,7 @@ def validate(review: dict) -> None:
     require(delta.get("producerCommit") == "831d6d7671f9e8964cf70d1856cbd501dd3e5e0e",
             "migration delta producer drifted")
     require(delta.get("finding") == "P1-MIG-003", "migration delta finding drifted")
-    require(delta.get("result") == "producer-fix-validated-independent-re-review-pending",
+    require(delta.get("result") == "producer-fix-validated-independent-re-review-approved",
             "migration delta result drifted")
     require(delta.get("sourcePath") == "coordinator/internal/store/store.go",
             "migration delta source drifted")
@@ -71,7 +71,10 @@ def validate(review: dict) -> None:
         "previoushead-tagged-store-race-pass",
     ], "migration delta evidence drifted")
     require(delta.get("independentReviewTask") == "TASK-260715-unbb7c" and
-            delta.get("independentApproval") == "pending",
+            delta.get("independentApproval") == "approved" and
+            delta.get("approvalRevision") ==
+            "aafcfc222518e7a32e2acaf365a1af4d247cc03c" and
+            delta.get("approvalRun") == "RUN-260719-c83d59",
             "migration delta independent-review boundary drifted")
 
     reviewer = review.get("reviewer", {})

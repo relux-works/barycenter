@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 165 accepted, 40 remain.
-- Routed inventory: 186 engineering tasks (165 accepted, 21 remain) and 19
+- Combined inventory: 205 original tasks; 166 accepted, 39 remain.
+- Routed inventory: 186 engineering tasks (166 accepted, 20 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,10 +13,10 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-1xkn75` —
-  p1-independent-migration-review.
-- Current original-plan frontier: `TASK-260712-1xkn75` —
-  p1-independent-migration-review. The preceding realtime-audio gate was
+- Current engineering task: `TASK-260712-wy05n6` —
+  p1-independent-security-review.
+- Current original-plan frontier: `TASK-260712-wy05n6` —
+  p1-independent-security-review. The preceding realtime-audio gate was
   independently approved on 2026-07-19 by Claude Fable 5, spawned through
   task-board as run `RUN-260719-3e4ad6`. The reviewer verified exact main head
   `11b5132` containing audit merge `5aedd68` and corrective `805337d` over
@@ -46,23 +46,25 @@
   proves both absent tables are recreated before orphan revocation, exactly one
   cleanup receipt is recorded, and restart is idempotent. Focused migration
   race tests, the full coordinator suite, full coordinator race suite and the
-  complete `previoushead`-tagged store race suite pass. The task remains in
-  development and unaccepted until a non-implementing re-review records
-  approval. Verdict evidence:
-  `TASK-260715-unbb7c_independent-migration-review-verdict.md`.
+  complete `previoushead`-tagged store race suite pass. Final independent
+  run `RUN-260719-c83d59` reproduced the pre-fix failure, verified the
+  correction and fixture at exact PR head `aafcfc2`, independently reran the
+  full coordinator race suite (store 455.8 s), passed predecessor 13/13 and
+  consumed hosted CI run `29691922727` (4/4). It recorded APPROVE and closed
+  P1-MIG-003. Final evidence:
+  `TASK-260715-unbb7c_final-approval-verdict.md`.
 - Next deferred coding line: E2EE resumes with `TASK-260712-aniuyy` only after
   an implementation-independent design reviewer accepts its exact packet.
   That gate and every later E2EE implementation task live in
   `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there as well and
   cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-1uz0za` —
-  p1-independent-realtime-audio-review
+- Most recently accepted: `TASK-260712-1xkn75` —
+  p1-independent-migration-review
 - Current branch: `review/task-260715-unbb7c-fable5`
-- Current review evidence: migration review action `TASK-260715-unbb7c`
-  recorded CHANGES REQUESTED in
-  `TASK-260715-unbb7c_independent-migration-review-verdict.md`; producer fix
-  and test evidence are ready for an independent re-review. No manual,
-  hardware, production, Store or release claim is inferred.
+- Current review evidence: migration review action `TASK-260715-unbb7c` is
+  accepted with final outcome
+  `TASK-260715-unbb7c_final-approval-verdict.md`; no manual, hardware,
+  production, Store or release claim is inferred.
 - Current deferred owner gates in `EPIC-260714-zmnd4n` are
   `TASK-260716-tlxe3s` for the exact codec/legal/supply-chain decision and
   `TASK-260716-3voo6j` for independent streamed-performance acceptance. The
@@ -102,8 +104,8 @@
   `TASK-260716-tlxe3s`. The protocol and realtime-audio reviewers have since
   returned independent APPROVE verdicts; the other withheld external verdicts
   and production activation remain open. Store submission remains fail-closed.
-- Accepted overall: 165 / 205 tasks (80.5%); 40 remain
-- Engineering progress: 165 / 186 tasks (approximately 88.7%); 21 remain
+- Accepted overall: 166 / 205 tasks (81.0%); 39 remain
+- Engineering progress: 166 / 186 tasks (approximately 89.2%); 20 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3020,7 +3022,12 @@ acceptance.
   `TASK-260715-s838ym_independent-realtime-audio-review-verdict.md`;
   engineering scope only — manual A3/A4, audible quality and physical
   200/500 ms evidence remain exclusively in `TASK-260712-2hodti`)
-- [ ] `TASK-260712-1xkn75` — p1-independent-migration-review
+- [x] `TASK-260712-1xkn75` — p1-independent-migration-review (initial
+  independent run `RUN-260719-d82ed0` found HIGH P1-MIG-003; producer fix
+  `831d6d7` moved media reconciliation after dependent schemas and added a
+  generation-skip fixture; final independent run `RUN-260719-c83d59`
+  approved exact PR head `aafcfc2` after reproducing the old failure and
+  passing full race, predecessor 13/13 and hosted CI 4/4)
 - [ ] `TASK-260712-wy05n6` — p1-independent-security-review
 - [ ] `TASK-260712-2s4e9p` — store-listing-iarc-assets
 - [x] `TASK-260712-38lssj` — p1-root-integration-review (accepted as the

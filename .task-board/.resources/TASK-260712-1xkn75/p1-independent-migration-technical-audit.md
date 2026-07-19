@@ -4,8 +4,8 @@
 - Task: `TASK-260712-1xkn75`
 - Frozen review base: `635a8d3e3e9d7929a474ae6a5278187071c520c9`
 - Review mode: rigorous inline self-audit with corrective patch
-- Acceptance state: P1-MIG-003 producer correction validated locally;
-  independent re-review open
+- Acceptance state: independently approved at
+  `aafcfc222518e7a32e2acaf365a1af4d247cc03c`
 
 ## Independence and production boundary
 
@@ -81,7 +81,7 @@ database. Both complete, all three columns exist once, legacy media/member/slot
 rows remain singular and the final database passes the global integrity/FK
 checks. The test passed ten consecutive runs after the correction.
 
-### P1-MIG-003 — HIGH — producer correction complete, re-review open
+### P1-MIG-003 — HIGH — closed, independently verified
 
 **Independent finding.** A post-audit regression made the Phase 1 media
 dissolution reconciler call current saved-cue and transmission-inbox revocation
@@ -103,9 +103,11 @@ table. Current startup recreates both tables, revokes the orphan, clears its
 canonical storage key, records exactly one cleanup receipt, and a second open
 proves the transition is idempotent. The focused migration race set, full
 coordinator suite, full coordinator race suite, and the complete
-`previoushead`-tagged store race suite pass after the correction. A
-non-implementing reviewer must still verify the correction before this HIGH is
-accepted as closed.
+`previoushead`-tagged store race suite pass after the correction. Independent
+Claude Fable 5 finalization run `RUN-260719-c83d59` reproduced the pre-fix
+failure, verified the correction and fixture, reran the full coordinator race
+suite and exact-predecessor matrix, and closed this finding at exact PR head
+`aafcfc2`.
 
 No other open critical or high producer finding remains in this audit packet.
 
@@ -143,9 +145,10 @@ uses its real Store/config APIs, mutates legacy authority/session/media state,
 then current code rolls forward without losing additive data or reviving stale
 workers. No rollout task drops, rewrites or cleans unknown predecessor data.
 
-## Required independent signoff
+## Independent signoff completed
 
-A non-implementing migration reviewer must still:
+A non-implementing migration reviewer completed the required signoff on
+2026-07-19:
 
 1. inspect the frozen base and corrective patch across every source in the
    inventory;
@@ -156,5 +159,6 @@ A non-implementing migration reviewer must still:
 4. inspect backup/restore prerequisites and record reviewer identity, exact
    revision, findings and approve/reject decision.
 
-Until then, the original task remains open even though reversible engineering
-continues in strict plan order.
+The final APPROVE verdict is recorded as
+`TASK-260715-unbb7c_final-approval-verdict.md`. No production database, backup,
+manual restore or operator drill was touched or claimed.

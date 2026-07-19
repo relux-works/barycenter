@@ -13,7 +13,7 @@
       "triggerTask": "TASK-260712-1xkn75",
       "producerCommit": "831d6d7671f9e8964cf70d1856cbd501dd3e5e0e",
       "finding": "P1-MIG-003",
-      "result": "producer-fix-validated-independent-re-review-pending",
+      "result": "producer-fix-validated-independent-re-review-approved",
       "sourcePath": "coordinator/internal/store/store.go",
       "previousSha256": "fb26e0809acb8ce7cfa336cfb9c8d887a88120fef9f6ef54c969181f12edd9e4",
       "currentSha256": "be666ea0e396cc46fac365ff0c9aade31b20ed135740decd964fc0b7a84f9837",
@@ -24,7 +24,9 @@
         "previoushead-tagged-store-race-pass"
       ],
       "independentReviewTask": "TASK-260715-unbb7c",
-      "independentApproval": "pending"
+      "independentApproval": "approved",
+      "approvalRevision": "aafcfc222518e7a32e2acaf365a1af4d247cc03c",
+      "approvalRun": "RUN-260719-c83d59"
     }
   ],
   "reviewer": {

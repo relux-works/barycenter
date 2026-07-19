@@ -47,6 +47,33 @@ def validate(review: dict) -> None:
     require(root_packet.get("reviewedSourceCommit") == root["sourceCommit"], "root packet source mismatch")
     require(root_packet.get("reviewedSourceTree") == root["sourceTree"], "root packet tree mismatch")
 
+    deltas = review.get("deltaReviews", [])
+    require(len(deltas) == 1, "migration delta review inventory drifted")
+    delta = deltas[0]
+    require(delta.get("reviewedAt") == "2026-07-19", "migration delta review date drifted")
+    require(delta.get("triggerTask") == "TASK-260712-1xkn75", "migration delta task drifted")
+    require(delta.get("producerCommit") == "831d6d7671f9e8964cf70d1856cbd501dd3e5e0e",
+            "migration delta producer drifted")
+    require(delta.get("finding") == "P1-MIG-003", "migration delta finding drifted")
+    require(delta.get("result") == "producer-fix-validated-independent-re-review-pending",
+            "migration delta result drifted")
+    require(delta.get("sourcePath") == "coordinator/internal/store/store.go",
+            "migration delta source drifted")
+    require(delta.get("previousSha256") ==
+            "fb26e0809acb8ce7cfa336cfb9c8d887a88120fef9f6ef54c969181f12edd9e4",
+            "migration delta predecessor digest drifted")
+    require(delta.get("currentSha256") == digest(ROOT / delta["sourcePath"]),
+            "migration delta current digest drifted")
+    require(delta.get("evidence") == [
+        "focused-migration-race-pass",
+        "full-coordinator-pass",
+        "full-coordinator-race-pass",
+        "previoushead-tagged-store-race-pass",
+    ], "migration delta evidence drifted")
+    require(delta.get("independentReviewTask") == "TASK-260715-unbb7c" and
+            delta.get("independentApproval") == "pending",
+            "migration delta independent-review boundary drifted")
+
     reviewer = review.get("reviewer", {})
     require(reviewer.get("independenceRequired") is True, "independence requirement removed")
     require(reviewer.get("independenceSatisfied") is False, "inline review falsely claimed independence")

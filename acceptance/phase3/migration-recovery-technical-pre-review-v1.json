@@ -7,6 +7,26 @@
     "sourceCommit": "d94f51644a3acf37601b4a869b4247380372f9ec",
     "sourceTree": "4e4cca878db806650eda6f1e1642051b87a18b93"
   },
+  "deltaReviews": [
+    {
+      "reviewedAt": "2026-07-19",
+      "triggerTask": "TASK-260712-1xkn75",
+      "producerCommit": "831d6d7671f9e8964cf70d1856cbd501dd3e5e0e",
+      "finding": "P1-MIG-003",
+      "result": "producer-fix-validated-independent-re-review-pending",
+      "sourcePath": "coordinator/internal/store/store.go",
+      "previousSha256": "fb26e0809acb8ce7cfa336cfb9c8d887a88120fef9f6ef54c969181f12edd9e4",
+      "currentSha256": "be666ea0e396cc46fac365ff0c9aade31b20ed135740decd964fc0b7a84f9837",
+      "evidence": [
+        "focused-migration-race-pass",
+        "full-coordinator-pass",
+        "full-coordinator-race-pass",
+        "previoushead-tagged-store-race-pass"
+      ],
+      "independentReviewTask": "TASK-260715-unbb7c",
+      "independentApproval": "pending"
+    }
+  ],
   "reviewer": {
     "id": "codex-inline-pre-reviewer",
     "independenceRequired": true,
@@ -30,7 +50,7 @@
     "nextEngineeringTaskMayStart": true
   },
   "sourceAnchors": [
-    {"path": "coordinator/internal/store/store.go", "sha256": "fb26e0809acb8ce7cfa336cfb9c8d887a88120fef9f6ef54c969181f12edd9e4"},
+    {"path": "coordinator/internal/store/store.go", "sha256": "be666ea0e396cc46fac365ff0c9aade31b20ed135740decd964fc0b7a84f9837"},
     {"path": "coordinator/internal/store/identity_schema.go", "sha256": "621c2d3bfb24c25bb8a6f1895dfbee612dd26d9734c6a67fbb0db48ea403c1ad"},
     {"path": "coordinator/internal/store/onboarding.go", "sha256": "77f30536883a5798274e0b001bde7299f37bea5f6e64b0d402f1362cc1bba0f9"},
     {"path": "coordinator/internal/store/air_schema.go", "sha256": "fdb79c4e0ff4ed29eb9926430ba9ac2e9e719d77f13ffad6715eecd29919e485"},

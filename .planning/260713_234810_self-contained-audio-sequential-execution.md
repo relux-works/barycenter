@@ -2965,7 +2965,9 @@ acceptance.
   tracked in `TASK-260715-3ffm3r`; on 2026-07-19 the reviewer packet was
   refreshed against exact later `main` candidate `191ae263` with a validated
   39-to-59-message delta, exact object hashes and green Go/race plus pinned
-  Swift contract suites; remains `to-review` and unaccepted until an
+  Swift contract suites. Exact packet commit `76e950a` also passed the clean
+  coordinator acceptance suite 7/7 with clean start/end and
+  `manualEvidence=not-run`; remains `to-review` and unaccepted until an
   independent reviewer records identity and verdict)
 - [ ] `TASK-260712-1uz0za` — p1-independent-realtime-audio-review
 - [ ] `TASK-260712-1xkn75` — p1-independent-migration-review

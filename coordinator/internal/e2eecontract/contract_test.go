@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -29,6 +30,19 @@ type vectors struct {
 		Value    string `json:"value"`
 		Expected string `json:"expected"`
 	} `json:"malformedVectors"`
+	MultiFaultVectors []struct {
+		Name      string            `json:"name"`
+		Mutations map[string]string `json:"mutations"`
+		Expected  string            `json:"expected"`
+	} `json:"multiFaultVectors"`
+	ReplayStateVectors []struct {
+		Name               string `json:"name"`
+		RememberGeneration uint64 `json:"rememberGeneration"`
+		RememberSequence   uint64 `json:"rememberSequence"`
+		Generation         uint64 `json:"generation"`
+		Sequence           uint64 `json:"sequence"`
+		Expected           string `json:"expected"`
+	} `json:"replayStateVectors"`
 }
 
 func loadVectors(t *testing.T) vectors {
@@ -114,6 +128,44 @@ func TestCrossPlatformMalformedVectorsFailClosed(t *testing.T) {
 			}
 		})
 	}
+	for _, vector := range fixture.MultiFaultVectors {
+		t.Run(vector.Name, func(t *testing.T) {
+			var object map[string]any
+			if err := json.Unmarshal(fixture.ValidContent, &object); err != nil {
+				t.Fatal(err)
+			}
+			for key, value := range vector.Mutations {
+				object[key] = value
+			}
+			raw, _ := json.Marshal(object)
+			candidate, err := DecodeCoordinatorMetadata(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := string(Code(stateFromVectors(fixture).AcceptContent(
+				fixtureConfig(), candidate, base.ManifestDigest, 1000,
+			))); got != vector.Expected {
+				t.Fatalf("got %q, want %q", got, vector.Expected)
+			}
+		})
+	}
+	for _, vector := range fixture.ReplayStateVectors {
+		t.Run(vector.Name, func(t *testing.T) {
+			candidate := base
+			candidate.EventID = "state-" + vector.Name
+			candidate.Nonce = "nonce-" + vector.Name
+			candidate.Generation = vector.Generation
+			candidate.Sequence = vector.Sequence
+			state := stateFromVectors(fixture)
+			state.RememberSequence(candidate.DeviceID, candidate.ObjectID,
+				vector.RememberGeneration, vector.RememberSequence)
+			if got := string(Code(state.AcceptContent(
+				fixtureConfig(), candidate, base.ManifestDigest, 1000,
+			))); got != vector.Expected {
+				t.Fatalf("got %q, want %q", got, vector.Expected)
+			}
+		})
+	}
 }
 
 func TestCoordinatorMetadataRejectsSecretsAndUnknownFields(t *testing.T) {
@@ -134,6 +186,70 @@ func TestCoordinatorMetadataRejectsSecretsAndUnknownFields(t *testing.T) {
 	raw, _ := json.Marshal(object)
 	if _, err := DecodeCoordinatorMetadata(raw); Code(err) != ErrMalformed {
 		t.Fatal("unknown coordinator field accepted")
+	}
+}
+
+func TestEveryCoordinatorPublicEnvelopeRejectsSecretsAndUnknownFields(t *testing.T) {
+	fixture := loadVectors(t)
+	var commit Commit
+	if err := json.Unmarshal(fixture.ValidCommit, &commit); err != nil {
+		t.Fatal(err)
+	}
+	envelopes := []struct {
+		name   string
+		value  any
+		decode func([]byte) error
+	}{
+		{"commit", commit, func(raw []byte) error { _, err := DecodeCoordinatorCommit(raw); return err }},
+		{"proposal", Proposal{Contract: Contract, Capability: Capability, Suite: fixtureSuite,
+			EventID: "proposal-event", GroupID: commit.GroupID, ActorID: commit.ActorID,
+			DeviceID: commit.DeviceID, AirID: commit.AirID, PreviousEpoch: 7, Epoch: 8,
+			TargetSnapshotDigest: commit.TargetSnapshotDigest,
+			ProposalDigest:       strings.Repeat("a", 64), AuthenticatedDataDigest: commit.AuthenticatedDataDigest,
+			Signature: "fixture-valid"}, func(raw []byte) error { _, err := DecodeCoordinatorProposal(raw); return err }},
+		{"welcome", Welcome{Contract: Contract, Capability: Capability, Suite: fixtureSuite,
+			EventID: "welcome-event", GroupID: commit.GroupID, ActorID: commit.ActorID,
+			DeviceID: commit.DeviceID, RecipientDeviceID: "recipient-device", AirID: commit.AirID,
+			Epoch: 8, TargetSnapshotDigest: commit.TargetSnapshotDigest,
+			WelcomeDigest: strings.Repeat("b", 64), ExpiresAtMS: 2000,
+			CiphertextURL: "/welcome", AuthenticatedDataDigest: commit.AuthenticatedDataDigest,
+			Signature: "fixture-valid"}, func(raw []byte) error { _, err := DecodeCoordinatorWelcome(raw); return err }},
+		{"key-package", KeyPackage{Contract: Contract, Capability: Capability, Suite: fixtureSuite,
+			EventID: "key-package-event", ActorID: commit.ActorID, DeviceID: commit.DeviceID,
+			KeyPackageDigest: strings.Repeat("c", 64), PublicPackageURL: "/key-package",
+			ExpiresAtMS: 2000, AuthenticatedDataDigest: commit.AuthenticatedDataDigest,
+			Signature: "fixture-valid"}, func(raw []byte) error { _, err := DecodeCoordinatorKeyPackage(raw); return err }},
+		{"history-grant", HistoryGrant{Contract: Contract, Capability: Capability, Suite: fixtureSuite,
+			EventID: "history-grant-event", GroupID: commit.GroupID, ActorID: commit.ActorID,
+			DeviceID: commit.DeviceID, RecipientDeviceID: "recipient-device", AirID: commit.AirID,
+			ObjectID: "object-id", FirstEpoch: 1, LastEpoch: 7,
+			TargetSnapshotDigest: commit.TargetSnapshotDigest, GrantDigest: strings.Repeat("d", 64),
+			ExpiresAtMS: 2000, CiphertextURL: "/history-grant",
+			AuthenticatedDataDigest: commit.AuthenticatedDataDigest, Signature: "fixture-valid"},
+			func(raw []byte) error { _, err := DecodeCoordinatorHistoryGrant(raw); return err }},
+	}
+	for _, envelope := range envelopes {
+		t.Run(envelope.name, func(t *testing.T) {
+			raw, err := json.Marshal(envelope.value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := envelope.decode(raw); err != nil {
+				t.Fatalf("valid envelope rejected: %v", err)
+			}
+			var object map[string]any
+			if err := json.Unmarshal(raw, &object); err != nil {
+				t.Fatal(err)
+			}
+			for _, key := range append(coordinatorForbiddenFields, "future_secretish_field") {
+				object[key] = "must-never-route"
+				mutated, _ := json.Marshal(object)
+				if err := envelope.decode(mutated); Code(err) != ErrMalformed {
+					t.Fatalf("accepted forbidden/unknown field %q", key)
+				}
+				delete(object, key)
+			}
+		})
 	}
 }
 

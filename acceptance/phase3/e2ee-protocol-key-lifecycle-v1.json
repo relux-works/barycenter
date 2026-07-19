@@ -24,17 +24,17 @@
     {"id":"group-crypto-spike","path":"acceptance/phase3/group-crypto-library-spike-v1.json","sha256":"da518ec18d99449b87995268a18d6e7de934ea766aac6c948b127aaa60af8860","production":"no-go"}
   ],
   "authoritativeResources": [
-    {"id":"protocol","path":"protocol/e2ee-media-audit-v1.json","sha256":"52b92b2f51bf6852fb9c7c7279c379fa2bbbaa9c262dba94a2c42239b6104b32"},
-    {"id":"vectors","path":"protocol/e2ee-media-audit-v1-vectors.json","sha256":"2264448a94cf01b5841f722089711ae8338eaf2c34bf512c51b062e4eb626a95"},
+    {"id":"protocol","path":"protocol/e2ee-media-audit-v1.json","sha256":"5dc5ac88539fed12b827aa8c3ff6ce14b6a13ae46d063624822c5435f38334ce"},
+    {"id":"vectors","path":"protocol/e2ee-media-audit-v1-vectors.json","sha256":"2a8c71b909b2117921a6ee6b5415229ee8328e047f3c8f19d0db48e58fbf37cd"},
     {"id":"adr","path":"docs/analysis/p3-e2ee-protocol-key-lifecycle-contract-v1.md"}
   ],
   "implementations": [
-    {"id":"coordinator-keyless-mirror","path":"coordinator/internal/e2eecontract/contract.go","sha256":"6e6ba3b2861036a6bf21d011d2f496c9a8b7b253d3ba21d59930c61a4f0f1987","runtimeWired":false,"cryptographyImplemented":false},
-    {"id":"coordinator-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"f94c939245ffea273591e7928b57ccdac8dcb0e816e0e164bd86148cb27cd280"},
-    {"id":"windows-audit-model","path":"pulsar-win/e2ee_contract_audit.go","sha256":"73b2ee8b2304b1648c6a1394eec24068281f84927774526585b35990a81378b9","runtimeWired":false,"cryptographyImplemented":false},
-    {"id":"windows-tests","path":"pulsar-win/e2ee_contract_audit_test.go","sha256":"2f6791f7dc3431d10cec357d37e0d2a641c2440c37dd3de4060c2acf2ddc4d71"},
-    {"id":"macos-audit-model","path":"node-app/Sources/NodeCore/E2EEAuditContract.swift","sha256":"3c03962b38e78298c6ae6f2a591d6714b513652337e80322123804abf0f3f061","runtimeWired":false,"cryptographyImplemented":false},
-    {"id":"macos-tests","path":"node-app/Tests/NodeCoreTests/E2EEAuditContractTests.swift","sha256":"59c5ef673385e299bbd70a524de937ad5bf22e8995145b1a81e6600e1af08f1c"}
+    {"id":"coordinator-keyless-mirror","path":"coordinator/internal/e2eecontract/contract.go","sha256":"b5c9b9c96e44fba0ede3c95289a769ae5d6ed4cf7b917e123facc401a1c75055","runtimeWired":false,"cryptographyImplemented":false},
+    {"id":"coordinator-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"c18b1fba3415bcb0fa5a61e497723b043e08dfbb7ded0c42d4bc260607b32eb2"},
+    {"id":"windows-audit-model","path":"pulsar-win/e2ee_contract_audit.go","sha256":"ad7129c0798946b8a6863b4b7d06813b16ddf91437bcc24749eccf41a1d9d5a1","runtimeWired":false,"cryptographyImplemented":false},
+    {"id":"windows-tests","path":"pulsar-win/e2ee_contract_audit_test.go","sha256":"745a05aac5da80a5d69db2faa64ed3c032dd070fa79398df8621e4978d0d9e6b"},
+    {"id":"macos-audit-model","path":"node-app/Sources/NodeCore/E2EEAuditContract.swift","sha256":"927a8b57694d57e3f66acb7746db886f29e02e6baf4892eeecf1c2eff7a512be","runtimeWired":false,"cryptographyImplemented":false},
+    {"id":"macos-tests","path":"node-app/Tests/NodeCoreTests/E2EEAuditContractTests.swift","sha256":"734924fcced31c9ae6a191e3bdc2592a64677fb50be6eac9c8b1862d334e24d6"}
   ],
   "vocabulary": {
     "capability": "e2ee_media_v1",

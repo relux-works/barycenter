@@ -26,6 +26,19 @@ func TestWindowsE2EEAuditModelConsumesSharedMalformedVectors(t *testing.T) {
 		Malformed    []struct {
 			Name, Mutation, Value, Expected string
 		} `json:"malformedVectors"`
+		MultiFault []struct {
+			Name      string
+			Mutations map[string]string
+			Expected  string
+		} `json:"multiFaultVectors"`
+		ReplayState []struct {
+			Name               string
+			RememberGeneration uint64
+			RememberSequence   uint64
+			Generation         uint64
+			Sequence           uint64
+			Expected           string
+		} `json:"replayStateVectors"`
 	}
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
@@ -71,6 +84,43 @@ func TestWindowsE2EEAuditModelConsumesSharedMalformedVectors(t *testing.T) {
 			if vector.Mutation == "event_id" {
 				state.seenEvents[vector.Value] = true
 			}
+			if got := state.accept(candidate, base.ManifestDigest, 1000, suites, verify); got != vector.Expected {
+				t.Fatalf("got %q, want %q", got, vector.Expected)
+			}
+		})
+	}
+	for _, vector := range fixture.MultiFault {
+		t.Run(vector.Name, func(t *testing.T) {
+			var object map[string]any
+			if err := json.Unmarshal(fixture.ValidContent, &object); err != nil {
+				t.Fatal(err)
+			}
+			for key, value := range vector.Mutations {
+				object[key] = value
+			}
+			candidateRaw, _ := json.Marshal(object)
+			candidate, code := decodeE2EEAuditMetadata(candidateRaw)
+			if code != "" {
+				t.Fatal(code)
+			}
+			state := newE2EEAuditState(fixture.Baseline.GroupID, fixture.Baseline.AirID,
+				fixture.Baseline.TargetSnapshotDigest, fixture.Baseline.Epoch, fixture.Baseline.CommitDigest)
+			if got := state.accept(candidate, base.ManifestDigest, 1000, suites, verify); got != vector.Expected {
+				t.Fatalf("got %q, want %q", got, vector.Expected)
+			}
+		})
+	}
+	for _, vector := range fixture.ReplayState {
+		t.Run(vector.Name, func(t *testing.T) {
+			candidate := base
+			candidate.EventID = "state-" + vector.Name
+			candidate.Nonce = "nonce-" + vector.Name
+			candidate.Generation = vector.Generation
+			candidate.Sequence = vector.Sequence
+			state := newE2EEAuditState(fixture.Baseline.GroupID, fixture.Baseline.AirID,
+				fixture.Baseline.TargetSnapshotDigest, fixture.Baseline.Epoch, fixture.Baseline.CommitDigest)
+			key := candidate.DeviceID + "/" + candidate.ObjectID + "/" + strconv.FormatUint(vector.RememberGeneration, 10)
+			state.lastSequences[key] = vector.RememberSequence
 			if got := state.accept(candidate, base.ManifestDigest, 1000, suites, verify); got != vector.Expected {
 				t.Fatalf("got %q, want %q", got, vector.Expected)
 			}

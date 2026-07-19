@@ -38,12 +38,41 @@
     "device_id", "air_id", "previous_epoch", "epoch", "previous_commit_digest",
     "commit_digest", "target_snapshot_digest", "authenticated_data_digest", "signature"
   ],
+  "coordinatorEnvelopeFields": {
+    "proposal": [
+      "contract", "capability", "suite", "event_id", "group_id", "actor_id",
+      "device_id", "air_id", "previous_epoch", "epoch", "target_snapshot_digest",
+      "proposal_digest", "authenticated_data_digest", "signature"
+    ],
+    "welcome": [
+      "contract", "capability", "suite", "event_id", "group_id", "actor_id",
+      "device_id", "recipient_device_id", "air_id", "epoch",
+      "target_snapshot_digest", "welcome_digest", "expires_at_ms",
+      "ciphertext_url", "authenticated_data_digest", "signature"
+    ],
+    "key_package": [
+      "contract", "capability", "suite", "event_id", "actor_id", "device_id",
+      "key_package_digest", "public_package_url", "expires_at_ms",
+      "authenticated_data_digest", "signature"
+    ],
+    "history_grant": [
+      "contract", "capability", "suite", "event_id", "group_id", "actor_id",
+      "device_id", "recipient_device_id", "air_id", "object_id", "first_epoch",
+      "last_epoch", "target_snapshot_digest", "grant_digest", "expires_at_ms",
+      "ciphertext_url", "authenticated_data_digest", "signature"
+    ]
+  },
+  "failurePrecedence": [
+    "downgrade", "unknown_suite", "malformed", "invalid_signature",
+    "tampered_manifest", "foreign_target", "stale_epoch", "forked_epoch",
+    "replay", "nonce_reuse", "expired_grant"
+  ],
   "stateRules": [
     "verified client devices author add, remove, update and commit operations",
     "accepted commits advance exactly one epoch and bind the previous commit digest",
     "concurrent commits are serialized by the previous commit digest; stale and forked commits fail closed",
     "content is accepted only for the current epoch and exact immutable target snapshot",
-    "sender generation and sequence are monotonic per object and nonce tuples never repeat",
+    "sender generation and sequence are monotonic per object, a known next generation starts at sequence one, and nonce tuples never repeat",
     "restart restores epoch, commit, replay, generation and nonce state before decryption",
     "new devices receive no history unless a current verified device issues an expiring history grant",
     "leave, removal, device revoke and recovery rotate the epoch before later content",

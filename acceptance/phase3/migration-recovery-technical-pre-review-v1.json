@@ -16,7 +16,7 @@
       "result": "producer-fix-validated-independent-re-review-approved",
       "sourcePath": "coordinator/internal/store/store.go",
       "previousSha256": "fb26e0809acb8ce7cfa336cfb9c8d887a88120fef9f6ef54c969181f12edd9e4",
-      "currentSha256": "6d3a66db271e95ea5012e34f4abb4da52eda562eedad5b8191f88f2ed6cb6239",
+      "currentSha256": "6a9565015fe55f483d4912e86da8bf39f6e43d86e2445288c3375843a31007c8",
       "evidence": [
         "focused-migration-race-pass",
         "full-coordinator-pass",
@@ -52,7 +52,7 @@
     "nextEngineeringTaskMayStart": true
   },
   "sourceAnchors": [
-    {"path": "coordinator/internal/store/store.go", "sha256": "6d3a66db271e95ea5012e34f4abb4da52eda562eedad5b8191f88f2ed6cb6239"},
+    {"path": "coordinator/internal/store/store.go", "sha256": "6a9565015fe55f483d4912e86da8bf39f6e43d86e2445288c3375843a31007c8"},
     {"path": "coordinator/internal/store/identity_schema.go", "sha256": "621c2d3bfb24c25bb8a6f1895dfbee612dd26d9734c6a67fbb0db48ea403c1ad"},
     {"path": "coordinator/internal/store/onboarding.go", "sha256": "77f30536883a5798274e0b001bde7299f37bea5f6e64b0d402f1362cc1bba0f9"},
     {"path": "coordinator/internal/store/air_schema.go", "sha256": "fdb79c4e0ff4ed29eb9926430ba9ac2e9e719d77f13ffad6715eecd29919e485"},
@@ -71,14 +71,14 @@
     {"path": "pulsar-win/protected_repository.go", "sha256": "5021868e5f32b37f962c633d0a250a611eabe7a9cb06c6eaf1e610db273318c9"},
     {"path": "pulsar-win/recovery_service.go", "sha256": "b146a4f0447694d185e5d87eaa1ebad599cd84df9ab2e9870868e040ca76b93e"},
     {"path": "pulsar-win/windows_live_ptt_node.go", "sha256": "c9b3b1097d1c33ef5d7ad3010ce5c127c162e40c95f2c64b984401bf91183a08"},
-    {"path": "pulsar-win/e2ee_contract_audit.go", "sha256": "73b2ee8b2304b1648c6a1394eec24068281f84927774526585b35990a81378b9"},
+    {"path": "pulsar-win/e2ee_contract_audit.go", "sha256": "ad7129c0798946b8a6863b4b7d06813b16ddf91437bcc24749eccf41a1d9d5a1"},
     {"path": "node-app/Sources/NodeCore/RecoveryService.swift", "sha256": "94135aeaaac8b1b728253498ab61e2a5220f72a5e62d54be1381a972279cd1b7"},
     {"path": "node-app/Sources/NodeCore/RecoveryExport.swift", "sha256": "79c1ef32ad64050e546aa89487f3f34f2104ec292b662f631f7bf28c16697901"},
     {"path": "node-app/Sources/NodeCore/MacLivePTTNode.swift", "sha256": "129ff8304c7d5ed6b3871108706dca8f905baa02f4658c6bfdc5f3a478024cba"},
-    {"path": "node-app/Sources/NodeCore/E2EEAuditContract.swift", "sha256": "3c03962b38e78298c6ae6f2a591d6714b513652337e80322123804abf0f3f061"},
+    {"path": "node-app/Sources/NodeCore/E2EEAuditContract.swift", "sha256": "927a8b57694d57e3f66acb7746db886f29e02e6baf4892eeecf1c2eff7a512be"},
     {"path": "acceptance/phase3/root-line-review-v1.json", "sha256": "9a359f9021916f70c9187b9c3e35cf14ca133f3b65bb73154c774b26370142b0"},
-    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "6beb9260acea0e5eb98bfd02c3e7dcc8c9a88055e16b0a4d13bc73b552787318"},
-    {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "54255ef7307d679db97f1c6a219ebb3eff7556d2fe1e34115b4639ac7917a205"},
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "78963b28f614332e110da017c9929099d29e08af0fa4b543c907b9f3fd74f00c"},
+    {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "9d95c382765332cf885925084cd02b0387f25001d332dd3206d8fddb891c3f99"},
     {"path": "acceptance/phase3/automation-safety-evidence-v1.json", "sha256": "f5c70f080fc0b09fc17e7fc632ee82459a3287285036e2974c1178bcf93ef906"},
     {"path": "docs/legal/en/privacy.md", "sha256": "1fed3103d6a12444555e32e8f51bab15d3554e83166b6c6473e43cd1dcfc6e8e"}
   ],

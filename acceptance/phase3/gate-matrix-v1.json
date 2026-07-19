@@ -14,7 +14,7 @@
     {"path": "acceptance/phase3/capture-quality-harness-lock-v1.json", "sha256": "1545311227c29b972cc08d8f5db6ea4c934396c655f8f52492c7a26d32424338"},
     {"path": "acceptance/phase3/capture-quality-integrated-regressions-v1.json", "sha256": "a8e9bed5bf060ccbfb5622c935f340086801d25579f1ec44904c801da13b2e93"},
     {"path": "acceptance/phase3/e2ee-threat-model-v1.json", "sha256": "a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
-    {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "54255ef7307d679db97f1c6a219ebb3eff7556d2fe1e34115b4639ac7917a205"},
+    {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "9d95c382765332cf885925084cd02b0387f25001d332dd3206d8fddb891c3f99"},
     {"path": "acceptance/phase3/automation-safety-evidence-v1.json", "sha256": "f5c70f080fc0b09fc17e7fc632ee82459a3287285036e2974c1178bcf93ef906"},
     {"path": "docs/compliance/legal-ops-inputs.json", "sha256": "adf48d5cba2c8b65f0d3a11a089f4b61b0f300c3286ab2b4a267d51186b4f9d7"}
   ],

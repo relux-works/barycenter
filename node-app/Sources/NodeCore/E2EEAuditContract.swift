@@ -113,6 +113,9 @@ struct E2EEAuditState {
 
     mutating func remember(eventID: String) { seenEvents.insert(eventID) }
     mutating func remember(nonce: String) { seenNonces.insert(nonce) }
+    mutating func remember(deviceID: String, objectID: String, generation: UInt64, sequence: UInt64) {
+        lastSequences["\(deviceID)/\(objectID)/\(generation)"] = sequence
+    }
 
     mutating func accept(
         _ value: E2EEAuditMetadata,
@@ -135,12 +138,12 @@ struct E2EEAuditState {
         guard ["clip", "track", "saved_cue", "live_ptt"].contains(value.objectKind) else {
             throw E2EEAuditFailure.malformed
         }
-        guard value.manifestDigest == trustedManifestDigest else {
-            throw E2EEAuditFailure.tamperedManifest
-        }
         guard let verify = configuration.verify,
               verify(value.authenticatedDataDigest, value.signature) else {
             throw E2EEAuditFailure.invalidSignature
+        }
+        guard value.manifestDigest == trustedManifestDigest else {
+            throw E2EEAuditFailure.tamperedManifest
         }
         guard value.groupID == groupID, value.airID == airID,
               value.targetSnapshotDigest == targetSnapshotDigest else {
@@ -156,6 +159,12 @@ struct E2EEAuditState {
         let sequenceKey = "\(value.deviceID)/\(value.objectID)/\(value.generation)"
         guard value.sequence > (lastSequences[sequenceKey] ?? 0) else {
             throw E2EEAuditFailure.replay
+        }
+        if value.generation > 1 && value.sequence != 1 {
+            let previousKey = "\(value.deviceID)/\(value.objectID)/\(value.generation - 1)"
+            guard lastSequences[previousKey] == nil else {
+                throw E2EEAuditFailure.replay
+            }
         }
         seenEvents.insert(value.eventID)
         seenNonces.insert(value.nonce)

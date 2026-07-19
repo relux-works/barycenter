@@ -1,5 +1,5 @@
 ## Status
-to-review
+blocked
 
 ## Assigned To
 (none)
@@ -8,7 +8,7 @@ to-review
 2026-07-12T16:14:30Z
 
 ## Last Update
-2026-07-19T10:52:54Z
+2026-07-19T11:10:43Z
 
 ## Blocked By
 - TASK-260712-2qc27p
@@ -28,6 +28,7 @@ to-review
 2026-07-15 technical self-audit completed on frozen base aa869261. P1-PROTO-001 HIGH found: coordinator and Windows Go accepted mismatched envelope major while Swift rejected it. Corrective patch now rejects before payload dispatch, rejects pre-auth registration before credential lookup, disconnects established coordinator sockets and reconnects both desktop clients. Focused tests, coordinator/Windows race suites, 35 Swift protocol/clip/clock tests and exact predecessor rollback pass. Outcome resource attached. Checklist items 2-3 are complete; item 1 and task acceptance remain open for a genuinely non-implementing reviewer.
 Corrective commit cde0aa4 passed the clean exact-head 12-stage repository suite with start/end dirty false. Hosted run 29399875529 passed coordinator, node-core, pulsar-win and packaged-probe; PR #68 landed at merge 524eb78. Per the owner goal, the remaining genuinely independent signoff is accumulated in external decision TASK-260715-3ffm3r while reversible strict-sequence engineering continues. This task stays to-review and does not count accepted until that signoff returns.
 2026-07-19 delta-review preparation: external task TASK-260715-3ffm3r now carries a machine-validated v2 handoff pinned to later main candidate 191ae263. It covers the 39 original messages, 20 additive P2/P3 messages, the sole modified original state golden and exact authority-object hashes. Automated mirrors/goldens remain green, but this does not satisfy checklist item 1 or the independent verdict.
+2026-07-19 blocked audit: after three consecutive active-goal continuations, no non-implementing reviewer identity or verdict exists in board state, PR #68 reviews or refreshed handoff PR #271 reviews. All safe repository preparation is exhausted and exact v2 packet validation remains green. Unblock only when a genuinely non-implementing reviewer records identity, independence, exact reviewed revision, findings/reruns and approve or reject verdict.
 
 ## Precondition Resources
 - [p1-root-review-amendments.md](file://TASK-260712-176b74/p1-root-review-amendments.md) — Mandatory root review rules and Phase 1 risk seams

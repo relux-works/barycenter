@@ -8,7 +8,7 @@ backlog
 2026-07-12T16:40:35Z
 
 ## Last Update
-2026-07-16T00:15:02Z
+2026-07-19T22:18:51Z
 
 ## Blocked By
 - TASK-260712-2ys1ww
@@ -31,6 +31,7 @@ backlog
 - [ ] Verify manifests, unwrap keys, decrypt, cache, and play protected media locally.
 - [ ] Handle rotation, history grants, device transfer or recovery, and explicit report consent.
 - [ ] Cover log or crash redaction and negative grant or revoke cases.
+- [ ] Before runtime wiring enforce single-instance ownership of MacE2EEKeyStateRepository or add cross-process serialization so send generations cannot be double-reserved.
 
 ## Notes
 Root-reviewed integration-only scope: TASK-260712-1x9ruo owns key state, TASK-260712-2kcduo send, TASK-260712-tcwn44 playback and TASK-260712-3980vy live crypto. Original implementation checklist items mean UX integration and validation only.

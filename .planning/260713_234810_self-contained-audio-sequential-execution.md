@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 168 accepted, 37 remain.
-- Routed inventory: 186 engineering tasks (168 accepted, 18 remain) and 19
+- Combined inventory: 205 original tasks; 169 accepted, 36 remain.
+- Routed inventory: 186 engineering tasks (169 accepted, 17 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,10 +13,13 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-aniuyy` —
-  e2ee-independent-design-review in deferred epic `EPIC-260716-3qsztl`.
-- Current original-plan frontier: `TASK-260712-aniuyy` —
-  e2ee-independent-design-review in deferred epic `EPIC-260716-3qsztl`.
+- Current engineering task: `TASK-260712-3w1cst` —
+  encrypted-media-schema-epoch-foundation in deferred epic
+  `EPIC-260716-3qsztl`; work is limited to a dormant, reversible foundation
+  while production E2EE selection, activation and claims remain blocked.
+- Current original-plan frontier: `TASK-260712-3w1cst` —
+  encrypted-media-schema-epoch-foundation in deferred epic
+  `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -68,17 +71,27 @@
   consumed hosted CI run `29691922727` (4/4). It recorded APPROVE and closed
   P1-MIG-003. Final evidence:
   `TASK-260715-unbb7c_final-approval-verdict.md`.
-- Next deferred coding line: E2EE resumes with `TASK-260712-aniuyy`; an
-  implementation-independent design reviewer must accept its exact packet.
-  That gate and every later E2EE implementation task live in
-  `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there as well and
-  cannot be self-certified by the implementation session.
+- E2EE independent design gate: Claude Fable 5 max run
+  `RUN-260719-1bbaa7` independently approved the exact `7e6c8be` packet for
+  `TASK-260712-aniuyy`. It reproduced all twelve frozen packet hashes, ran the
+  coordinator, Windows, macOS and Python acceptance suites, confirmed the
+  capability remains dormant with no runtime callsite or crypto dependency,
+  and found no open Critical/High design issue. IDR-001 through IDR-003 are
+  tracked Low follow-ups for canonical multi-fault precedence, sequence/reset
+  vectors and strict envelope decoding; IDR-004 and IDR-005 are informational.
+  The verdict makes no signed-app, real-device or hardware claim and requires
+  delta review after protocol-affecting changes. Production gates EPC-001,
+  EPC-002, EPC-004 and EPC-005 remain open by design.
+- Next deferred coding line: E2EE continues with `TASK-260712-3w1cst`, limited
+  to disabled best-effort foundation work. Every later E2EE implementation
+  task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
+  as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2s4e9p` —
   store-listing-iarc-assets (engineering scope only)
-- Current branch: `fix/bug-260719-1rsd49`
-- Current review evidence: independent hardening verdict
-  `BUG-260719-1rsd49_reviewer-verdict.md` from terminal run
-  `RUN-260719-0e576a`. The preceding Store-package run `RUN-260719-85bf38`
+- Current branch: `review/task-260712-aniuyy`
+- Current review evidence: independent E2EE design verdict
+  `TASK-260712-aniuyy_independent-design-review-v1.md` from terminal run
+  `RUN-260719-1bbaa7`. The preceding Store-package run `RUN-260719-85bf38`
   accepted exact `e3bf985` for engineering scope in
   `TASK-260712-2s4e9p_engineering-review-verdict.md`; manual screenshots/WACK
   and exact Partner Center/IARC owner inputs remain open in
@@ -3537,7 +3550,13 @@ as accepted and cannot begin before the independent gate, but they no longer
 block strict best-effort execution of the current engineering epic, which
 continues at section 17.
 
-- [ ] `TASK-260712-aniuyy` — e2ee-independent-design-review
+- [x] `TASK-260712-aniuyy` — e2ee-independent-design-review (independently
+  approved by Claude Fable 5 max run `RUN-260719-1bbaa7` on exact packet head
+  `7e6c8be`; all twelve hashes and four platform/acceptance test families were
+  reproduced, with zero open Critical/High design findings. Three Low and two
+  informational follow-ups are recorded in the verdict. Capability activation,
+  production crypto selection, signed-app and hardware claims remain blocked;
+  protocol-affecting changes require delta review.)
 - [ ] `TASK-260712-3w1cst` — encrypted-media-schema-epoch-foundation
 - [ ] `TASK-260712-20j5tm` — coordinator-ciphertext-routing-rotation
 - [ ] `TASK-260712-1yz5ca` — coordinator-opaque-media-router

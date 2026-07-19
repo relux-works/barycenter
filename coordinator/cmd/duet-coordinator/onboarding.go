@@ -399,8 +399,8 @@ func newOnboardingAPIBase(st *store.Store, cfg *config.Config, log *slog.Logger,
 	api.mediaUploadInitErr = api.initializeMediaUploadStorage()
 	api.mediaLifecycle, api.mediaLifecycleInitErr = media.NewLifecycleService(st, cfg.MediaDir)
 	api.mediaDownload, api.mediaDownloadInitErr = media.NewDownloadService(st, cfg.MediaDir)
-	if api.mediaDownloadInitErr == nil {
-		api.mediaDownload.SetTargetSnapshotReader(st)
+	if api.mediaDownloadInitErr == nil && !api.mediaDownload.SetTargetSnapshotReader(st) {
+		api.mediaDownloadInitErr = errors.New("media download target store mismatch")
 	}
 	// Installing the adapter does not expose a kill-switch bypass: feature-off
 	// requests are still collapsed to the same generic 404 as an absent route.
@@ -689,6 +689,12 @@ func (api *onboardingAPI) withControl(next http.HandlerFunc) http.HandlerFunc {
 		if api.testAfterAuth != nil {
 			api.testAfterAuth(ctx)
 		}
+		// This is a routing/capability preflight only. Context is deliberately
+		// treated as an expected identity, never mutation authority: every
+		// withControl handler must pass Bearer into a Store operation that
+		// re-resolves actor, orbit, role, and capability in its writer transaction.
+		// TestAuthenticatedMutationRechecksBearerAndRoleInsideTransaction guards
+		// the credential-replacement and role-change races for this contract.
 		req := actorRequest{Context: ctx, Bearer: token}
 		next(w, r.WithContext(context.WithValue(r.Context(), actorRequestKey{}, req)))
 	}

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,17 +18,56 @@ import (
 )
 
 type httpTargetSnapshotReader struct {
+	mu     sync.Mutex
 	grants map[store.MediaTargetIdentity]bool
-	calls  []store.MediaTargetIdentity
-	err    error
 }
 
 func (reader *httpTargetSnapshotReader) AllowsMediaDownload(
 	_ context.Context,
 	target store.MediaTargetIdentity,
 ) (bool, error) {
-	reader.calls = append(reader.calls, target)
-	return reader.grants[target], reader.err
+	reader.mu.Lock()
+	defer reader.mu.Unlock()
+	return reader.grants[target], nil
+}
+
+func (reader *httpTargetSnapshotReader) WithMediaDownloadAuthorization(
+	_ context.Context,
+	target store.MediaTargetIdentity,
+	authorized func() error,
+) (bool, error) {
+	reader.mu.Lock()
+	defer reader.mu.Unlock()
+	if !reader.grants[target] {
+		return false, nil
+	}
+	return true, authorized()
+}
+
+func (reader *httpTargetSnapshotReader) grant(target store.MediaTargetIdentity) {
+	reader.mu.Lock()
+	reader.grants[target] = true
+	reader.mu.Unlock()
+}
+
+func installHTTPTestTargetLease(
+	t *testing.T,
+	harness onboardingHarness,
+	mediaID string,
+	target store.OnboardingCredentials,
+) (*httpTargetSnapshotReader, store.ActorContext) {
+	t.Helper()
+	ctx, err := harness.store.ResolveTokenActorContext(target.NodeToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := &httpTargetSnapshotReader{grants: map[store.MediaTargetIdentity]bool{{
+		MediaID: mediaID, OrbitID: ctx.OrbitID, ActorID: ctx.ActorID, Slot: ctx.Slot,
+	}: true}}
+	if !harness.api.mediaDownload.SetTargetSnapshotReader(reader) {
+		t.Fatal("test authorization-lease reader was rejected")
+	}
+	return reader, ctx
 }
 
 func readyDownloadHTTPMedia(
@@ -79,6 +119,36 @@ func readyDownloadHTTPMedia(
 		t.Fatal(err)
 	}
 	return ready
+}
+
+func persistHTTPMediaTarget(
+	t *testing.T,
+	harness onboardingHarness,
+	mediaItem store.MediaItem,
+	source, target store.OnboardingCredentials,
+	acceptedAt int64,
+) {
+	t.Helper()
+	created, err := harness.store.CreateTransmission(store.CreateTransmissionParams{
+		MediaID: mediaItem.ID, SourceOrbitID: source.OrbitID,
+		SourceActorID: source.ActorID, SourceSlot: source.Slot,
+		PlaybackDomainKind: store.PlaybackDomainOrbit,
+		PlaybackDomainID:   source.OrbitID,
+		AudienceKind:       store.TransmissionAudienceExplicit,
+		OriginKind:         store.TransmissionOriginFile,
+		IncludeOrigin:      false,
+		RequestedDelivery:  store.TransmissionDeliveryOverlay,
+		EffectiveDelivery:  store.TransmissionDeliveryOverlay,
+		AcceptedAt:         acceptedAt,
+		Targets: []store.CreateTransmissionTarget{{
+			OrbitID: target.OrbitID, ActorID: target.ActorID, Slot: target.Slot,
+			OnlineAtAcceptance: true, MediaClipCapable: true, OverlayCapable: true,
+			InterruptCapable: true, InterruptResumeReady: true,
+		}},
+	})
+	if err != nil || created.Transmission.MediaID != mediaItem.ID {
+		t.Fatalf("create persisted media target=%+v err=%v", created, err)
+	}
 }
 
 func readyHTTPStreamVariant(
@@ -199,15 +269,7 @@ func TestStreamVariantHTTPRangesConditionalsEgressAndRevocation(t *testing.T) {
 	}
 	payload := []byte("0123456789-private-stream-range-payload")
 	ready, variant := readyHTTPStreamVariant(t, harness, source, payload)
-	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
-	if err != nil {
-		t.Fatal(err)
-	}
-	reader := &httpTargetSnapshotReader{grants: map[store.MediaTargetIdentity]bool{{
-		MediaID: ready.ID, OrbitID: targetContext.OrbitID,
-		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
-	}: true}}
-	harness.api.mediaDownload.SetTargetSnapshotReader(reader)
+	reader, targetContext := installHTTPTestTargetLease(t, harness, ready.ID, target)
 	path := "/v1/media/" + ready.ID + "/variants/" + variant.ID
 
 	full := streamVariantRequest(harness.mux, http.MethodGet, path, target.NodeToken, nil)
@@ -294,10 +356,10 @@ func TestStreamVariantHTTPRangesConditionalsEgressAndRevocation(t *testing.T) {
 	}
 	largePayload := make([]byte, maxStreamRangeBytes+1)
 	largeReady, largeVariant := readyHTTPStreamVariant(t, harness, source, largePayload)
-	reader.grants[store.MediaTargetIdentity{
+	reader.grant(store.MediaTargetIdentity{
 		MediaID: largeReady.ID, OrbitID: targetContext.OrbitID,
 		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
-	}] = true
+	})
 	largeRange := streamVariantRequest(
 		harness.mux, http.MethodGet,
 		"/v1/media/"+largeReady.ID+"/variants/"+largeVariant.ID,
@@ -334,10 +396,10 @@ func TestStreamVariantHTTPRangesConditionalsEgressAndRevocation(t *testing.T) {
 	deletable, deleteVariant := readyHTTPStreamVariant(
 		t, harness, source, []byte("separate-delete-revocation-track"),
 	)
-	reader.grants[store.MediaTargetIdentity{
+	reader.grant(store.MediaTargetIdentity{
 		MediaID: deletable.ID, OrbitID: targetContext.OrbitID,
 		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
-	}] = true
+	})
 	deletePath := "/v1/media/" + deletable.ID + "/variants/" + deleteVariant.ID
 	if _, err := harness.store.DeleteMediaItem(deletable.ID, deletable.Revision, time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
@@ -349,10 +411,10 @@ func TestStreamVariantHTTPRangesConditionalsEgressAndRevocation(t *testing.T) {
 	moderated, moderatedVariant := readyHTTPStreamVariant(
 		t, harness, source, []byte("separate-moderation-delete-track"),
 	)
-	reader.grants[store.MediaTargetIdentity{
+	reader.grant(store.MediaTargetIdentity{
 		MediaID: moderated.ID, OrbitID: targetContext.OrbitID,
 		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
-	}] = true
+	})
 	moderatedPath := "/v1/media/" + moderated.ID + "/variants/" + moderatedVariant.ID
 	if _, err := harness.store.DeleteMediaForModeration(moderated.ID, time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
@@ -367,10 +429,10 @@ func TestStreamVariantHTTPRangesConditionalsEgressAndRevocation(t *testing.T) {
 	disabled, disabledVariant := readyHTTPStreamVariant(
 		t, harness, source, []byte("separate-owner-disable-track"),
 	)
-	reader.grants[store.MediaTargetIdentity{
+	reader.grant(store.MediaTargetIdentity{
 		MediaID: disabled.ID, OrbitID: targetContext.OrbitID,
 		ActorID: targetContext.ActorID, Slot: targetContext.Slot,
-	}] = true
+	})
 	disabledPath := "/v1/media/" + disabled.ID + "/variants/" + disabledVariant.ID
 	if _, err := harness.store.DisableActorForModeration(source.ActorID, time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
@@ -394,16 +456,7 @@ func TestStreamVariantHTTPQuotaFailsBeforeBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	ready, variant := readyHTTPStreamVariant(t, harness, source, []byte("quota-track-payload"))
-	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
-	if err != nil {
-		t.Fatal(err)
-	}
-	harness.api.mediaDownload.SetTargetSnapshotReader(&httpTargetSnapshotReader{
-		grants: map[store.MediaTargetIdentity]bool{{
-			MediaID: ready.ID, OrbitID: targetContext.OrbitID,
-			ActorID: targetContext.ActorID, Slot: targetContext.Slot,
-		}: true},
-	})
+	installHTTPTestTargetLease(t, harness, ready.ID, target)
 	now := time.Now().UnixMilli()
 	operator, err := harness.store.ProvisionModerationOperator(
 		"Stream quota test", store.ModerationOperatorCapabilities{Decide: true}, now,
@@ -449,16 +502,7 @@ func TestStreamVariantHTTPTinyRangesConsumeRequestFloor(t *testing.T) {
 		t.Fatal(err)
 	}
 	ready, variant := readyHTTPStreamVariant(t, harness, source, []byte("tiny-range-floor-payload"))
-	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
-	if err != nil {
-		t.Fatal(err)
-	}
-	harness.api.mediaDownload.SetTargetSnapshotReader(&httpTargetSnapshotReader{
-		grants: map[store.MediaTargetIdentity]bool{{
-			MediaID: ready.ID, OrbitID: targetContext.OrbitID,
-			ActorID: targetContext.ActorID, Slot: targetContext.Slot,
-		}: true},
-	})
+	installHTTPTestTargetLease(t, harness, ready.ID, target)
 	now := time.Now().UnixMilli()
 	operator, err := harness.store.ProvisionModerationOperator(
 		"Tiny range quota test", store.ModerationOperatorCapabilities{Decide: true}, now,
@@ -522,17 +566,7 @@ func TestMediaDownloadHTTPEnforcesOwnerAndExactTargetACL(t *testing.T) {
 	ready := readyDownloadHTTPMedia(
 		t, harness, owner, now, now+int64((7*24*time.Hour)/time.Millisecond), payload,
 	)
-	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
-	if err != nil {
-		t.Fatal(err)
-	}
-	reader := &httpTargetSnapshotReader{grants: map[store.MediaTargetIdentity]bool{
-		{
-			MediaID: ready.ID, OrbitID: targetContext.OrbitID,
-			ActorID: targetContext.ActorID, Slot: targetContext.Slot,
-		}: true,
-	}}
-	harness.api.mediaDownload.SetTargetSnapshotReader(reader)
+	persistHTTPMediaTarget(t, harness, ready, owner, target, now+3)
 
 	ownerResponse := apiRequest(
 		harness.mux, http.MethodGet, "/v1/media/"+ready.ID, "", owner.ControlToken,
@@ -546,19 +580,12 @@ func TestMediaDownloadHTTPEnforcesOwnerAndExactTargetACL(t *testing.T) {
 		ownerResponse.Header().Get("ETag") != `"`+ready.SHA256+`"` {
 		t.Fatalf("owner download headers=%v", ownerResponse.Header())
 	}
-	if len(reader.calls) != 0 {
-		t.Fatalf("owner control consulted snapshot calls=%+v", reader.calls)
-	}
 	targetResponse := apiRequest(
 		harness.mux, http.MethodGet, "/v1/media/"+ready.ID, "", target.NodeToken,
 	)
 	if targetResponse.Code != http.StatusOK || targetResponse.Body.String() != string(payload) {
 		t.Fatalf("target download status=%d body=%q", targetResponse.Code, targetResponse.Body.String())
 	}
-	if len(reader.calls) != 1 || reader.calls[0].ActorID != target.ActorID {
-		t.Fatalf("target snapshot calls=%+v", reader.calls)
-	}
-
 	ownerNode := apiRequest(
 		harness.mux, http.MethodGet, "/v1/media/"+ready.ID, "", owner.NodeToken,
 	)
@@ -606,20 +633,6 @@ func TestMediaDownloadHTTPEnforcesOwnerAndExactTargetACL(t *testing.T) {
 	); response.Code != http.StatusForbidden {
 		t.Fatalf("node DELETE status=%d body=%q", response.Code, response.Body.String())
 	}
-	reader.err = fmt.Errorf(
-		"sensitive target reader error token=%s media=%s path=%s",
-		target.NodeToken, ready.ID, harness.api.config.MediaDir,
-	)
-	readerFailure := apiRequest(
-		harness.mux, http.MethodGet, "/v1/media/"+ready.ID, "", target.NodeToken,
-	)
-	if readerFailure.Code != http.StatusInternalServerError ||
-		!strings.Contains(readerFailure.Body.String(), errorInternal) {
-		t.Fatalf("target reader failure status=%d body=%q",
-			readerFailure.Code, readerFailure.Body.String())
-	}
-	reader.err = nil
-
 	deleted := apiRequest(
 		harness.mux, http.MethodDelete, "/v1/media/"+ready.ID, "", owner.ControlToken,
 	)
@@ -637,14 +650,7 @@ func TestMediaDownloadHTTPEnforcesOwnerAndExactTargetACL(t *testing.T) {
 	expired := readyDownloadHTTPMedia(
 		t, harness, owner, createdAt, createdAt+int64((5*time.Second)/time.Millisecond), []byte("expired"),
 	)
-	expiredContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
-	if err != nil {
-		t.Fatal(err)
-	}
-	reader.grants[store.MediaTargetIdentity{
-		MediaID: expired.ID, OrbitID: expiredContext.OrbitID,
-		ActorID: expiredContext.ActorID, Slot: expiredContext.Slot,
-	}] = true
+	persistHTTPMediaTarget(t, harness, expired, owner, target, createdAt+3)
 	expiredRead := apiRequest(
 		harness.mux, http.MethodGet, "/v1/media/"+expired.ID, "", target.NodeToken,
 	)

@@ -250,16 +250,7 @@ func TestMediaLifecycleHTTPIntegratesSnapshotACLQueueCancellationAndCleanup(t *t
 		t, harness, owner, now,
 		now+int64((7*24*time.Hour)/time.Millisecond), payload,
 	)
-	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
-	if err != nil {
-		t.Fatal(err)
-	}
-	harness.api.mediaDownload.SetTargetSnapshotReader(&httpTargetSnapshotReader{
-		grants: map[store.MediaTargetIdentity]bool{{
-			MediaID: ready.ID, OrbitID: targetContext.OrbitID,
-			ActorID: targetContext.ActorID, Slot: targetContext.Slot,
-		}: true},
-	})
+	persistHTTPMediaTarget(t, harness, ready, owner, target, now+3)
 
 	fake := &fakeSender{}
 	l := newLoop(harness.api.log, harness.api.config, fake, harness.store, nil, nil)

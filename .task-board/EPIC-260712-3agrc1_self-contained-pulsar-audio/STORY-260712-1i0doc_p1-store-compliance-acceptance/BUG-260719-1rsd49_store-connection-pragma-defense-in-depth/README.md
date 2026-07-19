@@ -10,7 +10,7 @@ Non-blocking defense-in-depth hardening surfaced by the independent Phase 1 secu
 3) withControl gate is coarse (onboarding.go:669) and relies on the writer transaction (mutationActorContextTx) for authoritative disabled/left/satellite denial; all current withControl handlers re-resolve via the raw bearer. Guard: any future withControl handler must re-resolve lifecycle in the writer transaction rather than trust actor.Context.
 
 ## Scope
-(define bug scope / affected area)
+Coordinator Store connection initialization, generic media target authorization wiring, and control-middleware mutation authorization contract. No product behavior or external API expansion.
 
 ## Acceptance Criteria
-(define fix acceptance criteria)
+Every initial and replacement SQLite connection has busy_timeout=5000 and foreign_keys=ON while startup still negotiates WAL; the exact backing Store uses persisted in-transaction target authorization, Boolean-only external readers fail closed, and any non-Store extension must hold an authorization lease through descriptor open; withControl documents its preflight-only guarantee and regression coverage proves stale control credentials cannot mutate after middleware; focused and full coordinator race tests pass.

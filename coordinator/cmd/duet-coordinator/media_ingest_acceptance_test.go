@@ -125,16 +125,7 @@ func TestMediaIngestAcceptanceHTTPUploadACLDeleteCleanup(t *testing.T) {
 	if !ok {
 		t.Fatalf("canonical storage key=%q", ready.StorageKey)
 	}
-	targetContext, err := harness.store.ResolveTokenActorContext(target.NodeToken)
-	if err != nil {
-		t.Fatal(err)
-	}
-	harness.api.mediaDownload.SetTargetSnapshotReader(&httpTargetSnapshotReader{
-		grants: map[store.MediaTargetIdentity]bool{{
-			MediaID: ready.ID, OrbitID: targetContext.OrbitID,
-			ActorID: targetContext.ActorID, Slot: targetContext.Slot,
-		}: true},
-	})
+	persistHTTPMediaTarget(t, harness, *ready, owner, target, time.Now().UnixMilli())
 
 	ownerRead := apiRequest(
 		harness.mux, http.MethodGet, "/v1/media/"+ready.ID, "", owner.ControlToken,

@@ -91,6 +91,36 @@ type recordingTargetSnapshotReader struct {
 	calls  []store.MediaTargetIdentity
 }
 
+type booleanOnlyTargetSnapshotReader struct{}
+
+func (booleanOnlyTargetSnapshotReader) AllowsMediaDownload(
+	context.Context,
+	store.MediaTargetIdentity,
+) (bool, error) {
+	return true, nil
+}
+
+func TestDownloadServiceRejectsExternalTargetSnapshotReader(t *testing.T) {
+	harness := newSubmitHarness(t)
+	service, err := NewDownloadService(harness.store, harness.mediaDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := booleanOnlyTargetSnapshotReader{}
+	if service.SetTargetSnapshotReader(reader) {
+		t.Fatal("external Boolean snapshot reader was accepted")
+	}
+	service.targetsMu.RLock()
+	targets, persisted := service.targets, service.persistedTargets
+	service.targetsMu.RUnlock()
+	if targets != nil || persisted {
+		t.Fatalf("external reader did not fail closed: targets=%T persisted=%t", targets, persisted)
+	}
+	if !service.SetTargetSnapshotReader(harness.store) {
+		t.Fatal("exact backing Store was rejected")
+	}
+}
+
 func (reader *recordingTargetSnapshotReader) AllowsMediaDownload(
 	_ context.Context,
 	target store.MediaTargetIdentity,
@@ -99,6 +129,19 @@ func (reader *recordingTargetSnapshotReader) AllowsMediaDownload(
 	defer reader.mu.Unlock()
 	reader.calls = append(reader.calls, target)
 	return reader.grants[target], nil
+}
+
+func (reader *recordingTargetSnapshotReader) WithMediaDownloadAuthorization(
+	_ context.Context,
+	target store.MediaTargetIdentity,
+	authorized func() error,
+) (bool, error) {
+	reader.mu.Lock()
+	defer reader.mu.Unlock()
+	if !reader.grants[target] {
+		return false, nil
+	}
+	return true, authorized()
 }
 
 func (reader *recordingTargetSnapshotReader) grant(target store.MediaTargetIdentity) {

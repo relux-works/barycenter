@@ -24,6 +24,19 @@ type MediaTargetSnapshotReader interface {
 	AllowsMediaDownload(context.Context, store.MediaTargetIdentity) (bool, error)
 }
 
+// MediaTargetAuthorizationReader is required for every non-Store target
+// source. The implementation must keep the decision represented by allowed
+// valid until authorized returns; the callback acquires the descriptor before
+// returning. A Boolean-only reader is intentionally rejected by the setter.
+type MediaTargetAuthorizationReader interface {
+	MediaTargetSnapshotReader
+	WithMediaDownloadAuthorization(
+		context.Context,
+		store.MediaTargetIdentity,
+		func() error,
+	) (allowed bool, err error)
+}
+
 type MediaDownload struct {
 	Item store.MediaItem
 	File *os.File
@@ -47,6 +60,7 @@ type DownloadService struct {
 
 	targetsMu sync.RWMutex
 	targets   MediaTargetSnapshotReader
+	lease     MediaTargetAuthorizationReader
 	// persistedTargets is true only when the reader is this service's Store.
 	// That path rechecks the target/block decision inside both authorization
 	// transactions instead of trusting the preflight Boolean through open(2).
@@ -79,14 +93,28 @@ func NewDownloadService(st *store.Store, mediaDir string) (*DownloadService, err
 }
 
 // SetTargetSnapshotReader is the forward-only handoff to transmission
-// persistence. Nil is fail-closed: until that downstream store exists, generic
-// node reads remain unavailable while owning control reads are still useful.
-func (service *DownloadService) SetTargetSnapshotReader(reader MediaTargetSnapshotReader) {
+// persistence. The exact Store backing this service uses its immediate
+// transaction path. A non-Store reader is accepted only when it implements the
+// authorization-lease contract above; a Boolean-only reader is fail-closed.
+func (service *DownloadService) SetTargetSnapshotReader(reader MediaTargetSnapshotReader) bool {
 	service.targetsMu.Lock()
-	service.targets = reader
 	persistedStore, ok := reader.(*store.Store)
-	service.persistedTargets = ok && persistedStore == service.store
+	persisted := ok && persistedStore == service.store
+	lease, leased := reader.(MediaTargetAuthorizationReader)
+	trusted := persisted || leased
+	if persisted {
+		service.targets = persistedStore
+		service.lease = nil
+	} else if leased {
+		service.targets = reader
+		service.lease = lease
+	} else {
+		service.targets = nil
+		service.lease = nil
+	}
+	service.persistedTargets = persisted
 	service.targetsMu.Unlock()
+	return trusted
 }
 
 func (service *DownloadService) OpenAuthorized(
@@ -101,11 +129,13 @@ func (service *DownloadService) OpenAuthorized(
 	targetAuthorized := false
 	var targetIdentity store.MediaTargetIdentity
 	persistedTargets := false
+	var lease MediaTargetAuthorizationReader
 	if principal.Capabilities.Has(store.CapabilityNode) &&
 		!principal.Capabilities.Has(store.CapabilityControl) {
 		service.targetsMu.RLock()
 		reader := service.targets
 		persistedTargets = service.persistedTargets
+		lease = service.lease
 		service.targetsMu.RUnlock()
 		if reader != nil {
 			var err error
@@ -185,6 +215,18 @@ func (service *DownloadService) OpenAuthorized(
 		confirmed, err = service.store.WithAuthorizedPersistedMediaDownload(
 			principal, bearer, targetIdentity, service.now().UnixMilli(), authorizedOpen,
 		)
+	} else if targetAuthorized && lease != nil {
+		allowed := false
+		allowed, err = lease.WithMediaDownloadAuthorization(ctx, targetIdentity, func() error {
+			var callbackErr error
+			confirmed, callbackErr = service.store.WithAuthorizedMediaDownload(
+				principal, bearer, mediaID, true, service.now().UnixMilli(), authorizedOpen,
+			)
+			return callbackErr
+		})
+		if err == nil && !allowed {
+			err = store.ErrMediaNotFound
+		}
 	} else {
 		confirmed, err = service.store.WithAuthorizedMediaDownload(
 			principal, bearer, mediaID, targetAuthorized,
@@ -216,7 +258,7 @@ func (service *DownloadService) OpenAuthorizedStreamVariant(
 		return StreamVariantDownload{}, store.ErrStreamTrackNotFound
 	}
 	service.targetsMu.RLock()
-	reader, persistedTargets := service.targets, service.persistedTargets
+	reader, persistedTargets, lease := service.targets, service.persistedTargets, service.lease
 	service.targetsMu.RUnlock()
 	target := store.MediaTargetIdentity{
 		MediaID: mediaID, OrbitID: principal.OrbitID,
@@ -264,6 +306,19 @@ func (service *DownloadService) OpenAuthorizedStreamVariant(
 			principal, bearer, target, variantID,
 			service.now().UnixMilli(), authorizedOpen,
 		)
+	} else if targetAuthorized && lease != nil {
+		allowed := false
+		allowed, err = lease.WithMediaDownloadAuthorization(ctx, target, func() error {
+			var callbackErr error
+			variant, callbackErr = service.store.WithAuthorizedStreamVariantDownload(
+				principal, bearer, mediaID, variantID, true,
+				service.now().UnixMilli(), authorizedOpen,
+			)
+			return callbackErr
+		})
+		if err == nil && !allowed {
+			err = store.ErrStreamTrackNotFound
+		}
 	} else {
 		variant, err = service.store.WithAuthorizedStreamVariantDownload(
 			principal, bearer, mediaID, variantID, targetAuthorized,

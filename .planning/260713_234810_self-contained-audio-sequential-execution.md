@@ -14,8 +14,8 @@
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
 - Current engineering task: `TASK-260712-25dzp4` — windows-e2ee-key-state in
-  deferred epic `EPIC-260716-3qsztl`; execution started from the accepted and
-  merged macOS key-state baseline.
+  deferred epic `EPIC-260716-3qsztl`; production-dark implementation and local
+  evidence are complete, with exact-SHA independent review pending.
 - Current original-plan frontier: `TASK-260712-25dzp4` —
   windows-e2ee-key-state in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
@@ -146,6 +146,17 @@
   inherits partial-install reset/re-enrollment and expired-grant cleanup. PR
   #287 then passed hosted CI run `29705960146` (4/4) and merged to `main` as
   `5f1756d57df16a476b2df353f60656d24b02f752`.
+- Windows E2EE key state (review pending): the current branch adds distinct
+  current-user-DPAPI state/witness files for device metadata, signing,
+  agreement, groups, grants and the bounded content-key cache. A
+  repository-wide in-process plus Win32 share-none lock covers validation,
+  write-through replace/readback and acknowledgment, closing cross-process
+  double-reservation inside this foundation. Shared predecessor, crash,
+  replay, clone, expiry, delete, target and lock vectors pass 10/10 and 20×
+  under race; full test/vet/race, Windows amd64/arm64 vet/test-compile and
+  acceptance 222/222 pass. Runtime wiring, production crypto, native DPAPI,
+  signed MSIX, NTFS and profile backup/restore claims remain absent. Acceptance
+  waits for owner-authorized Claude Fable 5 max exact-SHA delta review.
 - Next deferred coding line: E2EE continues with `TASK-260712-25dzp4`, limited
   to disabled best-effort Windows key state after macOS integration. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
@@ -3661,7 +3672,10 @@ continues at section 17.
   hashes and the full 16/16 automated battery, then APPROVED WITH NON-BLOCKING
   FOLLOW-UPS with zero Critical/High. Cross-process ownership is a hard
   downstream integration DoD; manual and production crypto gates remain open.)
-- [ ] `TASK-260712-25dzp4` — windows-e2ee-key-state
+- [ ] `TASK-260712-25dzp4` — windows-e2ee-key-state (production-dark code and
+  automated evidence complete: focused 10/10 and race x20, full
+  test/vet/race, Windows amd64/arm64 compile, acceptance 222/222; independent
+  exact-SHA review pending.)
 - [ ] `TASK-260712-2i0w6x` — report-evidence-moderation-export
 - [ ] `TASK-260712-1rziyo` — recovery-device-transfer-history-grants
 - [ ] `TASK-260712-2kcduo` — macos-protected-media-send

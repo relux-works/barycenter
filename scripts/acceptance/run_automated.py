@@ -190,6 +190,7 @@ def suite_commands(suite: str, go_env: dict[str, str] | None, apple_env: dict[st
                 "scripts/acceptance/test_e2ee_protocol_key_lifecycle.py",
                 "scripts/acceptance/test_e2ee_schema_epoch_foundation.py",
                 "scripts/acceptance/test_e2ee_coordinator_routing_rotation.py",
+                "scripts/acceptance/test_e2ee_opaque_media_router.py",
                 "scripts/acceptance/test_capture_quality_contract.py",
                 "scripts/acceptance/test_phase3_gate_matrix.py",
                 "scripts/acceptance/test_phase3_observability.py",

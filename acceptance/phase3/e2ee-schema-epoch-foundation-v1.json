@@ -15,14 +15,14 @@
     "deltaReviewRequired": true
   },
   "artifacts": [
-    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"4af993cf3cca1a522db68359a02f3e194f5653149a24a82d30a58239534e5b38"},
-    {"id":"repository","path":"coordinator/internal/store/e2ee.go","sha256":"6a42ed360f316a6c8f9168896b5547980557da99102d1e259a55ae478e8378ac"},
-    {"id":"tests","path":"coordinator/internal/store/e2ee_test.go","sha256":"54a71c6f44cddf14222de1d429898bac107dad008944726b9e4be752e58d07b7"},
-    {"id":"startup","path":"coordinator/internal/store/store.go","sha256":"6a9565015fe55f483d4912e86da8bf39f6e43d86e2445288c3375843a31007c8"},
+    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"2fcae6ae7f87366b2b3ef22a06833f50108c9f7907a030580b596333ff1bf738"},
+    {"id":"repository","path":"coordinator/internal/store/e2ee.go","sha256":"4bf5b99aba1a951ffc6ea17f9adad22ff0553efbf0451cd3c9660e8865877da0"},
+    {"id":"tests","path":"coordinator/internal/store/e2ee_test.go","sha256":"403a54758b075b53db24c62a0b471aeee69f82e38ab017a317d208ec9762e039"},
+    {"id":"startup","path":"coordinator/internal/store/store.go","sha256":"b77aae2b7ed1cc10e06a23b11485617fc603e5d1823d1940e9d67f9c42257e16"},
     {"id":"protocol","path":"protocol/e2ee-media-audit-v1.json","sha256":"5dc5ac88539fed12b827aa8c3ff6ce14b6a13ae46d063624822c5435f38334ce"},
     {"id":"vectors","path":"protocol/e2ee-media-audit-v1-vectors.json","sha256":"2a8c71b909b2117921a6ee6b5415229ee8328e047f3c8f19d0db48e58fbf37cd"},
     {"id":"coordinator-model","path":"coordinator/internal/e2eecontract/contract.go","sha256":"3844a8a0d1bad60b464ff9d8f5568b8bcd526b83c79da556b2a6de09208030f0"},
-    {"id":"coordinator-model-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"907647dcb7811d28615d6e11111c099c8566f0478f21308fd3a4041f82a7c582"},
+    {"id":"coordinator-model-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"e5aa51f8872831d16707dc42e28a06b9627c474098a97de86247e737258b1cb2"},
     {"id":"windows-model","path":"pulsar-win/e2ee_contract_audit.go","sha256":"ad7129c0798946b8a6863b4b7d06813b16ddf91437bcc24749eccf41a1d9d5a1"},
     {"id":"windows-model-tests","path":"pulsar-win/e2ee_contract_audit_test.go","sha256":"745a05aac5da80a5d69db2faa64ed3c032dd070fa79398df8621e4978d0d9e6b"},
     {"id":"macos-model","path":"node-app/Sources/NodeCore/E2EEAuditContract.swift","sha256":"927a8b57694d57e3f66acb7746db886f29e02e6baf4892eeecf1c2eff7a512be"},
@@ -44,7 +44,12 @@
     "e2ee_protocol_actor_bindings",
     "e2ee_group_members",
     "e2ee_rotation_requirements",
-    "e2ee_group_event_deliveries"
+    "e2ee_group_event_deliveries",
+    "e2ee_protected_object_recipients",
+    "e2ee_protected_object_chunks",
+    "e2ee_protected_egress_usage",
+    "e2ee_opaque_live_sessions",
+    "e2ee_opaque_live_recipients"
   ],
   "forbiddenStorageFields": [
     "private_key",

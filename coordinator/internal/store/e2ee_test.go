@@ -91,12 +91,13 @@ func newE2EEStoreFixture(t *testing.T) e2eeStoreFixture {
 
 func e2eeObjectParams(fixture e2eeStoreFixture, sourceID string, stamp int64) StageE2EEProtectedObjectParams {
 	digest := strings.Repeat("c", 64)
+	manifest := []byte{0x91, 0x07, 0xa3, 0x55}
 	return StageE2EEProtectedObjectParams{
 		GroupID: fixture.group.ID, SourceObjectID: sourceID, ObjectKind: "clip",
 		AuthorDeviceID: "device_owner_verified_0001", Epoch: fixture.group.CurrentEpoch,
 		Generation: 1, TargetSnapshotDigest: fixture.group.TargetSnapshotDigest,
-		ManifestDigest:     strings.Repeat("e", 64),
-		EncryptedManifest:  []byte{0x91, 0x07, 0xa3, 0x55},
+		ManifestDigest:     e2eeDigest(manifest),
+		EncryptedManifest:  manifest,
 		OpaqueKeyEnvelopes: []byte{0xf1, 0x02, 0x7c, 0x99},
 		CiphertextRef:      "ciphertext/v1/" + digest, CiphertextDigest: digest,
 		CiphertextSize: 8192, ChunkCount: 2, DeclaredDurationMS: 1200,

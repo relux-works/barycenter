@@ -385,7 +385,8 @@ WHERE id = ? AND current_epoch = ? AND commit_digest = ? AND revision = ? AND fo
 func (s *Store) StageE2EEProtectedObject(params StageE2EEProtectedObjectParams) (E2EEProtectedObject, error) {
 	if len(params.GroupID) != 30 || len(params.SourceObjectID) < 8 || len(params.SourceObjectID) > 128 ||
 		len(params.AuthorDeviceID) < 8 || params.Epoch <= 0 || params.Generation <= 0 ||
-		params.CiphertextSize <= 0 || params.ChunkCount <= 0 || params.DeclaredDurationMS < 0 ||
+		params.CiphertextSize <= 0 || params.CiphertextSize > e2eeMaxObjectBytes ||
+		params.ChunkCount <= 0 || params.ChunkCount > e2eeMaxObjectChunks || params.DeclaredDurationMS < 0 ||
 		params.CreatedAt <= 0 || !validE2EEDigest(params.TargetSnapshotDigest) ||
 		!validE2EEDigest(params.ManifestDigest) || !validE2EEDigest(params.CiphertextDigest) ||
 		!validE2EEPayload(params.EncryptedManifest) || !validE2EEPayload(params.OpaqueKeyEnvelopes) ||
@@ -426,9 +427,13 @@ FROM e2ee_groups WHERE id = ?`, params.GroupID).Scan(&epoch, &target, &forkState
 	if forkState != "clean" || params.Epoch != epoch || params.TargetSnapshotDigest != target {
 		return E2EEProtectedObject{}, ErrE2EEStaleEpoch
 	}
+	var routingMembers []E2EEGroupMember
 	if initialized, err := e2eeRoutingInitializedTx(tx, params.GroupID); err != nil {
 		return E2EEProtectedObject{}, err
 	} else if initialized {
+		if !payloadDigestMatches(params.EncryptedManifest, params.ManifestDigest) {
+			return E2EEProtectedObject{}, ErrE2EEInvalid
+		}
 		group, err := e2eeGroupTx(tx, params.GroupID)
 		if err != nil {
 			return E2EEProtectedObject{}, err
@@ -455,6 +460,11 @@ FROM e2ee_protocol_actor_bindings WHERE device_id = ?`,
 			!sameE2EEMemberSet(current, snapshot.Members) {
 			return E2EEProtectedObject{}, ErrE2EERotationRequired
 		}
+		routingMembers = current
+		if err := e2eeProtectedObjectCapacityTx(tx, actorID, params.CiphertextSize,
+			params.CreatedAt); err != nil {
+			return E2EEProtectedObject{}, err
+		}
 	}
 	id := "em_" + ulid.New(time.UnixMilli(params.CreatedAt))
 	_, err = tx.Exec(`INSERT INTO e2ee_protected_objects(
@@ -472,6 +482,18 @@ finalized_at, revoked_at, deleted_at
 		params.CreatedAt, params.CreatedAt)
 	if err != nil {
 		return E2EEProtectedObject{}, ErrE2EEConflict
+	}
+	for _, member := range routingMembers {
+		if _, err := tx.Exec(`INSERT INTO e2ee_protected_object_recipients(
+protected_object_id, recipient_device_id, actor_id, protocol_actor_id,
+actor_membership_role, actor_membership_joined_at, orbit_id, air_membership_id,
+air_role, air_membership_revision, created_at
+) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, member.DeviceID, member.ActorID,
+			member.ProtocolActorID, member.ActorMembershipRole,
+			member.ActorMembershipJoinedAt, member.OrbitID, member.AirMembershipID,
+			member.AirRole, member.AirMembershipRevision, params.CreatedAt); err != nil {
+			return E2EEProtectedObject{}, err
+		}
 	}
 	if err := appendE2EEAuditTx(tx, params.GroupID, "protected_object", id,
 		"protected_object.stage", "accepted", "", actorID, params.AuthorDeviceID,
@@ -536,6 +558,25 @@ func (s *Store) transitionE2EEProtectedObject(id, operation, status, outcome str
 	}
 	if value.Revision != expectedRevision {
 		return E2EEProtectedObject{}, ErrE2EEConflict
+	}
+	if operation == "protected_object.finalize" {
+		if enabled, err := e2eeProtectedObjectRouterEnabledTx(tx, value.ID); err != nil {
+			return E2EEProtectedObject{}, err
+		} else if enabled {
+			group, err := e2eeGroupTx(tx, value.GroupID)
+			if err != nil {
+				return E2EEProtectedObject{}, err
+			}
+			if group.ForkState != "clean" {
+				return E2EEProtectedObject{}, ErrE2EEForked
+			}
+			if err := requireExactCurrentE2EESnapshotTx(tx, group); err != nil {
+				return E2EEProtectedObject{}, err
+			}
+			if err := validateE2EEProtectedObjectChunksTx(tx, value); err != nil {
+				return E2EEProtectedObject{}, err
+			}
+		}
 	}
 	stampColumn := "finalized_at"
 	if status == "revoked" {

@@ -1,6 +1,7 @@
 package e2eecontract
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -43,6 +44,43 @@ type vectors struct {
 		Sequence           uint64 `json:"sequence"`
 		Expected           string `json:"expected"`
 	} `json:"replayStateVectors"`
+}
+
+func TestOpaqueLiveFrameHasDistinctBoundedEnvelope(t *testing.T) {
+	session := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	frame := OpaqueLiveFrame{Flags: OpaqueLiveFlagStart, SessionID: session,
+		Epoch: 7, Generation: 3, Sequence: 1, CaptureMonotonicUS: 20000,
+		TargetSnapshotDigest: strings.Repeat("a", 64),
+		Ciphertext:           []byte{0x90, 0x17, 0xee, 0x42}}
+	raw, err := EncodeOpaqueLiveFrame(frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw[:2]) != "BE" || len(raw) != OpaqueLiveFrameHeaderBytes+len(frame.Ciphertext) {
+		t.Fatalf("opaque header=%x len=%d", raw[:4], len(raw))
+	}
+	decoded, err := DecodeOpaqueLiveFrame(raw)
+	if err != nil || decoded.Epoch != frame.Epoch || decoded.Generation != frame.Generation ||
+		decoded.TargetSnapshotDigest != frame.TargetSnapshotDigest ||
+		!bytes.Equal(decoded.Ciphertext, frame.Ciphertext) {
+		t.Fatalf("decoded=%+v err=%v", decoded, err)
+	}
+	legacy := append([]byte(nil), raw...)
+	copy(legacy[:2], []byte("BP"))
+	if _, err := DecodeOpaqueLiveFrame(legacy); err == nil {
+		t.Fatal("legacy plaintext frame magic accepted by opaque decoder")
+	}
+	tampered := append([]byte(nil), raw...)
+	tampered[48] ^= 0xff
+	decoded, err = DecodeOpaqueLiveFrame(tampered)
+	if err != nil || decoded.TargetSnapshotDigest == frame.TargetSnapshotDigest {
+		t.Fatalf("target binding was not represented in frame: decoded=%+v err=%v", decoded, err)
+	}
+	tooLarge := frame
+	tooLarge.Ciphertext = make([]byte, OpaqueLiveMaxCiphertextBytes+1)
+	if _, err := EncodeOpaqueLiveFrame(tooLarge); err == nil {
+		t.Fatal("oversized opaque frame accepted")
+	}
 }
 
 func loadVectors(t *testing.T) vectors {

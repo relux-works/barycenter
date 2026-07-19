@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 171 accepted, 34 remain.
-- Routed inventory: 186 engineering tasks (171 accepted, 15 remain) and 19
+- Combined inventory: 205 original tasks; 172 accepted, 33 remain.
+- Routed inventory: 186 engineering tasks (172 accepted, 14 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,11 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-1yz5ca` —
-  coordinator-opaque-media-router in deferred epic `EPIC-260716-3qsztl`;
-  execution starts only after the accepted routing/rotation delta is merged.
-- Current original-plan frontier: `TASK-260712-1yz5ca` —
-  coordinator-opaque-media-router in deferred epic `EPIC-260716-3qsztl`.
+- Current engineering task: `TASK-260712-1x9ruo` — macos-e2ee-key-state in
+  deferred epic `EPIC-260716-3qsztl`; implementation starts only after the
+  accepted opaque-router delta completes PR/hosted-CI integration to `main`.
+- Current original-plan frontier: `TASK-260712-1x9ruo` —
+  macos-e2ee-key-state in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -111,17 +111,31 @@
   Critical/High/Medium findings. Non-blocking L1 records multi-cause
   `reason_code` audit fidelity; I1 requires downstream key-state work to pin
   the member-with-only-revoked-devices semantic. Production EPC gates and
-  external security acceptance remain open.
-- Next deferred coding line: E2EE continues with `TASK-260712-1yz5ca`, limited
-  to disabled best-effort opaque media routing. Every later E2EE implementation
+  external security acceptance remain open. PR #285 passed hosted CI run
+  `29702340139` (4/4) and merged to `main` as `32fee4ac`.
+- E2EE opaque media router: exact producer commit
+  `e4488ed2c0335e57910d704cf4bb4119593bbfdd` adds five additive tables,
+  ciphertext-only manifest/chunk/range/delete routing, exact frozen recipient
+  lineage, bounded upload/egress quotas and a distinct bounded `BE` opaque-live
+  envelope with persisted public replay/rate/receipt state but no frame
+  payload. Runtime HTTP/WS wiring, capability advertisement, production crypto
+  selection and hardware/app claims remain absent. Producer full test/vet,
+  acceptance 212/212, focused race and full race passed (Store full race
+  594.955 s). Claude Fable 5 max completion run `RUN-260719-91776a`
+  independently re-verified exact SHA, 14/14 pins, full test/vet, focused race,
+  212/212 acceptance and previous-head rollback, then APPROVED with zero
+  Critical/High/Medium findings. The broad race is honestly producer-only
+  evidence and a non-blocking independent follow-up before activation.
+- Next deferred coding line: E2EE continues with `TASK-260712-1x9ruo`, limited
+  to disabled best-effort macOS key state. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-20j5tm` —
-  coordinator-ciphertext-routing-rotation (dormant engineering scope only)
-- Current branch: `feat/task-260712-20j5tm`
-- Current review evidence: independent routing/rotation delta verdict
-  `TASK-260712-20j5tm_independent-delta-review-v1.md` from terminal run
-  `RUN-260719-47433f`. The preceding Store-package run `RUN-260719-85bf38`
+- Most recently accepted: `TASK-260712-1yz5ca` —
+  coordinator-opaque-media-router (dormant engineering scope only)
+- Current branch: `feat/task-260712-1yz5ca`
+- Current review evidence: independent opaque-router delta verdict
+  `TASK-260712-1yz5ca_independent-delta-review-v1.md` from terminal completion
+  run `RUN-260719-91776a`. The preceding Store-package run `RUN-260719-85bf38`
   accepted exact `e3bf985` for engineering scope in
   `TASK-260712-2s4e9p_engineering-review-verdict.md`; manual screenshots/WACK
   and exact Partner Center/IARC owner inputs remain open in

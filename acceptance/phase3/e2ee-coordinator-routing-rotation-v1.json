@@ -17,17 +17,17 @@
     "deltaReviewRequired": true
   },
   "artifacts": [
-    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"4af993cf3cca1a522db68359a02f3e194f5653149a24a82d30a58239534e5b38"},
-    {"id":"foundation-repository","path":"coordinator/internal/store/e2ee.go","sha256":"6a42ed360f316a6c8f9168896b5547980557da99102d1e259a55ae478e8378ac"},
+    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"2fcae6ae7f87366b2b3ef22a06833f50108c9f7907a030580b596333ff1bf738"},
+    {"id":"foundation-repository","path":"coordinator/internal/store/e2ee.go","sha256":"4bf5b99aba1a951ffc6ea17f9adad22ff0553efbf0451cd3c9660e8865877da0"},
     {"id":"routing-repository","path":"coordinator/internal/store/e2ee_routing.go","sha256":"ad979df0a341cff0cc67ea664a0f4eaf383eba01879b96071270f2a2ee2f9fb0"},
     {"id":"routing-tests","path":"coordinator/internal/store/e2ee_routing_test.go","sha256":"18747501a5b465aad37cd7a7432c305b2e0dd192f194fe2b451820ac648be867"},
     {"id":"coordinator-contract","path":"coordinator/internal/e2eecontract/contract.go","sha256":"3844a8a0d1bad60b464ff9d8f5568b8bcd526b83c79da556b2a6de09208030f0"},
-    {"id":"coordinator-contract-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"907647dcb7811d28615d6e11111c099c8566f0478f21308fd3a4041f82a7c582"},
+    {"id":"coordinator-contract-tests","path":"coordinator/internal/e2eecontract/contract_test.go","sha256":"e5aa51f8872831d16707dc42e28a06b9627c474098a97de86247e737258b1cb2"},
     {"id":"protocol-authority","path":"protocol/e2ee-media-audit-v1.json","sha256":"5dc5ac88539fed12b827aa8c3ff6ce14b6a13ae46d063624822c5435f38334ce"},
     {"id":"protocol-vectors","path":"protocol/e2ee-media-audit-v1-vectors.json","sha256":"2a8c71b909b2117921a6ee6b5415229ee8328e047f3c8f19d0db48e58fbf37cd"},
     {"id":"threat-model","path":"acceptance/phase3/e2ee-threat-model-v1.json","sha256":"a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
-    {"id":"key-lifecycle-packet","path":"acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json","sha256":"e1476ba8056d6b51fca4d9da381b850538cf3cd00c394aee76f1c742a2d74871"},
-    {"id":"schema-foundation-packet","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"75e4facc91882fe6c5a491b11484a0bcb9acecea8da7494e2a15a0839d261b96"},
+    {"id":"key-lifecycle-packet","path":"acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json","sha256":"6015b911f8e83c8228c4c3f3b763c2e9852c2ea7f773be488d45ced0fc80578c"},
+    {"id":"schema-foundation-packet","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"d0b3ac300224bd95472bcc72b9237c562a9074432c1e1f9596e4a55d6a7433eb"},
     {"id":"adr","path":"docs/analysis/p3-e2ee-coordinator-routing-rotation-v1.md","sha256":"f47b3e6279755ed4aa1f21096a1a63e956112dccf9bc27d9d56a3eac0dea8d91"}
   ],
   "additiveTables": [

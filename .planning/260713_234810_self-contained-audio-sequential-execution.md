@@ -284,6 +284,21 @@
   Hosted CI run `29718751890` passed all four required jobs; PR #294 merged
   exact head `684734175473b3c4fc28a305431547fc1d0a3b62` to `main` as
   `c5eede96a18e19703c503ca32256e87a2b932838`.
+- Windows protected-media playback producer: exact commit
+  `532774a1c37778a744acba53e897c6308435ebc0` adds a production-dark exact-route
+  manifest/envelope/record authentication boundary, witnessed group and
+  bounded-history revalidation around every range, defensive route ownership,
+  ciphertext-only cache and authenticated-reader injection into the existing
+  bounded player. Exact `VariantURL` now participates in cache authority;
+  actors sharing a root serialize read-merge-write, preserve tombstones as a
+  monotonic union and use unique temp files. A separate route-scoped monotonic
+  revocation marker survives parallel actors and restart. Protected focused 10
+  scenarios plus race, stream regressions plus race, full Go plus race, vet,
+  acceptance 210/210 and automated 16/16 passed; exact final manifest is
+  `.temp/acceptance/20260720T060457Z/manifest.json`. Independent Claude Fable 5
+  max exact-SHA review is pending. Signed MSIX, native DPAPI/NTFS/ACL, real
+  provider/crypto/decoder, traffic, disk/log/memory/crash/swap/backup,
+  hardware/audible and cross-platform interop evidence remains manual/deferred.
 - Next deferred coding line: E2EE continues with `TASK-260712-1u57qz`, limited
   to the production-dark Windows protected-media playback path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
@@ -292,7 +307,9 @@
   windows-protected-media-send (dormant engineering scope only)
 - Current branch: `feat/task-260712-1u57qz`
 - Current review evidence:
-  `TASK-260712-28zhpl_re-review-verdict-b2a4af6.md` from Claude Fable 5 max run
+  Windows protected playback is pending a new Claude Fable 5 max review on
+  exact producer commit `532774a`; the preceding accepted evidence is
+  `TASK-260712-28zhpl_re-review-verdict-b2a4af6.md` from run
   `RUN-260720-1e8fa2` on exact producer rework commit `b2a4af6`; initial run
   `RUN-260720-6ead84` supplied the two now-closed lifecycle repros. The rejected
   first-pass verdict was run `RUN-260720-db683a`; the preceding playback

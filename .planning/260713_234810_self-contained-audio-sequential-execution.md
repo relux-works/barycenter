@@ -15,8 +15,8 @@
   spawn is used only for explicitly owner-authorized independent reviewers.
 - Current engineering task: `TASK-260712-1rziyo` —
   recovery-device-transfer-history-grants in deferred epic
-  `EPIC-260716-3qsztl`; implementation starts only after the accepted
-  report-evidence branch lands on `main`.
+  `EPIC-260716-3qsztl`; strict production-dark execution started from merged
+  report-evidence main `f9fd2ec965e9b8b3396a10339541ae1327dd6a90`.
 - Current original-plan frontier: `TASK-260712-1rziyo` —
   recovery-device-transfer-history-grants in deferred epic
   `EPIC-260716-3qsztl`.
@@ -185,13 +185,15 @@
   adapter, capability advertisement, coordinator decrypt, plaintext evidence,
   real-app, provider-delete or traffic-capture claim was added; manual scope
   remains in `EPIC-260714-th54l3` and production EPC gates remain open.
+  Hosted CI run `29709135019` passed all four jobs; PR #289 merged to `main`
+  as `f9fd2ec965e9b8b3396a10339541ae1327dd6a90`.
 - Next deferred coding line: E2EE continues with `TASK-260712-1rziyo`, limited
   to recovery, device transfer and history grants. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2i0w6x` —
   report-evidence-moderation-export (dormant engineering scope only)
-- Current branch: `feat/task-260712-2i0w6x`
+- Current branch: `feat/task-260712-1rziyo`
 - Current review evidence:
   `TASK-260712-2i0w6x_independent-exact-sha-review.md` from Claude Fable 5 max
   run `RUN-260720-65a670` on exact producer commit `66a34ed`. The preceding
@@ -3721,7 +3723,8 @@ continues at section 17.
   harness passed 7/7 with 227/227 contract tests. Independent Claude Fable 5
   max run `RUN-260720-65a670` repeated the exact-SHA tests and ACCEPTED with no
   Critical/High/Medium finding. Runtime/storage adapter and all real-app,
-  traffic, provider and physical evidence remain deferred.)
+  traffic, provider and physical evidence remain deferred. Hosted CI run
+  `29709135019` passed 4/4 and PR #289 merged as `f9fd2ec`.)
 - [ ] `TASK-260712-1rziyo` — recovery-device-transfer-history-grants
 - [ ] `TASK-260712-2kcduo` — macos-protected-media-send
 - [ ] `TASK-260712-tcwn44` — macos-protected-media-playback

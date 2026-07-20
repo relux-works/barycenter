@@ -8,7 +8,7 @@ codex-root-inline
 2026-07-12T16:49:11Z
 
 ## Last Update
-2026-07-20T02:36:29Z
+2026-07-20T02:37:27Z
 
 ## Blocked By
 - TASK-260712-1x9ruo
@@ -40,7 +40,7 @@ spawn run completed: claude (run=RUN-260720-2f341a, pid=90779, exit=0)
 Reviewer M1 rework: cache actors now serialize and read-merge-write one durable index with monotonic tombstones and unique temp files; concurrent A-hit/B-revoke/restart regression added. L1 changed rotation/expiry to invalidate, explicit revoke only tombstones. L2 player retains prepared lifetime owner. Re-review required on new exact SHA.
 
 ## Precondition Resources
-- [independent-review-brief.md](file://TASK-260712-tcwn44/independent-review-brief.md) — Exact-SHA independent security and realtime review instructions
+- [independent-review-brief.md](file://TASK-260712-tcwn44/independent-review-brief.md) — Exact-SHA independent re-review of cache race and lifecycle fixes
 
 ## Outcome Resources
 - [macos-protected-media-playback-v1.json](file://TASK-260712-tcwn44/macos-protected-media-playback-v1.json) — Fail-closed automated acceptance packet; production remains dark

@@ -66,6 +66,7 @@ private final class LiveFixtureCrypto: MacE2EELiveCryptographicSession,
   private(set) var openCount = 0
   private(set) var destroyCount = 0
   var reuseNonce = false
+  var malformedCiphertext = false
 
   func seal(
     plaintext: Data, sequence: UInt32, authenticatedData: Data
@@ -78,7 +79,7 @@ private final class LiveFixtureCrypto: MacE2EELiveCryptographicSession,
       let tag = digest(key + authenticatedData + nonce + encrypted).prefix(16)
       return .init(
         nonceToken: nonce,
-        wireCiphertext: nonce + encrypted + Data(tag))
+        wireCiphertext: malformedCiphertext ? Data() : nonce + encrypted + Data(tag))
     }
   }
 
@@ -219,18 +220,18 @@ private func liveContext(start: LivePTTStartPayload = liveStart()) throws
   try .init(
     groupID: "air-group-fixture-00000000000001",
     authorDeviceID: "mac-device-fixture-0001", epoch: 9,
-    groupRevision: 13, start: start)
+    commitDigest: String(repeating: "b", count: 64), start: start)
 }
 
 private func liveAuthorization(
   context: MacE2EELiveSessionContext,
   senders: Set<String>? = nil,
   epoch: UInt64? = nil,
-  revision: UInt64? = nil
+  commitDigest: String? = nil
 ) -> MacE2EELiveAuthorizationSnapshot {
   .init(
     groupID: context.groupID, epoch: epoch ?? context.epoch,
-    groupRevision: revision ?? context.groupRevision,
+    commitDigest: commitDigest ?? context.commitDigest,
     targetSnapshotDigest: context.targetSnapshotDigest,
     authorizedSenderDeviceIDs: senders ?? [context.authorDeviceID])
 }
@@ -358,6 +359,35 @@ struct MacE2EELivePTTTests {
     #expect(reuseChannel.isTerminal())
   }
 
+  @Test("malformed provider output is distinct and duration bound precedes sealing")
+  func providerOutputAndDurationBounds() throws {
+    let context = try liveContext()
+    let authorization = LiveAuthorizationBox(liveAuthorization(context: context))
+    let malformedCrypto = LiveFixtureCrypto()
+    malformedCrypto.malformedCiphertext = true
+    let malformedChannel = try MacE2EELiveFrameChannel(
+      auditFixtureContext: context, crypto: malformedCrypto,
+      authorization: authorization)
+    #expect(throws: MacE2EELiveFailure.malformedProviderOutput) {
+      try malformedChannel.protect(liveFrame(1))
+    }
+    #expect(malformedChannel.isTerminal())
+
+    let boundedCrypto = LiveFixtureCrypto()
+    let boundedChannel = try MacE2EELiveFrameChannel(
+      auditFixtureContext: context, crypto: boundedCrypto,
+      authorization: authorization)
+    for sequence in UInt32(1)...15_000 {
+      _ = try boundedChannel.protect(liveFrame(sequence, payload: Data([0x01])))
+    }
+    #expect(boundedCrypto.sealCount == 15_000)
+    #expect(throws: MacE2EELiveFailure.invalidFrame) {
+      try boundedChannel.protect(liveFrame(15_001, payload: Data([0x01])))
+    }
+    #expect(boundedCrypto.sealCount == 15_000)
+    #expect(!boundedChannel.isTerminal())
+  }
+
   @Test("verified membership or epoch change terminates exactly")
   func membershipChangeTerminates() throws {
     let context = try liveContext()
@@ -369,7 +399,7 @@ struct MacE2EELivePTTTests {
     authorization.update(
       liveAuthorization(
         context: context, senders: [], epoch: context.epoch + 1,
-        revision: context.groupRevision + 1))
+        commitDigest: String(repeating: "c", count: 64)))
 
     #expect(throws: MacE2EELiveFailure.staleEpoch) {
       try sender.protect(liveFrame(2))
@@ -431,7 +461,7 @@ struct MacE2EELivePTTTests {
     let expectedContext = try liveContext()
     let authorization = LiveAuthorizationBox(
       .init(
-        groupID: group.groupID, epoch: group.epoch, groupRevision: group.revision + 1,
+        groupID: group.groupID, epoch: group.epoch, commitDigest: group.commitDigest,
         targetSnapshotDigest: target,
         authorizedSenderDeviceIDs: [identity.deviceID]))
     let derivation = LiveFixtureDerivation()
@@ -455,11 +485,77 @@ struct MacE2EELivePTTTests {
     #expect(preparation.start.generation == 1)
     #expect(derivation.contexts.count == 1)
     #expect(derivation.contexts[0].epoch == expectedContext.epoch)
-    #expect(derivation.contexts[0].groupRevision == group.revision + 1)
+    #expect(derivation.contexts[0].commitDigest == group.commitDigest)
     #expect(throws: MacE2EEKeyStateFailure.conflict) {
       try MacE2EELiveSessionFactory(
         auditFixtureKeyState: keyState, derivation: derivation,
         authorization: authorization)
     }
+  }
+
+  @Test("two installations with skewed local revisions share commit-bound AAD")
+  func crossInstallationRoundTrip() throws {
+    let target = String(repeating: "a", count: 64)
+    let commit = String(repeating: "b", count: 64)
+    let groupID = "air-group-fixture-00000000000001"
+    let senderDeviceID = "mac-device-fixture-0001"
+    let receiverDeviceID = "mac-device-fixture-0002"
+    let senderState = MacE2EEKeyStateRepository(
+      store: LiveMemoryKeychain(), random: LiveFixedRandom())
+    let receiverState = MacE2EEKeyStateRepository(
+      store: LiveMemoryKeychain(), random: LiveFixedRandom())
+    let senderIdentity = try senderState.installDeviceIdentity(
+      deviceID: senderDeviceID, keyFormat: "fixture-v1",
+      signingPrivateKey: Data(repeating: 0x11, count: 32),
+      keyAgreementPrivateKey: Data(repeating: 0x22, count: 32),
+      createdAtMS: 1_000)
+    let receiverIdentity = try receiverState.installDeviceIdentity(
+      deviceID: receiverDeviceID, keyFormat: "fixture-v1",
+      signingPrivateKey: Data(repeating: 0x44, count: 32),
+      keyAgreementPrivateKey: Data(repeating: 0x55, count: 32),
+      createdAtMS: 1_000)
+    let senderGroup = try senderState.persistGroupState(
+      installationID: senderIdentity.installationID, groupID: groupID, epoch: 9,
+      previousCommitDigest: "", commitDigest: commit,
+      targetSnapshotDigest: target, opaqueState: Data(repeating: 0x33, count: 64),
+      expectedRevision: 0, nowMS: 2_000)
+    let receiverGroup = try receiverState.persistGroupState(
+      installationID: receiverIdentity.installationID, groupID: groupID, epoch: 9,
+      previousCommitDigest: "", commitDigest: commit,
+      targetSnapshotDigest: target, opaqueState: Data(repeating: 0x66, count: 64),
+      expectedRevision: 0, nowMS: 2_000)
+    let authorization = LiveAuthorizationBox(
+      .init(
+        groupID: groupID, epoch: 9, commitDigest: commit,
+        targetSnapshotDigest: target,
+        authorizedSenderDeviceIDs: [senderDeviceID]))
+    let senderFactory = try MacE2EELiveSessionFactory(
+      auditFixtureKeyState: senderState, derivation: LiveFixtureDerivation(),
+      authorization: authorization)
+    let receiverFactory = try MacE2EELiveSessionFactory(
+      auditFixtureKeyState: receiverState, derivation: LiveFixtureDerivation(),
+      authorization: authorization)
+    let outgoing = try senderFactory.prepareOutgoing(
+      .init(
+        groupID: groupID, authorDeviceID: senderDeviceID,
+        expectedGroupRevision: senderGroup.revision,
+        expectedTargetSnapshotDigest: target, nowMS: 3_000
+      )
+    ) { reservation in
+      liveStart(generation: Int64(reservation.generation))
+    }
+    #expect(outgoing.reservation.revision == senderGroup.revision + 1)
+    #expect(receiverGroup.revision != outgoing.reservation.revision)
+
+    let incoming = try receiverFactory.prepareIncoming(
+      .init(
+        groupID: groupID, localDeviceID: receiverDeviceID,
+        authorDeviceID: senderDeviceID, epoch: receiverGroup.epoch,
+        expectedLocalGroupRevision: receiverGroup.revision,
+        start: outgoing.start))
+    let plaintext = liveFrame(1, payload: Data("cross-installation-opus".utf8))
+    let opaque = try outgoing.channel.protect(plaintext)
+
+    #expect(try incoming.open(opaque) == plaintext)
   }
 }

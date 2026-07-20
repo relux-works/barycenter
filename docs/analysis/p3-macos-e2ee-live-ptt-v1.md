@@ -21,12 +21,15 @@ design review. A future change to that authority still requires delta review.
 ## Key and context boundary
 
 `MacE2EELiveSessionFactory` loads independently witnessed device and group
-records from `MacE2EEKeyStateRepository`, checks the immutable target and group
-revision, reserves a crash-safe generation in the `live_ptt` domain, reloads
-the advanced state, and only then asks an injected reviewed provider to derive
-the session. The provider receives the exact identity lease, group-state lease,
-epoch, generation, target, sender, Air, codec, and timing context. NodeCore does
-not implement a candidate KDF, AEAD, MLS library, or nonce encoding.
+records from `MacE2EEKeyStateRepository`, checks the immutable target and local
+record revision, reserves a crash-safe generation in the `live_ptt` domain,
+reloads the advanced state, and only then asks an injected reviewed provider to
+derive the session. The local revision remains a setup/CAS witness only. The
+cross-device context binds the shared epoch and commit digest, never a
+device-local record counter. The provider receives the exact identity lease,
+group-state lease, epoch, commit, generation, target, sender, Air, codec, and
+timing context. NodeCore does not implement a candidate KDF, AEAD, MLS library,
+or nonce encoding.
 
 The app cannot construct the audit-fixture path. A production factory requires
 both a provider that declares independent approval and an explicit composition
@@ -50,17 +53,18 @@ never reaches Opus, FEC, PLC, or the PCM ring. The legacy receiver continues to
 own jitter, 60 ms prebuffer, FEC/PLC, DND decisions, PCM bounds, and teardown.
 
 Every frame rechecks a bounded in-memory authorization snapshot produced by a
-verified control-plane transition. An epoch, group revision, target, or sender
-membership change terminates the channel, destroys its provider session once,
-and revokes buffered playback. Rekey is deliberately not attempted mid-session;
-the next session must reserve a new generation against the new epoch.
+verified control-plane transition. An epoch, shared commit digest, target, or
+sender membership change terminates the channel, destroys its provider session
+once, and revokes buffered playback. Rekey is deliberately not attempted
+mid-session; the next session must reserve a new generation against the new
+epoch.
 
 ## Authenticated data and nonce policy
 
 Canonical length-prefixed/fixed-width AAD binds the contract, group, sender
 device/actor/orbit/node, Air domain and ID, immutable target, session, epoch,
-group revision, generation, sequence, flags, monotonic capture time, codec,
-frame size, jitter size, and maximum duration. The provider contract requires
+shared commit digest, generation, sequence, flags, monotonic capture time,
+codec, frame size, jitter size, and maximum duration. The provider contract requires
 its opaque ciphertext to carry and authenticate its nonce and returns a stable
 nonce token so NodeCore can independently reject reuse in either direction.
 
@@ -72,7 +76,8 @@ nonces, or live ciphertext to a durable cache.
 ## Evidence and remaining gates
 
 Automated fixtures prove byte-exact `BE` encoding, witnessed epoch derivation,
-unique live generation reservation, AAD sensitivity, retry idempotence,
+two-installation round-trip despite skewed local record revisions, unique live
+generation reservation, AAD sensitivity, retry idempotence,
 ciphertext-only coordinator visibility, authentication-before-jitter, and
 fail-closed tamper/replay/nonce/membership behavior. The fixture transform is
 explicitly not a production cipher.

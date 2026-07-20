@@ -77,6 +77,8 @@ def validate(contract: dict) -> None:
         "bytes[1] = 0x45", "domain: \"live_ptt\"",
         "authorization.currentAuthorization()", "crypto.seal(", "crypto.open(",
         "outgoingNonces.insert", "incomingNonces.insert",
+        "commitDigest: current.metadata.commitDigest",
+        "current.commitDigest == context.commitDigest",
         "lastPlaintextFrame", "receiver.receive(try channel.open(opaque))",
         "crossProcessGenerationSerializationApproved", "providerNotApproved",
         "destroyCryptoLocked()",
@@ -96,6 +98,7 @@ def validate(contract: dict) -> None:
         "wireContract", "retryAndAuthenticationBarrier", "tamperFailsClosed",
         "replayAndNonceReuse", "membershipChangeTerminates", "aadBinding",
         "productionProviderGate", "witnessedEpochDerivation",
+        "crossInstallationRoundTrip", "providerOutputAndDurationBounds",
     }:
         require(name in tests, f"fixture missing: {name}")
 
@@ -113,7 +116,7 @@ def validate(contract: dict) -> None:
     require(len(invariants) == 17, "invariant inventory drifted")
     for item in {
         "witnessed-epoch-and-live-generation-before-derivation",
-        "exact-air-target-sender-session-generation-sequence-codec-timing-aad",
+        "exact-air-target-sender-session-epoch-commit-generation-sequence-codec-timing-aad",
         "transport-retry-reuses-exact-ciphertext-and-nonce",
         "authentication-required-before-jitter-decoder-fec-plc",
         "membership-or-epoch-change-terminates-and-destroys-session-once",

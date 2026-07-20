@@ -4,6 +4,7 @@ public enum MacE2EELiveFailure: String, Error, Equatable, LocalizedError, Sendab
   case invalidContext = "invalid_context"
   case invalidFrame = "invalid_frame"
   case providerNotApproved = "provider_not_approved"
+  case malformedProviderOutput = "malformed_provider_output"
   case authenticationFailed = "authentication_failed"
   case replay = "replay"
   case nonceReuse = "nonce_reuse"
@@ -145,7 +146,7 @@ public struct MacE2EELiveSessionContext: Equatable, Sendable {
   public let groupID: String
   public let authorDeviceID: String
   public let epoch: UInt64
-  public let groupRevision: UInt64
+  public let commitDigest: String
   public let sessionID: String
   public let generation: UInt64
   public let senderActorID: Int64
@@ -162,19 +163,19 @@ public struct MacE2EELiveSessionContext: Equatable, Sendable {
 
   public init(
     groupID: String, authorDeviceID: String, epoch: UInt64,
-    groupRevision: UInt64, start: LivePTTStartPayload
+    commitDigest: String, start: LivePTTStartPayload
   ) throws {
     guard (try? LivePTTValidation.validate(.livePTTStart(start))) != nil,
       groupID.count >= 8, groupID.count <= 128,
       authorDeviceID.count >= 8, authorDeviceID.count <= 128,
-      epoch > 0, groupRevision > 0, start.generation > 0,
+      epoch > 0, Self.validDigest(commitDigest), start.generation > 0,
       start.targetSha256.count == 64,
       start.targetSha256.allSatisfy({ "0123456789abcdef".contains($0) })
     else { throw MacE2EELiveFailure.invalidContext }
     self.groupID = groupID
     self.authorDeviceID = authorDeviceID
     self.epoch = epoch
-    self.groupRevision = groupRevision
+    self.commitDigest = commitDigest
     self.sessionID = start.sessionId
     self.generation = UInt64(start.generation)
     self.senderActorID = start.senderActorId
@@ -189,22 +190,26 @@ public struct MacE2EELiveSessionContext: Equatable, Sendable {
     self.jitterBufferMS = start.jitterBufferMs
     self.maximumDurationMS = start.maxDurationMs
   }
+
+  private static func validDigest(_ value: String) -> Bool {
+    value.count == 64 && value.allSatisfy { "0123456789abcdef".contains($0) }
+  }
 }
 
 public struct MacE2EELiveAuthorizationSnapshot: Equatable, Sendable {
   public let groupID: String
   public let epoch: UInt64
-  public let groupRevision: UInt64
+  public let commitDigest: String
   public let targetSnapshotDigest: String
   public let authorizedSenderDeviceIDs: Set<String>
 
   public init(
-    groupID: String, epoch: UInt64, groupRevision: UInt64,
+    groupID: String, epoch: UInt64, commitDigest: String,
     targetSnapshotDigest: String, authorizedSenderDeviceIDs: Set<String>
   ) {
     self.groupID = groupID
     self.epoch = epoch
-    self.groupRevision = groupRevision
+    self.commitDigest = commitDigest
     self.targetSnapshotDigest = targetSnapshotDigest
     self.authorizedSenderDeviceIDs = authorizedSenderDeviceIDs
   }
@@ -287,18 +292,19 @@ public struct MacE2EELiveIncomingRequest: Sendable {
   public let localDeviceID: String
   public let authorDeviceID: String
   public let epoch: UInt64
-  public let groupRevision: UInt64
+  public let expectedLocalGroupRevision: UInt64
   public let start: LivePTTStartPayload
 
   public init(
     groupID: String, localDeviceID: String, authorDeviceID: String,
-    epoch: UInt64, groupRevision: UInt64, start: LivePTTStartPayload
+    epoch: UInt64, expectedLocalGroupRevision: UInt64,
+    start: LivePTTStartPayload
   ) {
     self.groupID = groupID
     self.localDeviceID = localDeviceID
     self.authorDeviceID = authorDeviceID
     self.epoch = epoch
-    self.groupRevision = groupRevision
+    self.expectedLocalGroupRevision = expectedLocalGroupRevision
     self.start = start
   }
 }
@@ -394,7 +400,8 @@ public final class MacE2EELiveSessionFactory: @unchecked Sendable {
     else { throw MacE2EELiveFailure.invalidContext }
     let context = try MacE2EELiveSessionContext(
       groupID: request.groupID, authorDeviceID: request.authorDeviceID,
-      epoch: reservation.epoch, groupRevision: reservation.revision, start: start)
+      epoch: reservation.epoch, commitDigest: current.metadata.commitDigest,
+      start: start)
     let crypto = try derivation.derive(
       context: context, identity: identity, groupState: current)
     let channel: MacE2EELiveFrameChannel
@@ -423,12 +430,12 @@ public final class MacE2EELiveSessionFactory: @unchecked Sendable {
       group.destroy()
     }
     guard group.metadata.epoch == request.epoch,
-      group.metadata.revision == request.groupRevision,
+      group.metadata.revision == request.expectedLocalGroupRevision,
       group.metadata.targetSnapshotDigest == request.start.targetSha256
     else { throw MacE2EELiveFailure.staleEpoch }
     let context = try MacE2EELiveSessionContext(
       groupID: request.groupID, authorDeviceID: request.authorDeviceID,
-      epoch: request.epoch, groupRevision: request.groupRevision,
+      epoch: request.epoch, commitDigest: group.metadata.commitDigest,
       start: request.start)
     let crypto = try derivation.derive(
       context: context, identity: identity, groupState: group)
@@ -498,6 +505,7 @@ public final class MacE2EELiveFrameChannel: @unchecked Sendable {
         if frame == lastPlaintextFrame, let cached = lastOpaqueFrame { return cached }
         guard frame.sessionId == Self.sessionBytes(context.sessionID),
           frame.sequence == outgoingSequence + 1,
+          frame.sequence <= 15_000,
           frame.payload.count <= context.maximumPlaintextBytes,
           (try? frame.encoded()) != nil
         else { throw MacE2EELiveFailure.invalidFrame }
@@ -517,10 +525,12 @@ public final class MacE2EELiveFrameChannel: @unchecked Sendable {
         let sealed = try crypto.seal(
           plaintext: frame.payload, sequence: frame.sequence, authenticatedData: aad)
         guard !sealed.nonceToken.isEmpty, sealed.nonceToken.count <= 256,
-          outgoingNonces.insert(sealed.nonceToken).inserted,
           !sealed.wireCiphertext.isEmpty,
           sealed.wireCiphertext.count <= MacE2EEOpaqueLiveFrame.maximumCiphertextBytes
-        else { throw MacE2EELiveFailure.nonceReuse }
+        else { throw MacE2EELiveFailure.malformedProviderOutput }
+        guard outgoingNonces.insert(sealed.nonceToken).inserted else {
+          throw MacE2EELiveFailure.nonceReuse
+        }
         let opaque = MacE2EEOpaqueLiveFrame(
           flags: flags, sessionID: frame.sessionId, epoch: context.epoch,
           generation: context.generation, sequence: frame.sequence,
@@ -579,12 +589,15 @@ public final class MacE2EELiveFrameChannel: @unchecked Sendable {
         } catch {
           throw MacE2EELiveFailure.authenticationFailed
         }
-        guard !opened.nonceToken.isEmpty, opened.nonceToken.count <= 256,
-          incomingNonces.insert(opened.nonceToken).inserted
-        else { throw MacE2EELiveFailure.nonceReuse }
+        guard !opened.nonceToken.isEmpty, opened.nonceToken.count <= 256 else {
+          throw MacE2EELiveFailure.malformedProviderOutput
+        }
+        guard incomingNonces.insert(opened.nonceToken).inserted else {
+          throw MacE2EELiveFailure.nonceReuse
+        }
         guard !opened.plaintext.isEmpty,
           opened.plaintext.count <= context.maximumPlaintextBytes
-        else { throw MacE2EELiveFailure.invalidFrame }
+        else { throw MacE2EELiveFailure.malformedProviderOutput }
         incomingSequences.insert(opaque.sequence)
         incomingHighestSequence = max(incomingHighestSequence, opaque.sequence)
         var flags = LivePTTBinaryFrame.fecFlag
@@ -622,7 +635,7 @@ public final class MacE2EELiveFrameChannel: @unchecked Sendable {
       throw MacE2EELiveFailure.membershipChanged
     }
     guard current.epoch == context.epoch else { throw MacE2EELiveFailure.staleEpoch }
-    guard current.groupRevision == context.groupRevision,
+    guard current.commitDigest == context.commitDigest,
       current.targetSnapshotDigest == context.targetSnapshotDigest
     else { throw MacE2EELiveFailure.membershipChanged }
     guard current.authorizedSenderDeviceIDs.contains(context.authorDeviceID) else {
@@ -662,8 +675,8 @@ public final class MacE2EELiveFrameChannel: @unchecked Sendable {
     append(context.playbackDomain, to: &data)
     append(context.codecProfile, to: &data)
     data.append(contentsOf: session)
+    append(context.commitDigest, to: &data)
     append(context.epoch, to: &data)
-    append(context.groupRevision, to: &data)
     append(context.generation, to: &data)
     append(UInt64(bitPattern: context.senderActorID), to: &data)
     append(UInt64(bitPattern: context.senderOrbitID), to: &data)

@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-macos-protected-media-playback.v1",
+  "task": "TASK-260712-tcwn44",
+  "publishedAt": "2026-07-20",
+  "decision": {
+    "result": "production-dark-macos-protected-media-playback-foundation",
+    "productionEnabled": false,
+    "runtimeHTTPWired": false,
+    "capabilityAdvertised": false,
+    "productionLibrarySelected": false,
+    "productionSuiteSelected": false,
+    "productionContainerSelected": false,
+    "productionDecoderSelected": false,
+    "auditFixtureOnly": true,
+    "plaintextFallbackAllowed": false,
+    "decryptedDiskCacheAllowed": false,
+    "signedPackageTested": false,
+    "deltaReviewRequired": true
+  },
+  "artifacts": [
+    {"id": "playback-pipeline", "path": "node-app/Sources/NodeCore/MacProtectedMediaPlayback.swift", "sha256": "4a548bcfdd723ceab8e31b146059f24b9f4956278ecc94b5a018d28f74e4339c"},
+    {"id": "bounded-player", "path": "node-app/Sources/NodeCore/MacStreamTrackPlayer.swift", "sha256": "63d1828280ec4a940da7371689fce492fb36fb95b0629bddb6d33c85b4399660"},
+    {"id": "ciphertext-cache", "path": "node-app/Sources/NodeCore/MacStreamTrackCache.swift", "sha256": "5d5d2f7f69db2c8fe4bab83b457cde111629c4308098bed0e62bddaaae4f8a74"},
+    {"id": "playback-tests", "path": "node-app/Tests/NodeCoreTests/MacProtectedMediaPlaybackTests.swift", "sha256": "5418d7b04cf8a156f7499919641c18057e5d7b48757eaa66a5ee8f8a40191cfe"},
+    {"id": "playback-vectors", "path": "protocol/macos-protected-media-playback-v1-vectors.json", "sha256": "14f8aca3ea81d6c62331e1e568056b99ace64e8dd820ec6899b4223a3a7dc49a"},
+    {"id": "adr", "path": "docs/analysis/p3-macos-protected-media-playback-v1.md", "sha256": "9fe7b5c851e0da1f03673336797806aa60ba416886db14ef8562ad0c06d80a13"},
+    {"id": "protocol-authority", "path": "protocol/e2ee-media-audit-v1.json", "sha256": "5dc5ac88539fed12b827aa8c3ff6ce14b6a13ae46d063624822c5435f38334ce"},
+    {"id": "opaque-router", "path": "acceptance/phase3/e2ee-opaque-media-router-v1.json", "sha256": "092f0a058f22bc74f50f70b6bd98c6bcf5fc81d48a657da55255921eb7eafdd0"},
+    {"id": "threat-model", "path": "acceptance/phase3/e2ee-threat-model-v1.json", "sha256": "a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"}
+  ],
+  "bounds": {
+    "encryptedManifestBytes": 1048576,
+    "opaqueEnvelopeBytes": 1048576,
+    "signatureBytes": 65536,
+    "chunkBytes": 1048576,
+    "variantBytes": 67108864,
+    "globalCacheBytes": 536870912,
+    "pinnedCacheBytes": 134217728,
+    "pcmRingBytes": 1048576
+  },
+  "invariants": [
+    "production-provider-and-decoder-remain-unselected-and-dark",
+    "exact-object-recipient-group-epoch-generation-target-binding",
+    "witnessed-group-revision-rechecked-before-and-after-each-record",
+    "history-epoch-requires-live-bounded-local-grant",
+    "ciphertext-hash-verified-before-provider-authentication",
+    "aead-record-authentication-required-before-decoder-bytes",
+    "durable-cache-contains-ciphertext-and-public-metadata-only",
+    "cached-ciphertext-is-reauthenticated-after-restart",
+    "decrypted-bytes-never-written-to-disk",
+    "revocation-and-membership-change-purge-and-tombstone",
+    "concurrent-cache-index-writes-preserve-monotonic-revocation-tombstones",
+    "policy-dnd-and-block-check-before-network-range-access",
+    "legacy-and-mixed-version-downgrade-forbidden",
+    "existing-seek-generation-clock-volume-receipt-and-pcm-bounds-preserved",
+    "no-plaintext-fallback-or-coordinator-decrypt-path",
+    "runtime-composition-and-capability-remain-dark"
+  ],
+  "automatedEvidence": {
+    "focused": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter MacProtectedMediaPlaybackTests",
+    "playerRegression": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter MacStreamTrackPlayerTests",
+    "macOS": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app",
+    "acceptance": "python3 -m unittest scripts.acceptance.test_macos_protected_media_playback"
+  },
+  "manualEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "signedNotarizedMacOS": "not-run",
+    "physicalKeychainCrashRestart": "not-run",
+    "realCryptoMacWindowsInterop": "not-run-no-selected-stack",
+    "realCodecContainer": "not-run-no-selected-stack",
+    "hardwarePlaybackSeekInterrupt": "not-run",
+    "audibleQualityAndDucking": "not-run"
+  },
+  "openProductionGates": ["EPC-001", "EPC-002", "EPC-004", "EPC-005", "TASK-260712-1ulshp"]
+}

@@ -2,24 +2,24 @@
 
 Date: 2026-07-20 (Asia/Tbilisi)
 
-Status: IN PROGRESS — WINDOWS 10 ACCESS BOOTSTRAP. Ivan Oparin confirmed
-`mbpro-win` is the physical Windows 10 host and authorized this row first with
-maximum autonomous execution. Windows 11 is intentionally deferred for this
-pass. This handoff prepares the exact current build and access path; it is not
-physical-hardware evidence and does not pass H00-H17.
+Status: IN PROGRESS — WAITING FOR SECOND PHYSICAL MICROPHONE BEFORE H00. Ivan
+Oparin confirmed `mbpro-win` as the physical Windows 10 host and authorized
+this row first with maximum autonomous execution. SSH, sanitized preflight,
+exact package transfer and WACK preparation are complete. Windows 11 is
+intentionally deferred for this pass. No H00-H17 verdict is claimed yet.
 
 ## Current exact build
 
-- Source and `main` head: `fc6656a9f20eeba4cc1f907475598667bf556b67`.
-- GitHub Actions run: `29735606631`, all four jobs passed.
-- Packaged-probe job: `88330064941`, passed.
-- Artifact: `pulsar-signed-msix-probe`, artifact ID `8458213808`.
+- Source and `main` head: `f4a90f1f332bc73cac8f36f96cee6c16cc2ad7c0`.
+- GitHub Actions run: `29738846385`, all four jobs passed.
+- Packaged-probe job: `88340580425`, passed.
+- Artifact: `pulsar-signed-msix-probe`, artifact ID `8459523515`.
 - Artifact archive digest:
-  `sha256:9e0fb800a132449054a059f204a5939b07a72c57b0314923c4c95c9fc0992f0c`.
-- Artifact expiry: `2026-08-03T10:38:29Z`.
+  `sha256:ad8ab25b544017950f62b3d9e5ea2da2c04d7c8e0eca4ab3ea05b4e9a8bcbfc7`.
+- Artifact expiry: `2026-08-03T11:33:53Z`.
 - Package: `PulsarProbe-0.1.0.0-x64-signed.msix`.
 - Package SHA-256:
-  `869f5d5613419be30c64097b8d9cf9ac62bc2277db42464b6dbf7dc973c679f5`.
+  `a53253f33c5d9acf903daa4641c254884eb3e69d497e6442bdb1cd4e85d6b7e6`.
 - Embedded recording cue SHA-256:
   `479b1a9d605ac12454e3449e129991b7ce8599251506ca54a93be0b6144730fd`.
 - Package identity, Publisher, PFN, AUMID, AppContainer/runtime and the exact
@@ -30,7 +30,7 @@ physical-hardware evidence and does not pass H00-H17.
 
 The package uses a short-lived non-exportable test signer. The public signer
 certificate embedded in this artifact is valid until
-`2026-08-19T10:36:17Z`. If either artifact or certificate is no longer usable,
+`2026-08-19T11:31:53Z`. If either artifact or certificate is no longer usable,
 regenerate one package from a newly frozen exact source head and run both OS
 rows with those same bytes. Never combine evidence from different package
 hashes.
@@ -104,6 +104,35 @@ Return only the printed `SSH_ACCOUNT` value. The executor can then transfer
 the exact package, collect preflight, and automate every non-gesture step. The
 key can be removed after bundle sealing with `-Mode Remove`.
 
+## Windows 10 physical preflight checkpoint
+
+The reviewed key bootstrap succeeded and noninteractive SSH now authenticates
+as the dedicated local `admin` account. The sanitized receipt records:
+
+- physical Apple `MacBookPro13,2`, with no hypervisor reported;
+- Windows 10 Pro 22H2, build `19045.6456`, x64 client installation;
+- Developer Mode off;
+- built-in `Internal Microphone (Cirrus Logic CS8409 (AB 54))` and physical
+  Cirrus Logic speakers present and healthy;
+- no second removable/selectable physical input yet.
+
+The owner-selected host is recorded as a test-only `ApprovedException` posture
+with decision reference `Ivan Oparin 2026-07-20: mbpro-win Windows 10 host
+approved for this pass`; it is not a product-support promise for EOL Windows
+10 Pro.
+
+The latest stable Microsoft Windows SDK `10.1.28000.2270` was installed from
+the official Microsoft download. Setup returned `0`, required no reboot and
+left Developer Mode off. `appcert.exe` version `10.0.28000.2270` is present,
+has valid Microsoft Authenticode and SHA-256
+`36deb040365311f884aae28bea130eb5aae598471d41afb9a6cbaa16adb243aa`.
+
+The exact MSIX and metadata are staged on the physical host. The Windows-side
+MSIX SHA-256 matches `a53253f3...b7e6`. The package remains uninstalled and its
+test signer remains untrusted so H00 can begin from the required clean state.
+Evidence-kit initialization is correctly deferred until a second distinct
+physical microphone appears in the AudioEndpoint inventory.
+
 ## Exact manual execution request
 
 The active pass now requires the confirmed Windows 10 row first; the complete
@@ -122,7 +151,7 @@ task still requires both admissible rows:
 Download the exact artifact on Windows before expiry:
 
 ```powershell
-gh run download 29735606631 `
+gh run download 29738846385 `
   --name pulsar-signed-msix-probe `
   --dir .\dist\windows-probe
 Get-FileHash `
@@ -131,7 +160,7 @@ Get-FileHash `
 ```
 
 The printed digest must equal
-`869f5d5613419be30c64097b8d9cf9ac62bc2277db42464b6dbf7dc973c679f5`.
+`a53253f33c5d9acf903daa4641c254884eb3e69d497e6442bdb1cd4e85d6b7e6`.
 Then follow `pulsar-win/probe-msix/README.md` and the frozen H00-H17 order in
 `TASK-260712-1vtwkl_hardware-readiness-audit.md`: complete Windows 10 first,
 seal its immutable bundle, then complete Windows 11 with the same MSIX bytes.

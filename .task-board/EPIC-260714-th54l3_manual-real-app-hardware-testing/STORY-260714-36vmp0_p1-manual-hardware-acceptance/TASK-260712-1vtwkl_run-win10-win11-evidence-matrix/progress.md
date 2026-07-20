@@ -1,5 +1,5 @@
 ## Status
-development
+blocked
 
 ## Assigned To
 codex-root-inline
@@ -8,7 +8,7 @@ codex-root-inline
 2026-07-12T15:27:53Z
 
 ## Last Update
-2026-07-20T11:22:59Z
+2026-07-20T13:52:09Z
 
 ## Blocked By
 - TASK-260712-2y74io
@@ -37,10 +37,11 @@ Manual program backlog: CI harness is ready, but H00-H17 remains 0/36 until huma
 2026-07-20 second access audit: the single online Windows peer is associated by Tailscale with Ivan Oparin but exposes no OS build, physical/VM, audio-device or console attestation. TCP 22/135/445/3389 answers; WinRM is closed and anonymous SMB is rejected. OpenSSH_for_Windows_9.5 accepted none of 10 available agent keys across five plausible account names; no password or interactive guessing was attempted. Taildrop rejected the handoff as cross-user ownership, so no artifact was transferred. RDP availability cannot replace an authorized credential plus physical-console operator. No admissible H00-H17 evidence was produced; result remains 0/36 and strict execution cannot advance. Updated Stop-The-Line handoff attached.
 2026-07-20 owner resume: Ivan Oparin confirms mbpro-win is the physical Windows 10 test host and authorizes testing this host first with maximum autonomous execution. Win11 remains intentionally out of scope for this pass. Board execution resumes inline without task-board spawn. No H-row is passed by this attestation alone; exact OS lifecycle posture, audio endpoints, package identity and H00-H17 evidence still must be captured.
 2026-07-20 access implementation: added a reviewed physical-console bootstrap for mbpro-win that pins the existing ivan@relux.works Ed25519 fingerprint, preserves unrelated administrator keys, applies OpenSSH ACL, records sanitized OS/audio/WACK preflight, and never mutates sshd/firewall/password/package/H-row state. Windows PowerShell 5.1 compatibility and Hyper-V/VBS-on-physical-host behavior are covered by implementation checks. Awaiting CI and the single console bootstrap before autonomous Win10 execution; H00-H17 remains 0/36.
+2026-07-20 physical Win10 checkpoint: reviewed SSH bootstrap succeeded on Apple MacBookPro13,2; sanitized receipt records Windows 10 Pro 22H2 build 19045.6456 x64, Developer Mode off, built-in Cirrus input/output, no hypervisor. Owner-selected host is tracked as test-only ApprovedException, not a Windows 10 support promise. Main f4a90f1 CI 29738846385 passed 4/4; artifact 8459523515 is staged on host and Windows SHA-256 matches a53253f33c5d9acf903daa4641c254884eb3e69d497e6442bdb1cd4e85d6b7e6. Official Microsoft SDK/WACK 10.0.28000.2270 installed successfully with valid signature, no reboot, Developer Mode unchanged. Package/test signer remain clean and uninstalled. Evidence initialization and H00 are now blocked only on a second distinct removable/selectable physical microphone. H00-H17 remains 0/36.
 
 ## Precondition Resources
 - [p1-windows-store-spike-lifecycle.puml](file://TASK-260712-1vtwkl/p1-windows-store-spike-lifecycle.puml) — Lifecycle flow for the Win10 and Win11 evidence run
 
 ## Outcome Resources
 - [TASK-260712-1vtwkl_hardware-readiness-audit.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_hardware-readiness-audit.md) — Frozen H00-H17 physical matrix, signed artifact provenance, CI-validated fail-closed evidence kit, access audit and exact unblock; no hardware passes
-- [TASK-260712-1vtwkl_current-build-handoff.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_current-build-handoff.md) — 2026-07-20 exact current-build artifact, owner-confirmed Win10 host, one-time SSH bootstrap and deferred Win11; no H-row passed
+- [TASK-260712-1vtwkl_current-build-handoff.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_current-build-handoff.md) — Owner-confirmed physical Win10 preflight, exact staged MSIX, installed WACK and second-microphone unblock; no H-row passed

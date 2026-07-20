@@ -270,6 +270,7 @@ public final class MacE2EEKeyStateRepository: @unchecked Sendable {
   private static let processLock = NSRecursiveLock()
   private let store: any MacE2EEKeychainByteStore
   private let random: any MacE2EERandomSource
+  private var protectedMediaSendOwnerClaimed = false
 
   public init(
     store: any MacE2EEKeychainByteStore = SystemMacE2EEKeychainStore(),
@@ -277,6 +278,19 @@ public final class MacE2EEKeyStateRepository: @unchecked Sendable {
   ) {
     self.store = store
     self.random = random
+  }
+
+  /// A protected-media sender owns generation reservation for this repository
+  /// for its entire lifetime. Runtime composition must create one sender and
+  /// share it; a second sender could otherwise race a stale expected revision
+  /// or attempt to prepare the same draft twice. The claim is intentionally
+  /// not releasable: replacing the owner requires replacing the repository and
+  /// reloading its witnessed state from Keychain first.
+  public func claimProtectedMediaSendOwnership() throws {
+    Self.processLock.lock()
+    defer { Self.processLock.unlock() }
+    guard !protectedMediaSendOwnerClaimed else { throw MacE2EEKeyStateFailure.conflict }
+    protectedMediaSendOwnerClaimed = true
   }
 
   public func installDeviceIdentity(

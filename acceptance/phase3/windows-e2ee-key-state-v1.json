@@ -25,7 +25,7 @@
     {"id":"windows-file-adapter","path":"pulsar-win/protected_platform_windows.go","sha256":"77fd1d18cafd17251d3ce5773e11a3aee1ac2b679c82b290286acedd170cfdb1"},
     {"id":"state-vectors","path":"protocol/e2ee-key-state-v1-vectors.json","sha256":"846685c8c16dea57d3b0e4022b08e72615e4cd9fa2149e76c8168e5f5d693326"},
     {"id":"adr","path":"docs/analysis/p3-windows-e2ee-key-state-v1.md","sha256":"0d7481459ee6fc7adeeb15d732b1777cb3557a95f3ea3f2955a53f1602183286"},
-    {"id":"macos-key-state","path":"acceptance/phase3/macos-e2ee-key-state-v1.json","sha256":"8dab335b803fe9de0bdc424fbbe6464b23d024e2a30e658488f7fb4674682ada"},
+    {"id":"macos-key-state","path":"acceptance/phase3/macos-e2ee-key-state-v1.json","sha256":"11994bf5f0cf100d565bace820506ce6c912f15ff58e3ddb31b0f5fa90f4218b"},
     {"id":"threat-model","path":"acceptance/phase3/e2ee-threat-model-v1.json","sha256":"a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
     {"id":"key-lifecycle","path":"acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json","sha256":"6015b911f8e83c8228c4c3f3b763c2e9852c2ea7f773be488d45ced0fc80578c"},
     {"id":"schema-foundation","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"2aebe9f21d98ef72dce15474fcafd1feca627941d28d3c9edd4edea9d813bfb8"},

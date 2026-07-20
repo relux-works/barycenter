@@ -542,7 +542,7 @@
     {
       "path": "acceptance/phase3/gate-matrix-v1.json",
       "category": "implementation-source",
-      "sha256": "1c6438e935e58857da9747b4aa46a794a69a4aa9bb6ccd1e78018016db2237b3"
+      "sha256": "44c65f42ef166b558df487eaa68a926cd201ea64df388a4a0d054f2690b1adb7"
     },
     {
       "path": "acceptance/phase3/macos-e2ee-key-state-v1.json",

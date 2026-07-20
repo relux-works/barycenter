@@ -13,12 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: accepted `TASK-260712-1u57qz` —
-  windows-protected-media-playback is awaiting hosted CI and merge in deferred
-  epic `EPIC-260716-3qsztl`.
-- Current original-plan frontier: accepted `TASK-260712-1u57qz` —
-  windows-protected-media-playback in deferred epic `EPIC-260716-3qsztl`;
-  `TASK-260712-39vjzd` starts only after this accepted task is merged.
+- Current engineering task: `TASK-260712-39vjzd` — windows-e2ee-live-ptt in
+  deferred epic `EPIC-260716-3qsztl`.
+- Current original-plan frontier: `TASK-260712-39vjzd` —
+  windows-e2ee-live-ptt in deferred epic `EPIC-260716-3qsztl`; it started from
+  accepted main merge `e47eb6b583fa0319beee460b87397bdb75dbcf39`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -302,14 +301,16 @@
   with zero open Critical/High/Medium findings. Signed MSIX, native DPAPI/NTFS/ACL, real
   provider/crypto/decoder, traffic, disk/log/memory/crash/swap/backup,
   hardware/audible and cross-platform interop evidence remains manual/deferred.
-- Next deferred coding line: after hosted CI and merge, E2EE continues with
-  `TASK-260712-39vjzd`, limited to the production-dark Windows E2EE live-PTT
-  path. Every later E2EE implementation
+- Hosted CI run `29721560275` passed all four coordinator, NodeCore, Windows and
+  packaged-probe jobs; PR #295 merged exact reviewed head to main as
+  `e47eb6b583fa0319beee460b87397bdb75dbcf39`.
+- Next deferred coding line: E2EE continues with `TASK-260712-39vjzd`, limited
+  to the production-dark Windows E2EE live-PTT path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-1u57qz` —
   windows-protected-media-playback (dormant engineering scope only)
-- Current branch: `feat/task-260712-1u57qz`
+- Current branch: `feat/task-260712-39vjzd`
 - Current review evidence:
   Windows protected playback was accepted by Claude Fable 5 max run
   `RUN-260720-a152a9` on exact producer commit `532774a`; verdict resource is

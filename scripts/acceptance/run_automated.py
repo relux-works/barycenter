@@ -196,6 +196,8 @@ def suite_commands(suite: str, go_env: dict[str, str] | None, apple_env: dict[st
                 "scripts/acceptance/test_windows_e2ee_live_ptt.py",
                 "scripts/acceptance/test_macos_encrypted_media_client_path.py",
                 "scripts/acceptance/test_windows_encrypted_media_client_path.py",
+                "scripts/acceptance/test_e2ee_cross_platform_parity.py",
+                "scripts/acceptance/test_e2ee_c4_c6_review_pack.py",
                 "scripts/acceptance/test_e2ee_report_moderation_export.py",
                 "scripts/acceptance/test_e2ee_recovery_device_transfer.py",
                 "scripts/acceptance/test_capture_quality_contract.py",

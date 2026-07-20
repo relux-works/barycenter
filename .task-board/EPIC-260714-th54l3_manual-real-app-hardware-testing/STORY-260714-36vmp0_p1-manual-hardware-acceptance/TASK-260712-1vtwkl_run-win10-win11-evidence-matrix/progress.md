@@ -8,7 +8,7 @@ codex-root-inline
 2026-07-12T15:27:53Z
 
 ## Last Update
-2026-07-20T14:02:03Z
+2026-07-20T14:27:00Z
 
 ## Blocked By
 - TASK-260712-2y74io
@@ -40,10 +40,11 @@ Manual program backlog: CI harness is ready, but H00-H17 remains 0/36 until huma
 2026-07-20 physical Win10 checkpoint: reviewed SSH bootstrap succeeded on Apple MacBookPro13,2; sanitized receipt records Windows 10 Pro 22H2 build 19045.6456 x64, Developer Mode off, built-in Cirrus input/output, no hypervisor. Owner-selected host is tracked as test-only ApprovedException, not a Windows 10 support promise. Main f4a90f1 CI 29738846385 passed 4/4; artifact 8459523515 is staged on host and Windows SHA-256 matches a53253f33c5d9acf903daa4641c254884eb3e69d497e6442bdb1cd4e85d6b7e6. Official Microsoft SDK/WACK 10.0.28000.2270 installed successfully with valid signature, no reboot, Developer Mode unchanged. Package/test signer remain clean and uninstalled. Evidence initialization and H00 are now blocked only on a second distinct removable/selectable physical microphone. H00-H17 remains 0/36.
 2026-07-20 owner scope update: Ivan Oparin directs this pass to use only the built-in microphone. Execution resumes. Evidence tooling now records a single-input owner-approved posture, uses the built-in endpoint as default and selected, and structurally forbids PASS for H04 distinct selected capture, H08 alternating default/selected cycles, and H12 physical device removal; those rows must be BLOCKED with the distinct/removable-device next action. All other applicable scenarios continue in strict H00-H17 order. No row is passed by the decision itself.
 2026-07-20 single-input execution checkpoint: updated contract tests ran on physical Win10 and exposed/fixed a pre-existing singleton manifest Count issue. Immutable run win10-single-input-physical-a initialized successfully from package/trust-clean state using built-in Cirrus input as both default and selected with owner decision recorded. No H-row is passed. OpenSSH runs in session 0 while active console is session 1; Ctrl+Shift+R was unavailable from session 0, so H05 remains undecided until active-console exercise and does not block H00-H04 order.
+2026-07-20 first physical H00 attempt: exact signed MSIX installed and AUMID activated in interactive session 1, but same-session UI diagnostics captured required startup evidence is unavailable before the main window. Runtime JSONL contained helper_load attempt only; no microphone request or H01 action occurred. H00 is immutably FAIL (matrix 1/36 terminal: 0 pass, 1 fail, 35 not run). Root causes are packaged-GUI stderr participating in mandatory MultiWriter, duplicated AppContainer runtime-root construction, and selectedApiPath sanitizer false positive. Package, run-added signer trust and package data were removed; cleanup receipt was not emitted because the SSH service session cannot prove the active-session hotkey. Repair uses authoritative file logging, AC/PulsarProbe host parity and semantic API-path handling. Local Go tests, Windows cross-build and full PowerShell contract suite in interactive session pass. Strict frontier remains H00 on a new CI-built signed package. Active desktop reports rdp-tcp#3, so local physical-console confirmation remains required for PASS.
 
 ## Precondition Resources
 - [p1-windows-store-spike-lifecycle.puml](file://TASK-260712-1vtwkl/p1-windows-store-spike-lifecycle.puml) — Lifecycle flow for the Win10 and Win11 evidence run
 
 ## Outcome Resources
 - [TASK-260712-1vtwkl_hardware-readiness-audit.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_hardware-readiness-audit.md) — Frozen H00-H17 physical matrix, signed artifact provenance, CI-validated fail-closed evidence kit, access audit and exact unblock; no hardware passes
-- [TASK-260712-1vtwkl_current-build-handoff.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_current-build-handoff.md) — Physical Win10 preflight, exact MSIX/WACK, owner-approved built-in-only profile and initialized immutable bundle; no H-row passed yet
+- [TASK-260712-1vtwkl_current-build-handoff.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_current-build-handoff.md) — Physical Win10 first H00 failed on packaged startup evidence; repair validated interactively, new frozen package pending

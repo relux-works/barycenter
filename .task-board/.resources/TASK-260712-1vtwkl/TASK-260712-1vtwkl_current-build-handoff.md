@@ -145,6 +145,40 @@ OpenSSH service session (session 0) found `Ctrl+Shift+R` unavailable while the
 physical console is session 1; H05 therefore remains undecided until exercised
 inside the active console session. This does not block H00-H04 ordering.
 
+## First H00 result and repair checkpoint
+
+The frozen MSIX installed with its exact expected identity and was activated
+through its AUMID in interactive session 1. It did not create the main probe
+window. A same-session UI Automation diagnostic captured the terminal startup
+dialog `required startup evidence is unavailable`; the runtime JSONL contained
+only `helper_load` attempts and no microphone action. Windows identified the
+active desktop as `rdp-tcp#3`, not a local `console` session. H00 is therefore
+immutably recorded `FAIL`, H01 was not started, and no permission prompt was
+triggered.
+
+The physical run exposed three deterministic gaps that hosted packaging had
+not exercised:
+
+- `io.MultiWriter(logFile, os.Stderr)` wrote the primary JSONL row but returned
+  the packaged GUI's invalid stderr error, making startup fail closed;
+- the app appended `Packages/<PFN>/LocalState` below an already virtualized
+  AppContainer `LOCALAPPDATA`, while host tools inspected the conventional
+  LocalState path;
+- the evidence sanitizer classified the semantic field `selectedApiPath` as a
+  filesystem path and rejected a valid runtime log.
+
+The repair makes the evidence file the sole authoritative logger, writes below
+the app's virtualized `LOCALAPPDATA\\PulsarProbe`, points host install/snapshot/
+cleanup tools at `Packages/<PFN>/AC/PulsarProbe`, and explicitly distinguishes
+`selectedApiPath` from a filesystem location. Local Go tests and Windows amd64
+cross-build pass. The full PowerShell evidence contract suite also passed from
+the active interactive Windows session. The failed package, run-added signer
+trust and package data were removed; the failed immutable bundle remains for
+diagnostic review. Strict execution stays at H00 and must start a new immutable
+run from the next CI-built signed package. An H00 pass also requires the active
+desktop to be transitioned or confirmed as the local physical console rather
+than RDP.
+
 ## Exact manual execution request
 
 The active pass now requires the confirmed Windows 10 row first; the complete

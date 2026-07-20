@@ -236,14 +236,15 @@
   four runtime integration Info notes are recorded in
   `TASK-260712-tcwn44_review-verdict-8c26762.md`; production provider/runtime,
   signed-app, real-crypto/codec, cross-process ownership and hardware/memory
-  claims remain deferred.
+  claims remain deferred. Hosted CI run `29713219537` passed all four jobs;
+  PR #292 merged to `main` as `2aed6272dc153e584bd1371af93490285ffadaae`.
 - Next deferred coding line: E2EE continues with `TASK-260712-3980vy`, limited
   to the production-dark macOS E2EE live-PTT path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-tcwn44` —
   macos-protected-media-playback (dormant engineering scope only)
-- Current branch: `feat/task-260712-tcwn44`
+- Current branch: `feat/task-260712-3980vy`
 - Current review evidence:
   `TASK-260712-tcwn44_review-verdict-8c26762.md` from Claude Fable 5 max run
   `RUN-260720-cf2797` on exact producer rework commit `8c26762`. The preceding

@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 185 accepted, 20 remain.
-- Routed inventory: 186 engineering tasks (185 accepted, 1 remains) and 19
+- Combined inventory: 205 original tasks; 186 accepted, 19 remain.
+- Routed inventory: 186 engineering tasks (186 accepted, 0 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,13 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-1ulshp` —
-  phase3-external-security-review-closure in deferred epic
-  `EPIC-260716-3qsztl`; it starts only after the accepted C4-C6 engineering
-  review-pack branch is merged.
-- Current original-plan frontier: `TASK-260712-1ulshp` —
-  phase3-external-security-review-closure in deferred epic
-  `EPIC-260716-3qsztl`.
+- Current engineering task: none — all 186 repository-verifiable engineering
+  tasks are accepted. The remaining 19 tasks require manual real-app/hardware
+  execution in `EPIC-260714-th54l3`.
+- Current original-plan frontier: the manual testing epic
+  `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -384,10 +382,9 @@
   accessibility and forensic evidence stays in `EPIC-260714-th54l3`. Hosted CI
   run `29730150880` passed all four jobs; PR #298 merged to `main` as
   `9d7ace6dc7337cd2191f35b0d8373228cf759398`.
-- Current deferred coding line: E2EE advances to `TASK-260712-1ulshp`, the
-  final implementation-independent security review over the production-dark
-  C4-C6 packet. It remains in `EPIC-260716-3qsztl` and will be executed by a
-  non-implementing Claude Fable 5 max reviewer, not self-certified inline.
+- Current deferred coding line: complete. `TASK-260712-1ulshp` independently
+  accepted the production-dark C4-C6 implementation-security boundary; no
+  implementation session self-certified it.
 - E2EE C4-C6 engineering review-pack is accepted at exact producer
   `26722eb040efab27c6b553f20f26b7d4dfb869bc`. Source candidate
   `9d7ace6`/tree `ef819c9` is
@@ -405,18 +402,45 @@
   provider/suite/container/final-build SBOM are unselected; packaged platform
   pairings, storage/traffic capture, OS secure storage, moderation workflow,
   rollback/recovery and beta remain `not-run` in the manual tasks; external
-  `TASK-260712-1ulshp` remains required and cannot be self-certified here.
+  `TASK-260712-1ulshp` was then reviewed independently and not self-certified.
   Independent Claude Fable 5 max run `RUN-260720-6431c9` recomputed the merge,
   tree, product-path and evidence hashes, reran the packet/parity validators,
   nine fail-closed mutation tests and a focused coordinator race subset, and
   ACCEPTED the engineering packet with zero open Critical/High/Medium finding.
   The verdict explicitly leaves external review and every manual C4-C6,
   rollback/recovery and beta gate open. Progress is 185/205 overall (90.2%)
-  and 185/186 engineering (99.5%).
-- Most recently accepted: `TASK-260712-1bcpda` —
-  e2ee-c4-c6-evidence-review-pack (engineering preflight only)
-- Current branch: `feat/task-260712-1bcpda`
+  and 185/186 engineering (99.5%). The final external implementation-security
+  review was accepted by non-implementing Claude Opus 4.8 run
+  `RUN-260720-191344` after the explicitly attempted Fable 5 runs exhausted
+  the provider's account-level quota. The substitution and failed Fable audit
+  trail are disclosed in the verdict. Direct code review covered eight E2EE
+  dimensions and found no open Critical/High; generator/validators, nine
+  mutation tests and a fresh focused coordinator race suite passed. This is
+  disabled-framework acceptance only: `e2ee_media` stays off and production
+  provider/suite/container/final SBOM plus every packaged/manual/rollout/beta
+  result remain open. Progress is 186/205 overall (90.7%) and 186/186
+  engineering (100%).
+- Most recently accepted: `TASK-260712-1ulshp` —
+  phase3-external-security-review-closure (disabled-framework scope only)
+- Current branch: `review/task-260712-1ulshp`
 - Current review evidence:
+  External implementation-security review was accepted by non-implementing
+  Claude Opus 4.8 run `RUN-260720-191344`; verdict resource is
+  `TASK-260712-1ulshp_external-implementation-security-review.md`. The report
+  discloses that Fable 5 run `RUN-260720-4cb4ad` and five attempted Fable
+  dimension reviewers hit the provider quota and received no review credit.
+  Initial integration run `29734213343` passed three jobs and exposed a
+  non-E2EE test-fixture clock bug in coordinator: two automation cases used the
+  actual current date `2026-07-20`, so after their hard-coded occurrence minute
+  the production not-current guard correctly rejected the claim. The test-only
+  repair derives the next matching UTC weekday/minute after `fixture.now`;
+  both affected cases pass 50 repetitions and full coordinator `go test ./...`
+  passes. Fail-closed evidence validation then required a mechanical refresh
+  of the test hash through the live Phase 3 gate/pre-review anchors and a
+  regeneration of the C4-C6 aggregate plus its board mirror; historical
+  baseline-snapshot hashes were preserved. The automation handoff validator,
+  E2EE generator/validator and 234 acceptance discovery tests pass. No claim,
+  runtime, protocol or reviewed E2EE source changed.
   C4-C6 engineering review pack was accepted on exact producer `26722eb` by
   Claude Fable 5 max run `RUN-260720-6431c9`; verdict resource is
   `TASK-260712-1bcpda_engineering-packet-review-verdict-26722eb.md`.
@@ -4299,9 +4323,20 @@ capability is released merely because another capability passed its gate.
   finding remains. Manual real-app/hardware evidence is still `not-run`, E2EE
   remains `deferred-unavailable`, and independent review, production,
   promotion and beta claims remain blocked.)
-- ↪ deferred E2EE `TASK-260712-1ulshp` — phase3-external-security-review-closure
-  (open in `EPIC-260716-3qsztl`, blocked by the independent design review and
-  complete C4-C6 evidence pack; no completion or progress credit claimed)
+- [x] deferred E2EE `TASK-260712-1ulshp` —
+  phase3-external-security-review-closure (accepted by independent,
+  non-implementing Claude Opus 4.8 run `RUN-260720-191344` against frozen
+  source `9d7ace6`/tree `ef819c9`. Direct adversarial review covered the
+  ciphertext-only coordinator boundary, downgrade/suite/signature fail-closed
+  behavior, membership/epoch/commit lineage, replay/fork/nonce defenses,
+  clip/track/saved-cue/live framing, client key ownership abstractions,
+  grants/recovery/device transfer and consent-gated report evidence. No open
+  Critical/High finding remains. Fable 5 was attempted first and again through
+  five dimension reviewers, but its account-level quota was exhausted; those
+  attempts received no verdict credit and the Opus substitution is disclosed
+  in the report. Acceptance covers only the disabled framework:
+  `e2ee_media` remains off, provider/suite/container/final SBOM are unselected,
+  and all manual C4-C6, recovery, rollout and beta tasks remain open.)
 - [x] `TASK-260712-3j4a06` — phase3-independent-realtime-review (engineering
   pre-review accepted on exact packet commit
   `68afff5295ad395985d04cb18efc2872544e439c`, merged by PR #258 at

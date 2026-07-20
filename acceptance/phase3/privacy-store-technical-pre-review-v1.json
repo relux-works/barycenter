@@ -73,7 +73,7 @@
     {"path": "pulsar-win/e2ee_contract_audit.go", "sha256": "ad7129c0798946b8a6863b4b7d06813b16ddf91437bcc24749eccf41a1d9d5a1"},
     {"path": "node-app/Sources/NodeCore/PublicPolicyLinks.swift", "sha256": "fd00b0fd7e8136b82925bd0b22925c9bb29857969397f1fda037da130af987c0"},
     {"path": "node-app/Sources/NodeCore/E2EEAuditContract.swift", "sha256": "927a8b57694d57e3f66acb7746db886f29e02e6baf4892eeecf1c2eff7a512be"},
-    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "37230e80237ca18a52549db648c17e13a992b60ab816ebf550ebfe19483dd0d2"}
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "1c6438e935e58857da9747b4aa46a794a69a4aa9bb6ccd1e78018016db2237b3"}
   ],
   "reviewedClaims": [
     {"id": "encryption", "result": "match", "claim": "Phase 1 coordinator-readable audio is explicitly not end-to-end encrypted; Phase 3 e2ee_media remains deferred and disabled."},

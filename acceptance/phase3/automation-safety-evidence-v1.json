@@ -172,7 +172,7 @@
     {"path": "docs/analysis/p3-automation-safety-evidence-handoff.md", "sha256": "82d5cd32476e65ca1f33a178bc8618fcd887c6a38b0bd63299bf3faa2b346f78"},
     {"path": "coordinator/internal/store/automation_runtime.go", "sha256": "39c5308ba899fd8ac3549074033b2f0f33c316289053bac145e08c0e7ead2e14"},
     {"path": "coordinator/internal/store/automation_runtime_test.go", "sha256": "7aacfb64e597d71516895419ce0c4ca64b6d85caf7ff0303288992c00448cd8d"},
-    {"path": "coordinator/internal/store/automation_lineage_test.go", "sha256": "15715d6df888f010b73727732e7b2da2f14ae752003a36af98a884db8484949f"},
+    {"path": "coordinator/internal/store/automation_lineage_test.go", "sha256": "f8e73cc1cd91365320c69bcd2441e45350f39864dcd603c6eaf1b462393aa8c2"},
     {"path": "coordinator/internal/store/automation_history_test.go", "sha256": "a79f7c9cfd25c715c87eea92df8045eb293956fb6d635564cdc00fe1eea5a814"},
     {"path": "coordinator/internal/store/automation_control_test.go", "sha256": "8d20ea1c4b1a28e6bc77cfdd01b5bac4a0dcb8a6df5a65012ddaac21f335f0df"},
     {"path": "coordinator/internal/store/transmission_scheduler_test.go", "sha256": "65f94ed6a7542936d1a799ef8b03fcf43913ee5fd3449cac30152ef7b3ed0f41"},

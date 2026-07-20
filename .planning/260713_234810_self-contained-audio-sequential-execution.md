@@ -13,9 +13,9 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-28zhpl` —
-  windows-protected-media-send is accepted and awaiting hosted-CI/merge
-  publication in deferred epic `EPIC-260716-3qsztl`.
+- Current engineering task: `TASK-260712-1u57qz` —
+  windows-protected-media-playback in deferred epic
+  `EPIC-260716-3qsztl`.
 - Current original-plan frontier: `TASK-260712-1u57qz` —
   windows-protected-media-playback in deferred epic `EPIC-260716-3qsztl`;
   it starts only after the accepted send task is merged.
@@ -281,13 +281,16 @@
   stale ciphertext-only `.prepare-*` accumulation after repeated crashes;
   L2/L3 are informational. Signed MSIX, native DPAPI/NTFS, provider/crypto,
   traffic, memory and physical interop remain manual/deferred.
+  Hosted CI run `29718751890` passed all four required jobs; PR #294 merged
+  exact head `684734175473b3c4fc28a305431547fc1d0a3b62` to `main` as
+  `c5eede96a18e19703c503ca32256e87a2b932838`.
 - Next deferred coding line: E2EE continues with `TASK-260712-1u57qz`, limited
   to the production-dark Windows protected-media playback path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-28zhpl` —
   windows-protected-media-send (dormant engineering scope only)
-- Current branch: `feat/task-260712-28zhpl`
+- Current branch: `feat/task-260712-1u57qz`
 - Current review evidence:
   `TASK-260712-28zhpl_re-review-verdict-b2a4af6.md` from Claude Fable 5 max run
   `RUN-260720-1e8fa2` on exact producer rework commit `b2a4af6`; initial run

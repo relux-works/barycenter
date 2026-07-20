@@ -19,9 +19,10 @@
 - Current original-plan frontier: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build
-  delta review now freezes `main` `f4a90f1f332bc73cac8f36f96cee6c16cc2ad7c0`,
-  successful CI run `29738846385`, artifact `8459523515` and MSIX SHA-256
-  `a53253f33c5d9acf903daa4641c254884eb3e69d497e6442bdb1cd4e85d6b7e6`.
+  delta review now freezes repaired `main`
+  `c9a925e923ff425d26eb878784cbe9ecd1403dd1`, successful post-merge CI run
+  `29751994898`, artifact `8465025630` and MSIX SHA-256
+  `1191699da98377f559f01312ae1c12fd0d456706d30224803bc19ee4c553b413`.
   The original 2026-07-14 artifact predates accepted capture-quality ABI and
   packaged-cue changes and is historical only. The first immutable physical
   attempt reached terminal H00 `FAIL`: physical progress is `1/36` terminal
@@ -57,9 +58,16 @@
   authoritative, align app and host tools on the virtualized `AC\\PulsarProbe`
   root, and distinguish API route names from filesystem paths. Local Go tests,
   Windows cross-build and the full interactive-session PowerShell contract
-  suite pass. Strict execution remains at H00 and will initialize a fresh
-  immutable bundle from the next CI-built signed MSIX; the failed bundle is
-  retained as immutable diagnostic evidence. Windows currently reports the
+  suite pass. PR #304 merged the repair, and post-merge CI passed 4/4. A
+  separate RDP engineering smoke of the new package observed a visible main
+  window plus successful `helper_load` and `controls_ready` evidence at the
+  corrected runtime root; it also preserved tray/hotkey/permission-query RDP
+  blocks without claiming H00. Smoke cleanup restored package, signer-trust
+  and runtime absence. Fresh immutable bundle
+  `win10-single-input-physical-b` now freezes the repaired bytes and the
+  owner-approved built-in microphone profile; its strict current row is H00
+  with all 18 bundle-B rows `NOT_RUN`. The failed bundle A remains immutable
+  diagnostic evidence. Windows currently reports the
   active desktop as `rdp-tcp#3`, so a local physical-console transition or
   operator confirmation is still required before an H00 pass can be claimed.
   The preceding p1-independent-security-review
@@ -466,7 +474,7 @@
   engineering (100%).
 - Most recently accepted: `TASK-260712-1ulshp` —
   phase3-external-security-review-closure (disabled-framework scope only)
-- Current branch: `review/task-260712-1ulshp`
+- Current branch: `tracking/task-260712-1vtwkl-win10-h00-retry`
 - Current review evidence:
   External implementation-security review was accepted by non-implementing
   Claude Opus 4.8 run `RUN-260720-191344`; verdict resource is

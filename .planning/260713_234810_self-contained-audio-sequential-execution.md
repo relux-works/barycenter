@@ -304,6 +304,20 @@
 - Hosted CI run `29721560275` passed all four coordinator, NodeCore, Windows and
   packaged-probe jobs; PR #295 merged exact reviewed head to main as
   `e47eb6b583fa0319beee460b87397bdb75dbcf39`.
+- Windows E2EE live-PTT producer: exact commit
+  `aee07339bcfe014b39edac10734f713d11333792` adds the production-dark exact
+  `BE` wire mirror, cross-process witnessed `live_ptt` generation reservation,
+  shared epoch plus commit-digest AAD, retry-safe sealing on the existing
+  transport worker, authentication before jitter and bounded replay/nonce/
+  membership teardown. Defensive copies cover provider and caller aliasing;
+  local repository revisions remain CAS-only and a two-installation fixture
+  proves shared-context round trip under deliberately skewed revisions.
+  Focused 11 scenarios plus race, live capture/receiver/node regressions plus
+  race, full Go plus race, vet, acceptance 215/215, Windows amd64/arm64 blind
+  compile and automated 16/16 passed; exact manifest is
+  `.temp/acceptance/20260720T065018Z/manifest.json`. Independent Claude Fable 5
+  max exact-SHA review is pending. Real traffic/audio/hardware/native/forensic
+  evidence remains manual/deferred in `EPIC-260714-th54l3`.
 - Next deferred coding line: E2EE continues with `TASK-260712-39vjzd`, limited
   to the production-dark Windows E2EE live-PTT path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
@@ -312,7 +326,8 @@
   windows-protected-media-playback (dormant engineering scope only)
 - Current branch: `feat/task-260712-39vjzd`
 - Current review evidence:
-  Windows protected playback was accepted by Claude Fable 5 max run
+  Windows E2EE live PTT is pending a Claude Fable 5 max review on exact
+  producer commit `aee0733`. Windows protected playback was accepted by run
   `RUN-260720-a152a9` on exact producer commit `532774a`; verdict resource is
   `TASK-260712-1u57qz_independent-review-verdict.md`. The preceding accepted
   evidence is `TASK-260712-28zhpl_re-review-verdict-b2a4af6.md` from run

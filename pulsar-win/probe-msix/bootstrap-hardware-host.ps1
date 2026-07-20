@@ -63,10 +63,9 @@ function Add-BootstrapAuthorizedKey {
     if (-not (Test-Path -LiteralPath $Parent -PathType Container)) {
         New-Item -ItemType Directory -Path $Parent -Force | Out-Null
     }
-    $Existing = if (Test-Path -LiteralPath $Path -PathType Leaf) {
-        @([IO.File]::ReadAllLines($Path))
-    } else {
-        @()
+    [string[]]$Existing = @()
+    if (Test-Path -LiteralPath $Path -PathType Leaf) {
+        $Existing = [string[]][IO.File]::ReadAllLines($Path)
     }
     if (@($Existing | Where-Object { $_.Trim() -ceq $script:BootstrapAuthorizedKey }).Count -ne 0) {
         return $false
@@ -86,7 +85,7 @@ function Remove-BootstrapAuthorizedKey {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         return $false
     }
-    $Existing = @([IO.File]::ReadAllLines($Path))
+    [string[]]$Existing = [IO.File]::ReadAllLines($Path)
     $Retained = @($Existing | Where-Object { $_.Trim() -cne $script:BootstrapAuthorizedKey })
     if ($Retained.Count -eq $Existing.Count) {
         return $false

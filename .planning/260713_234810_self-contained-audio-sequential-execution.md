@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 182 accepted, 23 remain.
-- Routed inventory: 186 engineering tasks (182 accepted, 4 remain) and 19
+- Combined inventory: 205 original tasks; 183 accepted, 22 remain.
+- Routed inventory: 186 engineering tasks (183 accepted, 3 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,11 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-2nppt6` —
-  macos-encrypted-media-client-path in deferred epic `EPIC-260716-3qsztl`.
-- Current original-plan frontier: `TASK-260712-2nppt6` —
-  macos-encrypted-media-client-path in deferred epic `EPIC-260716-3qsztl`; it
-  started from accepted main merge `c11352b2676e746d18a28e74ac743fc799efeaa0`.
+- Current engineering task: `TASK-260712-2q4jbu` —
+  windows-encrypted-media-client-path in deferred epic `EPIC-260716-3qsztl`.
+- Current original-plan frontier: `TASK-260712-2q4jbu` —
+  windows-encrypted-media-client-path in deferred epic `EPIC-260716-3qsztl`;
+  it starts only after the accepted macOS client-path branch is merged.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -325,8 +325,8 @@
 - Hosted CI run `29724092583` passed all four coordinator, NodeCore, Windows and
   packaged-probe jobs; PR #296 merged exact reviewed head to main as
   `c11352b2676e746d18a28e74ac743fc799efeaa0`.
-- macOS encrypted-media client-path producer is complete and awaiting exact-SHA
-  independent review. The production-dark SwiftUI model and surface keep the
+- macOS encrypted-media client-path exact producer commit
+  `3a64b1808ce990fbef2cfb737839a15cbd0f6cbb` is accepted. The production-dark SwiftUI model and surface keep the
   selected protected path blocked instead of silently selecting plaintext,
   expose verified-device revoke, current-epoch transfer or explicit user-held
   recovery, object/epoch/device-bound history grants, irrecoverable-history
@@ -341,17 +341,30 @@
   Keychain/provider/codec, device transfer, physical audio/hardware,
   traffic/memory/crash and moderation-storage evidence remain manual/deferred
   in `EPIC-260714-th54l3`.
-- Current deferred coding line: E2EE continues with `TASK-260712-2nppt6`, limited
-  to the production-dark macOS encrypted-media client integration path. Every later E2EE implementation
+- Independent Claude Fable 5 max run `RUN-260720-c23a33` reproduced focused
+  Swift 6/6, full Swift 356/356 across 57 suites, task acceptance 5/5 including
+  four fail-closed mutations, full automated 16/16 at
+  `.temp/acceptance/20260720T080331Z/manifest.json`, and a release build. It
+  confirmed the path remains production-dark, one repository and retained
+  abstract cross-process lease compose send/playback/live without generation
+  double reservation, protected status and commands fail closed without
+  plaintext downgrade, recovery/grant/report-consent boundaries match the
+  accepted contracts, and UI state contains no secrets or rendered stable
+  identifiers. Verdict: ACCEPTED with zero open Critical/High/Medium. Two Low
+  findings track a cosmetic tautological normalization branch and the dormant
+  composition throw path lacking an executable-target test before future
+  runtime enablement; neither changes acceptance or manual deferrals.
+- Current deferred coding line: E2EE continues with `TASK-260712-2q4jbu`, limited
+  to the production-dark Windows encrypted-media client integration path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-39vjzd` —
-  windows-e2ee-live-ptt (dormant engineering scope only)
+- Most recently accepted: `TASK-260712-2nppt6` —
+  macos-encrypted-media-client-path (dormant engineering scope only)
 - Current branch: `feat/task-260712-2nppt6`
 - Current review evidence:
-  macOS encrypted-media client-path is producer-complete with the evidence
-  above; independent Claude Fable 5 max exact-SHA review is pending and no
-  acceptance credit has been taken yet.
+  macOS encrypted-media client-path was accepted on exact producer `3a64b18`
+  by Claude Fable 5 max run `RUN-260720-c23a33`; verdict resource is
+  `TASK-260712-2nppt6_independent-review-verdict.md`.
   Windows E2EE live PTT was accepted on exact producer `aee0733` by Claude
   Fable 5 max terminal run `RUN-260720-21d7d3`; verdict resource is
   `TASK-260712-39vjzd_independent-review-verdict.md`. Initial run
@@ -3983,7 +3996,20 @@ continues at section 17.
   ACCEPTED with zero open Critical/High/Medium after a fresh synchronous
   harness. Real traffic capture, signed MSIX, native provider/crypto/codec,
   physical audio/hardware and forensic evidence remain manual/deferred.)
-- [ ] `TASK-260712-2nppt6` — macos-encrypted-media-client-path
+- [x] `TASK-260712-2nppt6` — macos-encrypted-media-client-path (accepted on
+  exact producer commit `3a64b1808ce990fbef2cfb737839a15cbd0f6cbb`.
+  The production-dark macOS SwiftUI integration keeps protected media visibly
+  blocked instead of silently downgrading, composes send/playback/live over
+  one `MacE2EEKeyStateRepository` plus a retained abstract cross-process lease,
+  and exposes fail-closed verification/revoke, current-epoch transfer,
+  user-held recovery, bounded history grants and separate report-consent
+  flows without retaining secrets or rendering stable identifiers. Claude
+  Fable 5 max run `RUN-260720-c23a33` reproduced focused Swift 6/6, full Swift
+  356/356, focused acceptance 5/5, automated 16/16 and release build, then
+  ACCEPTED with zero open Critical/High/Medium. Two Low findings are
+  non-blocking; all signed/notarized app, real Keychain/provider/codec,
+  physical device/audio, traffic/memory/crash and moderation-storage evidence
+  remains manual/deferred in `EPIC-260714-th54l3`.)
 - [ ] `TASK-260712-2q4jbu` — windows-encrypted-media-client-path
 - [ ] `TASK-260712-1bcpda` — e2ee-c4-c6-evidence-review-pack
 

@@ -194,6 +194,14 @@ def validate(contract: dict) -> None:
                     "current.Metadata.CommitDigest != initial.Metadata.CommitDigest" in production,
                     "Windows live E2EE integration is not the exact dormant witnessed boundary")
             continue
+        if path.name == "windows_encrypted_media_client.go":
+            require("WindowsE2EEKeyStateRepository" in production and
+                    "newDefaultWindowsE2EEKeyStateRepository" not in production and
+                    "intentionally absent from" in production and
+                    "CapabilityAdvertised: false" in production and
+                    "RuntimeWiringApproved: false" in production,
+                    "Windows encrypted-media client is not the exact production-dark integration boundary")
+            continue
         require("WindowsE2EEKeyStateRepository" not in production and
                 "newDefaultWindowsE2EEKeyStateRepository" not in production,
                 f"key state wired into production source: {path.name}")

@@ -359,6 +359,22 @@
   `node-core` failure; the exact CI command passed locally on clean PR head and
   the rerun passed in 2m45s without code changes. PR #297 merged to `main` as
   `d265228f67858111276a8b466d6c0eb50ab66e54`.
+- Windows encrypted-media client-path producer implementation is complete and
+  awaiting exact-SHA independent review. The production-dark Go model exposes
+  honest encrypted/plaintext status, verified-device revoke, current-epoch
+  transfer or explicit user-held recovery, object/epoch/device-bound history
+  grants, irrecoverable-history warnings and separate metadata-only versus
+  decrypted-evidence consent. Its dormant composition passes exactly one
+  accepted `WindowsE2EEKeyStateRepository` to the accepted send, playback and
+  live services. `main.go`, runtime capability, provider, suite and container
+  selection remain dark. Focused and full Go tests, vet, standalone race,
+  Windows amd64/arm64 cross-builds, the validator and five focused acceptance
+  tests pass; aggregate acceptance contract discovery also passes. One
+  unrelated capture-workflow timing test flaked once in the aggregate race
+  stage and passed immediately on an exact standalone race rerun. No acceptance
+  credit is taken until Claude Fable 5 max completes exact-SHA review with zero
+  open Critical/High/Medium finding. Real signed-MSIX/native-DPAPI, device,
+  audio, accessibility and forensic evidence stays in `EPIC-260714-th54l3`.
 - Current deferred coding line: E2EE continues with `TASK-260712-2q4jbu`, limited
   to the production-dark Windows encrypted-media client integration path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there

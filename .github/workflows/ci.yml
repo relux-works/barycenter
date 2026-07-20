@@ -148,6 +148,7 @@ jobs:
         run: |
           $package = Get-ChildItem dist/windows-probe/PulsarProbe-*-x64-signed.msix | Select-Object -First 1
           if (-not $package) { throw "signed probe MSIX missing" }
+          ./pulsar-win/probe-msix/bootstrap-hardware-host.Tests.ps1
           ./pulsar-win/probe-msix/hardware-evidence.Tests.ps1 -Package $package.FullName
       - name: Verify signed install contract without claiming hardware evidence
         shell: pwsh

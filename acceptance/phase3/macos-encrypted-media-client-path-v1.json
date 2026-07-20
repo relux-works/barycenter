@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "task": "TASK-260712-2nppt6",
+  "contract": "macos-encrypted-media-client-path.v1",
+  "scope": "repository-automated-production-dark",
+  "acceptedOwners": {
+    "keyState": "TASK-260712-1x9ruo",
+    "send": "TASK-260712-2kcduo",
+    "playback": "TASK-260712-tcwn44",
+    "live": "TASK-260712-3980vy",
+    "recoveryAndHistory": "TASK-260712-1rziyo",
+    "reportEvidence": "TASK-260712-2i0w6x"
+  },
+  "implemented": [
+    "fail-closed-path-presentation-model",
+    "macos-swiftui-verification-revoke-recovery-history-report-surface",
+    "explicit-unsupported-recipient-no-downgrade-choice",
+    "separate-metadata-and-decrypted-evidence-report-consent",
+    "single-repository-production-dark-composition",
+    "retained-cross-process-ownership-lease-gate",
+    "opaque-description-redaction",
+    "negative-command-authorization-tests"
+  ],
+  "production": {
+    "runtimeWired": false,
+    "capabilityAdvertised": false,
+    "providerSelected": false,
+    "suiteSelected": false,
+    "containerSelected": false
+  },
+  "automatedClaims": [
+    "protected status requires every current verification membership suite capability component and ownership witness",
+    "unsupported recipients never cause a selected protected path to become plaintext",
+    "device transfer history grant revoke recovery and evidence commands fail closed",
+    "metadata-only report remains distinct from voluntary decrypted evidence disclosure",
+    "one retained ownership lease and one repository construct send playback and live services",
+    "UI and command descriptions do not render opaque identifiers or secret material"
+  ],
+  "manualDeferred": [
+    "signed-and-notarized-app",
+    "real-keychain-accessibility-and-device-loss",
+    "production-crypto-provider-suite-and-container",
+    "real-device-transfer-and-history-playback",
+    "traffic-memory-crash-and-log-forensics",
+    "voiceover-keyboard-and-visual-hardware-walkthrough",
+    "moderation-storage-evidence-upload-and-deletion"
+  ],
+  "manualEpic": "EPIC-260714-th54l3"
+}

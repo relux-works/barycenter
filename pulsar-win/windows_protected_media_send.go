@@ -314,6 +314,11 @@ func (s *WindowsProtectedMediaSendService) Send(ctx context.Context, request Win
 			return WindowsProtectedMediaPublication{}, err
 		}
 	} else {
+		if exists, inspectErr := pathExists(s.draftDirectory(request.DraftID)); inspectErr != nil {
+			return WindowsProtectedMediaPublication{}, ErrWindowsProtectedMediaPersistence
+		} else if exists {
+			return WindowsProtectedMediaPublication{}, ErrWindowsProtectedMediaPersistence
+		}
 		emitWindowsProtectedProgress(progress, WindowsProtectedMediaPreparing, 0, 0)
 		var err error
 		draft, err = s.prepare(ctx, request, nowMS)
@@ -373,6 +378,10 @@ func (s *WindowsProtectedMediaSendService) RecoverExpiredDrafts(ctx context.Cont
 			return removed, ErrWindowsProtectedMediaPersistence
 		}
 		if !exists {
+			if err := os.RemoveAll(s.draftDirectory(entry.Name())); err != nil {
+				return removed, ErrWindowsProtectedMediaLocalCleanup
+			}
+			removed++
 			continue
 		}
 		if !s.acquireDraft(entry.Name()) {
@@ -622,8 +631,13 @@ func (s *WindowsProtectedMediaSendService) validateArtifact(ctx context.Context,
 }
 
 func (s *WindowsProtectedMediaSendService) persistPrepared(artifact WindowsProtectedMediaSealedArtifact, request WindowsProtectedMediaSendRequest, canonicalSource, sourceFingerprint, authorDeviceID, commitDigest string, nowMS int64) (windowsProtectedStoredDraft, error) {
-	directory := s.draftDirectory(request.DraftID)
-	if err := os.Mkdir(directory, 0o700); err != nil {
+	finalDirectory := s.draftDirectory(request.DraftID)
+	directory, err := os.MkdirTemp(s.ciphertextRoot, ".prepare-"+request.DraftID+"-")
+	if err != nil {
+		return windowsProtectedStoredDraft{}, ErrWindowsProtectedMediaPersistence
+	}
+	if err := os.Chmod(directory, 0o700); err != nil {
+		_ = os.RemoveAll(directory)
 		return windowsProtectedStoredDraft{}, ErrWindowsProtectedMediaPersistence
 	}
 	failed := true
@@ -638,7 +652,7 @@ func (s *WindowsProtectedMediaSendService) persistPrepared(artifact WindowsProte
 	for index, value := range artifact.Chunks {
 		digest := windowsProtectedDigest(value.Ciphertext)
 		metadata := windowsProtectedStoredChunk{Index: index, ByteOffset: offset, Size: len(value.Ciphertext), Digest: digest, Nonce: value.Nonce}
-		if err := writeWindowsProtectedNewFile(s.chunkPath(request.DraftID, index), value.Ciphertext); err != nil {
+		if err := writeWindowsProtectedNewFile(filepath.Join(directory, fmt.Sprintf("chunk-%04d.bin", index)), value.Ciphertext); err != nil {
 			return windowsProtectedStoredDraft{}, ErrWindowsProtectedMediaPersistence
 		}
 		_, _ = whole.Write(value.Ciphertext)
@@ -658,9 +672,13 @@ func (s *WindowsProtectedMediaSendService) persistPrepared(artifact WindowsProte
 		CiphertextSize: offset, Chunks: chunks, CreatedAtMS: nowMS, ExpiresAtMS: request.ExpiresAtMS,
 		Phase: windowsProtectedPrepared, NextChunkIndex: 0,
 	}
-	if err := s.saveDraft(draft); err != nil {
+	if err := s.saveDraftAt(draft, filepath.Join(directory, "state.json")); err != nil {
 		zeroWindowsProtectedDraft(&draft)
 		return windowsProtectedStoredDraft{}, err
+	}
+	if err := os.Rename(directory, finalDirectory); err != nil {
+		zeroWindowsProtectedDraft(&draft)
+		return windowsProtectedStoredDraft{}, ErrWindowsProtectedMediaPersistence
 	}
 	failed = false
 	return draft, nil
@@ -800,6 +818,10 @@ func (s *WindowsProtectedMediaSendService) loadChunk(draftID string, metadata wi
 }
 
 func (s *WindowsProtectedMediaSendService) saveDraft(draft windowsProtectedStoredDraft) error {
+	return s.saveDraftAt(draft, s.statePath(draft.DraftID))
+}
+
+func (s *WindowsProtectedMediaSendService) saveDraftAt(draft windowsProtectedStoredDraft, statePath string) error {
 	raw, err := json.Marshal(draft)
 	if err != nil || len(raw) > 8<<20 {
 		zeroBytes(raw)
@@ -807,7 +829,7 @@ func (s *WindowsProtectedMediaSendService) saveDraft(draft windowsProtectedStore
 	}
 	raw = append(raw, '\n')
 	defer zeroBytes(raw)
-	directory := s.draftDirectory(draft.DraftID)
+	directory := filepath.Dir(statePath)
 	temporary, err := os.CreateTemp(directory, ".state-*.tmp")
 	if err != nil {
 		return ErrWindowsProtectedMediaPersistence
@@ -821,7 +843,7 @@ func (s *WindowsProtectedMediaSendService) saveDraft(draft windowsProtectedStore
 	if _, err := temporary.Write(raw); err != nil || temporary.Sync() != nil || temporary.Close() != nil {
 		return ErrWindowsProtectedMediaPersistence
 	}
-	if err := replaceStateFile(temporaryPath, s.statePath(draft.DraftID)); err != nil {
+	if err := replaceStateFile(temporaryPath, statePath); err != nil {
 		return ErrWindowsProtectedMediaPersistence
 	}
 	return nil
@@ -855,12 +877,21 @@ func (s *WindowsProtectedMediaSendService) loadDraft(draftID string) (windowsPro
 
 func (s *WindowsProtectedMediaSendService) cleanup(draft windowsProtectedStoredDraft, deletePlaintext bool) error {
 	if deletePlaintext {
-		canonical, err := canonicalRegularPath(draft.SourcePath)
-		if err != nil || !isWindowsProtectedOwned(canonical, s.plaintextDraftRoot) {
+		info, statErr := os.Lstat(draft.SourcePath)
+		if errors.Is(statErr, os.ErrNotExist) {
+			if !validWindowsProtectedStoredSourcePath(draft.SourcePath) || !isWindowsProtectedOwned(draft.SourcePath, s.plaintextDraftRoot) {
+				return ErrWindowsProtectedMediaLocalCleanup
+			}
+		} else if statErr != nil || info == nil {
 			return ErrWindowsProtectedMediaLocalCleanup
-		}
-		if err := os.Remove(canonical); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return ErrWindowsProtectedMediaLocalCleanup
+		} else {
+			canonical, err := canonicalRegularPath(draft.SourcePath)
+			if err != nil || !isWindowsProtectedOwned(canonical, s.plaintextDraftRoot) {
+				return ErrWindowsProtectedMediaLocalCleanup
+			}
+			if err := os.Remove(canonical); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return ErrWindowsProtectedMediaLocalCleanup
+			}
 		}
 	}
 	if err := os.RemoveAll(s.draftDirectory(draft.DraftID)); err != nil {
@@ -1007,6 +1038,14 @@ func regularFileExists(path string) (bool, error) {
 		return false, err
 	}
 	return info.Mode().IsRegular(), nil
+}
+
+func pathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func isWindowsProtectedOwned(child, root string) bool {

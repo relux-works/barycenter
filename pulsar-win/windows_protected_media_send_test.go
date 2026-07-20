@@ -613,4 +613,80 @@ func TestWindowsProtectedMediaPublishedCheckpointDoesNotRefinalizeAfterCleanupRe
 	}
 }
 
+func TestWindowsProtectedMediaAlreadyMissingOwnedPlaintextCleanupConverges(t *testing.T) {
+	fixture := newWindowsProtectedSendFixture(t)
+	secondSource := filepath.Join(fixture.plaintextRoot, "second.wav")
+	if err := os.WriteFile(secondSource, []byte("second private fixture bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	index := 1
+	fixture.uploader.failChunkOnce = &index
+	service := fixture.service(t, true)
+
+	requestA := fixture.request()
+	requestA.DraftID = "draft_aK123456789ABCDEFGHJKMNPQ"
+	if _, err := service.Send(context.Background(), requestA, 2000, nil); !errors.Is(err, ErrWindowsProtectedMediaTransport) {
+		t.Fatalf("draft A err=%v", err)
+	}
+	current, err := fixture.keyState.LoadGroupState(fixture.identity.InstallationID, fixture.group.GroupID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentRevision := current.Metadata.Revision
+	current.Destroy()
+
+	requestB := fixture.request()
+	requestB.DraftID = "draft_bK123456789ABCDEFGHJKMNPQ"
+	requestB.SourcePath = secondSource
+	requestB.SourceObjectID = "source_2K123456789ABCDEFGHJKMNP"
+	requestB.ExpectedGroupRevision = currentRevision
+	if _, err := service.Send(context.Background(), requestB, 2000, nil); !errors.Is(err, ErrWindowsProtectedMediaTransport) {
+		t.Fatalf("draft B err=%v", err)
+	}
+	if err := os.Remove(fixture.source); err != nil {
+		t.Fatal(err)
+	}
+	removed, err := service.RecoverExpiredDrafts(context.Background(), 10_001, 10)
+	if err != nil || removed != 2 {
+		t.Fatalf("removed=%d err=%v", removed, err)
+	}
+	for _, request := range []WindowsProtectedMediaSendRequest{requestA, requestB} {
+		if _, statErr := os.Stat(filepath.Join(fixture.ciphertextRoot, request.DraftID)); !errors.Is(statErr, os.ErrNotExist) {
+			t.Fatalf("draft %s remains: %v", request.DraftID, statErr)
+		}
+	}
+}
+
+func TestWindowsProtectedMediaStateLessFinalOrphanIsRecoverableAndDoesNotConsumeGeneration(t *testing.T) {
+	fixture := newWindowsProtectedSendFixture(t)
+	service := fixture.service(t, true)
+	request := fixture.request()
+	orphan := filepath.Join(fixture.ciphertextRoot, request.DraftID)
+	if err := os.MkdirAll(orphan, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(orphan, "chunk-0000.bin"), []byte{1, 2, 3}, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Send(context.Background(), request, 2000, nil); !errors.Is(err, ErrWindowsProtectedMediaPersistence) {
+		t.Fatalf("send err=%v", err)
+	}
+	state, err := fixture.keyState.LoadGroupState(fixture.identity.InstallationID, fixture.group.GroupID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Metadata.SendGeneration != 0 {
+		t.Fatalf("orphan collision consumed generation=%d", state.Metadata.SendGeneration)
+	}
+	state.Destroy()
+	removed, err := service.RecoverExpiredDrafts(context.Background(), 10_001, 10)
+	if err != nil || removed != 1 {
+		t.Fatalf("removed=%d err=%v", removed, err)
+	}
+	publication, err := service.Send(context.Background(), request, 2100, nil)
+	if err != nil || publication.Generation != 1 {
+		t.Fatalf("publication=%+v err=%v", publication, err)
+	}
+}
+
 func stringsOf(value byte, count int) string { return string(bytes.Repeat([]byte{value}, count)) }

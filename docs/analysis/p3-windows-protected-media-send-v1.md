@@ -42,7 +42,9 @@ For a new draft the service:
    nonces and byte bounds, and requires provider authentication before any
    ciphertext persistence;
 8. writes only encrypted/authenticated manifest material, opaque envelopes,
-   signature, digests and ciphertext chunks into a private draft directory;
+   signature, digests and ciphertext chunks into a private temporary draft
+   directory, then atomically renames that complete directory to the final
+   draft ID;
 9. stages, uploads and finalizes through stable exact-byte idempotency keys;
    and
 10. after confirmed publication removes local ciphertext and removes plaintext
@@ -54,8 +56,8 @@ checks every offset/chunk/whole digest and strict state schema, re-fingerprints
 the source, and re-verifies the artifact without resealing or reserving another
 generation. The finalized object revision is durably checkpointed before
 terminal cleanup, so a cleanup retry never finalizes twice and cancellation
-uses the current remote revision. Resume also rebinds author identity and the current witnessed
-epoch, commit digest and target snapshot. A later epoch/commit or target change
+uses the current remote revision. Resume also rebinds author identity and the
+current witnessed epoch, commit digest and target snapshot. A later epoch/commit or target change
 therefore fails closed instead of publishing stale ciphertext.
 
 ## Cleanup and concurrency
@@ -69,7 +71,11 @@ tests; native ACL and signed-MSIX behavior remains manual evidence.
 
 Explicit cancellation and expiry recovery both issue an idempotent remote
 delete for a staged object before local cleanup. Recovery processes at most 100
-drafts per invocation and skips an in-process active draft. A per-draft active
+drafts per invocation and skips an in-process active draft. Terminal cleanup
+is idempotent when the owned plaintext was already removed before a crash. A
+legacy state-less final draft directory is removed by bounded recovery without
+consuming a generation; new preparation cannot expose such a final directory
+because it publishes a complete temp directory atomically. A per-draft active
 set rejects duplicate local sends; cross-process duplicate callers cannot
 double-reserve a generation because Windows key state uses a share-none lock.
 Colliding draft-directory creation remains fail-closed.

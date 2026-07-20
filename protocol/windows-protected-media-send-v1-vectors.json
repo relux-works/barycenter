@@ -33,6 +33,8 @@
     {"name":"resume-source-tamper","expected":"invalid_request"},
     {"name":"resume-author-drift","expected":"invalid_request"},
     {"name":"resume-epoch-or-commit-drift","expected":"stale_key_state"},
+    {"name":"owned-plaintext-already-missing-at-terminal-cleanup","expected":"idempotent_cleanup"},
+    {"name":"state-less-final-draft-orphan","expected":"bounded_recovery"},
     {"name":"unapproved-runtime-provider","expected":"production_disabled"}
   ],
   "resume": {

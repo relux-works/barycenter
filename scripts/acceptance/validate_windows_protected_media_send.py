@@ -85,6 +85,9 @@ def validate(contract: dict) -> None:
         "group.Metadata.TargetSnapshotDigest != draft.Context.TargetSnapshotDigest",
         "decoder.DisallowUnknownFields()",
         "s.isActive(entry.Name())",
+        'os.MkdirTemp(s.ciphertextRoot, ".prepare-"+request.DraftID+"-")',
+        "os.Rename(directory, finalDirectory)",
+        "errors.Is(statErr, os.ErrNotExist)",
         "WindowsProtectedMediaAppPrivateDeleteOnTerminal",
         "WindowsProtectedMediaUserOwnedRetain",
         "!s.sealer.ProductionApproved() && !s.fixtureMode",
@@ -117,6 +120,8 @@ def validate(contract: dict) -> None:
         "TestWindowsProtectedMediaConcurrentDuplicateDraftFailsBusyAndRecoverySkipsActive",
         "TestWindowsProtectedMediaStoredStateRejectsUnknownFields",
         "TestWindowsProtectedMediaPublishedCheckpointDoesNotRefinalizeAfterCleanupRetry",
+        "TestWindowsProtectedMediaAlreadyMissingOwnedPlaintextCleanupConverges",
+        "TestWindowsProtectedMediaStateLessFinalOrphanIsRecoverableAndDoesNotConsumeGeneration",
     }:
         require(test_name in tests, f"fixture missing: {test_name}")
 
@@ -127,10 +132,10 @@ def validate(contract: dict) -> None:
     require(vectors.get("crossPlatformFixture") == macos.get("contract"), "cross-platform fixture authority drifted")
     for key in {"fixtureSuite", "fixtureContainer", "sourceSHA256", "manifestSHA256", "ciphertextSHA256", "chunks", "resume"}:
         require(vectors.get(key) == macos.get(key), f"macOS fixture parity drifted: {key}")
-    require(len(vectors.get("failClosed", [])) == 9, "fail-closed inventory drifted")
+    require(len(vectors.get("failClosed", [])) == 11, "fail-closed inventory drifted")
 
     invariants = set(contract.get("invariants", []))
-    require(len(invariants) == 20, "invariant inventory drifted")
+    require(len(invariants) == 22, "invariant inventory drifted")
     for item in {
         "unsupported-or-removed-recipient-fails-before-generation-reservation",
         "windows-share-none-key-state-lock-serializes-generation-cross-process",
@@ -139,6 +144,8 @@ def validate(contract: dict) -> None:
         "resume-rechecks-author-epoch-commit-target-and-source",
         "cancel-and-expiry-delete-staged-remote-before-local-cleanup",
         "active-drafts-are-not-expiry-cleaned",
+        "initial-ciphertext-and-state-published-by-atomic-draft-directory-rename",
+        "terminal-cleanup-is-idempotent-when-owned-plaintext-is-already-absent",
         "finalized-remote-revision-checkpointed-before-terminal-cleanup",
         "no-plaintext-fallback-or-coordinator-plaintext-route",
         "runtime-composition-and-capability-remain-dark",

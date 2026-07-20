@@ -372,6 +372,7 @@ WHERE schedule_id = ?`, schedule.ID).Scan(&count); err != nil || count != 0 {
 
 func TestAutomationQuickDisableAndScheduleDisableExposePendingCancellation(t *testing.T) {
 	fixture := newAutomationLineageFixture(t, "UTC")
+	tickTime := time.UnixMilli(fixture.now).UTC().Truncate(time.Minute).Add(time.Minute)
 	issued := issueAutomationPrincipal(t, fixture,
 		[]automationcontract.AudienceKind{automationcontract.AudienceOwnBarycenter}, nil, "")
 	apiExecution, _, err := fixture.store.ClaimAutomationAPIExecution(ClaimAutomationAPIExecutionParams{
@@ -386,14 +387,14 @@ func TestAutomationQuickDisableAndScheduleDisableExposePendingCancellation(t *te
 	schedule, err := fixture.store.CreateAutomationSchedule(CreateAutomationScheduleParams{
 		ExpectedActorID: fixture.owner.ActorID, Bearer: fixture.owner.ControlToken,
 		CueID: fixture.cue.ID, DisplayName: "disable", Timezone: "UTC",
-		WeekdaysMask: 1 << int(time.Monday), LocalMinute: 720,
+		WeekdaysMask: 1 << int(tickTime.Weekday()), LocalMinute: tickTime.Hour()*60 + tickTime.Minute(),
 		AudienceKind:   automationcontract.AudienceOwnBarycenter,
 		PolicyRevision: fixture.feature.Revision, CreatedAt: fixture.now + 20,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	tick := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC).UnixMilli()
+	tick := tickTime.UnixMilli()
 	scheduleExecution, _, err := fixture.store.ClaimScheduledAutomationOccurrence(
 		schedule.ID, schedule.Revision, tick, tick+1)
 	if err != nil {
@@ -427,6 +428,7 @@ func TestAutomationQuickDisableAndScheduleDisableExposePendingCancellation(t *te
 
 func TestAutomationIssuerAuthorityLossInvalidatesClaims(t *testing.T) {
 	fixture := newAutomationLineageFixture(t, "UTC")
+	tickTime := time.UnixMilli(fixture.now).UTC().Truncate(time.Minute).Add(time.Minute)
 	issued := issueAutomationPrincipal(t, fixture,
 		[]automationcontract.AudienceKind{automationcontract.AudienceOwnBarycenter}, nil, "")
 	apiExecution, _, err := fixture.store.ClaimAutomationAPIExecution(ClaimAutomationAPIExecutionParams{
@@ -441,14 +443,14 @@ func TestAutomationIssuerAuthorityLossInvalidatesClaims(t *testing.T) {
 	schedule, err := fixture.store.CreateAutomationSchedule(CreateAutomationScheduleParams{
 		ExpectedActorID: fixture.owner.ActorID, Bearer: fixture.owner.ControlToken,
 		CueID: fixture.cue.ID, DisplayName: "authority loss", Timezone: "UTC",
-		WeekdaysMask: 1 << int(time.Monday), LocalMinute: 720,
+		WeekdaysMask: 1 << int(tickTime.Weekday()), LocalMinute: tickTime.Hour()*60 + tickTime.Minute(),
 		AudienceKind:   automationcontract.AudienceOwnBarycenter,
 		PolicyRevision: fixture.feature.Revision, CreatedAt: fixture.now + 20,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	tick := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC).UnixMilli()
+	tick := tickTime.UnixMilli()
 	scheduleExecution, _, err := fixture.store.ClaimScheduledAutomationOccurrence(
 		schedule.ID, schedule.Revision, tick, tick+1)
 	if err != nil {
@@ -460,7 +462,7 @@ func TestAutomationIssuerAuthorityLossInvalidatesClaims(t *testing.T) {
 	if _, err := fixture.store.ResolveAutomationPrincipalSecret(issued.Secret, tick+3); !errors.Is(err, ErrAutomationInvalidCredential) {
 		t.Fatalf("authority-loss principal error=%v", err)
 	}
-	nextTick := time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC).UnixMilli()
+	nextTick := tickTime.AddDate(0, 0, 7).UnixMilli()
 	if _, _, err := fixture.store.ClaimScheduledAutomationOccurrence(schedule.ID, schedule.Revision, nextTick, nextTick+1); !errors.Is(err, ErrAutomationDisabled) {
 		t.Fatalf("authority-loss schedule error=%v", err)
 	}

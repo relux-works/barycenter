@@ -429,6 +429,13 @@
   `TASK-260712-1ulshp_external-implementation-security-review.md`. The report
   discloses that Fable 5 run `RUN-260720-4cb4ad` and five attempted Fable
   dimension reviewers hit the provider quota and received no review credit.
+  Initial integration run `29734213343` passed three jobs and exposed a
+  non-E2EE test-fixture clock bug in coordinator: two automation cases used the
+  actual current date `2026-07-20`, so after their hard-coded occurrence minute
+  the production not-current guard correctly rejected the claim. The test-only
+  repair derives the next matching UTC weekday/minute after `fixture.now`;
+  both affected cases pass 50 repetitions and full coordinator `go test ./...`
+  passes. No runtime or reviewed E2EE source changed.
   C4-C6 engineering review pack was accepted on exact producer `26722eb` by
   Claude Fable 5 max run `RUN-260720-6431c9`; verdict resource is
   `TASK-260712-1bcpda_engineering-packet-review-verdict-26722eb.md`.

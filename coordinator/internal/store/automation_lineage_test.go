@@ -39,6 +39,14 @@ func newAutomationLineageFixture(t *testing.T, timezone string) automationLineag
 	return automationLineageFixture{st, owner, media, cue, feature, now}
 }
 
+func nextAutomationFixtureUTC(now int64, weekday time.Weekday, localMinute int) int64 {
+	tomorrow := time.UnixMilli(now).UTC().AddDate(0, 0, 1)
+	day := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 0, 0, 0, 0, time.UTC)
+	daysUntilWeekday := (int(weekday) - int(day.Weekday()) + 7) % 7
+	return day.AddDate(0, 0, daysUntilWeekday).
+		Add(time.Duration(localMinute) * time.Minute).UnixMilli()
+}
+
 func issueAutomationPrincipal(t *testing.T, fixture automationLineageFixture, audiences []automationcontract.AudienceKind, targets []string, airID string) AutomationPrincipalIssue {
 	t.Helper()
 	issued, err := fixture.store.IssueAutomationPrincipal(IssueAutomationPrincipalParams{
@@ -264,7 +272,7 @@ func TestAutomationScheduleDSTGapFoldClockJumpAndConcurrentClaims(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	tick := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC).UnixMilli()
+	tick := nextAutomationFixtureUTC(fixture.now, time.Monday, 12*60)
 	var wg sync.WaitGroup
 	type result struct {
 		execution AutomationExecution
@@ -323,7 +331,7 @@ func TestAutomationClaimAndLeaseCrashBoundariesReconcile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tick := time.Date(2026, 7, 20, 10, 0, 0, 0, time.UTC).UnixMilli()
+	tick := nextAutomationFixtureUTC(fixture.now, time.Monday, 600)
 	injected := errors.New("claim interrupted")
 	fixture.store.testCheckpoint = func(name string) error {
 		if name == "automation_schedule_occurrence_before_commit" {

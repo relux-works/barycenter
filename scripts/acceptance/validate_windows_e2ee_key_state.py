@@ -184,6 +184,16 @@ def validate(contract: dict) -> None:
                     "current.Metadata.CommitDigest != frozenGroup.CommitDigest" in production,
                     "Windows playback integration is not the exact dormant witnessed boundary")
             continue
+        if path.name == "windows_e2ee_live_ptt.go":
+            require("WindowsE2EEKeyStateRepository" in production and
+                    "newDefaultWindowsE2EEKeyStateRepository" not in production and
+                    "production-dark Windows E2EE live-PTT" in production and
+                    "newWindowsE2EELiveSessionFactoryForAudit" in production and
+                    "!derivation.ProductionApproved()" in production and
+                    'ReserveSendGeneration(identity.Metadata.InstallationID, request.GroupID, "live_ptt"' in production and
+                    "current.Metadata.CommitDigest != initial.Metadata.CommitDigest" in production,
+                    "Windows live E2EE integration is not the exact dormant witnessed boundary")
+            continue
         require("WindowsE2EEKeyStateRepository" not in production and
                 "newDefaultWindowsE2EEKeyStateRepository" not in production,
                 f"key state wired into production source: {path.name}")

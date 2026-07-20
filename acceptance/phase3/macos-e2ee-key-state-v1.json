@@ -17,15 +17,15 @@
     "deltaReviewRequired": true
   },
   "artifacts": [
-    {"id":"repository","path":"node-app/Sources/NodeCore/MacE2EEKeyState.swift","sha256":"bdc12d1e87e39b68b999dce701eb44879a733f8e01a6bf2f1c9512e7c6a32443"},
-    {"id":"repository-tests","path":"node-app/Tests/NodeCoreTests/MacE2EEKeyStateTests.swift","sha256":"0a5063c5fe3efedb4a11fefd2551e0c96de6504ea5b6c20329d6f6a74f2aa9e5"},
+    {"id":"repository","path":"node-app/Sources/NodeCore/MacE2EEKeyState.swift","sha256":"379b82e7462e2be0a803e22f72dd474e63f4395aac5777cd2e12ce8c355b971d"},
+    {"id":"repository-tests","path":"node-app/Tests/NodeCoreTests/MacE2EEKeyStateTests.swift","sha256":"a51f816953cf2ca419f821d367190181dfeae0b3d78e590958b8b9c1a4051734"},
     {"id":"state-vectors","path":"protocol/e2ee-key-state-v1-vectors.json","sha256":"846685c8c16dea57d3b0e4022b08e72615e4cd9fa2149e76c8168e5f5d693326"},
     {"id":"adr","path":"docs/analysis/p3-macos-e2ee-key-state-v1.md","sha256":"a92438d509730a991ffac80953155b8ee61931ed757f5b0e02cff94fb3869c8d"},
     {"id":"threat-model","path":"acceptance/phase3/e2ee-threat-model-v1.json","sha256":"a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
     {"id":"key-lifecycle","path":"acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json","sha256":"6015b911f8e83c8228c4c3f3b763c2e9852c2ea7f773be488d45ced0fc80578c"},
-    {"id":"schema-foundation","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"25e6945eed4fd429c37968048f83b48fef0ca6f366e89eaed7e50b0ef7b15db9"},
-    {"id":"routing-rotation","path":"acceptance/phase3/e2ee-coordinator-routing-rotation-v1.json","sha256":"3c815dec453d10b86d9b2dc24356e723f8a7c548651675772dd75e13bf32d423"},
-    {"id":"opaque-router","path":"acceptance/phase3/e2ee-opaque-media-router-v1.json","sha256":"e9240fc8ab5d33177d4e5a59bebd0175df693441c9c1acc5896387039a0871c8"}
+    {"id":"schema-foundation","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"2aebe9f21d98ef72dce15474fcafd1feca627941d28d3c9edd4edea9d813bfb8"},
+    {"id":"routing-rotation","path":"acceptance/phase3/e2ee-coordinator-routing-rotation-v1.json","sha256":"2aba02b2e3adcee9a6c283711d03f2165b31f9f34489b9820aa134a610aaae6c"},
+    {"id":"opaque-router","path":"acceptance/phase3/e2ee-opaque-media-router-v1.json","sha256":"092f0a058f22bc74f50f70b6bd98c6bcf5fc81d48a657da55255921eb7eafdd0"}
   ],
   "keychainSlots": [
     "device_metadata",

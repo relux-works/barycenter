@@ -1118,6 +1118,23 @@ FROM e2ee_device_public_state WHERE device_id = ?`, deviceID).Scan(&actorID,
 	if revision != expectedRevision {
 		return E2EEPublicDevice{}, ErrE2EEConflict
 	}
+	rows, err := tx.Query(`SELECT group_id FROM e2ee_group_members
+WHERE device_id = ? AND state = 'current' ORDER BY group_id`, deviceID)
+	if err != nil {
+		return E2EEPublicDevice{}, err
+	}
+	var affectedGroups []string
+	for rows.Next() {
+		var groupID string
+		if err := rows.Scan(&groupID); err != nil {
+			rows.Close()
+			return E2EEPublicDevice{}, err
+		}
+		affectedGroups = append(affectedGroups, groupID)
+	}
+	if err := rows.Close(); err != nil {
+		return E2EEPublicDevice{}, err
+	}
 	result, err := tx.Exec(`UPDATE e2ee_device_public_state
 SET verification_state = 'revoked', revision = revision + 1,
 updated_at = ?, revoked_at = ?
@@ -1136,6 +1153,21 @@ WHERE device_id = ? AND revision = ? AND verification_state <> 'revoked'`,
 	if err := appendE2EEAuditTx(tx, "", "device", deviceID,
 		"device.public_state.revoke", "revoked", "device_revoke", actorID,
 		deviceID, 0, expectedRevision+1, now); err != nil {
+		return E2EEPublicDevice{}, err
+	}
+	if err := revokeE2EERecoveryForDeviceTx(tx, deviceID, now); err != nil {
+		return E2EEPublicDevice{}, err
+	}
+	for _, groupID := range affectedGroups {
+		group, err := e2eeGroupTx(tx, groupID)
+		if err != nil {
+			return E2EEPublicDevice{}, err
+		}
+		if _, err := reconcileE2EERotationTx(tx, group, now); err != nil {
+			return E2EEPublicDevice{}, err
+		}
+	}
+	if err := s.checkpoint("e2ee_device_revoke_recovery_before_commit"); err != nil {
 		return E2EEPublicDevice{}, err
 	}
 	if err := tx.Commit(); err != nil {

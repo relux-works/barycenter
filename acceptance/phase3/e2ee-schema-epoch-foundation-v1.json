@@ -15,9 +15,9 @@
     "deltaReviewRequired": true
   },
   "artifacts": [
-    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"b869346c51d5e7be80e8f8e7eaf15894248d247a02f2c71126f6364f058ccd51"},
-    {"id":"repository","path":"coordinator/internal/store/e2ee.go","sha256":"4f5322abf41e2db5cf31ccbb492d6ea53ceec5239720980cf5803be1ab1b3269"},
-    {"id":"tests","path":"coordinator/internal/store/e2ee_test.go","sha256":"dc8c18d9aca5ae204be81cc28b03b1ba7cbf6f8d35e2ad39d96fbe2ce1c468da"},
+    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"7a62a2894dbee01c45e050a51100cc1b6a87ab0761eb4b314ba944596984b9c6"},
+    {"id":"repository","path":"coordinator/internal/store/e2ee.go","sha256":"7c5865a1e844e6422b3722dc7e87863a640fcac3ef02a160f4cda73ccbccc773"},
+    {"id":"tests","path":"coordinator/internal/store/e2ee_test.go","sha256":"bcd65989ee28e8d072dc0ec35aef18c34ba4b2a30ea618bfc16601014b3e7bde"},
     {"id":"startup","path":"coordinator/internal/store/store.go","sha256":"b77aae2b7ed1cc10e06a23b11485617fc603e5d1823d1940e9d67f9c42257e16"},
     {"id":"protocol","path":"protocol/e2ee-media-audit-v1.json","sha256":"5dc5ac88539fed12b827aa8c3ff6ce14b6a13ae46d063624822c5435f38334ce"},
     {"id":"vectors","path":"protocol/e2ee-media-audit-v1-vectors.json","sha256":"2a8c71b909b2117921a6ee6b5415229ee8328e047f3c8f19d0db48e58fbf37cd"},

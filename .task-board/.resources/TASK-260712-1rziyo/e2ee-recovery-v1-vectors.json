@@ -1,0 +1,47 @@
+{
+  "contract": "e2ee-recovery.v1",
+  "status": "production-disabled",
+  "transfer_max_ttl_ms": 900000,
+  "history_max_ttl_ms": 2592000000,
+  "local_cleanup_max_grants": 100,
+  "transfers": [
+    {
+      "name": "same-user-current-epoch-bootstrap",
+      "kind": "device_transfer",
+      "same_orbit_required": true,
+      "historical_keys_by_default": false,
+      "consume_count": 1
+    },
+    {
+      "name": "current-member-welcome",
+      "kind": "welcome",
+      "same_orbit_required": false,
+      "historical_keys_by_default": false,
+      "consume_count": 1
+    }
+  ],
+  "history_grants": [
+    {
+      "name": "explicit-one-time-history",
+      "access_mode": "one_time",
+      "max_reads": 1
+    },
+    {
+      "name": "explicit-time-bound-history",
+      "access_mode": "time_bound",
+      "max_reads_upper_bound": 32
+    }
+  ],
+  "fail_closed": [
+    "expired",
+    "replayed",
+    "revoked",
+    "foreign-recipient",
+    "device-revision-clone",
+    "member-revision-clone",
+    "verification-digest-clone",
+    "stale-epoch",
+    "stale-target-snapshot",
+    "partial-local-identity"
+  ]
+}

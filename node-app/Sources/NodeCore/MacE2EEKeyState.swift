@@ -222,6 +222,11 @@ public struct MacE2EEGrantMetadata: Equatable, Sendable {
   public let revision: UInt64
 }
 
+public struct MacE2EEGrantCleanupResult: Equatable, Sendable {
+  public let inspected: Int
+  public let deleted: Int
+}
+
 public struct MacE2EEContentKeyMetadata: Equatable, Sendable {
   public let objectID: String
   public let groupID: String
@@ -359,6 +364,52 @@ public final class MacE2EEKeyStateRepository: @unchecked Sendable {
     return MacE2EEDeviceIdentityLease(
       metadata: deviceMetadata(payload, revision: record.revision),
       signing: signing.privateKey, agreement: agreement.privateKey)
+  }
+
+  /// Clears only the three fixed identity slots so an explicit re-enrollment
+  /// can start after a partial install or locally lost identity. Group state,
+  /// grants, and cached keys remain installation-bound and therefore cannot be
+  /// opened by the replacement identity.
+  @discardableResult
+  public func resetDeviceIdentityForReenrollment(expectedDeviceID: String) throws -> Bool {
+    Self.processLock.lock()
+    defer { Self.processLock.unlock() }
+    guard validIdentifier(expectedDeviceID, min: 8, max: 128) else {
+      throw MacE2EEKeyStateFailure.invalid
+    }
+    let slots: [(Kind, String)] = [
+      (.deviceMetadata, "device-metadata"),
+      (.deviceSigning, "device-signing"),
+      (.deviceAgreement, "device-agreement"),
+    ]
+    var present = 0
+    for (kind, scope) in slots {
+      let accounts = try storeAccounts(kind: kind, scope: scope)
+      if try store.read(account: accounts.record) != nil { present += 1 }
+      if try store.read(account: accounts.witness) != nil { present += 1 }
+    }
+    if present == 0 { return false }
+    if present == slots.count * 2 {
+      guard
+        let metadataRecord = try loadRecord(
+          kind: .deviceMetadata, scope: "device-metadata", installationID: nil),
+        let signingRecord = try loadRecord(
+          kind: .deviceSigning, scope: "device-signing", installationID: nil),
+        let agreementRecord = try loadRecord(
+          kind: .deviceAgreement, scope: "device-agreement", installationID: nil)
+      else { throw MacE2EEKeyStateFailure.rollbackOrClone }
+      let metadata: DevicePayload = try decodePayload(metadataRecord)
+      let signing: DeviceSecretPayload = try decodePayload(signingRecord)
+      let agreement: DeviceSecretPayload = try decodePayload(agreementRecord)
+      try validateDevicePayloads(metadata, signing: signing, agreement: agreement)
+      guard metadata.deviceID == expectedDeviceID else {
+        throw MacE2EEKeyStateFailure.conflict
+      }
+    }
+    for (kind, scope) in slots {
+      try deleteSlot(kind: kind, scope: scope)
+    }
+    return true
   }
 
   public func persistGroupState(
@@ -540,6 +591,41 @@ public final class MacE2EEKeyStateRepository: @unchecked Sendable {
       throw MacE2EEKeyStateFailure.invalid
     }
     try deleteSlot(kind: .grant, scope: "grant/\(grantID)")
+  }
+
+  /// Deletes only caller-enumerated expired grants. The explicit list and hard
+  /// cap keep cleanup bounded because Keychain does not expose a trusted grant
+  /// index to this repository.
+  public func cleanupExpiredGrants(
+    installationID: String, grantIDs: [String], nowMS: Int64
+  ) throws -> MacE2EEGrantCleanupResult {
+    Self.processLock.lock()
+    defer { Self.processLock.unlock() }
+    try requireInstallation(installationID)
+    guard !grantIDs.isEmpty, grantIDs.count <= 100, nowMS > 0 else {
+      throw MacE2EEKeyStateFailure.invalid
+    }
+    var seen = Set<String>()
+    var inspected = 0
+    var deleted = 0
+    for grantID in grantIDs {
+      guard validIdentifier(grantID, min: 8, max: 128) else {
+        throw MacE2EEKeyStateFailure.invalid
+      }
+      guard seen.insert(grantID).inserted else { continue }
+      inspected += 1
+      guard
+        let record = try loadRecord(
+          kind: .grant, scope: "grant/\(grantID)", installationID: installationID)
+      else { continue }
+      let payload: GrantPayload = try decodePayload(record)
+      try validateGrantPayload(payload, expectedGrantID: grantID)
+      if payload.expiresAtMS <= nowMS {
+        try deleteSlot(kind: .grant, scope: "grant/\(grantID)")
+        deleted += 1
+      }
+    }
+    return MacE2EEGrantCleanupResult(inspected: inspected, deleted: deleted)
   }
 
   public func deleteGroupState(installationID: String, groupID: String) throws {

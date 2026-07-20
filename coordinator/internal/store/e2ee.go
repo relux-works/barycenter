@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
-	"strings"
 	"time"
 
 	"relux.works/duet/coordinator/internal/ulid"
@@ -81,15 +80,18 @@ type E2EEHistoryGrant struct {
 
 type CreateE2EEHistoryGrantParams struct {
 	GroupID, IssuedByDeviceID, RecipientDeviceID, SourceObjectID string
-	TargetSnapshotDigest, GrantDigest                            string
-	FirstEpoch, LastEpoch, IssuedAt, ExpiresAt                   int64
+	TargetSnapshotDigest, GrantDigest, AccessMode                string
+	FirstEpoch, LastEpoch, ExpectedGroupRevision                 int64
+	ExpectedRecipientDeviceRevision, MaxReads, ApprovedAt        int64
+	IssuedAt, ExpiresAt                                          int64
 	EncryptedGrant                                               []byte
 }
 
 type CreateE2EETransferPackageParams struct {
 	GroupID, PackageKind, IssuerDeviceID, RecipientDeviceID string
-	PackageDigest                                           string
-	Epoch, CreatedAt, ExpiresAt                             int64
+	PackageDigest, TargetSnapshotDigest                     string
+	Epoch, ExpectedGroupRevision                            int64
+	ExpectedRecipientDeviceRevision, CreatedAt, ExpiresAt   int64
 	EncryptedPackage                                        []byte
 }
 
@@ -712,57 +714,7 @@ group_id, event_id, nonce_digest, epoch, generation, sequence, accepted_at
 }
 
 func (s *Store) CreateE2EEHistoryGrant(params CreateE2EEHistoryGrantParams) (E2EEHistoryGrant, error) {
-	if len(params.GroupID) != 30 || len(params.IssuedByDeviceID) < 8 ||
-		len(params.RecipientDeviceID) < 8 || len(params.SourceObjectID) < 8 ||
-		params.FirstEpoch <= 0 || params.LastEpoch < params.FirstEpoch ||
-		params.IssuedAt <= 0 || params.ExpiresAt <= params.IssuedAt ||
-		!validE2EEDigest(params.TargetSnapshotDigest) ||
-		!payloadDigestMatches(params.EncryptedGrant, params.GrantDigest) {
-		return E2EEHistoryGrant{}, ErrE2EEInvalid
-	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return E2EEHistoryGrant{}, err
-	}
-	defer tx.Rollback()
-	actorID, err := verifiedE2EEDeviceTx(tx, params.IssuedByDeviceID)
-	if err != nil {
-		return E2EEHistoryGrant{}, err
-	}
-	if _, err := verifiedE2EEDeviceTx(tx, params.RecipientDeviceID); err != nil {
-		return E2EEHistoryGrant{}, err
-	}
-	var epoch int64
-	var target, state string
-	if err := tx.QueryRow(`SELECT current_epoch, target_snapshot_digest, fork_state
-FROM e2ee_groups WHERE id = ?`, params.GroupID).Scan(&epoch, &target, &state); err != nil {
-		return E2EEHistoryGrant{}, err
-	}
-	if state != "clean" || params.LastEpoch > epoch || params.TargetSnapshotDigest != target {
-		return E2EEHistoryGrant{}, ErrE2EEStaleEpoch
-	}
-	id := "ehg_" + ulid.New(time.UnixMilli(params.IssuedAt))
-	_, err = tx.Exec(`INSERT INTO e2ee_history_grants(
-id, group_id, issued_by_device_id, recipient_device_id, source_object_id,
-first_epoch, last_epoch, target_snapshot_digest, encrypted_grant, grant_digest,
-status, revision, issued_at, expires_at, revoked_at
-) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, 0)`, id,
-		params.GroupID, params.IssuedByDeviceID, params.RecipientDeviceID,
-		params.SourceObjectID, params.FirstEpoch, params.LastEpoch,
-		params.TargetSnapshotDigest, params.EncryptedGrant, params.GrantDigest,
-		params.IssuedAt, params.ExpiresAt)
-	if err != nil {
-		return E2EEHistoryGrant{}, ErrE2EEConflict
-	}
-	if err := appendE2EEAuditTx(tx, params.GroupID, "history_grant", id,
-		"history_grant.create", "accepted", "", actorID, params.IssuedByDeviceID,
-		epoch, 1, params.IssuedAt); err != nil {
-		return E2EEHistoryGrant{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return E2EEHistoryGrant{}, err
-	}
-	return s.GetE2EEHistoryGrant(id)
+	return s.CreateAuthorizedE2EEHistoryGrant(params)
 }
 
 func (s *Store) GetE2EEHistoryGrant(id string) (E2EEHistoryGrant, error) {
@@ -781,98 +733,12 @@ FROM e2ee_history_grants WHERE id = ?`, id).Scan(&value.ID, &value.GroupID,
 	return value, err
 }
 
-func (s *Store) RevokeE2EEHistoryGrant(id string, expectedRevision, now int64) (E2EEHistoryGrant, error) {
-	if !strings.HasPrefix(id, "ehg_") || expectedRevision <= 0 || now <= 0 {
-		return E2EEHistoryGrant{}, ErrE2EEInvalid
-	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return E2EEHistoryGrant{}, err
-	}
-	defer tx.Rollback()
-	var groupID, issuer, status string
-	var epoch int64
-	if err := tx.QueryRow(`SELECT group_id, issued_by_device_id, status, last_epoch
-FROM e2ee_history_grants WHERE id = ?`, id).Scan(&groupID, &issuer, &status, &epoch); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return E2EEHistoryGrant{}, ErrE2EENotFound
-		}
-		return E2EEHistoryGrant{}, err
-	}
-	if status != "active" {
-		return E2EEHistoryGrant{}, ErrE2EERevoked
-	}
-	result, err := tx.Exec(`UPDATE e2ee_history_grants SET status = 'revoked',
-revision = revision + 1, revoked_at = ? WHERE id = ? AND revision = ? AND status = 'active'`,
-		now, id, expectedRevision)
-	if err != nil {
-		return E2EEHistoryGrant{}, err
-	}
-	changed, err := result.RowsAffected()
-	if err != nil || changed != 1 {
-		if err != nil {
-			return E2EEHistoryGrant{}, err
-		}
-		return E2EEHistoryGrant{}, ErrE2EEConflict
-	}
-	if err := appendE2EEAuditTx(tx, groupID, "history_grant", id,
-		"history_grant.revoke", "revoked", "", 0, issuer, epoch,
-		expectedRevision+1, now); err != nil {
-		return E2EEHistoryGrant{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return E2EEHistoryGrant{}, err
-	}
-	return s.GetE2EEHistoryGrant(id)
-}
-
 func (s *Store) CreateE2EETransferPackage(params CreateE2EETransferPackageParams) (string, error) {
-	if len(params.GroupID) != 30 || len(params.IssuerDeviceID) < 8 ||
-		len(params.RecipientDeviceID) < 8 || params.Epoch <= 0 ||
-		params.CreatedAt <= 0 || params.ExpiresAt <= params.CreatedAt ||
-		(params.PackageKind != "device_transfer" && params.PackageKind != "recovery" && params.PackageKind != "welcome") ||
-		!payloadDigestMatches(params.EncryptedPackage, params.PackageDigest) {
-		return "", ErrE2EEInvalid
-	}
-	tx, err := s.db.Begin()
+	created, err := s.CreateAuthorizedE2EETransferPackage(params)
 	if err != nil {
 		return "", err
 	}
-	defer tx.Rollback()
-	actorID, err := verifiedE2EEDeviceTx(tx, params.IssuerDeviceID)
-	if err != nil {
-		return "", err
-	}
-	if _, err := verifiedE2EEDeviceTx(tx, params.RecipientDeviceID); err != nil {
-		return "", err
-	}
-	id := "etp_" + ulid.New(time.UnixMilli(params.CreatedAt))
-	if _, err := tx.Exec(`INSERT INTO e2ee_transfer_packages(
-id, group_id, package_kind, issuer_device_id, recipient_device_id, epoch,
-encrypted_package, package_digest, status, revision, created_at, expires_at, terminal_at
-) SELECT ?, id, ?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?, 0
-FROM e2ee_groups WHERE id = ? AND current_epoch = ? AND fork_state = 'clean'`, id,
-		params.PackageKind, params.IssuerDeviceID, params.RecipientDeviceID,
-		params.Epoch, params.EncryptedPackage, params.PackageDigest,
-		params.CreatedAt, params.ExpiresAt, params.GroupID, params.Epoch); err != nil {
-		return "", err
-	}
-	var inserted int
-	if err := tx.QueryRow(`SELECT COUNT(*) FROM e2ee_transfer_packages WHERE id = ?`, id).Scan(&inserted); err != nil {
-		return "", err
-	}
-	if inserted != 1 {
-		return "", ErrE2EEStaleEpoch
-	}
-	if err := appendE2EEAuditTx(tx, params.GroupID, "transfer_package", id,
-		"transfer_package.create", "accepted", "", actorID, params.IssuerDeviceID,
-		params.Epoch, 1, params.CreatedAt); err != nil {
-		return "", err
-	}
-	if err := tx.Commit(); err != nil {
-		return "", err
-	}
-	return id, nil
+	return created.ID, nil
 }
 
 func (s *Store) CreateE2EEReportEvidenceMetadata(params CreateE2EEReportEvidenceParams) (string, error) {

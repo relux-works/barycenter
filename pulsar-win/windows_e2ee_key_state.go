@@ -196,6 +196,11 @@ type WindowsE2EEGrantMetadata struct {
 	Revision    uint64
 }
 
+type WindowsE2EEGrantCleanupResult struct {
+	Inspected int
+	Deleted   int
+}
+
 type WindowsE2EEContentKeyMetadata struct {
 	ObjectID    string
 	GroupID     string
@@ -423,6 +428,78 @@ func (r *WindowsE2EEKeyStateRepository) LoadDeviceIdentity(deviceID string) (lea
 	return lease, err
 }
 
+// ResetDeviceIdentityForReenrollment clears only the three fixed identity
+// slots after an explicit local reset. Any group state, grants, and content
+// cache left on disk stay bound to the old installation and cannot be opened
+// by the replacement identity.
+func (r *WindowsE2EEKeyStateRepository) ResetDeviceIdentityForReenrollment(expectedDeviceID string) (reset bool, err error) {
+	err = r.withExclusiveLock(func() error {
+		if !validWindowsE2EEIdentifier(expectedDeviceID, 8, 128) {
+			return ErrWindowsE2EEInvalid
+		}
+		type identitySlot struct {
+			kind  windowsE2EEKind
+			scope string
+		}
+		slots := []identitySlot{
+			{windowsE2EEDeviceMetadata, "device-metadata"},
+			{windowsE2EEDeviceSigning, "device-signing"},
+			{windowsE2EEDeviceAgreement, "device-agreement"},
+		}
+		present := 0
+		for _, slot := range slots {
+			statePath, witnessPath, pathErr := r.slotPaths(slot.kind, slot.scope)
+			if pathErr != nil {
+				return pathErr
+			}
+			stateExists, existsErr := r.files.Exists(statePath)
+			if existsErr != nil {
+				return ErrWindowsE2EEUnavailable
+			}
+			witnessExists, existsErr := r.files.Exists(witnessPath)
+			if existsErr != nil {
+				return ErrWindowsE2EEUnavailable
+			}
+			if stateExists {
+				present++
+			}
+			if witnessExists {
+				present++
+			}
+		}
+		if present == 0 {
+			return nil
+		}
+		if present == len(slots)*2 {
+			record, loadErr := r.loadRecord(windowsE2EEDeviceMetadata, "device-metadata", "")
+			if loadErr != nil {
+				return loadErr
+			}
+			if record == nil {
+				return ErrWindowsE2EERollbackOrClone
+			}
+			var payload windowsE2EEDevicePayload
+			if decodeErr := decodeWindowsE2EEPayload(record, &payload); decodeErr != nil {
+				return decodeErr
+			}
+			if installErr := r.requireInstallation(payload.InstallationID); installErr != nil {
+				return installErr
+			}
+			if payload.DeviceID != expectedDeviceID {
+				return ErrWindowsE2EEConflict
+			}
+		}
+		for _, slot := range slots {
+			if deleteErr := r.deleteSlot(slot.kind, slot.scope); deleteErr != nil {
+				return deleteErr
+			}
+		}
+		reset = true
+		return nil
+	})
+	return reset, err
+}
+
 func (r *WindowsE2EEKeyStateRepository) PersistGroupState(installationID, groupID string, epoch uint64, previousCommitDigest, commitDigest, targetDigest string, opaqueState []byte, expectedRevision uint64, nowMS int64) (metadata WindowsE2EEGroupStateMetadata, err error) {
 	err = r.withExclusiveLock(func() error {
 		if err := r.requireInstallation(installationID); err != nil {
@@ -640,6 +717,60 @@ func (r *WindowsE2EEKeyStateRepository) RevokeGrant(installationID, grantID stri
 		}
 		return r.deleteSlot(windowsE2EEGrant, "grant/"+grantID)
 	})
+}
+
+// CleanupExpiredGrants deletes only the caller-enumerated expired grants. The
+// explicit list and hard cap keep cleanup bounded without relying on directory
+// names as a trusted grant index.
+func (r *WindowsE2EEKeyStateRepository) CleanupExpiredGrants(installationID string, grantIDs []string, nowMS int64) (result WindowsE2EEGrantCleanupResult, err error) {
+	err = r.withExclusiveLock(func() error {
+		if err := r.requireInstallation(installationID); err != nil {
+			return err
+		}
+		if len(grantIDs) == 0 || len(grantIDs) > 100 || nowMS <= 0 {
+			return ErrWindowsE2EEInvalid
+		}
+		seen := make(map[string]struct{}, len(grantIDs))
+		for _, grantID := range grantIDs {
+			if !validWindowsE2EEIdentifier(grantID, 8, 128) {
+				return ErrWindowsE2EEInvalid
+			}
+			if _, exists := seen[grantID]; exists {
+				continue
+			}
+			seen[grantID] = struct{}{}
+			result.Inspected++
+			record, err := r.loadRecord(windowsE2EEGrant, "grant/"+grantID, installationID)
+			if err != nil {
+				return err
+			}
+			if record == nil {
+				continue
+			}
+			expired, err := func() (bool, error) {
+				var payload windowsE2EEGrantPayload
+				defer zeroBytes(payload.OpaqueGrant)
+				if err := decodeWindowsE2EEPayload(record, &payload); err != nil {
+					return false, err
+				}
+				if err := validateWindowsE2EEGrantPayload(payload, grantID); err != nil {
+					return false, err
+				}
+				return payload.ExpiresAtMS <= nowMS, nil
+			}()
+			if err != nil {
+				return err
+			}
+			if expired {
+				if err := r.deleteSlot(windowsE2EEGrant, "grant/"+grantID); err != nil {
+					return err
+				}
+				result.Deleted++
+			}
+		}
+		return nil
+	})
+	return result, err
 }
 
 func (r *WindowsE2EEKeyStateRepository) CacheContentKey(installationID, objectID, groupID string, epoch uint64, expiresAtMS int64, key []byte, expectedRevision uint64, nowMS int64) (revision uint64, err error) {

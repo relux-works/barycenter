@@ -16,9 +16,9 @@
     "deltaReviewRequired": true
   },
   "artifacts": [
-    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"b869346c51d5e7be80e8f8e7eaf15894248d247a02f2c71126f6364f058ccd51"},
+    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"7a62a2894dbee01c45e050a51100cc1b6a87ab0761eb4b314ba944596984b9c6"},
     {"id":"report-schema","path":"coordinator/internal/store/e2ee_report_moderation_schema.go","sha256":"133756b5e9bfd794d4babfeee8d853e42eb10a019e855f61c77905187e733e88"},
-    {"id":"foundation-repository","path":"coordinator/internal/store/e2ee.go","sha256":"4f5322abf41e2db5cf31ccbb492d6ea53ceec5239720980cf5803be1ab1b3269"},
+    {"id":"foundation-repository","path":"coordinator/internal/store/e2ee.go","sha256":"7c5865a1e844e6422b3722dc7e87863a640fcac3ef02a160f4cda73ccbccc773"},
     {"id":"report-repository","path":"coordinator/internal/store/e2ee_report_moderation.go","sha256":"ad17d2c5d2b4abe3113770be0e8c268932f3c09b4d489384db0a7403f92eaad9"},
     {"id":"opaque-router","path":"coordinator/internal/store/e2ee_media_router.go","sha256":"09b950a18a44616e51fee86b7119a6b99c4f3107bed8ad16278c81ede0f6171d"},
     {"id":"moderation-service","path":"coordinator/internal/moderation/service.go","sha256":"8adead309684cc654de7e5cb973e03ee129dc44ff8c2235a879ccc16387d9e92"},

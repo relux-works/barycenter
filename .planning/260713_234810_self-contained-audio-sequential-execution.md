@@ -29,7 +29,10 @@
   Exact operator/host requirements and artifact expiry are recorded in
   `.planning/TASK-260712-1vtwkl_current-build-handoff.md`. Strict order forbids
   starting `TASK-260712-2hodti` until both Windows rows are executed, sealed
-  and reviewed.
+  and reviewed. A second access audit found OpenSSH/RDP on the visible peer but
+  no accepted agent key, no WinRM or anonymous SMB path, and Taildrop rejected
+  cross-user transfer. The peer still exposes no build, physical-machine,
+  device or console attestation, so this does not change the `0/36` result.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate

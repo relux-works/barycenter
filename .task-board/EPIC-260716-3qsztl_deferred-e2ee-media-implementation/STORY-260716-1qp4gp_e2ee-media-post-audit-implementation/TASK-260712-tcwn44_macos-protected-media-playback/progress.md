@@ -8,7 +8,7 @@ codex-root-inline
 2026-07-12T16:49:11Z
 
 ## Last Update
-2026-07-20T01:45:56Z
+2026-07-20T02:13:03Z
 
 ## Blocked By
 - TASK-260712-1x9ruo
@@ -33,4 +33,6 @@ Owner gate 2026-07-16: moved to EPIC-260716-3qsztl Deferred E2EE media implement
 (none)
 
 ## Outcome Resources
-(none)
+- [macos-protected-media-playback-v1.json](file://TASK-260712-tcwn44/macos-protected-media-playback-v1.json) — Fail-closed automated acceptance packet; production remains dark
+- [p3-macos-protected-media-playback-v1.md](file://TASK-260712-tcwn44/p3-macos-protected-media-playback-v1.md) — Architecture decision and deferred manual evidence
+- [macos-protected-media-playback-v1-vectors.json](file://TASK-260712-tcwn44/macos-protected-media-playback-v1-vectors.json) — Shared Mac/Windows audit-fixture range vectors

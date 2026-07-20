@@ -146,6 +146,7 @@ public final class MacStreamCandidatePlayer: @unchecked Sendable {
     private let decoderGate = MacStreamDecoderGate()
     private let clock: MacStreamDeadlineClock
     private let send: @Sendable (Message) -> Void
+    private let injectedChunks: MacStreamChunkReading?
     private let ring = RingBuffer(capacityFloats: macStreamPCMRingBytes / MemoryLayout<Float>.size)
     private let queue = DispatchQueue(label: "live.barycenter.mac-stream-player")
 
@@ -177,11 +178,13 @@ public final class MacStreamCandidatePlayer: @unchecked Sendable {
 
     public init(
         cache: MacStreamChunkCache, decoder: MacStreamCandidateDecoder,
-        clock: MacStreamDeadlineClock, send: @escaping @Sendable (Message) -> Void
+        clock: MacStreamDeadlineClock, protectedChunks: MacStreamChunkReading? = nil,
+        send: @escaping @Sendable (Message) -> Void
     ) {
         self.cache = cache
         self.decoder = decoder
         self.clock = clock
+        self.injectedChunks = protectedChunks
         self.send = send
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now(), repeating: .milliseconds(2))
@@ -200,6 +203,9 @@ public final class MacStreamCandidatePlayer: @unchecked Sendable {
 
     public func load(_ payload: StreamLoadPayload, manifest: MacStreamManifest) throws {
         try manifest.validate(load: payload)
+        if let injectedChunks, injectedChunks.manifest != manifest {
+            throw MacStreamFailure.frozen(stage: "manifest", code: "invalid_manifest")
+        }
         try queue.sync {
             let decision = generationGuard.acceptLoad(
                 playback: payload.playbackGeneration, seek: payload.seekGeneration,
@@ -483,7 +489,7 @@ public final class MacStreamCandidatePlayer: @unchecked Sendable {
 
     private func startDecoder(_ token: MacStreamGenerationToken, positionMs: Int64) {
         guard let manifest else { return }
-        let reader = MacStreamCacheReader(cache: cache, manifest: manifest)
+        let reader = injectedChunks ?? MacStreamCacheReader(cache: cache, manifest: manifest)
         let writer = MacStreamPCMWriter(player: self, token: token)
         let request = MacStreamDecodeRequest(
             manifest: manifest, startPositionMs: positionMs,

@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-macos-protected-media-playback.v1",
+  "task": "TASK-260712-tcwn44",
+  "publishedAt": "2026-07-20",
+  "decision": {
+    "result": "production-dark-macos-protected-media-playback-foundation",
+    "productionEnabled": false,
+    "runtimeHTTPWired": false,
+    "capabilityAdvertised": false,
+    "productionLibrarySelected": false,
+    "productionSuiteSelected": false,
+    "productionContainerSelected": false,
+    "productionDecoderSelected": false,
+    "auditFixtureOnly": true,
+    "plaintextFallbackAllowed": false,
+    "decryptedDiskCacheAllowed": false,
+    "signedPackageTested": false,
+    "deltaReviewRequired": true
+  },
+  "artifacts": [
+    {"id": "playback-pipeline", "path": "node-app/Sources/NodeCore/MacProtectedMediaPlayback.swift", "sha256": "15822a7b85a8b603b17273c2fbf0c51cfb67230fe091ae429498114fdbbe70ac"},
+    {"id": "bounded-player", "path": "node-app/Sources/NodeCore/MacStreamTrackPlayer.swift", "sha256": "0cbe7a1984b9726c11f79210386c8600baa5fc263e4f84ac0cef1f9afbf849a7"},
+    {"id": "playback-tests", "path": "node-app/Tests/NodeCoreTests/MacProtectedMediaPlaybackTests.swift", "sha256": "40322cee2409d28645b507e81898198cd0a826506f0376991403adaa39c41029"},
+    {"id": "playback-vectors", "path": "protocol/macos-protected-media-playback-v1-vectors.json", "sha256": "14f8aca3ea81d6c62331e1e568056b99ace64e8dd820ec6899b4223a3a7dc49a"},
+    {"id": "adr", "path": "docs/analysis/p3-macos-protected-media-playback-v1.md", "sha256": "deff24bd2840fcf25452e74a9e0f01acb3428857a2c29cf3bd82f48fbab29ae7"},
+    {"id": "protocol-authority", "path": "protocol/e2ee-media-audit-v1.json", "sha256": "5dc5ac88539fed12b827aa8c3ff6ce14b6a13ae46d063624822c5435f38334ce"},
+    {"id": "opaque-router", "path": "acceptance/phase3/e2ee-opaque-media-router-v1.json", "sha256": "092f0a058f22bc74f50f70b6bd98c6bcf5fc81d48a657da55255921eb7eafdd0"},
+    {"id": "threat-model", "path": "acceptance/phase3/e2ee-threat-model-v1.json", "sha256": "a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"}
+  ],
+  "bounds": {
+    "encryptedManifestBytes": 1048576,
+    "opaqueEnvelopeBytes": 1048576,
+    "signatureBytes": 65536,
+    "chunkBytes": 1048576,
+    "variantBytes": 67108864,
+    "globalCacheBytes": 536870912,
+    "pinnedCacheBytes": 134217728,
+    "pcmRingBytes": 1048576
+  },
+  "invariants": [
+    "production-provider-and-decoder-remain-unselected-and-dark",
+    "exact-object-recipient-group-epoch-generation-target-binding",
+    "witnessed-group-revision-rechecked-before-and-after-each-record",
+    "history-epoch-requires-live-bounded-local-grant",
+    "ciphertext-hash-verified-before-provider-authentication",
+    "aead-record-authentication-required-before-decoder-bytes",
+    "durable-cache-contains-ciphertext-and-public-metadata-only",
+    "cached-ciphertext-is-reauthenticated-after-restart",
+    "decrypted-bytes-never-written-to-disk",
+    "revocation-and-membership-change-purge-and-tombstone",
+    "policy-dnd-and-block-check-before-network-range-access",
+    "legacy-and-mixed-version-downgrade-forbidden",
+    "existing-seek-generation-clock-volume-receipt-and-pcm-bounds-preserved",
+    "no-plaintext-fallback-or-coordinator-decrypt-path",
+    "runtime-composition-and-capability-remain-dark"
+  ],
+  "automatedEvidence": {
+    "focused": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter MacProtectedMediaPlaybackTests",
+    "playerRegression": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter MacStreamTrackPlayerTests",
+    "macOS": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app",
+    "acceptance": "python3 -m unittest scripts.acceptance.test_macos_protected_media_playback"
+  },
+  "manualEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "signedNotarizedMacOS": "not-run",
+    "physicalKeychainCrashRestart": "not-run",
+    "realCryptoMacWindowsInterop": "not-run-no-selected-stack",
+    "realCodecContainer": "not-run-no-selected-stack",
+    "hardwarePlaybackSeekInterrupt": "not-run",
+    "audibleQualityAndDucking": "not-run"
+  },
+  "openProductionGates": ["EPC-001", "EPC-002", "EPC-004", "EPC-005", "TASK-260712-1ulshp"]
+}

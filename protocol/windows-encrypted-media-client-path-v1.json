@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "contract": "windows-encrypted-media-client-path.v1",
+  "status": "production-dark",
+  "runtime_wired": false,
+  "capability_advertised": false,
+  "selected_production_suite": null,
+  "paths": [
+    "plaintext",
+    "protected_clip",
+    "protected_track",
+    "protected_live"
+  ],
+  "protected_status_requires": [
+    "current_server_projection",
+    "reviewed_suite_selected",
+    "capability_advertised",
+    "runtime_wiring_approved",
+    "secure_key_state_ready",
+    "same_repository_witness",
+    "win32-share-none-cross-process-generation-lock",
+    "verified_current_device",
+    "current_membership_and_nonzero_epoch",
+    "explicit_unsupported_recipient_exclusion"
+  ],
+  "composed_accepted_components": [
+    "WindowsE2EEKeyStateRepository",
+    "WindowsProtectedMediaSendService",
+    "WindowsProtectedMediaPlaybackService",
+    "WindowsE2EELiveSessionFactory"
+  ],
+  "commands": [
+    "refresh",
+    "select_path",
+    "verify_device",
+    "revoke_device",
+    "device_transfer",
+    "user_held_recovery",
+    "confirm_unsupported_exclusion",
+    "create_history_grant",
+    "revoke_history_grant",
+    "report_metadata",
+    "export_decrypted_evidence"
+  ],
+  "recovery": {
+    "current_epoch_only": true,
+    "history_included_by_default": false,
+    "coordinator_key_recovery": false,
+    "irrecoverable_history_warning_required": true
+  },
+  "history_grants": {
+    "selection_required": true,
+    "object_and_epoch_range_bound": true,
+    "verified_device_bound": true,
+    "maximum_days": 30,
+    "modes": [
+      "one_time",
+      "time_bound"
+    ]
+  },
+  "report_modes": [
+    {
+      "name": "metadata_only",
+      "discloses_decrypted_media": false,
+      "separate_confirmation_required": false
+    },
+    {
+      "name": "decrypted_evidence_copy",
+      "discloses_decrypted_media": true,
+      "separate_confirmation_required": true
+    }
+  ],
+  "ui_forbidden_state": [
+    "device_private_key",
+    "group_epoch_secret",
+    "content_key",
+    "history_grant_secret",
+    "recovery_secret",
+    "decrypted_media_bytes",
+    "raw_device_identifier",
+    "raw_object_identifier",
+    "raw_grant_identifier"
+  ],
+  "fail_closed": [
+    "silent_plaintext_fallback",
+    "false_encrypted_status",
+    "unverified_device_transfer",
+    "implicit_history_grant",
+    "unconfirmed_evidence_export",
+    "stale_or_forked_membership",
+    "revoked_or_expired_grant",
+    "unattested_generation_owner",
+    "multiple_repository_instances"
+  ]
+}

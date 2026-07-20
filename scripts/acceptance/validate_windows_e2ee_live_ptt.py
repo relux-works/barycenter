@@ -154,6 +154,13 @@ def validate(contract: dict) -> None:
         if path.name.endswith("_test.go") or path.name == "windows_e2ee_live_ptt.go":
             continue
         production = path.read_text(encoding="utf-8")
+        if path.name == "windows_encrypted_media_client.go":
+            require("NewWindowsE2EELiveSessionFactory" in production and
+                    "intentionally absent from" in production and
+                    "CapabilityAdvertised: false" in production and
+                    "RuntimeWiringApproved: false" in production,
+                    "Windows encrypted-media client is not the exact production-dark live boundary")
+            continue
         require("WindowsE2EELiveSessionFactory" not in production and
                 "NewWindowsE2EELiveFrameChannel" not in production and
                 "NewWindowsE2EELiveSenderBridge" not in production,

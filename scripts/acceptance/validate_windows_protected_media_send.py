@@ -155,9 +155,17 @@ def validate(contract: dict) -> None:
     runtime = "\n".join(
         path.read_text(encoding="utf-8")
         for path in (ROOT / "pulsar-win").glob("*.go")
-        if path.name != "windows_protected_media_send.go" and not path.name.endswith("_test.go")
+        if path.name not in {
+            "windows_protected_media_send.go", "windows_encrypted_media_client.go",
+        } and not path.name.endswith("_test.go")
     )
     require("WindowsProtectedMediaSendService" not in runtime, "send pipeline runtime-wired")
+    client = (ROOT / "pulsar-win/windows_encrypted_media_client.go").read_text(encoding="utf-8")
+    require("NewWindowsProtectedMediaSendService" in client and
+            "intentionally absent from" in client and
+            "CapabilityAdvertised: false" in client and
+            "RuntimeWiringApproved: false" in client,
+            "Windows client is not the exact production-dark send integration boundary")
 
     manual = contract.get("manualEvidence", {})
     require(manual.get("epic") == "EPIC-260714-th54l3", "manual epic missing")

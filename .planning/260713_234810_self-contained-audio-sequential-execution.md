@@ -435,7 +435,12 @@
   the production not-current guard correctly rejected the claim. The test-only
   repair derives the next matching UTC weekday/minute after `fixture.now`;
   both affected cases pass 50 repetitions and full coordinator `go test ./...`
-  passes. No runtime or reviewed E2EE source changed.
+  passes. Fail-closed evidence validation then required a mechanical refresh
+  of the test hash through the live Phase 3 gate/pre-review anchors and a
+  regeneration of the C4-C6 aggregate plus its board mirror; historical
+  baseline-snapshot hashes were preserved. The automation handoff validator,
+  E2EE generator/validator and 234 acceptance discovery tests pass. No claim,
+  runtime, protocol or reviewed E2EE source changed.
   C4-C6 engineering review pack was accepted on exact producer `26722eb` by
   Claude Fable 5 max run `RUN-260720-6431c9`; verdict resource is
   `TASK-260712-1bcpda_engineering-packet-review-verdict-26722eb.md`.

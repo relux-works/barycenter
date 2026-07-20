@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-macos-protected-media-send.v1",
+  "task": "TASK-260712-2kcduo",
+  "publishedAt": "2026-07-20",
+  "decision": {
+    "result": "production-dark-macos-protected-media-send-foundation",
+    "productionEnabled": false,
+    "runtimeHTTPWired": false,
+    "capabilityAdvertised": false,
+    "productionLibrarySelected": false,
+    "productionSuiteSelected": false,
+    "productionContainerSelected": false,
+    "auditFixtureOnly": true,
+    "plaintextFallbackAllowed": false,
+    "coordinatorPlaintextPath": false,
+    "signedPackageTested": false,
+    "deltaReviewRequired": true
+  },
+  "artifacts": [
+    {
+      "id": "send-pipeline",
+      "path": "node-app/Sources/NodeCore/MacProtectedMediaSend.swift",
+      "sha256": "e1605479ad42e17b7d04e9ff88b465e22584a6ad82ebb1eb163eac07c42b28c9"
+    },
+    {
+      "id": "send-tests",
+      "path": "node-app/Tests/NodeCoreTests/MacProtectedMediaSendTests.swift",
+      "sha256": "76aca762420a8eb8fc20000fa5cf337e0e045e19cca9f7d7f77167f9cbcdba65"
+    },
+    {
+      "id": "send-vectors",
+      "path": "protocol/macos-protected-media-send-v1-vectors.json",
+      "sha256": "4c7fdd83818ad6fe6f39a177c64592e41590308c2cd783e2f286a88c3e631b5c"
+    },
+    {
+      "id": "key-state",
+      "path": "node-app/Sources/NodeCore/MacE2EEKeyState.swift",
+      "sha256": "c10d1923539e5ad262d69e0c6747a3f2dace72526ed9be5dbd79e404e46f85e1"
+    },
+    {
+      "id": "protocol-authority",
+      "path": "protocol/e2ee-media-audit-v1.json",
+      "sha256": "5dc5ac88539fed12b827aa8c3ff6ce14b6a13ae46d063624822c5435f38334ce"
+    },
+    {
+      "id": "opaque-router",
+      "path": "acceptance/phase3/e2ee-opaque-media-router-v1.json",
+      "sha256": "092f0a058f22bc74f50f70b6bd98c6bcf5fc81d48a657da55255921eb7eafdd0"
+    },
+    {
+      "id": "adr",
+      "path": "docs/analysis/p3-macos-protected-media-send-v1.md",
+      "sha256": "162793c8b815384f7de32ead2102ef21947a581e51545dd08d28e8c800ebaac1"
+    },
+    {
+      "id": "threat-model",
+      "path": "acceptance/phase3/e2ee-threat-model-v1.json",
+      "sha256": "a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"
+    }
+  ],
+  "bounds": {
+    "plaintextBytes": 67108864,
+    "ciphertextBytes": 67108864,
+    "chunkBytes": 1048576,
+    "chunks": 1024,
+    "encryptedManifestBytes": 1048576,
+    "opaqueEnvelopeBytes": 1048576,
+    "draftLifetimeMS": 86400000,
+    "recoveryDraftsPerRun": 100,
+    "recipients": 64
+  },
+  "invariants": [
+    "rights-and-exact-target-confirmation-required-before-send",
+    "unsupported-recipient-fails-before-generation-reservation",
+    "removed-or-unverified-recipient-fails-closed",
+    "generation-reserved-before-provider-seal",
+    "generation-consumed-on-ambiguous-or-invalid-seal",
+    "provider-context-bound-to-exact-group-epoch-generation-target-and-recipients",
+    "provider-nonces-unique-within-each-artifact",
+    "provider-authentication-required-before-ciphertext-persistence",
+    "resume-reuses-exact-ciphertext-without-reseal",
+    "source-and-ciphertext-digests-revalidated-on-resume",
+    "stage-chunk-finalize-use-stable-exact-byte-idempotency-keys",
+    "only-app-private-owned-plaintext-is-deleted",
+    "user-owned-selected-files-are-retained",
+    "explicit-cancel-and-expiry-remove-owned-plaintext-and-local-ciphertext",
+    "no-plaintext-fallback-or-coordinator-plaintext-route",
+    "single-key-state-send-owner-per-repository",
+    "runtime-composition-and-capability-remain-dark"
+  ],
+  "fixtures": {
+    "production-provider-gate": "covered",
+    "clip-track-saved-cue": "covered",
+    "exact-golden-manifest-and-chunk-digests": "covered",
+    "unsupported-target-before-generation": "covered",
+    "duplicate-nonce": "covered",
+    "invalid-provider-signature": "covered",
+    "source-tamper-on-resume": "covered",
+    "ciphertext-tamper-on-resume": "covered",
+    "interrupted-upload-exact-resume": "covered",
+    "explicit-cancel-cleanup": "covered",
+    "bounded-expiry-recovery": "covered",
+    "user-owned-file-retention": "covered",
+    "single-repository-send-owner": "covered"
+  },
+  "automatedEvidence": {
+    "focused": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter MacProtectedMediaSendTests",
+    "keyStateRegression": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter MacE2EEKeyStateTests",
+    "macOS": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app",
+    "acceptance": "python3 -m unittest scripts.acceptance.test_macos_protected_media_send"
+  },
+  "deferredScope": [
+    "production-codec-container-crypto-library-suite-and-signature-provider",
+    "runtime-http-authentication-and-coordinator-api-wiring",
+    "cross-platform-real-crypto-golden-and-tamper-interop",
+    "cross-process-key-state-serialization-if-packaging-adds-another-process",
+    "notarized-app-keychain-crash-swap-backup-and-cleanup-evidence",
+    "real-hardware-upload-resume-quota-and-audible-media-evidence"
+  ],
+  "manualEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "signedNotarizedMacOS": "not-run",
+    "physicalKeychainAccessibility": "not-run",
+    "realCryptoInterop": "not-run-no-selected-stack",
+    "realCodecContainer": "not-run-no-selected-stack",
+    "hardwareUploadResume": "not-run",
+    "crashSwapBackupPlaintextCleanup": "not-run"
+  },
+  "openProductionGates": [
+    "EPC-001",
+    "EPC-002",
+    "EPC-004",
+    "EPC-005",
+    "TASK-260712-1ulshp"
+  ]
+}

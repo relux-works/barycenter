@@ -8,7 +8,7 @@ codex-root-inline
 2026-07-12T16:49:11Z
 
 ## Last Update
-2026-07-20T01:10:58Z
+2026-07-20T01:28:53Z
 
 ## Blocked By
 - TASK-260712-16xmy2
@@ -34,4 +34,6 @@ Owner gate 2026-07-16: moved to EPIC-260716-3qsztl Deferred E2EE media implement
 (none)
 
 ## Outcome Resources
-(none)
+- [macos-protected-media-send-v1.json](file://TASK-260712-2kcduo/macos-protected-media-send-v1.json) — Production-dark macOS protected-media send acceptance packet
+- [p3-macos-protected-media-send-v1.md](file://TASK-260712-2kcduo/p3-macos-protected-media-send-v1.md) — Architecture, resume, cleanup, and production-gate handoff
+- [macos-protected-media-send-v1-vectors.json](file://TASK-260712-2kcduo/macos-protected-media-send-v1-vectors.json) — Shared golden, tamper, and resume fixture vectors

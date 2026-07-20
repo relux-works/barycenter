@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "contract": "windows-protected-media-send-v1-vectors",
+  "status": "audit-fixture-only-production-disabled",
+  "fixtureSuite": "AUDIT_FIXTURE_SUITE_NOT_FOR_PRODUCTION",
+  "fixtureContainer": "AUDIT_FIXTURE_CONTAINER_NOT_FOR_PRODUCTION",
+  "crossPlatformFixture": "macos-protected-media-send-v1-vectors",
+  "sourceSHA256": "41640d5576ceaf9f5b4faeaaa82ad7893b2e206f820e17e0f6894c3f0c3f5e0f",
+  "manifestSHA256": "fa8d7ea7af10a57f8f893913f96e9168316700f47e26d75ff38de63251c55dbe",
+  "ciphertextSHA256": "3d63152aec4a085ba46a4268f2b12067e4a893b1931877fdb5b38257675c9d76",
+  "chunks": [
+    {
+      "index": 0,
+      "offset": 0,
+      "size": 34,
+      "nonce": "fixture-nonce-1-0",
+      "sha256": "ed9812901b6d596f31eeb5a265311a762874af7efdc58e53340711e522c3f6bc"
+    },
+    {
+      "index": 1,
+      "offset": 34,
+      "size": 35,
+      "nonce": "fixture-nonce-1-1",
+      "sha256": "7490b26eef81002e95caf8d0d7f13b549ccda8dbf36f5c2c511eb98e869cfe33"
+    }
+  ],
+  "failClosed": [
+    {"name":"unsupported-recipient","expected":"unsupported_target"},
+    {"name":"target-membership-changed","expected":"target_changed"},
+    {"name":"duplicate-nonce","expected":"invalid_artifact"},
+    {"name":"invalid-signature","expected":"invalid_artifact"},
+    {"name":"ciphertext-chunk-tamper","expected":"persistence_failed"},
+    {"name":"resume-source-tamper","expected":"invalid_request"},
+    {"name":"resume-author-drift","expected":"invalid_request"},
+    {"name":"resume-epoch-or-commit-drift","expected":"stale_key_state"},
+    {"name":"owned-plaintext-already-missing-at-terminal-cleanup","expected":"idempotent_cleanup"},
+    {"name":"state-less-final-draft-orphan","expected":"bounded_recovery"},
+    {"name":"unapproved-runtime-provider","expected":"production_disabled"}
+  ],
+  "resume": {
+    "interruptedAtChunk": 1,
+    "expectedGeneration": 1,
+    "expectedSealCount": 1,
+    "expectedStageCount": 1,
+    "expectedUploadedChunkIndices": [0, 1]
+  }
+}

@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 179 accepted, 26 remain.
-- Routed inventory: 186 engineering tasks (179 accepted, 7 remain) and 19
+- Combined inventory: 205 original tasks; 180 accepted, 25 remain.
+- Routed inventory: 186 engineering tasks (180 accepted, 6 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -14,10 +14,11 @@
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
 - Current engineering task: `TASK-260712-28zhpl` —
-  windows-protected-media-send in deferred epic
-  `EPIC-260716-3qsztl`.
-- Current original-plan frontier: `TASK-260712-28zhpl` —
-  windows-protected-media-send in deferred epic `EPIC-260716-3qsztl`.
+  windows-protected-media-send is accepted and awaiting hosted-CI/merge
+  publication in deferred epic `EPIC-260716-3qsztl`.
+- Current original-plan frontier: `TASK-260712-1u57qz` —
+  windows-protected-media-playback in deferred epic `EPIC-260716-3qsztl`;
+  it starts only after the accepted send task is merged.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -256,18 +257,41 @@
   in `TASK-260712-3980vy_review-verdict-v2.md`. Real C1-C2, traffic capture,
   signed package, memory/crash, cross-process contention, macOS-Windows interop
   and production-provider evidence remain manual/deferred in
-  `EPIC-260714-th54l3`; EPC-001/002/004/005 remain open.
-- Next deferred coding line: E2EE continues with `TASK-260712-28zhpl`, limited
-  to the production-dark Windows protected-media send path. Every later E2EE implementation
+  `EPIC-260714-th54l3`; EPC-001/002/004/005 remain open. Hosted CI run
+  `29715975166` passed all four jobs; PR #293 merged to `main` as
+  `94d5de0fc36a0aae29f9f4026214c0a6324edf38`.
+- Windows protected-media send foundation: exact accepted rework
+  `b2a4af69530545ede4b82f31a451c556ef7c536f` provides the production-dark
+  clip/track/saved-cue send boundary with witnessed cross-process-serialized
+  generations, bounded plaintext ownership, exact provider context, strict
+  ciphertext-only resumable state, idempotent stage/chunk/finalize/delete and
+  durable published-revision checkpoints. The first independent review run
+  `RUN-260720-6ead84` exposed two lifecycle repros: already-missing owned
+  plaintext wedged cleanup/recovery, and a crash-created state-less final
+  directory permanently blocked its draft ID. Rework now prepares under a
+  private `.prepare-*` directory and atomically renames only complete state,
+  rejects an orphan before reserving a generation, boundedly recovers legacy
+  orphans, and makes missing-owned-plaintext cleanup convergent while foreign,
+  directory and escaping-symlink paths remain fail-closed. Claude Fable 5 max
+  run `RUN-260720-1e8fa2` re-ran both repros, audited the full boundary and
+  ACCEPTED with zero open Critical/High/Medium. Focused 27/27 plus race,
+  Windows key-state race, full Go plus race, vet, amd64/arm64 blind compiles,
+  acceptance 205/205 and automated 16/16 passed; final manifest is
+  `.temp/acceptance/20260720T050800Z/manifest.json`. Low L1 records possible
+  stale ciphertext-only `.prepare-*` accumulation after repeated crashes;
+  L2/L3 are informational. Signed MSIX, native DPAPI/NTFS, provider/crypto,
+  traffic, memory and physical interop remain manual/deferred.
+- Next deferred coding line: E2EE continues with `TASK-260712-1u57qz`, limited
+  to the production-dark Windows protected-media playback path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-3980vy` —
-  macos-e2ee-live-ptt (dormant engineering scope only)
-- Current branch: `feat/task-260712-3980vy` (accepted integration; next branch
-  after merge is `feat/task-260712-28zhpl`)
+- Most recently accepted: `TASK-260712-28zhpl` —
+  windows-protected-media-send (dormant engineering scope only)
+- Current branch: `feat/task-260712-28zhpl`
 - Current review evidence:
-  `TASK-260712-3980vy_review-verdict-v2.md` from Claude Fable 5 max run
-  `RUN-260720-8f681f` on exact producer rework commit `c9faa7e`. The rejected
+  `TASK-260712-28zhpl_re-review-verdict-b2a4af6.md` from Claude Fable 5 max run
+  `RUN-260720-1e8fa2` on exact producer rework commit `b2a4af6`; initial run
+  `RUN-260720-6ead84` supplied the two now-closed lifecycle repros. The rejected
   first-pass verdict was run `RUN-260720-db683a`; the preceding playback
   review was run `RUN-260720-cf2797`. The preceding
   playback review run was `RUN-260720-2f341a`; send review was
@@ -318,8 +342,8 @@
   `TASK-260716-tlxe3s`. The protocol and realtime-audio reviewers have since
   returned independent APPROVE verdicts; the other withheld external verdicts
   and production activation remain open. Store submission remains fail-closed.
-- Accepted overall: 179 / 205 tasks (87.3%); 26 remain
-- Engineering progress: 179 / 186 tasks (approximately 96.2%); 7 remain
+- Accepted overall: 180 / 205 tasks (87.8%); 25 remain
+- Engineering progress: 180 / 186 tasks (approximately 96.8%); 6 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3845,7 +3869,20 @@ continues at section 17.
   max run `RUN-260720-8f681f` ACCEPTED with no open Critical/High/Medium. The
   runtime/provider/capability stays dark and all physical, traffic, signed-app,
   memory, contention and platform-interop evidence remains manual/deferred.)
-- [ ] `TASK-260712-28zhpl` — windows-protected-media-send
+- [x] `TASK-260712-28zhpl` — windows-protected-media-send (accepted on exact
+  rework commit `b2a4af69530545ede4b82f31a451c556ef7c536f`. The dormant Windows
+  clip/track/saved-cue sender binds witnessed key state, target and recipients,
+  validates authenticated provider output, persists ciphertext-only resumable
+  drafts and converges cancel/expiry cleanup. Rework closes both first-review
+  crash repros through private atomic prepare/publish, pre-reservation orphan
+  rejection, bounded orphan recovery and idempotent missing-owned-plaintext
+  cleanup. Producer and independent reviewer evidence passed focused 27/27
+  plus race, key-state race, full Go plus race, vet, Windows amd64/arm64 blind
+  compile, acceptance 205/205 and automated 16/16. Claude Fable 5 max run
+  `RUN-260720-1e8fa2` ACCEPTED with zero open Critical/High/Medium. Stale
+  ciphertext-only `.prepare-*` garbage collection is a Low follow-up; real
+  provider/crypto, signed MSIX, native DPAPI/NTFS, traffic, memory and physical
+  interop remain manual/deferred.)
 - [ ] `TASK-260712-1u57qz` — windows-protected-media-playback
 - [ ] `TASK-260712-39vjzd` — windows-e2ee-live-ptt
 - [ ] `TASK-260712-2nppt6` — macos-encrypted-media-client-path

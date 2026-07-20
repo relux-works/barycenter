@@ -167,6 +167,14 @@ def validate(contract: dict) -> None:
         }:
             continue
         production = path.read_text(encoding="utf-8")
+        if path.name == "windows_protected_media_send.go":
+            require("WindowsE2EEKeyStateRepository" in production and
+                    "newDefaultWindowsE2EEKeyStateRepository" not in production and
+                    "production-dark Windows protected-media send boundary" in production and
+                    "!s.sealer.ProductionApproved() && !s.fixtureMode" in production and
+                    "ReserveSendGeneration(installationID, request.GroupID, \"media\"" in production,
+                    "Windows send integration is not the exact dormant witnessed boundary")
+            continue
         require("WindowsE2EEKeyStateRepository" not in production and
                 "newDefaultWindowsE2EEKeyStateRepository" not in production,
                 f"key state wired into production source: {path.name}")

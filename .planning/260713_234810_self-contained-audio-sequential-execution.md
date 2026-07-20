@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 181 accepted, 24 remain.
-- Routed inventory: 186 engineering tasks (181 accepted, 5 remain) and 19
+- Combined inventory: 205 original tasks; 182 accepted, 23 remain.
+- Routed inventory: 186 engineering tasks (182 accepted, 4 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,11 +13,12 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-39vjzd` — windows-e2ee-live-ptt in
-  deferred epic `EPIC-260716-3qsztl`.
-- Current original-plan frontier: `TASK-260712-39vjzd` —
-  windows-e2ee-live-ptt in deferred epic `EPIC-260716-3qsztl`; it started from
-  accepted main merge `e47eb6b583fa0319beee460b87397bdb75dbcf39`.
+- Current engineering task: accepted `TASK-260712-39vjzd` —
+  windows-e2ee-live-ptt is awaiting hosted CI and merge in deferred epic
+  `EPIC-260716-3qsztl`.
+- Current original-plan frontier: accepted `TASK-260712-39vjzd` —
+  windows-e2ee-live-ptt in deferred epic `EPIC-260716-3qsztl`;
+  `TASK-260712-2nppt6` starts only after this accepted task is merged.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -315,19 +316,28 @@
   Focused 11 scenarios plus race, live capture/receiver/node regressions plus
   race, full Go plus race, vet, acceptance 215/215, Windows amd64/arm64 blind
   compile and automated 16/16 passed; exact manifest is
-  `.temp/acceptance/20260720T065018Z/manifest.json`. Independent Claude Fable 5
-  max exact-SHA review is pending. Real traffic/audio/hardware/native/forensic
+  `.temp/acceptance/20260720T065018Z/manifest.json`. Claude Fable 5 max terminal
+  completion run `RUN-260720-21d7d3` independently re-audited exact producer
+  SHA after incomplete run `RUN-260720-c87e23`, recomputed all 11 hashes and
+  repeated focused/full/race/vet/cross-build, acceptance 215/215 and a fresh
+  synchronous 16/16 at `.temp/acceptance/20260720T071009Z/manifest.json`, then
+  ACCEPTED with zero open Critical/High/Medium. Real traffic/audio/hardware/native/forensic
   evidence remains manual/deferred in `EPIC-260714-th54l3`.
-- Next deferred coding line: E2EE continues with `TASK-260712-39vjzd`, limited
-  to the production-dark Windows E2EE live-PTT path. Every later E2EE implementation
+- Next deferred coding line: after hosted CI and merge, E2EE continues with
+  `TASK-260712-2nppt6`, limited to the production-dark macOS encrypted-media
+  client integration path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-1u57qz` —
-  windows-protected-media-playback (dormant engineering scope only)
+- Most recently accepted: `TASK-260712-39vjzd` —
+  windows-e2ee-live-ptt (dormant engineering scope only)
 - Current branch: `feat/task-260712-39vjzd`
 - Current review evidence:
-  Windows E2EE live PTT is pending a Claude Fable 5 max review on exact
-  producer commit `aee0733`. Windows protected playback was accepted by run
+  Windows E2EE live PTT was accepted on exact producer `aee0733` by Claude
+  Fable 5 max terminal run `RUN-260720-21d7d3`; verdict resource is
+  `TASK-260712-39vjzd_independent-review-verdict.md`. Initial run
+  `RUN-260720-c87e23` completed the audit but exited before its background
+  harness and produced no terminal verdict, so no credit was taken from it.
+  Windows protected playback was accepted by run
   `RUN-260720-a152a9` on exact producer commit `532774a`; verdict resource is
   `TASK-260712-1u57qz_independent-review-verdict.md`. The preceding accepted
   evidence is `TASK-260712-28zhpl_re-review-verdict-b2a4af6.md` from run
@@ -383,8 +393,8 @@
   `TASK-260716-tlxe3s`. The protocol and realtime-audio reviewers have since
   returned independent APPROVE verdicts; the other withheld external verdicts
   and production activation remain open. Store submission remains fail-closed.
-- Accepted overall: 181 / 205 tasks (88.3%); 24 remain
-- Engineering progress: 181 / 186 tasks (approximately 97.3%); 5 remain
+- Accepted overall: 182 / 205 tasks (88.8%); 23 remain
+- Engineering progress: 182 / 186 tasks (approximately 97.8%); 4 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3939,7 +3949,20 @@ continues at section 17.
   Critical/High/Medium. Cross-process cache efficiency and all signed-MSIX,
   native provider/crypto/decoder, forensic, traffic, hardware and audible
   evidence remain manual/deferred.)
-- [ ] `TASK-260712-39vjzd` — windows-e2ee-live-ptt
+- [x] `TASK-260712-39vjzd` — windows-e2ee-live-ptt (accepted on exact producer
+  commit `aee07339bcfe014b39edac10734f713d11333792`. The production-dark Windows
+  bridge mirrors the accepted `BE` wire and shared commit-bound macOS AAD,
+  reserves a witnessed cross-process `live_ptt` generation, seals only on the
+  transport worker and authenticates before jitter/FEC/PLC. Retry, provider and
+  caller ownership, sequence/duration, replay/nonce, authorization and
+  exactly-once teardown are fail-closed; a two-installation fixture proves
+  round trip under skewed local revisions. Producer and reviewer evidence
+  passed focused 11 scenarios plus race, live regressions plus race, full Go
+  plus race, vet, Windows amd64/arm64 blind compile, acceptance 215/215 and
+  automated 16/16. Claude Fable 5 max terminal run `RUN-260720-21d7d3`
+  ACCEPTED with zero open Critical/High/Medium after a fresh synchronous
+  harness. Real traffic capture, signed MSIX, native provider/crypto/codec,
+  physical audio/hardware and forensic evidence remain manual/deferred.)
 - [ ] `TASK-260712-2nppt6` — macos-encrypted-media-client-path
 - [ ] `TASK-260712-2q4jbu` — windows-encrypted-media-client-path
 - [ ] `TASK-260712-1bcpda` — e2ee-c4-c6-evidence-review-pack

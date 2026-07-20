@@ -38,6 +38,9 @@ Assert-Throws { Assert-ProbeEvidenceFileName -Name "signer.pfx" } "forbidden"
 Assert-Throws { Assert-ProbeEvidenceFileName -Name "nested/path.json" } "safe single"
 Assert-ProbeEvidenceRelativeFile -RelativeFile "attachments/H00/install.json" | Out-Null
 Assert-Throws { Assert-ProbeEvidenceRelativeFile -RelativeFile "attachments/../install.json" } "safe single"
+Assert-True (-not (Test-ProbeSensitiveEvidenceKey -Name "selectedApiPath")) "selected API route was misclassified as a filesystem path"
+$ExpectedRuntimeRoot = "Packages\$(Get-ProbePackageFamilyName)\AC\PulsarProbe"
+Assert-True ((Get-ProbeRuntimeRelativeRoot) -ceq $ExpectedRuntimeRoot) "AppContainer runtime root mismatch"
 $ContainmentRoot = Join-Path ([IO.Path]::GetTempPath()) "pulsar-containment-root"
 Assert-True (Test-ProbePathWithinRoot -Path (Join-Path $ContainmentRoot "child\receipt.json") -Root $ContainmentRoot) "path containment positive mismatch"
 Assert-True (-not (Test-ProbePathWithinRoot -Path "$ContainmentRoot-sibling\receipt.json" -Root $ContainmentRoot)) "path containment sibling mismatch"
@@ -159,6 +162,49 @@ $Windows11 = Assert-ProbeHostIdentity `
     -ConsoleOperatorAttested $true
 Assert-True ($Windows11 -ceq "windows11-currently-serviced-operator-attested") "Windows 11 posture mismatch"
 
+$DistinctInputs = Assert-ProbeAudioEndpointPlan `
+    -OutputEndpointName "Speakers" `
+    -DefaultInputName "Internal Microphone" `
+    -SelectedInputName "USB Microphone" `
+    -SingleInputApprovedException $false
+Assert-True ($DistinctInputs -ceq "distinct-default-and-selected-inputs") "distinct input posture mismatch"
+
+$SingleInput = Assert-ProbeAudioEndpointPlan `
+    -OutputEndpointName "Speakers" `
+    -DefaultInputName "Internal Microphone" `
+    -SelectedInputName "Internal Microphone" `
+    -SingleInputApprovedException $true `
+    -SingleInputDecisionReference "Ivan Oparin 2026-07-20: built-in microphone only"
+Assert-True ($SingleInput -ceq "single-input-owner-approved") "single input posture mismatch"
+Assert-Throws {
+    Assert-ProbeAudioEndpointPlan `
+        -OutputEndpointName "Speakers" `
+        -DefaultInputName "Internal Microphone" `
+        -SelectedInputName "Internal Microphone" `
+        -SingleInputApprovedException $false
+} "distinct physical endpoints"
+Assert-Throws {
+    Assert-ProbeAudioEndpointPlan `
+        -OutputEndpointName "Speakers" `
+        -DefaultInputName "Internal Microphone" `
+        -SelectedInputName "Internal Microphone" `
+        -SingleInputApprovedException $true
+} "owner-decision reference"
+Assert-ProbeScenarioVerdictForInputPosture `
+    -InputPosture "single-input-owner-approved" `
+    -Scenario H03 `
+    -Verdict PASS
+Assert-ProbeScenarioVerdictForInputPosture `
+    -InputPosture "single-input-owner-approved" `
+    -Scenario H04 `
+    -Verdict BLOCKED
+Assert-Throws {
+    Assert-ProbeScenarioVerdictForInputPosture `
+        -InputPosture "single-input-owner-approved" `
+        -Scenario H04 `
+        -Verdict PASS
+} "cannot PASS"
+
 $TemporaryRoot = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
     [IO.Path]::GetTempPath()
 } else {
@@ -175,6 +221,7 @@ try {
             scenario = "capture"
             result = "pass"
             action = "capture_terminal"
+            selectedApiPath = "LoadPackagedLibrary"
             deviceId = $DeviceID
             fields = [ordered]@{ sessionId = "session-1"; path = "[redacted]"; sha256 = "abc123" }
         } | ConvertTo-Json -Compress -Depth 8),
@@ -241,7 +288,7 @@ try {
     $ManifestRoot = Join-Path $TestRoot "manifest"
     New-Item -ItemType Directory -Path $ManifestRoot | Out-Null
     [IO.File]::WriteAllText((Join-Path $ManifestRoot "safe.txt"), "safe", [Text.UTF8Encoding]::new($false))
-    $Manifest = Get-ProbeEvidenceFileManifest -Root $ManifestRoot
+    $Manifest = @(Get-ProbeEvidenceFileManifest -Root $ManifestRoot)
     Assert-True ($Manifest.Count -eq 1 -and $Manifest[0].relativeFile -ceq "safe.txt") "safe manifest mismatch"
     [IO.File]::WriteAllText((Join-Path $ManifestRoot "signer.cer"), "public cert export", [Text.UTF8Encoding]::new($false))
     Assert-Throws { Get-ProbeEvidenceFileManifest -Root $ManifestRoot } "forbidden"
@@ -306,6 +353,7 @@ try {
         schemaVersion = 1
         verificationBoundary = "contract-test-only"
         osFamily = "windows11"
+        inputPosture = "distinct-default-and-selected-inputs"
     }) -Path (Join-Path $SyntheticRoot "machine.json")
     Write-ProbeEvidenceJSON -Value ([ordered]@{
         schemaVersion = 1

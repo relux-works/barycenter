@@ -75,6 +75,16 @@ function Get-ProbePackageFamilyName {
     [Pulsar.ProbePackageIdentity]::GetFamilyName($script:ProbePackageIdentity, $script:ProbePublisher)
 }
 
+function Get-ProbeRuntimeRelativeRoot {
+    [CmdletBinding()]
+    param()
+
+    # A packagedClassicApp running at appContainer trust sees LOCALAPPDATA as
+    # its virtualized AC root. The Go probe writes LOCALAPPDATA\PulsarProbe;
+    # host-side install, snapshot and cleanup tools reach those same bytes here.
+    "Packages\$(Get-ProbePackageFamilyName)\AC\PulsarProbe"
+}
+
 function Assert-ProbeManifestContract {
     [CmdletBinding()]
     param(

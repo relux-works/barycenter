@@ -12,6 +12,8 @@ param(
     [string]$OutputEndpointName = "",
     [string]$DefaultInputName = "",
     [string]$SelectedInputName = "",
+    [switch]$SingleInputApprovedException,
+    [string]$SingleInputDecisionReference = "",
     [ValidateSet("EnterpriseLTSC2021", "ApprovedException")]
     [string]$Windows10Posture = "EnterpriseLTSC2021",
     [string]$SupportDecisionReference = "",
@@ -190,6 +192,8 @@ function Initialize-EvidenceRun {
         -OutputEndpointName $OutputEndpointName `
         -DefaultInputName $DefaultInputName `
         -SelectedInputName $SelectedInputName `
+        -SingleInputApprovedException $SingleInputApprovedException.IsPresent `
+        -SingleInputDecisionReference $SingleInputDecisionReference `
         -Windows10Posture $Windows10Posture `
         -SupportDecisionReference $SupportDecisionReference
 
@@ -265,7 +269,7 @@ function Save-EvidenceSnapshot {
         throw "scenario $Scenario already has a snapshot; never overwrite or splice evidence"
     }
     New-Item -ItemType Directory -Path $SnapshotRoot | Out-Null
-    $RuntimeRoot = Join-Path $env:LOCALAPPDATA "Packages\$($Installed.PackageFamilyName)\LocalState\PulsarProbe"
+    $RuntimeRoot = Join-Path $env:LOCALAPPDATA (Get-ProbeRuntimeRelativeRoot)
     $ScenarioLog = Join-Path $RuntimeRoot "scenarios.jsonl"
     if (-not (Test-Path -LiteralPath $ScenarioLog -PathType Leaf)) {
         throw "installed probe scenario log is missing"
@@ -348,6 +352,10 @@ function Record-EvidenceVerdict {
         throw "scenario $Scenario already has a terminal operator verdict"
     }
     Assert-CurrentEvidenceScenario -Matrix $State.Matrix -ScenarioID $Scenario
+    Assert-ProbeScenarioVerdictForInputPosture `
+        -InputPosture ([string]$State.Machine.inputPosture) `
+        -Scenario $Scenario `
+        -Verdict $Verdict
     if (@($Row.evidence).Count -eq 0) {
         throw "scenario $Scenario cannot receive a verdict without attached evidence"
     }

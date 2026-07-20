@@ -120,7 +120,7 @@ merge evidence from two hosts.
 Runtime output is package-private and resolves exactly as follows:
 
 ```text
-%LOCALAPPDATA%\Packages\<package-family>\LocalState\PulsarProbe\
+%LOCALAPPDATA%\Packages\<package-family>\AC\PulsarProbe\
   scenarios.jsonl
   evidence\
     *.wav
@@ -210,6 +210,29 @@ $install = .\pulsar-win\probe-msix\install-probe.ps1 `
 .\pulsar-win\probe-msix\hardware-evidence.ps1 `
   -Mode Attach -OutputDirectory $bundle -Scenario H00 `
   -Attachment $installReceipt
+```
+
+If the owner explicitly limits a physical pass to the built-in microphone,
+initialize with the same exact physical input name for default and selected,
+plus the recorded exception. This profile never relaxes scenario truth: H04
+(distinct selected capture), H08 (alternating default/selected cycles), and
+H12 (physical device removal) are forbidden from receiving `PASS` and must be
+recorded `BLOCKED` with the distinct-device next action.
+
+```powershell
+.\pulsar-win\probe-msix\hardware-evidence.ps1 `
+  -Mode Initialize `
+  -OutputDirectory $bundle `
+  -RunID win10-single-input-physical-a `
+  -OSFamily windows10 `
+  -Package $package `
+  -PhysicalMachineAttested `
+  -ConsoleOperatorAttested `
+  -OutputEndpointName "<exact physical output friendly name>" `
+  -DefaultInputName "<exact built-in input friendly name>" `
+  -SelectedInputName "<same exact built-in input friendly name>" `
+  -SingleInputApprovedException `
+  -SingleInputDecisionReference "<owner/date: built-in microphone only>"
 ```
 
 Use the frozen H00-H17 order in

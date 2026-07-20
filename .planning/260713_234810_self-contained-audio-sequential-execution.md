@@ -19,12 +19,14 @@
 - Current original-plan frontier: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build
-  delta review froze `main` `fc6656a9f20eeba4cc1f907475598667bf556b67`,
-  successful CI run `29735606631`, artifact `8458213808` and MSIX SHA-256
-  `869f5d5613419be30c64097b8d9cf9ac62bc2277db42464b6dbf7dc973c679f5`.
+  delta review now freezes `main` `f4a90f1f332bc73cac8f36f96cee6c16cc2ad7c0`,
+  successful CI run `29738846385`, artifact `8459523515` and MSIX SHA-256
+  `a53253f33c5d9acf903daa4641c254884eb3e69d497e6442bdb1cd4e85d6b7e6`.
   The original 2026-07-14 artifact predates accepted capture-quality ABI and
-  packaged-cue changes and is historical only. Physical progress remains
-  H00-H17 `0/36`, checklist `0/4`, manual tasks `0/19`. Ivan Oparin confirmed
+  packaged-cue changes and is historical only. The first immutable physical
+  attempt reached terminal H00 `FAIL`: physical progress is `1/36` terminal
+  rows (`0` pass, `1` fail, `35` not run), checklist `0/4`, manual tasks
+  `0/19`. Ivan Oparin confirmed
   `mbpro-win` as the physical Windows 10 host and authorized that row first
   with maximum autonomous execution; Windows 11 is deferred for this pass.
   Exact operator/host requirements and artifact expiry are recorded in
@@ -33,9 +35,33 @@
   and reviewed. A second access audit found OpenSSH/RDP on the visible peer but
   no accepted agent key, no WinRM or anonymous SMB path, and Taildrop rejected
   cross-user transfer. A reviewed one-time physical-console SSH bootstrap is
-  now prepared to establish the pinned automation key and capture sanitized OS
-  and audio preflight without changing any H00-H17 verdict. This does not by
-  itself change the `0/36` result.
+  now landed and was executed successfully. Sanitized preflight confirms a
+  physical Apple MacBookPro13,2 on Windows 10 Pro 22H2 build 19045.6456, x64,
+  Developer Mode off, with built-in microphone/output present. The exact MSIX
+  is staged and re-hashed on Windows. Microsoft WACK 10.0.28000.2270 was
+  installed with valid Authenticode, no reboot and no Developer Mode change.
+  Ivan Oparin explicitly limited this pass to the built-in microphone. A
+  recorded single-input exception allows H00 and all applicable scenarios to
+  proceed while structurally forbidding `PASS` for H04, H08 and H12; those
+  rows remain honest `BLOCKED` until distinct/removable hardware exists. This
+  owner decision did not by itself change any matrix verdict.
+  The exact MSIX installed and activated, but its packaged GUI stopped before
+  creating the main window with `required startup evidence is unavailable`.
+  Same-session UI diagnostics and the runtime JSONL prove that the primary row
+  was written, while `io.MultiWriter(logFile, os.Stderr)` treated the absent
+  packaged-GUI stderr handle as a fatal evidence failure. The physical run also
+  exposed AppContainer runtime-root duplication and a `selectedApiPath`
+  sanitizer false positive. H00 was recorded `FAIL`; H01 was not started and
+  microphone permission was never requested. The installed package, run-added
+  signer trust and package data were removed. Fixes now make the evidence file
+  authoritative, align app and host tools on the virtualized `AC\\PulsarProbe`
+  root, and distinguish API route names from filesystem paths. Local Go tests,
+  Windows cross-build and the full interactive-session PowerShell contract
+  suite pass. Strict execution remains at H00 and will initialize a fresh
+  immutable bundle from the next CI-built signed MSIX; the failed bundle is
+  retained as immutable diagnostic evidence. Windows currently reports the
+  active desktop as `rdp-tcp#3`, so a local physical-console transition or
+  operator confirmation is still required before an H00 pass can be claimed.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate

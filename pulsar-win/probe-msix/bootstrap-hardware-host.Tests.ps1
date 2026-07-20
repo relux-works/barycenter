@@ -41,6 +41,8 @@ foreach ($Required in @(
     "Install requires -PhysicalMachineAttested and -ConsoleOperatorAttested",
     "bootstrap does not change service or firewall policy",
     "ProgramData/ssh/administrators_authorized_keys",
+    "AllowDevelopmentWithoutDevLicense",
+    '$DeveloperMode = 0',
     "[Security.Cryptography.SHA256]::Create()",
     "[System.ServiceProcess.ServiceControllerStatus]::Running"
 )) {

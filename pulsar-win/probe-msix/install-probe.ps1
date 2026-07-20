@@ -87,7 +87,7 @@ try {
     }
 
     $Aumid = "$($Installed.PackageFamilyName)!$($Contract.ApplicationID)"
-    $RuntimeRelativeRoot = "Packages\$($Installed.PackageFamilyName)\LocalState\PulsarProbe"
+    $RuntimeRelativeRoot = Get-ProbeRuntimeRelativeRoot
     $RuntimeRoot = Join-Path $env:LOCALAPPDATA $RuntimeRelativeRoot
     if ([string]::IsNullOrWhiteSpace($ReceiptPath)) {
         $ReceiptPath = "$PackagePath.install.json"

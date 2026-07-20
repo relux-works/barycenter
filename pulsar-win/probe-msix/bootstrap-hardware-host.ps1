@@ -140,11 +140,14 @@ function Get-BootstrapPreflight {
     $CurrentVersion = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
     $ComputerSystem = Get-CimInstance Win32_ComputerSystem
     $OperatingSystem = Get-CimInstance Win32_OperatingSystem
-    $DeveloperMode = Get-ItemPropertyValue `
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" `
-        -Name "AllowDevelopmentWithoutDevLicense" `
-        -ErrorAction SilentlyContinue
-    if ($null -eq $DeveloperMode) { $DeveloperMode = 0 }
+    try {
+        $DeveloperMode = Get-ItemPropertyValue `
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" `
+            -Name "AllowDevelopmentWithoutDevLicense" `
+            -ErrorAction Stop
+    } catch {
+        $DeveloperMode = 0
+    }
     $SSHD = Get-Service sshd -ErrorAction Stop
     $KnownVirtual = "virtual|vmware|parallels|qemu|xen|hyper-v|cloud|amazon ec2|google compute"
     $LooksVirtual = [string]$ComputerSystem.Manufacturer -match $KnownVirtual -or

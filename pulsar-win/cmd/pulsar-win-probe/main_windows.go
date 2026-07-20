@@ -161,7 +161,10 @@ func newProbeApp() (*probeApp, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger := winprobe.NewJSONLogger(io.MultiWriter(logFile, os.Stderr))
+	// The packaged GUI process has no reliable stderr handle. The evidence file
+	// is authoritative; an optional console mirror must never turn a durable
+	// primary write into a startup failure.
+	logger := winprobe.NewJSONLogger(logFile)
 	app := &probeApp{
 		logFile:         logFile,
 		commands:        make(chan waiterCommand, 32),
@@ -254,7 +257,10 @@ func probeDataDir() (string, error) {
 		if local == "" {
 			return "", fmt.Errorf("LOCALAPPDATA is empty inside package")
 		}
-		return filepath.Join(local, "Packages", windows.UTF16ToString(buffer), "LocalState", "PulsarProbe"), nil
+		// LOCALAPPDATA is already the package's virtualized AppContainer root.
+		// Appending Packages/<PFN>/LocalState duplicates the package path below
+		// AC and makes the host-side evidence collector look in the wrong place.
+		return filepath.Join(local, "PulsarProbe"), nil
 	}
 	if uint32(result) != winprobe.AppModelErrorNoPackage {
 		return "", fmt.Errorf("GetCurrentPackageFamilyName sizing: win32=0x%08x", uint32(result))

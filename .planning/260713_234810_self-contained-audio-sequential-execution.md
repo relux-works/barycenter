@@ -386,6 +386,23 @@
   production-dark C4-C6 evidence/review pack. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
+- E2EE C4-C6 engineering review-pack producer work is complete and awaiting
+  exact-SHA independent review. Source candidate `9d7ace6`/tree `ef819c9` is
+  frozen across fifteen post-design implementation merges. The machine packet
+  inventories nineteen component acceptance packets/tests, sixteen terminal
+  independent verdicts, 128 source/protocol/test/review/dependency anchors,
+  four repository-only cross-platform parity families and five open residual
+  risks with explicit owners. New fail-closed mutation coverage rejects source,
+  review, dependency, flag, production-crypto, C4-C6, manual or external claim
+  drift. Producer evidence passed 101 targeted contract/mutation tests,
+  coordinator E2EE race across two packages (Store 67.931s), Windows E2EE race
+  across four packages, macOS 51 tests in six suites and the full automated
+  harness 16/16 with 256 acceptance tests and 356 Swift tests. This is
+  engineering preflight only: `e2ee_media` remains absent/disabled; production
+  provider/suite/container/final-build SBOM are unselected; packaged platform
+  pairings, storage/traffic capture, OS secure storage, moderation workflow,
+  rollback/recovery and beta remain `not-run` in the manual tasks; external
+  `TASK-260712-1ulshp` remains required and cannot be self-certified here.
 - Most recently accepted: `TASK-260712-2q4jbu` —
   windows-encrypted-media-client-path (dormant engineering scope only)
 - Current branch: `feat/task-260712-1bcpda`

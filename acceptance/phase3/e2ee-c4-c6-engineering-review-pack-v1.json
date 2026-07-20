@@ -1,0 +1,1297 @@
+{
+  "schemaVersion": 1,
+  "contract": "e2ee-c4-c6-engineering-review-pack.v1",
+  "task": "TASK-260712-1bcpda",
+  "publishedAt": "2026-07-20",
+  "sourceCandidate": {
+    "mergeCommit": "9d7ace6dc7337cd2191f35b0d8373228cf759398",
+    "tree": "ef819c9bd3e18e7532630510622f28e486f20007",
+    "designReviewMerge": "4dd961224a4c6ff3c8b0b7388355083706698160",
+    "implementationMerges": [
+      {
+        "task": "TASK-260712-3w1cst",
+        "mergeCommit": "2ab8a1357ad3711dc8463d58f6a18f6516f08be7",
+        "tree": "108118fcc2343ee6a7f67e8ebc181f4340530809",
+        "producerHead": "1906d1b6bf33afa65f87bf6e49322f71d6458c2a",
+        "subject": "Merge pull request #284 from relux-works/feat/task-260712-3w1cst"
+      },
+      {
+        "task": "TASK-260712-20j5tm",
+        "mergeCommit": "32fee4ac18f1e4e113f8f0ec83d49529750978ee",
+        "tree": "34c45103cc5f8ef7272fa4cca425567ed8a8f2c7",
+        "producerHead": "6e98a834a113827d01084009aaf76c01b0f9b3a1",
+        "subject": "Merge pull request #285 from relux-works/feat/task-260712-20j5tm"
+      },
+      {
+        "task": "TASK-260712-1yz5ca",
+        "mergeCommit": "3b08b745590d36e17c6daf8ffe7ef8007decc33a",
+        "tree": "f458c97548f548c6e1c2845b95b09a52b761d4ee",
+        "producerHead": "aa907a7727135ba5ec7d3d852082bb207828bfc0",
+        "subject": "Merge pull request #286 from relux-works/feat/task-260712-1yz5ca"
+      },
+      {
+        "task": "TASK-260712-1x9ruo",
+        "mergeCommit": "5f1756d57df16a476b2df353f60656d24b02f752",
+        "tree": "4d2d22f18ef5ee3c3982efa5354ebfb210b8633c",
+        "producerHead": "35eac1304ca66c4767261f60dec2ee06ccbe3c69",
+        "subject": "Merge pull request #287 from relux-works/feat/task-260712-1x9ruo"
+      },
+      {
+        "task": "TASK-260712-25dzp4",
+        "mergeCommit": "80cfef995adcb34313b1fa0b1513eb999f853c31",
+        "tree": "0bd7d07192c48024b6b305a60d44944a2e195f45",
+        "producerHead": "c97087422fac1b97ce1cad053a1c4e13333f30bd",
+        "subject": "Merge pull request #288 from relux-works/feat/task-260712-25dzp4"
+      },
+      {
+        "task": "TASK-260712-2i0w6x",
+        "mergeCommit": "f9fd2ec965e9b8b3396a10339541ae1327dd6a90",
+        "tree": "f76b8b7edd9db3714a0036aa3b7d0e7f9a80f387",
+        "producerHead": "e272a86e709b04bce7c4004db270194cb859d82c",
+        "subject": "Merge pull request #289 from relux-works/feat/task-260712-2i0w6x"
+      },
+      {
+        "task": "TASK-260712-1rziyo",
+        "mergeCommit": "375dc1b939ba1bca80555f5bbc4882e62a17f6bf",
+        "tree": "c33b7ab5074b2b68f6f358afb4144f8d9874fdaa",
+        "producerHead": "718829c39b630777564e2ab63be145cae989a570",
+        "subject": "Merge pull request #290 from relux-works/feat/task-260712-1rziyo"
+      },
+      {
+        "task": "TASK-260712-2kcduo",
+        "mergeCommit": "856e8a0fcc2967a1a25ac4cad9f6e2844c3f7226",
+        "tree": "b725c0400e35f1b55c57339b41081833e75ea8b9",
+        "producerHead": "8e172643f2fd3dfcc543f6af7b2b6bef40e391c0",
+        "subject": "feat(e2ee): add macOS protected media send foundation (#291)"
+      },
+      {
+        "task": "TASK-260712-tcwn44",
+        "mergeCommit": "2aed6272dc153e584bd1371af93490285ffadaae",
+        "tree": "d43c17a7b1eb39151152fa79661ec1d72ac0c597",
+        "producerHead": "396abc718cffca79384325bc0c1bbf2105785efb",
+        "subject": "feat(e2ee): add macOS protected media playback foundation (#292)"
+      },
+      {
+        "task": "TASK-260712-3980vy",
+        "mergeCommit": "94d5de0fc36a0aae29f9f4026214c0a6324edf38",
+        "tree": "f33cd8bc5885a5be0f30df6dda2957100b45bb26",
+        "producerHead": "809c33cbb3ef5321ce5107e4ed52ec342c2c7f9f",
+        "subject": "feat(e2ee): add production-dark macOS live PTT (#293)"
+      },
+      {
+        "task": "TASK-260712-28zhpl",
+        "mergeCommit": "c5eede96a18e19703c503ca32256e87a2b932838",
+        "tree": "667f147e03a5691ebe2a7a3ed671889e8a24b0ba",
+        "producerHead": "684734175473b3c4fc28a305431547fc1d0a3b62",
+        "subject": "feat(e2ee): add production-dark Windows protected media send (#294)"
+      },
+      {
+        "task": "TASK-260712-1u57qz",
+        "mergeCommit": "e47eb6b583fa0319beee460b87397bdb75dbcf39",
+        "tree": "4b623c4cfa9005476f28422745caec7a31c75f84",
+        "producerHead": "e696f14bb38d5fd335da8e4bf6623c708b400601",
+        "subject": "feat(e2ee): add production-dark Windows protected media playback (#295)"
+      },
+      {
+        "task": "TASK-260712-39vjzd",
+        "mergeCommit": "c11352b2676e746d18a28e74ac743fc799efeaa0",
+        "tree": "2ec60e4d46c7086a187dfbc46ac8672bac73c49e",
+        "producerHead": "8e7c99bf60d0116b66c404531800e76e01e30293",
+        "subject": "feat(e2ee): add production-dark Windows live PTT (#296)"
+      },
+      {
+        "task": "TASK-260712-2nppt6",
+        "mergeCommit": "d265228f67858111276a8b466d6c0eb50ab66e54",
+        "tree": "f67cbbec5b0a15476aecb3eb3c269dc720403fab",
+        "producerHead": "9fca3e527f285cb2821e2e8722a2392e3e6f400c",
+        "subject": "Merge pull request #297 from relux-works/feat/task-260712-2nppt6"
+      },
+      {
+        "task": "TASK-260712-2q4jbu",
+        "mergeCommit": "9d7ace6dc7337cd2191f35b0d8373228cf759398",
+        "tree": "ef819c9bd3e18e7532630510622f28e486f20007",
+        "producerHead": "2415d97de9253b2d3830c4e2f68b9aa2f01124cc",
+        "subject": "Merge pull request #298 from relux-works/feat/task-260712-2q4jbu"
+      }
+    ],
+    "diff": {
+      "changedPathCount": 213,
+      "productPathCount": 47,
+      "nameStatusSha256": "03873ba29aac27db67bfa516d209feb8403f5a00fcad5954d0308043c7156f8e",
+      "productPaths": [
+        "coordinator/internal/e2eecontract/contract.go",
+        "coordinator/internal/e2eecontract/contract_test.go",
+        "coordinator/internal/e2eecontract/opaque_live.go",
+        "coordinator/internal/moderation/service.go",
+        "coordinator/internal/moderation/service_test.go",
+        "coordinator/internal/store/e2ee.go",
+        "coordinator/internal/store/e2ee_live_router.go",
+        "coordinator/internal/store/e2ee_media_router.go",
+        "coordinator/internal/store/e2ee_media_router_test.go",
+        "coordinator/internal/store/e2ee_recovery.go",
+        "coordinator/internal/store/e2ee_recovery_schema.go",
+        "coordinator/internal/store/e2ee_recovery_test.go",
+        "coordinator/internal/store/e2ee_report_moderation.go",
+        "coordinator/internal/store/e2ee_report_moderation_schema.go",
+        "coordinator/internal/store/e2ee_report_moderation_test.go",
+        "coordinator/internal/store/e2ee_routing.go",
+        "coordinator/internal/store/e2ee_routing_test.go",
+        "coordinator/internal/store/e2ee_schema.go",
+        "coordinator/internal/store/e2ee_test.go",
+        "coordinator/internal/store/store.go",
+        "node-app/Sources/NodeApp/MacEncryptedMediaClientPathComposition.swift",
+        "node-app/Sources/NodeAppUI/PulsarEncryptedMediaModel.swift",
+        "node-app/Sources/NodeAppUI/PulsarEncryptedMediaView.swift",
+        "node-app/Sources/NodeCore/E2EEAuditContract.swift",
+        "node-app/Sources/NodeCore/MacE2EEKeyState.swift",
+        "node-app/Sources/NodeCore/MacE2EELivePTT.swift",
+        "node-app/Sources/NodeCore/MacProtectedMediaPlayback.swift",
+        "node-app/Sources/NodeCore/MacProtectedMediaSend.swift",
+        "node-app/Sources/NodeCore/MacStreamTrackCache.swift",
+        "node-app/Sources/NodeCore/MacStreamTrackPlayer.swift",
+        "pulsar-win/e2ee_contract_audit.go",
+        "pulsar-win/e2ee_contract_audit_test.go",
+        "pulsar-win/protected_platform_nonwindows_test.go",
+        "pulsar-win/stream_cache.go",
+        "pulsar-win/stream_player.go",
+        "pulsar-win/windows_e2ee_key_state.go",
+        "pulsar-win/windows_e2ee_key_state_default_other.go",
+        "pulsar-win/windows_e2ee_key_state_default_windows.go",
+        "pulsar-win/windows_e2ee_key_state_test.go",
+        "pulsar-win/windows_e2ee_live_ptt.go",
+        "pulsar-win/windows_e2ee_live_ptt_test.go",
+        "pulsar-win/windows_encrypted_media_client.go",
+        "pulsar-win/windows_encrypted_media_client_test.go",
+        "pulsar-win/windows_protected_media_playback.go",
+        "pulsar-win/windows_protected_media_playback_test.go",
+        "pulsar-win/windows_protected_media_send.go",
+        "pulsar-win/windows_protected_media_send_test.go"
+      ]
+    }
+  },
+  "decision": {
+    "result": "engineering-evidence-pack-complete-manual-and-external-blocked",
+    "repositoryPreflightPassed": true,
+    "criticalOrHighEngineeringFindingsOpen": false,
+    "c4Accepted": false,
+    "c5Accepted": false,
+    "c6Accepted": false,
+    "externalImplementationReviewSatisfied": false,
+    "productionE2EEEnabled": false,
+    "manualEvidenceClaimed": false,
+    "nextClosureTask": "TASK-260712-1ulshp"
+  },
+  "components": [
+    {
+      "task": "TASK-260712-2e2ymn",
+      "packet": "acceptance/phase3/e2ee-threat-model-v1.json",
+      "packetSha256": "a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d",
+      "acceptanceTest": "scripts/acceptance/test_e2ee_threat_model.py",
+      "acceptanceTestSha256": "d474d73d98bbadd6cf86c5feed34448c3fd39129e1bd8c847eada75c25146eee",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-16xmy2",
+      "packet": "acceptance/phase3/protected-media-container-spike-v1.json",
+      "packetSha256": "320eb4221598e2a607e80614e349d15d447d92141f501567161b7a779f7492bb",
+      "acceptanceTest": "scripts/acceptance/test_protected_media_container_spike.py",
+      "acceptanceTestSha256": "47a8dea33c057a58c8ce4ece6aaa74acd9a2c45f2ae296a64af232659e2133cb",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-3er89x",
+      "packet": "acceptance/phase3/group-crypto-library-spike-v1.json",
+      "packetSha256": "da518ec18d99449b87995268a18d6e7de934ea766aac6c948b127aaa60af8860",
+      "acceptanceTest": "scripts/acceptance/test_group_crypto_library_spike.py",
+      "acceptanceTestSha256": "a7da476f439816fe550a55e2c45989547b002e528a6131ec1d1b38f91650d21c",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-2ys1ww",
+      "packet": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json",
+      "packetSha256": "6015b911f8e83c8228c4c3f3b763c2e9852c2ea7f773be488d45ced0fc80578c",
+      "acceptanceTest": "scripts/acceptance/test_e2ee_protocol_key_lifecycle.py",
+      "acceptanceTestSha256": "e4a77859ffc822d008d67e29166a1be9a59e0dafb5a3a010b56c47eb20524c44",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-3w1cst",
+      "packet": "acceptance/phase3/e2ee-schema-epoch-foundation-v1.json",
+      "packetSha256": "2aebe9f21d98ef72dce15474fcafd1feca627941d28d3c9edd4edea9d813bfb8",
+      "acceptanceTest": "scripts/acceptance/test_e2ee_schema_epoch_foundation.py",
+      "acceptanceTestSha256": "a084dfdc93bb222d7fd191ca3a4daee0ffb9ba7538911c45bd5eb0d98799d248",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-20j5tm",
+      "packet": "acceptance/phase3/e2ee-coordinator-routing-rotation-v1.json",
+      "packetSha256": "2aba02b2e3adcee9a6c283711d03f2165b31f9f34489b9820aa134a610aaae6c",
+      "acceptanceTest": "scripts/acceptance/test_e2ee_coordinator_routing_rotation.py",
+      "acceptanceTestSha256": "0d2c572badb3ac0fe90473a65f1513ebc64e1c766ebe1289d8ed6f8c9c1a0811",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-1yz5ca",
+      "packet": "acceptance/phase3/e2ee-opaque-media-router-v1.json",
+      "packetSha256": "092f0a058f22bc74f50f70b6bd98c6bcf5fc81d48a657da55255921eb7eafdd0",
+      "acceptanceTest": "scripts/acceptance/test_e2ee_opaque_media_router.py",
+      "acceptanceTestSha256": "8c1b5849509ba12440495587e351a15b88e3e473bf21f4bdac46d559209f6d53",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-1x9ruo",
+      "packet": "acceptance/phase3/macos-e2ee-key-state-v1.json",
+      "packetSha256": "719438a8f7d9a7a2dc1a6012c1f1694ed499879ac9beb1ba220211a7c8496aae",
+      "acceptanceTest": "scripts/acceptance/test_macos_e2ee_key_state.py",
+      "acceptanceTestSha256": "02f7c6aef60fd5982d78666b4b58bc96ae7add488c3cb5fcb7bc20a7a6290b3d",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-25dzp4",
+      "packet": "acceptance/phase3/windows-e2ee-key-state-v1.json",
+      "packetSha256": "e8d4484c9295a44b72f44faf9cb6e73d14d752f2ef20cb2d1263f9cfc1e10350",
+      "acceptanceTest": "scripts/acceptance/test_windows_e2ee_key_state.py",
+      "acceptanceTestSha256": "9f728d9662bb4352dc8551902cd5bd61e9d1c65042b89f943aefd5a3ac5aace0",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-2i0w6x",
+      "packet": "acceptance/phase3/e2ee-report-evidence-moderation-export-v1.json",
+      "packetSha256": "76fd42c0044a5829d9d937de5d7254180d2bef608f1b25b50cbd30b1d8e6967c",
+      "acceptanceTest": "scripts/acceptance/test_e2ee_report_moderation_export.py",
+      "acceptanceTestSha256": "82170098f7d2356821a15a86ed8045df46e1768079c93c361fbfd65e0dc18f22",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-1rziyo",
+      "packet": "acceptance/phase3/e2ee-recovery-device-transfer-v1.json",
+      "packetSha256": "9827bd175cc75864fc7717653f2ccd567fb47c15822888c2903ca16afc05d6b3",
+      "acceptanceTest": "scripts/acceptance/test_e2ee_recovery_device_transfer.py",
+      "acceptanceTestSha256": "2b5b16abba780f19978b8e75dab4e93f02d775e7037c3b27859b162862acf228",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-2kcduo",
+      "packet": "acceptance/phase3/macos-protected-media-send-v1.json",
+      "packetSha256": "df745cfc1e539573dff609357a7a723829e5b1d09e8400ac61248648abd816b9",
+      "acceptanceTest": "scripts/acceptance/test_macos_protected_media_send.py",
+      "acceptanceTestSha256": "1f55afe06daeeaf15c4add9bc6ef02609183e90df2de72868b3df05e03a51e00",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-tcwn44",
+      "packet": "acceptance/phase3/macos-protected-media-playback-v1.json",
+      "packetSha256": "fc54d54849fb34bcd618deb283c4132073086fa0948d6c764ce2091580e42898",
+      "acceptanceTest": "scripts/acceptance/test_macos_protected_media_playback.py",
+      "acceptanceTestSha256": "79b895ae57177d6b968ae7e458d6e7b33827d47fac745bca9bed2b34333833cf",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-3980vy",
+      "packet": "acceptance/phase3/macos-e2ee-live-ptt-v1.json",
+      "packetSha256": "51dd768880dadd09a17d311e321d9cf13e0b0084df087dc60923b4951af0d32f",
+      "acceptanceTest": "scripts/acceptance/test_macos_e2ee_live_ptt.py",
+      "acceptanceTestSha256": "767ecd55a97e71859295e1cb95c1a001429fdd186f5ea7195fd75d4d013992c6",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-28zhpl",
+      "packet": "acceptance/phase3/windows-protected-media-send-v1.json",
+      "packetSha256": "926eb18f4f03b9a80f9ecb4beda2c23235ab258cd104b921c524aa7b32342c6d",
+      "acceptanceTest": "scripts/acceptance/test_windows_protected_media_send.py",
+      "acceptanceTestSha256": "b85e8b8af4531cae2aed9e902999cc41e1301142f59eccca57545eb55ad851d6",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-1u57qz",
+      "packet": "acceptance/phase3/windows-protected-media-playback-v1.json",
+      "packetSha256": "1f11f515e1b9e50e614c30329039e5e5c1d3f006118dbd22cbee65905a510540",
+      "acceptanceTest": "scripts/acceptance/test_windows_protected_media_playback.py",
+      "acceptanceTestSha256": "d9d8dfc85c2a233a7e09642d4a75b690977f0ed09b25db67479f8bc5993d4d79",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-39vjzd",
+      "packet": "acceptance/phase3/windows-e2ee-live-ptt-v1.json",
+      "packetSha256": "a95b5fa58d940b872a358831af55b8c708f59ae3c639d19a1958bdb6df87ef88",
+      "acceptanceTest": "scripts/acceptance/test_windows_e2ee_live_ptt.py",
+      "acceptanceTestSha256": "37be782c463224464661bb89d6c858509cf89464c6b1f8ba77beac0027715d49",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-2nppt6",
+      "packet": "acceptance/phase3/macos-encrypted-media-client-path-v1.json",
+      "packetSha256": "4e4da6bdf76a13745a78a4aa25d5a13c89c9458e7c2370edfbda712d481474d6",
+      "acceptanceTest": "scripts/acceptance/test_macos_encrypted_media_client_path.py",
+      "acceptanceTestSha256": "cedd2198a924480c05ffd2d1f8310c2f757d92c2905e3ce4e5a19625fead388c",
+      "status": "accepted-repository-evidence"
+    },
+    {
+      "task": "TASK-260712-2q4jbu",
+      "packet": "acceptance/phase3/windows-encrypted-media-client-path-v1.json",
+      "packetSha256": "e5712ee0b218ac84ce806a118b69e84383a216591ff05fac61faa079bd529040",
+      "acceptanceTest": "scripts/acceptance/test_windows_encrypted_media_client_path.py",
+      "acceptanceTestSha256": "aa871332c52f26cfeac0ac38736ec93ba1bc6e939c1cda31935fc99e57863748",
+      "status": "accepted-repository-evidence"
+    }
+  ],
+  "terminalIndependentReviews": [
+    {
+      "task": "TASK-260712-aniuyy",
+      "path": ".task-board/.resources/TASK-260712-aniuyy/TASK-260712-aniuyy_independent-design-review-v1.md",
+      "sha256": "68a0e7e56b563b47663a86787c6f983cb1af395283dfc5f7f44cab0abb893045",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-3w1cst",
+      "path": ".task-board/.resources/TASK-260712-3w1cst/TASK-260712-3w1cst_independent-delta-review-v1.md",
+      "sha256": "c4d4508d3d189c51f910ad156401b525d75c65e17dfac128ea3b3d79268240fe",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-20j5tm",
+      "path": ".task-board/.resources/TASK-260712-20j5tm/TASK-260712-20j5tm_independent-delta-review-v1.md",
+      "sha256": "61eb537690085a658c68c28674ed573f4fb23c44b3416d5eabe23f2f4e20cae9",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-1yz5ca",
+      "path": ".task-board/.resources/TASK-260712-1yz5ca/independent-delta-review-completion.md",
+      "sha256": "1d3c93c48735bac02a3d5d81af4b904020cde2195c1c27ef64926a7fea741dad",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-1x9ruo",
+      "path": ".task-board/.resources/TASK-260712-1x9ruo/TASK-260712-1x9ruo_independent-delta-review-v1.md",
+      "sha256": "a7a44e3d221c021133e24a70f2673abf45f5016f41947ad6ae1ca9ad76247f9b",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-25dzp4",
+      "path": ".task-board/.resources/TASK-260712-25dzp4/TASK-260712-25dzp4_independent-cleanup-delta-review-v2.md",
+      "sha256": "87d9098743110547db7c15b55ead1dcc308a42224b758cb630aea6c10d56a080",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-2i0w6x",
+      "path": ".task-board/.resources/TASK-260712-2i0w6x/TASK-260712-2i0w6x_independent-exact-sha-review.md",
+      "sha256": "694d86f8e44b7303be1d96bf68270ed2228d2ee91827abe2fed14667fdd9daeb",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-1rziyo",
+      "path": ".task-board/.resources/TASK-260712-1rziyo/TASK-260712-1rziyo_review-verdict.md",
+      "sha256": "e0367076129b56f775d7acccdc93570ecec0f943cfc1f6e57bfa056a93765f66",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-2kcduo",
+      "path": ".task-board/.resources/TASK-260712-2kcduo/TASK-260712-2kcduo_review-verdict.md",
+      "sha256": "53c381dd340c884d562de328281da4504d6567fe75c89dbcf2187dc5c7c6c146",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-tcwn44",
+      "path": ".task-board/.resources/TASK-260712-tcwn44/TASK-260712-tcwn44_review-verdict-8c26762.md",
+      "sha256": "2534d847a4b34450bb9e32dfc86b19ecfd743d6a404bcd511823c4af2ef52485",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-3980vy",
+      "path": ".task-board/.resources/TASK-260712-3980vy/TASK-260712-3980vy_review-verdict-v2.md",
+      "sha256": "b2ebdcdf85bc9ccca08f898b61fe4284f4122f8b5b12dc96a6b2a6dc96bcc027",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-28zhpl",
+      "path": ".task-board/.resources/TASK-260712-28zhpl/TASK-260712-28zhpl_re-review-verdict-b2a4af6.md",
+      "sha256": "852e7765cc38daa30821eb8eb29c333bffd49156f3182bdf9dc03c19eacd7071",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-1u57qz",
+      "path": ".task-board/.resources/TASK-260712-1u57qz/TASK-260712-1u57qz_independent-review-verdict.md",
+      "sha256": "b1dc4838a8e271dd4e41f430e03c9c4036f1259d588762166e462174772860bd",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-39vjzd",
+      "path": ".task-board/.resources/TASK-260712-39vjzd/TASK-260712-39vjzd_independent-review-verdict.md",
+      "sha256": "fc18c5fd7634f6f109cb1f476988c67249c553e22a8386017d8e5a8b4d22ef89",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-2nppt6",
+      "path": ".task-board/.resources/TASK-260712-2nppt6/TASK-260712-2nppt6_independent-review-verdict.md",
+      "sha256": "0bb298e214bfdccceeb013c77012decb61cb5d879ddd2772cd7b5d27544609b9",
+      "status": "accepted"
+    },
+    {
+      "task": "TASK-260712-2q4jbu",
+      "path": ".task-board/.resources/TASK-260712-2q4jbu/TASK-260712-2q4jbu_review-verdict-v1.md",
+      "sha256": "5b18c6cb1fbfdedc337f9c93f842f589cde408e2e78a4294f451f7698d3a1d36",
+      "status": "accepted"
+    }
+  ],
+  "sourceAnchors": [
+    {
+      "path": ".task-board/.resources/TASK-260712-1rziyo/TASK-260712-1rziyo_review-verdict.md",
+      "category": "independent-review",
+      "sha256": "e0367076129b56f775d7acccdc93570ecec0f943cfc1f6e57bfa056a93765f66"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-1u57qz/TASK-260712-1u57qz_independent-review-verdict.md",
+      "category": "independent-review",
+      "sha256": "b1dc4838a8e271dd4e41f430e03c9c4036f1259d588762166e462174772860bd"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-1x9ruo/TASK-260712-1x9ruo_independent-delta-review-v1.md",
+      "category": "independent-review",
+      "sha256": "a7a44e3d221c021133e24a70f2673abf45f5016f41947ad6ae1ca9ad76247f9b"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-1yz5ca/independent-delta-review-completion.md",
+      "category": "independent-review",
+      "sha256": "1d3c93c48735bac02a3d5d81af4b904020cde2195c1c27ef64926a7fea741dad"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-20j5tm/TASK-260712-20j5tm_independent-delta-review-v1.md",
+      "category": "independent-review",
+      "sha256": "61eb537690085a658c68c28674ed573f4fb23c44b3416d5eabe23f2f4e20cae9"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-25dzp4/TASK-260712-25dzp4_independent-cleanup-delta-review-v2.md",
+      "category": "independent-review",
+      "sha256": "87d9098743110547db7c15b55ead1dcc308a42224b758cb630aea6c10d56a080"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-28zhpl/TASK-260712-28zhpl_re-review-verdict-b2a4af6.md",
+      "category": "independent-review",
+      "sha256": "852e7765cc38daa30821eb8eb29c333bffd49156f3182bdf9dc03c19eacd7071"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-2i0w6x/TASK-260712-2i0w6x_independent-exact-sha-review.md",
+      "category": "independent-review",
+      "sha256": "694d86f8e44b7303be1d96bf68270ed2228d2ee91827abe2fed14667fdd9daeb"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-2kcduo/TASK-260712-2kcduo_review-verdict.md",
+      "category": "independent-review",
+      "sha256": "53c381dd340c884d562de328281da4504d6567fe75c89dbcf2187dc5c7c6c146"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-2nppt6/TASK-260712-2nppt6_independent-review-verdict.md",
+      "category": "independent-review",
+      "sha256": "0bb298e214bfdccceeb013c77012decb61cb5d879ddd2772cd7b5d27544609b9"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-2q4jbu/TASK-260712-2q4jbu_review-verdict-v1.md",
+      "category": "independent-review",
+      "sha256": "5b18c6cb1fbfdedc337f9c93f842f589cde408e2e78a4294f451f7698d3a1d36"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-3980vy/TASK-260712-3980vy_review-verdict-v2.md",
+      "category": "independent-review",
+      "sha256": "b2ebdcdf85bc9ccca08f898b61fe4284f4122f8b5b12dc96a6b2a6dc96bcc027"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-39vjzd/TASK-260712-39vjzd_independent-review-verdict.md",
+      "category": "independent-review",
+      "sha256": "fc18c5fd7634f6f109cb1f476988c67249c553e22a8386017d8e5a8b4d22ef89"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-3w1cst/TASK-260712-3w1cst_independent-delta-review-v1.md",
+      "category": "independent-review",
+      "sha256": "c4d4508d3d189c51f910ad156401b525d75c65e17dfac128ea3b3d79268240fe"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-aniuyy/TASK-260712-aniuyy_independent-design-review-v1.md",
+      "category": "independent-review",
+      "sha256": "68a0e7e56b563b47663a86787c6f983cb1af395283dfc5f7f44cab0abb893045"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-tcwn44/TASK-260712-tcwn44_review-verdict-8c26762.md",
+      "category": "independent-review",
+      "sha256": "2534d847a4b34450bb9e32dfc86b19ecfd743d6a404bcd511823c4af2ef52485"
+    },
+    {
+      "path": "acceptance/phase3/e2ee-coordinator-routing-rotation-v1.json",
+      "category": "component-packet",
+      "sha256": "2aba02b2e3adcee9a6c283711d03f2165b31f9f34489b9820aa134a610aaae6c"
+    },
+    {
+      "path": "acceptance/phase3/e2ee-opaque-media-router-v1.json",
+      "category": "component-packet",
+      "sha256": "092f0a058f22bc74f50f70b6bd98c6bcf5fc81d48a657da55255921eb7eafdd0"
+    },
+    {
+      "path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json",
+      "category": "component-packet",
+      "sha256": "6015b911f8e83c8228c4c3f3b763c2e9852c2ea7f773be488d45ced0fc80578c"
+    },
+    {
+      "path": "acceptance/phase3/e2ee-schema-epoch-foundation-v1.json",
+      "category": "component-packet",
+      "sha256": "2aebe9f21d98ef72dce15474fcafd1feca627941d28d3c9edd4edea9d813bfb8"
+    },
+    {
+      "path": "acceptance/phase3/e2ee-threat-model-v1.json",
+      "category": "component-packet",
+      "sha256": "a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"
+    },
+    {
+      "path": "acceptance/phase3/gate-matrix-v1.json",
+      "category": "implementation-source",
+      "sha256": "37230e80237ca18a52549db648c17e13a992b60ab816ebf550ebfe19483dd0d2"
+    },
+    {
+      "path": "acceptance/phase3/macos-e2ee-key-state-v1.json",
+      "category": "component-packet",
+      "sha256": "719438a8f7d9a7a2dc1a6012c1f1694ed499879ac9beb1ba220211a7c8496aae"
+    },
+    {
+      "path": "acceptance/phase3/macos-e2ee-live-ptt-v1.json",
+      "category": "component-packet",
+      "sha256": "51dd768880dadd09a17d311e321d9cf13e0b0084df087dc60923b4951af0d32f"
+    },
+    {
+      "path": "coordinator/go.mod",
+      "category": "dependency-manifest",
+      "sha256": "4b66332d1d51bbd1cf1e590b1816e5ffcdd5100c8f75d5252a1fa1a63c3e0d4b"
+    },
+    {
+      "path": "coordinator/go.sum",
+      "category": "dependency-manifest",
+      "sha256": "f9547d1941344ca589d3a7d3248afcfb338fea444166220452d3694446afae7c"
+    },
+    {
+      "path": "coordinator/internal/e2eecontract/contract.go",
+      "category": "implementation-source",
+      "sha256": "3844a8a0d1bad60b464ff9d8f5568b8bcd526b83c79da556b2a6de09208030f0"
+    },
+    {
+      "path": "coordinator/internal/e2eecontract/contract_test.go",
+      "category": "implementation-test",
+      "sha256": "e5aa51f8872831d16707dc42e28a06b9627c474098a97de86247e737258b1cb2"
+    },
+    {
+      "path": "coordinator/internal/e2eecontract/opaque_live.go",
+      "category": "implementation-source",
+      "sha256": "6abe81925a4a8e547d4d48a9c905d11532700393b86c408cec5ff61c1cac14d2"
+    },
+    {
+      "path": "coordinator/internal/moderation/service.go",
+      "category": "implementation-source",
+      "sha256": "8adead309684cc654de7e5cb973e03ee129dc44ff8c2235a879ccc16387d9e92"
+    },
+    {
+      "path": "coordinator/internal/moderation/service_test.go",
+      "category": "implementation-test",
+      "sha256": "5c4c6928ce6eb3d58083e0ae2c4c8b10fbf3a1935eea209024cf6e5e2534f81a"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee.go",
+      "category": "implementation-source",
+      "sha256": "7c5865a1e844e6422b3722dc7e87863a640fcac3ef02a160f4cda73ccbccc773"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_live_router.go",
+      "category": "implementation-source",
+      "sha256": "54c74d16a6c715e5d97e5b0f58516d35f9ce7abf0499cf799ccfb9a7561a5745"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_media_router.go",
+      "category": "implementation-source",
+      "sha256": "09b950a18a44616e51fee86b7119a6b99c4f3107bed8ad16278c81ede0f6171d"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_media_router_test.go",
+      "category": "implementation-test",
+      "sha256": "0ea5f2213d21adac15281be3b27fdbddc747300a9bf8df4614ebfe430d873de5"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_recovery.go",
+      "category": "implementation-source",
+      "sha256": "6e322603029f1e479a1495b58721367b656df827b6e677f19af65f3a28783927"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_recovery_schema.go",
+      "category": "implementation-source",
+      "sha256": "8655506bbf86abc3767b7cf60096d2376b655e9ac796d3d02072009029eea99a"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_recovery_test.go",
+      "category": "implementation-test",
+      "sha256": "87dd28c4e4de44fb5a0efbd23e33802378e97b760d2579f11ba09cd1c995970b"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_report_moderation.go",
+      "category": "implementation-source",
+      "sha256": "ad17d2c5d2b4abe3113770be0e8c268932f3c09b4d489384db0a7403f92eaad9"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_report_moderation_schema.go",
+      "category": "implementation-source",
+      "sha256": "133756b5e9bfd794d4babfeee8d853e42eb10a019e855f61c77905187e733e88"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_report_moderation_test.go",
+      "category": "implementation-test",
+      "sha256": "4328b23821b52c426191ac663d99de0cc9f5613b64c09fe23acf6f44b188095a"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_routing.go",
+      "category": "implementation-source",
+      "sha256": "bbe3bef5e84164806bc7af92885af949b7e7fa6e1c7c6f15c239e9da5c071d2b"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_routing_test.go",
+      "category": "implementation-test",
+      "sha256": "18747501a5b465aad37cd7a7432c305b2e0dd192f194fe2b451820ac648be867"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_schema.go",
+      "category": "implementation-source",
+      "sha256": "7a62a2894dbee01c45e050a51100cc1b6a87ab0761eb4b314ba944596984b9c6"
+    },
+    {
+      "path": "coordinator/internal/store/e2ee_test.go",
+      "category": "implementation-test",
+      "sha256": "bcd65989ee28e8d072dc0ec35aef18c34ba4b2a30ea618bfc16601014b3e7bde"
+    },
+    {
+      "path": "coordinator/internal/store/store.go",
+      "category": "implementation-source",
+      "sha256": "b77aae2b7ed1cc10e06a23b11485617fc603e5d1823d1940e9d67f9c42257e16"
+    },
+    {
+      "path": "docs/analysis/p3-e2ee-coordinator-routing-rotation-v1.md",
+      "category": "analysis",
+      "sha256": "f47b3e6279755ed4aa1f21096a1a63e956112dccf9bc27d9d56a3eac0dea8d91"
+    },
+    {
+      "path": "docs/analysis/p3-e2ee-opaque-media-router-v1.md",
+      "category": "analysis",
+      "sha256": "17c8b21721a5bec9b58b7734675e4a9babbf60ae0e48fd0aa640ff8d367cf2ef"
+    },
+    {
+      "path": "docs/analysis/p3-e2ee-recovery-device-transfer-history-grants-v1.md",
+      "category": "analysis",
+      "sha256": "0df2727cec989b2ff27f11699ad66f3ec41118862bde413d2d4b9147ce291699"
+    },
+    {
+      "path": "docs/analysis/p3-e2ee-report-evidence-moderation-export-v1.md",
+      "category": "analysis",
+      "sha256": "afc77ebd54f71282ab00b4e98d4c72482a4b863ad0dac196f53e4bc2d492baad"
+    },
+    {
+      "path": "docs/analysis/p3-encrypted-media-schema-epoch-foundation-v1.md",
+      "category": "analysis",
+      "sha256": "ab7669437662bb8ce94e5bd78c937d689e03fb71fe4fb36f2ed0829a102d3ccd"
+    },
+    {
+      "path": "docs/analysis/p3-macos-e2ee-key-state-v1.md",
+      "category": "analysis",
+      "sha256": "a92438d509730a991ffac80953155b8ee61931ed757f5b0e02cff94fb3869c8d"
+    },
+    {
+      "path": "docs/analysis/p3-macos-e2ee-live-ptt-v1.md",
+      "category": "analysis",
+      "sha256": "e3797860d9aed7adc9e1115e4ad9ec51b9809fcccd0b9bb67850bc929cb1b03b"
+    },
+    {
+      "path": "docs/analysis/p3-macos-protected-media-playback-v1.md",
+      "category": "analysis",
+      "sha256": "9fe7b5c851e0da1f03673336797806aa60ba416886db14ef8562ad0c06d80a13"
+    },
+    {
+      "path": "docs/analysis/p3-macos-protected-media-send-v1.md",
+      "category": "analysis",
+      "sha256": "162793c8b815384f7de32ead2102ef21947a581e51545dd08d28e8c800ebaac1"
+    },
+    {
+      "path": "docs/analysis/p3-windows-e2ee-key-state-v1.md",
+      "category": "analysis",
+      "sha256": "0d7481459ee6fc7adeeb15d732b1777cb3557a95f3ea3f2955a53f1602183286"
+    },
+    {
+      "path": "docs/analysis/p3-windows-e2ee-live-ptt-v1.md",
+      "category": "analysis",
+      "sha256": "755ba700d181a999dd67e68ca181fc96226cfc886e84a84ca34c783d3e635234"
+    },
+    {
+      "path": "docs/analysis/p3-windows-protected-media-playback-v1.md",
+      "category": "analysis",
+      "sha256": "50d4cddfed7428059252697ce7ec6272b6b12647dd09f2f0351854a7fe594f81"
+    },
+    {
+      "path": "docs/analysis/p3-windows-protected-media-send-v1.md",
+      "category": "analysis",
+      "sha256": "696f063251f3e7f03ef2815ed5f242f4cd7043daeb6617118b0dec7879b85379"
+    },
+    {
+      "path": "node-app/Package.resolved",
+      "category": "dependency-manifest",
+      "sha256": "93c887cb1f4fd6c0290c9cc92f7fa4750411d3729d6f2438169730074bb6ed38"
+    },
+    {
+      "path": "node-app/Package.swift",
+      "category": "dependency-manifest",
+      "sha256": "77e0f0eeaf38b09c93c6d8ff789a72c1650f90008357a383111a79269b401249"
+    },
+    {
+      "path": "node-app/Sources/NodeApp/MacEncryptedMediaClientPathComposition.swift",
+      "category": "implementation-source",
+      "sha256": "603eb95a844f465d72b136130b8f0ecc5f7c86ba7e864b454845c2d12da2650d"
+    },
+    {
+      "path": "node-app/Sources/NodeAppUI/PulsarEncryptedMediaModel.swift",
+      "category": "implementation-source",
+      "sha256": "6892667dcd42b367319e1ff7f61b4f44c16e9dd162b63075d294a021c35e2d58"
+    },
+    {
+      "path": "node-app/Sources/NodeAppUI/PulsarEncryptedMediaView.swift",
+      "category": "implementation-source",
+      "sha256": "58d435c15e67d454a878f78e6c8d0d9524904b8df6506a50ce0a6dc7ba4d21a3"
+    },
+    {
+      "path": "node-app/Sources/NodeCore/E2EEAuditContract.swift",
+      "category": "implementation-source",
+      "sha256": "927a8b57694d57e3f66acb7746db886f29e02e6baf4892eeecf1c2eff7a512be"
+    },
+    {
+      "path": "node-app/Sources/NodeCore/MacE2EEKeyState.swift",
+      "category": "implementation-source",
+      "sha256": "91259930498e868039e3efb5eaaeb4d558375b789f6f5c48f657ad78e27de5cb"
+    },
+    {
+      "path": "node-app/Sources/NodeCore/MacE2EELivePTT.swift",
+      "category": "implementation-source",
+      "sha256": "8f30a182c5c41eee3cfc7d4c46a7dde7c2a0da5a1a9e459c37dd204549556605"
+    },
+    {
+      "path": "node-app/Sources/NodeCore/MacProtectedMediaPlayback.swift",
+      "category": "implementation-source",
+      "sha256": "4a548bcfdd723ceab8e31b146059f24b9f4956278ecc94b5a018d28f74e4339c"
+    },
+    {
+      "path": "node-app/Sources/NodeCore/MacProtectedMediaSend.swift",
+      "category": "implementation-source",
+      "sha256": "e1605479ad42e17b7d04e9ff88b465e22584a6ad82ebb1eb163eac07c42b28c9"
+    },
+    {
+      "path": "node-app/Sources/NodeCore/MacStreamTrackCache.swift",
+      "category": "implementation-source",
+      "sha256": "5d5d2f7f69db2c8fe4bab83b457cde111629c4308098bed0e62bddaaae4f8a74"
+    },
+    {
+      "path": "node-app/Sources/NodeCore/MacStreamTrackPlayer.swift",
+      "category": "implementation-source",
+      "sha256": "63d1828280ec4a940da7371689fce492fb36fb95b0629bddb6d33c85b4399660"
+    },
+    {
+      "path": "node-app/Tests/NodeAppUITests/PulsarEncryptedMediaModelTests.swift",
+      "category": "implementation-test",
+      "sha256": "1f180d9ab980cd75c4afac84f44dfda58aaa2c662cbb0322fe72b0b869a50fe1"
+    },
+    {
+      "path": "node-app/Tests/NodeCoreTests/E2EEAuditContractTests.swift",
+      "category": "implementation-test",
+      "sha256": "734924fcced31c9ae6a191e3bdc2592a64677fb50be6eac9c8b1862d334e24d6"
+    },
+    {
+      "path": "node-app/Tests/NodeCoreTests/MacE2EEKeyStateTests.swift",
+      "category": "implementation-test",
+      "sha256": "a51f816953cf2ca419f821d367190181dfeae0b3d78e590958b8b9c1a4051734"
+    },
+    {
+      "path": "node-app/Tests/NodeCoreTests/MacE2EELivePTTTests.swift",
+      "category": "implementation-test",
+      "sha256": "bd2fefaa0d5cd4a7a6ed69d93d3c2eaff3f86d4264a220228d4acac3d933e988"
+    },
+    {
+      "path": "node-app/Tests/NodeCoreTests/MacProtectedMediaPlaybackTests.swift",
+      "category": "implementation-test",
+      "sha256": "5418d7b04cf8a156f7499919641c18057e5d7b48757eaa66a5ee8f8a40191cfe"
+    },
+    {
+      "path": "node-app/Tests/NodeCoreTests/MacProtectedMediaSendTests.swift",
+      "category": "implementation-test",
+      "sha256": "76aca762420a8eb8fc20000fa5cf337e0e045e19cca9f7d7f77167f9cbcdba65"
+    },
+    {
+      "path": "protocol/e2ee-key-state-v1-vectors.json",
+      "category": "protocol-or-vector",
+      "sha256": "846685c8c16dea57d3b0e4022b08e72615e4cd9fa2149e76c8168e5f5d693326"
+    },
+    {
+      "path": "protocol/e2ee-media-audit-v1-vectors.json",
+      "category": "protocol-or-vector",
+      "sha256": "2a8c71b909b2117921a6ee6b5415229ee8328e047f3c8f19d0db48e58fbf37cd"
+    },
+    {
+      "path": "protocol/e2ee-media-audit-v1.json",
+      "category": "protocol-or-vector",
+      "sha256": "5dc5ac88539fed12b827aa8c3ff6ce14b6a13ae46d063624822c5435f38334ce"
+    },
+    {
+      "path": "protocol/e2ee-recovery-v1-vectors.json",
+      "category": "protocol-or-vector",
+      "sha256": "c15b1404140cf12c05707ab3b0452abbbe9708593a9af52f134147a09b49f3a5"
+    },
+    {
+      "path": "protocol/macos-e2ee-live-ptt-v1-vectors.json",
+      "category": "protocol-or-vector",
+      "sha256": "c8ae70f3328fd7d0be967264f0351cdff2ddcad69f6b700e1713ed70c49063e6"
+    },
+    {
+      "path": "protocol/macos-encrypted-media-client-path-v1.json",
+      "category": "protocol-or-vector",
+      "sha256": "2487572d0d192ec452489191b2e777ae96f8a38d3f4c103e2594f4289c7704bb"
+    },
+    {
+      "path": "protocol/macos-protected-media-playback-v1-vectors.json",
+      "category": "protocol-or-vector",
+      "sha256": "14f8aca3ea81d6c62331e1e568056b99ace64e8dd820ec6899b4223a3a7dc49a"
+    },
+    {
+      "path": "protocol/macos-protected-media-send-v1-vectors.json",
+      "category": "protocol-or-vector",
+      "sha256": "4c7fdd83818ad6fe6f39a177c64592e41590308c2cd783e2f286a88c3e631b5c"
+    },
+    {
+      "path": "protocol/windows-e2ee-live-ptt-v1-vectors.json",
+      "category": "protocol-or-vector",
+      "sha256": "402d8414d3f20ac5806642dbd7db10cae0fc670ed2e5819423d628b922405014"
+    },
+    {
+      "path": "protocol/windows-encrypted-media-client-path-v1.json",
+      "category": "protocol-or-vector",
+      "sha256": "364a6b94b2ff98e456f1208e457ae865fb2b14661fbf2167a863508413f1856f"
+    },
+    {
+      "path": "protocol/windows-protected-media-playback-v1-vectors.json",
+      "category": "protocol-or-vector",
+      "sha256": "209d22e5293a498d816584414489bb07e10aac5247c3c943a6ca1806cb97a44f"
+    },
+    {
+      "path": "protocol/windows-protected-media-send-v1-vectors.json",
+      "category": "protocol-or-vector",
+      "sha256": "1a4ccb4a1a9eb62c4d9c3773e73e94b18d90af14e3addfa9cdd03654e0d83d3a"
+    },
+    {
+      "path": "pulsar-win/data_protector.go",
+      "category": "implementation-source",
+      "sha256": "aed6e75cb66dc462169daa0b1a9029766aba2ddc66b02578d9dc16e303057ce2"
+    },
+    {
+      "path": "pulsar-win/e2ee_contract_audit.go",
+      "category": "implementation-source",
+      "sha256": "ad7129c0798946b8a6863b4b7d06813b16ddf91437bcc24749eccf41a1d9d5a1"
+    },
+    {
+      "path": "pulsar-win/e2ee_contract_audit_test.go",
+      "category": "implementation-test",
+      "sha256": "745a05aac5da80a5d69db2faa64ed3c032dd070fa79398df8621e4978d0d9e6b"
+    },
+    {
+      "path": "pulsar-win/go.mod",
+      "category": "dependency-manifest",
+      "sha256": "0d51a579223414af1a80c284fb22b721c81d3dc7341ffa76440474251fa535cc"
+    },
+    {
+      "path": "pulsar-win/go.sum",
+      "category": "dependency-manifest",
+      "sha256": "c62fdd1718d05c49f92e82028786b6fadc206899990af32fa253ee56b2813096"
+    },
+    {
+      "path": "pulsar-win/protected_platform_windows.go",
+      "category": "implementation-source",
+      "sha256": "77fd1d18cafd17251d3ce5773e11a3aee1ac2b679c82b290286acedd170cfdb1"
+    },
+    {
+      "path": "pulsar-win/stream_cache.go",
+      "category": "implementation-source",
+      "sha256": "8c116042d8a88aba1792bd370654f75842f16a038709aa0deacf693380e479b6"
+    },
+    {
+      "path": "pulsar-win/stream_player.go",
+      "category": "implementation-source",
+      "sha256": "da1af508f4a001daa406d496367744d7904460b0dd30ea0639de1f96965a958e"
+    },
+    {
+      "path": "pulsar-win/windows_e2ee_key_state.go",
+      "category": "implementation-source",
+      "sha256": "5e56ab84c3db478795e7421e1ab136e137f411170a3cd949856404ca57c13d4f"
+    },
+    {
+      "path": "pulsar-win/windows_e2ee_key_state_default_other.go",
+      "category": "implementation-source",
+      "sha256": "9738bd346e04f0f70a92aac46b0061b927815f13c695bad646ead3b9933ed287"
+    },
+    {
+      "path": "pulsar-win/windows_e2ee_key_state_default_windows.go",
+      "category": "implementation-source",
+      "sha256": "9b59e8b6afcb12998175e44fe29e6556fb86b5de2fa2f9518c3f4185ecbde3c5"
+    },
+    {
+      "path": "pulsar-win/windows_e2ee_key_state_test.go",
+      "category": "implementation-test",
+      "sha256": "9c8df7eb35a162d098b26f6965f365dbe96ad44cca214ed32882f7f50fa8c5e8"
+    },
+    {
+      "path": "pulsar-win/windows_e2ee_live_ptt.go",
+      "category": "implementation-source",
+      "sha256": "a41bfca54e82a04fcec953074a42575ea601a944969e10f0080a0d3b1884d8ea"
+    },
+    {
+      "path": "pulsar-win/windows_e2ee_live_ptt_test.go",
+      "category": "implementation-test",
+      "sha256": "f7f7f1d78b0774fcf4f1accc145bbb156e080c0cbea9da18f2668f46ae03407d"
+    },
+    {
+      "path": "pulsar-win/windows_encrypted_media_client.go",
+      "category": "implementation-source",
+      "sha256": "10046fafda8a530849825691b029ae73126d8805ab16593ef03095c575aef56f"
+    },
+    {
+      "path": "pulsar-win/windows_encrypted_media_client_test.go",
+      "category": "implementation-test",
+      "sha256": "1b01117b2def84915ca3c68dbc63733873b88a9d9a7ae5d6415b4e58d0ba71ea"
+    },
+    {
+      "path": "pulsar-win/windows_protected_media_playback.go",
+      "category": "implementation-source",
+      "sha256": "b312aa6e8b386af67b3af1e6b9eebce368d24f6e595a55f64d17684a2c2926e6"
+    },
+    {
+      "path": "pulsar-win/windows_protected_media_playback_test.go",
+      "category": "implementation-test",
+      "sha256": "adbd233311d0a413fb95fbb00f40b5ff4b9b11e3713849e1cebb2aefb8332555"
+    },
+    {
+      "path": "pulsar-win/windows_protected_media_send.go",
+      "category": "implementation-source",
+      "sha256": "d7586d1582b02312ba3a3b9fe3566c3db6d36c6cf787ea267328d130594def98"
+    },
+    {
+      "path": "pulsar-win/windows_protected_media_send_test.go",
+      "category": "implementation-test",
+      "sha256": "0cabdbc9201c170cc681731cc73ddb9ee44eff34592944854c4ba71cf5cf0038"
+    },
+    {
+      "path": "scripts/acceptance/test_e2ee_coordinator_routing_rotation.py",
+      "category": "acceptance-test",
+      "sha256": "0d2c572badb3ac0fe90473a65f1513ebc64e1c766ebe1289d8ed6f8c9c1a0811"
+    },
+    {
+      "path": "scripts/acceptance/test_e2ee_opaque_media_router.py",
+      "category": "acceptance-test",
+      "sha256": "8c1b5849509ba12440495587e351a15b88e3e473bf21f4bdac46d559209f6d53"
+    },
+    {
+      "path": "scripts/acceptance/test_e2ee_protocol_key_lifecycle.py",
+      "category": "acceptance-test",
+      "sha256": "e4a77859ffc822d008d67e29166a1be9a59e0dafb5a3a010b56c47eb20524c44"
+    },
+    {
+      "path": "scripts/acceptance/test_e2ee_recovery_device_transfer.py",
+      "category": "acceptance-test",
+      "sha256": "2b5b16abba780f19978b8e75dab4e93f02d775e7037c3b27859b162862acf228"
+    },
+    {
+      "path": "scripts/acceptance/test_e2ee_report_moderation_export.py",
+      "category": "acceptance-test",
+      "sha256": "82170098f7d2356821a15a86ed8045df46e1768079c93c361fbfd65e0dc18f22"
+    },
+    {
+      "path": "scripts/acceptance/test_e2ee_schema_epoch_foundation.py",
+      "category": "acceptance-test",
+      "sha256": "a084dfdc93bb222d7fd191ca3a4daee0ffb9ba7538911c45bd5eb0d98799d248"
+    },
+    {
+      "path": "scripts/acceptance/test_e2ee_threat_model.py",
+      "category": "acceptance-test",
+      "sha256": "d474d73d98bbadd6cf86c5feed34448c3fd39129e1bd8c847eada75c25146eee"
+    },
+    {
+      "path": "scripts/acceptance/test_group_crypto_library_spike.py",
+      "category": "acceptance-test",
+      "sha256": "a7da476f439816fe550a55e2c45989547b002e528a6131ec1d1b38f91650d21c"
+    },
+    {
+      "path": "scripts/acceptance/test_macos_e2ee_key_state.py",
+      "category": "acceptance-test",
+      "sha256": "02f7c6aef60fd5982d78666b4b58bc96ae7add488c3cb5fcb7bc20a7a6290b3d"
+    },
+    {
+      "path": "scripts/acceptance/test_macos_e2ee_live_ptt.py",
+      "category": "acceptance-test",
+      "sha256": "767ecd55a97e71859295e1cb95c1a001429fdd186f5ea7195fd75d4d013992c6"
+    },
+    {
+      "path": "scripts/acceptance/test_macos_encrypted_media_client_path.py",
+      "category": "acceptance-test",
+      "sha256": "cedd2198a924480c05ffd2d1f8310c2f757d92c2905e3ce4e5a19625fead388c"
+    },
+    {
+      "path": "scripts/acceptance/test_macos_protected_media_playback.py",
+      "category": "acceptance-test",
+      "sha256": "79b895ae57177d6b968ae7e458d6e7b33827d47fac745bca9bed2b34333833cf"
+    },
+    {
+      "path": "scripts/acceptance/test_macos_protected_media_send.py",
+      "category": "acceptance-test",
+      "sha256": "1f55afe06daeeaf15c4add9bc6ef02609183e90df2de72868b3df05e03a51e00"
+    },
+    {
+      "path": "scripts/acceptance/test_protected_media_container_spike.py",
+      "category": "acceptance-test",
+      "sha256": "47a8dea33c057a58c8ce4ece6aaa74acd9a2c45f2ae296a64af232659e2133cb"
+    },
+    {
+      "path": "scripts/acceptance/test_windows_e2ee_key_state.py",
+      "category": "acceptance-test",
+      "sha256": "9f728d9662bb4352dc8551902cd5bd61e9d1c65042b89f943aefd5a3ac5aace0"
+    },
+    {
+      "path": "scripts/acceptance/test_windows_e2ee_live_ptt.py",
+      "category": "acceptance-test",
+      "sha256": "37be782c463224464661bb89d6c858509cf89464c6b1f8ba77beac0027715d49"
+    },
+    {
+      "path": "scripts/acceptance/test_windows_encrypted_media_client_path.py",
+      "category": "acceptance-test",
+      "sha256": "aa871332c52f26cfeac0ac38736ec93ba1bc6e939c1cda31935fc99e57863748"
+    },
+    {
+      "path": "scripts/acceptance/test_windows_protected_media_playback.py",
+      "category": "acceptance-test",
+      "sha256": "d9d8dfc85c2a233a7e09642d4a75b690977f0ed09b25db67479f8bc5993d4d79"
+    },
+    {
+      "path": "scripts/acceptance/test_windows_protected_media_send.py",
+      "category": "acceptance-test",
+      "sha256": "b85e8b8af4531cae2aed9e902999cc41e1301142f59eccca57545eb55ad851d6"
+    }
+  ],
+  "reviewTooling": [
+    {
+      "path": "scripts/e2ee_review/generate_implementation_review_packet.py",
+      "sha256": "e959b400d9cda82b99241fa050db2849533d780f2f68d601371f19cd898fcb1b"
+    },
+    {
+      "path": "scripts/e2ee_review/validate_cross_platform_vectors.py",
+      "sha256": "31117e6f37e1529942eca86a6500e023c50d01ffc2da12949fa26c8a2e6cfe6e"
+    },
+    {
+      "path": "scripts/acceptance/validate_e2ee_c4_c6_review_pack.py",
+      "sha256": "ddd16aaf3327ce348b775eb682eb4aab8cd2b9d280912a530257690be76b2c32"
+    },
+    {
+      "path": "scripts/acceptance/test_e2ee_c4_c6_review_pack.py",
+      "sha256": "173ec2f2a2023a57e89c735971a42cee6ab977206c450d09ec1b37b36f90c9d6"
+    },
+    {
+      "path": "scripts/acceptance/test_e2ee_cross_platform_parity.py",
+      "sha256": "8450ad8704619571d6f061ba2dccce41a4421727521dd19232b66be955a368ac"
+    },
+    {
+      "path": "scripts/acceptance/run_automated.py",
+      "sha256": "52c30584aa9c006bf1af5bc6f7d56c28b80e0418e2aaaea0fdb53adefbec0a25"
+    }
+  ],
+  "reviewArtifacts": [
+    {
+      "path": "docs/analysis/p3-e2ee-c4-c6-engineering-review-pack.md",
+      "sha256": "eea1a3bde3432e3d4f36129c96b99980112631a60f2ebffd23cce9b38632f783"
+    },
+    {
+      "path": ".task-board/.resources/TASK-260712-1bcpda/p3-e2ee-media-sequence.puml",
+      "sha256": "d97834dd0b1d184767faa60c8573a9b2e595cc83c59b07dd70668efb5f6cc185"
+    }
+  ],
+  "crossPlatformParity": {
+    "status": "repository-fixture-parity-only",
+    "validator": "scripts/e2ee_review/validate_cross_platform_vectors.py",
+    "covered": [
+      "protected-send",
+      "protected-playback",
+      "opaque-live-ptt",
+      "client-path-gates"
+    ],
+    "packagedAppInteroperability": "not-run"
+  },
+  "engineeringReruns": [
+    {
+      "id": "component-contract-and-mutation-tests",
+      "status": "pass",
+      "tests": 101,
+      "scope": "nineteen-component-packets-plus-review-pack-and-parity"
+    },
+    {
+      "id": "coordinator-e2ee-race",
+      "status": "pass",
+      "packages": 2,
+      "storeDurationSeconds": 67.931
+    },
+    {
+      "id": "windows-e2ee-race",
+      "status": "pass",
+      "packages": 4
+    },
+    {
+      "id": "macos-e2ee-focused",
+      "status": "pass",
+      "tests": 51,
+      "suites": 6
+    }
+  ],
+  "c4ThroughC6": {
+    "C4": {
+      "repositoryEvidence": [
+        "membership-lineage-and-epoch-rotation-state-tests",
+        "removed-device-routing-and-replay-tests",
+        "current-epoch-transfer-and-explicit-history-grant-tests",
+        "cross-platform-key-state-and-client-gate-vectors"
+      ],
+      "claim": "engineering-preflight-only",
+      "manualTask": "TASK-260712-yj668d",
+      "manualStatus": "not-run"
+    },
+    "C5": {
+      "repositoryEvidence": [
+        "ciphertext-only-schema-constraints",
+        "opaque-object-and-live-router-tests",
+        "forbidden-plaintext-field-contract",
+        "documented-metadata-disclosure-contract"
+      ],
+      "claim": "engineering-preflight-only",
+      "manualTask": "TASK-260712-yj668d",
+      "storageAndTrafficCapture": "not-run"
+    },
+    "C6": {
+      "repositoryEvidence": [
+        "metadata-only-report-state-tests",
+        "separate-explicit-decrypted-evidence-consent-tests",
+        "bounded-evidence-retention-expiry-delete-audit-tests",
+        "client-command-consent-separation-tests"
+      ],
+      "claim": "engineering-preflight-only",
+      "manualTask": "TASK-260712-yj668d",
+      "packagedModerationWorkflow": "not-run"
+    }
+  },
+  "dependencyInventory": {
+    "scope": "source-manifests-not-final-build-sbom",
+    "productionCryptoProvider": null,
+    "productionSuites": [],
+    "selectedContainer": null,
+    "manifests": [
+      {
+        "path": "coordinator/go.mod",
+        "sha256": "4b66332d1d51bbd1cf1e590b1816e5ffcdd5100c8f75d5252a1fa1a63c3e0d4b"
+      },
+      {
+        "path": "coordinator/go.sum",
+        "sha256": "f9547d1941344ca589d3a7d3248afcfb338fea444166220452d3694446afae7c"
+      },
+      {
+        "path": "pulsar-win/go.mod",
+        "sha256": "0d51a579223414af1a80c284fb22b721c81d3dc7341ffa76440474251fa535cc"
+      },
+      {
+        "path": "pulsar-win/go.sum",
+        "sha256": "c62fdd1718d05c49f92e82028786b6fadc206899990af32fa253ee56b2813096"
+      },
+      {
+        "path": "node-app/Package.swift",
+        "sha256": "77e0f0eeaf38b09c93c6d8ff789a72c1650f90008357a383111a79269b401249"
+      },
+      {
+        "path": "node-app/Package.resolved",
+        "sha256": "93c887cb1f4fd6c0290c9cc92f7fa4750411d3729d6f2438169730074bb6ed38"
+      }
+    ],
+    "finalBuildSBOM": "required-by-external-review-and-manual-build-freeze"
+  },
+  "featureFlagHandoff": {
+    "e2ee_media": "absent-or-disabled",
+    "live_ptt": "separate-coordinator-readable-capability",
+    "activationAllowed": false,
+    "requiredBeforeActivation": [
+      "TASK-260712-1ulshp",
+      "TASK-260712-yj668d",
+      "TASK-260712-30xwu2",
+      "TASK-260712-1actom"
+    ]
+  },
+  "reproducibleCommands": [
+    "python3 scripts/e2ee_review/generate_implementation_review_packet.py --check",
+    "python3 scripts/e2ee_review/validate_cross_platform_vectors.py",
+    "python3 -m unittest scripts/acceptance/test_e2ee_c4_c6_review_pack.py scripts/acceptance/test_e2ee_cross_platform_parity.py",
+    "python3 -m unittest scripts/acceptance/test_e2ee_threat_model.py scripts/acceptance/test_protected_media_container_spike.py scripts/acceptance/test_group_crypto_library_spike.py scripts/acceptance/test_e2ee_protocol_key_lifecycle.py scripts/acceptance/test_e2ee_schema_epoch_foundation.py scripts/acceptance/test_e2ee_coordinator_routing_rotation.py scripts/acceptance/test_e2ee_opaque_media_router.py scripts/acceptance/test_macos_e2ee_key_state.py scripts/acceptance/test_windows_e2ee_key_state.py scripts/acceptance/test_e2ee_report_moderation_export.py scripts/acceptance/test_e2ee_recovery_device_transfer.py scripts/acceptance/test_macos_protected_media_send.py scripts/acceptance/test_macos_protected_media_playback.py scripts/acceptance/test_macos_e2ee_live_ptt.py scripts/acceptance/test_windows_protected_media_send.py scripts/acceptance/test_windows_protected_media_playback.py scripts/acceptance/test_windows_e2ee_live_ptt.py scripts/acceptance/test_macos_encrypted_media_client_path.py scripts/acceptance/test_windows_encrypted_media_client_path.py",
+    "cd coordinator && go test -race ./internal/e2eecontract ./internal/store -run 'E2EE|Opaque|Protected|HistoryGrant|Report'",
+    "cd pulsar-win && go test -race ./... -run 'WindowsE2EE|WindowsProtected|WindowsEncrypted'",
+    "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter 'E2EE|ProtectedMedia|EncryptedMedia'",
+    "python3 scripts/acceptance/run_automated.py --suite all --require-clean"
+  ],
+  "residualRisks": [
+    {
+      "id": "E2EE-PACK-R01",
+      "owner": "TASK-260712-1ulshp",
+      "status": "external-review-required",
+      "text": "No qualified external implementation reviewer has closed the combined implementation."
+    },
+    {
+      "id": "E2EE-PACK-R02",
+      "owner": "TASK-260712-yj668d",
+      "status": "manual-not-run",
+      "text": "Packaged cross-platform interoperability, storage and traffic capture, OS secure storage, and moderation workflow are not run."
+    },
+    {
+      "id": "E2EE-PACK-R03",
+      "owner": "TASK-260712-1ulshp",
+      "status": "production-selection-open",
+      "text": "No production cryptographic provider, suite, protected container, or final build SBOM is selected."
+    },
+    {
+      "id": "E2EE-PACK-R04",
+      "owner": "TASK-260712-30xwu2",
+      "status": "manual-not-run",
+      "text": "Mixed-fleet rollback, device loss, transfer, recovery, and irreversible-loss drills are not run in packaged applications."
+    },
+    {
+      "id": "E2EE-PACK-R05",
+      "owner": "TASK-260712-1actom",
+      "status": "beta-not-run",
+      "text": "No E2EE-enabled beta soak or incident review exists."
+    }
+  ],
+  "externalReviewHandoff": {
+    "task": "TASK-260712-1ulshp",
+    "independenceRequired": true,
+    "independenceSatisfied": false,
+    "reviewerIdentity": null,
+    "approval": "required",
+    "criticalHighClosureRequired": true,
+    "protocolDeltaReopensDesignReview": true
+  },
+  "manualHandoff": {
+    "epic": "EPIC-260714-th54l3",
+    "task": "TASK-260712-yj668d",
+    "status": "not-run",
+    "requiredPairings": [
+      "windows-windows",
+      "windows-macos",
+      "macos-windows",
+      "macos-macos"
+    ],
+    "requiredPaths": [
+      "protected-clip",
+      "protected-track",
+      "saved-cue",
+      "protected-live-ptt"
+    ]
+  }
+}

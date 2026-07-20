@@ -269,7 +269,7 @@ function Save-EvidenceSnapshot {
         throw "scenario $Scenario already has a snapshot; never overwrite or splice evidence"
     }
     New-Item -ItemType Directory -Path $SnapshotRoot | Out-Null
-    $RuntimeRoot = Join-Path $env:LOCALAPPDATA "Packages\$($Installed.PackageFamilyName)\LocalState\PulsarProbe"
+    $RuntimeRoot = Join-Path $env:LOCALAPPDATA (Get-ProbeRuntimeRelativeRoot)
     $ScenarioLog = Join-Path $RuntimeRoot "scenarios.jsonl"
     if (-not (Test-Path -LiteralPath $ScenarioLog -PathType Leaf)) {
         throw "installed probe scenario log is missing"

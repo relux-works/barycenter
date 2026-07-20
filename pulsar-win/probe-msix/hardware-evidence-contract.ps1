@@ -182,6 +182,11 @@ function Test-ProbeSensitiveEvidenceKey {
     param([Parameter(Mandatory = $true)][string]$Name)
 
     $Normalized = ($Name -replace '[_-]', '').ToLowerInvariant()
+    if ($Normalized -ceq "selectedapipath") {
+        # This field names a Win32/WinRT API route such as
+        # LoadPackagedLibrary; it is not a filesystem path.
+        return $false
+    }
     foreach ($Fragment in @(
         "path", "filename", "originalname", "username", "userprofile", "token",
         "secret", "auth", "credential", "apikey", "password", "passwd", "cookie",

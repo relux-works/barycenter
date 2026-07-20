@@ -61,6 +61,27 @@ func normalizeSource(source []byte) string {
 	return strings.ReplaceAll(string(source), "\r\n", "\n")
 }
 
+func TestPackagedStartupUsesAuthoritativeAppContainerEvidencePath(t *testing.T) {
+	t.Parallel()
+	mainText := mustReadSource(t, "main_windows.go")
+	for _, required := range []string{
+		`winprobe.NewJSONLogger(logFile)`,
+		`return filepath.Join(local, "PulsarProbe"), nil`,
+	} {
+		if !strings.Contains(mainText, required) {
+			t.Errorf("packaged startup does not preserve %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		`io.MultiWriter(logFile, os.Stderr)`,
+		`filepath.Join(local, "Packages", windows.UTF16ToString(buffer), "LocalState", "PulsarProbe")`,
+	} {
+		if strings.Contains(mainText, forbidden) {
+			t.Errorf("packaged startup retains invalid path/logger wiring %q", forbidden)
+		}
+	}
+}
+
 func TestR3WindowsWiringUsesProductionLifecycleCoordinators(t *testing.T) {
 	t.Parallel()
 	mainSource, err := os.ReadFile("main_windows.go")

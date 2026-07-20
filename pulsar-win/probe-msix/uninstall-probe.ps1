@@ -17,7 +17,7 @@ $ResolvedReceipt = (Resolve-Path -LiteralPath $ReceiptPath).Path
 $Receipt = Get-Content -LiteralPath $ResolvedReceipt -Raw | ConvertFrom-Json
 $ExpectedFamily = Get-ProbePackageFamilyName
 $ExpectedAUMID = "$ExpectedFamily!$script:ProbeApplicationID"
-$ExpectedRuntimeRelative = "Packages\$ExpectedFamily\LocalState\PulsarProbe"
+$ExpectedRuntimeRelative = Get-ProbeRuntimeRelativeRoot
 $RuntimeRoot = Join-Path $env:LOCALAPPDATA $ExpectedRuntimeRelative
 if ([string]::IsNullOrWhiteSpace($CleanupReceiptPath)) {
     throw "cleanup receipt path must be non-empty"

@@ -38,6 +38,9 @@ Assert-Throws { Assert-ProbeEvidenceFileName -Name "signer.pfx" } "forbidden"
 Assert-Throws { Assert-ProbeEvidenceFileName -Name "nested/path.json" } "safe single"
 Assert-ProbeEvidenceRelativeFile -RelativeFile "attachments/H00/install.json" | Out-Null
 Assert-Throws { Assert-ProbeEvidenceRelativeFile -RelativeFile "attachments/../install.json" } "safe single"
+Assert-True (-not (Test-ProbeSensitiveEvidenceKey -Name "selectedApiPath")) "selected API route was misclassified as a filesystem path"
+$ExpectedRuntimeRoot = "Packages\$(Get-ProbePackageFamilyName)\AC\PulsarProbe"
+Assert-True ((Get-ProbeRuntimeRelativeRoot) -ceq $ExpectedRuntimeRoot) "AppContainer runtime root mismatch"
 $ContainmentRoot = Join-Path ([IO.Path]::GetTempPath()) "pulsar-containment-root"
 Assert-True (Test-ProbePathWithinRoot -Path (Join-Path $ContainmentRoot "child\receipt.json") -Root $ContainmentRoot) "path containment positive mismatch"
 Assert-True (-not (Test-ProbePathWithinRoot -Path "$ContainmentRoot-sibling\receipt.json" -Root $ContainmentRoot)) "path containment sibling mismatch"
@@ -218,6 +221,7 @@ try {
             scenario = "capture"
             result = "pass"
             action = "capture_terminal"
+            selectedApiPath = "LoadPackagedLibrary"
             deviceId = $DeviceID
             fields = [ordered]@{ sessionId = "session-1"; path = "[redacted]"; sha256 = "abc123" }
         } | ConvertTo-Json -Compress -Depth 8),

@@ -120,7 +120,7 @@ merge evidence from two hosts.
 Runtime output is package-private and resolves exactly as follows:
 
 ```text
-%LOCALAPPDATA%\Packages\<package-family>\LocalState\PulsarProbe\
+%LOCALAPPDATA%\Packages\<package-family>\AC\PulsarProbe\
   scenarios.jsonl
   evidence\
     *.wav

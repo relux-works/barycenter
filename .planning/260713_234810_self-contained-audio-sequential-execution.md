@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 183 accepted, 22 remain.
-- Routed inventory: 186 engineering tasks (183 accepted, 3 remain) and 19
+- Combined inventory: 205 original tasks; 184 accepted, 21 remain.
+- Routed inventory: 186 engineering tasks (184 accepted, 2 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,11 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-2q4jbu` —
-  windows-encrypted-media-client-path in deferred epic `EPIC-260716-3qsztl`.
-- Current original-plan frontier: `TASK-260712-2q4jbu` —
-  windows-encrypted-media-client-path in deferred epic `EPIC-260716-3qsztl`;
-  it starts only after the accepted macOS client-path branch is merged.
+- Current engineering task: `TASK-260712-1bcpda` —
+  e2ee-c4-c6-evidence-review-pack in deferred epic `EPIC-260716-3qsztl`;
+  it starts only after the accepted Windows client-path branch is merged.
+- Current original-plan frontier: `TASK-260712-1bcpda` —
+  e2ee-c4-c6-evidence-review-pack in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -359,8 +359,8 @@
   `node-core` failure; the exact CI command passed locally on clean PR head and
   the rerun passed in 2m45s without code changes. PR #297 merged to `main` as
   `d265228f67858111276a8b466d6c0eb50ab66e54`.
-- Windows encrypted-media client-path producer implementation is complete and
-  awaiting exact-SHA independent review. The production-dark Go model exposes
+- Windows encrypted-media client-path exact producer commit
+  `a5178b64cd91a5cb8300d29eac16e951b6d58f35` is accepted. The production-dark Go model exposes
   honest encrypted/plaintext status, verified-device revoke, current-epoch
   transfer or explicit user-held recovery, object/epoch/device-bound history
   grants, irrecoverable-history warnings and separate metadata-only versus
@@ -369,21 +369,29 @@
   live services. `main.go`, runtime capability, provider, suite and container
   selection remain dark. Focused and full Go tests, vet, standalone race,
   Windows amd64/arm64 cross-builds, the validator and five focused acceptance
-  tests pass; aggregate acceptance contract discovery also passes. One
-  unrelated capture-workflow timing test flaked once in the aggregate race
-  stage and passed immediately on an exact standalone race rerun. No acceptance
-  credit is taken until Claude Fable 5 max completes exact-SHA review with zero
-  open Critical/High/Medium finding. Real signed-MSIX/native-DPAPI, device,
-  audio, accessibility and forensic evidence stays in `EPIC-260714-th54l3`.
-- Current deferred coding line: E2EE continues with `TASK-260712-2q4jbu`, limited
-  to the production-dark Windows encrypted-media client integration path. Every later E2EE implementation
+  tests pass; the clean exact-head automated harness passed 16/16 with 247
+  acceptance tests and 356 Swift tests. Terminal Claude Fable 5 max run
+  `RUN-260720-f01d6a` independently recomputed evidence hashes, repeated
+  focused acceptance/race/format checks and ACCEPTED with zero open
+  Critical/High/Medium finding. Two non-blocking Low/Info observations record
+  an unvalidated grant-status enum during normalization and repeated coherent
+  snapshot reads during presentation. Earlier runs `RUN-260720-88988f` and
+  `RUN-260720-78713e` performed review work but intentionally received no
+  credit because they exited before their asynchronous harnesses produced a
+  terminal verdict. Real signed-MSIX/native-DPAPI, device, audio,
+  accessibility and forensic evidence stays in `EPIC-260714-th54l3`.
+- Current deferred coding line: E2EE continues with `TASK-260712-1bcpda`, the
+  production-dark C4-C6 evidence/review pack. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-2nppt6` —
-  macos-encrypted-media-client-path (dormant engineering scope only)
+- Most recently accepted: `TASK-260712-2q4jbu` —
+  windows-encrypted-media-client-path (dormant engineering scope only)
 - Current branch: `feat/task-260712-2q4jbu`
 - Current review evidence:
-  macOS encrypted-media client-path was accepted on exact producer `3a64b18`
+  Windows encrypted-media client-path was accepted on exact producer
+  `a5178b6` by terminal Claude Fable 5 max run `RUN-260720-f01d6a`; verdict
+  resource is `TASK-260712-2q4jbu_review-verdict-v1.md`. The preceding macOS
+  encrypted-media client-path was accepted on exact producer `3a64b18`
   by Claude Fable 5 max run `RUN-260720-c23a33`; verdict resource is
   `TASK-260712-2nppt6_independent-review-verdict.md`.
   Windows E2EE live PTT was accepted on exact producer `aee0733` by Claude
@@ -4031,7 +4039,11 @@ continues at section 17.
   non-blocking; all signed/notarized app, real Keychain/provider/codec,
   physical device/audio, traffic/memory/crash and moderation-storage evidence
   remains manual/deferred in `EPIC-260714-th54l3`.)
-- [ ] `TASK-260712-2q4jbu` — windows-encrypted-media-client-path
+- [x] `TASK-260712-2q4jbu` — windows-encrypted-media-client-path (accepted on
+  exact producer commit `a5178b64cd91a5cb8300d29eac16e951b6d58f35` by terminal
+  independent Claude Fable 5 max run `RUN-260720-f01d6a`; zero open
+  Critical/High/Medium findings. The client path remains production-dark and
+  all real-app/hardware evidence remains in `EPIC-260714-th54l3`.)
 - [ ] `TASK-260712-1bcpda` — e2ee-c4-c6-evidence-review-pack
 
 ## 17. P3 capture quality and diagnostics

@@ -349,6 +349,7 @@ try {
         schemaVersion = 1
         verificationBoundary = "contract-test-only"
         osFamily = "windows11"
+        inputPosture = "distinct-default-and-selected-inputs"
     }) -Path (Join-Path $SyntheticRoot "machine.json")
     Write-ProbeEvidenceJSON -Value ([ordered]@{
         schemaVersion = 1

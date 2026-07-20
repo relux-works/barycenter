@@ -483,7 +483,9 @@ function Assert-ProbeAudioEndpointPlan {
 function Assert-ProbeScenarioVerdictForInputPosture {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)][string]$InputPosture,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("distinct-default-and-selected-inputs", "single-input-owner-approved")]
+        [string]$InputPosture,
         [Parameter(Mandatory = $true)][ValidateSet("H00", "H01", "H02", "H03", "H04", "H05", "H06", "H07", "H08", "H09", "H10", "H11", "H12", "H13", "H14", "H15", "H16", "H17")][string]$Scenario,
         [Parameter(Mandatory = $true)][ValidateSet("PASS", "FAIL", "BLOCKED")][string]$Verdict
     )

@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 176 accepted, 29 remain.
-- Routed inventory: 186 engineering tasks (176 accepted, 10 remain) and 19
+- Combined inventory: 205 original tasks; 177 accepted, 28 remain.
+- Routed inventory: 186 engineering tasks (177 accepted, 9 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,11 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-2kcduo` — macos-protected-media-send
-  in deferred epic
+- Current engineering task: accepted `TASK-260712-2kcduo` delivery/merge, then
+  `TASK-260712-tcwn44` — macos-protected-media-playback in deferred epic
   `EPIC-260716-3qsztl`.
-- Current original-plan frontier: `TASK-260712-2kcduo` —
-  macos-protected-media-send in deferred epic `EPIC-260716-3qsztl`.
+- Current original-plan frontier: `TASK-260712-tcwn44` —
+  macos-protected-media-playback in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -200,17 +200,34 @@
   `TASK-260712-1rziyo_review-verdict.md`. No runtime, production crypto,
   signed-package, real-device or recoverable-history claim is made; those
   remain manual/deferred in `EPIC-260714-th54l3`.
-- Next deferred coding line: E2EE continues with `TASK-260712-2kcduo`, limited
-  to the production-dark macOS protected-media send path. Every later E2EE implementation
+- macOS protected-media send foundation: exact producer commit
+  `30d23def4350aab22a19824c1e0cbcfad1a5f8da` adds a dormant actor-owned
+  prepare/stage/chunk/finalize pipeline behind an unselected provider seam.
+  Rights and exact targets are admitted before the crash-safe key-state
+  generation reservation; unsupported recipients cannot downgrade; exact
+  ciphertext resumes without reseal or generation/nonce reuse; app-owned and
+  user-owned plaintext have distinct bounded cleanup policies. A
+  non-releasable per-repository send-owner claim closes the earlier
+  process-local composition concern while explicitly not claiming
+  cross-process serialization. Producer focused 12/12, full macOS 331/331,
+  acceptance 190/190 and automated 16/16 passed. Independent Claude Fable 5
+  max run `RUN-260720-cc3c8d` reproduced the exact-SHA evidence and all eight
+  packet hashes, then ACCEPTED with zero Critical/High/Medium findings. Four
+  Low and three Info runtime-integration follow-ups are recorded in
+  `TASK-260712-2kcduo_review-verdict.md`; no production provider, runtime,
+  signed-app, real-crypto, codec, hardware or memory-hygiene claim is made.
+- Next deferred coding line: E2EE continues with `TASK-260712-tcwn44`, limited
+  to the production-dark macOS protected-media playback path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-1rziyo` —
-  recovery-device-transfer-history-grants (dormant engineering scope only)
+- Most recently accepted: `TASK-260712-2kcduo` —
+  macos-protected-media-send (dormant engineering scope only)
 - Current branch: `feat/task-260712-2kcduo`
 - Current review evidence:
-  `TASK-260712-1rziyo_review-verdict.md` from Claude Fable 5 max run
-  `RUN-260720-6193e1` on exact producer commit `94e5066`. The preceding
-  report evidence run was `RUN-260720-65a670`; the preceding
+  `TASK-260712-2kcduo_review-verdict.md` from Claude Fable 5 max run
+  `RUN-260720-cc3c8d` on exact producer commit `30d23de`. The preceding
+  recovery run was `RUN-260720-6193e1`; report evidence was
+  `RUN-260720-65a670`; the preceding
   Windows key-state review was `RUN-260719-c050cd`; macOS key-state review was
   `RUN-260719-20ab4a`; opaque-router completion was `RUN-260719-91776a`. The Store-package run `RUN-260719-85bf38`
   accepted exact `e3bf985` for engineering scope in
@@ -3750,7 +3767,17 @@ continues at section 17.
   devices, native Keychain/DPAPI, signed packages and production crypto remain
   manual/deferred. Hosted CI run `29710412021` passed 4/4 and PR #290 merged
   as `375dc1b`.)
-- [ ] `TASK-260712-2kcduo` — macos-protected-media-send
+- [x] `TASK-260712-2kcduo` — macos-protected-media-send (accepted on exact
+  producer commit `30d23def4350aab22a19824c1e0cbcfad1a5f8da`. The production-dark
+  macOS actor reserves a witnessed generation before provider sealing, binds
+  exact recipients/epoch/target, validates unique nonces and authenticated
+  artifacts, persists ciphertext-only resumable drafts, and applies explicit
+  user-owned versus app-owned plaintext cleanup. It remains absent from the
+  app composition root and accepts no audit provider through its public path.
+  Producer focused 12/12, full macOS 331/331, acceptance 190/190 and automated
+  16/16 passed. Claude Fable 5 max run `RUN-260720-cc3c8d` independently
+  ACCEPTED with no Critical/High/Medium finding; all production provider,
+  signed-app, real-crypto/codec and hardware claims remain deferred.)
 - [ ] `TASK-260712-tcwn44` — macos-protected-media-playback
 - [ ] `TASK-260712-3980vy` — macos-e2ee-live-ptt
 - [ ] `TASK-260712-28zhpl` — windows-protected-media-send

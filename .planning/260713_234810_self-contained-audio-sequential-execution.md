@@ -354,13 +354,18 @@
   findings track a cosmetic tautological normalization branch and the dormant
   composition throw path lacking an executable-target test before future
   runtime enablement; neither changes acceptance or manual deferrals.
+- Hosted CI run `29726989792` passed all four coordinator, NodeCore, Windows and
+  packaged-probe jobs after one diagnostic rerun of a non-reproducing
+  `node-core` failure; the exact CI command passed locally on clean PR head and
+  the rerun passed in 2m45s without code changes. PR #297 merged to `main` as
+  `d265228f67858111276a8b466d6c0eb50ab66e54`.
 - Current deferred coding line: E2EE continues with `TASK-260712-2q4jbu`, limited
   to the production-dark Windows encrypted-media client integration path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2nppt6` —
   macos-encrypted-media-client-path (dormant engineering scope only)
-- Current branch: `feat/task-260712-2nppt6`
+- Current branch: `feat/task-260712-2q4jbu`
 - Current review evidence:
   macOS encrypted-media client-path was accepted on exact producer `3a64b18`
   by Claude Fable 5 max run `RUN-260720-c23a33`; verdict resource is

@@ -1,5 +1,5 @@
 ## Status
-backlog
+development
 
 ## Assigned To
 (none)
@@ -8,7 +8,7 @@ backlog
 2026-07-16T00:14:23Z
 
 ## Last Update
-2026-07-20T08:07:51Z
+2026-07-20T08:21:19Z
 
 ## Blocked By
 - STORY-260712-1frfmi

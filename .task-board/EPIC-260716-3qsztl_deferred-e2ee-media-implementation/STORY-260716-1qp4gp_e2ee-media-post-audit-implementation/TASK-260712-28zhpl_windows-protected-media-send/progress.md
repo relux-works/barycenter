@@ -1,14 +1,14 @@
 ## Status
-backlog
+development
 
 ## Assigned To
-(none)
+codex-root-inline
 
 ## Created
 2026-07-12T16:49:11Z
 
 ## Last Update
-2026-07-16T00:15:02Z
+2026-07-20T04:07:44Z
 
 ## Blocked By
 - TASK-260712-16xmy2
@@ -28,6 +28,7 @@ backlog
 
 ## Notes
 Owner gate 2026-07-16: moved to EPIC-260716-3qsztl Deferred E2EE media implementation after independent audit. Do not implement or move this task into development until TASK-260712-aniuyy Pass independent cryptographic design review before implementation is done with no open critical or high finding. Any protocol-affecting delta reopens the audit gate.
+2026-07-20 strict sequential execution started on branch feat/task-260712-28zhpl from accepted main merge 94d5de0. Scope remains production-dark best-effort Windows protected-media send engineering; real signed-app, native DPAPI/NTFS, hardware, packet-capture, memory/crash and cross-platform playback evidence stays manual/deferred in EPIC-260714-th54l3. Independent Claude Fable 5 max review is required before acceptance.
 
 ## Precondition Resources
 (none)

@@ -256,15 +256,16 @@
   in `TASK-260712-3980vy_review-verdict-v2.md`. Real C1-C2, traffic capture,
   signed package, memory/crash, cross-process contention, macOS-Windows interop
   and production-provider evidence remain manual/deferred in
-  `EPIC-260714-th54l3`; EPC-001/002/004/005 remain open.
+  `EPIC-260714-th54l3`; EPC-001/002/004/005 remain open. Hosted CI run
+  `29715975166` passed all four jobs; PR #293 merged to `main` as
+  `94d5de0fc36a0aae29f9f4026214c0a6324edf38`.
 - Next deferred coding line: E2EE continues with `TASK-260712-28zhpl`, limited
   to the production-dark Windows protected-media send path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-3980vy` —
   macos-e2ee-live-ptt (dormant engineering scope only)
-- Current branch: `feat/task-260712-3980vy` (accepted integration; next branch
-  after merge is `feat/task-260712-28zhpl`)
+- Current branch: `feat/task-260712-28zhpl`
 - Current review evidence:
   `TASK-260712-3980vy_review-verdict-v2.md` from Claude Fable 5 max run
   `RUN-260720-8f681f` on exact producer rework commit `c9faa7e`. The rejected

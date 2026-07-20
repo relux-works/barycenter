@@ -18,21 +18,24 @@
   execution in `EPIC-260714-th54l3`.
 - Current original-plan frontier: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
-  Strict manual execution stops at `TASK-260712-1vtwkl`: the current-build
+  Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build
   delta review froze `main` `fc6656a9f20eeba4cc1f907475598667bf556b67`,
   successful CI run `29735606631`, artifact `8458213808` and MSIX SHA-256
   `869f5d5613419be30c64097b8d9cf9ac62bc2277db42464b6dbf7dc973c679f5`.
   The original 2026-07-14 artifact predates accepted capture-quality ABI and
   packaged-cue changes and is historical only. Physical progress remains
-  H00-H17 `0/36`, checklist `0/4`, manual tasks `0/19`; one visible Windows
-  peer is not authenticated or attested as an admissible physical host.
+  H00-H17 `0/36`, checklist `0/4`, manual tasks `0/19`. Ivan Oparin confirmed
+  `mbpro-win` as the physical Windows 10 host and authorized that row first
+  with maximum autonomous execution; Windows 11 is deferred for this pass.
   Exact operator/host requirements and artifact expiry are recorded in
   `.planning/TASK-260712-1vtwkl_current-build-handoff.md`. Strict order forbids
   starting `TASK-260712-2hodti` until both Windows rows are executed, sealed
   and reviewed. A second access audit found OpenSSH/RDP on the visible peer but
   no accepted agent key, no WinRM or anonymous SMB path, and Taildrop rejected
-  cross-user transfer. The peer still exposes no build, physical-machine,
-  device or console attestation, so this does not change the `0/36` result.
+  cross-user transfer. A reviewed one-time physical-console SSH bootstrap is
+  now prepared to establish the pinned automation key and capture sanitized OS
+  and audio preflight without changing any H00-H17 verdict. This does not by
+  itself change the `0/36` result.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate

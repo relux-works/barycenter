@@ -140,6 +140,34 @@ does not have a hosted-runner/VM override and never promotes a scenario from a
 test command. It records each H00-H17 operator verdict as `unreviewed`; task
 acceptance still requires inspection of the referenced bytes.
 
+### One-time physical-console SSH bootstrap
+
+When the accepted physical host is reachable but has no reviewed automation
+key, run the following once from an elevated PowerShell at its physical
+console. The script refuses known virtual hosts, requires both explicit
+attestations, adds only the reviewed `ivan@relux.works` public key to the
+administrators OpenSSH file, preserves all other keys, applies the Windows
+OpenSSH ACL, and writes a sanitized preflight receipt. It does not change the
+sshd service, firewall, password policy, package state or any H00-H17 verdict.
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass -Force
+.\pulsar-win\probe-msix\bootstrap-hardware-host.ps1 `
+  -Mode Install `
+  -PhysicalMachineAttested `
+  -ConsoleOperatorAttested
+```
+
+Return only the printed `SSH_ACCOUNT` value. Keep the preflight receipt at the
+printed path for later attachment; it deliberately excludes hostname,
+username, serial number, hardware UUID and IP address. After the sealed bundle
+has been copied, remove only this reviewed key from an elevated physical-console
+PowerShell:
+
+```powershell
+.\pulsar-win\probe-msix\bootstrap-hardware-host.ps1 -Mode Remove
+```
+
 Before installing the MSIX, list the exact endpoint friendly names and create a
 new bundle. The strict Windows 10 row is Enterprise LTSC 2021 build 19044;
 `ApprovedException` requires an explicit product-decision reference.

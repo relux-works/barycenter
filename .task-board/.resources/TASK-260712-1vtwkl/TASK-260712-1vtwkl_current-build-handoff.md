@@ -2,9 +2,11 @@
 
 Date: 2026-07-20 (Asia/Tbilisi)
 
-Status: BLOCKED ON PHYSICAL-CONSOLE EXECUTION. This handoff prepares the exact
-current build for the manual Windows 10/11 matrix. It is not physical-hardware
-evidence and does not pass H00-H17.
+Status: IN PROGRESS — WINDOWS 10 ACCESS BOOTSTRAP. Ivan Oparin confirmed
+`mbpro-win` is the physical Windows 10 host and authorized this row first with
+maximum autonomous execution. Windows 11 is intentionally deferred for this
+pass. This handoff prepares the exact current build and access path; it is not
+physical-hardware evidence and does not pass H00-H17.
 
 ## Current exact build
 
@@ -79,12 +81,33 @@ changing the peer:
   a physical-console operator, and an RDP session cannot attest the required
   sleep, lock, device-removal, microphone and audible-output behavior.
 
-No repository-side or noninteractive route can obtain admissible evidence from
-this peer. The exact manual execution request below is unchanged.
+The owner confirmation makes the peer admissible for Windows 10 preflight, but
+the existing agent keys still cannot authenticate. A reviewed one-time
+physical-console bootstrap is therefore prepared in
+`pulsar-win/probe-msix/bootstrap-hardware-host.ps1`. It adds only the pinned
+`ivan@relux.works` Ed25519 public key to the administrators OpenSSH key file,
+preserves unrelated keys, records a sanitized preflight receipt, and does not
+change sshd, firewall, password, package or H00-H17 state.
+
+From an elevated PowerShell at the physical console, in a current repository
+checkout, run:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass -Force
+.\pulsar-win\probe-msix\bootstrap-hardware-host.ps1 `
+  -Mode Install `
+  -PhysicalMachineAttested `
+  -ConsoleOperatorAttested
+```
+
+Return only the printed `SSH_ACCOUNT` value. The executor can then transfer
+the exact package, collect preflight, and automate every non-gesture step. The
+key can be removed after bundle sealing with `-Mode Remove`.
 
 ## Exact manual execution request
 
-Provide a physical-console operator and both admissible rows:
+The active pass now requires the confirmed Windows 10 row first; the complete
+task still requires both admissible rows:
 
 1. physical x64 Windows 10 Enterprise LTSC 2021 build 19044, fully patched and
    licensed, or an explicit approved lifecycle exception;
@@ -122,5 +145,6 @@ seal its immutable bundle, then complete Windows 11 with the same MSIX bytes.
 - Manual epic progress: `0/19` accepted (`0%`).
 
 Strict ordering prevents starting `TASK-260712-2hodti` or any later manual
-task. Resume only after both sealed bundles are attached and independently
-inspected; a failed row must retain FAIL/BLOCKED plus its concrete next action.
+task. The Windows 10 row may proceed and be sealed independently, but this task
+cannot close until the later Windows 11 bundle is also attached and reviewed.
+A failed row must retain FAIL/BLOCKED plus its concrete next action.

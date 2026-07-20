@@ -1,14 +1,14 @@
 ## Status
-blocked
+development
 
 ## Assigned To
-(none)
+codex-root-inline
 
 ## Created
 2026-07-12T15:27:53Z
 
 ## Last Update
-2026-07-20T11:01:19Z
+2026-07-20T11:22:59Z
 
 ## Blocked By
 - TASK-260712-2y74io
@@ -35,10 +35,12 @@ Tracking commit f82772a is pushed and draft PR #10 is open. The PR is intentiona
 Manual program backlog: CI harness is ready, but H00-H17 remains 0/36 until human-run physical Windows 10 and Windows 11 evidence is supplied. No engineering task treats this as passed.
 2026-07-20 current-build delta review: main fc6656a9f20eeba4cc1f907475598667bf556b67 passed CI 29735606631 (4/4). Current signed artifact 8458213808 has archive digest sha256:9e0fb800a132449054a059f204a5939b07a72c57b0314923c4c95c9fc0992f0c, expires 2026-08-03T10:38:29Z, and contains MSIX SHA-256 869f5d5613419be30c64097b8d9cf9ac62bc2277db42464b6dbf7dc973c679f5. The 2026-07-14 package is historical because later capture-quality ABI and packaged-cue changes affect the probe. Access re-audit sees one online Windows peer with SSH/RDP ports but no available SSH identity and no physical/OS/device/operator attestation; it is not admissible evidence. Task is blocked on a physical-console operator plus supported Win10 LTSC 2021 and serviced Win11 hosts with required audio devices. H00-H17 remains 0/36, checklist 0/4, and no later manual task may start. Exact handoff attached.
 2026-07-20 second access audit: the single online Windows peer is associated by Tailscale with Ivan Oparin but exposes no OS build, physical/VM, audio-device or console attestation. TCP 22/135/445/3389 answers; WinRM is closed and anonymous SMB is rejected. OpenSSH_for_Windows_9.5 accepted none of 10 available agent keys across five plausible account names; no password or interactive guessing was attempted. Taildrop rejected the handoff as cross-user ownership, so no artifact was transferred. RDP availability cannot replace an authorized credential plus physical-console operator. No admissible H00-H17 evidence was produced; result remains 0/36 and strict execution cannot advance. Updated Stop-The-Line handoff attached.
+2026-07-20 owner resume: Ivan Oparin confirms mbpro-win is the physical Windows 10 test host and authorizes testing this host first with maximum autonomous execution. Win11 remains intentionally out of scope for this pass. Board execution resumes inline without task-board spawn. No H-row is passed by this attestation alone; exact OS lifecycle posture, audio endpoints, package identity and H00-H17 evidence still must be captured.
+2026-07-20 access implementation: added a reviewed physical-console bootstrap for mbpro-win that pins the existing ivan@relux.works Ed25519 fingerprint, preserves unrelated administrator keys, applies OpenSSH ACL, records sanitized OS/audio/WACK preflight, and never mutates sshd/firewall/password/package/H-row state. Windows PowerShell 5.1 compatibility and Hyper-V/VBS-on-physical-host behavior are covered by implementation checks. Awaiting CI and the single console bootstrap before autonomous Win10 execution; H00-H17 remains 0/36.
 
 ## Precondition Resources
 - [p1-windows-store-spike-lifecycle.puml](file://TASK-260712-1vtwkl/p1-windows-store-spike-lifecycle.puml) — Lifecycle flow for the Win10 and Win11 evidence run
 
 ## Outcome Resources
 - [TASK-260712-1vtwkl_hardware-readiness-audit.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_hardware-readiness-audit.md) — Frozen H00-H17 physical matrix, signed artifact provenance, CI-validated fail-closed evidence kit, access audit and exact unblock; no hardware passes
-- [TASK-260712-1vtwkl_current-build-handoff.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_current-build-handoff.md) — 2026-07-20 exact current-build artifact, two access audits and physical-console unblock; no H-row passed
+- [TASK-260712-1vtwkl_current-build-handoff.md](file://TASK-260712-1vtwkl/TASK-260712-1vtwkl_current-build-handoff.md) — 2026-07-20 exact current-build artifact, owner-confirmed Win10 host, one-time SSH bootstrap and deferred Win11; no H-row passed

@@ -8,7 +8,7 @@ codex-root-inline
 2026-07-12T16:40:34Z
 
 ## Last Update
-2026-07-20T00:55:14Z
+2026-07-20T00:55:59Z
 
 ## Blocked By
 - TASK-260712-2ys1ww
@@ -38,6 +38,7 @@ Production-dark implementation complete on feat/task-260712-1rziyo: exact curren
 
 ## Precondition Resources
 - [p3-e2ee-media-sequence.puml](file://TASK-260712-1rziyo/p3-e2ee-media-sequence.puml) — History-grant and device-transfer sequence for key bootstrap and recovery
+- [TASK-260712-1rziyo-independent-exact-sha-review.md](file://TASK-260712-1rziyo/TASK-260712-1rziyo-independent-exact-sha-review.md) — Review producer SHA 94e506629c46473bc890575539750b1a993bbc50 with focused race/platform/acceptance evidence
 
 ## Outcome Resources
 - [p3-e2ee-recovery-device-transfer-history-grants-v1.md](file://TASK-260712-1rziyo/p3-e2ee-recovery-device-transfer-history-grants-v1.md) — Production-dark recovery, transfer, history-grant and manual-evidence boundary

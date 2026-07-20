@@ -59,6 +59,29 @@ host. Do not install the package there until its owner confirms that it is a
 physical machine in the approved matrix and provides a physical-console
 window.
 
+### Second access audit
+
+The strict continuation repeated the access audit on 2026-07-20 without
+changing the peer:
+
+- Tailscale identifies the peer as Windows and associates it with Ivan Oparin,
+  but exposes no edition/build, hardware model, VM/physical status, audio
+  endpoints or console attestation.
+- TCP 22, 135, 445 and 3389 answer. WinRM 5985/5986 does not answer; anonymous
+  SMB authentication is rejected.
+- OpenSSH reports `OpenSSH_for_Windows_9.5`. Ten available agent public keys
+  were tried non-interactively against the five plausible local/Microsoft
+  account names; none was accepted. Password and interactive guessing were not
+  attempted.
+- Taildrop rejects the transfer because the local node and peer are owned by
+  different Tailscale users. No artifact reached the Windows peer.
+- RDP answering is not sufficient: it still needs an authorized credential and
+  a physical-console operator, and an RDP session cannot attest the required
+  sleep, lock, device-removal, microphone and audible-output behavior.
+
+No repository-side or noninteractive route can obtain admissible evidence from
+this peer. The exact manual execution request below is unchanged.
+
 ## Exact manual execution request
 
 Provide a physical-console operator and both admissible rows:

@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 174 accepted, 31 remain.
-- Routed inventory: 186 engineering tasks (174 accepted, 12 remain) and 19
+- Combined inventory: 205 original tasks; 175 accepted, 30 remain.
+- Routed inventory: 186 engineering tasks (175 accepted, 11 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,11 +13,13 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-2i0w6x` —
-  report-evidence-moderation-export in deferred epic `EPIC-260716-3qsztl`;
-  implementation starts only after the accepted Windows key-state branch lands.
-- Current original-plan frontier: `TASK-260712-2i0w6x` —
-  report-evidence-moderation-export in deferred epic `EPIC-260716-3qsztl`.
+- Current engineering task: `TASK-260712-1rziyo` —
+  recovery-device-transfer-history-grants in deferred epic
+  `EPIC-260716-3qsztl`; implementation starts only after the accepted
+  report-evidence branch lands on `main`.
+- Current original-plan frontier: `TASK-260712-1rziyo` —
+  recovery-device-transfer-history-grants in deferred epic
+  `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -164,17 +166,36 @@
   secret cleanup at the first producer SHA was fixed by `c7c9b02`; the reviewer
   independently re-ran the full battery and 14/14 packet hashes at that final
   SHA. Manual evidence remains in `EPIC-260714-th54l3`.
-- Next deferred coding line: E2EE continues with `TASK-260712-2i0w6x`, limited
-  to report-evidence moderation export after Windows key state. Every later E2EE implementation
+- E2EE report evidence moderation export: exact producer commit
+  `66a34edcbdf8c60fe5827041f0809930c46cfc69` adds a production-dark
+  metadata-only report boundary and a separate explicit-consent transition
+  for a bounded moderation-at-rest evidence reference. New exports bind the
+  exact report, protected object, reporter actor/device, manifest, epoch,
+  generation and revision, then re-authorize the current recipient; revoked
+  access fails closed. List/Evidence/Decide operator capabilities, immutable
+  content-free create/read/delete/expiry/decision audit, 30-day retention,
+  statement scrub, crash rollback and idempotent restart are covered. E2EE
+  delete reuses the canonical opaque chunk purge; actor/orbit actions reuse
+  canonical disable/cancellation paths. Producer focused race, full Go/vet,
+  227/227 acceptance and clean coordinator harness 7/7 passed. Independent
+  Claude Fable 5 max run `RUN-260720-65a670` reproduced the exact SHA and full
+  battery and ACCEPTED with no Critical/High/Medium finding. Six Low/Info notes
+  are non-blocking and recorded in
+  `TASK-260712-2i0w6x_independent-exact-sha-review.md`. No HTTP route, storage
+  adapter, capability advertisement, coordinator decrypt, plaintext evidence,
+  real-app, provider-delete or traffic-capture claim was added; manual scope
+  remains in `EPIC-260714-th54l3` and production EPC gates remain open.
+- Next deferred coding line: E2EE continues with `TASK-260712-1rziyo`, limited
+  to recovery, device transfer and history grants. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-25dzp4` —
-  windows-e2ee-key-state (dormant engineering scope only)
-- Current branch: `feat/task-260712-25dzp4`
+- Most recently accepted: `TASK-260712-2i0w6x` —
+  report-evidence-moderation-export (dormant engineering scope only)
+- Current branch: `feat/task-260712-2i0w6x`
 - Current review evidence:
-  `TASK-260712-25dzp4_independent-delta-review-v1.md` from Claude Fable 5 max
-  run `RUN-260719-c050cd` on first producer commit `8f9ab2b` and final cleanup
-  commit `c7c9b02`. The preceding macOS key-state review was
+  `TASK-260712-2i0w6x_independent-exact-sha-review.md` from Claude Fable 5 max
+  run `RUN-260720-65a670` on exact producer commit `66a34ed`. The preceding
+  Windows key-state review was `RUN-260719-c050cd`; macOS key-state review was
   `RUN-260719-20ab4a`; opaque-router completion was `RUN-260719-91776a`. The Store-package run `RUN-260719-85bf38`
   accepted exact `e3bf985` for engineering scope in
   `TASK-260712-2s4e9p_engineering-review-verdict.md`; manual screenshots/WACK
@@ -3690,7 +3711,17 @@ continues at section 17.
   re-verified 14/14 hashes and the full battery at the final SHA, then APPROVED
   WITH NON-BLOCKING FOLLOW-UPS with no Critical/High/Medium code finding. Native
   DPAPI/MSIX/NTFS/profile and forensic evidence remains manual.)
-- [ ] `TASK-260712-2i0w6x` — report-evidence-moderation-export
+- [x] `TASK-260712-2i0w6x` — report-evidence-moderation-export (accepted on
+  exact producer commit `66a34edcbdf8c60fe5827041f0809930c46cfc69`.
+  Metadata-only reporting creates no consent/evidence rows; a new evidence
+  reference requires explicit consent plus exact report/object/device/manifest
+  binding and current recipient authorization. Operator access, immutable
+  content-free audit, expiry/delete, crash rollback, restart replay and
+  canonical opaque deletion/identity disable paths are covered. Producer clean
+  harness passed 7/7 with 227/227 contract tests. Independent Claude Fable 5
+  max run `RUN-260720-65a670` repeated the exact-SHA tests and ACCEPTED with no
+  Critical/High/Medium finding. Runtime/storage adapter and all real-app,
+  traffic, provider and physical evidence remain deferred.)
 - [ ] `TASK-260712-1rziyo` — recovery-device-transfer-history-grants
 - [ ] `TASK-260712-2kcduo` — macos-protected-media-send
 - [ ] `TASK-260712-tcwn44` — macos-protected-media-playback

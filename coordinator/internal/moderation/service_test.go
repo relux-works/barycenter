@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -223,6 +224,116 @@ func TestServiceEvidenceBlockAndDeleteUseCanonicalServices(t *testing.T) {
 		store.ModerationActionDeleteMedia,
 	); err != nil {
 		t.Fatalf("delete decision replay=%v", err)
+	}
+}
+
+func TestServiceE2EEDecisionUsesDormantCanonicalOpaqueDelete(t *testing.T) {
+	fixture := newServiceFixture(t)
+	authority, err := fixture.store.AirAuthority()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.store.CutoverLinksToAirs(authority.Generation, fixture.now+20); err != nil {
+		t.Fatal(err)
+	}
+	air, err := fixture.store.CreateAir(store.CreateAirParams{
+		Title: "E2EE moderation service", OwnerOrbitID: fixture.source.OrbitID,
+		CreatedAt: fixture.now + 21,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	member, err := fixture.store.AddPendingAirMember(
+		air.ID, fixture.reporter.OrbitID, "member", fixture.now+22)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.store.ConfirmAirMember(member.ID, member.Revision, false, "none", fixture.now+23); err != nil {
+		t.Fatal(err)
+	}
+	register := func(credentials store.OnboardingCredentials, deviceID, protocolActorID string, at int64) {
+		payload := []byte("public-package:" + deviceID)
+		digest := sha256.Sum256(payload)
+		if _, err := fixture.store.RegisterE2EEPublicDevice(store.RegisterE2EEPublicDeviceParams{
+			DeviceID: deviceID, ProtocolActorID: protocolActorID,
+			ActorID: credentials.ActorID, PublicPackage: payload,
+			PublicPackageDigest: hex.EncodeToString(digest[:]), VerificationState: "verified",
+			VerificationDigest: strings.Repeat("d", 64), CreatedAt: at,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ownerDevice, peerDevice := "service_e2ee_owner_device_1", "service_e2ee_peer_device_01"
+	register(fixture.source, ownerDevice, "service_e2ee_owner_actor_01", fixture.now+24)
+	register(fixture.reporter, peerDevice, "service_e2ee_peer_actor_001", fixture.now+25)
+	snapshot, err := fixture.store.E2EEAirSnapshot(air.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	group, err := fixture.store.CreateE2EEGroup(store.CreateE2EEGroupParams{
+		AirID: air.ID, AuthorDeviceID: ownerDevice,
+		TargetSnapshotDigest: snapshot.Digest, CommitDigest: strings.Repeat("b", 64),
+		Epoch: 1, CreatedAt: fixture.now + 26,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.store.InitializeE2EEGroupRouting(group.ID, ownerDevice, fixture.now+27); err != nil {
+		t.Fatal(err)
+	}
+	chunk := []byte("opaque-service-evidence-ciphertext")
+	manifest := []byte("opaque-service-manifest")
+	chunkDigest := sha256.Sum256(chunk)
+	manifestDigest := sha256.Sum256(manifest)
+	object, err := fixture.store.StageE2EEProtectedObject(store.StageE2EEProtectedObjectParams{
+		GroupID: group.ID, SourceObjectID: "service_e2ee_source_0001", ObjectKind: "clip",
+		AuthorDeviceID: ownerDevice, Epoch: group.CurrentEpoch, Generation: 1,
+		TargetSnapshotDigest: group.TargetSnapshotDigest,
+		ManifestDigest:       hex.EncodeToString(manifestDigest[:]), EncryptedManifest: manifest,
+		OpaqueKeyEnvelopes: []byte("opaque-service-envelopes"),
+		CiphertextRef:      "ciphertext/v1/" + hex.EncodeToString(chunkDigest[:]),
+		CiphertextDigest:   hex.EncodeToString(chunkDigest[:]), CiphertextSize: int64(len(chunk)),
+		ChunkCount: 1, CreatedAt: fixture.now + 28,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.store.PutE2EEProtectedChunk(store.PutE2EEProtectedChunkParams{
+		ProtectedObjectID: object.ID, AuthorDeviceID: ownerDevice,
+		CiphertextDigest: hex.EncodeToString(chunkDigest[:]), ChunkIndex: 0,
+		ByteOffset: 0, Ciphertext: chunk, CreatedAt: fixture.now + 29,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ready, err := fixture.store.FinalizeE2EEProtectedObject(object.ID, object.Revision, fixture.now+30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := fixture.store.CreateE2EEModerationReport(store.CreateE2EEModerationReportParams{
+		ProtectedObjectID: ready.ID, ReporterActorID: fixture.reporter.ActorID,
+		ReporterDeviceID: peerDevice, Reason: store.ModerationReasonIllegal,
+		CreatedAt: fixture.now + 31,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.service.now = func() time.Time { return time.UnixMilli(fixture.now + 40) }
+	decision, err := fixture.service.ApplyE2EEDecision(
+		context.Background(), fixture.operator.Operator.ID, fixture.operator.Token,
+		created.Report.ID, store.ModerationActionDeleteMedia,
+	)
+	if err != nil || decision.State != "applied" {
+		t.Fatalf("E2EE delete decision=%+v err=%v", decision, err)
+	}
+	deleted, err := fixture.store.GetE2EEProtectedObject(ready.ID)
+	if err != nil || deleted.Status != "deleted" {
+		t.Fatalf("deleted E2EE object=%+v err=%v", deleted, err)
+	}
+	if replay, err := fixture.service.ApplyE2EEDecision(
+		context.Background(), fixture.operator.Operator.ID, fixture.operator.Token,
+		created.Report.ID, store.ModerationActionDeleteMedia,
+	); err != nil || replay.ID != decision.ID {
+		t.Fatalf("E2EE decision replay=%+v err=%v", replay, err)
 	}
 }
 

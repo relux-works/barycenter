@@ -539,6 +539,9 @@ func (s *Store) initE2EESchema() error {
 	if _, err := tx.Exec(e2eeSchema); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(e2eeReportModerationSchema); err != nil {
+		return err
+	}
 	if err := foreignKeyCheck(tx); err != nil {
 		return err
 	}

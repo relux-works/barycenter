@@ -342,8 +342,8 @@ func TestE2EEGrantTransferReportAndRevokeRace(t *testing.T) {
 		ConsentDigest: strings.Repeat("6", 64), AuthenticatedEvidenceDigest: strings.Repeat("7", 64),
 		EncryptedEvidenceRef: "evidence/v1/" + strings.Repeat("8", 64),
 		RetentionExpiresAt:   fixture.now + 5000, CreatedAt: fixture.now + 53,
-	}); err != nil {
-		t.Fatal(err)
+	}); !errors.Is(err, ErrModerationInvalid) {
+		t.Fatalf("unbound legacy report evidence error=%v", err)
 	}
 }
 

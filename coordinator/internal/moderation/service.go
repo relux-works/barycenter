@@ -163,6 +163,69 @@ func (service *Service) ApplyDecision(
 	)
 }
 
+// ApplyE2EEDecision is a production-dark application seam. Runtime routing is
+// intentionally deferred; callers must opt into the E2EE report contract and
+// the store still never receives client plaintext or decryption keys.
+func (service *Service) ApplyE2EEDecision(
+	ctx context.Context,
+	operatorID, token, reportID string,
+	action store.ModerationAction,
+) (store.E2EEModerationDecision, error) {
+	if ctx == nil {
+		return store.E2EEModerationDecision{}, errors.New("nil E2EE moderation decision context")
+	}
+	request, err := service.store.BeginE2EEModerationDecision(
+		operatorID, token, reportID, action, service.now().UnixMilli(),
+	)
+	if err != nil {
+		return store.E2EEModerationDecision{}, err
+	}
+	if request.Applied {
+		return request.Decision, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return store.E2EEModerationDecision{}, err
+	}
+	switch action {
+	case store.ModerationActionNoAction:
+	case store.ModerationActionDeleteMedia:
+		object, err := service.store.GetE2EEProtectedObject(request.Report.ProtectedObjectID)
+		if err != nil {
+			return store.E2EEModerationDecision{}, err
+		}
+		if _, err := service.store.DeleteE2EEProtectedObjectForModeration(
+			operatorID, token, reportID, object.Revision, service.now().UnixMilli(),
+		); err != nil {
+			return store.E2EEModerationDecision{}, err
+		}
+	case store.ModerationActionDisableActor:
+		result, err := service.store.DisableActorForModeration(
+			request.Report.ReportedActorID, service.now().UnixMilli(),
+		)
+		if err != nil {
+			return store.E2EEModerationDecision{}, err
+		}
+		if err := service.cancelDisabledActor(ctx, request.Report.ReportedActorID, result.Nodes); err != nil {
+			return store.E2EEModerationDecision{}, err
+		}
+	case store.ModerationActionDisableOrbit:
+		result, err := service.store.DisableOrbitForModeration(
+			request.Report.ReportedOrbitID, service.now().UnixMilli(),
+		)
+		if err != nil {
+			return store.E2EEModerationDecision{}, err
+		}
+		if err := service.cancelDisabledOrbit(ctx, request.Report.ReportedOrbitID, result.Nodes); err != nil {
+			return store.E2EEModerationDecision{}, err
+		}
+	default:
+		return store.E2EEModerationDecision{}, store.ErrModerationInvalid
+	}
+	return service.store.CompleteE2EEModerationDecision(
+		request.Decision.ID, service.now().UnixMilli(),
+	)
+}
+
 func (service *Service) notifyCancellations(results []store.CancelTransmissionResult) {
 	for _, result := range results {
 		service.notify(result)

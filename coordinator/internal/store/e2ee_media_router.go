@@ -474,6 +474,24 @@ func (s *Store) DeleteE2EEProtectedObject(id, requesterDeviceID string,
 	if object.Revision != expectedRevision {
 		return E2EEProtectedObject{}, ErrE2EEConflict
 	}
+	object, err = deleteE2EEProtectedObjectTx(
+		tx, object, expectedRevision, now, 0, requesterDeviceID, "server_access_revoked",
+	)
+	if err != nil {
+		return E2EEProtectedObject{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return E2EEProtectedObject{}, err
+	}
+	return object, nil
+}
+
+func deleteE2EEProtectedObjectTx(
+	tx *sql.Tx,
+	object E2EEProtectedObject,
+	expectedRevision, now, actorID int64,
+	deviceID, detail string,
+) (E2EEProtectedObject, error) {
 	if _, err := tx.Exec(`DELETE FROM e2ee_protected_object_chunks
 WHERE protected_object_id = ?`, object.ID); err != nil {
 		return E2EEProtectedObject{}, err
@@ -492,14 +510,15 @@ WHERE id = ? AND revision = ? AND status <> 'deleted'`, now, now, object.ID,
 		return E2EEProtectedObject{}, ErrE2EEConflict
 	}
 	if err := appendE2EEAuditTx(tx, object.GroupID, "protected_object", object.ID,
-		"protected_object.delete", "deleted", "server_access_revoked", 0,
-		requesterDeviceID, object.Epoch, expectedRevision+1, now); err != nil {
+		"protected_object.delete", "deleted", detail, actorID,
+		deviceID, object.Epoch, expectedRevision+1, now); err != nil {
 		return E2EEProtectedObject{}, err
 	}
-	if err := tx.Commit(); err != nil {
-		return E2EEProtectedObject{}, err
-	}
-	return s.GetE2EEProtectedObject(object.ID)
+	object.Status = "deleted"
+	object.Revision++
+	object.UpdatedAt = now
+	object.DeletedAt = now
+	return object, nil
 }
 
 func e2eeFrameDigest(raw []byte) string {

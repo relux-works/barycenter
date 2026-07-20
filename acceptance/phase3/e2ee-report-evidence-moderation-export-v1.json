@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-e2ee-report-evidence-moderation-export.v1",
+  "task": "TASK-260712-2i0w6x",
+  "publishedAt": "2026-07-20",
+  "decision": {
+    "result": "production-dark-explicit-recipient-evidence-export-foundation",
+    "productionEnabled": false,
+    "runtimeHTTPWired": false,
+    "storageAdapterWired": false,
+    "capabilityAdvertised": false,
+    "coordinatorDecryptsContent": false,
+    "coordinatorStoresPlaintextEvidence": false,
+    "metadataOnlyReporting": true,
+    "explicitConsentRequired": true,
+    "deltaReviewRequired": true
+  },
+  "artifacts": [
+    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"b869346c51d5e7be80e8f8e7eaf15894248d247a02f2c71126f6364f058ccd51"},
+    {"id":"report-schema","path":"coordinator/internal/store/e2ee_report_moderation_schema.go","sha256":"133756b5e9bfd794d4babfeee8d853e42eb10a019e855f61c77905187e733e88"},
+    {"id":"foundation-repository","path":"coordinator/internal/store/e2ee.go","sha256":"4f5322abf41e2db5cf31ccbb492d6ea53ceec5239720980cf5803be1ab1b3269"},
+    {"id":"report-repository","path":"coordinator/internal/store/e2ee_report_moderation.go","sha256":"ad17d2c5d2b4abe3113770be0e8c268932f3c09b4d489384db0a7403f92eaad9"},
+    {"id":"opaque-router","path":"coordinator/internal/store/e2ee_media_router.go","sha256":"09b950a18a44616e51fee86b7119a6b99c4f3107bed8ad16278c81ede0f6171d"},
+    {"id":"moderation-service","path":"coordinator/internal/moderation/service.go","sha256":"8adead309684cc654de7e5cb973e03ee129dc44ff8c2235a879ccc16387d9e92"},
+    {"id":"store-tests","path":"coordinator/internal/store/e2ee_report_moderation_test.go","sha256":"4328b23821b52c426191ac663d99de0cc9f5613b64c09fe23acf6f44b188095a"},
+    {"id":"service-tests","path":"coordinator/internal/moderation/service_test.go","sha256":"5c4c6928ce6eb3d58083e0ae2c4c8b10fbf3a1935eea209024cf6e5e2534f81a"},
+    {"id":"adr","path":"docs/analysis/p3-e2ee-report-evidence-moderation-export-v1.md","sha256":"afc77ebd54f71282ab00b4e98d4c72482a4b863ad0dac196f53e4bc2d492baad"}
+  ],
+  "additiveTables": [
+    "e2ee_moderation_reports",
+    "e2ee_report_evidence_consents",
+    "e2ee_report_evidence_state",
+    "e2ee_moderation_decisions",
+    "e2ee_report_audit_events"
+  ],
+  "bounds": {
+    "statementBytes": 2000,
+    "evidenceBytes": 67108864,
+    "retentionDays": 30,
+    "operatorListLimit": 100,
+    "auditListLimit": 500,
+    "expiryBatchLimit": 1000
+  },
+  "invariants": [
+    "metadata-only-report-creates-no-evidence-or-consent-row",
+    "metadata-report-remains-available-after-object-access-revocation",
+    "new-evidence-export-requires-current-exact-recipient-access",
+    "evidence-export-binds-exact-report-object-device-manifest-and-revision",
+    "explicit-consent-and-authenticated-evidence-digests-are-immutable",
+    "operator-capabilities-and-revocation-fail-closed",
+    "operator-create-read-delete-expire-and-decision-events-are-audited",
+    "terminal-evidence-reference-cannot-be-authorized",
+    "statement-and-evidence-retention-are-bounded",
+    "canonical-opaque-delete-removes-server-ciphertext-chunks",
+    "canonical-actor-and-orbit-disable-transitions-are-reused",
+    "no-runtime-route-storage-adapter-or-capability-advertisement"
+  ],
+  "fixtures": {
+    "metadataOnlyZeroEvidenceRows": "covered",
+    "revokedObjectMetadataReport": "covered",
+    "revokedObjectNewExportDenied": "covered",
+    "wrongReporterDeviceDenied": "covered",
+    "explicitConsentAndReplay": "covered",
+    "operatorCapabilityAndRevocation": "covered",
+    "readDeleteExpiryAudit": "covered",
+    "appendOnlyAuditTamper": "covered",
+    "terminalEvidenceReadDenied": "covered",
+    "reportAndEvidenceCheckpointRollback": "covered",
+    "canonicalOpaqueChunkDeletion": "covered",
+    "decisionRestartReplay": "covered",
+    "dormantServiceDeleteDecision": "covered",
+    "legacyUnboundEvidenceEntryDenied": "covered"
+  },
+  "automatedEvidence": {
+    "focused": "go test ./internal/store ./internal/moderation -run 'TestE2EEReport|TestE2EEModerationDecision|TestServiceE2EE' -count=1",
+    "focusedRace": "go test -race ./internal/store ./internal/moderation -run 'TestE2EEReport|TestE2EEModerationDecision|TestServiceE2EE' -count=1",
+    "coordinator": "go test ./...",
+    "coordinatorRace": "go test -race ./internal/store ./internal/moderation",
+    "acceptance": "python3 -m unittest scripts.acceptance.test_e2ee_report_moderation_export"
+  },
+  "deferredScope": [
+    "authenticated-http-runtime-and-verified-device-request-binding",
+    "reviewed-moderation-at-rest-storage-upload-download-and-physical-delete-adapter",
+    "client-local-decrypt-explicit-consent-and-export-ux",
+    "production-crypto-library-suite-container-and-signature-verifier",
+    "signed-client-packages-real-device-interoperability-and-traffic-capture",
+    "live-mailbox-provider-retention-and-forensics-evidence"
+  ],
+  "manualEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "realAppModerationFlow": "not-run",
+    "signedWindowsAndMacOSPackages": "not-run",
+    "physicalDeviceConsentAndExport": "not-run",
+    "providerUploadDeleteAndRetention": "not-run",
+    "trafficCaptureBeforeAndAfterConsent": "not-run",
+    "memoryCrashDumpAndLogForensics": "not-run",
+    "realCryptoInterop": "not-run-no-selected-stack"
+  },
+  "openProductionGates": ["EPC-001", "EPC-002", "EPC-004", "EPC-005", "TASK-260712-1ulshp"]
+}

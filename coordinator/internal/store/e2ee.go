@@ -95,8 +95,11 @@ type CreateE2EETransferPackageParams struct {
 
 type CreateE2EEReportEvidenceParams struct {
 	ReportID, ProtectedObjectID, ConsentVersion, ConsentDigest string
-	AuthenticatedEvidenceDigest, EncryptedEvidenceRef          string
-	ReporterActorID, RetentionExpiresAt, CreatedAt             int64
+	ReporterDeviceID, AuthenticatedEvidenceDigest              string
+	EncryptedEvidenceRef, AtRestCiphertextDigest               string
+	EvidenceMIME                                               string
+	ReporterActorID, EvidenceSizeBytes, ExpectedReportRevision int64
+	ConsentConfirmedAt, RetentionExpiresAt, CreatedAt          int64
 }
 
 func validE2EEDigest(value string) bool {
@@ -873,46 +876,9 @@ FROM e2ee_groups WHERE id = ? AND current_epoch = ? AND fork_state = 'clean'`, i
 }
 
 func (s *Store) CreateE2EEReportEvidenceMetadata(params CreateE2EEReportEvidenceParams) (string, error) {
-	if len(params.ReportID) < 8 || len(params.ProtectedObjectID) != 29 ||
-		params.ReporterActorID <= 0 || len(params.ConsentVersion) == 0 ||
-		len(params.ConsentVersion) > 128 || !validE2EEDigest(params.ConsentDigest) ||
-		!validE2EEDigest(params.AuthenticatedEvidenceDigest) ||
-		!strings.HasPrefix(params.EncryptedEvidenceRef, "evidence/v1/") ||
-		params.CreatedAt <= 0 || params.RetentionExpiresAt <= params.CreatedAt {
-		return "", ErrE2EEInvalid
-	}
-	tx, err := s.db.Begin()
+	created, err := s.AttachE2EEReportEvidence(params)
 	if err != nil {
 		return "", err
 	}
-	defer tx.Rollback()
-	var groupID string
-	var epoch int64
-	if err := tx.QueryRow(`SELECT group_id, epoch FROM e2ee_protected_objects
-WHERE id = ? AND status IN ('ready', 'revoked')`, params.ProtectedObjectID).Scan(&groupID, &epoch); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", ErrE2EENotFound
-		}
-		return "", err
-	}
-	id := "ere_" + ulid.New(time.UnixMilli(params.CreatedAt))
-	if _, err := tx.Exec(`INSERT INTO e2ee_report_evidence_metadata(
-id, report_id, protected_object_id, reporter_actor_id, consent_version,
-consent_digest, authenticated_evidence_digest, encrypted_evidence_ref,
-retention_expires_at, created_at
-) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, params.ReportID,
-		params.ProtectedObjectID, params.ReporterActorID, params.ConsentVersion,
-		params.ConsentDigest, params.AuthenticatedEvidenceDigest,
-		params.EncryptedEvidenceRef, params.RetentionExpiresAt, params.CreatedAt); err != nil {
-		return "", ErrE2EEConflict
-	}
-	if err := appendE2EEAuditTx(tx, groupID, "report_evidence", id,
-		"report_evidence.record", "accepted", "consented_ciphertext_only",
-		params.ReporterActorID, "", epoch, 1, params.CreatedAt); err != nil {
-		return "", err
-	}
-	if err := tx.Commit(); err != nil {
-		return "", err
-	}
-	return id, nil
+	return created.Evidence.ID, nil
 }

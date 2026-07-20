@@ -325,7 +325,23 @@
 - Hosted CI run `29724092583` passed all four coordinator, NodeCore, Windows and
   packaged-probe jobs; PR #296 merged exact reviewed head to main as
   `c11352b2676e746d18a28e74ac743fc799efeaa0`.
-- Next deferred coding line: E2EE continues with `TASK-260712-2nppt6`, limited
+- macOS encrypted-media client-path producer is complete and awaiting exact-SHA
+  independent review. The production-dark SwiftUI model and surface keep the
+  selected protected path blocked instead of silently selecting plaintext,
+  expose verified-device revoke, current-epoch transfer or explicit user-held
+  recovery, object/epoch/device-bound history grants, irrecoverable-history
+  warning and separate metadata-only versus decrypted-evidence report consent.
+  A dormant composition constructs the accepted key-state, send, playback and
+  live services from exactly one `MacE2EEKeyStateRepository` and retains a
+  required cross-process ownership lease; `main.swift`, capability, provider,
+  suite and container remain dark. Focused Swift passed 6/6, full Swift passed
+  356/356, acceptance contract tests passed 242/242 and the automated harness
+  passed 16/16 at
+  `.temp/acceptance/20260720T074006Z/manifest.json`. Real signed/notarized app,
+  Keychain/provider/codec, device transfer, physical audio/hardware,
+  traffic/memory/crash and moderation-storage evidence remain manual/deferred
+  in `EPIC-260714-th54l3`.
+- Current deferred coding line: E2EE continues with `TASK-260712-2nppt6`, limited
   to the production-dark macOS encrypted-media client integration path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
@@ -333,6 +349,9 @@
   windows-e2ee-live-ptt (dormant engineering scope only)
 - Current branch: `feat/task-260712-2nppt6`
 - Current review evidence:
+  macOS encrypted-media client-path is producer-complete with the evidence
+  above; independent Claude Fable 5 max exact-SHA review is pending and no
+  acceptance credit has been taken yet.
   Windows E2EE live PTT was accepted on exact producer `aee0733` by Claude
   Fable 5 max terminal run `RUN-260720-21d7d3`; verdict resource is
   `TASK-260712-39vjzd_independent-review-verdict.md`. Initial run

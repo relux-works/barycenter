@@ -13,8 +13,8 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: accepted `TASK-260712-2kcduo` delivery/merge, then
-  `TASK-260712-tcwn44` — macos-protected-media-playback in deferred epic
+- Current engineering task: `TASK-260712-tcwn44` —
+  macos-protected-media-playback in deferred epic
   `EPIC-260716-3qsztl`.
 - Current original-plan frontier: `TASK-260712-tcwn44` —
   macos-protected-media-playback in deferred epic `EPIC-260716-3qsztl`.
@@ -222,7 +222,7 @@
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2kcduo` —
   macos-protected-media-send (dormant engineering scope only)
-- Current branch: `feat/task-260712-2kcduo`
+- Current branch: `feat/task-260712-tcwn44`
 - Current review evidence:
   `TASK-260712-2kcduo_review-verdict.md` from Claude Fable 5 max run
   `RUN-260720-cc3c8d` on exact producer commit `30d23de`. The preceding
@@ -3777,7 +3777,8 @@ continues at section 17.
   Producer focused 12/12, full macOS 331/331, acceptance 190/190 and automated
   16/16 passed. Claude Fable 5 max run `RUN-260720-cc3c8d` independently
   ACCEPTED with no Critical/High/Medium finding; all production provider,
-  signed-app, real-crypto/codec and hardware claims remain deferred.)
+  signed-app, real-crypto/codec and hardware claims remain deferred. Hosted CI
+  run `29711284259` passed 4/4 and PR #291 merged as `856e8a0f`.)
 - [ ] `TASK-260712-tcwn44` — macos-protected-media-playback
 - [ ] `TASK-260712-3980vy` — macos-e2ee-live-ptt
 - [ ] `TASK-260712-28zhpl` — windows-protected-media-send

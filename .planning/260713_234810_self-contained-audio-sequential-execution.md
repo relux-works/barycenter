@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 175 accepted, 30 remain.
-- Routed inventory: 186 engineering tasks (175 accepted, 11 remain) and 19
+- Combined inventory: 205 original tasks; 176 accepted, 29 remain.
+- Routed inventory: 186 engineering tasks (176 accepted, 10 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,13 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-1rziyo` —
-  recovery-device-transfer-history-grants in deferred epic
-  `EPIC-260716-3qsztl`; strict production-dark execution started from merged
-  report-evidence main `f9fd2ec965e9b8b3396a10339541ae1327dd6a90`.
-- Current original-plan frontier: `TASK-260712-1rziyo` —
-  recovery-device-transfer-history-grants in deferred epic
+- Current engineering task: accepted `TASK-260712-1rziyo` delivery/merge, then
+  `TASK-260712-2kcduo` — macos-protected-media-send in deferred epic
   `EPIC-260716-3qsztl`.
+- Current original-plan frontier: `TASK-260712-2kcduo` —
+  macos-protected-media-send in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -187,16 +185,32 @@
   remains in `EPIC-260714-th54l3` and production EPC gates remain open.
   Hosted CI run `29709135019` passed all four jobs; PR #289 merged to `main`
   as `f9fd2ec965e9b8b3396a10339541ae1327dd6a90`.
-- Next deferred coding line: E2EE continues with `TASK-260712-1rziyo`, limited
-  to recovery, device transfer and history grants. Every later E2EE implementation
+- E2EE recovery, device transfer and history grants: exact producer commit
+  `94e506629c46473bc890575539750b1a993bbc50` adds production-dark current-epoch
+  opaque transfer packages bound to the exact clean group and full issuer and
+  recipient lineage, explicit one-time or time-bound named-object history
+  grants, atomic expiry/revoke/audit and lost-device rotation. macOS and Windows
+  add explicit fail-closed identity reset plus caller-enumerated bounded expired
+  grant cleanup without relabeling old installation-bound state. Producer full
+  automated harness passed 16/16; focused coordinator and Windows race suites
+  and macOS 11/11 passed. Independent Claude Fable 5 max run
+  `RUN-260720-6193e1` re-ran the complete 16/16 harness at the exact detached
+  SHA and ACCEPTED with no Critical/High/Medium finding. One fail-closed error
+  classification Low and two Info notes are recorded in
+  `TASK-260712-1rziyo_review-verdict.md`. No runtime, production crypto,
+  signed-package, real-device or recoverable-history claim is made; those
+  remain manual/deferred in `EPIC-260714-th54l3`.
+- Next deferred coding line: E2EE continues with `TASK-260712-2kcduo`, limited
+  to the production-dark macOS protected-media send path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-2i0w6x` —
-  report-evidence-moderation-export (dormant engineering scope only)
+- Most recently accepted: `TASK-260712-1rziyo` —
+  recovery-device-transfer-history-grants (dormant engineering scope only)
 - Current branch: `feat/task-260712-1rziyo`
 - Current review evidence:
-  `TASK-260712-2i0w6x_independent-exact-sha-review.md` from Claude Fable 5 max
-  run `RUN-260720-65a670` on exact producer commit `66a34ed`. The preceding
+  `TASK-260712-1rziyo_review-verdict.md` from Claude Fable 5 max run
+  `RUN-260720-6193e1` on exact producer commit `94e5066`. The preceding
+  report evidence run was `RUN-260720-65a670`; the preceding
   Windows key-state review was `RUN-260719-c050cd`; macOS key-state review was
   `RUN-260719-20ab4a`; opaque-router completion was `RUN-260719-91776a`. The Store-package run `RUN-260719-85bf38`
   accepted exact `e3bf985` for engineering scope in
@@ -3725,7 +3739,16 @@ continues at section 17.
   Critical/High/Medium finding. Runtime/storage adapter and all real-app,
   traffic, provider and physical evidence remain deferred. Hosted CI run
   `29709135019` passed 4/4 and PR #289 merged as `f9fd2ec`.)
-- [ ] `TASK-260712-1rziyo` — recovery-device-transfer-history-grants
+- [x] `TASK-260712-1rziyo` — recovery-device-transfer-history-grants (accepted
+  on exact producer commit `94e506629c46473bc890575539750b1a993bbc50`.
+  Current-epoch transfer and explicit bounded history grants are exact-lineage,
+  replay/expiry/revoke/clone fail-closed and content-opaque; lost-device
+  revocation atomically records the required group rotation. macOS/Windows
+  identity reset and expired-grant cleanup remain production-dark. Producer
+  and independent reviewer full harnesses passed 16/16; Claude Fable 5 max run
+  `RUN-260720-6193e1` ACCEPTED with no Critical/High/Medium finding. Real
+  devices, native Keychain/DPAPI, signed packages and production crypto remain
+  manual/deferred.)
 - [ ] `TASK-260712-2kcduo` — macos-protected-media-send
 - [ ] `TASK-260712-tcwn44` — macos-protected-media-playback
 - [ ] `TASK-260712-3980vy` — macos-e2ee-live-ptt

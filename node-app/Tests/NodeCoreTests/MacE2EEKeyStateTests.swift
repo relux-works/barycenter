@@ -115,6 +115,15 @@ private struct MacE2EEKeyStateVectors: Decodable {
   let targetVectors: [Target]
 }
 
+private struct MacE2EERecoveryVectors: Decodable {
+  let contract: String
+  let status: String
+  let transferMaxTtlMs: Int64
+  let historyMaxTtlMs: Int64
+  let localCleanupMaxGrants: Int
+  let failClosed: [String]
+}
+
 private func keyStateVectorsURL() -> URL {
   URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
@@ -129,6 +138,16 @@ private func loadKeyStateVectors() throws -> MacE2EEKeyStateVectors {
   decoder.keyDecodingStrategy = .convertFromSnakeCase
   return try decoder.decode(
     MacE2EEKeyStateVectors.self, from: Data(contentsOf: keyStateVectorsURL()))
+}
+
+private func loadRecoveryVectors() throws -> MacE2EERecoveryVectors {
+  let decoder = JSONDecoder()
+  decoder.keyDecodingStrategy = .convertFromSnakeCase
+  return try decoder.decode(
+    MacE2EERecoveryVectors.self,
+    from: Data(
+      contentsOf: keyStateVectorsURL().deletingLastPathComponent()
+        .appendingPathComponent("e2ee-recovery-v1-vectors.json")))
 }
 
 private func makeKeyStateRepository(
@@ -214,6 +233,17 @@ private func installGroup(
         signingPrivateKey: Data(repeating: 0x91, count: 32),
         keyAgreementPrivateKey: Data(repeating: 0xA2, count: 32), createdAtMS: 1000)
     }
+    let reset = try repository.resetDeviceIdentityForReenrollment(
+      expectedDeviceID: vectors.deviceId)
+    #expect(reset)
+    #expect(throws: MacE2EEKeyStateFailure.notFound) {
+      _ = try repository.loadDeviceIdentity(deviceID: vectors.deviceId)
+    }
+    let replacement = try repository.installDeviceIdentity(
+      deviceID: vectors.deviceId, keyFormat: vectors.keyFormat,
+      signingPrivateKey: Data(repeating: 0x93, count: 32),
+      keyAgreementPrivateKey: Data(repeating: 0xA4, count: 32), createdAtMS: 1100)
+    #expect(replacement.revision == 1)
   }
 
   @Test func sharedEpochGenerationReplayAndForkVectorsFailClosed() throws {
@@ -363,6 +393,39 @@ private func installGroup(
     #expect(throws: MacE2EEKeyStateFailure.notFound) {
       _ = try fixture.repository.loadGrant(
         installationID: fixture.identity.installationID, grantID: grant.grantID, nowMS: 2000)
+    }
+  }
+
+  @Test func expiredGrantCleanupIsCallerScopedAndBounded() throws {
+    let vectors = try loadRecoveryVectors()
+    #expect(vectors.contract == "e2ee-recovery.v1")
+    #expect(vectors.status == "production-disabled")
+    #expect(vectors.transferMaxTtlMs == 900_000)
+    #expect(vectors.historyMaxTtlMs == 2_592_000_000)
+    #expect(vectors.localCleanupMaxGrants == 100)
+    #expect(vectors.failClosed.count == 10)
+    let fixture = try makeKeyStateRepository()
+    for (grantID, expiry) in [("grant-expired", Int64(3000)), ("grant-active", Int64(6000))] {
+      _ = try fixture.repository.storeGrant(
+        installationID: fixture.identity.installationID, grantID: grantID,
+        groupID: fixture.vectors.groupId, firstEpoch: 7, lastEpoch: 7,
+        expiresAtMS: expiry, opaqueGrant: Data(repeating: 0xD7, count: 32),
+        expectedRevision: 0, nowMS: 2000)
+    }
+    let result = try fixture.repository.cleanupExpiredGrants(
+      installationID: fixture.identity.installationID,
+      grantIDs: ["grant-expired", "grant-active", "grant-expired"], nowMS: 4000)
+    #expect(result == MacE2EEGrantCleanupResult(inspected: 2, deleted: 1))
+    #expect(throws: MacE2EEKeyStateFailure.notFound) {
+      _ = try fixture.repository.loadGrant(
+        installationID: fixture.identity.installationID, grantID: "grant-expired", nowMS: 2500)
+    }
+    _ = try fixture.repository.loadGrant(
+      installationID: fixture.identity.installationID, grantID: "grant-active", nowMS: 4000)
+    #expect(throws: MacE2EEKeyStateFailure.invalid) {
+      _ = try fixture.repository.cleanupExpiredGrants(
+        installationID: fixture.identity.installationID,
+        grantIDs: (0...100).map { "grant-\($0)" }, nowMS: 4000)
     }
   }
 

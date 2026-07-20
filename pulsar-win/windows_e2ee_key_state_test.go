@@ -43,6 +43,28 @@ type windowsE2EEVectors struct {
 	} `json:"target_vectors"`
 }
 
+type windowsE2EERecoveryVectors struct {
+	Contract              string   `json:"contract"`
+	Status                string   `json:"status"`
+	TransferMaxTTLMS      int64    `json:"transfer_max_ttl_ms"`
+	HistoryMaxTTLMS       int64    `json:"history_max_ttl_ms"`
+	LocalCleanupMaxGrants int      `json:"local_cleanup_max_grants"`
+	FailClosed            []string `json:"fail_closed"`
+}
+
+func loadWindowsE2EERecoveryVectors(t testing.TB) windowsE2EERecoveryVectors {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "protocol", "e2ee-recovery-v1-vectors.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vectors windowsE2EERecoveryVectors
+	if err := json.Unmarshal(raw, &vectors); err != nil {
+		t.Fatal(err)
+	}
+	return vectors
+}
+
 type windowsE2EEFixture struct {
 	repository *WindowsE2EEKeyStateRepository
 	files      *testSecureFileOps
@@ -173,6 +195,18 @@ func TestWindowsE2EEPartialDeviceInstallFailsClosed(t *testing.T) {
 	_, err = repository.InstallDeviceIdentity(vectors.DeviceID, vectors.KeyFormat, bytes.Repeat([]byte{1}, 32), bytes.Repeat([]byte{2}, 32), 1000)
 	if !errors.Is(err, ErrWindowsE2EERollbackOrClone) {
 		t.Fatalf("retry err=%v", err)
+	}
+	reset, err := repository.ResetDeviceIdentityForReenrollment(vectors.DeviceID)
+	if err != nil || !reset {
+		t.Fatalf("reset=%v err=%v", reset, err)
+	}
+	if _, err := repository.LoadDeviceIdentity(vectors.DeviceID); !errors.Is(err, ErrWindowsE2EENotFound) {
+		t.Fatalf("identity after reset err=%v", err)
+	}
+	replacement, err := repository.InstallDeviceIdentity(vectors.DeviceID, vectors.KeyFormat,
+		bytes.Repeat([]byte{3}, 32), bytes.Repeat([]byte{4}, 32), 1100)
+	if err != nil || replacement.Revision != 1 {
+		t.Fatalf("replacement=%+v err=%v", replacement, err)
 	}
 }
 
@@ -329,6 +363,48 @@ func TestWindowsE2EEGrantsAreMonotonicExpiringAndRevocable(t *testing.T) {
 	}
 	if _, _, err := fixture.repository.LoadGrant(fixture.identity.InstallationID, grant.GrantID, 2000); !errors.Is(err, ErrWindowsE2EENotFound) {
 		t.Fatalf("revoked err=%v", err)
+	}
+}
+
+func TestWindowsE2EEExpiredGrantCleanupIsCallerScopedAndBounded(t *testing.T) {
+	vectors := loadWindowsE2EERecoveryVectors(t)
+	if vectors.Contract != "e2ee-recovery.v1" || vectors.Status != "production-disabled" ||
+		vectors.LocalCleanupMaxGrants != 100 || len(vectors.FailClosed) != 10 {
+		t.Fatalf("recovery vectors=%+v", vectors)
+	}
+	fixture := newWindowsE2EEFixture(t, 0x42)
+	for _, item := range []struct {
+		id     string
+		expiry int64
+	}{{"grant-expired", 3000}, {"grant-active", 6000}} {
+		if _, err := fixture.repository.StoreGrant(fixture.identity.InstallationID,
+			item.id, fixture.vectors.GroupID, 7, 7, item.expiry,
+			bytes.Repeat([]byte{0xD7}, 32), 0, 2000); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result, err := fixture.repository.CleanupExpiredGrants(fixture.identity.InstallationID,
+		[]string{"grant-expired", "grant-active", "grant-expired"}, 4000)
+	if err != nil || result != (WindowsE2EEGrantCleanupResult{Inspected: 2, Deleted: 1}) {
+		t.Fatalf("cleanup=%+v err=%v", result, err)
+	}
+	if _, _, err := fixture.repository.LoadGrant(fixture.identity.InstallationID,
+		"grant-expired", 2500); !errors.Is(err, ErrWindowsE2EENotFound) {
+		t.Fatalf("expired grant after cleanup err=%v", err)
+	}
+	if _, lease, err := fixture.repository.LoadGrant(fixture.identity.InstallationID,
+		"grant-active", 4000); err != nil {
+		t.Fatal(err)
+	} else {
+		lease.Destroy()
+	}
+	tooMany := make([]string, 101)
+	for i := range tooMany {
+		tooMany[i] = fmt.Sprintf("grant-%03d", i)
+	}
+	if _, err := fixture.repository.CleanupExpiredGrants(fixture.identity.InstallationID,
+		tooMany, 4000); !errors.Is(err, ErrWindowsE2EEInvalid) {
+		t.Fatalf("unbounded cleanup err=%v", err)
 	}
 }
 

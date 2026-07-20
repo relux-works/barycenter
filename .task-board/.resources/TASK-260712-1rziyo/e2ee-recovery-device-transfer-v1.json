@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-e2ee-recovery-device-transfer.v1",
+  "task": "TASK-260712-1rziyo",
+  "publishedAt": "2026-07-20",
+  "decision": {
+    "result": "production-dark-explicit-current-epoch-transfer-and-history-grants",
+    "productionEnabled": false,
+    "runtimeHTTPWired": false,
+    "capabilityAdvertised": false,
+    "productionCryptoSelected": false,
+    "coordinatorDecryptsOrUnwraps": false,
+    "historicalKeysByDefault": false,
+    "manualDeviceEvidenceAccepted": false,
+    "deltaReviewRequired": true
+  },
+  "artifacts": [
+    {"id":"foundation-repository","path":"coordinator/internal/store/e2ee.go","sha256":"7c5865a1e844e6422b3722dc7e87863a640fcac3ef02a160f4cda73ccbccc773"},
+    {"id":"recovery-schema","path":"coordinator/internal/store/e2ee_recovery_schema.go","sha256":"8655506bbf86abc3767b7cf60096d2376b655e9ac796d3d02072009029eea99a"},
+    {"id":"recovery-repository","path":"coordinator/internal/store/e2ee_recovery.go","sha256":"6e322603029f1e479a1495b58721367b656df827b6e677f19af65f3a28783927"},
+    {"id":"routing-repository","path":"coordinator/internal/store/e2ee_routing.go","sha256":"bbe3bef5e84164806bc7af92885af949b7e7fa6e1c7c6f15c239e9da5c071d2b"},
+    {"id":"coordinator-tests","path":"coordinator/internal/store/e2ee_recovery_test.go","sha256":"87dd28c4e4de44fb5a0efbd23e33802378e97b760d2579f11ba09cd1c995970b"},
+    {"id":"macos-repository","path":"node-app/Sources/NodeCore/MacE2EEKeyState.swift","sha256":"379b82e7462e2be0a803e22f72dd474e63f4395aac5777cd2e12ce8c355b971d"},
+    {"id":"macos-tests","path":"node-app/Tests/NodeCoreTests/MacE2EEKeyStateTests.swift","sha256":"a51f816953cf2ca419f821d367190181dfeae0b3d78e590958b8b9c1a4051734"},
+    {"id":"windows-repository","path":"pulsar-win/windows_e2ee_key_state.go","sha256":"5e56ab84c3db478795e7421e1ab136e137f411170a3cd949856404ca57c13d4f"},
+    {"id":"windows-tests","path":"pulsar-win/windows_e2ee_key_state_test.go","sha256":"9c8df7eb35a162d098b26f6965f365dbe96ad44cca214ed32882f7f50fa8c5e8"},
+    {"id":"vectors","path":"protocol/e2ee-recovery-v1-vectors.json","sha256":"c15b1404140cf12c05707ab3b0452abbbe9708593a9af52f134147a09b49f3a5"},
+    {"id":"adr","path":"docs/analysis/p3-e2ee-recovery-device-transfer-history-grants-v1.md","sha256":"0df2727cec989b2ff27f11699ad66f3ec41118862bde413d2d4b9147ce291699"}
+  ],
+  "bounds": {
+    "transferTTLMS": 900000,
+    "historyTTLMS": 2592000000,
+    "historyMaxReads": 32,
+    "coordinatorExpiryBatch": 1000,
+    "localCleanupGrantIDs": 100
+  },
+  "invariants": [
+    "device-transfer-and-recovery-require-two-distinct-current-devices-in-one-orbit",
+    "welcome-requires-an-exact-current-air-member-device",
+    "transfer-is-bound-to-current-clean-epoch-target-and-device-lineage",
+    "transfer-consume-is-atomic-one-time-and-content-opaque",
+    "transfer-never-creates-a-history-grant",
+    "history-access-requires-an-explicit-named-ready-object-grant",
+    "history-grants-are-one-time-or-time-bound-with-an-atomic-read-budget",
+    "issuer-and-recipient-lineage-are-rechecked-on-history-access",
+    "device-revocation-revokes-artifacts-and-requires-group-rotation-atomically",
+    "identity-reset-does-not-relabel-old-installation-bound-state",
+    "coordinator-and-local-expiry-cleanup-are-bounded",
+    "no-runtime-capability-production-crypto-or-manual-device-claim"
+  ],
+  "fixtures": {
+    "sharedPolicyVectors": "covered",
+    "currentEpochWelcomeOneTime": "covered",
+    "foreignRecipientDenied": "covered",
+    "crossOrbitDeviceTransferDenied": "covered",
+    "recipientRevisionCloneDenied": "covered",
+    "sameUserCurrentEpochTransfer": "covered",
+    "implicitHistoryGrantAbsent": "covered",
+    "oneTimeHistoryRead": "covered",
+    "concurrentOneTimeRead": "covered",
+    "explicitRequesterRevocation": "covered",
+    "boundedCoordinatorExpiry": "covered",
+    "lostDeviceArtifactRevocationAndRotation": "covered",
+    "checkpointRollback": "covered",
+    "legacyUnboundEntryDenied": "covered",
+    "macosPartialIdentityReset": "covered",
+    "windowsPartialIdentityReset": "covered",
+    "macosBoundedExpiredGrantCleanup": "covered",
+    "windowsBoundedExpiredGrantCleanup": "covered"
+  },
+  "automatedEvidence": {
+    "coordinatorFocused": "go test ./internal/store -run 'Test(E2EERecovery|E2EEHistoryGrant|E2EESameUser|E2EEOneTime|LegacyUnboundE2EE)' -count=1",
+    "coordinatorFocusedRace": "go test -race ./internal/store -run 'Test(E2EERecovery|E2EEHistoryGrant|E2EESameUser|E2EEOneTime|LegacyUnboundE2EE)' -count=1",
+    "windowsFocused": "go test ./... -run TestWindowsE2EE -count=1",
+    "windowsFocusedRace": "go test -race ./... -run TestWindowsE2EE -count=1",
+    "macosFocused": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --filter MacE2EEKeyStateTests",
+    "acceptance": "python3 -m unittest scripts.acceptance.test_e2ee_recovery_device_transfer"
+  },
+  "deferredScope": [
+    "authenticated-http-runtime-and-verified-device-request-binding",
+    "client-produced-and-consumed-cryptographic-transfer-container",
+    "user-held-recovery-capability-and-approval-ux",
+    "production-crypto-library-suite-container-and-signature-verifier",
+    "signed-client-packages-real-device-keychain-dpapi-and-interoperability",
+    "irreversible-history-loss-and-device-replacement-product-ux"
+  ],
+  "manualEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "physicalDeviceTransfer": "not-run",
+    "realKeychainAndDPAPIReset": "not-run",
+    "signedPackageRecovery": "not-run",
+    "crossDeviceCryptographicInterop": "not-run-no-selected-stack",
+    "lostDeviceAndIrrecoverableHistoryUX": "not-run",
+    "trafficCaptureAndMemoryForensics": "not-run",
+    "realCryptoHistoryGrantScope": "not-run-no-selected-stack"
+  },
+  "openProductionGates": ["EPC-001", "EPC-002", "EPC-004", "EPC-005", "TASK-260712-1ulshp"]
+}

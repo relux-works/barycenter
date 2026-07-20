@@ -276,44 +276,18 @@ func TestE2EEReplaySequenceGenerationAndNonceStateSurviveRestart(t *testing.T) {
 	}
 }
 
-func TestE2EEGrantTransferReportAndRevokeRace(t *testing.T) {
+func TestLegacyUnboundE2EERecoveryAndReportCallsFailClosed(t *testing.T) {
 	fixture := newE2EEStoreFixture(t)
 	grantPayload := []byte{0x88, 0x21, 0x45, 0x7f}
-	grant, err := fixture.store.CreateE2EEHistoryGrant(CreateE2EEHistoryGrantParams{
+	if _, err := fixture.store.CreateE2EEHistoryGrant(CreateE2EEHistoryGrantParams{
 		GroupID: fixture.group.ID, IssuedByDeviceID: "device_owner_verified_0001",
 		RecipientDeviceID: "device_recipient_verified_1",
 		SourceObjectID:    "source_track_0000000000001", FirstEpoch: 3,
 		LastEpoch: fixture.group.CurrentEpoch, TargetSnapshotDigest: fixture.group.TargetSnapshotDigest,
 		EncryptedGrant: grantPayload, GrantDigest: e2eeDigest(grantPayload),
 		IssuedAt: fixture.now + 40, ExpiresAt: fixture.now + 4000,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var wg sync.WaitGroup
-	results := make(chan error, 2)
-	for i := 0; i < 2; i++ {
-		wg.Add(1)
-		go func(offset int64) {
-			defer wg.Done()
-			_, err := fixture.store.RevokeE2EEHistoryGrant(grant.ID, grant.Revision, fixture.now+41+offset)
-			results <- err
-		}(int64(i))
-	}
-	wg.Wait()
-	close(results)
-	var revoked, lost int
-	for err := range results {
-		if err == nil {
-			revoked++
-		} else if errors.Is(err, ErrE2EERevoked) || errors.Is(err, ErrE2EEConflict) {
-			lost++
-		} else {
-			t.Fatalf("grant race error=%v", err)
-		}
-	}
-	if revoked != 1 || lost != 1 {
-		t.Fatalf("grant race revoked=%d lost=%d", revoked, lost)
+	}); !errors.Is(err, ErrE2EEInvalid) {
+		t.Fatalf("unbound legacy history grant error=%v", err)
 	}
 
 	packagePayload := []byte{0xa1, 0x08, 0x77, 0xc4}
@@ -323,8 +297,8 @@ func TestE2EEGrantTransferReportAndRevokeRace(t *testing.T) {
 		RecipientDeviceID: "device_recipient_verified_1", Epoch: fixture.group.CurrentEpoch,
 		EncryptedPackage: packagePayload, PackageDigest: e2eeDigest(packagePayload),
 		CreatedAt: fixture.now + 50, ExpiresAt: fixture.now + 5000,
-	}); err != nil {
-		t.Fatal(err)
+	}); !errors.Is(err, ErrE2EEInvalid) {
+		t.Fatalf("unbound legacy transfer package error=%v", err)
 	}
 	object, err := fixture.store.StageE2EEProtectedObject(e2eeObjectParams(
 		fixture, "source_clip_report_00000001", fixture.now+51,

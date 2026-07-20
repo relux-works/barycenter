@@ -17,8 +17,8 @@
     "deltaReviewRequired": true
   },
   "artifacts": [
-    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"b869346c51d5e7be80e8f8e7eaf15894248d247a02f2c71126f6364f058ccd51"},
-    {"id":"foundation-repository","path":"coordinator/internal/store/e2ee.go","sha256":"4f5322abf41e2db5cf31ccbb492d6ea53ceec5239720980cf5803be1ab1b3269"},
+    {"id":"schema","path":"coordinator/internal/store/e2ee_schema.go","sha256":"7a62a2894dbee01c45e050a51100cc1b6a87ab0761eb4b314ba944596984b9c6"},
+    {"id":"foundation-repository","path":"coordinator/internal/store/e2ee.go","sha256":"7c5865a1e844e6422b3722dc7e87863a640fcac3ef02a160f4cda73ccbccc773"},
     {"id":"opaque-object-router","path":"coordinator/internal/store/e2ee_media_router.go","sha256":"09b950a18a44616e51fee86b7119a6b99c4f3107bed8ad16278c81ede0f6171d"},
     {"id":"opaque-live-router","path":"coordinator/internal/store/e2ee_live_router.go","sha256":"54c74d16a6c715e5d97e5b0f58516d35f9ce7abf0499cf799ccfb9a7561a5745"},
     {"id":"opaque-router-tests","path":"coordinator/internal/store/e2ee_media_router_test.go","sha256":"0ea5f2213d21adac15281be3b27fdbddc747300a9bf8df4614ebfe430d873de5"},
@@ -28,8 +28,8 @@
     {"id":"protocol-vectors","path":"protocol/e2ee-media-audit-v1-vectors.json","sha256":"2a8c71b909b2117921a6ee6b5415229ee8328e047f3c8f19d0db48e58fbf37cd"},
     {"id":"threat-model","path":"acceptance/phase3/e2ee-threat-model-v1.json","sha256":"a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
     {"id":"key-lifecycle-packet","path":"acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json","sha256":"6015b911f8e83c8228c4c3f3b763c2e9852c2ea7f773be488d45ced0fc80578c"},
-    {"id":"schema-foundation-packet","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"25e6945eed4fd429c37968048f83b48fef0ca6f366e89eaed7e50b0ef7b15db9"},
-    {"id":"routing-rotation-packet","path":"acceptance/phase3/e2ee-coordinator-routing-rotation-v1.json","sha256":"3c815dec453d10b86d9b2dc24356e723f8a7c548651675772dd75e13bf32d423"},
+    {"id":"schema-foundation-packet","path":"acceptance/phase3/e2ee-schema-epoch-foundation-v1.json","sha256":"2aebe9f21d98ef72dce15474fcafd1feca627941d28d3c9edd4edea9d813bfb8"},
+    {"id":"routing-rotation-packet","path":"acceptance/phase3/e2ee-coordinator-routing-rotation-v1.json","sha256":"2aba02b2e3adcee9a6c283711d03f2165b31f9f34489b9820aa134a610aaae6c"},
     {"id":"adr","path":"docs/analysis/p3-e2ee-opaque-media-router-v1.md","sha256":"17c8b21721a5bec9b58b7734675e4a9babbf60ae0e48fd0aa640ff8d367cf2ef"}
   ],
   "additiveTables": [

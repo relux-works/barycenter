@@ -2,11 +2,12 @@
 
 Date: 2026-07-20 (Asia/Tbilisi)
 
-Status: IN PROGRESS — WAITING FOR SECOND PHYSICAL MICROPHONE BEFORE H00. Ivan
+Status: IN PROGRESS — OWNER-APPROVED BUILT-IN MICROPHONE PROFILE. Ivan
 Oparin confirmed `mbpro-win` as the physical Windows 10 host and authorized
 this row first with maximum autonomous execution. SSH, sanitized preflight,
-exact package transfer and WACK preparation are complete. Windows 11 is
-intentionally deferred for this pass. No H00-H17 verdict is claimed yet.
+exact package transfer and WACK preparation are complete. Ivan Oparin then
+limited this pass to the built-in microphone. Windows 11 is intentionally
+deferred for this pass. No H00-H17 verdict is claimed yet.
 
 ## Current exact build
 
@@ -114,7 +115,8 @@ as the dedicated local `admin` account. The sanitized receipt records:
 - Developer Mode off;
 - built-in `Internal Microphone (Cirrus Logic CS8409 (AB 54))` and physical
   Cirrus Logic speakers present and healthy;
-- no second removable/selectable physical input yet.
+- no second removable/selectable physical input; the owner explicitly chose
+  the built-in-only profile for this pass.
 
 The owner-selected host is recorded as a test-only `ApprovedException` posture
 with decision reference `Ivan Oparin 2026-07-20: mbpro-win Windows 10 host
@@ -130,8 +132,18 @@ has valid Microsoft Authenticode and SHA-256
 The exact MSIX and metadata are staged on the physical host. The Windows-side
 MSIX SHA-256 matches `a53253f3...b7e6`. The package remains uninstalled and its
 test signer remains untrusted so H00 can begin from the required clean state.
-Evidence-kit initialization is correctly deferred until a second distinct
-physical microphone appears in the AudioEndpoint inventory.
+Evidence-kit initialization uses the recorded single-input exception with the
+built-in input as both default and selected. The harness forbids `PASS` for
+H04, H08 and H12 under this profile; those rows must be `BLOCKED` with the
+distinct/removable-device next action. All other applicable scenarios proceed
+in strict order beginning with clean H00.
+
+The immutable run directory `win10-single-input-physical-a` has now been
+initialized successfully from the clean package/trust state. Its boundary is
+initialized-only and no scenario is passed. A pre-run hotkey probe from the
+OpenSSH service session (session 0) found `Ctrl+Shift+R` unavailable while the
+physical console is session 1; H05 therefore remains undecided until exercised
+inside the active console session. This does not block H00-H04 ordering.
 
 ## Exact manual execution request
 

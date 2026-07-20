@@ -38,8 +38,11 @@
   Developer Mode off, with built-in microphone/output present. The exact MSIX
   is staged and re-hashed on Windows. Microsoft WACK 10.0.28000.2270 was
   installed with valid Authenticode, no reboot and no Developer Mode change.
-  H00 remains clean and unstarted because a second removable/selectable
-  physical input is not present; this does not change the `0/36` result.
+  Ivan Oparin explicitly limited this pass to the built-in microphone. A
+  recorded single-input exception allows H00 and all applicable scenarios to
+  proceed while structurally forbidding `PASS` for H04, H08 and H12; those
+  rows remain honest `BLOCKED` until distinct/removable hardware exists. This
+  owner decision does not by itself change the `0/36` result.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate

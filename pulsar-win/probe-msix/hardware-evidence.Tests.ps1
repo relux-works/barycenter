@@ -159,6 +159,49 @@ $Windows11 = Assert-ProbeHostIdentity `
     -ConsoleOperatorAttested $true
 Assert-True ($Windows11 -ceq "windows11-currently-serviced-operator-attested") "Windows 11 posture mismatch"
 
+$DistinctInputs = Assert-ProbeAudioEndpointPlan `
+    -OutputEndpointName "Speakers" `
+    -DefaultInputName "Internal Microphone" `
+    -SelectedInputName "USB Microphone" `
+    -SingleInputApprovedException $false
+Assert-True ($DistinctInputs -ceq "distinct-default-and-selected-inputs") "distinct input posture mismatch"
+
+$SingleInput = Assert-ProbeAudioEndpointPlan `
+    -OutputEndpointName "Speakers" `
+    -DefaultInputName "Internal Microphone" `
+    -SelectedInputName "Internal Microphone" `
+    -SingleInputApprovedException $true `
+    -SingleInputDecisionReference "Ivan Oparin 2026-07-20: built-in microphone only"
+Assert-True ($SingleInput -ceq "single-input-owner-approved") "single input posture mismatch"
+Assert-Throws {
+    Assert-ProbeAudioEndpointPlan `
+        -OutputEndpointName "Speakers" `
+        -DefaultInputName "Internal Microphone" `
+        -SelectedInputName "Internal Microphone" `
+        -SingleInputApprovedException $false
+} "distinct physical endpoints"
+Assert-Throws {
+    Assert-ProbeAudioEndpointPlan `
+        -OutputEndpointName "Speakers" `
+        -DefaultInputName "Internal Microphone" `
+        -SelectedInputName "Internal Microphone" `
+        -SingleInputApprovedException $true
+} "owner-decision reference"
+Assert-ProbeScenarioVerdictForInputPosture `
+    -InputPosture "single-input-owner-approved" `
+    -Scenario H03 `
+    -Verdict PASS
+Assert-ProbeScenarioVerdictForInputPosture `
+    -InputPosture "single-input-owner-approved" `
+    -Scenario H04 `
+    -Verdict BLOCKED
+Assert-Throws {
+    Assert-ProbeScenarioVerdictForInputPosture `
+        -InputPosture "single-input-owner-approved" `
+        -Scenario H04 `
+        -Verdict PASS
+} "cannot PASS"
+
 $TemporaryRoot = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
     [IO.Path]::GetTempPath()
 } else {
@@ -241,7 +284,7 @@ try {
     $ManifestRoot = Join-Path $TestRoot "manifest"
     New-Item -ItemType Directory -Path $ManifestRoot | Out-Null
     [IO.File]::WriteAllText((Join-Path $ManifestRoot "safe.txt"), "safe", [Text.UTF8Encoding]::new($false))
-    $Manifest = Get-ProbeEvidenceFileManifest -Root $ManifestRoot
+    $Manifest = @(Get-ProbeEvidenceFileManifest -Root $ManifestRoot)
     Assert-True ($Manifest.Count -eq 1 -and $Manifest[0].relativeFile -ceq "safe.txt") "safe manifest mismatch"
     [IO.File]::WriteAllText((Join-Path $ManifestRoot "signer.cer"), "public cert export", [Text.UTF8Encoding]::new($false))
     Assert-Throws { Get-ProbeEvidenceFileManifest -Root $ManifestRoot } "forbidden"

@@ -439,6 +439,62 @@ function Assert-ProbeHostIdentity {
     "windows11-currently-serviced-operator-attested"
 }
 
+function Assert-ProbeAudioEndpointPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$OutputEndpointName,
+        [Parameter(Mandatory = $true)][string]$DefaultInputName,
+        [Parameter(Mandatory = $true)][string]$SelectedInputName,
+        [Parameter(Mandatory = $true)][bool]$SingleInputApprovedException,
+        [string]$SingleInputDecisionReference = ""
+    )
+
+    if ([string]::IsNullOrWhiteSpace($OutputEndpointName) -or
+        [string]::IsNullOrWhiteSpace($DefaultInputName) -or
+        [string]::IsNullOrWhiteSpace($SelectedInputName) -or
+        $OutputEndpointName -ieq $DefaultInputName -or
+        $OutputEndpointName -ieq $SelectedInputName) {
+        throw "output and input endpoint names must be non-empty and physically distinct"
+    }
+    if ($SingleInputApprovedException) {
+        if ($DefaultInputName -ine $SelectedInputName) {
+            throw "single-input exception requires selected input to equal the default physical input"
+        }
+        if ([string]::IsNullOrWhiteSpace($SingleInputDecisionReference) -or
+            $SingleInputDecisionReference.Length -gt 256 -or
+            $SingleInputDecisionReference.Contains("`n") -or
+            $SingleInputDecisionReference.Contains("`r")) {
+            throw "single-input exception requires a concise recorded owner-decision reference"
+        }
+        Assert-ProbeEvidenceValueSafe `
+            -Value $SingleInputDecisionReference `
+            -PropertyName "singleInputDecisionReference"
+        return "single-input-owner-approved"
+    }
+    if ($DefaultInputName -ieq $SelectedInputName) {
+        throw "default and selected inputs must identify distinct physical endpoints without an approved exception"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($SingleInputDecisionReference)) {
+        throw "single-input decision reference requires -SingleInputApprovedException"
+    }
+    "distinct-default-and-selected-inputs"
+}
+
+function Assert-ProbeScenarioVerdictForInputPosture {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$InputPosture,
+        [Parameter(Mandatory = $true)][ValidateSet("H00", "H01", "H02", "H03", "H04", "H05", "H06", "H07", "H08", "H09", "H10", "H11", "H12", "H13", "H14", "H15", "H16", "H17")][string]$Scenario,
+        [Parameter(Mandatory = $true)][ValidateSet("PASS", "FAIL", "BLOCKED")][string]$Verdict
+    )
+
+    if ($InputPosture -ceq "single-input-owner-approved" -and
+        $Scenario -cin @("H04", "H08", "H12") -and
+        $Verdict -ceq "PASS") {
+        throw "$Scenario cannot PASS under the single-input exception; record BLOCKED with the distinct-device next action"
+    }
+}
+
 function Get-ProbeHardwareHostEvidence {
     [CmdletBinding()]
     param(
@@ -448,6 +504,8 @@ function Get-ProbeHardwareHostEvidence {
         [Parameter(Mandatory = $true)][string]$OutputEndpointName,
         [Parameter(Mandatory = $true)][string]$DefaultInputName,
         [Parameter(Mandatory = $true)][string]$SelectedInputName,
+        [bool]$SingleInputApprovedException = $false,
+        [string]$SingleInputDecisionReference = "",
         [ValidateSet("EnterpriseLTSC2021", "ApprovedException")][string]$Windows10Posture = "EnterpriseLTSC2021",
         [string]$SupportDecisionReference = ""
     )
@@ -455,14 +513,12 @@ function Get-ProbeHardwareHostEvidence {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
         throw "hardware evidence host collection is Windows-only"
     }
-    if ([string]::IsNullOrWhiteSpace($OutputEndpointName) -or
-        [string]::IsNullOrWhiteSpace($DefaultInputName) -or
-        [string]::IsNullOrWhiteSpace($SelectedInputName) -or
-        $OutputEndpointName -ieq $DefaultInputName -or
-        $OutputEndpointName -ieq $SelectedInputName -or
-        $DefaultInputName -ieq $SelectedInputName) {
-        throw "output, default input, and selected input names must identify three distinct physical endpoints"
-    }
+    $InputPosture = Assert-ProbeAudioEndpointPlan `
+        -OutputEndpointName $OutputEndpointName `
+        -DefaultInputName $DefaultInputName `
+        -SelectedInputName $SelectedInputName `
+        -SingleInputApprovedException $SingleInputApprovedException `
+        -SingleInputDecisionReference $SingleInputDecisionReference
 
     $CurrentVersion = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
     $OperatingSystem = Get-CimInstance Win32_OperatingSystem
@@ -576,6 +632,8 @@ function Get-ProbeHardwareHostEvidence {
         outputEndpointName = $OutputEndpointName
         defaultInputName = $DefaultInputName
         selectedInputName = $SelectedInputName
+        inputPosture = $InputPosture
+        singleInputDecisionReference = if ([string]::IsNullOrWhiteSpace($SingleInputDecisionReference)) { $null } else { $SingleInputDecisionReference }
         audioEndpoints = @($AudioEndpoints)
         audioDrivers = @($AudioDrivers)
         recentHotfixes = @($Hotfixes)

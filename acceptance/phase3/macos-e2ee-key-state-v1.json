@@ -17,7 +17,7 @@
     "deltaReviewRequired": true
   },
   "artifacts": [
-    {"id":"repository","path":"node-app/Sources/NodeCore/MacE2EEKeyState.swift","sha256":"c10d1923539e5ad262d69e0c6747a3f2dace72526ed9be5dbd79e404e46f85e1"},
+    {"id":"repository","path":"node-app/Sources/NodeCore/MacE2EEKeyState.swift","sha256":"91259930498e868039e3efb5eaaeb4d558375b789f6f5c48f657ad78e27de5cb"},
     {"id":"repository-tests","path":"node-app/Tests/NodeCoreTests/MacE2EEKeyStateTests.swift","sha256":"a51f816953cf2ca419f821d367190181dfeae0b3d78e590958b8b9c1a4051734"},
     {"id":"state-vectors","path":"protocol/e2ee-key-state-v1-vectors.json","sha256":"846685c8c16dea57d3b0e4022b08e72615e4cd9fa2149e76c8168e5f5d693326"},
     {"id":"adr","path":"docs/analysis/p3-macos-e2ee-key-state-v1.md","sha256":"a92438d509730a991ffac80953155b8ee61931ed757f5b0e02cff94fb3869c8d"},

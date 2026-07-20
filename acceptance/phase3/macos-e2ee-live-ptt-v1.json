@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-macos-e2ee-live-ptt.v1",
+  "task": "TASK-260712-3980vy",
+  "publishedAt": "2026-07-20",
+  "decision": {
+    "result": "production-dark-macos-e2ee-live-ptt-foundation",
+    "productionEnabled": false,
+    "runtimeHTTPWired": false,
+    "capabilityAdvertised": false,
+    "productionLibrarySelected": false,
+    "productionSuiteSelected": false,
+    "auditFixtureOnly": true,
+    "plaintextFallbackAllowed": false,
+    "coordinatorDecryptsSpeech": false,
+    "coordinatorPersistsLiveFrames": false,
+    "signedPackageTested": false,
+    "deltaReviewRequired": true
+  },
+  "artifacts": [
+    {"id":"live-bridge","path":"node-app/Sources/NodeCore/MacE2EELivePTT.swift","sha256":"8f30a182c5c41eee3cfc7d4c46a7dde7c2a0da5a1a9e459c37dd204549556605"},
+    {"id":"key-state","path":"node-app/Sources/NodeCore/MacE2EEKeyState.swift","sha256":"91259930498e868039e3efb5eaaeb4d558375b789f6f5c48f657ad78e27de5cb"},
+    {"id":"live-tests","path":"node-app/Tests/NodeCoreTests/MacE2EELivePTTTests.swift","sha256":"bd2fefaa0d5cd4a7a6ed69d93d3c2eaff3f86d4264a220228d4acac3d933e988"},
+    {"id":"live-vectors","path":"protocol/macos-e2ee-live-ptt-v1-vectors.json","sha256":"c8ae70f3328fd7d0be967264f0351cdff2ddcad69f6b700e1713ed70c49063e6"},
+    {"id":"adr","path":"docs/analysis/p3-macos-e2ee-live-ptt-v1.md","sha256":"e3797860d9aed7adc9e1115e4ad9ec51b9809fcccd0b9bb67850bc929cb1b03b"},
+    {"id":"protocol-authority","path":"protocol/e2ee-media-audit-v1.json","sha256":"5dc5ac88539fed12b827aa8c3ff6ce14b6a13ae46d063624822c5435f38334ce"},
+    {"id":"opaque-live-contract","path":"coordinator/internal/e2eecontract/opaque_live.go","sha256":"6abe81925a4a8e547d4d48a9c905d11532700393b86c408cec5ff61c1cac14d2"},
+    {"id":"opaque-router","path":"acceptance/phase3/e2ee-opaque-media-router-v1.json","sha256":"092f0a058f22bc74f50f70b6bd98c6bcf5fc81d48a657da55255921eb7eafdd0"},
+    {"id":"design-review","path":".task-board/.resources/TASK-260712-aniuyy/TASK-260712-aniuyy_independent-design-review-v1.md","sha256":"68a0e7e56b563b47663a86787c6f983cb1af395283dfc5f7f44cab0abb893045"}
+  ],
+  "bounds": {
+    "opaqueHeaderBytes": 84,
+    "ciphertextBytes": 512,
+    "opaqueMessageBytes": 596,
+    "plaintextBytes": 400,
+    "frameMS": 20,
+    "jitterBufferMS": 60,
+    "gapFrames": 8,
+    "durationMS": 300000,
+    "maximumSequence": 15000
+  },
+  "invariants": [
+    "production-provider-suite-and-container-remain-unselected-and-dark",
+    "witnessed-epoch-and-live-generation-before-derivation",
+    "single-loaded-repository-owner-plus-cross-process-composition-gate",
+    "exact-air-target-sender-session-epoch-commit-generation-sequence-codec-timing-aad",
+    "provider-carries-and-authenticates-opaque-nonce",
+    "outgoing-and-incoming-nonce-reuse-rejected",
+    "transport-retry-reuses-exact-ciphertext-and-nonce",
+    "sealing-runs-off-microphone-capture-callback",
+    "authentication-required-before-jitter-decoder-fec-plc",
+    "incoming-reorder-limited-to-existing-eight-frame-window",
+    "tamper-replay-stale-foreign-target-and-removed-sender-fail-closed",
+    "membership-or-epoch-change-terminates-and-destroys-session-once",
+    "coordinator-sees-bounded-routing-metadata-and-ciphertext-only",
+    "live-frame-plaintext-key-and-ciphertext-have-no-durable-client-cache",
+    "legacy-bp-and-protected-be-paths-remain-distinct",
+    "existing-dnd-backpressure-fec-plc-pcm-and-teardown-owners-preserved",
+    "runtime-composition-ui-claim-and-capability-remain-dark"
+  ],
+  "automatedEvidence": {
+    "focused": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter MacE2EELivePTTTests",
+    "senderRegression": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter MacLiveCaptureSenderTests",
+    "receiverRegression": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter MacLiveJitterReceiverTests",
+    "nodeRegression": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app --filter MacLivePTTNodeTests",
+    "macOS": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun swift test --package-path node-app",
+    "acceptance": "python3 -m unittest scripts.acceptance.test_macos_e2ee_live_ptt"
+  },
+  "manualEvidence": {
+    "epic": "EPIC-260714-th54l3",
+    "signedNotarizedMacOS": "not-run",
+    "physicalKeychainCrashRestart": "not-run",
+    "crossProcessGenerationContention": "not-run",
+    "realCryptoMacWindowsInterop": "not-run-no-selected-stack",
+    "hardwareC1C2Latency": "not-run",
+    "hardwareCapturePlaybackQuality": "not-run",
+    "coordinatorTrafficCaptureSpeechDecode": "not-run",
+    "memoryAndCrashDumpInspection": "not-run"
+  },
+  "openProductionGates": ["EPC-001", "EPC-002", "EPC-004", "EPC-005", "TASK-260712-1ulshp"]
+}

@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 178 accepted, 27 remain.
-- Routed inventory: 186 engineering tasks (178 accepted, 8 remain) and 19
+- Combined inventory: 205 original tasks; 179 accepted, 26 remain.
+- Routed inventory: 186 engineering tasks (179 accepted, 7 remain) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,11 +13,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-3980vy` —
-  macos-e2ee-live-ptt in deferred epic
+- Current engineering task: `TASK-260712-28zhpl` —
+  windows-protected-media-send in deferred epic
   `EPIC-260716-3qsztl`.
-- Current original-plan frontier: `TASK-260712-3980vy` —
-  macos-e2ee-live-ptt in deferred epic `EPIC-260716-3qsztl`.
+- Current original-plan frontier: `TASK-260712-28zhpl` —
+  windows-protected-media-send in deferred epic `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -236,17 +236,40 @@
   four runtime integration Info notes are recorded in
   `TASK-260712-tcwn44_review-verdict-8c26762.md`; production provider/runtime,
   signed-app, real-crypto/codec, cross-process ownership and hardware/memory
-  claims remain deferred.
-- Next deferred coding line: E2EE continues with `TASK-260712-3980vy`, limited
-  to the production-dark macOS E2EE live-PTT path. Every later E2EE implementation
+  claims remain deferred. Hosted CI run `29713219537` passed all four jobs;
+  PR #292 merged to `main` as `2aed6272dc153e584bd1371af93490285ffadaae`.
+- macOS E2EE live-PTT foundation: exact accepted rework commit
+  `c9faa7ef4a5cc089ebfb83bdce11fadfcfe669b8` mirrors the accepted coordinator
+  `BE` opaque wire while keeping production crypto, runtime composition and
+  capability advertisement dark. The sender reserves a witnessed `live_ptt`
+  generation, seals off the capture callback and caches exact retry bytes; the
+  receiver authenticates before jitter admission and fails closed on replay,
+  nonce reuse, tamper, stale epoch, changed commit, target drift and removed
+  membership. The first independent review correctly rejected device-local
+  Keychain record revision in cross-device AAD. Rework binds shared witnessed
+  epoch plus `commitDigest`, retains local revision only for setup/CAS, adds a
+  two-installation skewed-revision round-trip, distinguishes malformed provider
+  output and checks the 15,000-frame bound before seal. Producer and independent
+  evidence passed strict formatting, focused 10/10, full Swift 350/350,
+  acceptance 200/200 and automated 16/16. Claude Fable 5 max re-review run
+  `RUN-260720-8f681f` ACCEPTED with zero open Critical/High/Medium; details are
+  in `TASK-260712-3980vy_review-verdict-v2.md`. Real C1-C2, traffic capture,
+  signed package, memory/crash, cross-process contention, macOS-Windows interop
+  and production-provider evidence remain manual/deferred in
+  `EPIC-260714-th54l3`; EPC-001/002/004/005 remain open.
+- Next deferred coding line: E2EE continues with `TASK-260712-28zhpl`, limited
+  to the production-dark Windows protected-media send path. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
-- Most recently accepted: `TASK-260712-tcwn44` —
-  macos-protected-media-playback (dormant engineering scope only)
-- Current branch: `feat/task-260712-tcwn44`
+- Most recently accepted: `TASK-260712-3980vy` —
+  macos-e2ee-live-ptt (dormant engineering scope only)
+- Current branch: `feat/task-260712-3980vy` (accepted integration; next branch
+  after merge is `feat/task-260712-28zhpl`)
 - Current review evidence:
-  `TASK-260712-tcwn44_review-verdict-8c26762.md` from Claude Fable 5 max run
-  `RUN-260720-cf2797` on exact producer rework commit `8c26762`. The preceding
+  `TASK-260712-3980vy_review-verdict-v2.md` from Claude Fable 5 max run
+  `RUN-260720-8f681f` on exact producer rework commit `c9faa7e`. The rejected
+  first-pass verdict was run `RUN-260720-db683a`; the preceding playback
+  review was run `RUN-260720-cf2797`. The preceding
   playback review run was `RUN-260720-2f341a`; send review was
   `RUN-260720-cc3c8d`; recovery was `RUN-260720-6193e1`; report evidence was
   `RUN-260720-65a670`; the preceding
@@ -295,8 +318,8 @@
   `TASK-260716-tlxe3s`. The protocol and realtime-audio reviewers have since
   returned independent APPROVE verdicts; the other withheld external verdicts
   and production activation remain open. Store submission remains fail-closed.
-- Accepted overall: 178 / 205 tasks (86.8%); 27 remain
-- Engineering progress: 178 / 186 tasks (approximately 95.7%); 8 remain
+- Accepted overall: 179 / 205 tasks (87.3%); 26 remain
+- Engineering progress: 179 / 186 tasks (approximately 96.2%); 7 remain
 - Manual-test progress: 0 / 19 tasks; all remain deferred
 - State: the physical H00-H17 task and 18 later real-app, platform,
   production-shaped or beta acceptance tasks were moved to
@@ -3811,7 +3834,17 @@ continues at section 17.
   `RUN-260720-cf2797` independently ACCEPTED with no Critical/High/Medium
   finding. Production crypto/runtime, real interop, signed package,
   cross-process ownership and physical leakage evidence remain deferred.)
-- [ ] `TASK-260712-3980vy` — macos-e2ee-live-ptt
+- [x] `TASK-260712-3980vy` — macos-e2ee-live-ptt (accepted on exact rework
+  commit `c9faa7ef4a5cc089ebfb83bdce11fadfcfe669b8`. The dormant sender reserves
+  one witnessed generation and seals off capture callbacks; the receiver
+  authenticates before jitter admission. Shared epoch plus `commitDigest`
+  binds cross-device AAD while device-local revision remains setup/CAS-only;
+  a two-installation fixture proves round-trip with deliberately skewed local
+  revisions. Producer and independent runs passed strict format, focused
+  10/10, Swift 350/350, acceptance 200/200 and automated 16/16. Claude Fable 5
+  max run `RUN-260720-8f681f` ACCEPTED with no open Critical/High/Medium. The
+  runtime/provider/capability stays dark and all physical, traffic, signed-app,
+  memory, contention and platform-interop evidence remains manual/deferred.)
 - [ ] `TASK-260712-28zhpl` — windows-protected-media-send
 - [ ] `TASK-260712-1u57qz` — windows-protected-media-playback
 - [ ] `TASK-260712-39vjzd` — windows-e2ee-live-ptt

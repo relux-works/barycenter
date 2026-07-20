@@ -271,6 +271,7 @@ public final class MacE2EEKeyStateRepository: @unchecked Sendable {
   private let store: any MacE2EEKeychainByteStore
   private let random: any MacE2EERandomSource
   private var protectedMediaSendOwnerClaimed = false
+  private var e2eeLiveSendOwnerClaimed = false
 
   public init(
     store: any MacE2EEKeychainByteStore = SystemMacE2EEKeychainStore(),
@@ -291,6 +292,17 @@ public final class MacE2EEKeyStateRepository: @unchecked Sendable {
     defer { Self.processLock.unlock() }
     guard !protectedMediaSendOwnerClaimed else { throw MacE2EEKeyStateFailure.conflict }
     protectedMediaSendOwnerClaimed = true
+  }
+
+  /// Claims the single live-PTT generation-reservation owner for this loaded
+  /// repository. The production live factory additionally requires its app
+  /// composition to attest cross-process serialization; this in-process claim
+  /// alone is deliberately insufficient to enable the dormant runtime.
+  func claimE2EELiveSendOwnership() throws {
+    Self.processLock.lock()
+    defer { Self.processLock.unlock() }
+    guard !e2eeLiveSendOwnerClaimed else { throw MacE2EEKeyStateFailure.conflict }
+    e2eeLiveSendOwnerClaimed = true
   }
 
   public func installDeviceIdentity(

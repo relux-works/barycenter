@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "contract": "p3-macos-e2ee-live-ptt-fixtures.v1",
+  "status": "audit-fixture-only-production-disabled",
+  "wireAuthority": "coordinator/internal/e2eecontract/opaque_live.go",
+  "opaqueFrame": {
+    "flags": 1,
+    "sessionID": "00112233445566778899aabbccddeeff",
+    "epoch": 9,
+    "generation": 7,
+    "sequence": 1,
+    "captureMonotonicUS": 1000000,
+    "targetSnapshotDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ciphertextHex": "deadbeef",
+    "encodedHex": "4245010100112233445566778899aabbccddeeff000000000000000900000000000000070000000100000000000f4240aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa00040000deadbeef"
+  },
+  "bounds": {
+    "headerBytes": 84,
+    "ciphertextBytes": 512,
+    "messageBytes": 596,
+    "plaintextBytes": 400,
+    "frameMS": 20,
+    "gapFrames": 8,
+    "durationMS": 300000,
+    "maximumSequence": 15000
+  },
+  "aadBindings": [
+    "contract", "group_id", "author_device_id", "sender_actor_id",
+    "sender_orbit_id", "sender_node_id", "playback_domain",
+    "playback_domain_id", "target_snapshot_digest", "session_id", "epoch",
+    "commit_digest", "generation", "sequence", "flags",
+    "capture_monotonic_us", "codec_profile", "frame_ms",
+    "maximum_plaintext_bytes", "jitter_buffer_ms", "maximum_duration_ms"
+  ],
+  "failClosed": [
+    "tampered_ciphertext", "replayed_sequence", "reused_nonce",
+    "stale_epoch", "changed_commit_digest", "foreign_target",
+    "removed_sender", "gap_outside_window", "legacy_bp_downgrade",
+    "unapproved_provider", "missing_cross_process_owner_approval"
+  ]
+}

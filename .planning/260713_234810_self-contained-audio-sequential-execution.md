@@ -4,8 +4,8 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 184 accepted, 21 remain.
-- Routed inventory: 186 engineering tasks (184 accepted, 2 remain) and 19
+- Combined inventory: 205 original tasks; 185 accepted, 20 remain.
+- Routed inventory: 186 engineering tasks (185 accepted, 1 remains) and 19
   deferred manual-test tasks (0 accepted, 19 remain).
 
 ## Execution status
@@ -13,11 +13,13 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260712-1bcpda` —
-  e2ee-c4-c6-evidence-review-pack in deferred epic `EPIC-260716-3qsztl`;
-  it starts only after the accepted Windows client-path branch is merged.
-- Current original-plan frontier: `TASK-260712-1bcpda` —
-  e2ee-c4-c6-evidence-review-pack in deferred epic `EPIC-260716-3qsztl`.
+- Current engineering task: `TASK-260712-1ulshp` —
+  phase3-external-security-review-closure in deferred epic
+  `EPIC-260716-3qsztl`; it starts only after the accepted C4-C6 engineering
+  review-pack branch is merged.
+- Current original-plan frontier: `TASK-260712-1ulshp` —
+  phase3-external-security-review-closure in deferred epic
+  `EPIC-260716-3qsztl`.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -382,12 +384,13 @@
   accessibility and forensic evidence stays in `EPIC-260714-th54l3`. Hosted CI
   run `29730150880` passed all four jobs; PR #298 merged to `main` as
   `9d7ace6dc7337cd2191f35b0d8373228cf759398`.
-- Current deferred coding line: E2EE continues with `TASK-260712-1bcpda`, the
-  production-dark C4-C6 evidence/review pack. Every later E2EE implementation
-  task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
-  as well and cannot be self-certified by the implementation session.
-- E2EE C4-C6 engineering review-pack producer work is complete and awaiting
-  exact-SHA independent review. Source candidate `9d7ace6`/tree `ef819c9` is
+- Current deferred coding line: E2EE advances to `TASK-260712-1ulshp`, the
+  final implementation-independent security review over the production-dark
+  C4-C6 packet. It remains in `EPIC-260716-3qsztl` and will be executed by a
+  non-implementing Claude Fable 5 max reviewer, not self-certified inline.
+- E2EE C4-C6 engineering review-pack is accepted at exact producer
+  `26722eb040efab27c6b553f20f26b7d4dfb869bc`. Source candidate
+  `9d7ace6`/tree `ef819c9` is
   frozen across fifteen post-design implementation merges. The machine packet
   inventories nineteen component acceptance packets/tests, sixteen terminal
   independent verdicts, 128 source/protocol/test/review/dependency anchors,
@@ -403,10 +406,20 @@
   pairings, storage/traffic capture, OS secure storage, moderation workflow,
   rollback/recovery and beta remain `not-run` in the manual tasks; external
   `TASK-260712-1ulshp` remains required and cannot be self-certified here.
-- Most recently accepted: `TASK-260712-2q4jbu` —
-  windows-encrypted-media-client-path (dormant engineering scope only)
+  Independent Claude Fable 5 max run `RUN-260720-6431c9` recomputed the merge,
+  tree, product-path and evidence hashes, reran the packet/parity validators,
+  nine fail-closed mutation tests and a focused coordinator race subset, and
+  ACCEPTED the engineering packet with zero open Critical/High/Medium finding.
+  The verdict explicitly leaves external review and every manual C4-C6,
+  rollback/recovery and beta gate open. Progress is 185/205 overall (90.2%)
+  and 185/186 engineering (99.5%).
+- Most recently accepted: `TASK-260712-1bcpda` —
+  e2ee-c4-c6-evidence-review-pack (engineering preflight only)
 - Current branch: `feat/task-260712-1bcpda`
 - Current review evidence:
+  C4-C6 engineering review pack was accepted on exact producer `26722eb` by
+  Claude Fable 5 max run `RUN-260720-6431c9`; verdict resource is
+  `TASK-260712-1bcpda_engineering-packet-review-verdict-26722eb.md`.
   Windows encrypted-media client-path was accepted on exact producer
   `a5178b6` by terminal Claude Fable 5 max run `RUN-260720-f01d6a`; verdict
   resource is `TASK-260712-2q4jbu_review-verdict-v1.md`. The preceding macOS
@@ -4063,7 +4076,18 @@ continues at section 17.
   independent Claude Fable 5 max run `RUN-260720-f01d6a`; zero open
   Critical/High/Medium findings. The client path remains production-dark and
   all real-app/hardware evidence remains in `EPIC-260714-th54l3`.)
-- [ ] `TASK-260712-1bcpda` — e2ee-c4-c6-evidence-review-pack
+- [x] `TASK-260712-1bcpda` — e2ee-c4-c6-evidence-review-pack (accepted on
+  exact producer commit `26722eb040efab27c6b553f20f26b7d4dfb869bc` by
+  independent Claude Fable 5 max run `RUN-260720-6431c9`; zero open
+  Critical/High/Medium findings. The reviewer independently reproduced the
+  fifteen-merge lineage and exact trees/producer heads, recomputed the
+  product-path digest plus component, terminal-review, anchor, dependency and
+  tooling hashes, passed both validators, nine mutation tests and a focused
+  coordinator race rerun, and consumed the clean exact 16/16 harness. C4-C6
+  remain engineering-preflight-only, `e2ee_media` stays disabled and the
+  production crypto provider/suite/container/final-build SBOM remain
+  unselected. External `TASK-260712-1ulshp` and all manual C4-C6,
+  rollback/recovery and beta evidence remain open.)
 
 ## 17. P3 capture quality and diagnostics
 

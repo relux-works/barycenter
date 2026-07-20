@@ -52,8 +52,8 @@ def validate(contract: dict) -> None:
 
     artifacts = {item.get("id"): item for item in contract.get("artifacts", [])}
     require(set(artifacts) == {
-        "playback-pipeline", "bounded-player", "playback-tests", "playback-vectors",
-        "adr", "protocol-authority", "opaque-router", "threat-model",
+        "playback-pipeline", "bounded-player", "ciphertext-cache", "playback-tests",
+        "playback-vectors", "adr", "protocol-authority", "opaque-router", "threat-model",
     }, "artifact inventory incomplete")
     for name, item in artifacts.items():
         path = ROOT / item.get("path", "")
@@ -92,6 +92,10 @@ def validate(contract: dict) -> None:
             "authenticated reader injection missing")
     require("injectedChunks ?? MacStreamCacheReader" in player,
             "protected reader not used at decoder boundary")
+    cache = (ROOT / artifacts["ciphertext-cache"]["path"]).read_text(encoding="utf-8")
+    for token in {"processLock", "synchronizeLocked()", "tombstones.formUnion",
+                  "UUID().uuidString"}:
+        require(token in cache, f"multi-instance cache coordination missing: {token}")
 
     tests = (ROOT / artifacts["playback-tests"]["path"]).read_text(encoding="utf-8")
     for name in {
@@ -102,6 +106,7 @@ def validate(contract: dict) -> None:
         "downgradeExpiryWrongTargetAndLocalPolicyFailClosedBeforeRanges",
         "historicalEpochRequiresLiveBoundedGrant",
         "membershipChangeAndExplicitRevocationPersistAsTombstones",
+        "concurrentCacheHitCannotEraseAnotherVariantsDurableTombstone",
         "boundedCandidatePlayerReceivesOnlyAuthenticatedChunkReader",
     }:
         require(name in tests, f"fixture missing: {name}")
@@ -115,12 +120,13 @@ def validate(contract: dict) -> None:
     require(len(vectors.get("failClosed", [])) == 8, "fail-closed fixture drifted")
 
     invariants = set(contract.get("invariants", []))
-    require(len(invariants) == 15, "invariant inventory drifted")
+    require(len(invariants) == 16, "invariant inventory drifted")
     for item in {
         "aead-record-authentication-required-before-decoder-bytes",
         "durable-cache-contains-ciphertext-and-public-metadata-only",
         "cached-ciphertext-is-reauthenticated-after-restart",
         "revocation-and-membership-change-purge-and-tombstone",
+        "concurrent-cache-index-writes-preserve-monotonic-revocation-tombstones",
         "runtime-composition-and-capability-remain-dark",
     }:
         require(item in invariants, f"invariant missing: {item}")

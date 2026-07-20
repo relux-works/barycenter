@@ -426,6 +426,7 @@ private struct MacStreamCacheIndex: Codable {
 }
 
 public actor MacStreamChunkCache {
+    private nonisolated static let processLock = NSRecursiveLock()
     private let directory: URL
     private let indexURL: URL
     private let secret: SymmetricKey
@@ -454,6 +455,8 @@ public actor MacStreamChunkCache {
         secret = SymmetricKey(data: installationSecret)
         self.fetcher = fetcher
         self.limits = limits
+        Self.processLock.lock()
+        defer { Self.processLock.unlock() }
         try FileManager.default.createDirectory(
             at: directory, withIntermediateDirectories: true,
             attributes: [.posixPermissions: 0o700])
@@ -529,23 +532,30 @@ public actor MacStreamChunkCache {
             throw MacStreamFailure.frozen(stage: "manifest", code: "invalid_manifest")
         }
         let variantKey = variantKey(for: manifest)
-        guard !tombstones.contains(variantKey) else {
-            throw MacStreamFailure.frozen(stage: "fetch", code: "revoked")
-        }
         let chunk = manifest.chunks[index]
         let key = chunkKey(variantKey: variantKey, index: index)
-        if var entry = entries[key], let data = try? Data(contentsOf: chunkURL(key)),
-           Int64(data.count) == entry.size, lowerSHA256(data) == chunk.sha256 {
-            clock += 1
-            entry.lastUse = clock
-            entries[key] = entry
-            counters.hits += 1
-            try persist()
-            return data
-        } else if entries[key] != nil {
-            removeEntry(key)
-            counters.integrityFailures += 1
-            try persist()
+        if let cached: Data = try Self.withProcessLock({
+            try synchronizeLocked()
+            guard !tombstones.contains(variantKey) else {
+                throw MacStreamFailure.frozen(stage: "fetch", code: "revoked")
+            }
+            if var entry = entries[key], let data = try? Data(contentsOf: chunkURL(key)),
+               Int64(data.count) == entry.size, lowerSHA256(data) == chunk.sha256 {
+                clock += 1
+                entry.lastUse = clock
+                entries[key] = entry
+                counters.hits += 1
+                try persistLocked()
+                return data
+            }
+            if entries[key] != nil {
+                removeEntry(key)
+                counters.integrityFailures += 1
+                try persistLocked()
+            }
+            return nil
+        }) {
+            return cached
         }
 
         let expected = chunk.end - chunk.start + 1
@@ -581,64 +591,77 @@ public actor MacStreamChunkCache {
         guard let data = accepted else {
             throw MacStreamFailure.frozen(stage: "integrity", code: "chunk_hash_mismatch")
         }
-        guard !tombstones.contains(variantKey) else {
-            throw MacStreamFailure.frozen(stage: "fetch", code: "revoked")
+        return try Self.withProcessLock {
+            try synchronizeLocked()
+            guard !tombstones.contains(variantKey) else {
+                throw MacStreamFailure.frozen(stage: "fetch", code: "revoked")
+            }
+            try atomicWrite(data, to: chunkURL(key))
+            clock += 1
+            entries[key] = MacStreamCacheEntry(
+                key: key, variantKey: variantKey, chunkIndex: index,
+                size: Int64(data.count), lastUse: clock)
+            do {
+                try enforceLimits(protecting: key)
+                try persistLocked()
+            } catch {
+                removeEntry(key)
+                try? persistLocked()
+                throw error
+            }
+            return data
         }
-        try atomicWrite(data, to: chunkURL(key))
-        clock += 1
-        entries[key] = MacStreamCacheEntry(
-            key: key, variantKey: variantKey, chunkIndex: index,
-            size: Int64(data.count), lastUse: clock)
-        do {
-            try enforceLimits(protecting: key)
-            try persist()
-        } catch {
-            removeEntry(key)
-            try? persist()
-            throw error
-        }
-        return data
     }
 
     public func setPinned(_ manifest: MacStreamManifest, indexes: [Int]) throws {
         try manifest.validate()
-        let variantKey = variantKey(for: manifest)
-        let desired = Set(indexes.map { chunkKey(variantKey: variantKey, index: $0) })
-        for key in entries.keys {
-            guard var entry = entries[key], entry.variantKey == variantKey else { continue }
-            entry.pinned = desired.contains(key)
-            entries[key] = entry
-        }
-        let pinned = entries.values.filter(\.pinned).reduce(Int64(0)) { $0 + $1.size }
-        guard pinned <= limits.pinnedBytes else {
+        try Self.withProcessLock {
+            try synchronizeLocked()
+            let variantKey = variantKey(for: manifest)
+            let desired = Set(indexes.map { chunkKey(variantKey: variantKey, index: $0) })
             for key in entries.keys {
                 guard var entry = entries[key], entry.variantKey == variantKey else { continue }
-                entry.pinned = false
+                entry.pinned = desired.contains(key)
                 entries[key] = entry
             }
-            throw MacStreamFailure.frozen(stage: "cache", code: "pinned_limit")
+            let pinned = entries.values.filter(\.pinned).reduce(Int64(0)) { $0 + $1.size }
+            guard pinned <= limits.pinnedBytes else {
+                for key in entries.keys {
+                    guard var entry = entries[key], entry.variantKey == variantKey else { continue }
+                    entry.pinned = false
+                    entries[key] = entry
+                }
+                throw MacStreamFailure.frozen(stage: "cache", code: "pinned_limit")
+            }
+            try persistLocked()
         }
-        try persist()
     }
 
     public func invalidate(_ manifest: MacStreamManifest) throws {
-        let key = variantKey(for: manifest)
-        for entryKey in entries.keys where entries[entryKey]?.variantKey == key {
-            removeEntry(entryKey)
+        try Self.withProcessLock {
+            try synchronizeLocked()
+            let key = variantKey(for: manifest)
+            for entryKey in entries.keys where entries[entryKey]?.variantKey == key {
+                removeEntry(entryKey)
+            }
+            try persistLocked()
         }
-        try persist()
     }
 
     public func tombstone(_ manifest: MacStreamManifest) throws {
-        let key = variantKey(for: manifest)
-        tombstones.insert(key)
-        for entryKey in entries.keys where entries[entryKey]?.variantKey == key {
-            removeEntry(entryKey)
+        try Self.withProcessLock {
+            try synchronizeLocked()
+            let key = variantKey(for: manifest)
+            tombstones.insert(key)
+            for entryKey in entries.keys where entries[entryKey]?.variantKey == key {
+                removeEntry(entryKey)
+            }
+            try persistLocked()
         }
-        try persist()
     }
 
     public func stats() -> MacStreamCacheStats {
+        Self.withProcessLock { try? synchronizeLocked() }
         var result = counters
         result.bytes = entries.values.reduce(Int64(0)) { $0 + $1.size }
         result.pinnedBytes = entries.values.filter(\.pinned).reduce(Int64(0)) { $0 + $1.size }
@@ -692,7 +715,73 @@ public actor MacStreamChunkCache {
         directory.appendingPathComponent(key).appendingPathExtension("chunk")
     }
 
-    private func persist() throws {
+    private nonisolated static func withProcessLock<Result>(
+        _ body: () throws -> Result
+    ) rethrows -> Result {
+        processLock.lock()
+        defer { processLock.unlock() }
+        return try body()
+    }
+
+    /// Refreshes this actor's view while the process-wide cache lock is held.
+    /// Tombstones are a monotonic union; entries survive only while their
+    /// immutable chunk file still exists and no instance has revoked them.
+    private func synchronizeLocked() throws {
+        guard FileManager.default.fileExists(atPath: indexURL.path) else {
+            entries = entries.filter {
+                !tombstones.contains($0.value.variantKey)
+                    && FileManager.default.fileExists(atPath: chunkURL($0.key).path)
+            }
+            return
+        }
+        let decoded: MacStreamCacheIndex
+        do {
+            decoded = try JSONDecoder().decode(
+                MacStreamCacheIndex.self, from: Data(contentsOf: indexURL))
+        } catch {
+            throw MacStreamFailure.frozen(stage: "cache", code: "cache_unavailable")
+        }
+        guard decoded.version == 1 else {
+            throw MacStreamFailure.frozen(stage: "cache", code: "cache_unavailable")
+        }
+        tombstones.formUnion(decoded.tombstones.filter { validLowerSHA256($0) })
+        var candidates: [String: MacStreamCacheEntry] = [:]
+        for entry in decoded.entries {
+            if let stored = candidates[entry.key], stored.lastUse >= entry.lastUse { continue }
+            candidates[entry.key] = entry
+        }
+        for entry in entries.values {
+            if let stored = candidates[entry.key], stored.lastUse > entry.lastUse {
+                continue
+            }
+            candidates[entry.key] = entry
+        }
+        var refreshed: [String: MacStreamCacheEntry] = [:]
+        for var entry in candidates.values {
+            let url = chunkURL(entry.key)
+            var isDirectory: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+            guard exists, !isDirectory.boolValue, validLowerSHA256(entry.key),
+                  validLowerSHA256(entry.variantKey), entry.size > 0,
+                  entry.size <= limits.chunkBytes, !tombstones.contains(entry.variantKey),
+                  (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true,
+                  (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) == Int(entry.size)
+            else {
+                try? FileManager.default.removeItem(at: url)
+                continue
+            }
+            entry.pinned = entries[entry.key]?.pinned ?? false
+            refreshed[entry.key] = entry
+            clock = max(clock, entry.lastUse)
+        }
+        entries = refreshed
+    }
+
+    private func persistLocked() throws {
+        try synchronizeLocked()
+        for key in entries.keys where tombstones.contains(entries[key]!.variantKey) {
+            removeEntry(key)
+        }
         let index = MacStreamCacheIndex(
             entries: entries.values.sorted { $0.key < $1.key },
             tombstones: tombstones.sorted())
@@ -701,7 +790,8 @@ public actor MacStreamChunkCache {
 
     private func atomicWrite(_ data: Data, to destination: URL) throws {
         let temporary = destination.deletingLastPathComponent()
-            .appendingPathComponent(destination.lastPathComponent + ".part")
+            .appendingPathComponent(
+                destination.lastPathComponent + ".\(UUID().uuidString).part")
         do {
             try data.write(to: temporary, options: .withoutOverwriting)
             let handle = try FileHandle(forWritingTo: temporary)

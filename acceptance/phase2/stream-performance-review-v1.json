@@ -69,11 +69,11 @@
     },
     {
       "path": "node-app/Sources/NodeCore/MacStreamTrackPlayer.swift",
-      "sha256": "0cbe7a1984b9726c11f79210386c8600baa5fc263e4f84ac0cef1f9afbf849a7"
+      "sha256": "63d1828280ec4a940da7371689fce492fb36fb95b0629bddb6d33c85b4399660"
     },
     {
       "path": "node-app/Sources/NodeCore/MacStreamTrackCache.swift",
-      "sha256": "e420b1f1373109d1604fd40fd55525a7bf4cca6bdfa9538ee6ba1717748f99f6"
+      "sha256": "5d5d2f7f69db2c8fe4bab83b457cde111629c4308098bed0e62bddaaae4f8a74"
     }
   ],
   "reruns": [

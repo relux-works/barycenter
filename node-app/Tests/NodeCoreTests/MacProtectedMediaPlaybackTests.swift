@@ -197,7 +197,10 @@ private struct ProtectedPlaybackFixture {
     opener = ProtectedPlaybackFixtureOpener()
   }
 
-  func streamManifest(identity suffix: String = "shared-mac-windows") -> MacStreamManifest {
+  func streamManifest(
+    identity suffix: String = "shared-mac-windows",
+    objectID: String = "em_01K123456789ABCDEFGHJKMNPQ"
+  ) -> MacStreamManifest {
     var offset: Int64 = 0
     let chunks = ciphertext.enumerated().map { index, body -> MacStreamChunk in
       defer { offset += Int64(body.count) }
@@ -208,7 +211,7 @@ private struct ProtectedPlaybackFixture {
     let whole = ciphertext.reduce(into: Data()) { $0.append($1) }
     return MacStreamManifest(
       identity: "svm1.protected.\(suffix)",
-      variantUrl: "/v1/media/em_01K123456789ABCDEFGHJKMNPQ/variants/protected",
+      variantUrl: "/v1/media/\(objectID)/variants/protected",
       etag: "\"sha256-\(protectedPlaybackHash(whole))\"",
       sha256: protectedPlaybackHash(whole), sizeBytes: Int64(whole.count),
       durationMs: 20_000, chunks: chunks,
@@ -221,6 +224,7 @@ private struct ProtectedPlaybackFixture {
   func route(
     contract: String = "e2ee-media-audit.v1", epoch: UInt64? = nil,
     generation: UInt64 = 3, target: String? = nil, expiresAtMS: Int64 = 20_000,
+    objectID: String = "em_01K123456789ABCDEFGHJKMNPQ",
     stream: MacStreamManifest? = nil
   ) -> MacProtectedMediaPlaybackRoute {
     let encrypted = Data("fixture-encrypted-manifest".utf8)
@@ -228,7 +232,7 @@ private struct ProtectedPlaybackFixture {
       contract: contract, capability: "e2ee_media_v1",
       suite: "AUDIT_FIXTURE_SUITE_NOT_FOR_PRODUCTION",
       container: "AUDIT_FIXTURE_CONTAINER_NOT_FOR_PRODUCTION",
-      objectID: "em_01K123456789ABCDEFGHJKMNPQ",
+      objectID: objectID,
       sourceObjectID: "source_01K123456789ABCDEFGHJKMNPQ", objectKind: .track,
       authorDeviceID: "dev_01K123456789ABCDEFGHJKMNP2",
       recipientDeviceID: identity.deviceID, groupID: group.groupID,
@@ -238,17 +242,20 @@ private struct ProtectedPlaybackFixture {
       encryptedManifest: encrypted, opaqueKeyEnvelope: Data("opaque-envelope".utf8),
       authenticatedManifest: Data("authenticated-manifest".utf8),
       signature: Data("fixture-signature".utf8),
-      streamManifest: stream ?? streamManifest())
+      streamManifest: stream ?? streamManifest(objectID: objectID))
   }
 
   func request(
     epoch: UInt64? = nil, generation: UInt64 = 3, target: String? = nil,
-    historyGrantID: String? = nil, policyAllowed: Bool = true
+    historyGrantID: String? = nil, policyAllowed: Bool = true,
+    objectID: String = "em_01K123456789ABCDEFGHJKMNPQ",
+    expectedGroupRevision: UInt64? = nil
   ) -> MacProtectedMediaPlaybackRequest {
     MacProtectedMediaPlaybackRequest(
-      objectID: "em_01K123456789ABCDEFGHJKMNPQ",
+      objectID: objectID,
       recipientDeviceID: identity.deviceID, groupID: group.groupID,
-      expectedGroupRevision: group.revision, expectedEpoch: epoch ?? group.epoch,
+      expectedGroupRevision: expectedGroupRevision ?? group.revision,
+      expectedEpoch: epoch ?? group.epoch,
       expectedGeneration: generation,
       expectedTargetSnapshotDigest: target ?? group.targetSnapshotDigest,
       historyGrantID: historyGrantID, policyAllowed: policyAllowed,
@@ -466,7 +473,7 @@ private func protectedPlaybackDiskContains(root: URL, needle: Data) -> Bool {
     let transport = ProtectedPlaybackTransport(route: route, ciphertext: fixture.ciphertext)
     let prepared = try await fixture.service(transport: transport).prepare(
       fixture.request(), nowMS: 2_000)
-    _ = try fixture.keyState.persistGroupState(
+    let rotated = try fixture.keyState.persistGroupState(
       installationID: fixture.identity.installationID, groupID: fixture.group.groupID,
       epoch: fixture.group.epoch + 1, previousCommitDigest: fixture.group.commitDigest,
       commitDigest: String(repeating: "d", count: 64),
@@ -477,6 +484,19 @@ private func protectedPlaybackDiskContains(root: URL, needle: Data) -> Bool {
       _ = try await prepared.chunks.readChunk(index: 0)
     }
     #expect(await prepared.cache.stats().bytes == 0)
+    let grantID = "grant_01K123456789ABCDEFGHJKMNP3"
+    _ = try fixture.keyState.storeGrant(
+      installationID: fixture.identity.installationID, grantID: grantID,
+      groupID: fixture.group.groupID, firstEpoch: fixture.group.epoch,
+      lastEpoch: fixture.group.epoch, expiresAtMS: 10_000,
+      opaqueGrant: Data("regranted-history".utf8), expectedRevision: 0,
+      nowMS: 2_200)
+    let regranted = try await fixture.service(transport: transport).prepare(
+      fixture.request(
+        epoch: fixture.group.epoch, historyGrantID: grantID,
+        expectedGroupRevision: rotated.revision),
+      nowMS: 2_300)
+    #expect(try await regranted.chunks.readChunk(index: 0) == fixture.plaintext[0])
 
     let freshFixture = try ProtectedPlaybackFixture()
     defer { freshFixture.remove() }
@@ -497,16 +517,47 @@ private func protectedPlaybackDiskContains(root: URL, needle: Data) -> Bool {
     #expect(freshTransport.counts.range == 0)
   }
 
+  @Test func concurrentCacheHitCannotEraseAnotherVariantsDurableTombstone() async throws {
+    let fixture = try ProtectedPlaybackFixture()
+    defer { fixture.remove() }
+    let objectA = "em_01K123456789ABCDEFGHJKMNPA"
+    let objectB = "em_01K123456789ABCDEFGHJKMNPB"
+    let streamA = fixture.streamManifest(identity: "concurrent-a", objectID: objectA)
+    let streamB = fixture.streamManifest(identity: "concurrent-b", objectID: objectB)
+    let routeA = fixture.route(objectID: objectA, stream: streamA)
+    let routeB = fixture.route(objectID: objectB, stream: streamB)
+    let transportA = ProtectedPlaybackTransport(route: routeA, ciphertext: fixture.ciphertext)
+    let transportB = ProtectedPlaybackTransport(route: routeB, ciphertext: fixture.ciphertext)
+    let playbackA = try await fixture.service(transport: transportA).prepare(
+      fixture.request(objectID: objectA), nowMS: 2_000)
+    let playbackB = try await fixture.service(transport: transportB).prepare(
+      fixture.request(objectID: objectB), nowMS: 2_000)
+    #expect(try await playbackA.chunks.readChunk(index: 0) == fixture.plaintext[0])
+    #expect(try await playbackB.chunks.readChunk(index: 0) == fixture.plaintext[0])
+
+    try await playbackB.revoke()
+    #expect(try await playbackA.chunks.readChunk(index: 0) == fixture.plaintext[0])
+    let rangesBeforeRestart = transportB.counts.range
+    let restartedB = try await fixture.service(transport: transportB).prepare(
+      fixture.request(objectID: objectB), nowMS: 2_100)
+    await #expect(throws: MacStreamFailure.self) {
+      _ = try await restartedB.chunks.readChunk(index: 0)
+    }
+    #expect(transportB.counts.range == rangesBeforeRestart)
+  }
+
   @Test func boundedCandidatePlayerReceivesOnlyAuthenticatedChunkReader() async throws {
     let fixture = try ProtectedPlaybackFixture()
     defer { fixture.remove() }
     let route = fixture.route()
     let transport = ProtectedPlaybackTransport(route: route, ciphertext: fixture.ciphertext)
-    let prepared = try await fixture.service(transport: transport).prepare(
-      fixture.request(), nowMS: 2_000)
+    var prepared: MacProtectedMediaPreparedPlayback? = try await fixture.service(
+      transport: transport
+    ).prepare(fixture.request(), nowMS: 2_000)
     let decoder = ProtectedPlaybackDecoder()
-    let player = prepared.makeCandidatePlayer(
+    let player = try #require(prepared).makeCandidatePlayer(
       decoder: decoder, clock: ProtectedPlaybackClock(), send: { _ in })
+    prepared = nil
     try player.load(protectedPlaybackLoad(route.streamManifest), manifest: route.streamManifest)
     #expect(await protectedPlaybackEventually { decoder.value == fixture.plaintext[0] })
     #expect(decoder.value != fixture.ciphertext[0])

@@ -147,6 +147,7 @@ public final class MacStreamCandidatePlayer: @unchecked Sendable {
     private let clock: MacStreamDeadlineClock
     private let send: @Sendable (Message) -> Void
     private let injectedChunks: MacStreamChunkReading?
+    private var protectedLifetimeOwner: AnyObject?
     private let ring = RingBuffer(capacityFloats: macStreamPCMRingBytes / MemoryLayout<Float>.size)
     private let queue = DispatchQueue(label: "live.barycenter.mac-stream-player")
 
@@ -185,6 +186,7 @@ public final class MacStreamCandidatePlayer: @unchecked Sendable {
         self.decoder = decoder
         self.clock = clock
         self.injectedChunks = protectedChunks
+        self.protectedLifetimeOwner = nil
         self.send = send
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now(), repeating: .milliseconds(2))
@@ -199,6 +201,10 @@ public final class MacStreamCandidatePlayer: @unchecked Sendable {
         startTimer?.cancel()
         startExpiryTimer?.cancel()
         signalTimer?.cancel()
+    }
+
+    func retainProtectedLifetime(_ owner: AnyObject) {
+        protectedLifetimeOwner = owner
     }
 
     public func load(_ payload: StreamLoadPayload, manifest: MacStreamManifest) throws {

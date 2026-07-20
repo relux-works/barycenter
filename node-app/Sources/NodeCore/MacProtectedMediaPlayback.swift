@@ -314,11 +314,11 @@ private final class MacProtectedMediaChunkReader: MacStreamChunkReading,
             try await cache.setPinned(manifest, indexes: pins)
             return plaintext
         } catch let failure as MacProtectedMediaPlaybackFailure {
-            if failure == .invalidAuthentication || failure == .corruptCiphertext {
-                try? await cache.invalidate(manifest)
-            } else if failure == .targetChanged || failure == .revoked
-                || failure == .expired || failure == .blocked
+            if failure == .invalidAuthentication || failure == .corruptCiphertext
+                || failure == .targetChanged || failure == .expired
             {
+                try? await cache.invalidate(manifest)
+            } else if failure == .revoked || failure == .blocked {
                 authorization.revoke()
                 try? await cache.tombstone(manifest)
             }
@@ -355,9 +355,11 @@ public final class MacProtectedMediaPreparedPlayback: @unchecked Sendable {
         decoder: MacStreamCandidateDecoder, clock: MacStreamDeadlineClock,
         send: @escaping @Sendable (Message) -> Void
     ) -> MacStreamCandidatePlayer {
-        MacStreamCandidatePlayer(
+        let player = MacStreamCandidatePlayer(
             cache: cache, decoder: decoder, clock: clock, protectedChunks: chunks,
             send: send)
+        player.retainProtectedLifetime(self)
+        return player
     }
 
     public func revoke() async throws {
@@ -461,7 +463,7 @@ public actor MacProtectedMediaPlaybackService {
             try validate(route, request: request, group: group.metadata, nowMS: nowMS)
         } catch {
             let permanent = (error as? MacProtectedMediaPlaybackFailure).map {
-                $0 == .expired || $0 == .targetChanged || $0 == .revoked || $0 == .blocked
+                $0 == .revoked || $0 == .blocked
             } ?? false
             try? await purge(route, permanent: permanent)
             throw error

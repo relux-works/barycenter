@@ -34,7 +34,11 @@ route's ciphertext chunks and public integrity metadata, with the existing
 Every cache hit is passed back through `authenticateAndDecrypt`; only its
 successful result is returned to a decoder. Hash failure happens before the
 provider, and record-authentication failure invalidates cached ciphertext.
-Decrypted bytes are never written to disk.
+Decrypted bytes are never written to disk. Concurrent cache actors sharing an
+installation root serialize index mutations, refresh and merge durable entries,
+and treat tombstones as a monotonic union. Unique temporary names avoid
+same-root write collisions; one active track therefore cannot erase another
+clip's revocation before restart.
 
 `MacStreamCandidatePlayer` gained an optional injected chunk reader. Its normal
 clear streamed-track path is unchanged. A protected player refuses a manifest
@@ -49,10 +53,12 @@ state and requires the frozen revision, epoch and target snapshot. Historical
 reads also reload the grant, require it to remain unexpired and cover the exact
 group/epoch range, and fail closed after local revocation. Membership rotation
 therefore fails closed even after preparation. Explicit revocation, remote
-revoked responses, expiry and target changes remove cached chunks; a revocation
-tombstone survives restart. Missing history grants and provider authentication
-failures invalidate local bytes without permanently blocking a later
-authorized retry.
+revoked responses remove cached chunks and leave a tombstone that survives
+restart. Expiry, membership rotation, missing history grants and provider
+authentication failures invalidate local bytes without permanently blocking a
+later authorized retry. A candidate player retains the prepared playback owner
+for the decoder lifetime, so dropping the caller's wrapper cannot revoke a live
+stream.
 
 Policy/DND/blocked-sender checks happen before manifest or range access. The
 route refuses legacy contract/capability downgrade, future epochs, wrong
@@ -61,7 +67,7 @@ is no plaintext fallback or mixed-version capability downgrade.
 
 ## Evidence and limitations
 
-Seven serialized Swift scenarios cover production disablement, Mac/Windows
+Nine serialized Swift scenarios cover production disablement, Mac/Windows
 shared fixture chunks without full download, restart cache re-authentication,
 ciphertext and record tamper, downgrade/expiry/target/policy failures, bounded
 history grants, membership change, explicit revocation persistence and

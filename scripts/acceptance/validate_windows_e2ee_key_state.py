@@ -175,6 +175,15 @@ def validate(contract: dict) -> None:
                     "ReserveSendGeneration(installationID, request.GroupID, \"media\"" in production,
                     "Windows send integration is not the exact dormant witnessed boundary")
             continue
+        if path.name == "windows_protected_media_playback.go":
+            require("WindowsE2EEKeyStateRepository" in production and
+                    "newDefaultWindowsE2EEKeyStateRepository" not in production and
+                    "production-dark Windows protected-media playback boundary" in production and
+                    "!s.opener.ProductionApproved() && !s.fixtureMode" in production and
+                    "newWindowsProtectedMediaPlaybackServiceForAudit" in production and
+                    "current.Metadata.CommitDigest != frozenGroup.CommitDigest" in production,
+                    "Windows playback integration is not the exact dormant witnessed boundary")
+            continue
         require("WindowsE2EEKeyStateRepository" not in production and
                 "newDefaultWindowsE2EEKeyStateRepository" not in production,
                 f"key state wired into production source: {path.name}")

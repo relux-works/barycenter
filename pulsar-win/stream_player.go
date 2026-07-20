@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"math"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -25,6 +26,18 @@ type WindowsStreamChunkReader interface {
 	Manifest() WindowsStreamManifest
 	ChunkForTime(int64) int
 	ReadChunk(context.Context, int) ([]byte, error)
+}
+
+type windowsStreamChunkVerifier interface {
+	VerifyWhole() error
+}
+
+type windowsStreamChunkRevoker interface {
+	Revoke() error
+}
+
+type windowsStreamChunkCloser interface {
+	Close()
 }
 
 type WindowsStreamPCMWriter interface {
@@ -163,6 +176,7 @@ type WindowsStreamCandidatePlayer struct {
 	clock   deadlineClock
 	send    func(string, any)
 	ring    *Ring
+	chunks  WindowsStreamChunkReader
 
 	mu            sync.Mutex
 	guard         protocol.StreamGenerationGuard
@@ -200,12 +214,27 @@ func NewWindowsStreamCandidatePlayer(
 	clock deadlineClock,
 	send func(string, any),
 ) (*WindowsStreamCandidatePlayer, error) {
+	return newWindowsStreamCandidatePlayer(cache, decoder, clock, nil, send)
+}
+
+// newWindowsStreamCandidatePlayer accepts an already-authenticated chunk
+// reader without changing the clear-stream production-dark constructor. The
+// injected reader owns any protected-media lease and is never exposed to the
+// decoder as transport or cache access.
+func newWindowsStreamCandidatePlayer(
+	cache *WindowsStreamChunkCache,
+	decoder WindowsStreamCandidateDecoder,
+	clock deadlineClock,
+	chunks WindowsStreamChunkReader,
+	send func(string, any),
+) (*WindowsStreamCandidatePlayer, error) {
 	if cache == nil || decoder == nil || clock == nil || send == nil {
 		return nil, windowsStreamFailure("player", "invalid_configuration")
 	}
 	player := &WindowsStreamCandidatePlayer{
 		cache: cache, decoder: decoder, clock: clock, send: send,
-		ring: NewRing(windowsStreamPCMRingFloats), state: WindowsStreamIdle,
+		chunks: chunks,
+		ring:   NewRing(windowsStreamPCMRingFloats), state: WindowsStreamIdle,
 		events: make(chan windowsStreamInternalEvent, 32), done: make(chan struct{}),
 	}
 	player.volume.Store(100)
@@ -227,6 +256,9 @@ func (player *WindowsStreamCandidatePlayer) Close() {
 		// release package resources immediately after Close.
 		player.decoderMu.Lock()
 		player.decoderMu.Unlock()
+		if closer, ok := player.chunks.(windowsStreamChunkCloser); ok {
+			closer.Close()
+		}
 	})
 }
 
@@ -236,6 +268,9 @@ func (player *WindowsStreamCandidatePlayer) Load(
 ) error {
 	if err := validateWindowsStreamManifest(payload, manifest); err != nil {
 		return err
+	}
+	if player.chunks != nil && !reflect.DeepEqual(player.chunks.Manifest(), manifest) {
+		return windowsStreamFailure("manifest", "invalid_manifest")
 	}
 	player.mu.Lock()
 	decision := player.guard.AcceptLoad(
@@ -436,6 +471,9 @@ func (player *WindowsStreamCandidatePlayer) Revoke() error {
 	player.ring.Clear()
 	player.state = WindowsStreamTerminal
 	player.mu.Unlock()
+	if revoker, ok := player.chunks.(windowsStreamChunkRevoker); ok {
+		return revoker.Revoke()
+	}
 	return player.cache.Tombstone(manifest)
 }
 
@@ -689,10 +727,14 @@ func (player *WindowsStreamCandidatePlayer) failLocked(token windowsStreamGenera
 func (player *WindowsStreamCandidatePlayer) startDecoderLocked(token windowsStreamGenerationToken, positionMS int64) {
 	ctx, cancel := context.WithCancel(context.Background())
 	player.decoderCancel = cancel
+	chunks := player.chunks
+	if chunks == nil {
+		chunks = &windowsStreamCacheReader{cache: player.cache, manifest: player.manifest}
+	}
 	request := WindowsStreamDecodeRequest{
 		Manifest: player.manifest, StartPositionMS: positionMS,
 		PlaybackGeneration: token.Playback, SeekGeneration: token.Seek,
-		Chunks: &windowsStreamCacheReader{cache: player.cache, manifest: player.manifest},
+		Chunks: chunks,
 		PCM:    windowsStreamPCMWriter{player: player, token: token},
 	}
 	go func() {
@@ -709,8 +751,14 @@ func (player *WindowsStreamCandidatePlayer) startDecoderLocked(token windowsStre
 		if ctx.Err() != nil || player.epoch.Load() != token.Epoch {
 			return
 		}
-		if err := player.cache.VerifyWhole(request.Manifest); err != nil {
-			player.postInternal(windowsStreamInternalEvent{kind: windowsStreamInternalFailed, token: token, err: err})
+		var verifyErr error
+		if verifier, ok := chunks.(windowsStreamChunkVerifier); ok {
+			verifyErr = verifier.VerifyWhole()
+		} else {
+			verifyErr = player.cache.VerifyWhole(request.Manifest)
+		}
+		if verifyErr != nil {
+			player.postInternal(windowsStreamInternalEvent{kind: windowsStreamInternalFailed, token: token, err: verifyErr})
 			return
 		}
 		player.decoderEOF.Store(true)

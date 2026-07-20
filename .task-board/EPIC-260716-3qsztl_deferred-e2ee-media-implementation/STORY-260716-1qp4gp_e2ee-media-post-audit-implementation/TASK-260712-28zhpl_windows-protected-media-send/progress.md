@@ -8,7 +8,7 @@ done
 2026-07-12T16:49:11Z
 
 ## Last Update
-2026-07-20T05:13:21Z
+2026-07-20T05:20:46Z
 
 ## Blocked By
 - TASK-260712-16xmy2
@@ -45,6 +45,7 @@ spawn run started: [reviewer] reviewer (claude) (run=RUN-260720-1e8fa2)
 2026-07-20 RUN-260720-1e8fa2 terminal independent re-review of exact b2a4af69530545ede4b82f31a451c556ef7c536f: ACCEPTED, zero open Critical/High/Medium. Both RUN-260720-6ead84 repros re-run and proven closed (F1 cancel/recovery converge with already-missing owned plaintext, foreign/symlink/directory paths still fail closed and are never deleted; F2 state-less final collision rejected before generation reservation with SendGeneration untouched, bounded recovery removes the orphan, same draft ID then publishes generation 1). Structural prevention audited: private .prepare-* assembly with atomic rename, all failure paths remove the temp, no final-draft overwrite, recovery cannot sweep in-flight prepares. Full aa0d9da scope re-reviewed unchanged and sound; production-dark boundary intact (send service referenced only by its own file and test). 10/10 packet hashes recomputed and match; macOS parity fields identical; key-state validator zero-line diff. Evidence reproduced synchronously: focused 27/27 + race, key-state race, vet, full Go + race, amd64/arm64 blind compiles, 205/205 acceptance discovery, automated 16/16 manifest .temp/acceptance/20260720T050800Z/manifest.json. Three Low/informational notes (never-swept crashed .prepare-* dirs; corrupt state.json halts recovery fail-closed; owned-root-internal symlink retarget within policy) recorded in TASK-260712-28zhpl_re-review-verdict-b2a4af6.md. Signed-MSIX/native/hardware/traffic/memory/playback evidence remains not-run manual scope in EPIC-260714-th54l3.
 agent completed: [reviewer] reviewer (claude) (exit=0)
 spawn run completed: claude (run=RUN-260720-1e8fa2, pid=63135, exit=0)
+2026-07-20 publication complete: hosted CI run 29718751890 passed all four required jobs (coordinator, node-core, pulsar-win, pulsar-win-packaged-probe); PR 294 merged exact head 684734175473b3c4fc28a305431547fc1d0a3b62 to main as c5eede96a18e19703c503ca32256e87a2b932838. Remote feature branch deleted and ancestry verified before starting the next strict task.
 
 ## Precondition Resources
 - [independent-review-brief-aa0d9da.md](file://TASK-260712-28zhpl/independent-review-brief-aa0d9da.md) — Exact aa0d9da independent security, lifecycle, persistence, concurrency and production-dark review instructions

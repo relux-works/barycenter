@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -177,6 +178,25 @@ type windowsStreamCacheIndex struct {
 
 type windowsStreamChunkFlight struct{ done chan struct{} }
 
+type windowsStreamProcessLockRegistry struct {
+	mu    sync.Mutex
+	locks map[string]*sync.Mutex
+}
+
+func (registry *windowsStreamProcessLockRegistry) lockFor(path string) *sync.Mutex {
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+	if registry.locks == nil {
+		registry.locks = make(map[string]*sync.Mutex)
+	}
+	if registry.locks[path] == nil {
+		registry.locks[path] = &sync.Mutex{}
+	}
+	return registry.locks[path]
+}
+
+var globalWindowsStreamProcessLocks windowsStreamProcessLockRegistry
+
 type WindowsStreamCacheStats struct {
 	Hits, Fetches, Evictions, IntegrityFailures, Repairs int64
 	Bytes, PinnedBytes                                   int64
@@ -189,6 +209,7 @@ type WindowsStreamChunkCache struct {
 	secret         []byte
 	fetcher        windowsStreamRangeFetcher
 	limits         windowsStreamCacheLimits
+	processMu      *sync.Mutex
 
 	mu         sync.Mutex
 	entries    map[string]*windowsStreamCacheEntry
@@ -224,11 +245,16 @@ func newWindowsStreamChunkCache(
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, windowsStreamFailure("cache", "cache_unavailable")
 	}
+	lockPath, err := filepath.Abs(filepath.Join(dir, "index-v1.json"))
+	if err != nil {
+		return nil, windowsStreamFailure("cache", "invalid_configuration")
+	}
 	cache := &WindowsStreamChunkCache{
 		dir: dir, indexPath: filepath.Join(dir, "index-v1.json"),
 		secret: append([]byte(nil), installationSecret...), fetcher: fetcher, limits: limits,
 		entries: make(map[string]*windowsStreamCacheEntry), tombstones: make(map[string]bool),
-		inflight: make(map[string]*windowsStreamChunkFlight),
+		inflight:  make(map[string]*windowsStreamChunkFlight),
+		processMu: globalWindowsStreamProcessLocks.lockFor(lockPath),
 	}
 	if err := cache.repair(); err != nil {
 		return nil, err
@@ -248,7 +274,10 @@ func (cache *WindowsStreamChunkCache) hmac(parts ...string) string {
 }
 
 func (cache *WindowsStreamChunkCache) variantKey(manifest WindowsStreamManifest) string {
-	return cache.hmac("variant", manifest.Identity, manifest.ETag)
+	// The opaque identity and ETag are content/version labels, not object
+	// authority. Include the exact authenticated route so delete/revocation of
+	// one object cannot tombstone or reuse another object's equal ciphertext.
+	return cache.hmac("variant", manifest.Identity, manifest.VariantURL, manifest.ETag)
 }
 
 func (cache *WindowsStreamChunkCache) chunkKey(variantKey string, index int) string {
@@ -258,6 +287,8 @@ func (cache *WindowsStreamChunkCache) chunkKey(variantKey string, index int) str
 func (cache *WindowsStreamChunkCache) repair() error {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
+	cache.processMu.Lock()
+	defer cache.processMu.Unlock()
 	var index windowsStreamCacheIndex
 	if raw, err := os.ReadFile(cache.indexPath); err == nil {
 		if json.Unmarshal(raw, &index) != nil || index.Version != 1 {
@@ -315,7 +346,7 @@ func (cache *WindowsStreamChunkCache) repair() error {
 	if err := cache.enforceLimitsLocked(""); err != nil {
 		return err
 	}
-	return cache.persistLocked()
+	return cache.writeIndexProcessLocked()
 }
 
 func (cache *WindowsStreamChunkCache) Get(
@@ -341,7 +372,16 @@ func (cache *WindowsStreamChunkCache) Get(
 				cache.clock++
 				entry.LastUse = cache.clock
 				cache.hits.Add(1)
-				_ = cache.persistLocked()
+				if err := cache.persistLocked(); err != nil {
+					cache.mu.Unlock()
+					zeroBytes(data)
+					return nil, err
+				}
+				if cache.tombstones[variantKey] {
+					cache.mu.Unlock()
+					zeroBytes(data)
+					return nil, windowsStreamFailure("fetch", "revoked")
+				}
 				cache.mu.Unlock()
 				return data, nil
 			}
@@ -411,12 +451,24 @@ func (cache *WindowsStreamChunkCache) fetchAndStore(
 	if data == nil {
 		return nil, windowsStreamFailure("integrity", "chunk_hash_mismatch")
 	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	cache.processMu.Lock()
+	defer cache.processMu.Unlock()
+	if err := cache.mergePersistedIndexProcessLocked(); err != nil {
+		zeroBytes(data)
+		return nil, err
+	}
+	if cache.tombstones[variantKey] {
+		zeroBytes(data)
+		return nil, windowsStreamFailure("fetch", "revoked")
+	}
 	path := filepath.Join(cache.dir, key+".chunk")
-	tmp := path + ".part"
-	file, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	file, err := os.CreateTemp(cache.dir, "."+key+"-*.part")
 	if err != nil {
 		return nil, windowsStreamFailure("cache", "cache_unavailable")
 	}
+	tmp := file.Name()
 	_, writeErr := file.Write(data)
 	if writeErr == nil {
 		writeErr = file.Sync()
@@ -424,16 +476,20 @@ func (cache *WindowsStreamChunkCache) fetchAndStore(
 	if closeErr := file.Close(); writeErr == nil {
 		writeErr = closeErr
 	}
-	if writeErr != nil || os.Rename(tmp, path) != nil {
+	renameErr := error(nil)
+	if writeErr == nil {
+		renameErr = os.Rename(tmp, path)
+		if renameErr != nil {
+			if existing, readErr := os.ReadFile(path); readErr == nil && bytes.Equal(existing, data) {
+				renameErr = nil
+			}
+		}
+	}
+	if writeErr != nil || renameErr != nil {
 		_ = os.Remove(tmp)
 		return nil, windowsStreamFailure("cache", "cache_unavailable")
 	}
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-	if cache.tombstones[variantKey] {
-		_ = os.Remove(path)
-		return nil, windowsStreamFailure("fetch", "revoked")
-	}
+	_ = os.Remove(tmp)
 	cache.clock++
 	cache.entries[key] = &windowsStreamCacheEntry{
 		Key: key, VariantKey: variantKey, ChunkIndex: chunk.Index,
@@ -441,10 +497,10 @@ func (cache *WindowsStreamChunkCache) fetchAndStore(
 	}
 	if err := cache.enforceLimitsLocked(key); err != nil {
 		cache.removeEntryLocked(key)
-		_ = cache.persistLocked()
+		_ = cache.writeIndexProcessLocked()
 		return nil, err
 	}
-	if err := cache.persistLocked(); err != nil {
+	if err := cache.writeIndexProcessLocked(); err != nil {
 		cache.removeEntryLocked(key)
 		return nil, err
 	}
@@ -603,6 +659,57 @@ func (cache *WindowsStreamChunkCache) removeEntryLocked(key string) {
 }
 
 func (cache *WindowsStreamChunkCache) persistLocked() error {
+	cache.processMu.Lock()
+	defer cache.processMu.Unlock()
+	if err := cache.mergePersistedIndexProcessLocked(); err != nil {
+		return err
+	}
+	return cache.writeIndexProcessLocked()
+}
+
+func (cache *WindowsStreamChunkCache) mergePersistedIndexProcessLocked() error {
+	raw, err := os.ReadFile(cache.indexPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return windowsStreamFailure("cache", "cache_unavailable")
+	}
+	var persisted windowsStreamCacheIndex
+	if json.Unmarshal(raw, &persisted) != nil || persisted.Version != 1 {
+		return windowsStreamFailure("cache", "cache_unavailable")
+	}
+	for _, value := range persisted.Tombstones {
+		if len(value) == sha256.Size*2 {
+			cache.tombstones[value] = true
+		}
+	}
+	for key, entry := range cache.entries {
+		if cache.tombstones[entry.VariantKey] {
+			cache.removeEntryLocked(key)
+		}
+	}
+	for _, entry := range persisted.Entries {
+		if cache.entries[entry.Key] != nil || cache.tombstones[entry.VariantKey] ||
+			len(entry.Key) != sha256.Size*2 || len(entry.VariantKey) != sha256.Size*2 ||
+			entry.Size <= 0 || entry.Size > cache.limits.Chunk {
+			continue
+		}
+		info, statErr := os.Lstat(filepath.Join(cache.dir, entry.Key+".chunk"))
+		if statErr != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() != entry.Size {
+			continue
+		}
+		copyValue := entry
+		copyValue.Pinned = false
+		cache.entries[copyValue.Key] = &copyValue
+		if copyValue.LastUse > cache.clock {
+			cache.clock = copyValue.LastUse
+		}
+	}
+	return nil
+}
+
+func (cache *WindowsStreamChunkCache) writeIndexProcessLocked() error {
 	index := windowsStreamCacheIndex{Version: 1}
 	for _, entry := range cache.entries {
 		copyValue := *entry
@@ -618,11 +725,11 @@ func (cache *WindowsStreamChunkCache) persistLocked() error {
 	if err != nil {
 		return windowsStreamFailure("cache", "cache_unavailable")
 	}
-	tmp := cache.indexPath + ".part"
-	file, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	file, err := os.CreateTemp(cache.dir, ".index-*.part")
 	if err != nil {
 		return windowsStreamFailure("cache", "cache_unavailable")
 	}
+	tmp := file.Name()
 	_, writeErr := file.Write(raw)
 	if writeErr == nil {
 		writeErr = file.Sync()

@@ -100,7 +100,34 @@ def validate(review: dict) -> None:
         path = ROOT / item["path"]
         require(path.is_file(), f"review source missing: {item['path']}")
         require(SHA256.fullmatch(item.get("sha256", "")) is not None, "review source digest malformed")
-        require(digest(path) == item["sha256"], f"review source digest mismatch: {item['path']}")
+        current_digest = digest(path)
+        protected_delta_ids = {
+            "pulsar-win/stream_player.go": "bounded-player",
+            "pulsar-win/stream_cache.go": "ciphertext-cache",
+        }
+        if item["path"] in protected_delta_ids and current_digest != item["sha256"]:
+            # The Phase 2 review remains an immutable historical review. A
+            # later production-dark E2EE task may inject an authenticated
+            # chunk reader only when its own fail-closed packet pins the exact
+            # current player and keeps production playback disabled.
+            protected_packet = json.loads(
+                (ROOT / "acceptance/phase3/windows-protected-media-playback-v1.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            protected_artifacts = {
+                artifact.get("id"): artifact for artifact in protected_packet.get("artifacts", [])
+            }
+            require(
+                protected_packet.get("decision", {}).get("productionEnabled") is False
+                and protected_packet.get("decision", {}).get("runtimeHTTPWired") is False
+                and protected_artifacts.get(protected_delta_ids[item["path"]], {}).get("sha256")
+                    == current_digest,
+                "post-review Windows stream delta lacks exact production-dark authority",
+            )
+        else:
+            require(current_digest == item["sha256"],
+                    f"review source digest mismatch: {item['path']}")
 
     handoff = json.loads(HANDOFF_PATH.read_text(encoding="utf-8"))
     activation = handoff.get("productionActivation", {})

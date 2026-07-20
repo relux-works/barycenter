@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "contract": "windows-protected-media-playback-v1-vectors",
+  "status": "audit-fixture-only-production-disabled",
+  "fixtureSuite": "AUDIT_FIXTURE_SUITE_NOT_FOR_PRODUCTION",
+  "fixtureContainer": "AUDIT_FIXTURE_CONTAINER_NOT_FOR_PRODUCTION",
+  "platformProducers": ["macos-fixture", "windows-fixture"],
+  "ciphertextSHA256": "5c567a898182844d27b3216fbb147b17a19c2e1c121dd32616e64b185e8fb47c",
+  "chunks": [
+    {
+      "index": 0,
+      "offset": 0,
+      "size": 33,
+      "ciphertextSHA256": "35784550be8efcad00c767790e5eb217b6f8cca5f4f825d709fa09904cfabdba",
+      "authenticatedPlaintextSHA256": "28ada50b8ae666470e41323aa9a48f03ba000f6447888b7dd83a4f42c1c38937"
+    },
+    {
+      "index": 1,
+      "offset": 33,
+      "size": 37,
+      "ciphertextSHA256": "666ccb685aae45b6458c53c181c8ffde1da023051ed51bdcb212e5aa9ff16eb5",
+      "authenticatedPlaintextSHA256": "6a90c3364141e168d73f011f25e6321fdf7d1ca7c2a4733e8f6ee6c496097922"
+    }
+  ],
+  "failClosed": [
+    {"name": "ciphertext-tamper", "expected": "corrupt_ciphertext"},
+    {"name": "invalid-record-authentication", "expected": "invalid_authentication"},
+    {"name": "mixed-version-downgrade", "expected": "downgrade_forbidden"},
+    {"name": "wrong-target-snapshot", "expected": "target_changed"},
+    {"name": "membership-revision-change", "expected": "target_changed"},
+    {"name": "expired-route", "expected": "expired"},
+    {"name": "missing-history-grant", "expected": "missing_grant"},
+    {"name": "revoked-cache-restart", "expected": "revoked"},
+    {"name": "parallel-cache-revocation", "expected": "revoked"}
+  ],
+  "bounds": {
+    "chunkBytes": 1048576,
+    "variantBytes": 67108864,
+    "pcmRingBytes": 1048576
+  }
+}

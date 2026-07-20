@@ -8,7 +8,7 @@ codex-root-inline
 2026-07-12T16:49:11Z
 
 ## Last Update
-2026-07-20T01:28:53Z
+2026-07-20T01:30:35Z
 
 ## Blocked By
 - TASK-260712-16xmy2
@@ -31,7 +31,7 @@ codex-root-inline
 Owner gate 2026-07-16: moved to EPIC-260716-3qsztl Deferred E2EE media implementation after independent audit. Do not implement or move this task into development until TASK-260712-aniuyy Pass independent cryptographic design review before implementation is done with no open critical or high finding. Any protocol-affecting delta reopens the audit gate.
 
 ## Precondition Resources
-(none)
+- [independent-review-brief.md](file://TASK-260712-2kcduo/independent-review-brief.md) — Exact-SHA independent implementation and design-delta review instructions
 
 ## Outcome Resources
 - [macos-protected-media-send-v1.json](file://TASK-260712-2kcduo/macos-protected-media-send-v1.json) — Production-dark macOS protected-media send acceptance packet

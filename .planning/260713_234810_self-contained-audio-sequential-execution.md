@@ -379,14 +379,16 @@
   `RUN-260720-78713e` performed review work but intentionally received no
   credit because they exited before their asynchronous harnesses produced a
   terminal verdict. Real signed-MSIX/native-DPAPI, device, audio,
-  accessibility and forensic evidence stays in `EPIC-260714-th54l3`.
+  accessibility and forensic evidence stays in `EPIC-260714-th54l3`. Hosted CI
+  run `29730150880` passed all four jobs; PR #298 merged to `main` as
+  `9d7ace6dc7337cd2191f35b0d8373228cf759398`.
 - Current deferred coding line: E2EE continues with `TASK-260712-1bcpda`, the
   production-dark C4-C6 evidence/review pack. Every later E2EE implementation
   task lives in `EPIC-260716-3qsztl`; `TASK-260712-1ulshp` is retained there
   as well and cannot be self-certified by the implementation session.
 - Most recently accepted: `TASK-260712-2q4jbu` —
   windows-encrypted-media-client-path (dormant engineering scope only)
-- Current branch: `feat/task-260712-2q4jbu`
+- Current branch: `feat/task-260712-1bcpda`
 - Current review evidence:
   Windows encrypted-media client-path was accepted on exact producer
   `a5178b6` by terminal Claude Fable 5 max run `RUN-260720-f01d6a`; verdict

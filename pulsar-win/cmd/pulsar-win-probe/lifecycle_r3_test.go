@@ -296,6 +296,30 @@ func TestR3F3PermissionQueryFailureDecisionFailsClosedForEveryOwnedState(t *test
 	}
 }
 
+func TestPermissionFailureEvidenceBoundsDuplicatePollFailures(t *testing.T) {
+	t.Parallel()
+	var evidence permissionFailureEvidence
+	wrongThread := winprobe.HResultFromUintptr(uintptr(0x8001010e))
+	if !evidence.shouldLog(wrongThread, false) {
+		t.Fatal("first permission failure was suppressed")
+	}
+	for attempt := 0; attempt < 1000; attempt++ {
+		if evidence.shouldLog(wrongThread, false) {
+			t.Fatalf("duplicate defensive poll failure %d was logged", attempt)
+		}
+	}
+	if !evidence.shouldLog(wrongThread, true) {
+		t.Fatal("real AccessChanged failure was suppressed")
+	}
+	if !evidence.shouldLog(winprobe.HResultFromUintptr(uintptr(0x80070005)), false) {
+		t.Fatal("changed HRESULT was suppressed")
+	}
+	evidence.reset()
+	if !evidence.shouldLog(wrongThread, false) {
+		t.Fatal("failure after successful reset was suppressed")
+	}
+}
+
 func TestR3F9PermissionFailureStopsAndClosesGateBeforeBlockedEvidence(t *testing.T) {
 	t.Parallel()
 	tracker := newLifecycleTracker()

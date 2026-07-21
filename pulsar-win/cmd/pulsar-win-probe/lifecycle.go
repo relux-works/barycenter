@@ -1020,6 +1020,32 @@ func (q *permissionQueryCoordinator) run(role permissionQueryRole, query func() 
 	return status, hr, true
 }
 
+// permissionFailureEvidence bounds identical defensive-poll failures while
+// preserving the first failure, a changed HRESULT, and every real OS
+// AccessChanged signal. A persistent helper fault must not grow the evidence
+// file without bound merely because the waiter continues its safety poll.
+type permissionFailureEvidence struct {
+	mu      sync.Mutex
+	active  bool
+	hresult winprobe.HResult
+}
+
+func (e *permissionFailureEvidence) shouldLog(hresult winprobe.HResult, osSignal bool) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	changed := !e.active || e.hresult != hresult
+	e.active = true
+	e.hresult = hresult
+	return changed || osSignal
+}
+
+func (e *permissionFailureEvidence) reset() {
+	e.mu.Lock()
+	e.active = false
+	e.hresult = 0
+	e.mu.Unlock()
+}
+
 type retryTimerDecision uint8
 
 const (

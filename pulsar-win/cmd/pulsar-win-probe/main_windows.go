@@ -115,6 +115,7 @@ type probeApp struct {
 	shutdown               abruptShutdownCoordinator
 	captureOwners          captureOwnershipCoordinator
 	permissionQueries      permissionQueryCoordinator
+	permissionFailures     permissionFailureEvidence
 	hotkeyRegistered       bool
 	trayIcon               ownedResource
 	wtsRegistered          bool
@@ -614,17 +615,28 @@ func (a *probeApp) drainCommands() {
 			if hr.Failed() {
 				status = winprobe.PermissionUnknown
 				signal := "CapPermissionCheck(explicit-record-query-failed)"
+				failureCause := "permission status could not be queried; fail-closed lifecycle cleanup started before diagnostic evidence"
 				if command.kind == "permission_rearm" {
 					signal = "CapPermissionCheck(lifecycle-rearm-query-failed)"
+					failureCause = "permission status could not be queried; rearm token rejected and permission gate remains closed"
 				}
 				// Gate invalidation, exact-generation no-native settlement, and
 				// CaptureStop (when native ownership exists) must precede every
 				// logger/filesystem operation. A failed query never publishes a
 				// permission-ready or rearm continuation.
-				a.requestLifecycleStop(lifecyclePermissionRevoke, signal, winprobe.ReasonPermissionRevoke, lifecycleReturnsIdle)
-				a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioPermission, Result: winprobe.ResultFail, Action: command.kind, SelectedAPIPath: "CapPermissionCheck(waiter-owned)", PermissionStatus: status.String(), HResult: hr.Hex(), FailureCause: "permission status could not be queried; fail-closed lifecycle cleanup started before diagnostic evidence", Fields: map[string]any{"captureGeneration": command.generation}})
+				if command.kind == "permission_rearm" {
+					// A rearm query is already the successor of completed
+					// fail-closed cleanup. Reject its token and keep the
+					// permission gate closed; starting another lifecycle run
+					// here creates a self-sustaining rearm/failure loop.
+					a.lifecycle.runRearm(command.generation, false, nil)
+				} else {
+					a.requestLifecycleStop(lifecyclePermissionRevoke, signal, winprobe.ReasonPermissionRevoke, lifecycleReturnsIdle)
+				}
+				a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioPermission, Result: winprobe.ResultFail, Action: command.kind, SelectedAPIPath: "CapPermissionCheck(waiter-owned)", PermissionStatus: status.String(), HResult: hr.Hex(), FailureCause: failureCause, Fields: map[string]any{"captureGeneration": command.generation}})
 				continue
 			}
+			a.permissionFailures.reset()
 			if !a.shutdown.runOperation(func() {
 				a.mu.Lock()
 				a.permissionKnown = true
@@ -769,9 +781,12 @@ func (a *probeApp) drainPermissionChange(accessChangedSignal bool) {
 			}
 			a.requestLifecycleStop(lifecyclePermissionRevoke, signal, winprobe.ReasonPermissionRevoke, lifecycleReturnsIdle)
 		}
-		a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioPermission, Result: winprobe.ResultFail, Action: "permission_status_query", SelectedAPIPath: "CapPermissionCheck(waiter-owned)", HResult: hr.Hex(), FailureCause: "permission status could not be queried", Fields: map[string]any{"accessChangedSignal": accessChangedSignal, "captureOrPermissionGenerationOwned": captureOwned, "failClosedCleanupStarted": failClosed}})
+		if a.permissionFailures.shouldLog(hr, accessChangedSignal) {
+			a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioPermission, Result: winprobe.ResultFail, Action: "permission_status_query", SelectedAPIPath: "CapPermissionCheck(waiter-owned)", HResult: hr.Hex(), FailureCause: "permission status could not be queried", Fields: map[string]any{"accessChangedSignal": accessChangedSignal, "captureOrPermissionGenerationOwned": captureOwned, "failClosedCleanupStarted": failClosed, "identicalDefensivePollFailuresWillBeSuppressed": true}})
+		}
 		return
 	}
+	a.permissionFailures.reset()
 	type permissionTransition struct {
 		capture     uint32
 		alreadySent bool

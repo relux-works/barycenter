@@ -12,7 +12,9 @@ import platform
 import re
 import stat
 import subprocess
+import sys
 
+sys.dont_write_bytecode = True
 import run_automated as base
 
 

@@ -15,9 +15,10 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: none. All four autonomous desktop remediation
-  units are accepted; the only remaining execution unit is the consolidated
-  owner task `TASK-260721-ryk8c0`.
+- Current engineering task: `BUG-260721-2jmabl` — Windows packaged app silent
+  exit, exact Win10 candidate in independent review. All four original
+  autonomous desktop remediation units remain accepted; the consolidated owner
+  task `TASK-260721-ryk8c0` remains the only manual execution unit.
 - Current strict remediation order: `BUG-260721-1npwy8` →
   `TASK-260721-2lv6wn` Professional system-native Windows shell →
   `TASK-260721-8pwqje` Professional system-native macOS shell →
@@ -28,7 +29,8 @@
   aggregate-only `done` containers, not acceptance verdicts. Their provenance
   and negative evidence remain.
 - Current delivery progress: original plan `186/205` accepted (`90.7%`), new
-  autonomous remediation `4/4` accepted (`100%`),
+  autonomous remediation `4/4` accepted (`100%`), packaged-launch bug `0/1`
+  accepted with implementation/evidence complete and review pending,
   consolidated manual gate `0/1`. No new
   hardware, accessibility-reader, audible, Store or production claim is made.
 - 2026-07-21 autonomous remediation checkpoint: `BUG-260721-1npwy8` now has a
@@ -100,6 +102,22 @@
   microphone, audible or hardware PASS is claimed. Windows functional rows are
   ready; Store/EV signing and the notarized macOS half remain outside this
   preparation checkpoint.
+- 2026-07-21 Windows packaged-launch repair candidate:
+  `BUG-260721-2jmabl` autonomously reproduced the user's silent shortcut
+  failure as a successful AUMID activation followed by an invisible/unresponsive
+  startup exit. The repair makes the AppContainer top-level HWND visible
+  immediately, creates the 129 section controls hidden, bounds the first render
+  to Home before starting the message pump, prevents failed tray creation from
+  posting a process-wide quit, and makes GUI file/crash diagnostics durable.
+  Local Go tests, Windows vet and GUI cross-build pass. Exact developer-signed
+  package `ReluxWorksLLC.PulsarBarycenter_0.1.11.0_x64__q036g2bzd7ngc`
+  (MSIX SHA-256 `b8374791fa95c4b17eb1cae9195c19e344293263678946a02c958599800aafa2`,
+  EXE SHA-256 `839b00a84dd271121b8c4987a33b97b238e3ea9d458e19f39c09b0540265f0bb`)
+  is installed on `DESKTOP-3PBO632`. The exact AUMID run remained alive and
+  visible for 31.199 seconds in all 120 samples and stayed alive/responding
+  after the hidden observer returned; UI Automation reported visible,
+  responding, not hung at 192 DPI. Independent review is pending; no audio or
+  manual hardware PASS is claimed.
 - Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build

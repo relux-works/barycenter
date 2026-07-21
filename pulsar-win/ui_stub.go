@@ -4,7 +4,10 @@
 // exists only on Windows; here the CLI --pair path and a signal wait stand in.
 package main
 
-import "errors"
+import (
+	"errors"
+	"log/slog"
+)
 
 func currentWindowsRecordingShortcutStatus() WindowsRecordingShortcutStatus {
 	return WindowsShortcutInactive
@@ -39,6 +42,6 @@ func preferredWindowsShellLocale() ShellLocale { return ShellEnglish }
 
 func currentMainWindowOwner() uintptr { return 0 }
 
-func runUnpairedShell(dir, coordinatorBase string) (paired, supported bool) {
+func runUnpairedShell(dir, coordinatorBase string, log *slog.Logger) (paired, supported bool) {
 	return false, false
 }

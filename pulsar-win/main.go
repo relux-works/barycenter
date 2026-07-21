@@ -21,6 +21,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall"
@@ -49,9 +50,53 @@ func newLogger(dir string) *slog.Logger {
 	var w io.Writer = os.Stderr
 	if f, err := os.OpenFile(filepath.Join(dir, "pulsar.log"),
 		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); err == nil {
-		w = io.MultiWriter(os.Stderr, f)
+		w = bestEffortWriter{f, os.Stderr}
 	}
 	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug}))
+}
+
+// bestEffortWriter is intentionally different from io.MultiWriter: GUI builds
+// can inherit an invalid stderr handle, and MultiWriter stops before reaching
+// the file sink after the first write error. A log record succeeds when any
+// configured sink accepted all of it, while CLI builds still mirror to stderr.
+type bestEffortWriter []io.Writer
+
+func (writers bestEffortWriter) Write(p []byte) (int, error) {
+	var firstErr error
+	wrote := false
+	for _, writer := range writers {
+		n, err := writer.Write(p)
+		if n == len(p) && err == nil {
+			wrote = true
+			continue
+		}
+		if firstErr == nil {
+			if err != nil {
+				firstErr = err
+			} else {
+				firstErr = io.ErrShortWrite
+			}
+		}
+	}
+	if wrote {
+		return len(p), nil
+	}
+	if firstErr == nil {
+		firstErr = io.ErrClosedPipe
+	}
+	return 0, firstErr
+}
+
+func configureCrashOutput(dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filepath.Join(dir, "pulsar-crash.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return debug.SetCrashOutput(file, debug.CrashOptions{})
 }
 
 func main() {
@@ -79,6 +124,9 @@ func main() {
 	// The GUI build has no console (-H windowsgui), so stderr goes nowhere —
 	// log to a file in the config dir (and to stderr too, for CLI runs).
 	log := newLogger(dir)
+	if err := configureCrashOutput(dir); err != nil {
+		log.Error("configure crash output", "err", err)
+	}
 
 	if *pairCode != "" {
 		creds, err := Pair(*coordinator, *pairCode)
@@ -119,7 +167,7 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		// the honest unavailable states remain reachable; Connect in the tray
 		// opens the existing code-entry onboarding window. Non-Windows dev builds
 		// keep the CLI fallback.
-		paired, supported := runUnpairedShell(dir, coordinatorBase)
+		paired, supported := runUnpairedShell(dir, coordinatorBase, log)
 		if !supported {
 			fmt.Fprintln(os.Stderr, "Pulsar не сопряжён с координатором.")
 			fmt.Fprintln(os.Stderr, "Получи код у бота (/pair) и запусти:")
@@ -814,6 +862,7 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		Recording:     workflow,
 		Shortcut:      shortcutStore.Load(),
 		ShortcutStore: shortcutStore,
+		Log:           log,
 		Soundboard:    soundboard,
 		Connected:     func() bool { return ws.Healthy() },
 		Identity:      identityLine(*creds),

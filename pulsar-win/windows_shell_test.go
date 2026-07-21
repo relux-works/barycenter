@@ -77,6 +77,8 @@ func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
 	for _, seam := range []string{
 		"wmDPIChanged", "pGetDpiForWindow", "pIsDialogMessageW",
 		"pTranslateAcceleratorW", "wmGetMinMax", "wsExControlParent",
+		"wsVisible|wsOverlapped|wsCaption|wsSysMenu",
+		"style &^= wsVisible", "showControl(control, true)", "ctx.renderHome(copy, snapshot)",
 		`mk(0, "BUTTON"`, `mk(0, "STATIC"`, "wmDropFiles", "pDragAcceptFiles", "AcceptDroppedFile",
 		"windowText(ctx.identityInput)", "chooseWindowsRecoveryDestination", "idShellSend", "SendSelectedDraft",
 		`mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellReportReason)`,

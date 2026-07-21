@@ -396,7 +396,10 @@ func createMainWindow(shell *WindowsShell) windows.Handle {
 	pAdjustWindowRectExForDPI.Call(uintptr(unsafe.Pointer(&outer)), wsOverlapped|wsCaption|wsSysMenu|wsMinimizeBox|wsMaximizeBox|wsThickFrame|wsClipChildren, 0, wsExControlParent, dpi)
 	hwnd, _, _ := pCreateWindowExW.Call(
 		wsExControlParent, uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(u16("Pulsar"))),
-		wsOverlapped|wsCaption|wsSysMenu|wsMinimizeBox|wsMaximizeBox|wsThickFrame|wsClipChildren,
+		// AppContainer activation observes the top-level surface while the
+		// sizeable native control tree is still being constructed. Creating the
+		// HWND hidden made Win10 terminate the package before ShowWindow ran.
+		wsVisible|wsOverlapped|wsCaption|wsSysMenu|wsMinimizeBox|wsMaximizeBox|wsThickFrame|wsClipChildren,
 		cwUseDefault, cwUseDefault, uintptr(outer.right-outer.left), uintptr(outer.bottom-outer.top),
 		0, 0, hInst, 0)
 	if hwnd == 0 {
@@ -407,18 +410,36 @@ func createMainWindow(shell *WindowsShell) windows.Handle {
 	// WM_CREATE arrived before mainCtx was assigned; build after creation so
 	// the callback never has to recover Go pointers from CREATESTRUCT.
 	mainCtx.createControls()
+	logMainWindowStage("controls_ready")
 	mainCtx.updateTheme()
+	logMainWindowStage("theme_ready")
 	pDragAcceptFiles.Call(hwnd, 1)
 	mainCtx.installAccelerators()
+	logMainWindowStage("accelerators_ready")
 	mainCtx.render()
+	logMainWindowStage("render_ready")
 	mainCtx.layout()
+	logMainWindowStage("layout_ready")
 	pSetTimer.Call(hwnd, mainRefreshTimer, 1000, 0)
+	logMainWindowStage("timer_ready")
 	return mainHwnd
+}
+
+func logMainWindowStage(stage string) {
+	if curTray != nil && curTray.Log != nil {
+		curTray.Log.Debug("create main window", "stage", stage)
+	}
 }
 
 func (ctx *mainWindowCtx) createControls() {
 	hInst, _, _ := pGetModuleHandleW.Call(0)
 	mk := func(ex uint32, class, text string, style uint32, id int) windows.Handle {
+		// The shell owns more than a hundred section-specific controls. Creating
+		// all of them visible on an already visible AppContainer HWND forces
+		// synchronous paint/layout work for every CreateWindowExW call and keeps
+		// the owner thread outside its message pump long enough for Win10 to end
+		// the unresponsive activation. Render shows only the current section.
+		style &^= wsVisible
 		h, _, _ := pCreateWindowExW.Call(uintptr(ex), uintptr(unsafe.Pointer(u16(class))),
 			uintptr(unsafe.Pointer(u16(text))), uintptr(style), 0, 0, 1, 1,
 			uintptr(ctx.hwnd), uintptr(id), hInst, 0)
@@ -774,18 +795,31 @@ func (ctx *mainWindowCtx) render() {
 	snapshot := ctx.shell.Snapshot()
 	quality := presentWindowsCaptureQuality(snapshot)
 	section := ctx.shell.Section()
-	if ctx.laidOutSection != section {
+	sectionChanged := ctx.laidOutSection != section
+	if sectionChanged {
 		ctx.laidOutSection = section
 		ctx.layout()
 	}
 	copy := NewShellCopy(ctx.shell.Locale())
+	// A section switch starts from a known hidden set. This makes the initial
+	// Home render bounded instead of walking and configuring every off-screen
+	// P1/P2/P3 surface before the Win32 message pump can start.
+	if sectionChanged {
+		for _, control := range ctx.all {
+			showControl(control, false)
+		}
+	}
 	for candidate, control := range ctx.nav {
+		showControl(control, true)
 		label := copy.Section(candidate)
 		if candidate == section {
 			label = "> " + label
 		}
 		setText(control, label)
 		pSendMessageW.Call(uintptr(control), 0x00F3, boolWord(candidate == section), 0) // BM_SETSTATE: visible non-color selection.
+	}
+	for _, control := range []windows.Handle{ctx.title, ctx.banner, ctx.body, ctx.dnd} {
+		showControl(control, true)
 	}
 	setText(ctx.title, copy.Section(section))
 	banner := copy.Connection(snapshot)
@@ -821,6 +855,10 @@ func (ctx *mainWindowCtx) render() {
 	}
 	showControl(ctx.footer, home)
 	showControl(ctx.detail, !home && (section == ShellCreate || section == ShellJoin || section == ShellTryLocally))
+	if home {
+		ctx.renderHome(copy, snapshot)
+		return
+	}
 	identityPage := section == ShellCreate || section == ShellJoin
 	showControl(ctx.identityInput, identityPage)
 	showControl(ctx.recovery, identityPage && snapshot.RecoveryExportRequired)
@@ -1306,36 +1344,36 @@ func (ctx *mainWindowCtx) render() {
 	pEnableWindow.Call(uintptr(ctx.airConfirm), boolWord(available && confirming))
 	pEnableWindow.Call(uintptr(ctx.airCancel), boolWord(available && confirming))
 
-	if home {
-		setText(ctx.body, copy.Text(txtPrimary)+"\r\n"+copy.Body(section, snapshot))
-		setText(ctx.home[0], copy.Text(txtCreate)+"  Ctrl+1")
-		setText(ctx.home[1], copy.Text(txtJoin)+"  Ctrl+2")
-		setText(ctx.home[2], copy.Text(txtTry)+"  Ctrl+Shift+T")
-		setText(ctx.cards[0], copy.Text(txtPresence)+"\r\n"+copy.Presence(snapshot))
-		route := snapshot.RouteName
-		if route == "" {
-			route = copy.Text(txtNoRoute)
-		}
-		setText(ctx.cards[1], copy.Text(txtRouting)+"\r\n"+route)
-		playing := snapshot.NowPlaying
-		if playing == "" {
-			playing = copy.Text(txtSilence)
-		}
-		setText(ctx.cards[2], copy.Text(txtNowPlaying)+"\r\n"+playing)
-		setText(ctx.footer, copy.Text(txtLocalControls)+"\r\n"+copy.Recording(snapshot)+"\r\n"+
-			copy.RecordingShortcut(snapshot.RecordingShortcut, snapshot.RecordingShortcutKey)+"\r\n"+
-			copy.Text(txtDND)+": "+copy.DND(snapshot.DND)+"    "+copy.Text(txtVolume)+fmtPercent(snapshot.Volume)+
-			"\r\n\r\n"+copy.Text(txtHistoryTitle)+"\r\n"+copy.Text(txtNoHistory))
-	} else {
-		body := copy.Body(section, snapshot)
-		if section == ShellHistory {
-			body += "\r\n\r\n" + copy.Draft(snapshot) + "\r\n\r\n" + copy.StreamTrackProjection(snapshot)
-		}
-		setText(ctx.body, body)
-		if key := shellPrimaryAction(section); key != "" {
-			setText(ctx.detail, copy.Text(key))
-		}
+	body := copy.Body(section, snapshot)
+	if section == ShellHistory {
+		body += "\r\n\r\n" + copy.Draft(snapshot) + "\r\n\r\n" + copy.StreamTrackProjection(snapshot)
 	}
+	setText(ctx.body, body)
+	if key := shellPrimaryAction(section); key != "" {
+		setText(ctx.detail, copy.Text(key))
+	}
+}
+
+func (ctx *mainWindowCtx) renderHome(copy ShellCopy, snapshot ShellSnapshot) {
+	setText(ctx.body, copy.Text(txtPrimary)+"\r\n"+copy.Body(ShellHome, snapshot))
+	setText(ctx.home[0], copy.Text(txtCreate)+"  Ctrl+1")
+	setText(ctx.home[1], copy.Text(txtJoin)+"  Ctrl+2")
+	setText(ctx.home[2], copy.Text(txtTry)+"  Ctrl+Shift+T")
+	setText(ctx.cards[0], copy.Text(txtPresence)+"\r\n"+copy.Presence(snapshot))
+	route := snapshot.RouteName
+	if route == "" {
+		route = copy.Text(txtNoRoute)
+	}
+	setText(ctx.cards[1], copy.Text(txtRouting)+"\r\n"+route)
+	playing := snapshot.NowPlaying
+	if playing == "" {
+		playing = copy.Text(txtSilence)
+	}
+	setText(ctx.cards[2], copy.Text(txtNowPlaying)+"\r\n"+playing)
+	setText(ctx.footer, copy.Text(txtLocalControls)+"\r\n"+copy.Recording(snapshot)+"\r\n"+
+		copy.RecordingShortcut(snapshot.RecordingShortcut, snapshot.RecordingShortcutKey)+"\r\n"+
+		copy.Text(txtDND)+": "+copy.DND(snapshot.DND)+"    "+copy.Text(txtVolume)+fmtPercent(snapshot.Volume)+
+		"\r\n\r\n"+copy.Text(txtHistoryTitle)+"\r\n"+copy.Text(txtNoHistory))
 }
 
 func fmtPercent(value int) string {

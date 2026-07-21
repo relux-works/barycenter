@@ -1,5 +1,5 @@
 ## Status
-backlog
+closed
 
 ## Assigned To
 (none)
@@ -8,7 +8,7 @@ backlog
 2026-07-12T15:29:06Z
 
 ## Last Update
-2026-07-15T10:37:47Z
+2026-07-21T10:59:20Z
 
 ## Blocked By
 - TASK-260712-2fe5bz
@@ -30,6 +30,7 @@ backlog
 ## Notes
 2026-07-14 scope routing: moved to EPIC-260714-th54l3 Manual real-app hardware testing. This task is deferred for hands-on execution in original sequence and no longer gates best-effort coding, unit tests or deterministic CI in EPIC-260712-3agrc1.
 2026-07-15 Store asset handoff added without creating a 206th original task: this existing manual real-app task owns twelve localized exact-build screenshots and the reviewed WACK run described by docs/store/phase1. Engineering validator and templates do not claim either observation ran.
+2026-07-21 owner-directed consolidation: closed as superseded, not passed. Remaining highest-value real-app and hardware observations now live only in TASK-260721-ryk8c0 Ivan Oparin final real-app verification, gated by TASK-260721-2346wf Desktop UI automated acceptance and owner handoff.
 
 ## Precondition Resources
 - [phase1-store-manual-handoff.md](file://TASK-260712-e5mfqj/phase1-store-manual-handoff.md) — Exact screenshot slots, WACK procedure and fail-closed Store package handoff

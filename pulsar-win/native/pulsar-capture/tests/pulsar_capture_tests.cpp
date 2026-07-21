@@ -843,6 +843,15 @@ void test_global_abi_validation_and_teardown() {
     CHECK(CapIsQuiescent() == S_OK);
     CHECK(CapPermissionCheck(&permission) == S_OK);
     CHECK(permission >= CAP_PERMISSION_UNAVAILABLE && permission <= CAP_PERMISSION_UNKNOWN);
+    auto waiter_permission = std::async(std::launch::async, []() {
+        int32_t status = 99;
+        const HRESULT hr = CapPermissionCheck(&status);
+        return std::make_pair(hr, status);
+    });
+    const auto waiter_permission_result = waiter_permission.get();
+    CHECK(waiter_permission_result.first == S_OK);
+    CHECK(waiter_permission_result.second >= CAP_PERMISSION_UNAVAILABLE &&
+          waiter_permission_result.second <= CAP_PERMISSION_UNKNOWN);
 
     std::cerr << "[   STEP   ] permission_subscription_fence" << std::endl;
     test_unsubscribe_with_inflight_production_handler();

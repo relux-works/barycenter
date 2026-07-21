@@ -77,6 +77,8 @@ func TestWindowsNativeShellBlindBuildContracts(t *testing.T) {
 	for _, seam := range []string{
 		"wmDPIChanged", "pGetDpiForWindow", "pIsDialogMessageW",
 		"pTranslateAcceleratorW", "wmGetMinMax", "wsExControlParent",
+		"wsVisible|wsOverlapped|wsCaption|wsSysMenu",
+		"style &^= wsVisible", "showControl(control, true)", "ctx.renderHome(copy, snapshot)",
 		`mk(0, "BUTTON"`, `mk(0, "STATIC"`, "wmDropFiles", "pDragAcceptFiles", "AcceptDroppedFile",
 		"windowText(ctx.identityInput)", "chooseWindowsRecoveryDestination", "idShellSend", "SendSelectedDraft",
 		`mk(0, "BUTTON", "", buttonStyle|bsPushButton|bsMultiline, idShellReportReason)`,
@@ -182,9 +184,13 @@ func TestWindowsShellPhaseOneLabelsAreCanonicalAndHideOpaqueIDs(t *testing.T) {
 
 func TestWindowsShellStatesNeverDependOnColorAlone(t *testing.T) {
 	copy := NewShellCopy(ShellEnglish)
-	for _, state := range []ShellConnection{ShellUnpaired, ShellReconnecting, ShellOnline, ShellDegraded} {
+	want := map[ShellConnection]shellText{
+		ShellUnpaired: txtUnpaired, ShellReconnecting: txtReconnecting,
+		ShellOnline: txtOnline, ShellDegraded: txtDegraded,
+	}
+	for state, key := range want {
 		label := copy.Connection(ShellSnapshot{Connection: state})
-		if !strings.HasPrefix(label, "[") || !strings.Contains(label, "] ") {
+		if label != copy.Text(key) {
 			t.Fatalf("connection %s lacks textual indicator: %q", state, label)
 		}
 	}
@@ -392,6 +398,46 @@ func TestWindowsAirSnapshotNormalizesSelectionAndInviteRole(t *testing.T) {
 	got := shell.Snapshot()
 	if got.SelectedAir != 0 || got.AirInviteRole != AirRoleMember {
 		t.Fatalf("normalized=%+v", got)
+	}
+}
+
+func TestWindowsShellSnapshotNormalizesEveryCollectionSelection(t *testing.T) {
+	shell := NewWindowsShell(ShellEnglish, func() ShellSnapshot {
+		return ShellSnapshot{
+			PhaseOneDrafts:            []ShellPhaseOneDraft{{}},
+			SelectedPhaseOneDraft:     99,
+			PhaseOneHistory:           []ShellPhaseOneHistoryItem{{}},
+			SelectedHistoryItem:       -1,
+			SoundboardCues:            []ShellSoundboardCue{{}},
+			SelectedSoundboardCue:     99,
+			TargetsInbox:              TargetsInboxSnapshot{Targets: []TargetsInboxTargetChoice{{}}, Inbox: []TargetsInboxInboxItem{{}}, History: []TargetsInboxHistoryItem{{}}},
+			SelectedTarget:            -1,
+			SelectedInbox:             99,
+			SelectedTargetsHistory:    -1,
+			StreamTrack:               StreamTrackSnapshot{Targets: []TargetsInboxTargetChoice{{}}},
+			SelectedStreamTrackTarget: 99,
+			Airs:                      []ShellAirItem{{}},
+			SelectedAir:               -1,
+			Automation: WindowsAutomationSnapshot{
+				Schedules: []WindowsAutomationScheduleProjection{{}}, SelectedSchedule: 99,
+				Principals: []AutomationPrincipal{{}}, SelectedPrincipal: -1,
+				History: []PhaseOneHistoryItem{{}}, SelectedHistory: 99,
+			},
+		}
+	}, ShellActions{})
+
+	got := shell.Snapshot()
+	for name, index := range map[string]int{
+		"draft": got.SelectedPhaseOneDraft, "history": got.SelectedHistoryItem,
+		"soundboard": got.SelectedSoundboardCue, "target": got.SelectedTarget,
+		"inbox": got.SelectedInbox, "target history": got.SelectedTargetsHistory,
+		"stream target": got.SelectedStreamTrackTarget, "air": got.SelectedAir,
+		"schedule": got.Automation.SelectedSchedule, "principal": got.Automation.SelectedPrincipal,
+		"automation history": got.Automation.SelectedHistory,
+	} {
+		if index != 0 {
+			t.Errorf("%s selection = %d, want normalized zero", name, index)
+		}
 	}
 }
 

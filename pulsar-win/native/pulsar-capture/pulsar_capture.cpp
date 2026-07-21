@@ -1598,21 +1598,25 @@ HRESULT __stdcall CapPermissionCheck(int32_t* status) {
     HRESULT initialized = require_initialized();
     if (FAILED(initialized)) return initialized;
     try {
-        AppCapability capability{nullptr};
         DWORD init_thread = 0;
         {
             std::lock_guard<std::mutex> lock(g_mutex);
-            capability = g_microphone_capability;
             init_thread = g_init_thread;
-        }
-        if (!capability) {
-            *status = CAP_PERMISSION_UNAVAILABLE;
-            return S_OK;
         }
         std::unique_ptr<ScopedMTA> apartment;
         if (GetCurrentThreadId() != init_thread) {
             apartment = std::make_unique<ScopedMTA>();
             if (FAILED(apartment->result) && apartment->result != RPC_E_CHANGED_MODE) return apartment->result;
+        }
+        // AppCapability is apartment-bound on Windows 10. The instance cached
+        // by CapInit belongs to the UI STA and must never cross into the
+        // locked waiter thread. Create and consume a short-lived capability in
+        // the calling apartment instead; subscription keeps its UI-owned
+        // instance and RequestAccessAsync is still initiated on the UI thread.
+        AppCapability capability = AppCapability::Create(L"microphone");
+        if (!capability) {
+            *status = CAP_PERMISSION_UNAVAILABLE;
+            return S_OK;
         }
         *status = map_permission(capability.CheckAccess());
         return S_OK;

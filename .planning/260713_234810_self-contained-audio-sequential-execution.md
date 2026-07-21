@@ -4,24 +4,165 @@
 - Engineering epic: `EPIC-260712-3agrc1` — Self-contained Pulsar Audio engineering
 - Manual test epic: `EPIC-260714-th54l3` — Manual real-app hardware testing
 - Baseline: `main` at merge commit `38ebd385e105eb2f6c7012c608cd1debfa3aad5e` (PR #9)
-- Combined inventory: 205 original tasks; 186 accepted, 19 remain.
-- Routed inventory: 186 engineering tasks (186 accepted, 0 remain) and 19
-  deferred manual-test tasks (0 accepted, 19 remain).
+- Original inventory: 205 tasks; 186 accepted and 19 closed as superseded
+  without being marked passed.
+- Current expansion: four autonomous desktop-UI engineering units under
+  `STORY-260721-lqukyb` plus one consolidated human gate
+  `TASK-260721-ryk8c0` assigned to Ivan Oparin.
 
 ## Execution status
 
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: none — all 186 repository-verifiable engineering
-  tasks are accepted. The remaining 19 tasks require manual real-app/hardware
-  execution in `EPIC-260714-th54l3`.
-- Current original-plan frontier: the manual testing epic
+- Current engineering task: none. `BUG-260721-2jmabl` — Windows packaged app
+  silent exit — is repaired and independently accepted. All four original
+  autonomous desktop remediation units and the focused launch bug are accepted;
+  the consolidated owner task `TASK-260721-ryk8c0` remains the only manual
+  execution unit.
+- Current strict remediation order: `BUG-260721-1npwy8` →
+  `TASK-260721-2lv6wn` Professional system-native Windows shell →
+  `TASK-260721-8pwqje` Professional system-native macOS shell →
+  `TASK-260721-2346wf` Desktop UI automated acceptance and owner handoff.
+- Human interaction is deferred to the single blocked task
+  `TASK-260721-ryk8c0` — Ivan Oparin final real-app verification. The nineteen
+  legacy manual tasks are closed as superseded; their four parent stories are
+  aggregate-only `done` containers, not acceptance verdicts. Their provenance
+  and negative evidence remain.
+- Current delivery progress: original plan `186/205` accepted (`90.7%`), new
+  autonomous remediation `4/4` accepted (`100%`), packaged-launch bug `1/1`
+  accepted (`100%`), consolidated manual gate `0/1`. No new
+  hardware, accessibility-reader, audible, Store or production claim is made.
+- 2026-07-21 autonomous remediation checkpoint: `BUG-260721-1npwy8` now has a
+  maintained hidden scheduled-observer runner, PE-header GUI-subsystem
+  enforcement in the signed package build, and a PerMonitorV2/Segoe UI probe
+  layout with deterministic 96/120/144/192-DPI and resize tests. Local Go,
+  race, Windows vet and GUI cross-build checks pass; hosted Windows MSIX CI
+  passed in run `29825137396`; Claude Opus 4.8 reviewer run
+  `RUN-260721-a5822e` accepted exact commit `69318f9`. The requested Fable 5
+  run `RUN-260721-3a8700` consumed zero tokens and returned provider limit 429,
+  so it is recorded as infrastructure evidence rather than a code verdict.
+- 2026-07-21 Windows production-UI checkpoint: `TASK-260721-2lv6wn` now has
+  reusable light/dark/high-contrast palette and DPI metrics, system setting
+  repaint, progressive DWM/UxTheme integration with a Windows 10 fallback,
+  explicit non-color navigation selection, keyboard focus continuity,
+  DPI-correct preferred/minimum geometry and corrected GDI resource lifecycle.
+  Deterministic contrast/theme/source/96-192-DPI tests, full Go/race suites,
+  Windows vet and the GUI cross-build pass locally. Hosted exact-head CI and
+  exact-head CI run `29826221592` passed 4/4 jobs and Claude Opus 4.8 run
+  `RUN-260721-d12388` accepted commit `ee09731`. Non-blocking review notes keep
+  pre-existing inline sub-panel `dip()` calls and text/surface semantic states
+  for later delta review; neither weakens the accepted task contract.
+- 2026-07-21 macOS production-UI implementation checkpoint:
+  `TASK-260721-8pwqje` candidate `b0cc1a2` replaces the undersized shell with
+  an autosaved 1120x760 native desktop window (900x640 minimum), explicit
+  sidebar visibility and sizing, unified toolbar placement, centered bounded
+  content, system material surfaces and reusable symbol-plus-text status
+  semantics. Identity intake gains deterministic keyboard focus; high-contrast
+  status borders, VoiceOver labels and EN/RU light/dark self-contained previews
+  are frozen by new Swift contracts. The canonical full-Xcode run passed 359
+  tests in 58 suites and the release build passed. The standalone Command Line
+  Tools selection lacks the already-used `Testing` module, so canonical Swift
+  commands explicitly select `/Applications/Xcode.app`. Fable 5 reviewer run
+  `RUN-260721-ad6a04` returned provider limit 429 before consuming tokens and
+  was not treated as a verdict. Fresh Claude Opus 4.8 reviewer run
+  `RUN-260721-2dfdc7` independently repeated all 359 tests and the release
+  build, found no forced fit or AC gap, and accepted exact commit `b0cc1a2`.
+- 2026-07-21 desktop automated-acceptance checkpoint:
+  `TASK-260721-2346wf` is accepted. An isolated fail-closed desktop runner
+  preserves the frozen shared E2EE acceptance tool while recording 11 command
+  results, pinned Go/Xcode versions, git tree, 16 source hashes and three build
+  hashes. Exact `a7258db` passed Windows vet/test/race, amd64/arm64 cross-build
+  and GUI-subsystem assertions plus the full 359-test Swift suite and release
+  build. Hosted macOS contention first exposed five old two-second Live PTT
+  test timeouts; commit `c60bbec` serializes only that six-test suite and keeps
+  deadlock detection bounded at ten seconds. Five local repetitions and hosted
+  macOS CI then passed. The manifest SHA-256 is
+  `17735d6f42371e75824689bcdc926676bb1b29dd2f63cf4dd7e897e126a6970b`.
+  Fable 5 reviewer run `RUN-260721-462ec7` again returned 429 before tokens;
+  fresh Claude Opus 4.8 reviewer run `RUN-260721-07ce5f` recomputed all 16
+  hashes, reran the deterministic gates and accepted tracking commit `3be2fda`.
+  Final hosted CI run `29829090013` then passed all four jobs on that tracking
+  head; its product source is identical to the frozen `a7258db` candidate.
+  One no-terminal owner checklist is attached to `TASK-260721-ryk8c0`; it
+  remains `WAIT` until signed Windows and notarized macOS production release
+  candidates are supplied and makes no manual, hardware or Store pass claim.
+- 2026-07-21 Windows owner-candidate preparation (superseded by repaired
+  `0.1.11.0` below): exact tracking head
+  `f6c9b47` (product source identical to accepted `a7258db`) was built with the
+  current `go-librespot` fork and exact-head CI `pulsar-capture.dll`, then packed
+  and installed on `DESKTOP-3PBO632` as developer-signed AppContainer package
+  `ReluxWorksLLC.PulsarBarycenter_0.1.1.0_x64__q036g2bzd7ngc`. Package SHA-256
+  is `eaa01ad6de70bf020a9ff4f145045003a93a475ae8711e62e30b532531f79d4a`;
+  installed GUI EXE SHA-256 is
+  `accd11d545ff89aa0ce106b1599771c588be9e90ba32a5f0530868bae5f43d28`.
+  Windows reports package status `Ok`, valid `Developer` signature,
+  `packagedClassicApp` / `appContainer`, declared `microphone` capability and a
+  registered Start AUMID; the Desktop shortcut activates that AUMID. The
+  installer deliberately did not launch the app, so no visible-window,
+  microphone, audible or hardware PASS is claimed. Windows functional rows are
+  ready; Store/EV signing and the notarized macOS half remain outside this
+  preparation checkpoint.
+- 2026-07-21 Windows packaged-launch repair acceptance:
+  `BUG-260721-2jmabl` autonomously reproduced the user's silent shortcut
+  failure as a successful AUMID activation followed by an invisible/unresponsive
+  startup exit. The repair makes the AppContainer top-level HWND visible
+  immediately, creates the 129 section controls hidden, bounds the first render
+  to Home before starting the message pump, prevents failed tray creation from
+  posting a process-wide quit, and makes GUI file/crash diagnostics durable.
+  Local Go tests, Windows vet and GUI cross-build pass. Exact developer-signed
+  package `ReluxWorksLLC.PulsarBarycenter_0.1.11.0_x64__q036g2bzd7ngc`
+  (MSIX SHA-256 `b8374791fa95c4b17eb1cae9195c19e344293263678946a02c958599800aafa2`,
+  EXE SHA-256 `839b00a84dd271121b8c4987a33b97b238e3ea9d458e19f39c09b0540265f0bb`)
+  is installed on `DESKTOP-3PBO632`. The final exact AUMID soak remained alive
+  in all 720 samples for 188.523 seconds; its `Pulsar` HWND was visible in
+  719/720 samples after the initial pre-HWND sample. UI Automation during the
+  soak reported visible, responding, not hung at 192 DPI with screenshot
+  SHA-256 `49e2836428c0b136cece5f03a54e7da8fc3c608ec0c2fcbcb491c2936b866887`.
+  A separate Desktop Shell default-verb invocation then exercised the actual
+  `Pulsar.lnk` path: the launcher and follow-up UI Automation tasks both
+  completed while process `6152` remained alive outside them; its visible,
+  responsive, non-hung window screenshot SHA-256 is
+  `e398c8c2ea9d38137effc8d298fb47fb5a08be888850dee0f4e59a902a6fe9c1`.
+  Fable 5 run `RUN-260721-536d63` returned provider limit 429 with zero tokens
+  and was not treated as a verdict. Claude Opus 4.8 run
+  `RUN-260721-72524f` independently repeated the deterministic gates and
+  accepted exact commit `62302e0`. No audio or manual hardware PASS is claimed.
+- 2026-07-21 Windows UI stop-the-line engineering remediation (accepted):
+  `BUG-260721-27irt6` reproduced the user's first navigation click as an
+  owner-thread hang on exact package `0.1.11.0`. UI Automation blocked for
+  10,023 ms on Create; a separate posted command left the process
+  `Responding=false` within 150 ms, followed by AppModel-Runtime container
+  removal, with no Go crash output or WER crash. Source review found that only
+  Home was bounded: every non-Home render still configured the complete
+  129-control surface. The working repair now bounds rendering per active
+  section, caches desired/applied HWND bounds, avoids moving hidden/unchanged
+  controls, repaints only clipped background plus structural chrome, enables
+  Common Controls v6, removes diagnostic-style sunken surfaces, and fits a
+  1040x700 DIP client at the host's 192 DPI. Signed package `0.1.20.0` is now
+  installed through MSIX and launches through the ordinary Explorer shortcut.
+  Autonomous Win10 evidence passed: UI Automation `240/240`, max `93 ms`, p95
+  `80 ms`, one idle-frame hash, handles `347 -> 346`, and zero crash/container
+  events; a direct message-pump soak passed another `240/240` with p95 `88 ms`.
+  A six-section `PrintWindow` gallery at `150 ms` confirmed complete chrome and
+  bounded active content. Full hashes, findings and the manual verification
+  boundary are recorded in
+  `.planning/BUG-260721-27irt6_windows-ui-stability-remediation.md`. Fable 5
+  run `RUN-260721-305602` returned provider-limit 429 with zero tokens and was
+  not treated as a verdict. Claude Opus 4.8 run `RUN-260721-c80cef` reviewed
+  exact product commit `76f09a4`, re-ran the deterministic gates and accepted
+  the work; `BUG-260721-27irt6` is closed. A subsequent Windows-only CI false
+  positive (the source-contract test matched LF against a CRLF checkout) was
+  corrected by normalizing line endings in the test; product code and installed
+  `0.1.20.0` are unchanged by that portability delta. Hosted rerun
+  `29863591495` passed all four jobs on delta head `b625606`.
+- Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build
-  delta review now freezes `main` `f4a90f1f332bc73cac8f36f96cee6c16cc2ad7c0`,
-  successful CI run `29738846385`, artifact `8459523515` and MSIX SHA-256
-  `a53253f33c5d9acf903daa4641c254884eb3e69d497e6442bdb1cd4e85d6b7e6`.
+  delta review now freezes repaired `main`
+  `c9a925e923ff425d26eb878784cbe9ecd1403dd1`, successful post-merge CI run
+  `29751994898`, artifact `8465025630` and MSIX SHA-256
+  `1191699da98377f559f01312ae1c12fd0d456706d30224803bc19ee4c553b413`.
   The original 2026-07-14 artifact predates accepted capture-quality ABI and
   packaged-cue changes and is historical only. The first immutable physical
   attempt reached terminal H00 `FAIL`: physical progress is `1/36` terminal
@@ -45,23 +186,35 @@
   proceed while structurally forbidding `PASS` for H04, H08 and H12; those
   rows remain honest `BLOCKED` until distinct/removable hardware exists. This
   owner decision did not by itself change any matrix verdict.
-  The exact MSIX installed and activated, but its packaged GUI stopped before
-  creating the main window with `required startup evidence is unavailable`.
-  Same-session UI diagnostics and the runtime JSONL prove that the primary row
-  was written, while `io.MultiWriter(logFile, os.Stderr)` treated the absent
-  packaged-GUI stderr handle as a fatal evidence failure. The physical run also
-  exposed AppContainer runtime-root duplication and a `selectedApiPath`
-  sanitizer false positive. H00 was recorded `FAIL`; H01 was not started and
-  microphone permission was never requested. The installed package, run-added
-  signer trust and package data were removed. Fixes now make the evidence file
-  authoritative, align app and host tools on the virtualized `AC\\PulsarProbe`
-  root, and distinguish API route names from filesystem paths. Local Go tests,
-  Windows cross-build and the full interactive-session PowerShell contract
-  suite pass. Strict execution remains at H00 and will initialize a fresh
-  immutable bundle from the next CI-built signed MSIX; the failed bundle is
-  retained as immutable diagnostic evidence. Windows currently reports the
-  active desktop as `rdp-tcp#3`, so a local physical-console transition or
-  operator confirmation is still required before an H00 pass can be claimed.
+  The first physical H00 attempt exposed packaged-GUI stderr, AppContainer
+  runtime-root and evidence-sanitizer defects and remains an immutable `FAIL`
+  in historical bundle A. PR #304 repaired those issues; post-merge CI passed
+  4/4. Fresh immutable bundle
+  `win10-single-input-physical-b` freezes the repaired bytes and the
+  owner-approved built-in microphone profile. The operator moved session 1
+  from RDP to the local physical console and confirmed the visible main window
+  and absence of a microphone prompt at launch. Retry 2 produced the stable
+  accepted observation; H00 is now `PASS` with 11 immutable evidence
+  references. The H00 verdict is deliberately
+  limited to signed install, exact AUMID activation and visible controls: tray,
+  hotkey, permission, lifecycle, capture and cleanup received no credit. The
+  close control hid the app while blocked tray registration left the process
+  running; that process was terminated only to obtain a stable snapshot and is
+  recorded as a finding. A discarded unverdict attempt-1 log grew to 2.74 GB
+  from repeated `permission_status_query` failures; its SHA/size and compact
+  startup evidence are retained, while the repetitive raw file was excluded.
+  H01 then ran from a cold package-specific permission state in the local
+  console. Ivan Oparin pressed `Record default` exactly once, but no Windows
+  prompt appeared. The run logged one explicit intent, zero permission-request
+  events, zero capture starts and zero WAV files, then amplified 268,515
+  `CapPermissionCheck(waiter-owned)` failures with `0x8001010e`
+  (`RPC_E_WRONG_THREAD`) into 625,425 events. H01 is immutable `FAIL` with seven
+  references; its 323,535,561-byte raw log was hashed, compacted and deleted.
+  Current physical acceptance remains `1/36`; bundle B is `2/18` terminal
+  (H00 `PASS`, H01 `FAIL`). Strict execution pauses scenario advance to repair
+  AppCapability apartment ownership and bounded failure logging, produce a new
+  signed MSIX and restart a fresh immutable bundle at H00. Accepted task counts
+  remain 186/205 overall and 0/19 manual.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate
@@ -466,7 +619,7 @@
   engineering (100%).
 - Most recently accepted: `TASK-260712-1ulshp` —
   phase3-external-security-review-closure (disabled-framework scope only)
-- Current branch: `review/task-260712-1ulshp`
+- Current branch: `tracking/task-260712-1vtwkl-win10-h00-retry`
 - Current review evidence:
   External implementation-security review was accepted by non-implementing
   Claude Opus 4.8 run `RUN-260720-191344`; verdict resource is

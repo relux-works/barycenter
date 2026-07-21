@@ -54,4 +54,43 @@ if ($CueHash -cne $ExpectedCueSHA256) {
     throw "canonical recording cue digest is '$CueHash', expected '$ExpectedCueSHA256'"
 }
 
-Write-Host "Frozen package identity, declarations, capabilities, and recording cue regressions passed."
+$PETemp = Join-Path ([IO.Path]::GetTempPath()) ("pulsar-pe-contract-" + [Guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $PETemp | Out-Null
+try {
+    function Write-TestPEImage {
+        param(
+            [Parameter(Mandatory = $true)][string]$Path,
+            [Parameter(Mandatory = $true)][UInt16]$Subsystem
+        )
+        $Bytes = [byte[]]::new(256)
+        [BitConverter]::GetBytes([UInt16]0x5A4D).CopyTo($Bytes, 0)
+        [BitConverter]::GetBytes([Int32]0x80).CopyTo($Bytes, 0x3C)
+        [BitConverter]::GetBytes([UInt32]0x00004550).CopyTo($Bytes, 0x80)
+        [BitConverter]::GetBytes([UInt16]0x020B).CopyTo($Bytes, 0x80 + 24)
+        [BitConverter]::GetBytes($Subsystem).CopyTo($Bytes, 0x80 + 24 + 68)
+        [IO.File]::WriteAllBytes($Path, $Bytes)
+    }
+
+    $GUIFixture = Join-Path $PETemp "gui.exe"
+    Write-TestPEImage -Path $GUIFixture -Subsystem 2
+    $GUIContract = Assert-ProbeGUIExecutable -Path $GUIFixture
+    if ($GUIContract.Subsystem -ne 2 -or $GUIContract.Name -cne "windows-gui") {
+        throw "GUI executable contract returned unexpected metadata"
+    }
+
+    $ConsoleFixture = Join-Path $PETemp "console.exe"
+    Write-TestPEImage -Path $ConsoleFixture -Subsystem 3
+    $ConsoleRejected = $false
+    try {
+        $null = Assert-ProbeGUIExecutable -Path $ConsoleFixture
+    } catch {
+        $ConsoleRejected = $true
+    }
+    if (-not $ConsoleRejected) {
+        throw "GUI executable contract accepted a console-subsystem image"
+    }
+} finally {
+    Remove-Item -LiteralPath $PETemp -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host "Frozen package identity, declarations, GUI subsystem, capabilities, and recording cue regressions passed."

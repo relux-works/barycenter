@@ -189,7 +189,12 @@ private func makeLiveNode(
 }
 
 private func waitLiveNode(_ condition: @escaping () -> Bool) async throws {
-    let deadline = ContinuousClock.now + .seconds(2)
+    // Swift Testing runs suites concurrently. Hosted macOS runners can leave
+    // these private serial queues unscheduled for more than two seconds while
+    // the full audio/crypto matrix starts, even though the operation itself is
+    // nonblocking. Keep deadlock detection bounded without treating scheduler
+    // contention as a product failure.
+    let deadline = ContinuousClock.now + .seconds(10)
     while ContinuousClock.now < deadline {
         if condition() { return }
         try await Task.sleep(for: .milliseconds(5))
@@ -197,7 +202,7 @@ private func waitLiveNode(_ condition: @escaping () -> Bool) async throws {
     Issue.record("timed out waiting for live node")
 }
 
-@Suite struct MacLivePTTNodeTests {
+@Suite(.serialized) struct MacLivePTTNodeTests {
     @Test func disabledCapabilityFallsBackAndRejectsIncomingBeforeCapture() async throws {
         let (node, sender, receiver, box) = makeLiveNode(enabled: false)
         #expect(node.holdBegan(

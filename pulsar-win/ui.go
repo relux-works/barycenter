@@ -3,7 +3,10 @@
 // here so the darwin test build links; the Win32 plumbing is isolated.
 package main
 
-import "context"
+import (
+	"context"
+	"log/slog"
+)
 
 // TrayState is what the tray menu renders and acts on, read live on each open.
 type TrayState struct {
@@ -21,10 +24,17 @@ type TrayState struct {
 	ShortcutStore         WindowsRecordingShortcutStore
 	Soundboard            *WindowsSoundboardComposition
 	SoundboardPreferences WindowsSoundboardPreferences
+	// Log records native shell degradation that would otherwise be invisible
+	// in GUI-subsystem and AppContainer launches.
+	Log *slog.Logger
 	// OnRePair opens the onboarding window to re-pair in place (F3).
 	OnRePair func()
 	// OnQuit tears the process down cleanly.
 	OnQuit func()
+}
+
+func shouldPostTrayQuit(destroyed, active uintptr) bool {
+	return active != 0 && destroyed == active
 }
 
 type WindowsRecordingControl interface {

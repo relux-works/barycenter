@@ -43,7 +43,7 @@
     {"path": "pulsar-win/windows_live_jitter_receiver.go", "sha256": "da9ace429038af2f357680e1519e90a7a1b3ef588da344c5dee0dad22fc202eb"},
     {"path": "pulsar-win/windows_live_ptt_node.go", "sha256": "c9b3b1097d1c33ef5d7ad3010ce5c127c162e40c95f2c64b984401bf91183a08"},
     {"path": "pulsar-win/windows_capture_quality.go", "sha256": "ab4e741a39f141684f8d9ac97e30833e1f167dc7a772c1dcf8291ea7f2347fcf"},
-    {"path": "pulsar-win/native/pulsar-capture/pulsar_capture.cpp", "sha256": "f75582f1f245cbd5ef78232fcde4fb2f758dfb98b6194f3001b4d16156542d0f"},
+    {"path": "pulsar-win/native/pulsar-capture/pulsar_capture.cpp", "sha256": "a9c4321ba1d90aede4d83282006a56d29f179b01e6449c1072fc4916fc788988"},
     {"path": "pulsar-win/overlay_mixer.go", "sha256": "2963434b39b7c9bd0fee4cdf7b8a2ec9325405a7da64a8a3fb5b44fbaf5cab10"},
     {"path": "pulsar-win/capture_media_lifecycle.go", "sha256": "4d061a1d1831f7091d332a21bedb1184ea4863b00bb9921a68b09563a9c6bf21"},
     {"path": "pulsar-win/wire/live_ptt.go", "sha256": "b3d0cba2413a20f2c7ee86a5ef2712b3d7c58718b6c4b958aab18228ea5a313b"},

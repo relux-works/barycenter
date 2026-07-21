@@ -9,6 +9,7 @@ public struct PulsarMainView: View {
     private let actions: PulsarShellActions
     private let targetsInboxActions: PulsarTargetsInboxActions
     private let streamTrackActions: PulsarStreamTrackActions
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     public init(
         model: PulsarShellModel,
@@ -27,9 +28,12 @@ public struct PulsarMainView: View {
     }
 
     public var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             PulsarSidebar(model: model)
-                .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 280)
+                .navigationSplitViewColumnWidth(
+                    min: PulsarDesktopMetrics.sidebarMinimumWidth,
+                    ideal: PulsarDesktopMetrics.sidebarIdealWidth,
+                    max: PulsarDesktopMetrics.sidebarMaximumWidth)
         } detail: {
             PulsarDetail(
                 model: model, actions: actions,
@@ -39,6 +43,7 @@ public struct PulsarMainView: View {
                 streamTrackActions: streamTrackActions)
         }
         .navigationSplitViewStyle(.balanced)
+        .toolbarRole(.editor)
         .toolbar {
             PulsarToolbar(model: model, actions: actions)
         }
@@ -52,7 +57,11 @@ public struct PulsarMainView: View {
                 actions.stopActiveCapture()
             }
         }
-        .frame(minWidth: 760, minHeight: 520)
+        .frame(
+            minWidth: PulsarDesktopMetrics.minimumWindowWidth,
+            idealWidth: PulsarDesktopMetrics.defaultWindowWidth,
+            minHeight: PulsarDesktopMetrics.minimumWindowHeight,
+            idealHeight: PulsarDesktopMetrics.defaultWindowHeight)
     }
 }
 
@@ -65,17 +74,22 @@ private struct PulsarSidebar: View {
             Label(copy.title(for: section), systemImage: symbol(for: section))
                 .tag(section)
         }
+        .listStyle(.sidebar)
         .navigationTitle(copy.text(.appName))
         .safeAreaInset(edge: .bottom) {
-            Label(
-                copy.connectionLabel(model.snapshot.connection),
-                systemImage: copy.connectionSymbol(model.snapshot.connection)
-            )
-            .font(.callout)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .accessibilityElement(children: .combine)
+            VStack(spacing: 0) {
+                Divider()
+                Label(
+                    copy.connectionLabel(model.snapshot.connection),
+                    systemImage: copy.connectionSymbol(model.snapshot.connection)
+                )
+                .font(.callout.weight(.medium))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .accessibilityElement(children: .combine)
+            }
+            .background(.bar)
         }
     }
 
@@ -197,15 +211,21 @@ private struct PulsarSoundboardView: View {
                     .disabled(!rightsAcknowledged || state.busy)
             }
             if let outcome = state.outcome {
-                Label(outcome.replacingOccurrences(of: "_", with: " "), systemImage: "checkmark.circle")
-                    .foregroundStyle(.green)
+                PulsarStatusMessage(
+                    title: localized("Soundboard action completed", "Действие саундборда выполнено"),
+                    detail: outcome.replacingOccurrences(of: "_", with: " "),
+                    tone: .success)
             }
             if let failure = state.failure {
-                Label(failure.replacingOccurrences(of: "_", with: " "), systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
+                PulsarStatusMessage(
+                    title: localized("Soundboard action failed", "Ошибка действия саундборда"),
+                    detail: failure.replacingOccurrences(of: "_", with: " "),
+                    tone: .failure)
             }
         }
-        .padding(24)
+        .padding(PulsarDesktopMetrics.pagePadding)
+        .frame(maxWidth: PulsarDesktopMetrics.pageMaximumWidth, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
         .navigationTitle(PulsarShellCopy(locale: model.locale).text(.soundboard))
         .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.audio], allowsMultipleSelection: false) {
             guard case .success(let urls) = $0, let url = urls.first else { return }
@@ -278,7 +298,7 @@ private struct PulsarAutomationAdminView: View {
 
     var body: some View {
         let state = model.snapshot.automation
-        ScrollView {
+        PulsarPage {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Text(localized("Automation administration", "Управление автоматизацией"))
@@ -315,19 +335,20 @@ private struct PulsarAutomationAdminView: View {
                 }
 
                 if let outcome = state.outcome {
-                    Label(displayCode(outcome), systemImage: "checkmark.circle")
-                        .foregroundStyle(.green)
-                        .accessibilityLabel(localized("Automation action completed", "Действие автоматизации выполнено"))
-                        .accessibilityValue(displayCode(outcome))
+                    PulsarStatusMessage(
+                        title: localized(
+                            "Automation action completed", "Действие автоматизации выполнено"),
+                        detail: displayCode(outcome),
+                        tone: .success)
                 }
                 if let failure = state.failure {
-                    Label(displayCode(failure), systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
-                        .accessibilityLabel(localized("Automation action failed", "Ошибка действия автоматизации"))
-                        .accessibilityValue(displayCode(failure))
+                    PulsarStatusMessage(
+                        title: localized(
+                            "Automation action failed", "Ошибка действия автоматизации"),
+                        detail: displayCode(failure),
+                        tone: .failure)
                 }
             }
-            .padding(24)
         }
         .navigationTitle(PulsarShellCopy(locale: model.locale).text(.automation))
         .onAppear { loadEditors(from: state) }
@@ -618,7 +639,7 @@ private struct PulsarToolbar: ToolbarContent {
 
     var body: some ToolbarContent {
         let copy = PulsarShellCopy(locale: model.locale)
-        ToolbarItemGroup {
+        ToolbarItem(placement: .primaryAction) {
             Button {
                 actions.toggleRecording()
             } label: {
@@ -635,13 +656,16 @@ private struct PulsarToolbar: ToolbarContent {
                     || (!model.snapshot.recordingAvailable && model.snapshot.recording != .recording))
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .accessibilityLabel(copy.recordingLabel(model.snapshot.recording))
-
+            .help(copy.recordingLabel(model.snapshot.recording))
+        }
+        ToolbarItem(placement: .automatic) {
             Button {
                 model.selectedSection = .settings
             } label: {
                 Label(copy.text(.settings), systemImage: "gear")
             }
             .keyboardShortcut(",", modifiers: .command)
+            .help(copy.text(.settings))
         }
     }
 
@@ -657,8 +681,8 @@ private struct PulsarHomeView: View {
 
     var body: some View {
         let copy = PulsarShellCopy(locale: model.locale)
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+        PulsarPage {
+            VStack(alignment: .leading, spacing: PulsarDesktopMetrics.sectionSpacing) {
                 PulsarStateBanner(model: model)
                 Text(copy.text(.primaryActions))
                     .font(.title2.bold())
@@ -691,8 +715,6 @@ private struct PulsarHomeView: View {
                     model: model, actions: actions, targetsInboxModel: targetsInboxModel)
                 PulsarHistoryPreview(model: model)
             }
-            .padding(24)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle(copy.text(.home))
     }
@@ -752,7 +774,11 @@ private struct PulsarStateBanner: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary, in: .rect(cornerRadius: 12))
+        .background(.regularMaterial, in: .rect(cornerRadius: PulsarDesktopMetrics.cornerRadius))
+        .overlay {
+            RoundedRectangle(cornerRadius: PulsarDesktopMetrics.cornerRadius)
+                .stroke(.separator, lineWidth: 1)
+        }
         .accessibilityElement(children: .combine)
     }
 }
@@ -781,9 +807,9 @@ private struct PulsarActionCard: View {
             .padding(14)
         }
         .buttonStyle(.plain)
-        .background(.background, in: .rect(cornerRadius: 12))
+        .background(.regularMaterial, in: .rect(cornerRadius: PulsarDesktopMetrics.cornerRadius))
         .overlay {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: PulsarDesktopMetrics.cornerRadius)
                 .stroke(.separator, lineWidth: 1)
         }
         .accessibilityLabel(title)
@@ -807,7 +833,11 @@ private struct PulsarStatusCard: View {
         }
         .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
         .padding(14)
-        .background(.quaternary, in: .rect(cornerRadius: 12))
+        .background(.regularMaterial, in: .rect(cornerRadius: PulsarDesktopMetrics.cornerRadius))
+        .overlay {
+            RoundedRectangle(cornerRadius: PulsarDesktopMetrics.cornerRadius)
+                .stroke(.separator, lineWidth: 1)
+        }
         .accessibilityElement(children: .combine)
     }
 }
@@ -928,17 +958,18 @@ private struct PulsarHistoryView: View {
         .safeAreaInset(edge: .top) {
             VStack(alignment: .leading, spacing: 4) {
                 if let outcome = model.snapshot.phaseOneActionOutcome {
-                    Label(copy.historyActionMessage(outcome), systemImage: "checkmark.circle")
-                        .foregroundStyle(.green)
-                        .accessibilityElement(children: .combine)
+                    PulsarStatusMessage(
+                        title: copy.historyActionMessage(outcome),
+                        tone: .success)
                 }
                 if let failure = model.snapshot.phaseOneFailure {
-                    Label(copy.historyActionMessage(failure), systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
-                        .accessibilityElement(children: .combine)
+                    PulsarStatusMessage(
+                        title: copy.historyActionMessage(failure),
+                        tone: .failure)
                 }
             }
             .padding(.horizontal)
+            .padding(.top, 8)
         }
         .toolbar {
             Button(copy.text(.refresh)) { actions.refreshPhaseOneData() }
@@ -1090,12 +1121,10 @@ private struct PulsarOutgoingDraftsView: View {
                 Button(copy.text(.refresh)) { actions.refreshPhaseOneData() }
             }
             if let failure = model.snapshot.phaseOneFailure {
-                Label(
-                    failure.isEmpty ? copy.text(.coordinatorFailure) : failure,
-                    systemImage: "exclamationmark.triangle")
-                    .font(.callout)
-                    .foregroundStyle(.orange)
-                    .accessibilityElement(children: .combine)
+                PulsarStatusMessage(
+                    title: copy.text(.coordinatorFailure),
+                    detail: failure.isEmpty ? nil : failure,
+                    tone: .failure)
             }
             ForEach(model.snapshot.outgoingDrafts) { draft in
                 PulsarOutgoingDraftRow(
@@ -1223,6 +1252,7 @@ private struct PulsarIdentityFlowView: View {
     let model: PulsarShellModel
     let actions: PulsarShellActions
     @State private var value = ""
+    @FocusState private var fieldFocused: Bool
 
     var body: some View {
         let copy = PulsarShellCopy(locale: model.locale)
@@ -1239,6 +1269,8 @@ private struct PulsarIdentityFlowView: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 360)
                 .disabled(isBusy)
+                .focused($fieldFocused)
+                .accessibilityLabel(copy.text(mode == .create ? .orbitTitle : .inviteCode))
                 .onSubmit(submit)
             Button(
                 copy.text(mode == .create ? .createWithAPI : .joinWithAPI),
@@ -1250,6 +1282,7 @@ private struct PulsarIdentityFlowView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(32)
         .navigationTitle(copy.text(titleKey))
+        .onAppear { fieldFocused = true }
     }
 
     @ViewBuilder
@@ -1258,11 +1291,12 @@ private struct PulsarIdentityFlowView: View {
         case .idle:
             EmptyView()
         case .busy:
-            ProgressView(copy.text(.identityBusy))
+            PulsarStatusMessage(title: copy.text(.identityBusy), tone: .progress)
         case .succeeded(let message):
-            Label(message.isEmpty ? copy.text(.identitySucceeded) : message,
-                  systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+            PulsarStatusMessage(
+                title: copy.text(.identitySucceeded),
+                detail: message.isEmpty ? nil : message,
+                tone: .success)
         case .recoveryExportRequired(let message):
             VStack(spacing: 8) {
                 Label(
@@ -1273,9 +1307,10 @@ private struct PulsarIdentityFlowView: View {
                     .buttonStyle(.borderedProminent)
             }
         case .failed(let message):
-            Label(message.isEmpty ? copy.text(.identityFailed) : message,
-                  systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.red)
+            PulsarStatusMessage(
+                title: copy.text(.identityFailed),
+                detail: message.isEmpty ? nil : message,
+                tone: .failure)
         }
     }
 
@@ -1313,17 +1348,16 @@ private struct PulsarSelfTestView: View {
                     }
                 }
             } else {
-                ScrollView {
+                PulsarPage {
                     VStack(alignment: .leading, spacing: 18) {
                         Label(copy.text(.tryTitle), systemImage: "waveform.circle")
                             .font(.title2.bold())
                         Text(copy.text(.tryBody))
                             .foregroundStyle(.secondary)
                         PulsarCaptureQualityControls(model: model, actions: actions)
-                        Label(
-                            copy.selfTestLabel(model.snapshot.selfTestState),
-                            systemImage: selfTestSymbol(model.snapshot.selfTestState))
-                            .accessibilityElement(children: .combine)
+                        PulsarStatusMessage(
+                            title: copy.selfTestLabel(model.snapshot.selfTestState),
+                            tone: selfTestTone(model.snapshot.selfTestState))
                         if model.snapshot.selfTestState == .recording {
                             ProgressView(value: Double(model.snapshot.selfTestMeter))
                                 .accessibilityLabel(copy.text(.selfTestRecording))
@@ -1360,7 +1394,6 @@ private struct PulsarSelfTestView: View {
                         }
                     }
                     .frame(maxWidth: 620, alignment: .leading)
-                    .padding(24)
                 }
             }
         }
@@ -1397,8 +1430,10 @@ private struct PulsarSelfTestView: View {
                         .foregroundStyle(.secondary)
                 }
                 if let rejection = review.rejection {
-                    Label(rejection, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
+                    PulsarStatusMessage(
+                        title: copy.text(.fileReview),
+                        detail: rejection,
+                        tone: .failure)
                     Text(copy.text(.p2FileGuidance))
                         .font(.callout)
                 } else if let pendingFileURL {
@@ -1427,14 +1462,13 @@ private struct PulsarSelfTestView: View {
         ![.idle, .reviewingDraft, .failed].contains(state)
     }
 
-    private func selfTestSymbol(_ state: PulsarSelfTestState) -> String {
+    private func selfTestTone(_ state: PulsarSelfTestState) -> PulsarStatusTone {
         switch state {
-        case .idle: "checkmark.circle"
-        case .playingBuiltinCue, .playingStopCue, .playingRecording: "speaker.wave.2"
-        case .requestingPermission: "mic.badge.plus"
-        case .recording: "record.circle.fill"
-        case .reviewingDraft: "doc.badge.checkmark"
-        case .failed: "exclamationmark.triangle.fill"
+        case .idle: .neutral
+        case .playingBuiltinCue, .playingStopCue, .playingRecording,
+             .requestingPermission, .recording: .progress
+        case .reviewingDraft: .success
+        case .failed: .failure
         }
     }
 }
@@ -1491,7 +1525,9 @@ private struct PulsarSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .padding()
+        .frame(maxWidth: 760)
+        .padding(PulsarDesktopMetrics.pagePadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle(copy.text(.settingsTitle))
     }
 }
@@ -1541,9 +1577,18 @@ public final class PulsarMainWindowController: NSObject, NSWindowDelegate {
         let target = NSWindow(contentViewController: hosting)
         target.title = "Pulsar"
         target.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        target.minSize = NSSize(width: 760, height: 520)
-        target.setContentSize(NSSize(width: 960, height: 680))
-        target.center()
+        target.toolbarStyle = .unified
+        target.tabbingMode = .disallowed
+        target.minSize = NSSize(
+            width: PulsarDesktopMetrics.minimumWindowWidth,
+            height: PulsarDesktopMetrics.minimumWindowHeight)
+        target.setContentSize(NSSize(
+            width: PulsarDesktopMetrics.defaultWindowWidth,
+            height: PulsarDesktopMetrics.defaultWindowHeight))
+        if !target.setFrameUsingName("PulsarMainWindow") {
+            target.center()
+        }
+        target.setFrameAutosaveName("PulsarMainWindow")
         target.isReleasedWhenClosed = false
         target.delegate = self
         target.setAccessibilityLabel("Pulsar")
@@ -1551,3 +1596,41 @@ public final class PulsarMainWindowController: NSObject, NSWindowDelegate {
         return target
     }
 }
+
+#if DEBUG
+@MainActor
+private struct PulsarMainViewPreviews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            preview(locale: .en)
+                .previewDisplayName("English · Light")
+            preview(locale: .ru)
+                .preferredColorScheme(.dark)
+                .previewDisplayName("Русский · Dark")
+        }
+        .frame(
+            width: PulsarDesktopMetrics.defaultWindowWidth,
+            height: PulsarDesktopMetrics.defaultWindowHeight)
+    }
+
+    private static func preview(locale: PulsarShellLocale) -> some View {
+        PulsarMainView(
+            model: PulsarShellModel(
+                locale: locale,
+                snapshot: .init(
+                    connection: .online,
+                    presenceSummary: locale == .ru ? "В сети" : "Online",
+                    routeName: "Built-in Audio",
+                    nowPlaying: locale == .ru ? "Тишина" : "Silence",
+                    recording: .idle,
+                    recordingAvailable: true,
+                    recordingShortcutState: .registered,
+                    selfTestAvailable: true)),
+            actions: PulsarShellActions(),
+            targetsInboxModel: PulsarTargetsInboxModel(),
+            targetsInboxActions: PulsarTargetsInboxActions(),
+            streamTrackModel: PulsarStreamTrackModel(),
+            streamTrackActions: PulsarStreamTrackActions())
+    }
+}
+#endif

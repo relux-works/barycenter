@@ -254,9 +254,10 @@ func TestR3WindowsWiringUsesProductionLifecycleCoordinators(t *testing.T) {
 	permissionBranchText := mainText[permissionBranch:]
 	permissionFailure := strings.Index(permissionBranchText, "if hr.Failed() {")
 	permissionStop := strings.Index(permissionBranchText, "a.requestLifecycleStop(lifecyclePermissionRevoke")
+	permissionRearmReject := strings.Index(permissionBranchText, "a.lifecycle.runRearm(command.generation, false, nil)")
 	permissionLog := strings.Index(permissionBranchText, "a.log(winprobe.LogEvent{Scenario: winprobe.ScenarioPermission")
 	permissionContinue := strings.Index(permissionBranchText, "continue")
-	if permissionFailure < 0 || permissionStop < permissionFailure || permissionLog < 0 || permissionStop >= permissionLog || permissionContinue < permissionLog {
+	if permissionFailure < 0 || permissionStop < permissionFailure || permissionRearmReject < permissionFailure || permissionLog < 0 || permissionStop >= permissionLog || permissionRearmReject >= permissionLog || permissionContinue < permissionLog {
 		t.Fatal("waiter permission-query failure must gate/settle/stop before diagnostic evidence and continuation")
 	}
 	if count := strings.Count(mainText, "runAfterRequiredEvidence("); count < 6 {

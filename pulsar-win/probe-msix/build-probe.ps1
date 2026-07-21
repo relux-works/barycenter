@@ -47,6 +47,7 @@ try {
 } finally {
     Pop-Location
 }
+$ExecutableContract = Assert-ProbeGUIExecutable -Path (Join-Path $Stage "pulsar-win-probe-amd64.exe")
 
 $NativeDLL = Join-Path $NativeBuild "$Configuration\pulsar-capture.dll"
 if (-not (Test-Path $NativeDLL)) {
@@ -123,6 +124,7 @@ $MetadataPath = "$Package.json"
     applicationId = $ManifestContract.ApplicationID
     packageFamilyName = $ManifestContract.PackageFamilyName
     applicationUserModelId = "$($ManifestContract.PackageFamilyName)!$($ManifestContract.ApplicationID)"
+    executableSubsystem = $ExecutableContract.Name
     trustLevel = $ManifestContract.TrustLevel
     runtimeBehavior = $ManifestContract.RuntimeBehavior
     capabilities = @($ManifestContract.Capabilities)

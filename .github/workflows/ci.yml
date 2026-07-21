@@ -100,6 +100,9 @@ jobs:
       - name: Assert frozen package identity and declarations
         shell: pwsh
         run: ./pulsar-win/probe-msix/package-contract.Tests.ps1
+      - name: Assert physical-console observer stays hidden
+        shell: pwsh
+        run: ./pulsar-win/probe-msix/register-hidden-interactive-task.Tests.ps1
       - name: Build native helper, run tests, and create signed MSIX
         shell: pwsh
         run: |

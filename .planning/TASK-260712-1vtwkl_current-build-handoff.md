@@ -1,26 +1,35 @@
 # TASK-260712-1vtwkl current-build handoff
 
+> Superseded 2026-07-21. `TASK-260712-1vtwkl` is closed without being marked
+> passed after the owner consolidated all fragmented real-app/hardware work
+> into `TASK-260721-ryk8c0` — Ivan Oparin final real-app verification. The
+> historical evidence below remains immutable provenance. The next autonomous
+> engineering unit is `BUG-260721-1npwy8`; do not resume H01 from this document.
+
 Date: 2026-07-20 (Asia/Tbilisi)
 
-Status: IN PROGRESS — OWNER-APPROVED BUILT-IN MICROPHONE PROFILE. Ivan
+Status: IN PROGRESS — H01 PHYSICAL FAILURE REQUIRES A NEW BUILD. Ivan
 Oparin confirmed `mbpro-win` as the physical Windows 10 host and authorized
 this row first with maximum autonomous execution. SSH, sanitized preflight,
 exact package transfer and WACK preparation are complete. Ivan Oparin then
 limited this pass to the built-in microphone. Windows 11 is intentionally
-deferred for this pass. No H00-H17 verdict is claimed yet.
+deferred for this pass. The historical bundle A contains one terminal H00
+`FAIL`; bundle B contains H00 `PASS` and H01 `FAIL`. The strict execution
+frontier is the permission-path repair and a newly signed immutable bundle,
+not H02 on the known-broken package.
 
 ## Current exact build
 
-- Source and `main` head: `f4a90f1f332bc73cac8f36f96cee6c16cc2ad7c0`.
-- GitHub Actions run: `29738846385`, all four jobs passed.
-- Packaged-probe job: `88340580425`, passed.
-- Artifact: `pulsar-signed-msix-probe`, artifact ID `8459523515`.
+- Source and `main` head: `c9a925e923ff425d26eb878784cbe9ecd1403dd1`.
+- GitHub Actions run: `29751994898`, all four jobs passed.
+- Packaged-probe job: `88384610344`, passed.
+- Artifact: `pulsar-signed-msix-probe`, artifact ID `8465025630`.
 - Artifact archive digest:
-  `sha256:ad8ab25b544017950f62b3d9e5ea2da2c04d7c8e0eca4ab3ea05b4e9a8bcbfc7`.
-- Artifact expiry: `2026-08-03T11:33:53Z`.
+  `sha256:41faa1a435d572eb732bb580b9be5470b54f76206c3f26925f880bd894585c52`.
+- Artifact expiry: `2026-08-03T14:47:05Z`.
 - Package: `PulsarProbe-0.1.0.0-x64-signed.msix`.
 - Package SHA-256:
-  `a53253f33c5d9acf903daa4641c254884eb3e69d497e6442bdb1cd4e85d6b7e6`.
+  `1191699da98377f559f01312ae1c12fd0d456706d30224803bc19ee4c553b413`.
 - Embedded recording cue SHA-256:
   `479b1a9d605ac12454e3449e129991b7ce8599251506ca54a93be0b6144730fd`.
 - Package identity, Publisher, PFN, AUMID, AppContainer/runtime and the exact
@@ -31,7 +40,7 @@ deferred for this pass. No H00-H17 verdict is claimed yet.
 
 The package uses a short-lived non-exportable test signer. The public signer
 certificate embedded in this artifact is valid until
-`2026-08-19T11:31:53Z`. If either artifact or certificate is no longer usable,
+`2026-08-19T14:45:02Z`. If either artifact or certificate is no longer usable,
 regenerate one package from a newly frozen exact source head and run both OS
 rows with those same bytes. Never combine evidence from different package
 hashes.
@@ -129,18 +138,19 @@ left Developer Mode off. `appcert.exe` version `10.0.28000.2270` is present,
 has valid Microsoft Authenticode and SHA-256
 `36deb040365311f884aae28bea130eb5aae598471d41afb9a6cbaa16adb243aa`.
 
-The exact MSIX and metadata are staged on the physical host. The Windows-side
-MSIX SHA-256 matches `a53253f3...b7e6`. The package remains uninstalled and its
-test signer remains untrusted so H00 can begin from the required clean state.
+The repaired exact MSIX and metadata are staged on the physical host. The
+Windows-side MSIX SHA-256 matches `1191699d...b413`. The package remains
+uninstalled and its test signer remains untrusted so H00 can begin from the
+required clean state.
 Evidence-kit initialization uses the recorded single-input exception with the
 built-in input as both default and selected. The harness forbids `PASS` for
 H04, H08 and H12 under this profile; those rows must be `BLOCKED` with the
 distinct/removable-device next action. All other applicable scenarios proceed
 in strict order beginning with clean H00.
 
-The immutable run directory `win10-single-input-physical-a` has now been
-initialized successfully from the clean package/trust state. Its boundary is
-initialized-only and no scenario is passed. A pre-run hotkey probe from the
+The historical immutable run directory `win10-single-input-physical-a` was
+initialized from the old package and retains the failed H00 diagnostic. A
+pre-run hotkey probe from the
 OpenSSH service session (session 0) found `Ctrl+Shift+R` unavailable while the
 physical console is session 1; H05 therefore remains undecided until exercised
 inside the active console session. This does not block H00-H04 ordering.
@@ -179,6 +189,84 @@ run from the next CI-built signed package. An H00 pass also requires the active
 desktop to be transitioned or confirmed as the local physical console rather
 than RDP.
 
+## Repaired post-merge artifact and bundle B checkpoint
+
+PR #304 merged the repair to `main` at
+`c9a925e923ff425d26eb878784cbe9ecd1403dd1`. Post-merge run `29751994898`
+passed all four jobs. Artifact `8465025630` was downloaded and independently
+re-hashed before transfer; the Windows host reports the same package SHA-256
+`1191699da98377f559f01312ae1c12fd0d456706d30224803bc19ee4c553b413`.
+
+An engineering-only launch smoke installed this package in the existing
+interactive RDP session, activated its AUMID and observed the visible top-level
+window `Pulsar packaged Windows probe`. Runtime evidence contained successful
+`helper_load` and `controls_ready` events at the corrected
+`Packages/<PFN>/AC/PulsarProbe` root. The same smoke also recorded RDP/AppContainer
+blocks for tray, global hotkey and repeated permission-status queries; these
+are preserved as findings for their strict scenarios and are not counted as an
+H00 result. Interactive cleanup then proved process/package/run-added signer
+trust/runtime absence, hotkey reacquisition and picker-fixture deletion.
+
+The new immutable directory `win10-single-input-physical-b` is initialized
+from that clean state. It freezes the repaired package digest, Windows 10
+ApprovedException posture, and `single-input-owner-approved` profile with
+`Internal Microphone (Cirrus Logic CS8409 (AB 54))` as both default and
+selected input.
+
+## Bundle B H00 physical-console result
+
+Session 1 was transitioned from `rdp-tcp#3` to the local physical `console`.
+The operator was physically present, used a one-shot desktop launcher for the
+exact AUMID, confirmed that no microphone permission prompt appeared at
+launch, and closed the visible window after observation. Retry 2 captured the
+visible `Pulsar packaged Windows probe` window, required controls, selected
+built-in input, screenshot SHA-256
+`dc7240d44eef8fd652ef5d3af1b045359fe394828585c02c78bf56f7e7a38813`,
+successful `helper_load` and `controls_ready`, and a stable runtime snapshot.
+
+H00 is `PASS` with 11 immutable evidence references. This verdict is strictly
+limited to exact signed install, package identity, exact AUMID launch and the
+visible control surface without Developer Mode or family replacement. It gives
+no credit to permission, tray, hotkey, lifecycle, capture or cleanup. The
+close control hid the window but did not terminate the process because tray
+registration was blocked; the process was explicitly terminated only for the
+stable snapshot, and that limitation is attached. Repeated
+`permission_status_query` failures and tray/hotkey `Access denied` remain open
+findings for their strict scenarios.
+
+The unverdict first retry process remained hidden overnight and amplified the
+repeated permission failure into a 2,741,466,867-byte diagnostic log. Its
+SHA-256 `a30d2b1ed8a14c9b691e00de7a6ee60d4a16ee36ef317a29bfc76099572bb549`,
+size, reset boundary, first startup observation and screenshot are retained in
+compact evidence; the repetitive 2.74 GB raw file was deliberately excluded
+and deleted before bundle attachment.
+
+## Bundle B H01 physical-console result
+
+The package-specific microphone consent entry was removed before launch and
+the probe started in local console session 1. Baseline screenshot SHA-256 is
+`1ccf84345fb39081b627087288baec3faf725186355b738a1133a21270e3270d`.
+Ivan Oparin pressed `Record default` exactly once and observed that nothing
+happened: no Windows microphone prompt appeared. The intent was logged at
+`2026-07-21T09:40:44.129238Z`; the post-action screenshot SHA-256 is
+`1b1b669bca9eaa2fb36db97793b23c396fa8434dcd1df0fb4afaeefbeb2c3eea`
+and UI Automation found only the visible Pulsar window.
+
+H01 is immutably `FAIL` with seven evidence references. The run produced zero
+permission-request events, zero `capture_started` events and zero promotable
+WAV files. Instead, the waiter-owned `CapPermissionCheck` repeatedly returned
+`0x8001010e` (`RPC_E_WRONG_THREAD`): 268,515 such failures among 625,425
+events. The probe was force-stopped only to bound the runaway logger; normal
+lifecycle credit is explicitly excluded. The 323,535,561-byte raw log has
+SHA-256 `df9bb218e44f05ae40b162b65acab705a083c93a1b5d421efdef07597fd5d941`;
+its hash, counts and representative event extract are retained while the
+repetitive raw file was excluded and deleted.
+
+The concrete next action is to repair the native AppCapability apartment/thread
+ownership and bound repeated permission-query failure evidence, add regression
+coverage, build and sign a new exact MSIX, and restart at H00 in a new
+immutable bundle. H02 is not run against the known-broken package.
+
 ## Exact manual execution request
 
 The active pass now requires the confirmed Windows 10 row first; the complete
@@ -187,17 +275,18 @@ task still requires both admissible rows:
 1. physical x64 Windows 10 Enterprise LTSC 2021 build 19044, fully patched and
    licensed, or an explicit approved lifecycle exception;
 2. physical Windows-11-compatible x64 machine on a currently serviced build;
-3. on both hosts, a dedicated admin-capable test account, audible output,
-   default physical microphone, a second removable/selectable microphone,
-   WACK, screenshot capture, sleep/wake, lock/unlock, sign-out and privacy
-   control access;
+3. on this owner-approved Windows 10 pass, a dedicated admin-capable test
+   account, audible output, the built-in physical microphone, WACK, screenshot
+   capture, sleep/wake, lock/unlock, sign-out and privacy control access; H04,
+   H08 and H12 remain `BLOCKED` until a second removable/selectable microphone
+   is later supplied;
 4. permission to install/remove the signed test MSIX and its embedded public
    signer, plus a safe route to return sanitized sealed bundles.
 
 Download the exact artifact on Windows before expiry:
 
 ```powershell
-gh run download 29738846385 `
+gh run download 29751994898 `
   --name pulsar-signed-msix-probe `
   --dir .\dist\windows-probe
 Get-FileHash `
@@ -206,14 +295,17 @@ Get-FileHash `
 ```
 
 The printed digest must equal
-`a53253f33c5d9acf903daa4641c254884eb3e69d497e6442bdb1cd4e85d6b7e6`.
+`1191699da98377f559f01312ae1c12fd0d456706d30224803bc19ee4c553b413`.
 Then follow `pulsar-win/probe-msix/README.md` and the frozen H00-H17 order in
 `TASK-260712-1vtwkl_hardware-readiness-audit.md`: complete Windows 10 first,
 seal its immutable bundle, then complete Windows 11 with the same MSIX bytes.
 
 ## Progress and stop condition
 
-- Physical rows accepted: `0/36` (H00-H17 on two OS families).
+- Physical rows accepted: `1/36`. Current bundle B is `2/18` terminal with
+  H00 `PASS`, H01 `FAIL` and seven H01 evidence references. Historical bundle
+  A retains its separate H00 `FAIL`. The next executable step is a repaired
+  signed build and a fresh bundle beginning at H00.
 - Task checklist accepted: `0/4`.
 - Overall epic progress: `186/205` accepted (`90.7%`).
 - Engineering progress: `186/186` accepted (`100%`).

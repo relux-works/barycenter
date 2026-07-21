@@ -8,6 +8,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -484,6 +485,9 @@ func onPairDone(ctx *onboardingCtx) {
 }
 
 func setText(h windows.Handle, s string) {
+	if h == 0 || windowText(h) == s {
+		return
+	}
 	pSetWindowTextW.Call(uintptr(h), uintptr(unsafe.Pointer(u16(s))))
 }
 
@@ -546,8 +550,14 @@ func awaitShutdown(state *TrayState, sig <-chan struct{}) {
 
 func runTrayLoop(state *TrayState) {
 	curTray = state
+	var log *slog.Logger
+	if state != nil {
+		log = state.Log
+	}
 	if state != nil && state.Shell != nil {
-		createMainWindow(state.Shell)
+		if hwnd := createMainWindow(state.Shell); hwnd == 0 && log != nil {
+			log.Error("create main window failed")
+		}
 	}
 	hInst, _, _ := pGetModuleHandleW.Call(0)
 	className := u16("PulsarTray")
@@ -559,10 +569,13 @@ func runTrayLoop(state *TrayState) {
 	}
 	pRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc)))
 	// Message-only window (HWND_MESSAGE = ^uintptr(2)) to receive tray events.
-	hwnd, _, _ := pCreateWindowExW.Call(0,
+	hwnd, _, createErr := pCreateWindowExW.Call(0,
 		uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(u16("PulsarTray"))),
 		0, 0, 0, 0, 0, ^uintptr(2), 0, hInst, 0)
 	trayHwnd = windows.Handle(hwnd)
+	if trayHwnd == 0 && log != nil {
+		log.Warn("system tray unavailable; continuing with main window", "err", createErr)
+	}
 	if state != nil && state.Recording != nil {
 		_, recordingAvailable := state.Recording.Snapshot()
 		if recordingAvailable {
@@ -586,7 +599,13 @@ func runTrayLoop(state *TrayState) {
 
 	addTrayIcon(trayHwnd)
 	showMainWindow(false)
+	if log != nil {
+		log.Info("windows shell message loop started", "main_window", mainHwnd != 0, "tray_window", trayHwnd != 0)
+	}
 	pumpMessages()
+	if log != nil {
+		log.Info("windows shell message loop stopped")
+	}
 	if state != nil && state.Recording != nil {
 		state.Recording.Shutdown()
 	}
@@ -602,6 +621,7 @@ func runTrayLoop(state *TrayState) {
 	}
 	removeTrayIcon(trayHwnd)
 	destroyMainWindow()
+	trayHwnd = 0
 	curTray = nil
 	curRecordingShortcut = nil
 	curSoundboardShortcuts = nil
@@ -803,7 +823,12 @@ func trayProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintp
 		}
 		return 0
 	case wmDestroy:
-		pPostQuitMessage.Call(0)
+		// CreateWindowExW may send WM_DESTROY before returning failure. During
+		// that callback trayHwnd is still zero; treating it as an application
+		// quit made AppContainer launches flash a hidden main HWND and exit.
+		if shouldPostTrayQuit(uintptr(hwnd), uintptr(trayHwnd)) {
+			pPostQuitMessage.Call(0)
+		}
 		return 0
 	}
 	r, _, _ := pDefWindowProcW.Call(uintptr(hwnd), uintptr(message), wParam, lParam)

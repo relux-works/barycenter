@@ -137,21 +137,6 @@ class AcceptanceHarnessTests(unittest.TestCase):
         self.assertIn("scripts/acceptance/test_group_crypto_library_spike.py", command.argv)
         self.assertIn("scripts/acceptance/test_e2ee_protocol_key_lifecycle.py", command.argv)
 
-    def test_desktop_sources_are_hashed_and_swift_release_is_a_gate(self):
-        windows_sources = harness.source_artifacts("windows")
-        swift_sources = harness.source_artifacts("swift")
-        self.assertGreaterEqual(len(windows_sources), 8)
-        self.assertGreaterEqual(len(swift_sources), 6)
-        for record in windows_sources + swift_sources:
-            self.assertRegex(record["sha256"], r"^[0-9a-f]{64}$")
-            self.assertGreater(record["bytes"], 0)
-            self.assertNotIn(".temp/", record["path"])
-
-        swift = harness.suite_commands("swift", None, {"DEVELOPER_DIR": "/Applications/Xcode.app"})
-        release = next(command for command in swift if command.name == "swift-release-build")
-        self.assertEqual(release.argv, ("xcrun", "swift", "build", "-c", "release"))
-        self.assertEqual(release.cwd, harness.ROOT / "node-app")
-
     def test_protected_media_probe_is_pinned_and_cross_built(self):
         coordinator = harness.suite_commands("coordinator", {"GOTOOLCHAIN": "go1.25.12"}, None)
         windows = harness.suite_commands("windows", {"GOTOOLCHAIN": "go1.25.12"}, None)

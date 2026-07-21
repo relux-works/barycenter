@@ -41,6 +41,28 @@ SECRET_PATTERNS = (
     re.compile(r"(?i)((?:password|secret|credential)\s*[:=]\s*)[^\s,;]+"),
 )
 
+DESKTOP_SOURCE_PATHS = {
+    "windows": (
+        "pulsar-win/main.go",
+        "pulsar-win/main_window_windows.go",
+        "pulsar-win/main_theme_windows.go",
+        "pulsar-win/windows_visual_contract.go",
+        "pulsar-win/windows_visual_contract_test.go",
+        "pulsar-win/winres/winres.json",
+        "pulsar-win/probe-msix/AppxManifest.xml.in",
+        "pulsar-win/probe-msix/build-probe.ps1",
+        "pulsar-win/probe-msix/register-hidden-interactive-task.ps1",
+    ),
+    "swift": (
+        "node-app/Package.swift",
+        "node-app/Package.resolved",
+        "node-app/Sources/NodeAppUI/PulsarDesktopStyle.swift",
+        "node-app/Sources/NodeAppUI/PulsarMainWindow.swift",
+        "node-app/Tests/NodeAppUITests/PulsarDesktopStyleTests.swift",
+        "scripts/build-app.sh",
+    ),
+}
+
 
 @dataclass(frozen=True)
 class Command:
@@ -285,6 +307,14 @@ def suite_commands(suite: str, go_env: dict[str, str] | None, apple_env: dict[st
     swift = []
     if apple_env is not None:
         swift.append(Command("swift-tests", ROOT / "node-app", ("xcrun", "swift", "test"), apple_env))
+        swift.append(
+            Command(
+                "swift-release-build",
+                ROOT / "node-app",
+                ("xcrun", "swift", "build", "-c", "release"),
+                apple_env,
+            )
+        )
     return {
         "coordinator": contract + container_probe + coordinator,
         "windows": contract + container_probe + container_probe_windows + windows,
@@ -299,6 +329,18 @@ def artifact_record(path: pathlib.Path, run_dir: pathlib.Path) -> dict:
         "bytes": path.stat().st_size,
         "sha256": sha256(path),
     }
+
+
+def source_artifacts(suite: str) -> list[dict]:
+    groups = ("windows", "swift") if suite == "all" else (suite,)
+    relative_paths = sorted({path for group in groups for path in DESKTOP_SOURCE_PATHS.get(group, ())})
+    records = []
+    for relative in relative_paths:
+        path = ROOT / relative
+        if not path.is_file() or path.is_symlink():
+            raise RuntimeError(f"required desktop source is missing or symlinked: {relative}")
+        records.append({"path": relative, "bytes": path.stat().st_size, "sha256": sha256(path)})
+    return records
 
 
 def run(args: argparse.Namespace) -> int:
@@ -368,6 +410,7 @@ def run(args: argparse.Namespace) -> int:
         "finishedAt": utc_now(),
         "git": {
             "head": git("rev-parse", "HEAD"),
+            "tree": git("rev-parse", "HEAD^{tree}"),
             "dirty": bool(end_status),
             "startDirty": bool(start_status),
             "endDirty": bool(end_status),
@@ -377,6 +420,7 @@ def run(args: argparse.Namespace) -> int:
         "toolchains": {"go": go_version, "apple": apple_version},
         "commands": records,
         "artifacts": [artifact_record(path, run_dir) for path in sorted(run_dir.glob("*.log"))],
+        "sourceArtifacts": source_artifacts(args.suite),
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     manifest_path.chmod(stat.S_IRUSR | stat.S_IWUSR)

@@ -15,9 +15,9 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260721-8pwqje` — Professional system-native
-  macOS shell. It begins only after the Windows production shell was accepted
-  against its exact hosted CI head.
+- Current engineering task: `TASK-260721-2346wf` — Desktop UI automated
+  acceptance and owner handoff. It began only after both platform UI tasks
+  passed their independent reviews.
 - Current strict remediation order: `BUG-260721-1npwy8` →
   `TASK-260721-2lv6wn` Professional system-native Windows shell →
   `TASK-260721-8pwqje` Professional system-native macOS shell →
@@ -28,8 +28,8 @@
   aggregate-only `done` containers, not acceptance verdicts. Their provenance
   and negative evidence remain.
 - Current delivery progress: original plan `186/205` accepted (`90.7%`), new
-  autonomous remediation `2/4` accepted (`50%`), consolidated manual gate
-  `0/1`. No new
+  autonomous remediation `3/4` accepted (`75%`),
+  consolidated manual gate `0/1`. No new
   hardware, accessibility-reader, audible, Store or production claim is made.
 - 2026-07-21 autonomous remediation checkpoint: `BUG-260721-1npwy8` now has a
   maintained hidden scheduled-observer runner, PE-header GUI-subsystem
@@ -51,6 +51,21 @@
   `RUN-260721-d12388` accepted commit `ee09731`. Non-blocking review notes keep
   pre-existing inline sub-panel `dip()` calls and text/surface semantic states
   for later delta review; neither weakens the accepted task contract.
+- 2026-07-21 macOS production-UI implementation checkpoint:
+  `TASK-260721-8pwqje` candidate `b0cc1a2` replaces the undersized shell with
+  an autosaved 1120x760 native desktop window (900x640 minimum), explicit
+  sidebar visibility and sizing, unified toolbar placement, centered bounded
+  content, system material surfaces and reusable symbol-plus-text status
+  semantics. Identity intake gains deterministic keyboard focus; high-contrast
+  status borders, VoiceOver labels and EN/RU light/dark self-contained previews
+  are frozen by new Swift contracts. The canonical full-Xcode run passed 359
+  tests in 58 suites and the release build passed. The standalone Command Line
+  Tools selection lacks the already-used `Testing` module, so canonical Swift
+  commands explicitly select `/Applications/Xcode.app`. Fable 5 reviewer run
+  `RUN-260721-ad6a04` returned provider limit 429 before consuming tokens and
+  was not treated as a verdict. Fresh Claude Opus 4.8 reviewer run
+  `RUN-260721-2dfdc7` independently repeated all 359 tests and the release
+  build, found no forced fit or AC gap, and accepted exact commit `b0cc1a2`.
 - Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build

@@ -1,5 +1,5 @@
 ## Status
-backlog
+development
 
 ## Review
 required
@@ -19,6 +19,7 @@ code
 - [ ] Update the single Ivan Oparin owner task with one concise real-app checklist.
 
 ## Notes
+2026-07-21 strict execution started after macOS candidate b0cc1a2 passed 359 Swift tests, release build, and independent Claude Opus 4.8 review RUN-260721-2dfdc7. Fable 5 run RUN-260721-ad6a04 returned provider 429 before tokens and is not a verdict. This task will publish one automated exact-head manifest and one consolidated Ivan Oparin real-app checklist without manual pass claims.
 
 ## Precondition Resources
 (none)
@@ -30,4 +31,7 @@ code
 2026-07-21T10:56:33Z
 
 ## Last Update
-2026-07-21T10:58:57Z
+2026-07-21T11:48:04Z
+
+## Assigned To
+codex-root-inline

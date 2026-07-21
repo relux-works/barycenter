@@ -4,13 +4,13 @@
       "bytes": 13312512,
       "path": "build/Pulsar-windows-amd64.exe",
       "peSubsystem": 2,
-      "sha256": "21e5f3a51017594c87cc63b8e2b944c711925c382fe4f91fa503d77908c721b7"
+      "sha256": "56da1f70e26f17f43ef6165dfffb9733c0bfff54ba049e3b5d85f12ad3174e55"
     },
     {
       "bytes": 12329472,
       "path": "build/Pulsar-windows-arm64.exe",
       "peSubsystem": 2,
-      "sha256": "a5a7a7ce8b8bdd0ef140ea9c7da1d17e5e51a628cfe6604f3aeb754a83a39235"
+      "sha256": "9a4756a47868d0cf85f306ead34dde0246db73ea3f119b54700946afad6e30e1"
     },
     {
       "bytes": 14545480,
@@ -107,7 +107,7 @@
         "-ldflags",
         "-H=windowsgui",
         "-o",
-        "<repo>/.temp/acceptance/desktop-ui-a108080/build/Pulsar-windows-amd64.exe",
+        "<repo>/.temp/acceptance/desktop-ui-a7258db/build/Pulsar-windows-amd64.exe",
         "."
       ],
       "cwd": "pulsar-win",
@@ -123,7 +123,7 @@
         "-ldflags",
         "-H=windowsgui",
         "-o",
-        "<repo>/.temp/acceptance/desktop-ui-a108080/build/Pulsar-windows-arm64.exe",
+        "<repo>/.temp/acceptance/desktop-ui-a7258db/build/Pulsar-windows-arm64.exe",
         "."
       ],
       "cwd": "pulsar-win",
@@ -156,13 +156,13 @@
       "name": "swift-release-build"
     }
   ],
-  "finishedAt": "2026-07-21T11:57:33Z",
+  "finishedAt": "2026-07-21T12:04:49Z",
   "git": {
     "endDirty": false,
     "endDirtyPaths": [],
-    "head": "a10808051c79cff18990d730e1a48cc4de1af138",
+    "head": "a7258dbfe8787a8980dc7dc6023da1e932194a57",
     "startDirty": false,
-    "tree": "79d3f02d2a64bc85696b3a6f4de260afad6c7593"
+    "tree": "5f2a0ed1a5251a2625c46538a0f3c6bb1639e3aa"
   },
   "host": {
     "machine": "x86_64",
@@ -178,7 +178,7 @@
     {
       "bytes": 102,
       "path": "01-desktop-contract-tests.log",
-      "sha256": "80144f3bf12d071a1497821467ab02765712cb11da3f547a5e2b5cf79f938e9a"
+      "sha256": "e73c3805f810fdcf3d0167ced7085c48306c9482a952ffb710551d230cdb3e51"
     },
     {
       "bytes": 0,
@@ -186,14 +186,14 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
-      "bytes": 207,
+      "bytes": 212,
       "path": "03-windows-tests.log",
-      "sha256": "2a3b883daa4e57da61269a495601f5161330313d7e7f49aef46c60ba3b1ca784"
+      "sha256": "3e7f2ec3d48226e90b059307d4d2dad9e4f49492f2b90470e671299a334771e8"
     },
     {
-      "bytes": 207,
+      "bytes": 212,
       "path": "04-windows-race.log",
-      "sha256": "fdd7ce8f1072fd800142895d639bf0f037fad607eb549e3e50fd7da5dcb3feb0"
+      "sha256": "3e7f2ec3d48226e90b059307d4d2dad9e4f49492f2b90470e671299a334771e8"
     },
     {
       "bytes": 0,
@@ -223,12 +223,12 @@
     {
       "bytes": 76365,
       "path": "10-swift-tests.log",
-      "sha256": "7354226b5d73daf9358edaa314fd55daad17e58223170fbfbcfd5177203b2231"
+      "sha256": "58c35bdd63f8350fe23ee62f61ab1c8a42768b1c8fc48e033beb827dda916924"
     },
     {
       "bytes": 120,
       "path": "11-swift-release-build.log",
-      "sha256": "5b5e9553a353fa8ae098ffa3680c1164c7bbac70b9682004a2549b4bda375def"
+      "sha256": "fcb90922f1a5c4c8ecdde0284aa84474c241271df2c4037692bec519169b6e98"
     }
   ],
   "manualEvidence": "not-run",
@@ -254,6 +254,11 @@
       "bytes": 74156,
       "path": "node-app/Sources/NodeAppUI/PulsarMainWindow.swift",
       "sha256": "8198eebc815acc50498f843ac1a367186fe73e57f19d067fec6faa903fb45c36"
+    },
+    {
+      "bytes": 14739,
+      "path": "node-app/Tests/NodeCoreTests/MacLivePTTNodeTests.swift",
+      "sha256": "2ef1f486cd0096e062813d8aa4a2499ee87b7996d720b9ceabae6ebbff7faf34"
     },
     {
       "bytes": 2419,
@@ -311,7 +316,7 @@
       "sha256": "9ffbcc5c93d9d6e03be21f05054e288de3d5032246d2ef4cb375911b5ceff1c1"
     }
   ],
-  "startedAt": "2026-07-21T11:55:54Z",
+  "startedAt": "2026-07-21T12:04:25Z",
   "status": "pass",
   "toolchains": {
     "apple": {

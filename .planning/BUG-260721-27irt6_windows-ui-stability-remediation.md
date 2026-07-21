@@ -128,6 +128,20 @@ Win10 product evidence:
   direct message-pump JSON SHA-256:
   `d19f7d58dbc39d638b5dc0e3076e7165c460af1742b9495c5cfabfab872c629e`.
 
+## Independent review and CI portability delta
+
+- Claude Fable 5 run `RUN-260721-305602` returned HTTP 429 with zero tokens;
+  it is recorded as provider exhaustion, not a review verdict.
+- Claude Opus 4.8 run `RUN-260721-c80cef` independently reviewed exact product
+  commit `76f09a4`, re-ran Go test/race/vet/Windows cross-build gates, verified
+  the render/repaint mechanisms and accepted the task without blocking
+  findings. Verdict evidence is attached to the board as
+  `BUG-260721-27irt6_review.md`.
+- The first GitHub packaged-probe run then exposed a test-only portability bug:
+  the source-contract assertion expected LF while Windows checkout supplied
+  CRLF. The assertion now normalizes `CRLF -> LF` before matching. Production
+  source and the installed `0.1.20.0` binary are unchanged by this delta.
+
 ## Verification boundary
 
 Automated unit/source/layout checks, race/vet/cross-build, signed-package

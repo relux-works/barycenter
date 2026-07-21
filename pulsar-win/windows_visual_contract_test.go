@@ -124,7 +124,9 @@ func TestWindowsProductionRenderIsSectionBounded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := string(windowSource)
+	// Git may materialize the source with CRLF on Windows runners. Normalize
+	// line endings before asserting the intentionally formatted section gates.
+	source := strings.ReplaceAll(string(windowSource), "\r\n", "\n")
 	sections := []string{
 		"if section == ShellCreate || section == ShellJoin || section == ShellTryLocally || section == ShellSettings",
 		"if section == ShellHistory || section == ShellSoundboard",

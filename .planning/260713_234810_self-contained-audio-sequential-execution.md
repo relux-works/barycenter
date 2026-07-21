@@ -128,8 +128,7 @@
   and was not treated as a verdict. Claude Opus 4.8 run
   `RUN-260721-72524f` independently repeated the deterministic gates and
   accepted exact commit `62302e0`. No audio or manual hardware PASS is claimed.
-- 2026-07-21 Windows UI stop-the-line engineering remediation (accepted;
-  independent review pending):
+- 2026-07-21 Windows UI stop-the-line engineering remediation (accepted):
   `BUG-260721-27irt6` reproduced the user's first navigation click as an
   owner-thread hang on exact package `0.1.11.0`. UI Automation blocked for
   10,023 ms on Create; a separate posted command left the process
@@ -148,8 +147,14 @@
   A six-section `PrintWindow` gallery at `150 ms` confirmed complete chrome and
   bounded active content. Full hashes, findings and the manual verification
   boundary are recorded in
-  `.planning/BUG-260721-27irt6_windows-ui-stability-remediation.md`;
-  independent review remains before board closure.
+  `.planning/BUG-260721-27irt6_windows-ui-stability-remediation.md`. Fable 5
+  run `RUN-260721-305602` returned provider-limit 429 with zero tokens and was
+  not treated as a verdict. Claude Opus 4.8 run `RUN-260721-c80cef` reviewed
+  exact product commit `76f09a4`, re-ran the deterministic gates and accepted
+  the work; `BUG-260721-27irt6` is closed. A subsequent Windows-only CI false
+  positive (the source-contract test matched LF against a CRLF checkout) was
+  corrected by normalizing line endings in the test; product code and installed
+  `0.1.20.0` are unchanged by that portability delta.
 - Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build

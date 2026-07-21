@@ -41,12 +41,13 @@ REVIEW VERDICT: ACCEPTED (run RUN-260721-c80cef, anchor 76f09a4). Prior run RUN-
 agent completed: [reviewer] reviewer (claude) (exit=0)
 spawn run completed: claude (run=RUN-260721-c80cef, pid=1404, exit=0)
 Post-review CI delta: packaged-probe failed only because TestWindowsProductionRenderIsSectionBounded matched LF against a Windows CRLF checkout. Test now normalizes CRLF to LF before the source assertion; production code and installed 0.1.20.0 are unchanged. Local test/race/vet/Windows cross-build remain green; awaiting rerun.
+Hosted CI rerun 29863591495 passed 4/4 on delta head b625606: coordinator, node-core, pulsar-win and pulsar-win-packaged-probe. CRLF portability delta is accepted; task remains done.
 
 ## Precondition Resources
 (none)
 
 ## Outcome Resources
-- [BUG-260721-27irt6_windows-ui-stability-remediation.md](file://BUG-260721-27irt6/BUG-260721-27irt6_windows-ui-stability-remediation.md) — Root-cause analysis, implementation summary, signed 0.1.20.0 receipt, autonomous Win10 evidence and accepted review
+- [BUG-260721-27irt6_windows-ui-stability-remediation.md](file://BUG-260721-27irt6/BUG-260721-27irt6_windows-ui-stability-remediation.md) — Root-cause analysis, signed 0.1.20.0 receipt, autonomous Win10 evidence, accepted review and green hosted CI
 - [BUG-260721-27irt6_spawn-log_-reviewer--reviewer--claude-_RUN-260721-305602.log](file://BUG-260721-27irt6/BUG-260721-27irt6_spawn-log_-reviewer--reviewer--claude-_RUN-260721-305602.log) — System spawn log captured by task-board
 - [BUG-260721-27irt6_spawn-log_-reviewer--reviewer--claude-_RUN-260721-c80cef.log](file://BUG-260721-27irt6/BUG-260721-27irt6_spawn-log_-reviewer--reviewer--claude-_RUN-260721-c80cef.log) — System spawn log captured by task-board
 - [BUG-260721-27irt6_review.md](file://BUG-260721-27irt6/BUG-260721-27irt6_review.md) — Independent review verdict (ACCEPTED) with locally re-run gates, code-mechanism verification, and boundary check
@@ -55,7 +56,7 @@ Post-review CI delta: packaged-probe failed only because TestWindowsProductionRe
 2026-07-21T17:31:02Z
 
 ## Last Update
-2026-07-21T19:54:48Z
+2026-07-21T20:00:16Z
 
 ## Assigned To
 [reviewer] reviewer (claude)

@@ -141,6 +141,9 @@ Win10 product evidence:
   the source-contract assertion expected LF while Windows checkout supplied
   CRLF. The assertion now normalizes `CRLF -> LF` before matching. Production
   source and the installed `0.1.20.0` binary are unchanged by this delta.
+- Hosted CI rerun `29863591495` on delta head `b625606` passed all four jobs:
+  `coordinator`, `node-core`, `pulsar-win` and
+  `pulsar-win-packaged-probe`.
 
 ## Verification boundary
 

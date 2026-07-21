@@ -154,7 +154,8 @@
   the work; `BUG-260721-27irt6` is closed. A subsequent Windows-only CI false
   positive (the source-contract test matched LF against a CRLF checkout) was
   corrected by normalizing line endings in the test; product code and installed
-  `0.1.20.0` are unchanged by that portability delta.
+  `0.1.20.0` are unchanged by that portability delta. Hosted rerun
+  `29863591495` passed all four jobs on delta head `b625606`.
 - Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build

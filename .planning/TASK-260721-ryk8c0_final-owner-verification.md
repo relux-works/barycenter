@@ -15,8 +15,9 @@ candidate and a notarized macOS DMG for the source below. Do not use a terminal.
   `17735d6f42371e75824689bcdc926676bb1b29dd2f63cf4dd7e897e126a6970b`
 - local result: 11/11 deterministic desktop stages passed; Windows amd64 and
   arm64 PE subsystem is GUI (`2`); Swift passed 359 tests and a release build
-- exact-head hosted CI: run `29828660852`; Windows, signed-package and macOS
-  jobs passed (359 Swift tests in 58 suites on the hosted macOS runner)
+- final tracking-head hosted CI: run `29829090013`; all four jobs passed,
+  including Windows, signed-package, coordinator and macOS (359 Swift tests in
+  58 suites). Its product source is identical to frozen source head `a7258db`.
 - signed diagnostic probe (not the production app):
   `.temp/ci-29828660852-msix/PulsarProbe-0.1.0.0-x64-signed.msix`
 - signed diagnostic probe SHA-256:

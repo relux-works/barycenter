@@ -15,9 +15,9 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260721-2346wf` — Desktop UI automated
-  acceptance and owner handoff. It began only after both platform UI tasks
-  passed their independent reviews.
+- Current engineering task: none. All four autonomous desktop remediation
+  units are accepted; the only remaining execution unit is the consolidated
+  owner task `TASK-260721-ryk8c0`.
 - Current strict remediation order: `BUG-260721-1npwy8` →
   `TASK-260721-2lv6wn` Professional system-native Windows shell →
   `TASK-260721-8pwqje` Professional system-native macOS shell →
@@ -28,7 +28,7 @@
   aggregate-only `done` containers, not acceptance verdicts. Their provenance
   and negative evidence remain.
 - Current delivery progress: original plan `186/205` accepted (`90.7%`), new
-  autonomous remediation `3/4` accepted (`75%`),
+  autonomous remediation `4/4` accepted (`100%`),
   consolidated manual gate `0/1`. No new
   hardware, accessibility-reader, audible, Store or production claim is made.
 - 2026-07-21 autonomous remediation checkpoint: `BUG-260721-1npwy8` now has a
@@ -66,6 +66,25 @@
   was not treated as a verdict. Fresh Claude Opus 4.8 reviewer run
   `RUN-260721-2dfdc7` independently repeated all 359 tests and the release
   build, found no forced fit or AC gap, and accepted exact commit `b0cc1a2`.
+- 2026-07-21 desktop automated-acceptance checkpoint:
+  `TASK-260721-2346wf` is accepted. An isolated fail-closed desktop runner
+  preserves the frozen shared E2EE acceptance tool while recording 11 command
+  results, pinned Go/Xcode versions, git tree, 16 source hashes and three build
+  hashes. Exact `a7258db` passed Windows vet/test/race, amd64/arm64 cross-build
+  and GUI-subsystem assertions plus the full 359-test Swift suite and release
+  build. Hosted macOS contention first exposed five old two-second Live PTT
+  test timeouts; commit `c60bbec` serializes only that six-test suite and keeps
+  deadlock detection bounded at ten seconds. Five local repetitions and hosted
+  macOS CI then passed. The manifest SHA-256 is
+  `17735d6f42371e75824689bcdc926676bb1b29dd2f63cf4dd7e897e126a6970b`.
+  Fable 5 reviewer run `RUN-260721-462ec7` again returned 429 before tokens;
+  fresh Claude Opus 4.8 reviewer run `RUN-260721-07ce5f` recomputed all 16
+  hashes, reran the deterministic gates and accepted tracking commit `3be2fda`.
+  Final hosted CI run `29829090013` then passed all four jobs on that tracking
+  head; its product source is identical to the frozen `a7258db` candidate.
+  One no-terminal owner checklist is attached to `TASK-260721-ryk8c0`; it
+  remains `WAIT` until signed Windows and notarized macOS production release
+  candidates are supplied and makes no manual, hardware or Store pass claim.
 - Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build

@@ -44,20 +44,39 @@ stderr handle, records runtime crashes, and surfaces guarded startup panics.
 
 ## Autonomous launch evidence
 
-An interactive, hidden-console `IApplicationActivationManager` run observed
-the exact installed package for 31.199 seconds:
+Two interactive, hidden-console `IApplicationActivationManager` runs observed
+the exact installed package. The final extended soak ran for 188.523 seconds:
 
-- process ID `4188` remained alive in all 120 samples;
-- final top-level HWND `0x1A028C` was `visible=True` with title `Pulsar`;
-- `aliveAfterObservation=true` and the process remained alive and responding
-  after the observer task returned;
-- an independent UI Automation capture reported `processRunning=true`,
+- process ID `10268` remained alive in all 720 samples;
+- the top-level `Pulsar` HWND was visible in 719/720 samples (the first sample
+  preceded HWND creation) and was still visible in the final sample;
+- `aliveAfterObservation=true` and `exitCode=null` at observer completion;
+- an independent UI Automation capture during the soak reported
+  `processRunning=true`,
   `responding=true`, `mainWindowVisible=true`, `mainWindowHung=false`, DPI
   `192`, bounds `1093x815`, and 22 current-section controls;
-- final screenshot SHA-256:
-  `1d5b9ef259411d9264f7dd35060a8d1044db878f269fb397e3f8729d09cacc84`;
+- soak screenshot SHA-256:
+  `49e2836428c0b136cece5f03a54e7da8fc3c608ec0c2fcbcb491c2936b866887`;
 - no terminal window was used by the packaged GUI or either hidden observer.
 
+The scheduled observer owns a diagnostic job and Windows tears down its
+activation when that job finishes. That harness-only teardown produced no
+`unpaired shell stopped` record and no crash output; it is not part of the
+ordinary Desktop/Start shortcut path. The shorter run independently recorded
+120/120 live samples over 31.199 seconds and the same responsive visible
+window before the extended soak was added.
+
+The ordinary shortcut path was then exercised separately through the Windows
+Desktop Shell default verb, not `IApplicationActivationManager`. Its launcher
+task completed successfully while process ID `6152` remained alive outside
+the task. A subsequent independent UI Automation task also completed without
+terminating that process and reported `Pulsar` visible, responding and not
+hung at 192 DPI with 22 current-section controls. Shortcut-launch screenshot
+SHA-256 is
+`e398c8c2ea9d38137effc8d298fb47fb5a08be888850dee0f4e59a902a6fe9c1`.
+
 Local verification passed `go test ./...`, Windows-targeted `go vet ./...`, and
-the amd64 GUI-subsystem cross-build. The consolidated human task remains the
-only place for later microphone/audio and subjective real-app acceptance.
+the amd64 GUI-subsystem cross-build. Claude Opus 4.8 reviewer run
+`RUN-260721-72524f` independently repeated those gates and accepted exact
+commit `62302e0`. The consolidated human task remains the only place for later
+microphone/audio and subjective real-app acceptance.

@@ -9,7 +9,8 @@ and no Store/EV-signing claim is made.
 
 ## Frozen engineering candidate
 
-- source head: `a7258dbfe8787a8980dc7dc6023da1e932194a57`
+- cross-platform UI base: `a7258dbfe8787a8980dc7dc6023da1e932194a57`
+- active Windows launch-repair head: `62302e0`
 - product UI commits: Windows `ee09731`, macOS `b0cc1a2`
 - clean automated manifest:
   `.temp/acceptance/desktop-ui-a7258db/manifest.json`
@@ -36,13 +37,13 @@ notarization, update, integration or TCC persistence rows.
 ## Installed Windows 10 candidate
 
 - host/account: `DESKTOP-3PBO632` / `admin`, Windows `10.0.19045`
-- source/tracking head: `f6c9b47dfebbca5feb9d533cb91bef45cb7d82b3`
-  (product source is the accepted `a7258db` candidate)
-- package: `ReluxWorksLLC.PulsarBarycenter_0.1.1.0_x64__q036g2bzd7ngc`
+- source/tracking head: `62302e0`
+  (accepted UI base plus the independently accepted packaged-launch repair)
+- package: `ReluxWorksLLC.PulsarBarycenter_0.1.11.0_x64__q036g2bzd7ngc`
 - package SHA-256:
-  `eaa01ad6de70bf020a9ff4f145045003a93a475ae8711e62e30b532531f79d4a`
+  `b8374791fa95c4b17eb1cae9195c19e344293263678946a02c958599800aafa2`
 - installed GUI EXE SHA-256:
-  `accd11d545ff89aa0ce106b1599771c588be9e90ba32a5f0530868bae5f43d28`
+  `839b00a84dd271121b8c4987a33b97b238e3ea9d458e19f39c09b0540265f0bb`
 - installed `go-librespot.exe` SHA-256:
   `ffe82704be5671629a00bdea3915e40aa4e723b4a45417325da41dd90f8d9402`
 - installed `pulsar-capture.dll` SHA-256:
@@ -57,8 +58,18 @@ notarization, update, integration or TCC persistence rows.
   `microphone`, internet client/server and private-network client/server
 - launch: `Pulsar` is registered in Start and the Desktop shortcut activates
   `ReluxWorksLLC.PulsarBarycenter_q036g2bzd7ngc!Pulsar`
-- installer did not launch the app, so no visible-window, microphone, audio or
-  manual PASS is inferred from installation
+- autonomous AUMID soak: 720/720 live samples over 188.523 seconds, visible
+  `Pulsar` HWND in 719/720 samples after the initial pre-HWND sample; UI
+  Automation reported visible, responsive, not hung at 192 DPI
+- soak screenshot SHA-256:
+  `49e2836428c0b136cece5f03a54e7da8fc3c608ec0c2fcbcb491c2936b866887`
+- ordinary Desktop shortcut was also invoked through the Windows Shell default
+  verb; its launcher and capture tasks completed while the visible, responsive
+  process remained alive independently
+- shortcut-launch screenshot SHA-256:
+  `e398c8c2ea9d38137effc8d298fb47fb5a08be888850dee0f4e59a902a6fe9c1`
+- this autonomous launch evidence does not infer microphone, audio, subjective
+  UI, hardware or manual PASS
 
 This package is suitable for the Windows 10 functional/hardware rows in this
 checklist. It is intentionally local-test signed and cannot prove Store/EV

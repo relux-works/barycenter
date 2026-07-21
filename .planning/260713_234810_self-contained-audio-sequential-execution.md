@@ -15,10 +15,11 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `BUG-260721-2jmabl` — Windows packaged app silent
-  exit, exact Win10 candidate in independent review. All four original
-  autonomous desktop remediation units remain accepted; the consolidated owner
-  task `TASK-260721-ryk8c0` remains the only manual execution unit.
+- Current engineering task: none. `BUG-260721-2jmabl` — Windows packaged app
+  silent exit — is repaired and independently accepted. All four original
+  autonomous desktop remediation units and the focused launch bug are accepted;
+  the consolidated owner task `TASK-260721-ryk8c0` remains the only manual
+  execution unit.
 - Current strict remediation order: `BUG-260721-1npwy8` →
   `TASK-260721-2lv6wn` Professional system-native Windows shell →
   `TASK-260721-8pwqje` Professional system-native macOS shell →
@@ -29,9 +30,8 @@
   aggregate-only `done` containers, not acceptance verdicts. Their provenance
   and negative evidence remain.
 - Current delivery progress: original plan `186/205` accepted (`90.7%`), new
-  autonomous remediation `4/4` accepted (`100%`), packaged-launch bug `0/1`
-  accepted with implementation/evidence complete and review pending,
-  consolidated manual gate `0/1`. No new
+  autonomous remediation `4/4` accepted (`100%`), packaged-launch bug `1/1`
+  accepted (`100%`), consolidated manual gate `0/1`. No new
   hardware, accessibility-reader, audible, Store or production claim is made.
 - 2026-07-21 autonomous remediation checkpoint: `BUG-260721-1npwy8` now has a
   maintained hidden scheduled-observer runner, PE-header GUI-subsystem
@@ -87,7 +87,8 @@
   One no-terminal owner checklist is attached to `TASK-260721-ryk8c0`; it
   remains `WAIT` until signed Windows and notarized macOS production release
   candidates are supplied and makes no manual, hardware or Store pass claim.
-- 2026-07-21 Windows owner-candidate preparation: exact tracking head
+- 2026-07-21 Windows owner-candidate preparation (superseded by repaired
+  `0.1.11.0` below): exact tracking head
   `f6c9b47` (product source identical to accepted `a7258db`) was built with the
   current `go-librespot` fork and exact-head CI `pulsar-capture.dll`, then packed
   and installed on `DESKTOP-3PBO632` as developer-signed AppContainer package
@@ -102,7 +103,7 @@
   microphone, audible or hardware PASS is claimed. Windows functional rows are
   ready; Store/EV signing and the notarized macOS half remain outside this
   preparation checkpoint.
-- 2026-07-21 Windows packaged-launch repair candidate:
+- 2026-07-21 Windows packaged-launch repair acceptance:
   `BUG-260721-2jmabl` autonomously reproduced the user's silent shortcut
   failure as a successful AUMID activation followed by an invisible/unresponsive
   startup exit. The repair makes the AppContainer top-level HWND visible
@@ -113,11 +114,20 @@
   package `ReluxWorksLLC.PulsarBarycenter_0.1.11.0_x64__q036g2bzd7ngc`
   (MSIX SHA-256 `b8374791fa95c4b17eb1cae9195c19e344293263678946a02c958599800aafa2`,
   EXE SHA-256 `839b00a84dd271121b8c4987a33b97b238e3ea9d458e19f39c09b0540265f0bb`)
-  is installed on `DESKTOP-3PBO632`. The exact AUMID run remained alive and
-  visible for 31.199 seconds in all 120 samples and stayed alive/responding
-  after the hidden observer returned; UI Automation reported visible,
-  responding, not hung at 192 DPI. Independent review is pending; no audio or
-  manual hardware PASS is claimed.
+  is installed on `DESKTOP-3PBO632`. The final exact AUMID soak remained alive
+  in all 720 samples for 188.523 seconds; its `Pulsar` HWND was visible in
+  719/720 samples after the initial pre-HWND sample. UI Automation during the
+  soak reported visible, responding, not hung at 192 DPI with screenshot
+  SHA-256 `49e2836428c0b136cece5f03a54e7da8fc3c608ec0c2fcbcb491c2936b866887`.
+  A separate Desktop Shell default-verb invocation then exercised the actual
+  `Pulsar.lnk` path: the launcher and follow-up UI Automation tasks both
+  completed while process `6152` remained alive outside them; its visible,
+  responsive, non-hung window screenshot SHA-256 is
+  `e398c8c2ea9d38137effc8d298fb47fb5a08be888850dee0f4e59a902a6fe9c1`.
+  Fable 5 run `RUN-260721-536d63` returned provider limit 429 with zero tokens
+  and was not treated as a verdict. Claude Opus 4.8 run
+  `RUN-260721-72524f` independently repeated the deterministic gates and
+  accepted exact commit `62302e0`. No audio or manual hardware PASS is claimed.
 - Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build

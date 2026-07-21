@@ -15,28 +15,31 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `BUG-260721-1npwy8` — Silent Windows launch and
-  high-DPI verification probe. It removes the visible observer console,
-  freezes GUI-subsystem launch checks and makes the diagnostic probe
-  PerMonitorV2/system-font aware before production UI polish begins.
+- Current engineering task: `TASK-260721-2lv6wn` — Professional system-native
+  Windows shell. It begins only after the silent-launch/high-DPI probe fix was
+  independently accepted and its exact hosted Windows package CI passed.
 - Current strict remediation order: `BUG-260721-1npwy8` →
   `TASK-260721-2lv6wn` Professional system-native Windows shell →
   `TASK-260721-8pwqje` Professional system-native macOS shell →
   `TASK-260721-2346wf` Desktop UI automated acceptance and owner handoff.
 - Human interaction is deferred to the single blocked task
   `TASK-260721-ryk8c0` — Ivan Oparin final real-app verification. The nineteen
-  legacy manual tasks and four legacy manual stories are closed as
-  superseded, not accepted; their provenance and negative evidence remain.
+  legacy manual tasks are closed as superseded; their four parent stories are
+  aggregate-only `done` containers, not acceptance verdicts. Their provenance
+  and negative evidence remain.
 - Current delivery progress: original plan `186/205` accepted (`90.7%`), new
-  autonomous remediation `0/4` accepted (`1/4` implementation-complete and
-  awaiting independent review), consolidated manual gate `0/1`. No new
-  hardware, accessibility-reader, audible, Store or production claim is made.
+  autonomous remediation `1/4` accepted (`25%`), consolidated manual gate
+  `0/1`. No new hardware, accessibility-reader, audible, Store or production
+  claim is made.
 - 2026-07-21 autonomous remediation checkpoint: `BUG-260721-1npwy8` now has a
   maintained hidden scheduled-observer runner, PE-header GUI-subsystem
   enforcement in the signed package build, and a PerMonitorV2/Segoe UI probe
   layout with deterministic 96/120/144/192-DPI and resize tests. Local Go,
-  race, Windows vet and GUI cross-build checks pass; hosted Windows MSIX review
-  and independent reviewer acceptance remain before the task is counted done.
+  race, Windows vet and GUI cross-build checks pass; hosted Windows MSIX CI
+  passed in run `29825137396`; Claude Opus 4.8 reviewer run
+  `RUN-260721-a5822e` accepted exact commit `69318f9`. The requested Fable 5
+  run `RUN-260721-3a8700` consumed zero tokens and returned provider limit 429,
+  so it is recorded as infrastructure evidence rather than a code verdict.
 - Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build

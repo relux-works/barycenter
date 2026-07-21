@@ -18,6 +18,7 @@ public enum PulsarShellSection: String, CaseIterable, Identifiable, Sendable {
     case inbox
     case create
     case join
+    case devices
     case tryLocally
     case soundboard
     case automation
@@ -303,6 +304,7 @@ public enum PulsarIdentityOperationState: Equatable, Sendable {
     case busy
     case succeeded(String)
     case recoveryExportRequired(String)
+    case recoveryUnavailableAfterRelaunch
     case failed(String)
 }
 
@@ -911,6 +913,11 @@ public final class PulsarShellActions {
     private let onSubmitCreateOrbit: (String) -> Void
     private let onSubmitJoinOrbit: (String) -> Void
     private let onExportRecovery: () -> Void
+    private let onRefreshDeviceInvitationAuthorization: () -> Void
+    private let onGenerateDeviceInvitation: () -> Void
+    private let onCopyDeviceInvitation: () -> Void
+    private let onHideDeviceInvitation: () -> Void
+    private let onOpenOptionalTelegramPairing: () -> Void
     private let onRefreshAirs: () -> Void
     private let onCreateAir: (String) -> Void
     private let onConsumeAirInvite: (String) -> Void
@@ -974,6 +981,11 @@ public final class PulsarShellActions {
         submitCreateOrbit: @escaping @MainActor (String) -> Void = { _ in },
         submitJoinOrbit: @escaping @MainActor (String) -> Void = { _ in },
         exportRecovery: @escaping @MainActor () -> Void = {},
+        refreshDeviceInvitationAuthorization: @escaping @MainActor () -> Void = {},
+        generateDeviceInvitation: @escaping @MainActor () -> Void = {},
+        copyDeviceInvitation: @escaping @MainActor () -> Void = {},
+        hideDeviceInvitation: @escaping @MainActor () -> Void = {},
+        openOptionalTelegramPairing: @escaping @MainActor () -> Void = {},
         refreshAirs: @escaping @MainActor () -> Void = {},
         createAir: @escaping @MainActor (String) -> Void = { _ in },
         consumeAirInvite: @escaping @MainActor (String) -> Void = { _ in },
@@ -1036,6 +1048,11 @@ public final class PulsarShellActions {
         self.onSubmitCreateOrbit = submitCreateOrbit
         self.onSubmitJoinOrbit = submitJoinOrbit
         self.onExportRecovery = exportRecovery
+        self.onRefreshDeviceInvitationAuthorization = refreshDeviceInvitationAuthorization
+        self.onGenerateDeviceInvitation = generateDeviceInvitation
+        self.onCopyDeviceInvitation = copyDeviceInvitation
+        self.onHideDeviceInvitation = hideDeviceInvitation
+        self.onOpenOptionalTelegramPairing = openOptionalTelegramPairing
         self.onRefreshAirs = refreshAirs
         self.onCreateAir = createAir
         self.onConsumeAirInvite = consumeAirInvite
@@ -1127,6 +1144,13 @@ public final class PulsarShellActions {
     public func submitCreateOrbit(title: String) { onSubmitCreateOrbit(title) }
     public func submitJoinOrbit(code: String) { onSubmitJoinOrbit(code) }
     public func exportRecovery() { onExportRecovery() }
+    public func refreshDeviceInvitationAuthorization() {
+        onRefreshDeviceInvitationAuthorization()
+    }
+    public func generateDeviceInvitation() { onGenerateDeviceInvitation() }
+    public func copyDeviceInvitation() { onCopyDeviceInvitation() }
+    public func hideDeviceInvitation() { onHideDeviceInvitation() }
+    public func openOptionalTelegramPairing() { onOpenOptionalTelegramPairing() }
     public func refreshAirs() { onRefreshAirs() }
     public func createAir(title: String) { onCreateAir(title) }
     public func consumeAirInvite(code: String) { onConsumeAirInvite(code) }
@@ -1149,7 +1173,7 @@ public final class PulsarShellActions {
 }
 
 public enum PulsarShellText: String, CaseIterable, Sendable {
-    case appName, home, airs, inbox, create, join, tryLocally, soundboard, automation, history, settings
+    case appName, home, airs, inbox, create, join, devices, tryLocally, soundboard, automation, history, settings
     case openMainWindow, primaryActions, status, presence, routing, nowPlaying
     case localControls, noHistory, noRoute, silence, volume, dnd, recording
     case startRecording, stopRecording, recordingUnavailable, selfTestUnavailable
@@ -1187,6 +1211,7 @@ public enum PulsarShellText: String, CaseIterable, Sendable {
     case report, reportReason, reportDetails, submitReport, cancel, confirmDelete, confirmBlock
     case orbitTitle, inviteCode, createWithAPI, joinWithAPI, identityBusy
     case identitySucceeded, identityFailed, recoveryRequired, exportRecovery
+    case recoveryUnavailableAfterRelaunch
 }
 
 public struct PulsarShellCopy: Sendable {
@@ -1208,6 +1233,7 @@ public struct PulsarShellCopy: Sendable {
         case .inbox: text(.inbox)
         case .create: text(.create)
         case .join: text(.join)
+        case .devices: text(.devices)
         case .tryLocally: text(.tryLocally)
         case .soundboard: text(.soundboard)
         case .automation: text(.automation)
@@ -1451,7 +1477,7 @@ public struct PulsarShellCopy: Sendable {
 
     private static let en: [PulsarShellText: String] = [
         .appName: "Pulsar", .home: "Home", .airs: "Airs", .inbox: "Inbox & targets",
-        .create: "Create", .join: "Join",
+        .create: "Create", .join: "Join", .devices: "Devices",
         .tryLocally: "Try locally", .soundboard: "Soundboard", .automation: "Automation", .history: "History", .settings: "Settings",
         .openMainWindow: "Open Pulsar", .primaryActions: "Primary actions",
         .status: "Status", .presence: "Presence", .routing: "Routing",
@@ -1555,11 +1581,12 @@ public struct PulsarShellCopy: Sendable {
         .identityFailed: "Identity operation failed",
         .recoveryRequired: "Save the one-time recovery file before continuing.",
         .exportRecovery: "Save recovery file",
+        .recoveryUnavailableAfterRelaunch: "Recovery export was not acknowledged before relaunch. This installation remains inactive; retry Create with the same air name to continue safely.",
     ]
 
     private static let ru: [PulsarShellText: String] = [
         .appName: "Пульсар", .home: "Главная", .airs: "Эфиры", .inbox: "Входящие и адресаты",
-        .create: "Создать", .join: "Присоединиться",
+        .create: "Создать", .join: "Присоединиться", .devices: "Устройства",
         .tryLocally: "Попробовать локально", .soundboard: "Саундборд", .automation: "Автоматизация", .history: "История", .settings: "Настройки",
         .openMainWindow: "Открыть Пульсар", .primaryActions: "Основные действия",
         .status: "Статус", .presence: "Присутствие", .routing: "Маршрут звука",
@@ -1663,5 +1690,6 @@ public struct PulsarShellCopy: Sendable {
         .identityFailed: "Не удалось выполнить действие с доступом",
         .recoveryRequired: "Сохрани одноразовый файл восстановления перед продолжением.",
         .exportRecovery: "Сохранить файл восстановления",
+        .recoveryUnavailableAfterRelaunch: "Экспорт восстановления не был подтверждён до перезапуска. Эта установка остаётся неактивной; повтори создание с тем же названием эфира, чтобы безопасно продолжить.",
     ]
 }

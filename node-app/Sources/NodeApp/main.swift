@@ -4,6 +4,7 @@
 
 import AppKit
 import Foundation
+import NodeAppComposition
 import NodeCore
 import NodeAppUI
 import Sparkle
@@ -280,6 +281,7 @@ var runtime: CoreRuntime?
 @MainActor var macStreamTrackComposition: MacStreamTrackAppComposition?
 @MainActor var macAirComposition: MacAirAppComposition?
 @MainActor var macIdentityComposition: MacIdentityAppComposition?
+@MainActor var macDeviceInvitationComposition: MacDeviceInvitationAppComposition?
 
 final class LocalCaptureAudioRuntime {
     let log: Logger
@@ -301,6 +303,7 @@ final class LocalCaptureAudioRuntime {
 @MainActor var shellRefreshTimer: Timer?
 @MainActor var shellConfiguredRoute: String?
 @MainActor var shellModel: PulsarShellModel!
+@MainActor var deviceInvitationModel: PulsarDeviceInvitationModel!
 @MainActor var shellActions: PulsarShellActions!
 @MainActor var targetsInboxModel: PulsarTargetsInboxModel!
 @MainActor var targetsInboxActions: PulsarTargetsInboxActions!
@@ -358,6 +361,7 @@ func startCore(with config: NodeConfig) {
         startMacTargetsInboxComposition(log: rt.log)
         startMacStreamTrackComposition(log: rt.log)
         startMacAirComposition(log: rt.log)
+        startMacDeviceInvitationComposition()
         mainWindow.show()
     } catch let err as ConfigError {
         failConfig(err.description)
@@ -400,7 +404,7 @@ func rePairFlow() {
     onboarding.show(coordinatorBase: defaultCoordinatorBase, promptForNetwork: false) { _ in
         guard let paired = try? ConfigLoader.load(
             path: configPath,
-            credentials: CredentialsStore.load(besideConfig: configPath)) else {
+            credentials: activationEligibleCredentials()) else {
             failConfig("креды сохранены, но конфиг не собрался — перезапусти Pulsar")
         }
         finishPairing(paired)
@@ -428,7 +432,7 @@ func bootstrap() {
         if plain.coordinator.token.isEmpty {
             config = try ConfigLoader.load(
                 path: configPath,
-                credentials: CredentialsStore.load(besideConfig: configPath))
+                credentials: activationEligibleCredentials())
         } else {
             config = plain
         }
@@ -439,7 +443,7 @@ func bootstrap() {
     }
 
     if config.coordinator.token.isEmpty {
-        // Unpaired: onboarding window (R2). CLI users can still --pair.
+        // Unpaired: the main shell owns Create and Join. CLI users can still --pair.
         if isatty(STDERR_FILENO) == 1 {
             failConfig("""
             Пульсар ещё не спарен с Барицентром.
@@ -448,19 +452,11 @@ func bootstrap() {
         }
         app.setActivationPolicy(.regular)
         shellModel.replaceSnapshot(.init(connection: .unpaired))
-        startAccountlessMacCapture(config: config)
-        // First launch: prime the Local Network permission before pairing, so the
-        // system prompt lands on an explained button — not out of nowhere while a
-        // headless daemon touches the LAN (the failure that hid Timur's speaker).
-        onboarding.show(coordinatorBase: defaultCoordinatorBase, promptForNetwork: true) { _ in
-            let paired = try? ConfigLoader.load(
-                path: configPath,
-                credentials: CredentialsStore.load(besideConfig: configPath))
-            guard let paired else {
-                failConfig("креды сохранены, но конфиг не собрался — перезапусти Pulsar")
-            }
-            finishPairing(paired)
+        if hasUnacknowledgedRecovery() {
+            shellModel.setIdentityOperation(.recoveryUnavailableAfterRelaunch)
         }
+        startAccountlessMacCapture(config: config)
+        mainWindow.show(section: .home)
         return
     }
     startCore(with: config)
@@ -470,6 +466,7 @@ func bootstrap() {
 func configureShell() {
     guard shellModel == nil else { return }
     shellModel = PulsarShellModel()
+    deviceInvitationModel = PulsarDeviceInvitationModel()
     targetsInboxModel = PulsarTargetsInboxModel()
     targetsInboxActions = PulsarTargetsInboxActions { command in
         macTargetsInboxComposition?.perform(command)
@@ -568,6 +565,13 @@ func configureShell() {
         submitCreateOrbit: { macIdentityComposition?.create(title: $0) },
         submitJoinOrbit: { macIdentityComposition?.join(code: $0) },
         exportRecovery: { macIdentityComposition?.exportRecovery() },
+        refreshDeviceInvitationAuthorization: {
+            macDeviceInvitationComposition?.refreshAuthorization()
+        },
+        generateDeviceInvitation: { macDeviceInvitationComposition?.generate() },
+        copyDeviceInvitation: { macDeviceInvitationComposition?.copy() },
+        hideDeviceInvitation: { macDeviceInvitationComposition?.hide() },
+        openOptionalTelegramPairing: { openOptionalTelegramPairing() },
         refreshAirs: { macAirComposition?.refresh(force: true) },
         createAir: { macAirComposition?.create(title: $0) },
         consumeAirInvite: { macAirComposition?.consumeInvite(code: $0) },
@@ -584,6 +588,7 @@ func configureShell() {
     )
     mainWindow = PulsarMainWindowController(
         model: shellModel,
+        deviceInvitationModel: deviceInvitationModel,
         actions: shellActions,
         targetsInboxModel: targetsInboxModel,
         targetsInboxActions: targetsInboxActions,
@@ -610,12 +615,39 @@ func startMacIdentityComposition() {
 
 @MainActor
 func activateStoredCredentials() {
-    guard let credentials = CredentialsStore.load(besideConfig: configPath),
+    guard let credentials = activationEligibleCredentials(),
           let paired = try? ConfigLoader.load(path: configPath, credentials: credentials) else {
         shellModel.setIdentityOperation(.failed("Saved credentials could not be activated"))
         return
     }
     finishPairing(paired)
+}
+
+func activationEligibleCredentials() -> NodeCredentials? {
+    (try? CredentialsStore.loadBundle(besideConfig: configPath))?
+        .activationEligibleNodeCredentials
+}
+
+func hasUnacknowledgedRecovery() -> Bool {
+    guard let bundle = try? CredentialsStore.loadBundle(besideConfig: configPath) else {
+        return false
+    }
+    return bundle.recovery?.explicitBackupAcknowledged == false
+}
+
+@MainActor
+func startMacDeviceInvitationComposition() {
+    macDeviceInvitationComposition?.shutdown()
+    macDeviceInvitationComposition = nil
+    do {
+        let composition = try MacDeviceInvitationAppComposition(
+            coordinator: defaultCoordinatorBase,
+            model: deviceInvitationModel)
+        macDeviceInvitationComposition = composition
+        composition.start()
+    } catch {
+        deviceInvitationModel.denyAuthorization(.serviceUnavailable)
+    }
 }
 
 @MainActor
@@ -763,6 +795,8 @@ func startAccountlessMacCapture(config: NodeConfig) {
 
 @MainActor
 func stopMacCaptureComposition() {
+    macDeviceInvitationComposition?.shutdown()
+    macDeviceInvitationComposition = nil
     macAutomationAdminComposition?.shutdown()
     macAutomationAdminComposition = nil
     macSoundboardComposition?.shutdown()
@@ -781,6 +815,24 @@ func stopMacCaptureComposition() {
     macCaptureComposition = nil
     localCaptureAudioRuntime?.stop()
     localCaptureAudioRuntime = nil
+}
+
+@MainActor
+func openOptionalTelegramPairing() {
+    app.setActivationPolicy(.regular)
+    onboarding.show(
+        coordinatorBase: defaultCoordinatorBase,
+        promptForNetwork: true
+    ) { _ in
+        guard let paired = try? ConfigLoader.load(
+            path: configPath,
+            credentials: activationEligibleCredentials()) else {
+            shellModel.setIdentityOperation(.failed("Saved credentials could not be activated"))
+            mainWindow.show(section: .settings)
+            return
+        }
+        finishPairing(paired)
+    }
 }
 
 @MainActor

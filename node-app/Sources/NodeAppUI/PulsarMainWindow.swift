@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 public struct PulsarMainView: View {
     @Bindable private var model: PulsarShellModel
+    @Bindable private var deviceInvitationModel: PulsarDeviceInvitationModel
     @Bindable private var targetsInboxModel: PulsarTargetsInboxModel
     @Bindable private var streamTrackModel: PulsarStreamTrackModel
     private let actions: PulsarShellActions
@@ -13,6 +14,7 @@ public struct PulsarMainView: View {
 
     public init(
         model: PulsarShellModel,
+        deviceInvitationModel: PulsarDeviceInvitationModel,
         actions: PulsarShellActions,
         targetsInboxModel: PulsarTargetsInboxModel,
         targetsInboxActions: PulsarTargetsInboxActions,
@@ -20,6 +22,7 @@ public struct PulsarMainView: View {
         streamTrackActions: PulsarStreamTrackActions
     ) {
         self.model = model
+        self.deviceInvitationModel = deviceInvitationModel
         self.actions = actions
         self.targetsInboxModel = targetsInboxModel
         self.targetsInboxActions = targetsInboxActions
@@ -37,6 +40,7 @@ public struct PulsarMainView: View {
         } detail: {
             PulsarDetail(
                 model: model, actions: actions,
+                deviceInvitationModel: deviceInvitationModel,
                 targetsInboxModel: targetsInboxModel,
                 targetsInboxActions: targetsInboxActions,
                 streamTrackModel: streamTrackModel,
@@ -100,6 +104,7 @@ private struct PulsarSidebar: View {
         case .inbox: "tray.full"
         case .create: "plus.circle"
         case .join: "person.2"
+        case .devices: "desktopcomputer.and.arrow.down"
         case .tryLocally: "waveform.circle"
         case .soundboard: "square.grid.3x3"
         case .automation: "calendar.badge.clock"
@@ -112,6 +117,7 @@ private struct PulsarSidebar: View {
 private struct PulsarDetail: View {
     let model: PulsarShellModel
     let actions: PulsarShellActions
+    let deviceInvitationModel: PulsarDeviceInvitationModel
     let targetsInboxModel: PulsarTargetsInboxModel
     let targetsInboxActions: PulsarTargetsInboxActions
     let streamTrackModel: PulsarStreamTrackModel
@@ -147,6 +153,11 @@ private struct PulsarDetail: View {
                 model: model,
                 actions: actions
             )
+        case .devices:
+            PulsarDeviceInvitationView(
+                model: deviceInvitationModel,
+                locale: model.locale,
+                actions: actions)
         case .tryLocally:
             PulsarSelfTestView(model: model, actions: actions)
         case .soundboard:
@@ -1268,7 +1279,7 @@ private struct PulsarIdentityFlowView: View {
                 text: $value)
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 360)
-                .disabled(isBusy)
+                .disabled(isInputDisabled)
                 .focused($fieldFocused)
                 .accessibilityLabel(copy.text(mode == .create ? .orbitTitle : .inviteCode))
                 .onSubmit(submit)
@@ -1276,7 +1287,9 @@ private struct PulsarIdentityFlowView: View {
                 copy.text(mode == .create ? .createWithAPI : .joinWithAPI),
                 action: submit)
                 .buttonStyle(.borderedProminent)
-                .disabled(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isBusy)
+                .disabled(
+                    value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || isInputDisabled)
             identityStatus(copy)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1306,6 +1319,11 @@ private struct PulsarIdentityFlowView: View {
                 Button(copy.text(.exportRecovery)) { actions.exportRecovery() }
                     .buttonStyle(.borderedProminent)
             }
+        case .recoveryUnavailableAfterRelaunch:
+            PulsarStatusMessage(
+                title: copy.text(.identityFailed),
+                detail: copy.text(.recoveryUnavailableAfterRelaunch),
+                tone: .failure)
         case .failed(let message):
             PulsarStatusMessage(
                 title: copy.text(.identityFailed),
@@ -1314,14 +1332,18 @@ private struct PulsarIdentityFlowView: View {
         }
     }
 
-    private var isBusy: Bool {
-        if case .busy = model.snapshot.identityOperation { return true }
-        return false
+    private var isInputDisabled: Bool {
+        switch model.snapshot.identityOperation {
+        case .busy, .recoveryExportRequired:
+            return true
+        case .idle, .succeeded, .recoveryUnavailableAfterRelaunch, .failed:
+            return false
+        }
     }
 
     private func submit() {
         let clean = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clean.isEmpty else { return }
+        guard !clean.isEmpty, !isInputDisabled else { return }
         switch mode {
         case .create: actions.submitCreateOrbit(title: clean)
         case .join: actions.submitJoinOrbit(code: clean)
@@ -1522,6 +1544,15 @@ private struct PulsarSettingsView: View {
             Section(copy.text(.integrations)) {
                 Label(copy.text(.spotifyOptional), systemImage: "music.note")
                 Label(copy.text(.telegramOptional), systemImage: "paperplane")
+                Button {
+                    actions.openOptionalTelegramPairing()
+                } label: {
+                    Label(
+                        model.locale == .ru
+                            ? "Открыть необязательное подключение через Telegram…"
+                            : "Open optional Telegram pairing…",
+                        systemImage: "paperplane.circle")
+                }
             }
         }
         .formStyle(.grouped)
@@ -1535,6 +1566,7 @@ private struct PulsarSettingsView: View {
 @MainActor
 public final class PulsarMainWindowController: NSObject, NSWindowDelegate {
     private let model: PulsarShellModel
+    private let deviceInvitationModel: PulsarDeviceInvitationModel
     private let actions: PulsarShellActions
     private let targetsInboxModel: PulsarTargetsInboxModel
     private let targetsInboxActions: PulsarTargetsInboxActions
@@ -1544,6 +1576,7 @@ public final class PulsarMainWindowController: NSObject, NSWindowDelegate {
 
     public init(
         model: PulsarShellModel,
+        deviceInvitationModel: PulsarDeviceInvitationModel,
         actions: PulsarShellActions,
         targetsInboxModel: PulsarTargetsInboxModel,
         targetsInboxActions: PulsarTargetsInboxActions,
@@ -1551,6 +1584,7 @@ public final class PulsarMainWindowController: NSObject, NSWindowDelegate {
         streamTrackActions: PulsarStreamTrackActions
     ) {
         self.model = model
+        self.deviceInvitationModel = deviceInvitationModel
         self.actions = actions
         self.targetsInboxModel = targetsInboxModel
         self.targetsInboxActions = targetsInboxActions
@@ -1568,6 +1602,7 @@ public final class PulsarMainWindowController: NSObject, NSWindowDelegate {
     private func makeWindow() -> NSWindow {
         let root = PulsarMainView(
             model: model,
+            deviceInvitationModel: deviceInvitationModel,
             actions: actions,
             targetsInboxModel: targetsInboxModel,
             targetsInboxActions: targetsInboxActions,
@@ -1594,6 +1629,10 @@ public final class PulsarMainWindowController: NSObject, NSWindowDelegate {
         target.setAccessibilityLabel("Pulsar")
         window = target
         return target
+    }
+
+    public func windowWillClose(_ notification: Notification) {
+        actions.hideDeviceInvitation()
     }
 }
 
@@ -1626,6 +1665,8 @@ private struct PulsarMainViewPreviews: PreviewProvider {
                     recordingAvailable: true,
                     recordingShortcutState: .registered,
                     selfTestAvailable: true)),
+            deviceInvitationModel: PulsarDeviceInvitationModel(
+                snapshot: .init(authorization: .authorizedPrimary)),
             actions: PulsarShellActions(),
             targetsInboxModel: PulsarTargetsInboxModel(),
             targetsInboxActions: PulsarTargetsInboxActions(),

@@ -134,6 +134,14 @@ public struct CredentialBundle: Codable, Equatable, Sendable, CustomStringConver
 
   public var nodeCredentials: NodeCredentials? { node?.legacyView }
 
+  /// A freshly created Barycenter remains intentionally unusable until its
+  /// one-time recovery material has been exported and acknowledged. Joined
+  /// installations and legacy node-only bundles have no recovery gate.
+  public var activationEligibleNodeCredentials: NodeCredentials? {
+    guard recovery?.explicitBackupAcknowledged != false else { return nil }
+    return nodeCredentials
+  }
+
   public static func legacy(_ credentials: NodeCredentials) -> CredentialBundle {
     CredentialBundle(
       node: NodeCapability(

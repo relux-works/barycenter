@@ -23,9 +23,17 @@ let package = Package(
             name: "NodeAppUI",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .target(
+            name: "NodeAppComposition",
+            dependencies: ["NodeCore", "NodeAppUI"],
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
         .executableTarget(
             name: "NodeApp",
-            dependencies: ["NodeCore", "NodeAppUI", .product(name: "Sparkle", package: "Sparkle")],
+            dependencies: [
+                "NodeCore", "NodeAppUI", "NodeAppComposition",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
@@ -36,6 +44,11 @@ let package = Package(
         .testTarget(
             name: "NodeAppUITests",
             dependencies: ["NodeAppUI"],
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .testTarget(
+            name: "NodeAppCompositionTests",
+            dependencies: ["NodeAppComposition", "NodeAppUI", "NodeCore"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]

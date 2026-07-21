@@ -18,6 +18,7 @@ final class MacIdentityAppComposition {
     private let onCredentialsActivated: () -> Void
     private var pendingCreatedOrbit: CreatedOrbit?
     private var operation: Task<Void, Never>?
+    private var operationEpoch: UInt64 = 0
 
     init(
         coordinator: String,
@@ -33,27 +34,32 @@ final class MacIdentityAppComposition {
 
     func create(title: String) {
         let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clean.isEmpty else { return }
-        operation?.cancel()
+        guard !clean.isEmpty, operation == nil, pendingCreatedOrbit == nil else { return }
+        guard let attemptID = createAttemptID(for: clean) else {
+            model.setIdentityOperation(.recoveryUnavailableAfterRelaunch)
+            return
+        }
         model.setIdentityOperation(.busy)
-        let attemptID = createAttemptID(for: clean)
+        operationEpoch &+= 1
+        let epoch = operationEpoch
         operation = Task { [weak self] in
             guard let self else { return }
+            defer {
+                if operationEpoch == epoch { operation = nil }
+            }
             do {
                 let outcome = try await service.createOrbit(
                     title: clean,
                     installationAttemptID: attemptID)
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, operationEpoch == epoch else { return }
                 guard outcome.wasStored else {
                     model.setIdentityOperation(.failed("Protected credential storage failed"))
                     return
                 }
                 pendingCreatedOrbit = outcome.value
-                defaults.removeObject(forKey: Self.attemptIDKey)
-                defaults.removeObject(forKey: Self.attemptTitleKey)
                 model.setIdentityOperation(.recoveryExportRequired(""))
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, operationEpoch == epoch else { return }
                 model.setIdentityOperation(.failed(identityFailure(error)))
             }
         }
@@ -61,14 +67,18 @@ final class MacIdentityAppComposition {
 
     func join(code: String) {
         let clean = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clean.isEmpty else { return }
-        operation?.cancel()
+        guard !clean.isEmpty, operation == nil, pendingCreatedOrbit == nil else { return }
         model.setIdentityOperation(.busy)
+        operationEpoch &+= 1
+        let epoch = operationEpoch
         operation = Task { [weak self] in
             guard let self else { return }
+            defer {
+                if operationEpoch == epoch { operation = nil }
+            }
             do {
                 let outcome = try await service.joinOrbit(inviteCode: clean)
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, operationEpoch == epoch else { return }
                 guard outcome.wasStored else {
                     model.setIdentityOperation(.failed("Protected credential storage failed"))
                     return
@@ -76,7 +86,7 @@ final class MacIdentityAppComposition {
                 model.setIdentityOperation(.succeeded(outcome.value.title))
                 onCredentialsActivated()
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, operationEpoch == epoch else { return }
                 model.setIdentityOperation(.failed(identityFailure(error)))
             }
         }
@@ -99,25 +109,29 @@ final class MacIdentityAppComposition {
                     actorID: created.recovery.actorId,
                     recoveryID: created.recovery.recoveryId)
                 pendingCreatedOrbit = nil
+                defaults.removeObject(forKey: Self.attemptIDKey)
+                defaults.removeObject(forKey: Self.attemptTitleKey)
                 model.setIdentityOperation(.succeeded(created.title))
                 onCredentialsActivated()
             } catch {
-                model.setIdentityOperation(.failed("Recovery export failed"))
+                model.setIdentityOperation(.recoveryExportRequired(""))
             }
         }
     }
 
     func shutdown() {
+        operationEpoch &+= 1
         operation?.cancel()
         operation = nil
-        // Deliberately retain pending one-time material only for this live
-        // composition. Replacing it before export would make activation unsafe.
+        pendingCreatedOrbit = nil
     }
 
-    private func createAttemptID(for title: String) -> String {
-        if defaults.string(forKey: Self.attemptTitleKey) == title,
-           let existing = defaults.string(forKey: Self.attemptIDKey),
+    private func createAttemptID(for title: String) -> String? {
+        if let existing = defaults.string(forKey: Self.attemptIDKey),
            !existing.isEmpty {
+            guard defaults.string(forKey: Self.attemptTitleKey) == title else {
+                return nil
+            }
             return existing
         }
         let value = "mac-create-" + UUID().uuidString.lowercased()

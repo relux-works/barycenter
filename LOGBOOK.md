@@ -3,6 +3,14 @@
 > Institutional memory. Concise, factual, high-signal.
 > Newest entries first. One block per insight.
 
+## 2026-07-22
+
+### TASK-260722-26cbwk — macOS first-run shell and device invitation
+- FINDING: the accountless bootstrap already composed the native Create/Join shell, but immediately opened the legacy Telegram window instead of showing that shell. Fresh GUI startup now presents the existing Home action cards directly; Telegram and Local Network priming remain explicit optional settings actions.
+- DECISION: device invitations reuse `OnboardingService` and its control-context probe, require an active primary, and always request the companion role. Plaintext lives only in a separately injected transient model and the exact-payload/change-count pasteboard lease; shell snapshots, accessibility, defaults, logging, and durable encoders receive metadata only. Hide, expiry, window close, composition replacement, and process termination clear the owned pasteboard value conditionally, including a synchronous pre-exit path. Termination closes the lease against queued writes, while later explicit copies wait for prior cleanup and calculate TTL at the actual write boundary.
+- DECISION: a created credential bundle with unacknowledged recovery metadata cannot activate on startup. The idempotent create-attempt marker remains pinned until export plus acknowledgement succeeds, and Create/Join operations cannot replace live recovery material. Relaunch drops plaintext, explains the inactive state in EN/RU, and restricts any resumed Create to the same air name and uncertain generation.
+- EVIDENCE: 22 focused invitation/first-run tests, the full 381-test Swift suite, scoped strict `swift-format` lint, diff validation, and the optimized release build pass on macOS.
+
 ## 2026-07-13
 
 ### TASK-260712-47uve0 — Windows DPAPI onboarding credential client

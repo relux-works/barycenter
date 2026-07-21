@@ -95,7 +95,7 @@ struct PulsarShellModelTests {
         let model = PulsarShellModel(locale: .en)
         #expect(model.snapshot.connection == .unpaired)
         #expect(PulsarShellSection.allCases == [
-            .home, .airs, .inbox, .create, .join, .tryLocally, .soundboard, .automation,
+            .home, .airs, .inbox, .create, .join, .devices, .tryLocally, .soundboard, .automation,
             .history, .settings,
         ])
 

@@ -85,6 +85,21 @@
   One no-terminal owner checklist is attached to `TASK-260721-ryk8c0`; it
   remains `WAIT` until signed Windows and notarized macOS production release
   candidates are supplied and makes no manual, hardware or Store pass claim.
+- 2026-07-21 Windows owner-candidate preparation: exact tracking head
+  `f6c9b47` (product source identical to accepted `a7258db`) was built with the
+  current `go-librespot` fork and exact-head CI `pulsar-capture.dll`, then packed
+  and installed on `DESKTOP-3PBO632` as developer-signed AppContainer package
+  `ReluxWorksLLC.PulsarBarycenter_0.1.1.0_x64__q036g2bzd7ngc`. Package SHA-256
+  is `eaa01ad6de70bf020a9ff4f145045003a93a475ae8711e62e30b532531f79d4a`;
+  installed GUI EXE SHA-256 is
+  `accd11d545ff89aa0ce106b1599771c588be9e90ba32a5f0530868bae5f43d28`.
+  Windows reports package status `Ok`, valid `Developer` signature,
+  `packagedClassicApp` / `appContainer`, declared `microphone` capability and a
+  registered Start AUMID; the Desktop shortcut activates that AUMID. The
+  installer deliberately did not launch the app, so no visible-window,
+  microphone, audible or hardware PASS is claimed. Windows functional rows are
+  ready; Store/EV signing and the notarized macOS half remain outside this
+  preparation checkpoint.
 - Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build

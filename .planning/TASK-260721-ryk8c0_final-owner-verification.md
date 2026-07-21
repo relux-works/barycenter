@@ -2,8 +2,10 @@
 
 Owner: Ivan Oparin  
 Task: `TASK-260721-ryk8c0`  
-Status: `WAIT` until the release workflow supplies both a signed Windows app
-candidate and a notarized macOS DMG for the source below. Do not use a terminal.
+Status: `WINDOWS READY / FINAL WAIT`. The exact developer-signed Windows
+hardware-test candidate below is installed and can be exercised without a
+terminal. Final cross-platform acceptance still waits for a notarized macOS DMG
+and no Store/EV-signing claim is made.
 
 ## Frozen engineering candidate
 
@@ -30,6 +32,37 @@ candidate and a notarized macOS DMG for the source below. Do not use a terminal.
 The local preview is ad-hoc signed and has no bundled `go-librespot`; it is
 useful for a Finder UI smoke only and cannot satisfy the production launch,
 notarization, update, integration or TCC persistence rows.
+
+## Installed Windows 10 candidate
+
+- host/account: `DESKTOP-3PBO632` / `admin`, Windows `10.0.19045`
+- source/tracking head: `f6c9b47dfebbca5feb9d533cb91bef45cb7d82b3`
+  (product source is the accepted `a7258db` candidate)
+- package: `ReluxWorksLLC.PulsarBarycenter_0.1.1.0_x64__q036g2bzd7ngc`
+- package SHA-256:
+  `eaa01ad6de70bf020a9ff4f145045003a93a475ae8711e62e30b532531f79d4a`
+- installed GUI EXE SHA-256:
+  `accd11d545ff89aa0ce106b1599771c588be9e90ba32a5f0530868bae5f43d28`
+- installed `go-librespot.exe` SHA-256:
+  `ffe82704be5671629a00bdea3915e40aa4e723b4a45417325da41dd90f8d9402`
+- installed `pulsar-capture.dll` SHA-256:
+  `b5ca5c1c110023532269772ff25e5072b1f64ab4c5758ab55be0478fd803db94`
+- package state: `Ok`; signature: valid local `Developer`; signer key is
+  non-exportable and the certificate expires after 30 days
+- local test signer thumbprint:
+  `ce7d47f761bb659314ad659e7dc9042a3994c4cd`; row 6 cleanup must remove this
+  package and certificate from Current User `My`/`TrustedPeople` and Local
+  Machine `Root`
+- runtime: `packagedClassicApp` / `appContainer`; declared capabilities include
+  `microphone`, internet client/server and private-network client/server
+- launch: `Pulsar` is registered in Start and the Desktop shortcut activates
+  `ReluxWorksLLC.PulsarBarycenter_q036g2bzd7ngc!Pulsar`
+- installer did not launch the app, so no visible-window, microphone, audio or
+  manual PASS is inferred from installation
+
+This package is suitable for the Windows 10 functional/hardware rows in this
+checklist. It is intentionally local-test signed and cannot prove Store/EV
+production signing or submission readiness.
 
 ## One checklist
 

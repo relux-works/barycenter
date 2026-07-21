@@ -64,12 +64,21 @@
   corrected runtime root; it also preserved tray/hotkey/permission-query RDP
   blocks without claiming H00. Smoke cleanup restored package, signer-trust
   and runtime absence. Fresh immutable bundle
-  `win10-single-input-physical-b` now freezes the repaired bytes and the
-  owner-approved built-in microphone profile; its strict current row is H00
-  with all 18 bundle-B rows `NOT_RUN`. The failed bundle A remains immutable
-  diagnostic evidence. Windows currently reports the
-  active desktop as `rdp-tcp#3`, so a local physical-console transition or
-  operator confirmation is still required before an H00 pass can be claimed.
+  `win10-single-input-physical-b` freezes the repaired bytes and the
+  owner-approved built-in microphone profile. The operator moved session 1
+  from RDP to the local physical console and confirmed the visible main window
+  and absence of a microphone prompt at launch. Retry 2 produced the stable
+  accepted observation; H00 is now `PASS` with 11 immutable evidence
+  references, and H01 is the strict frontier. The H00 verdict is deliberately
+  limited to signed install, exact AUMID activation and visible controls: tray,
+  hotkey, permission, lifecycle, capture and cleanup received no credit. The
+  close control hid the app while blocked tray registration left the process
+  running; that process was terminated only to obtain a stable snapshot and is
+  recorded as a finding. A discarded unverdict attempt-1 log grew to 2.74 GB
+  from repeated `permission_status_query` failures; its SHA/size and compact
+  startup evidence are retained, while the repetitive raw file was excluded
+  from the bundle. Current physical acceptance is `1/36`; the failed bundle A
+  remains immutable diagnostic evidence.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate

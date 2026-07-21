@@ -203,10 +203,35 @@ The new immutable directory `win10-single-input-physical-b` is initialized
 from that clean state. It freezes the repaired package digest, Windows 10
 ApprovedException posture, and `single-input-owner-approved` profile with
 `Internal Microphone (Cirrus Logic CS8409 (AB 54))` as both default and
-selected input. Its current strict scenario is H00 and all 18 rows are
-`NOT_RUN`. The package remains uninstalled and its signer untrusted. H00 waits
-only for an explicitly confirmed local physical-console transition; the active
-desktop is still `rdp-tcp#3` session 1.
+selected input.
+
+## Bundle B H00 physical-console result
+
+Session 1 was transitioned from `rdp-tcp#3` to the local physical `console`.
+The operator was physically present, used a one-shot desktop launcher for the
+exact AUMID, confirmed that no microphone permission prompt appeared at
+launch, and closed the visible window after observation. Retry 2 captured the
+visible `Pulsar packaged Windows probe` window, required controls, selected
+built-in input, screenshot SHA-256
+`dc7240d44eef8fd652ef5d3af1b045359fe394828585c02c78bf56f7e7a38813`,
+successful `helper_load` and `controls_ready`, and a stable runtime snapshot.
+
+H00 is `PASS` with 11 immutable evidence references. This verdict is strictly
+limited to exact signed install, package identity, exact AUMID launch and the
+visible control surface without Developer Mode or family replacement. It gives
+no credit to permission, tray, hotkey, lifecycle, capture or cleanup. The
+close control hid the window but did not terminate the process because tray
+registration was blocked; the process was explicitly terminated only for the
+stable snapshot, and that limitation is attached. Repeated
+`permission_status_query` failures and tray/hotkey `Access denied` remain open
+findings for their strict scenarios.
+
+The unverdict first retry process remained hidden overnight and amplified the
+repeated permission failure into a 2,741,466,867-byte diagnostic log. Its
+SHA-256 `a30d2b1ed8a14c9b691e00de7a6ee60d4a16ee36ef317a29bfc76099572bb549`,
+size, reset boundary, first startup observation and screenshot are retained in
+compact evidence; the repetitive 2.74 GB raw file was deliberately excluded
+and deleted before bundle attachment. The current strict scenario is H01.
 
 ## Exact manual execution request
 
@@ -243,8 +268,8 @@ seal its immutable bundle, then complete Windows 11 with the same MSIX bytes.
 
 ## Progress and stop condition
 
-- Physical rows terminal: `1/36` (`FAIL` in historical bundle A); accepted:
-  `0/36`. Current bundle B remains `0/18` terminal at H00.
+- Physical rows accepted: `1/36`. Current bundle B is `1/18` terminal with
+  H00 `PASS` and H01 next. Historical bundle A retains its separate H00 `FAIL`.
 - Task checklist accepted: `0/4`.
 - Overall epic progress: `186/205` accepted (`90.7%`).
 - Engineering progress: `186/186` accepted (`100%`).

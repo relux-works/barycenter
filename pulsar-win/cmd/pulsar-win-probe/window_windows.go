@@ -17,6 +17,7 @@ var (
 	shell32  = windows.NewLazySystemDLL("shell32.dll")
 	kernel32 = windows.NewLazySystemDLL("kernel32.dll")
 	wtsapi32 = windows.NewLazySystemDLL("wtsapi32.dll")
+	gdi32    = windows.NewLazySystemDLL("gdi32.dll")
 
 	pRegisterClassExW                 = user32.NewProc("RegisterClassExW")
 	pCreateWindowExW                  = user32.NewProc("CreateWindowExW")
@@ -44,11 +45,21 @@ var (
 	pSetTimer                         = user32.NewProc("SetTimer")
 	pKillTimer                        = user32.NewProc("KillTimer")
 	pMessageBoxW                      = user32.NewProc("MessageBoxW")
+	pMoveWindow                       = user32.NewProc("MoveWindow")
+	pGetClientRect                    = user32.NewProc("GetClientRect")
+	pSetWindowPos                     = user32.NewProc("SetWindowPos")
+	pGetDpiForWindow                  = user32.NewProc("GetDpiForWindow")
+	pGetDpiForSystem                  = user32.NewProc("GetDpiForSystem")
+	pSetProcessDPIContext             = user32.NewProc("SetProcessDpiAwarenessContext")
+	pAdjustWindowRectExForDPI         = user32.NewProc("AdjustWindowRectExForDpi")
 	pShellNotifyIconW                 = shell32.NewProc("Shell_NotifyIconW")
 	pGetModuleHandleW                 = kernel32.NewProc("GetModuleHandleW")
 	pGetCurrentPackageFamilyName      = kernel32.NewProc("GetCurrentPackageFamilyName")
+	pRtlMoveMemory                    = kernel32.NewProc("RtlMoveMemory")
 	pWTSRegisterSessionNotification   = wtsapi32.NewProc("WTSRegisterSessionNotification")
 	pWTSUnregisterSessionNotification = wtsapi32.NewProc("WTSUnRegisterSessionNotification")
+	pCreateFontW                      = gdi32.NewProc("CreateFontW")
+	pDeleteObject                     = gdi32.NewProc("DeleteObject")
 )
 
 var currentApp *probeApp
@@ -56,7 +67,10 @@ var currentApp *probeApp
 const (
 	wmCreate           = 0x0001
 	wmDestroy          = 0x0002
+	wmSize             = 0x0005
 	wmClose            = 0x0010
+	wmGetMinMax        = 0x0024
+	wmSetFont          = 0x0030
 	wmQueryEndSession  = lifecycleWMQueryEndSession
 	wmEndSession       = lifecycleWMEndSession
 	wmCommand          = 0x0111
@@ -67,6 +81,7 @@ const (
 	wmApp              = 0x8000
 	wmRButtonUp        = 0x0205
 	wmLButtonUp        = 0x0202
+	wmDPIChanged       = 0x02E0
 
 	wmAppTray                 = wmApp + 1
 	wmAppDevicesReady         = wmApp + 2
@@ -114,6 +129,9 @@ const (
 	idcArrow           = 32512
 	idiApplication     = 32512
 	colorWindow        = 5
+	defaultCharset     = 1
+	clearTypeQuality   = 5
+	fwNormal           = 400
 
 	modControl  = 0x0002
 	modShift    = 0x0004
@@ -166,6 +184,12 @@ type msg struct {
 
 type point struct{ x, y int32 }
 
+type windowRect struct{ left, top, right, bottom int32 }
+
+type minMaxInfo struct {
+	reserved, maxSize, maxPosition, minTrackSize, maxTrackSize point
+}
+
 type notifyIconData struct {
 	cbSize           uint32
 	hWnd             windows.Handle
@@ -185,6 +209,11 @@ type notifyIconData struct {
 }
 
 func (a *probeApp) createWindows() error {
+	// Per-monitor v2 must be selected before any HWND is created. The package
+	// targets Windows 10 2004+, where this context and the DPI APIs are present.
+	if aware, _, callErr := pSetProcessDPIContext.Call(^uintptr(3)); aware == 0 { // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 == -4
+		return fmt.Errorf("SetProcessDpiAwarenessContext(PMv2): %w", callErr)
+	}
 	hInstance, _, _ := pGetModuleHandleW.Call(0)
 	cursor, _, _ := pLoadCursorW.Call(0, idcArrow)
 	icon, _, _ := pLoadIconW.Call(0, idiApplication)
@@ -208,7 +237,14 @@ func (a *probeApp) createWindows() error {
 		return fmt.Errorf("create hidden top-level lifecycle window: %w", callErr)
 	}
 	a.hidden = windows.Handle(hidden)
-	main, _, callErr := pCreateWindowExW.Call(0, uintptr(unsafe.Pointer(utf16("PulsarProbeMain"))), uintptr(unsafe.Pointer(utf16("Pulsar packaged Windows probe"))), wsOverlappedWindow|wsVisible, cwUseDefault, cwUseDefault, 620, 420, 0, 0, hInstance, 0)
+	dpi, _, _ := pGetDpiForSystem.Call()
+	if dpi == 0 {
+		dpi = probeBaseDPI
+	}
+	clientWidth, clientHeight := probeInitialClientSize(int(dpi))
+	outer := windowRect{right: int32(clientWidth), bottom: int32(clientHeight)}
+	pAdjustWindowRectExForDPI.Call(uintptr(unsafe.Pointer(&outer)), wsOverlappedWindow|wsVisible, 0, 0, dpi)
+	main, _, callErr := pCreateWindowExW.Call(0, uintptr(unsafe.Pointer(utf16("PulsarProbeMain"))), uintptr(unsafe.Pointer(utf16("Pulsar hardware verification"))), wsOverlappedWindow|wsVisible, cwUseDefault, cwUseDefault, uintptr(outer.right-outer.left), uintptr(outer.bottom-outer.top), 0, 0, hInstance, 0)
 	if main == 0 {
 		return fmt.Errorf("create visible picker-owner window: %w", callErr)
 	}
@@ -237,16 +273,46 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 			}
 			return windows.Handle(h)
 		}
-		a.intro = create("STATIC", "Select an input, then exercise the packaged API paths. Ctrl+Shift+R toggles capture.", wsChild|wsVisible, 20, 18, 560, 28, 0)
-		a.list = create("LISTBOX", "", wsChild|wsVisible|wsBorder|wsVScroll|wsTabStop, 20, 55, 560, 170, idDeviceList)
-		a.recordDefaultControl = create("BUTTON", "Record default", wsChild|wsVisible|wsTabStop, 20, 245, 125, 34, idRecordDefault)
-		a.recordSelectedControl = create("BUTTON", "Record selected", wsChild|wsVisible|wsTabStop, 155, 245, 135, 34, idRecordSelected)
-		a.stopControl = create("BUTTON", "Stop", wsChild|wsVisible|wsTabStop, 300, 245, 80, 34, idStop)
-		a.pickerControl = create("BUTTON", "Open picker", wsChild|wsVisible|wsTabStop, 390, 245, 95, 34, idPicker)
-		a.hideControl = create("BUTTON", "Hide", wsChild|wsVisible|wsTabStop, 495, 245, 85, 34, idHide)
-		a.status = create("STATIC", "Discovering input devices...", wsChild|wsVisible, 20, 302, 560, 50, idStatus)
+		a.intro = create("STATIC", "Diagnostic verification tool — select an input, then exercise the packaged API paths. Ctrl+Shift+R toggles capture.", wsChild|wsVisible, 0, 0, 1, 1, 0)
+		a.list = create("LISTBOX", "", wsChild|wsVisible|wsBorder|wsVScroll|wsTabStop, 0, 0, 1, 1, idDeviceList)
+		a.recordDefaultControl = create("BUTTON", "Record default", wsChild|wsVisible|wsTabStop, 0, 0, 1, 1, idRecordDefault)
+		a.recordSelectedControl = create("BUTTON", "Record selected", wsChild|wsVisible|wsTabStop, 0, 0, 1, 1, idRecordSelected)
+		a.stopControl = create("BUTTON", "Stop", wsChild|wsVisible|wsTabStop, 0, 0, 1, 1, idStop)
+		a.pickerControl = create("BUTTON", "Open picker", wsChild|wsVisible|wsTabStop, 0, 0, 1, 1, idPicker)
+		a.hideControl = create("BUTTON", "Hide", wsChild|wsVisible|wsTabStop, 0, 0, 1, 1, idHide)
+		a.status = create("STATIC", "Discovering input devices...", wsChild|wsVisible, 0, 0, 1, 1, idStatus)
 		if !a.controlsCreated() {
 			return ^uintptr(0)
+		}
+		a.updateUIFont(hwnd)
+		a.layoutUI(hwnd)
+		return 0
+	case wmSize:
+		if a != nil {
+			a.layoutUI(hwnd)
+		}
+		return 0
+	case wmDPIChanged:
+		if lParam != 0 {
+			var suggested windowRect
+			pRtlMoveMemory.Call(uintptr(unsafe.Pointer(&suggested)), lParam, unsafe.Sizeof(suggested))
+			pSetWindowPos.Call(uintptr(hwnd), 0, uintptr(suggested.left), uintptr(suggested.top), uintptr(suggested.right-suggested.left), uintptr(suggested.bottom-suggested.top), 0x0014)
+		}
+		if a != nil {
+			a.updateUIFont(hwnd)
+			a.layoutUI(hwnd)
+		}
+		return 0
+	case wmGetMinMax:
+		if lParam != 0 {
+			dpi := probeWindowDPI(hwnd)
+			width, height := probeMinimumWindowSize(dpi)
+			outer := windowRect{right: int32(width), bottom: int32(height)}
+			pAdjustWindowRectExForDPI.Call(uintptr(unsafe.Pointer(&outer)), wsOverlappedWindow|wsVisible, 0, 0, uintptr(dpi))
+			var info minMaxInfo
+			pRtlMoveMemory.Call(uintptr(unsafe.Pointer(&info)), lParam, unsafe.Sizeof(info))
+			info.minTrackSize = point{x: outer.right - outer.left, y: outer.bottom - outer.top}
+			pRtlMoveMemory.Call(lParam, uintptr(unsafe.Pointer(&info)), unsafe.Sizeof(info))
 		}
 		return 0
 	case wmCommand:
@@ -286,6 +352,57 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 	}
 	r, _, _ := pDefWindowProcW.Call(uintptr(hwnd), uintptr(message), wParam, lParam)
 	return r
+}
+
+func probeWindowDPI(hwnd windows.Handle) int {
+	dpi, _, _ := pGetDpiForWindow.Call(uintptr(hwnd))
+	if dpi == 0 {
+		return probeBaseDPI
+	}
+	return int(dpi)
+}
+
+func (a *probeApp) updateUIFont(hwnd windows.Handle) {
+	dpi := probeWindowDPI(hwnd)
+	if a.uiFont != 0 && a.uiFontDPI == dpi {
+		return
+	}
+	font, _, _ := pCreateFontW.Call(
+		uintptr(int32(-probeDIP(16, dpi))), 0, 0, 0, fwNormal,
+		0, 0, 0, defaultCharset, 0, 0, clearTypeQuality, 0,
+		uintptr(unsafe.Pointer(utf16("Segoe UI"))),
+	)
+	if font == 0 {
+		return
+	}
+	old := a.uiFont
+	a.uiFont = windows.Handle(font)
+	a.uiFontDPI = dpi
+	for _, control := range []windows.Handle{a.intro, a.list, a.status, a.recordDefaultControl, a.recordSelectedControl, a.stopControl, a.pickerControl, a.hideControl} {
+		pSendMessageW.Call(uintptr(control), wmSetFont, font, 1)
+	}
+	if old != 0 {
+		pDeleteObject.Call(uintptr(old))
+	}
+}
+
+func (a *probeApp) layoutUI(hwnd windows.Handle) {
+	var client windowRect
+	if ok, _, _ := pGetClientRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(&client))); ok == 0 {
+		return
+	}
+	layout := probeLayoutFor(probeWindowDPI(hwnd), int(client.right-client.left), int(client.bottom-client.top))
+	move := func(control windows.Handle, rect probeRect) {
+		pMoveWindow.Call(uintptr(control), uintptr(rect.X), uintptr(rect.Y), uintptr(rect.Width), uintptr(rect.Height), 1)
+	}
+	move(a.intro, layout.Intro)
+	move(a.list, layout.Devices)
+	move(a.recordDefaultControl, layout.RecordDefault)
+	move(a.recordSelectedControl, layout.RecordSelected)
+	move(a.stopControl, layout.Stop)
+	move(a.pickerControl, layout.Picker)
+	move(a.hideControl, layout.Hide)
+	move(a.status, layout.Status)
 }
 
 func hiddenWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr) uintptr {

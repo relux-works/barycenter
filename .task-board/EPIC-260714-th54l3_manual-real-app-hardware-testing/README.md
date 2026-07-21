@@ -1,10 +1,10 @@
 # Manual real-app hardware testing
 
 ## Description
-Deferred manual acceptance program for immutable signed Pulsar builds. It contains only hands-on real-app, physical-device, production-shaped rollout and multi-day beta verification; coding, unit tests, deterministic integration tests and implementation reviews remain in EPIC-260712-3agrc1.
+One final human-owned real-app and hardware verification program for immutable signed Pulsar builds. Nineteen fragmented legacy tasks are preserved as closed historical records; all remaining owner interaction is represented by one consolidated task after autonomous engineering.
 
 ## Scope
-Execute the extracted P1, P2 and P3 manual scenarios in their original strict order on declared Windows and macOS hardware, real audio routes and approved multi-home environments. Preserve build hashes and sanitized raw evidence. A failure creates or reopens engineering work in the development epic; no code change is implemented inside this epic.
+Ivan Oparin executes TASK-260721-ryk8c0 once after TASK-260721-2346wf publishes exact Windows and macOS candidates. The task uses mbpro-win, the approved macOS machine, built-in microphones and a concise high-signal matrix for launch, permissions, capture/playback, UI, transport, recovery, cleanup and soak. Coding, unit tests, deterministic integration and implementation review remain outside this epic.
 
 ## Acceptance Criteria
-Every child task has a named operator, admissible environment, immutable build identity, exact steps, sanitized raw artifacts and an honest pass or fail. No CI, mock, simulator or inferred result substitutes for a required physical or real-environment observation. The epic completes only after all manual tasks pass or have explicit product-approved holds; it never blocks best-effort engineering execution.
+The epic has exactly one open manual task assigned to Ivan Oparin. Legacy manual tasks and stories are closed as superseded, never passed. The consolidated task receives exact candidate hashes and one ordered checklist, and closes only from an honest owner verdict packet; failures become focused engineering bugs.

@@ -1,5 +1,11 @@
 # TASK-260712-1vtwkl current-build handoff
 
+> Superseded 2026-07-21. `TASK-260712-1vtwkl` is closed without being marked
+> passed after the owner consolidated all fragmented real-app/hardware work
+> into `TASK-260721-ryk8c0` — Ivan Oparin final real-app verification. The
+> historical evidence below remains immutable provenance. The next autonomous
+> engineering unit is `BUG-260721-1npwy8`; do not resume H01 from this document.
+
 Date: 2026-07-20 (Asia/Tbilisi)
 
 Status: IN PROGRESS — H01 PHYSICAL FAILURE REQUIRES A NEW BUILD. Ivan

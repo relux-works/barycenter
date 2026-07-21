@@ -65,6 +65,8 @@ type probeApp struct {
 	stopControl           windows.Handle
 	pickerControl         windows.Handle
 	hideControl           windows.Handle
+	uiFont                windows.Handle
+	uiFontDPI             int
 
 	events                []windows.Handle
 	permissionEvent       windows.Handle
@@ -2923,6 +2925,11 @@ func (a *probeApp) closeLocalResources() {
 	}
 	runStartupCleanup(destroyHelper, windowsToDestroy, eventsToClose, closeLog)
 	a.events = nil
+	if a.uiFont != 0 {
+		pDeleteObject.Call(uintptr(a.uiFont))
+		a.uiFont = 0
+		a.uiFontDPI = 0
+	}
 }
 
 type handleReader struct{ handle windows.Handle }

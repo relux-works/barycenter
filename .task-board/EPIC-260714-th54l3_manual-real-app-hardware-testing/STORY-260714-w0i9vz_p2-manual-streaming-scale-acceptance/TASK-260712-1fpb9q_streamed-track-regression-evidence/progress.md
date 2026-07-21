@@ -1,5 +1,5 @@
 ## Status
-backlog
+closed
 
 ## Assigned To
 (none)
@@ -8,7 +8,7 @@ backlog
 2026-07-12T16:13:27Z
 
 ## Last Update
-2026-07-14T00:49:05Z
+2026-07-21T10:59:20Z
 
 ## Blocked By
 - TASK-260712-3lf8r0
@@ -41,6 +41,7 @@ backlog
 
 ## Notes
 2026-07-14 scope routing: moved to EPIC-260714-th54l3 Manual real-app hardware testing. This task is deferred for hands-on execution in original sequence and no longer gates best-effort coding, unit tests or deterministic CI in EPIC-260712-3agrc1.
+2026-07-21 owner-directed consolidation: closed as superseded, not passed. Remaining highest-value real-app and hardware observations now live only in TASK-260721-ryk8c0 Ivan Oparin final real-app verification, gated by TASK-260721-2346wf Desktop UI automated acceptance and owner handoff.
 
 ## Precondition Resources
 - [p2-streamed-track-sequence.puml](file://TASK-260712-1fpb9q/p2-streamed-track-sequence.puml) — Verification flow for buffered start, seek and eviction recovery

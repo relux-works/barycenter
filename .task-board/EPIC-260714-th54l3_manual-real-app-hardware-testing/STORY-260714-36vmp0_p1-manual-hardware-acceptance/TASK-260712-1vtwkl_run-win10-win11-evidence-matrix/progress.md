@@ -1,5 +1,5 @@
 ## Status
-development
+closed
 
 ## Assigned To
 codex-root-inline
@@ -8,7 +8,7 @@ codex-root-inline
 2026-07-12T15:27:53Z
 
 ## Last Update
-2026-07-21T09:55:23Z
+2026-07-21T10:59:19Z
 
 ## Blocked By
 - TASK-260712-2y74io
@@ -44,6 +44,8 @@ Manual program backlog: CI harness is ready, but H00-H17 remains 0/36 until huma
 2026-07-20 repaired retry checkpoint: PR #304 merged at c9a925e923ff425d26eb878784cbe9ecd1403dd1; post-merge CI 29751994898 passed 4/4. Artifact 8465025630 was re-hashed locally and on mbpro-win; MSIX SHA-256 is 1191699da98377f559f01312ae1c12fd0d456706d30224803bc19ee4c553b413. An RDP-only engineering smoke observed the visible Pulsar packaged Windows probe window plus helper_load and controls_ready passes at the corrected AC/PulsarProbe root; RDP/AppContainer tray, hotkey and permission-query blocks are findings, not H00 acceptance. Interactive cleanup proved package, run-added trust and runtime absent plus hotkey/picker release. New immutable win10-single-input-physical-b is initialized clean at H00 with owner-approved built-in microphone as both inputs; H04/H08/H12 cannot PASS. Active desktop remains rdp-tcp#3, so H00 waits for an explicitly confirmed local-console transition. Historical matrix remains 1/36 terminal: one H00 FAIL in bundle A, zero accepted rows.
 2026-07-21 physical-console H00 retry 2: session 1 transitioned to local console; operator launched the exact AUMID from a one-shot desktop shortcut, confirmed no microphone prompt at launch, observed the visible Pulsar packaged Windows probe window, and closed it. Retry 2 screenshot SHA-256 dc7240d44eef8fd652ef5d3af1b045359fe394828585c02c78bf56f7e7a38813 plus install, console, runtime snapshot, operator and reset evidence produced 11 immutable references. H00 is PASS with scope restricted to signed install, exact identity/AUMID and visible controls; no permission/tray/hotkey/lifecycle/capture/cleanup credit. Close hid the app while blocked tray registration left the process running, so it was terminated only for stable snapshot and recorded as a finding. The unverdict attempt-1 repeated permission log grew to 2,741,466,867 bytes; SHA a30d2b1ed8a14c9b691e00de7a6ee60d4a16ee36ef317a29bfc76099572bb549 and compact evidence were retained, repetitive raw bytes excluded/deleted. Current bundle B is 1/18 terminal; strict next scenario H01. Overall accepted rows 1/36; task/checklist remain open.
 2026-07-21 physical-console H01: cold package-specific microphone consent was reset, local console session 1 launched the exact package, and Ivan Oparin pressed Record default exactly once. No Windows prompt appeared. Immutable H01 verdict is FAIL with seven evidence references: one explicit intent, zero permission-request events, zero capture starts, zero WAVs; 268515 waiter-owned CapPermissionCheck failures with HRESULT 0x8001010e among 625425 events. Probe was force-stopped only to bound evidence; no lifecycle credit. Raw log size 323535561 bytes, SHA df9bb218e44f05ae40b162b65acab705a083c93a1b5d421efdef07597fd5d941, compact extract retained and raw bytes deleted. Bundle B is 2/18 terminal: H00 PASS, H01 FAIL. Strict scenario advance pauses for AppCapability apartment/thread repair, bounded repeat logging, regression coverage, a newly signed exact MSIX, and a fresh immutable bundle restarting at H00. Task/checklist remain open; overall progress remains 186/205 and manual epic 0/19.
+2026-07-21 autonomous-consolidation checkpoint: fixed signed build a8b2303 / MSIX sha256 87a6a8488e3aa0c01213c7c54d14a5fabed5cef87bd6d5147aefe9f58506d90a was clean-installed into immutable bundle C. Console-session observer captured the visible probe window in session 1 (screenshot sha256 71d210671578961b1d305c1d3a115ef8b8b0079e0e8cba57ae5b501c847b79e1); Ivan Oparin confirmed no microphone prompt at launch and closed the window. The accompanying terminal window was traced to the temporary PowerShell observer, not the GUI-subsystem MSIX executable; remediation is BUG-260721-1npwy8 Silent Windows launch and high-DPI verification probe. Owner directed all fragmented manual checks to stop and be consolidated into TASK-260721-ryk8c0 Ivan Oparin final real-app verification. No H01+ or Win11/manual acceptance is claimed by this checkpoint.
+2026-07-21 owner-directed consolidation: closed as superseded, not passed. Remaining highest-value real-app and hardware observations now live only in TASK-260721-ryk8c0 Ivan Oparin final real-app verification, gated by TASK-260721-2346wf Desktop UI automated acceptance and owner handoff.
 
 ## Precondition Resources
 - [p1-windows-store-spike-lifecycle.puml](file://TASK-260712-1vtwkl/p1-windows-store-spike-lifecycle.puml) — Lifecycle flow for the Win10 and Win11 evidence run

@@ -218,6 +218,59 @@ function Get-ProbeManifestTemplateContract {
     Assert-ProbeManifestContract -Manifest $Manifest
 }
 
+function Get-WindowsExecutableSubsystem {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+
+    $ResolvedPath = (Resolve-Path -LiteralPath $Path).Path
+    $Stream = [IO.File]::Open($ResolvedPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    $Reader = [IO.BinaryReader]::new($Stream)
+    try {
+        if ($Stream.Length -lt 96 -or $Reader.ReadUInt16() -ne 0x5A4D) {
+            throw "executable is not a valid DOS/PE image: $ResolvedPath"
+        }
+        $Stream.Position = 0x3C
+        $PEOffset = $Reader.ReadInt32()
+        if ($PEOffset -lt 0x40 -or $PEOffset + 94 -gt $Stream.Length) {
+            throw "executable has an invalid PE header offset: $ResolvedPath"
+        }
+        $Stream.Position = $PEOffset
+        if ($Reader.ReadUInt32() -ne 0x00004550) {
+            throw "executable is missing the PE signature: $ResolvedPath"
+        }
+        $OptionalHeaderOffset = $PEOffset + 24
+        $Stream.Position = $OptionalHeaderOffset
+        $Magic = $Reader.ReadUInt16()
+        if ($Magic -ne 0x010B -and $Magic -ne 0x020B) {
+            throw "executable has unsupported optional-header magic 0x$($Magic.ToString('X4')): $ResolvedPath"
+        }
+        $Stream.Position = $OptionalHeaderOffset + 68
+        [int]$Reader.ReadUInt16()
+    } finally {
+        $Reader.Dispose()
+        $Stream.Dispose()
+    }
+}
+
+function Assert-ProbeGUIExecutable {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Path
+    )
+
+    $Subsystem = Get-WindowsExecutableSubsystem -Path $Path
+    if ($Subsystem -ne 2) {
+        throw "probe executable PE subsystem is $Subsystem, expected 2 (Windows GUI): $Path"
+    }
+    [pscustomobject]@{
+        Path = (Resolve-Path -LiteralPath $Path).Path
+        Subsystem = $Subsystem
+        Name = "windows-gui"
+    }
+}
+
 function Get-ProbeSigningCertificate {
     [CmdletBinding()]
     param(

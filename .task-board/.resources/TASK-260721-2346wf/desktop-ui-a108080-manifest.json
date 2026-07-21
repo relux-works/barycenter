@@ -1,0 +1,325 @@
+{
+  "buildArtifacts": [
+    {
+      "bytes": 13312512,
+      "path": "build/Pulsar-windows-amd64.exe",
+      "peSubsystem": 2,
+      "sha256": "21e5f3a51017594c87cc63b8e2b944c711925c382fe4f91fa503d77908c721b7"
+    },
+    {
+      "bytes": 12329472,
+      "path": "build/Pulsar-windows-arm64.exe",
+      "peSubsystem": 2,
+      "sha256": "a5a7a7ce8b8bdd0ef140ea9c7da1d17e5e51a628cfe6604f3aeb754a83a39235"
+    },
+    {
+      "bytes": 14545480,
+      "kind": "unbundled-release-binary",
+      "path": "node-app/.build/release/NodeApp",
+      "sha256": "388736259cb2ca42bb406006d3a83567cd0530dca7e2265932f8863fc6a9028a"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "scripts/acceptance/test_desktop_ui.py"
+      ],
+      "cwd": ".",
+      "exitCode": 0,
+      "log": "01-desktop-contract-tests.log",
+      "name": "desktop-contract-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "02-windows-vet.log",
+      "name": "windows-vet"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "03-windows-tests.log",
+      "name": "windows-tests"
+    },
+    {
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "04-windows-race.log",
+      "name": "windows-race"
+    },
+    {
+      "argv": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "05-windows-cross-vet-amd64.log",
+      "name": "windows-cross-vet-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "06-windows-cross-build-amd64.log",
+      "name": "windows-cross-build-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "07-windows-cross-build-arm64.log",
+      "name": "windows-cross-build-arm64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "-trimpath",
+        "-ldflags",
+        "-H=windowsgui",
+        "-o",
+        "<repo>/.temp/acceptance/desktop-ui-a108080/build/Pulsar-windows-amd64.exe",
+        "."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "08-windows-gui-build-amd64.log",
+      "name": "windows-gui-build-amd64"
+    },
+    {
+      "argv": [
+        "go",
+        "build",
+        "-trimpath",
+        "-ldflags",
+        "-H=windowsgui",
+        "-o",
+        "<repo>/.temp/acceptance/desktop-ui-a108080/build/Pulsar-windows-arm64.exe",
+        "."
+      ],
+      "cwd": "pulsar-win",
+      "exitCode": 0,
+      "log": "09-windows-gui-build-arm64.log",
+      "name": "windows-gui-build-arm64"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "test"
+      ],
+      "cwd": "node-app",
+      "exitCode": 0,
+      "log": "10-swift-tests.log",
+      "name": "swift-tests"
+    },
+    {
+      "argv": [
+        "xcrun",
+        "swift",
+        "build",
+        "-c",
+        "release"
+      ],
+      "cwd": "node-app",
+      "exitCode": 0,
+      "log": "11-swift-release-build.log",
+      "name": "swift-release-build"
+    }
+  ],
+  "finishedAt": "2026-07-21T11:57:33Z",
+  "git": {
+    "endDirty": false,
+    "endDirtyPaths": [],
+    "head": "a10808051c79cff18990d730e1a48cc4de1af138",
+    "startDirty": false,
+    "tree": "79d3f02d2a64bc85696b3a6f4de260afad6c7593"
+  },
+  "host": {
+    "machine": "x86_64",
+    "release": "24.6.0",
+    "system": "Darwin"
+  },
+  "limitations": [
+    "No physical DPI, Retina, Narrator, VoiceOver, microphone, speaker or audible result is claimed.",
+    "The macOS binary is not a notarized application bundle; release signing remains a release-workflow gate.",
+    "Windows signed-package evidence is supplied separately by the exact-head hosted CI artifact."
+  ],
+  "logs": [
+    {
+      "bytes": 102,
+      "path": "01-desktop-contract-tests.log",
+      "sha256": "80144f3bf12d071a1497821467ab02765712cb11da3f547a5e2b5cf79f938e9a"
+    },
+    {
+      "bytes": 0,
+      "path": "02-windows-vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 207,
+      "path": "03-windows-tests.log",
+      "sha256": "2a3b883daa4e57da61269a495601f5161330313d7e7f49aef46c60ba3b1ca784"
+    },
+    {
+      "bytes": 207,
+      "path": "04-windows-race.log",
+      "sha256": "fdd7ce8f1072fd800142895d639bf0f037fad607eb549e3e50fd7da5dcb3feb0"
+    },
+    {
+      "bytes": 0,
+      "path": "05-windows-cross-vet-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "06-windows-cross-build-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "07-windows-cross-build-arm64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "08-windows-gui-build-amd64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 0,
+      "path": "09-windows-gui-build-arm64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 76365,
+      "path": "10-swift-tests.log",
+      "sha256": "7354226b5d73daf9358edaa314fd55daad17e58223170fbfbcfd5177203b2231"
+    },
+    {
+      "bytes": 120,
+      "path": "11-swift-release-build.log",
+      "sha256": "5b5e9553a353fa8ae098ffa3680c1164c7bbac70b9682004a2549b4bda375def"
+    }
+  ],
+  "manualEvidence": "not-run",
+  "schemaVersion": 1,
+  "scope": "desktop-ui-repository-automated-only",
+  "sourceArtifacts": [
+    {
+      "bytes": 1515,
+      "path": "node-app/Package.swift",
+      "sha256": "77e0f0eeaf38b09c93c6d8ff789a72c1650f90008357a383111a79269b401249"
+    },
+    {
+      "bytes": 640,
+      "path": "node-app/Package.resolved",
+      "sha256": "93c887cb1f4fd6c0290c9cc92f7fa4750411d3729d6f2438169730074bb6ed38"
+    },
+    {
+      "bytes": 3186,
+      "path": "node-app/Sources/NodeAppUI/PulsarDesktopStyle.swift",
+      "sha256": "2c195c845cdfd39e70e83b49de91e1e073498c15b88c54127940bf3fd93b15f0"
+    },
+    {
+      "bytes": 74156,
+      "path": "node-app/Sources/NodeAppUI/PulsarMainWindow.swift",
+      "sha256": "8198eebc815acc50498f843ac1a367186fe73e57f19d067fec6faa903fb45c36"
+    },
+    {
+      "bytes": 2419,
+      "path": "node-app/Tests/NodeAppUITests/PulsarDesktopStyleTests.swift",
+      "sha256": "b00643320ba2afe24a6c82ed58640f371851e9f67b6f6f58f7022d5efff87732"
+    },
+    {
+      "bytes": 25577,
+      "path": "pulsar-win/main.go",
+      "sha256": "d8f989be944ad80c009b67a31b7ef04865a10c86d5bfa71401a39f3390475648"
+    },
+    {
+      "bytes": 102952,
+      "path": "pulsar-win/main_window_windows.go",
+      "sha256": "ea5e4209e56784faa5e953b98fb041fa3a1ae0b5c53e4db3f43053d41de24ccc"
+    },
+    {
+      "bytes": 5243,
+      "path": "pulsar-win/main_theme_windows.go",
+      "sha256": "f9ea6a6f9d54785faca921ee966533fc080e945f03d3882d19a45728d6db94ae"
+    },
+    {
+      "bytes": 2586,
+      "path": "pulsar-win/windows_visual_contract.go",
+      "sha256": "5ae5ed28c4824dddce55e5cec01b169094ed2fa7541bfd5f3a3623b56502aebe"
+    },
+    {
+      "bytes": 3139,
+      "path": "pulsar-win/windows_visual_contract_test.go",
+      "sha256": "ec13dcb886a06996f6e81a39bc9b29904b42188326559aeea87b90c97904ed6f"
+    },
+    {
+      "bytes": 153,
+      "path": "pulsar-win/winres/winres.json",
+      "sha256": "805252516380fa00c301c9c2a57cada8dde9819e36d5835dc23e7cd3da7f9b9a"
+    },
+    {
+      "bytes": 1914,
+      "path": "pulsar-win/probe-msix/AppxManifest.xml.in",
+      "sha256": "a59bbde45907273f181ca4ec7d68b102d5902b6ab51750a51cbaf48be61b98b9"
+    },
+    {
+      "bytes": 6809,
+      "path": "pulsar-win/probe-msix/build-probe.ps1",
+      "sha256": "7df72e049c588ac574d2315f5a847438cf0ecd31dcd33c7c5e69b987915d952c"
+    },
+    {
+      "bytes": 3253,
+      "path": "pulsar-win/probe-msix/register-hidden-interactive-task.ps1",
+      "sha256": "fc351939475264527113b532c9f0bd5332baa09081d355c4db8ad41730c131dd"
+    },
+    {
+      "bytes": 10199,
+      "path": "scripts/build-app.sh",
+      "sha256": "9ffbcc5c93d9d6e03be21f05054e288de3d5032246d2ef4cb375911b5ceff1c1"
+    }
+  ],
+  "startedAt": "2026-07-21T11:55:54Z",
+  "status": "pass",
+  "toolchains": {
+    "apple": {
+      "developerDir": "/Applications/Xcode.app/Contents/Developer",
+      "swiftVersion": "6.2.3",
+      "xcodeBuild": "17C52",
+      "xcodeVersion": "26.2"
+    },
+    "go": "go version go1.25.12 darwin/amd64"
+  }
+}

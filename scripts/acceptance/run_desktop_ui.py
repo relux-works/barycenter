@@ -23,6 +23,7 @@ SOURCE_PATHS = (
     "node-app/Package.resolved",
     "node-app/Sources/NodeAppUI/PulsarDesktopStyle.swift",
     "node-app/Sources/NodeAppUI/PulsarMainWindow.swift",
+    "node-app/Tests/NodeCoreTests/MacLivePTTNodeTests.swift",
     "node-app/Tests/NodeAppUITests/PulsarDesktopStyleTests.swift",
     "pulsar-win/main.go",
     "pulsar-win/main_window_windows.go",

@@ -1790,15 +1790,16 @@ func layoutWindowsShell(clientWidth, clientHeight, dpi int) ShellLayout {
 	if dpi <= 0 {
 		dpi = 96
 	}
-	minWidth, minHeight := dip(620, dpi), dip(460, dpi)
+	minWidth, minHeight := windowsShellMinimumClient(dpi)
 	if clientWidth < minWidth {
 		clientWidth = minWidth
 	}
 	if clientHeight < minHeight {
 		clientHeight = minHeight
 	}
-	margin, gap := dip(16, dpi), dip(12, dpi)
-	sidebarWidth := dip(184, dpi)
+	metrics := windowsShellMetrics(dpi)
+	margin, gap := metrics.Margin, metrics.Gutter
+	sidebarWidth := metrics.SidebarWidth
 	contentX := sidebarWidth + margin*2
 	contentWidth := clientWidth - contentX - margin
 	layout := ShellLayout{
@@ -1806,14 +1807,14 @@ func layoutWindowsShell(clientWidth, clientHeight, dpi int) ShellLayout {
 		Sidebar: ShellRect{X: margin, Y: margin, Width: sidebarWidth, Height: clientHeight - margin*2},
 		Content: ShellRect{X: contentX, Y: margin, Width: contentWidth, Height: clientHeight - margin*2},
 	}
-	layout.Header = ShellRect{X: contentX, Y: margin, Width: contentWidth, Height: dip(42, dpi)}
+	layout.Header = ShellRect{X: contentX, Y: margin, Width: contentWidth, Height: metrics.HeaderHeight}
 	layout.Banner = ShellRect{X: contentX, Y: layout.Header.Bottom() + gap, Width: contentWidth, Height: dip(64, dpi)}
 	bodyY := layout.Banner.Bottom() + gap
 	layout.Body = ShellRect{X: contentX, Y: bodyY, Width: contentWidth, Height: dip(140, dpi)}
 	cardY := layout.Body.Bottom() + gap
 	cardWidth := (contentWidth - gap*2) / 3
 	for i := range layout.Cards {
-		layout.Cards[i] = ShellRect{X: contentX + i*(cardWidth+gap), Y: cardY, Width: cardWidth, Height: dip(92, dpi)}
+		layout.Cards[i] = ShellRect{X: contentX + i*(cardWidth+gap), Y: cardY, Width: cardWidth, Height: metrics.CardHeight}
 	}
 	layout.Footer = ShellRect{X: contentX, Y: layout.Cards[0].Bottom() + gap, Width: contentWidth, Height: clientHeight - (layout.Cards[0].Bottom() + gap) - margin}
 	return layout

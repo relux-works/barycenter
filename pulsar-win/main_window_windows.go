@@ -33,6 +33,9 @@ var (
 	pDeleteObject             = gdi32.NewProc("DeleteObject")
 	pRtlMoveMemory            = kernel32.NewProc("RtlMoveMemory")
 	pGetWindowTextLengthW     = user32.NewProc("GetWindowTextLengthW")
+	pAdjustWindowRectExForDPI = user32.NewProc("AdjustWindowRectExForDpi")
+	pGetFocus                 = user32.NewProc("GetFocus")
+	pSetFocus                 = user32.NewProc("SetFocus")
 )
 
 const (
@@ -47,6 +50,12 @@ const (
 	wmSize       = 0x0005
 	wmTimer      = 0x0113
 	wmGetMinMax  = 0x0024
+	wmEraseBkgnd = 0x0014
+	wmSysColor   = 0x0015
+	wmSetting    = 0x001A
+	wmCtlEdit    = 0x0133
+	wmCtlButton  = 0x0135
+	wmTheme      = 0x031A
 	wmDPIChanged = 0x02E0
 	wmDropFiles  = 0x0233
 
@@ -334,6 +343,7 @@ type mainWindowCtx struct {
 	russian                   windows.Handle
 	all                       []windows.Handle
 	fonts                     mainFonts
+	theme                     windowsThemeResources
 	laidOutSection            ShellSection
 }
 
@@ -369,7 +379,7 @@ func createMainWindow(shell *WindowsShell) windows.Handle {
 		wc := wndClassExW{
 			cbSize: uint32(unsafe.Sizeof(wndClassExW{})), lpfnWndProc: syscall.NewCallback(mainWindowProc),
 			hInstance: windows.Handle(hInst), hIcon: appIcon(), hIconSm: appIcon(),
-			hCursor: windows.Handle(cursor), hbrBackground: windows.Handle(colorWindow + 1),
+			hCursor: windows.Handle(cursor), hbrBackground: 0,
 			lpszClassName: className,
 		}
 		if result, _, _ := pRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); result == 0 {
@@ -381,10 +391,13 @@ func createMainWindow(shell *WindowsShell) windows.Handle {
 	if dpi == 0 {
 		dpi = 96
 	}
+	clientWidth, clientHeight := windowsShellPreferredClient(int(dpi))
+	outer := winRect{right: int32(clientWidth), bottom: int32(clientHeight)}
+	pAdjustWindowRectExForDPI.Call(uintptr(unsafe.Pointer(&outer)), wsOverlapped|wsCaption|wsSysMenu|wsMinimizeBox|wsMaximizeBox|wsThickFrame|wsClipChildren, 0, wsExControlParent, dpi)
 	hwnd, _, _ := pCreateWindowExW.Call(
 		wsExControlParent, uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(u16("Pulsar"))),
 		wsOverlapped|wsCaption|wsSysMenu|wsMinimizeBox|wsMaximizeBox|wsThickFrame|wsClipChildren,
-		cwUseDefault, cwUseDefault, uintptr(dip(960, int(dpi))), uintptr(dip(800, int(dpi))),
+		cwUseDefault, cwUseDefault, uintptr(outer.right-outer.left), uintptr(outer.bottom-outer.top),
 		0, 0, hInst, 0)
 	if hwnd == 0 {
 		return 0
@@ -394,6 +407,7 @@ func createMainWindow(shell *WindowsShell) windows.Handle {
 	// WM_CREATE arrived before mainCtx was assigned; build after creation so
 	// the callback never has to recover Go pointers from CREATESTRUCT.
 	mainCtx.createControls()
+	mainCtx.updateTheme()
 	pDragAcceptFiles.Call(hwnd, 1)
 	mainCtx.installAccelerators()
 	mainCtx.render()
@@ -574,11 +588,7 @@ func (ctx *mainWindowCtx) updateFonts() {
 	if ctx.fonts.dpi == dpi {
 		return
 	}
-	for _, font := range []windows.Handle{ctx.fonts.title, ctx.fonts.body, ctx.fonts.small} {
-		if font != 0 {
-			pDeleteObject.Call(uintptr(font))
-		}
-	}
+	previous := ctx.fonts
 	ctx.fonts = mainFonts{
 		dpi:   dpi,
 		title: mkFont(-dip(26, dpi), fwSemibold),
@@ -594,6 +604,13 @@ func (ctx *mainWindowCtx) updateFonts() {
 		setFont(card, ctx.fonts.small)
 	}
 	setFont(ctx.footer, ctx.fonts.small)
+	// Controls must select the replacement fonts before the old GDI objects
+	// are deleted; deleting an object that is still selected fails and leaks.
+	for _, font := range []windows.Handle{previous.title, previous.body, previous.small} {
+		if font != 0 {
+			pDeleteObject.Call(uintptr(font))
+		}
+	}
 }
 
 func (ctx *mainWindowCtx) dpi() int {
@@ -635,8 +652,9 @@ func (ctx *mainWindowCtx) layout() {
 	if ctx.shell != nil && ctx.shell.Section() == ShellAutomation {
 		layout.Body.Height = dip(230, layout.DPI)
 	}
-	gap, pad := dip(8, layout.DPI), dip(10, layout.DPI)
-	navHeight := dip(42, layout.DPI)
+	metrics := windowsShellMetrics(layout.DPI)
+	gap, pad := metrics.Gutter, dip(12, layout.DPI)
+	navHeight := metrics.ButtonHeight
 	for index, section := range shellSections {
 		move(ctx.nav[section], ShellRect{X: layout.Sidebar.X, Y: layout.Sidebar.Y + index*(navHeight+gap), Width: layout.Sidebar.Width, Height: navHeight})
 	}
@@ -767,6 +785,7 @@ func (ctx *mainWindowCtx) render() {
 			label = "> " + label
 		}
 		setText(control, label)
+		pSendMessageW.Call(uintptr(control), 0x00F3, boolWord(candidate == section), 0) // BM_SETSTATE: visible non-color selection.
 	}
 	setText(ctx.title, copy.Section(section))
 	banner := copy.Connection(snapshot)
@@ -1878,7 +1897,10 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 			if ctx != nil {
 				dpi = ctx.dpi()
 			}
-			info.minTrackSize = pointStruct{int32(dip(900, dpi)), int32(dip(760, dpi))}
+			width, height := windowsShellMinimumClient(dpi)
+			outer := winRect{right: int32(width), bottom: int32(height)}
+			pAdjustWindowRectExForDPI.Call(uintptr(unsafe.Pointer(&outer)), wsOverlapped|wsCaption|wsSysMenu|wsMinimizeBox|wsMaximizeBox|wsThickFrame|wsClipChildren, 0, wsExControlParent, uintptr(dpi))
+			info.minTrackSize = pointStruct{outer.right - outer.left, outer.bottom - outer.top}
 			pRtlMoveMemory.Call(
 				lParam, uintptr(unsafe.Pointer(&info)), unsafe.Sizeof(info))
 		}
@@ -1886,11 +1908,27 @@ func mainWindowProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 	case wmClose:
 		pShowWindow.Call(uintptr(hwnd), swHide)
 		return 0
+	case wmEraseBkgnd:
+		if ctx != nil && ctx.eraseBackground(wParam) {
+			return 1
+		}
 	case wmCtlColorStatic:
-		pSetBkMode.Call(wParam, transparentBk)
-		pSetTextColor.Call(wParam, clrText)
-		brush, _, _ := pGetSysColorBr.Call(colorWindow)
-		return brush
+		if ctx != nil {
+			return ctx.controlColors(wParam, windows.Handle(lParam), false, false)
+		}
+	case wmCtlEdit:
+		if ctx != nil {
+			return ctx.controlColors(wParam, windows.Handle(lParam), true, false)
+		}
+	case wmCtlButton:
+		if ctx != nil {
+			return ctx.controlColors(wParam, windows.Handle(lParam), false, true)
+		}
+	case wmSysColor, wmSetting, wmTheme:
+		if ctx != nil {
+			ctx.updateTheme()
+		}
+		return 0
 	case wmDestroy:
 		pDragAcceptFiles.Call(uintptr(hwnd), 0)
 		pKillTimer.Call(uintptr(hwnd), mainRefreshTimer)
@@ -1955,6 +1993,9 @@ func showMainWindow(explicit bool) {
 	pUpdateWindow.Call(uintptr(mainHwnd))
 	if explicit {
 		pSetForegroundWin.Call(uintptr(mainHwnd))
+		if focus, _, _ := pGetFocus.Call(); focus == 0 && mainCtx != nil && mainCtx.shell != nil {
+			pSetFocus.Call(uintptr(mainCtx.nav[mainCtx.shell.Section()]))
+		}
 	}
 }
 
@@ -1992,6 +2033,7 @@ func destroyMainWindow() {
 		mainAccel = 0
 	}
 	if mainCtx != nil {
+		mainCtx.releaseTheme()
 		for _, font := range []windows.Handle{mainCtx.fonts.title, mainCtx.fonts.body, mainCtx.fonts.small} {
 			if font != 0 {
 				pDeleteObject.Call(uintptr(font))

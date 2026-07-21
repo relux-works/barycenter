@@ -28,9 +28,9 @@
   aggregate-only `done` containers, not acceptance verdicts. Their provenance
   and negative evidence remain.
 - Current delivery progress: original plan `186/205` accepted (`90.7%`), new
-  autonomous remediation `1/4` accepted (`25%`), consolidated manual gate
-  `0/1`. No new hardware, accessibility-reader, audible, Store or production
-  claim is made.
+  autonomous remediation `1/4` accepted (`25%`) and `2/4`
+  implementation-complete (`50%`), consolidated manual gate `0/1`. No new
+  hardware, accessibility-reader, audible, Store or production claim is made.
 - 2026-07-21 autonomous remediation checkpoint: `BUG-260721-1npwy8` now has a
   maintained hidden scheduled-observer runner, PE-header GUI-subsystem
   enforcement in the signed package build, and a PerMonitorV2/Segoe UI probe
@@ -40,6 +40,15 @@
   `RUN-260721-a5822e` accepted exact commit `69318f9`. The requested Fable 5
   run `RUN-260721-3a8700` consumed zero tokens and returned provider limit 429,
   so it is recorded as infrastructure evidence rather than a code verdict.
+- 2026-07-21 Windows production-UI checkpoint: `TASK-260721-2lv6wn` now has
+  reusable light/dark/high-contrast palette and DPI metrics, system setting
+  repaint, progressive DWM/UxTheme integration with a Windows 10 fallback,
+  explicit non-color navigation selection, keyboard focus continuity,
+  DPI-correct preferred/minimum geometry and corrected GDI resource lifecycle.
+  Deterministic contrast/theme/source/96-192-DPI tests, full Go/race suites,
+  Windows vet and the GUI cross-build pass locally. Hosted exact-head CI and
+  independent acceptance remain before this task increments the accepted
+  count.
 - Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build

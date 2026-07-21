@@ -2,13 +2,15 @@
 
 Date: 2026-07-20 (Asia/Tbilisi)
 
-Status: IN PROGRESS — OWNER-APPROVED BUILT-IN MICROPHONE PROFILE. Ivan
+Status: IN PROGRESS — H01 PHYSICAL FAILURE REQUIRES A NEW BUILD. Ivan
 Oparin confirmed `mbpro-win` as the physical Windows 10 host and authorized
 this row first with maximum autonomous execution. SSH, sanitized preflight,
 exact package transfer and WACK preparation are complete. Ivan Oparin then
 limited this pass to the built-in microphone. Windows 11 is intentionally
 deferred for this pass. The historical bundle A contains one terminal H00
-`FAIL`; the repaired bundle B is initialized at H00 with no verdict yet.
+`FAIL`; bundle B contains H00 `PASS` and H01 `FAIL`. The strict execution
+frontier is the permission-path repair and a newly signed immutable bundle,
+not H02 on the known-broken package.
 
 ## Current exact build
 
@@ -231,7 +233,33 @@ repeated permission failure into a 2,741,466,867-byte diagnostic log. Its
 SHA-256 `a30d2b1ed8a14c9b691e00de7a6ee60d4a16ee36ef317a29bfc76099572bb549`,
 size, reset boundary, first startup observation and screenshot are retained in
 compact evidence; the repetitive 2.74 GB raw file was deliberately excluded
-and deleted before bundle attachment. The current strict scenario is H01.
+and deleted before bundle attachment.
+
+## Bundle B H01 physical-console result
+
+The package-specific microphone consent entry was removed before launch and
+the probe started in local console session 1. Baseline screenshot SHA-256 is
+`1ccf84345fb39081b627087288baec3faf725186355b738a1133a21270e3270d`.
+Ivan Oparin pressed `Record default` exactly once and observed that nothing
+happened: no Windows microphone prompt appeared. The intent was logged at
+`2026-07-21T09:40:44.129238Z`; the post-action screenshot SHA-256 is
+`1b1b669bca9eaa2fb36db97793b23c396fa8434dcd1df0fb4afaeefbeb2c3eea`
+and UI Automation found only the visible Pulsar window.
+
+H01 is immutably `FAIL` with seven evidence references. The run produced zero
+permission-request events, zero `capture_started` events and zero promotable
+WAV files. Instead, the waiter-owned `CapPermissionCheck` repeatedly returned
+`0x8001010e` (`RPC_E_WRONG_THREAD`): 268,515 such failures among 625,425
+events. The probe was force-stopped only to bound the runaway logger; normal
+lifecycle credit is explicitly excluded. The 323,535,561-byte raw log has
+SHA-256 `df9bb218e44f05ae40b162b65acab705a083c93a1b5d421efdef07597fd5d941`;
+its hash, counts and representative event extract are retained while the
+repetitive raw file was excluded and deleted.
+
+The concrete next action is to repair the native AppCapability apartment/thread
+ownership and bound repeated permission-query failure evidence, add regression
+coverage, build and sign a new exact MSIX, and restart at H00 in a new
+immutable bundle. H02 is not run against the known-broken package.
 
 ## Exact manual execution request
 
@@ -268,8 +296,10 @@ seal its immutable bundle, then complete Windows 11 with the same MSIX bytes.
 
 ## Progress and stop condition
 
-- Physical rows accepted: `1/36`. Current bundle B is `1/18` terminal with
-  H00 `PASS` and H01 next. Historical bundle A retains its separate H00 `FAIL`.
+- Physical rows accepted: `1/36`. Current bundle B is `2/18` terminal with
+  H00 `PASS`, H01 `FAIL` and seven H01 evidence references. Historical bundle
+  A retains its separate H00 `FAIL`. The next executable step is a repaired
+  signed build and a fresh bundle beginning at H00.
 - Task checklist accepted: `0/4`.
 - Overall epic progress: `186/205` accepted (`90.7%`).
 - Engineering progress: `186/186` accepted (`100%`).

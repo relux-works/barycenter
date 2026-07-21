@@ -46,39 +46,35 @@
   proceed while structurally forbidding `PASS` for H04, H08 and H12; those
   rows remain honest `BLOCKED` until distinct/removable hardware exists. This
   owner decision did not by itself change any matrix verdict.
-  The exact MSIX installed and activated, but its packaged GUI stopped before
-  creating the main window with `required startup evidence is unavailable`.
-  Same-session UI diagnostics and the runtime JSONL prove that the primary row
-  was written, while `io.MultiWriter(logFile, os.Stderr)` treated the absent
-  packaged-GUI stderr handle as a fatal evidence failure. The physical run also
-  exposed AppContainer runtime-root duplication and a `selectedApiPath`
-  sanitizer false positive. H00 was recorded `FAIL`; H01 was not started and
-  microphone permission was never requested. The installed package, run-added
-  signer trust and package data were removed. Fixes now make the evidence file
-  authoritative, align app and host tools on the virtualized `AC\\PulsarProbe`
-  root, and distinguish API route names from filesystem paths. Local Go tests,
-  Windows cross-build and the full interactive-session PowerShell contract
-  suite pass. PR #304 merged the repair, and post-merge CI passed 4/4. A
-  separate RDP engineering smoke of the new package observed a visible main
-  window plus successful `helper_load` and `controls_ready` evidence at the
-  corrected runtime root; it also preserved tray/hotkey/permission-query RDP
-  blocks without claiming H00. Smoke cleanup restored package, signer-trust
-  and runtime absence. Fresh immutable bundle
+  The first physical H00 attempt exposed packaged-GUI stderr, AppContainer
+  runtime-root and evidence-sanitizer defects and remains an immutable `FAIL`
+  in historical bundle A. PR #304 repaired those issues; post-merge CI passed
+  4/4. Fresh immutable bundle
   `win10-single-input-physical-b` freezes the repaired bytes and the
   owner-approved built-in microphone profile. The operator moved session 1
   from RDP to the local physical console and confirmed the visible main window
   and absence of a microphone prompt at launch. Retry 2 produced the stable
   accepted observation; H00 is now `PASS` with 11 immutable evidence
-  references, and H01 is the strict frontier. The H00 verdict is deliberately
+  references. The H00 verdict is deliberately
   limited to signed install, exact AUMID activation and visible controls: tray,
   hotkey, permission, lifecycle, capture and cleanup received no credit. The
   close control hid the app while blocked tray registration left the process
   running; that process was terminated only to obtain a stable snapshot and is
   recorded as a finding. A discarded unverdict attempt-1 log grew to 2.74 GB
   from repeated `permission_status_query` failures; its SHA/size and compact
-  startup evidence are retained, while the repetitive raw file was excluded
-  from the bundle. Current physical acceptance is `1/36`; the failed bundle A
-  remains immutable diagnostic evidence.
+  startup evidence are retained, while the repetitive raw file was excluded.
+  H01 then ran from a cold package-specific permission state in the local
+  console. Ivan Oparin pressed `Record default` exactly once, but no Windows
+  prompt appeared. The run logged one explicit intent, zero permission-request
+  events, zero capture starts and zero WAV files, then amplified 268,515
+  `CapPermissionCheck(waiter-owned)` failures with `0x8001010e`
+  (`RPC_E_WRONG_THREAD`) into 625,425 events. H01 is immutable `FAIL` with seven
+  references; its 323,535,561-byte raw log was hashed, compacted and deleted.
+  Current physical acceptance remains `1/36`; bundle B is `2/18` terminal
+  (H00 `PASS`, H01 `FAIL`). Strict execution pauses scenario advance to repair
+  AppCapability apartment ownership and bounded failure logging, produce a new
+  signed MSIX and restart a fresh immutable bundle at H00. Accepted task counts
+  remain 186/205 overall and 0/19 manual.
   The preceding p1-independent-security-review
   (`TASK-260712-wy05n6`) was independently approved on 2026-07-19 by Claude
   Fable 5, spawned through task-board as run `RUN-260719-ca4eaf` on owner-gate

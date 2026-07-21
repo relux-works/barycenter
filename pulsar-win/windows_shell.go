@@ -326,6 +326,9 @@ func (s ShellSnapshot) normalized() ShellSnapshot {
 	if s.SelectedTargetsHistory < 0 || s.SelectedTargetsHistory >= len(s.TargetsInbox.History) {
 		s.SelectedTargetsHistory = 0
 	}
+	if s.SelectedStreamTrackTarget < 0 || s.SelectedStreamTrackTarget >= len(s.StreamTrack.Targets) {
+		s.SelectedStreamTrackTarget = 0
+	}
 	if !validPhaseOneDelivery(s.TargetsInboxDelivery) {
 		s.TargetsInboxDelivery = PhaseOneOverlay
 	}
@@ -644,10 +647,10 @@ func (c ShellCopy) Section(section ShellSection) string {
 
 func (c ShellCopy) Connection(snapshot ShellSnapshot) string {
 	label := map[ShellConnection]string{
-		ShellUnpaired:     "[?] " + c.Text(txtUnpaired),
-		ShellReconnecting: "[~] " + c.Text(txtReconnecting),
-		ShellOnline:       "[OK] " + c.Text(txtOnline),
-		ShellDegraded:     "[!] " + c.Text(txtDegraded),
+		ShellUnpaired:     c.Text(txtUnpaired),
+		ShellReconnecting: c.Text(txtReconnecting),
+		ShellOnline:       c.Text(txtOnline),
+		ShellDegraded:     c.Text(txtDegraded),
 	}[snapshot.Connection]
 	if snapshot.ConnectionDetail != "" {
 		label += ": " + snapshot.ConnectionDetail
@@ -1712,7 +1715,7 @@ type StreamTrackControlLayout struct{ Rect [16]ShellRect }
 func (layout StreamTrackControlLayout) Rects() []ShellRect { return layout.Rect[:] }
 
 func layoutWindowsStreamTrackControls(content ShellRect, startY, dpi int) StreamTrackControlLayout {
-	gap, height := dip(8, dpi), dip(40, dpi)
+	gap, height := dip(4, dpi), dip(40, dpi)
 	columnWidth := (content.Width - gap*3) / 4
 	var result StreamTrackControlLayout
 	for index := range result.Rect {
@@ -1728,7 +1731,7 @@ func layoutWindowsStreamTrackControls(content ShellRect, startY, dpi int) Stream
 func (layout TargetsInboxControlLayout) Rects() []ShellRect { return layout.Rect[:] }
 
 func layoutWindowsTargetsInboxControls(content ShellRect, bodyBottom, dpi int) TargetsInboxControlLayout {
-	gap, height := dip(8, dpi), dip(40, dpi)
+	gap, height := dip(4, dpi), dip(40, dpi)
 	columnWidth := (content.Width - gap*3) / 4
 	cell := func(column, row int) ShellRect {
 		return ShellRect{X: content.X + column*(columnWidth+gap), Y: bodyBottom + gap + row*(height+gap), Width: columnWidth, Height: height}
@@ -1808,15 +1811,19 @@ func layoutWindowsShell(clientWidth, clientHeight, dpi int) ShellLayout {
 		Content: ShellRect{X: contentX, Y: margin, Width: contentWidth, Height: clientHeight - margin*2},
 	}
 	layout.Header = ShellRect{X: contentX, Y: margin, Width: contentWidth, Height: metrics.HeaderHeight}
-	layout.Banner = ShellRect{X: contentX, Y: layout.Header.Bottom() + gap, Width: contentWidth, Height: dip(64, dpi)}
+	layout.Banner = ShellRect{X: contentX, Y: layout.Header.Bottom() + gap, Width: contentWidth, Height: dip(56, dpi)}
 	bodyY := layout.Banner.Bottom() + gap
-	layout.Body = ShellRect{X: contentX, Y: bodyY, Width: contentWidth, Height: dip(140, dpi)}
+	layout.Body = ShellRect{X: contentX, Y: bodyY, Width: contentWidth, Height: dip(144, dpi)}
 	cardY := layout.Body.Bottom() + gap
 	cardWidth := (contentWidth - gap*2) / 3
 	for i := range layout.Cards {
 		layout.Cards[i] = ShellRect{X: contentX + i*(cardWidth+gap), Y: cardY, Width: cardWidth, Height: metrics.CardHeight}
 	}
-	layout.Footer = ShellRect{X: contentX, Y: layout.Cards[0].Bottom() + gap, Width: contentWidth, Height: clientHeight - (layout.Cards[0].Bottom() + gap) - margin}
+	footerHeight := clientHeight - (layout.Cards[0].Bottom() + gap) - margin
+	if maximum := dip(160, dpi); footerHeight > maximum {
+		footerHeight = maximum
+	}
+	layout.Footer = ShellRect{X: contentX, Y: layout.Cards[0].Bottom() + gap, Width: contentWidth, Height: footerHeight}
 	return layout
 }
 
@@ -1858,7 +1865,7 @@ func catalogMissing(locale ShellLocale) []string {
 var shellCatalog = map[ShellLocale]map[shellText]string{
 	ShellEnglish: {
 		txtApp: "Pulsar", txtHome: "Home", txtCreate: "Create", txtJoin: "Join", txtTry: "Try locally",
-		txtHistory: "History", txtSoundboard: "Soundboard", txtInbox: "Inbox & targets", txtAirs: "Airs", txtSettings: "Settings", txtOpen: "Open Pulsar", txtPrimary: "Primary actions",
+		txtHistory: "History", txtSoundboard: "Soundboard", txtInbox: "Inbox & targets", txtAirs: "Airs", txtSettings: "Settings", txtOpen: "Open Pulsar", txtPrimary: "Get started",
 		txtStatus: "Status", txtPresence: "Presence", txtRouting: "Routing", txtNowPlaying: "Now playing",
 		txtLocalControls: "Local controls", txtNoHistory: "No recent activity", txtNoRoute: "No output route",
 		txtSilence: "Nothing is playing", txtVolume: "Volume", txtDND: "Do Not Disturb", txtRecording: "Recording",
@@ -1877,7 +1884,7 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtDegraded: "Needs attention", txtDNDAllow: "Allow all audio", txtDNDMessages: "Messages only", txtDNDMuted: "Muted",
 		txtRecordingIdle: "Not recording", txtRecordingActive: "Recording - press Stop to finish",
 		txtRecordingProcessing: "Preparing recording", txtRecordingFailed: "Recording failed",
-		txtUnpairedHelp:  "Create or join an air, try local audio, or open settings. Pairing is not required for those paths.",
+		txtUnpairedHelp:  "Create an Air, join one, or test audio locally. You can start without connecting an account.",
 		txtDegradedHelp:  "Local controls and settings remain available while Pulsar reconnects.",
 		txtRecordingHelp: "Recording is active. Stop remains available in this window and the tray.",
 		txtShortcut:      "Recording shortcut", txtShortcutRegistered: "active", txtShortcutConflict: "in use; buttons still work",
@@ -1895,7 +1902,7 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 	},
 	ShellRussian: {
 		txtApp: "Пульсар", txtHome: "Главная", txtCreate: "Создать", txtJoin: "Присоединиться", txtTry: "Попробовать локально",
-		txtHistory: "История", txtSoundboard: "Soundboard", txtInbox: "Входящие и получатели", txtAirs: "Эфиры", txtSettings: "Настройки", txtOpen: "Открыть Пульсар", txtPrimary: "Основные действия",
+		txtHistory: "История", txtSoundboard: "Звуки", txtInbox: "Входящие", txtAirs: "Эфиры", txtSettings: "Настройки", txtOpen: "Открыть Пульсар", txtPrimary: "Начало работы",
 		txtStatus: "Статус", txtPresence: "Присутствие", txtRouting: "Маршрут звука", txtNowPlaying: "Сейчас играет",
 		txtLocalControls: "Локальные настройки", txtNoHistory: "Недавних событий нет", txtNoRoute: "Выход звука не выбран",
 		txtSilence: "Сейчас ничего не играет", txtVolume: "Громкость", txtDND: "Не беспокоить", txtRecording: "Запись",
@@ -1914,7 +1921,7 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtDegraded: "Нужно внимание", txtDNDAllow: "Разрешить весь звук", txtDNDMessages: "Только сообщения", txtDNDMuted: "Звук выключен",
 		txtRecordingIdle: "Запись не идёт", txtRecordingActive: "Идёт запись - нажми «Остановить», чтобы закончить",
 		txtRecordingProcessing: "Подготавливаю запись", txtRecordingFailed: "Ошибка записи",
-		txtUnpairedHelp:  "Создай эфир, присоединись, проверь локальный звук или открой настройки - для этих путей подключение не требуется.",
+		txtUnpairedHelp:  "Создайте эфир, присоединитесь или проверьте звук локально. Начать можно без подключения аккаунта.",
 		txtDegradedHelp:  "Локальные настройки остаются доступны, пока Пульсар переподключается.",
 		txtRecordingHelp: "Запись активна. Остановка остаётся доступна в этом окне и в области уведомлений.",
 		txtShortcut:      "Комбинация записи", txtShortcutRegistered: "активна", txtShortcutConflict: "занята; кнопки продолжают работать",

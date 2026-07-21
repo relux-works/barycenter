@@ -128,6 +128,28 @@
   and was not treated as a verdict. Claude Opus 4.8 run
   `RUN-260721-72524f` independently repeated the deterministic gates and
   accepted exact commit `62302e0`. No audio or manual hardware PASS is claimed.
+- 2026-07-21 Windows UI stop-the-line engineering remediation (accepted;
+  independent review pending):
+  `BUG-260721-27irt6` reproduced the user's first navigation click as an
+  owner-thread hang on exact package `0.1.11.0`. UI Automation blocked for
+  10,023 ms on Create; a separate posted command left the process
+  `Responding=false` within 150 ms, followed by AppModel-Runtime container
+  removal, with no Go crash output or WER crash. Source review found that only
+  Home was bounded: every non-Home render still configured the complete
+  129-control surface. The working repair now bounds rendering per active
+  section, caches desired/applied HWND bounds, avoids moving hidden/unchanged
+  controls, repaints only clipped background plus structural chrome, enables
+  Common Controls v6, removes diagnostic-style sunken surfaces, and fits a
+  1040x700 DIP client at the host's 192 DPI. Signed package `0.1.20.0` is now
+  installed through MSIX and launches through the ordinary Explorer shortcut.
+  Autonomous Win10 evidence passed: UI Automation `240/240`, max `93 ms`, p95
+  `80 ms`, one idle-frame hash, handles `347 -> 346`, and zero crash/container
+  events; a direct message-pump soak passed another `240/240` with p95 `88 ms`.
+  A six-section `PrintWindow` gallery at `150 ms` confirmed complete chrome and
+  bounded active content. Full hashes, findings and the manual verification
+  boundary are recorded in
+  `.planning/BUG-260721-27irt6_windows-ui-stability-remediation.md`;
+  independent review remains before board closure.
 - Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build

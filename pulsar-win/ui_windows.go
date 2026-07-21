@@ -485,6 +485,9 @@ func onPairDone(ctx *onboardingCtx) {
 }
 
 func setText(h windows.Handle, s string) {
+	if h == 0 || windowText(h) == s {
+		return
+	}
 	pSetWindowTextW.Call(uintptr(h), uintptr(unsafe.Pointer(u16(s))))
 }
 

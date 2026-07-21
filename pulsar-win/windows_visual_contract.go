@@ -50,17 +50,17 @@ func windowsThemePalette(mode WindowsVisualMode) WindowsThemePalette {
 
 func windowsShellMetrics(dpi int) WindowsShellMetrics {
 	return WindowsShellMetrics{
-		Margin: dip(20, dpi), Gutter: dip(12, dpi), SidebarWidth: dip(188, dpi),
-		HeaderHeight: dip(44, dpi), ButtonHeight: dip(44, dpi), CardHeight: dip(96, dpi),
+		Margin: dip(24, dpi), Gutter: dip(10, dpi), SidebarWidth: dip(200, dpi),
+		HeaderHeight: dip(40, dpi), ButtonHeight: dip(40, dpi), CardHeight: dip(104, dpi),
 	}
 }
 
 func windowsShellMinimumClient(dpi int) (width, height int) {
-	return dip(900, dpi), dip(760, dpi)
+	return dip(900, dpi), dip(680, dpi)
 }
 
 func windowsShellPreferredClient(dpi int) (width, height int) {
-	return dip(1080, dpi), dip(820, dpi)
+	return dip(1040, dpi), dip(700, dpi)
 }
 
 func windowsColorContrast(foreground, background uint32) float64 {

@@ -1,5 +1,5 @@
 ## Status
-backlog
+development
 
 ## Review
 required
@@ -20,6 +20,7 @@ code
 - [ ] Add self-contained state previews and pass Swift UI/model tests plus release build.
 
 ## Notes
+2026-07-21 strict sequential execution started after Windows production UI exact-head ee09731 passed hosted CI run 29826221592 and independent Claude Opus 4.8 review RUN-260721-d12388. Scope is production macOS SwiftUI shell only; no manual Retina, VoiceOver or hardware acceptance is inferred.
 
 ## Precondition Resources
 (none)
@@ -31,4 +32,7 @@ code
 2026-07-21T10:56:32Z
 
 ## Last Update
-2026-07-21T10:56:51Z
+2026-07-21T11:35:44Z
+
+## Assigned To
+codex-root-inline

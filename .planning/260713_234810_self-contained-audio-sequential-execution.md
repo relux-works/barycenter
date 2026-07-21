@@ -15,9 +15,9 @@
 - Started: 2026-07-14
 - Mode: strict sequential inline engineering execution; task-board tracked
   spawn is used only for explicitly owner-authorized independent reviewers.
-- Current engineering task: `TASK-260721-2lv6wn` — Professional system-native
-  Windows shell. It begins only after the silent-launch/high-DPI probe fix was
-  independently accepted and its exact hosted Windows package CI passed.
+- Current engineering task: `TASK-260721-8pwqje` — Professional system-native
+  macOS shell. It begins only after the Windows production shell was accepted
+  against its exact hosted CI head.
 - Current strict remediation order: `BUG-260721-1npwy8` →
   `TASK-260721-2lv6wn` Professional system-native Windows shell →
   `TASK-260721-8pwqje` Professional system-native macOS shell →
@@ -28,8 +28,8 @@
   aggregate-only `done` containers, not acceptance verdicts. Their provenance
   and negative evidence remain.
 - Current delivery progress: original plan `186/205` accepted (`90.7%`), new
-  autonomous remediation `1/4` accepted (`25%`) and `2/4`
-  implementation-complete (`50%`), consolidated manual gate `0/1`. No new
+  autonomous remediation `2/4` accepted (`50%`), consolidated manual gate
+  `0/1`. No new
   hardware, accessibility-reader, audible, Store or production claim is made.
 - 2026-07-21 autonomous remediation checkpoint: `BUG-260721-1npwy8` now has a
   maintained hidden scheduled-observer runner, PE-header GUI-subsystem
@@ -47,8 +47,10 @@
   DPI-correct preferred/minimum geometry and corrected GDI resource lifecycle.
   Deterministic contrast/theme/source/96-192-DPI tests, full Go/race suites,
   Windows vet and the GUI cross-build pass locally. Hosted exact-head CI and
-  independent acceptance remain before this task increments the accepted
-  count.
+  exact-head CI run `29826221592` passed 4/4 jobs and Claude Opus 4.8 run
+  `RUN-260721-d12388` accepted commit `ee09731`. Non-blocking review notes keep
+  pre-existing inline sub-panel `dip()` calls and text/surface semantic states
+  for later delta review; neither weakens the accepted task contract.
 - Historical manual frontier before the 2026-07-21 consolidation: the manual testing epic
   `EPIC-260714-th54l3`; no manual result is claimed by this engineering run.
   Strict manual execution is active at `TASK-260712-1vtwkl`: the current-build

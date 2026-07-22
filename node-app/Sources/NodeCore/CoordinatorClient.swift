@@ -205,7 +205,7 @@ public final class CoordinatorClient: NSObject {
                 self?.releaseLiveSend()
                 return
             }
-            self.sendBinary(data) { [weak self] failed in
+            self.send(data, opcode: .binary) { [weak self] failed in
                 self?.releaseLiveSend()
                 if failed {
                     self?.log.warn("live binary send failed")
@@ -215,12 +215,20 @@ public final class CoordinatorClient: NSObject {
         return true
     }
 
-    /// Sends one binary WebSocket frame on the current connection. `completion`
-    /// reports whether the send failed. Must be called on `queue`.
-    private func sendBinary(_ data: Data, completion: @escaping (Bool) -> Void) {
+    /// Sends one WebSocket frame with the given opcode. `completion` reports
+    /// whether the send failed. Must be called on `queue`.
+    ///
+    /// Frame type is protocol-significant: the coordinator only accepts JSON
+    /// control messages (register, ping, state, …) as TEXT frames and reserves
+    /// BINARY exclusively for LivePTT audio — a control message sent as binary
+    /// is silently dropped at register and in the command loop.
+    private func send(
+        _ data: Data, opcode: NWProtocolWebSocket.Opcode,
+        completion: @escaping (Bool) -> Void
+    ) {
         guard let connection = conn else { completion(true); return }
-        let metadata = NWProtocolWebSocket.Metadata(opcode: .binary)
-        let context = NWConnection.ContentContext(identifier: "binary", metadata: [metadata])
+        let metadata = NWProtocolWebSocket.Metadata(opcode: opcode)
+        let context = NWConnection.ContentContext(identifier: "ws", metadata: [metadata])
         connection.send(
             content: data, contentContext: context, isComplete: true,
             completion: .contentProcessed { error in completion(error != nil) })
@@ -230,7 +238,7 @@ public final class CoordinatorClient: NSObject {
         let id = "msg_" + ULID.new()
         do {
             let data = try ProtocolCodec.encode(id: id, ts: Self.nowMs(), message: message)
-            sendBinary(data) { [weak self] failed in
+            send(data, opcode: .text) { [weak self] failed in
                 if failed {
                     self?.log.warn("ws send failed", ["type": URLRedactor.safeProtocolType(message.typeName)])
                 }

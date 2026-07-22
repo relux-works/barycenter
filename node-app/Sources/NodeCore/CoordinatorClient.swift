@@ -1,9 +1,17 @@
 // WebSocket client to the coordinator (spec 6.2 item 4, ch. 8):
 // register on connect, protocol ping every 10 s (clock sync 8.5), state
 // heartbeat every 5 s, reconnect with exponential backoff, incoming commands
-// delivered to a handler. URLSessionWebSocketTask keeps us dependency-free.
+// delivered to a handler.
+//
+// Transport is Network.framework (NWConnection), not URLSessionWebSocketTask:
+// the coordinator sits behind a reverse proxy that advertises HTTP/2 in ALPN,
+// and URLSessionWebSocketTask negotiates h2 there — the WebSocket upgrade then
+// fails ("Socket is not connected") and the node never registers. NWConnection
+// lets us pin ALPN to http/1.1, which the RFC 6455 upgrade requires and which
+// URLSession offers no public way to force.
 
 import Foundation
+import Network
 
 public final class CoordinatorClient: NSObject {
     public struct Identity {
@@ -25,8 +33,8 @@ public final class CoordinatorClient: NSObject {
     private let log: Logger
     private let queue = DispatchQueue(label: "duet.coordinator-client")
 
-    private var task: URLSessionWebSocketTask?
-    private var session: URLSession!
+    private var conn: NWConnection?
+    private var reconnectPending = false
     private var backoffSeconds: Double = 1
     private var stopped = false
     private var healthy = false
@@ -63,9 +71,20 @@ public final class CoordinatorClient: NSObject {
         self.capabilities = capabilities
         self.log = log
         super.init()
-        let cfg = URLSessionConfiguration.default
-        cfg.timeoutIntervalForRequest = 10
-        session = URLSession(configuration: cfg, delegate: nil, delegateQueue: nil)
+    }
+
+    /// TLS + WebSocket parameters with ALPN pinned to http/1.1. Advertising only
+    /// http/1.1 prevents the reverse proxy from selecting HTTP/2, under which the
+    /// RFC 6455 upgrade cannot complete.
+    private static func makeParameters() -> NWParameters {
+        let tls = NWProtocolTLS.Options()
+        sec_protocol_options_add_tls_application_protocol(
+            tls.securityProtocolOptions, "http/1.1")
+        let params = NWParameters(tls: tls)
+        let ws = NWProtocolWebSocket.Options()
+        ws.autoReplyPing = true
+        params.defaultProtocolStack.applicationProtocols.insert(ws, at: 0)
+        return params
     }
 
     public func start() {
@@ -79,17 +98,44 @@ public final class CoordinatorClient: NSObject {
             self.setLiveTransportReady(false)
             self.pingTimer?.cancel()
             self.heartbeatTimer?.cancel()
-            self.task?.cancel(with: .goingAway, reason: nil)
+            self.conn?.cancel()
+            self.conn = nil
         }
     }
 
     private func connect() {
         guard !stopped else { return }
         healthy = false
+        reconnectPending = false
         log.info("connecting to coordinator", ["origin": URLRedactor.originOnly(url)])
-        let t = session.webSocketTask(with: url)
-        task = t
-        t.resume()
+        let connection = NWConnection(to: .url(url), using: Self.makeParameters())
+        conn = connection
+        connection.stateUpdateHandler = { [weak self] state in
+            // Delivered on `queue` (see start(queue:)), matching every other
+            // mutation of this client's state.
+            guard let self else { return }
+            switch state {
+            case .ready:
+                self.onConnectionReady()
+            case .failed(let error):
+                self.log.warn("ws connection failed, reconnecting", ["err": "\(error)"])
+                self.scheduleReconnect()
+            case .waiting(let error):
+                self.log.warn("ws connection waiting, reconnecting", ["err": "\(error)"])
+                self.scheduleReconnect()
+            case .cancelled:
+                break
+            default:
+                break
+            }
+        }
+        connection.start(queue: queue)
+    }
+
+    /// Fires once the WebSocket upgrade to /ws has completed. Registration and
+    /// the ping/heartbeat timers only run on a live socket.
+    private func onConnectionReady() {
+        guard !stopped else { conn?.cancel(); return }
         receiveNext()
         sendMessageOnQueue(.register(RegisterPayload(
             nodeId: identity.nodeId,
@@ -155,13 +201,13 @@ public final class CoordinatorClient: NSObject {
         liveSendQueued += 1
         liveSendLock.unlock()
         queue.async { [weak self] in
-            guard let self, let task = self.task, self.healthy else {
+            guard let self, self.conn != nil, self.healthy else {
                 self?.releaseLiveSend()
                 return
             }
-            task.send(.data(data)) { [weak self] error in
+            self.sendBinary(data) { [weak self] failed in
                 self?.releaseLiveSend()
-                if error != nil {
+                if failed {
                     self?.log.warn("live binary send failed")
                 }
             }
@@ -169,12 +215,23 @@ public final class CoordinatorClient: NSObject {
         return true
     }
 
+    /// Sends one binary WebSocket frame on the current connection. `completion`
+    /// reports whether the send failed. Must be called on `queue`.
+    private func sendBinary(_ data: Data, completion: @escaping (Bool) -> Void) {
+        guard let connection = conn else { completion(true); return }
+        let metadata = NWProtocolWebSocket.Metadata(opcode: .binary)
+        let context = NWConnection.ContentContext(identifier: "binary", metadata: [metadata])
+        connection.send(
+            content: data, contentContext: context, isComplete: true,
+            completion: .contentProcessed { error in completion(error != nil) })
+    }
+
     private func sendMessageOnQueue(_ message: Message) {
         let id = "msg_" + ULID.new()
         do {
             let data = try ProtocolCodec.encode(id: id, ts: Self.nowMs(), message: message)
-            task?.send(.data(data)) { [weak self] error in
-                if error != nil {
+            sendBinary(data) { [weak self] failed in
+                if failed {
                     self?.log.warn("ws send failed", ["type": URLRedactor.safeProtocolType(message.typeName)])
                 }
             }
@@ -186,29 +243,37 @@ public final class CoordinatorClient: NSObject {
     }
 
     private func receiveNext() {
-        task?.receive { [weak self] result in
+        conn?.receiveMessage { [weak self] content, context, _, error in
             guard let self else { return }
-            self.queue.async {
-                switch result {
-                case .failure:
-                    self.log.warn("ws receive failed, reconnecting")
-                    self.scheduleReconnect()
-                case .success(let wsMessage):
-                    let t4 = Self.nowMs()
-                    switch wsMessage {
-                    case .data(let data) where Self.isLivePTTBinary(data):
-                        self.handleIncomingLivePTT(data)
-                        self.receiveNext()
-                        return
-                    case .data(let data):
-                        if self.handleIncoming(data, t4: t4) { self.receiveNext() }
-                    case .string(let string):
-                        if self.handleIncoming(Data(string.utf8), t4: t4) { self.receiveNext() }
-                    @unknown default:
-                        self.log.warn("unknown websocket frame ignored")
-                        self.receiveNext()
-                    }
+            // Delivered on `queue` (start(queue:)).
+            if error != nil {
+                self.log.warn("ws receive failed, reconnecting")
+                self.scheduleReconnect()
+                return
+            }
+            let opcode = (context?.protocolMetadata(definition: NWProtocolWebSocket.definition)
+                as? NWProtocolWebSocket.Metadata)?.opcode
+            switch opcode {
+            case .some(.close), .none:
+                // A close frame — or a message we cannot classify — means the
+                // socket has ended; a live text/binary frame always carries
+                // WebSocket metadata, so absent metadata is treated as closed.
+                self.log.warn("ws closed by peer, reconnecting")
+                self.scheduleReconnect()
+            case .some(.text), .some(.binary):
+                let data = content ?? Data()
+                let t4 = Self.nowMs()
+                if opcode == .some(.binary), Self.isLivePTTBinary(data) {
+                    self.handleIncomingLivePTT(data)
+                    self.receiveNext()
+                    return
                 }
+                if self.handleIncoming(data, t4: t4) { self.receiveNext() }
+            case .some(.ping), .some(.pong), .some(.cont):
+                self.receiveNext()
+            case .some:
+                self.log.warn("unknown websocket frame ignored")
+                self.receiveNext()
             }
         }
     }
@@ -285,13 +350,14 @@ public final class CoordinatorClient: NSObject {
     }
 
     private func scheduleReconnect() {
-        guard !stopped else { return }
+        guard !stopped, !reconnectPending else { return }
+        reconnectPending = true
         healthy = false
         setLiveTransportReady(false)
         pingTimer?.cancel()
         heartbeatTimer?.cancel()
-        task?.cancel()
-        task = nil
+        conn?.cancel()
+        conn = nil
         let delay = backoffSeconds
         backoffSeconds = min(backoffSeconds * 2, 30)
         log.info("reconnect scheduled", ["after_s": delay])

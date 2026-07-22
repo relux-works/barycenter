@@ -57,8 +57,8 @@ func renderControlPublicationSafety() throws {
     #expect(!source.contains("UnsafeMutablePointer<Bool>"))
     #expect(source.contains("private let gainCommandProducerLock = NSLock()"))
     #expect(source.contains("gainCommandProducerLock.withLock"))
-    #expect(source.contains("open(fifoPath, O_RDONLY | O_NONBLOCK)"),
-            "reader shutdown must not depend on a FIFO writer connecting")
+    #expect(source.contains("open(fifoPath, O_RDWR | O_NONBLOCK)"),
+            "reader must hold a persistent writer ref (O_RDWR) so go-librespot can always attach, and stay non-blocking so shutdown does not depend on a FIFO writer connecting")
 
     let begin = try #require(source.range(of: "// BEGIN RENDER CALLBACK")?.upperBound)
     let end = try #require(

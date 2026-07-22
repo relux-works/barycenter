@@ -50,7 +50,7 @@
     {"path": "node-app/Sources/NodeCore/MacLiveCaptureSender.swift", "sha256": "b8a2753da40b3d23fd131a939309d1c368f818cf300b0ff7e1e5da0c06046354"},
     {"path": "node-app/Sources/NodeCore/MacLiveJitterReceiver.swift", "sha256": "7dd0768dd9f3e6022a8cb0355c950690c17f789de2342e92aa844ce34651fc72"},
     {"path": "node-app/Sources/NodeCore/MacLivePTTNode.swift", "sha256": "129ff8304c7d5ed6b3871108706dca8f905baa02f4658c6bfdc5f3a478024cba"},
-    {"path": "node-app/Sources/NodeCore/AudioEngine.swift", "sha256": "5d63fcd20d6b7b80c0a70b871cd85e33425955f4c9f1dcb75ae0b15d4e682150"},
+    {"path": "node-app/Sources/NodeCore/AudioEngine.swift", "sha256": "5e9aa34806b9d5ff340a9ad31aa60da1f700147cf25d12c7e63c00a5d42b1ad5"},
     {"path": "node-app/Sources/NodeCore/MacCaptureQualityProcessor.swift", "sha256": "c8a1e3b569a0c716b1cf59ef208c28a35808ff6d469ff4638a77b2c845216690"},
     {"path": "node-app/Sources/NodeCore/MacAVAudioCaptureBackend.swift", "sha256": "2281a29e3e857b92906bae8d247a717eaac53123f6f1bd827e6fb1318123d270"},
     {"path": "node-app/Sources/NodeCore/MacOverlayMediaClipMixer.swift", "sha256": "753e7ad9baa3e72f19ef0025df15b13662ebd6ce7a6eb8de089a6336289fcced"},

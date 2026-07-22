@@ -567,10 +567,16 @@ public final class AudioEngine {
         let chunkBytes = 16384
         var byteBuf = [UInt8](repeating: 0, count: chunkBytes)
         while readerActive.load() != 0 {
-            // A blocking FIFO open cannot observe stopEngine() when no writer
-            // ever connects. Non-blocking open/read keeps shutdown bounded;
-            // the ring-full loop below still provides lossless backpressure.
-            let fd = open(fifoPath, O_RDONLY | O_NONBLOCK)
+            // Open O_RDWR, not O_RDONLY: the reader must keep the FIFO openable
+            // by go-librespot at all times. With O_RDONLY|O_NONBLOCK, read()
+            // returns 0 (EOF) whenever no writer is connected (idle), so the
+            // loop would close and reopen with a gap — and go-librespot's
+            // non-blocking write-open landing in that gap fails with ENXIO
+            // ("device not configured"), dropping the track. Holding an O_RDWR
+            // descriptor keeps a persistent writer reference: read() returns
+            // EAGAIN while idle (never EOF), and the daemon can always attach.
+            // Non-blocking still keeps stopEngine() shutdown bounded.
+            let fd = open(fifoPath, O_RDWR | O_NONBLOCK)
             if fd < 0 {
                 log.warn("fifo open failed", ["errno": errno])
                 Thread.sleep(forTimeInterval: 0.5)

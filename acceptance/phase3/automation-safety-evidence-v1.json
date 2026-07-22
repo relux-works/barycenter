@@ -181,7 +181,7 @@
     {"path": "pulsar-win/overlay_mixer_test.go", "sha256": "26b76451e51aba9a0c8019913bcd6050dd02f1e580316a7a9c75ffc2316f5d74"},
     {"path": "pulsar-win/windows_soundboard_test.go", "sha256": "1878c3c17778b9bab859f0da720d82a23c18babc446703784832e54782af0959"},
     {"path": "pulsar-win/windows_automation_admin_test.go", "sha256": "801bec6b6f9be0e2b0e243b0dc8bf47b677892090a97c83b577df4435dbf3260"},
-    {"path": "node-app/Tests/NodeCoreTests/RenderSafetySourceTests.swift", "sha256": "81cc8366f57da9386b4c2db2bda3fba65dc2866b08c8395022d25d06b229f168"},
+    {"path": "node-app/Tests/NodeCoreTests/RenderSafetySourceTests.swift", "sha256": "a38718fa60e54b2a3daa4cfac8c3bd8b36382a827091d0c46a973c8788f2b823"},
     {"path": "node-app/Tests/NodeCoreTests/MacSoundboardTests.swift", "sha256": "bc4551fb07821bfa17eeb08b1f1577a11ca7284762003f7c0f905b567d708779"},
     {"path": "node-app/Tests/NodeCoreTests/AutomationAdminClientTests.swift", "sha256": "10656728e3416be3161da431c7038b04bee642f5acfb44f3779dbe5f269d6a66"}
   ]

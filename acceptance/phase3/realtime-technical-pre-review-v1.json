@@ -50,7 +50,7 @@
     {"path": "node-app/Sources/NodeCore/MacLiveCaptureSender.swift", "sha256": "b8a2753da40b3d23fd131a939309d1c368f818cf300b0ff7e1e5da0c06046354"},
     {"path": "node-app/Sources/NodeCore/MacLiveJitterReceiver.swift", "sha256": "7dd0768dd9f3e6022a8cb0355c950690c17f789de2342e92aa844ce34651fc72"},
     {"path": "node-app/Sources/NodeCore/MacLivePTTNode.swift", "sha256": "129ff8304c7d5ed6b3871108706dca8f905baa02f4658c6bfdc5f3a478024cba"},
-    {"path": "node-app/Sources/NodeCore/AudioEngine.swift", "sha256": "5d63fcd20d6b7b80c0a70b871cd85e33425955f4c9f1dcb75ae0b15d4e682150"},
+    {"path": "node-app/Sources/NodeCore/AudioEngine.swift", "sha256": "5e9aa34806b9d5ff340a9ad31aa60da1f700147cf25d12c7e63c00a5d42b1ad5"},
     {"path": "node-app/Sources/NodeCore/MacCaptureQualityProcessor.swift", "sha256": "c8a1e3b569a0c716b1cf59ef208c28a35808ff6d469ff4638a77b2c845216690"},
     {"path": "node-app/Sources/NodeCore/MacAVAudioCaptureBackend.swift", "sha256": "2281a29e3e857b92906bae8d247a717eaac53123f6f1bd827e6fb1318123d270"},
     {"path": "node-app/Sources/NodeCore/MacOverlayMediaClipMixer.swift", "sha256": "753e7ad9baa3e72f19ef0025df15b13662ebd6ce7a6eb8de089a6336289fcced"},
@@ -58,7 +58,7 @@
     {"path": "node-app/Sources/NodeCore/RingBuffer.swift", "sha256": "cc90cb9b3d68c426f3c4ca0d48f4c1beda32385aa2c5a461efd35246c667a055"},
     {"path": "node-app/Sources/NodeCore/LivePTTProtocol.swift", "sha256": "269d38d12ef411dd92bbe0c820391efdfde7ad77cd7ada7da1fe033939d8bb4c"},
     {"path": "acceptance/phase3/capture-quality-integrated-regressions-v1.json", "sha256": "a8e9bed5bf060ccbfb5622c935f340086801d25579f1ec44904c801da13b2e93"},
-    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "44c65f42ef166b558df487eaa68a926cd201ea64df388a4a0d054f2690b1adb7"}
+    {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "d0b70d01326277cb908d4e2095e5ee7dcbe2402a9f81c4c05a02f1a8c62cc7fd"}
   ],
   "reviewedInvariants": [
     "one-generation-one-capture-owner",

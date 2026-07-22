@@ -15,7 +15,7 @@
     {"path": "acceptance/phase3/capture-quality-integrated-regressions-v1.json", "sha256": "a8e9bed5bf060ccbfb5622c935f340086801d25579f1ec44904c801da13b2e93"},
     {"path": "acceptance/phase3/e2ee-threat-model-v1.json", "sha256": "a0d981e077d2b22b76ba21b6efb5fa8f680467c0337d758365a95aea9868a66d"},
     {"path": "acceptance/phase3/e2ee-protocol-key-lifecycle-v1.json", "sha256": "6015b911f8e83c8228c4c3f3b763c2e9852c2ea7f773be488d45ced0fc80578c"},
-    {"path": "acceptance/phase3/automation-safety-evidence-v1.json", "sha256": "a4a2488412046aeebf2db4a1367322f270078a6a17c104d23178f24e385564e7"},
+    {"path": "acceptance/phase3/automation-safety-evidence-v1.json", "sha256": "4b52ced53c7e3d610646cca435402703473c12dbfbaa340d846f123331feaaca"},
     {"path": "docs/compliance/legal-ops-inputs.json", "sha256": "adf48d5cba2c8b65f0d3a11a089f4b61b0f300c3286ab2b4a267d51186b4f9d7"}
   ],
   "claimClasses": {

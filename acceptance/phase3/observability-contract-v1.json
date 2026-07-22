@@ -76,7 +76,7 @@
   "sourceAnchors": [
     {"path": "coordinator/internal/store/phase3_observability.go", "sha256": "0894e7594ce9a7166b86a9281e6b90048433a7b6d8a635ef283ced22f226bd30"},
     {"path": "coordinator/cmd/duet-coordinator/phase3_observability_http.go", "sha256": "3c2acda91eb80b179b553f62514f7e61b2a6feee1a98e7266da69423cff33ab0"},
-    {"path": "coordinator/cmd/duet-coordinator/onboarding.go", "sha256": "4836c69d1e359fbc0154031e125bf42ed12c7fe15ef92e2ffbf758fa5668356e"},
+    {"path": "coordinator/cmd/duet-coordinator/onboarding.go", "sha256": "5a6dd767bfd263119cf7e5d093af2b07edabc012423de0ffdada751e5ac50fce"},
     {"path": "coordinator/cmd/duet-coordinator/main.go", "sha256": "c31512df77f36ed82be588cddc3f776c7bfc57151dfba767162f02b634f3433a"},
     {"path": "acceptance/phase3/gate-matrix-v1.json", "sha256": "44c65f42ef166b558df487eaa68a926cd201ea64df388a4a0d054f2690b1adb7"},
     {"path": "docs/compliance/legal-ops-inputs.json", "sha256": "adf48d5cba2c8b65f0d3a11a089f4b61b0f300c3286ab2b4a267d51186b4f9d7"}

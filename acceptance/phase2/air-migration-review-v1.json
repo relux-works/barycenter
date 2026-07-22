@@ -73,7 +73,7 @@
     },
     {
       "path": "coordinator/cmd/duet-coordinator/onboarding.go",
-      "sha256": "4836c69d1e359fbc0154031e125bf42ed12c7fe15ef92e2ffbf758fa5668356e"
+      "sha256": "5a6dd767bfd263119cf7e5d093af2b07edabc012423de0ffdada751e5ac50fce"
     },
     {
       "path": "coordinator/cmd/duet-coordinator/telegram_air.go",

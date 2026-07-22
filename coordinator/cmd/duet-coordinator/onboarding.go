@@ -527,24 +527,41 @@ func secureRequest(r *http.Request, trustedProxy bool) bool {
 		return true
 	}
 	peer := directPeerIP(r)
-	if peer == nil || !peer.IsLoopback() {
-		// Forwarding headers cannot authenticate a non-loopback direct peer.
+	if peer == nil {
 		return false
 	}
-	if !trustedProxy || !hasForwardingMarker(r) {
+	if peer.IsLoopback() && (!trustedProxy || !hasForwardingMarker(r)) {
 		// Direct loopback is the explicit local/test exception in the contract.
 		return true
 	}
-	// A configured loopback TLS terminator represents an external origin only
-	// when it asserts the canonical secure scheme and its proxy-appended final
-	// XFF hop is a valid IP. Missing, duplicated, comma-valued, or plaintext
-	// scheme markers fail closed.
-	protoValues := r.Header.Values("X-Forwarded-Proto")
-	if len(protoValues) != 1 || protoValues[0] != "https" {
+	if !trustedProxy {
+		// Without an operator-declared trusted proxy, neither a non-loopback
+		// direct peer nor a loopback peer already carrying forwarding markers can
+		// authenticate the secure origin: the headers are client-forgeable.
 		return false
 	}
-	_, ok := forwardedClientIP(r)
+	// A declared trusted proxy (the sole route to the port) stands in for an
+	// external secure origin only when it asserts the canonical secure scheme
+	// and a single well-formed proxy-appended XFF hop. This holds whether the
+	// terminator reaches the listener over loopback or a private container
+	// network (Coolify/Docker). Missing, duplicated, comma-valued, or plaintext
+	// scheme markers fail closed.
+	_, ok := proxyForwardedClientIP(r)
 	return ok
+}
+
+// proxyForwardedClientIP returns the client IP a trusted proxy appended when
+// the request carries the canonical secure forwarding frame: exactly one
+// X-Forwarded-Proto of "https" and a single, well-formed final X-Forwarded-For
+// hop. The transport-security gate and the onboarding rate-limit source key
+// both trust this frame, and only from a proxy the operator has declared
+// trusted (DUET_TRUSTED_PROXY). Any ambiguity fails closed.
+func proxyForwardedClientIP(r *http.Request) (string, bool) {
+	protoValues := r.Header.Values("X-Forwarded-Proto")
+	if len(protoValues) != 1 || protoValues[0] != "https" {
+		return "", false
+	}
+	return forwardedClientIP(r)
 }
 
 func hasForwardingMarker(r *http.Request) bool {
@@ -567,11 +584,18 @@ func onboardingClientIP(r *http.Request, trustedProxy bool) string {
 		return clientIP(r, false)
 	}
 	peer := directPeerIP(r)
-	if trustedProxy && peer != nil && peer.IsLoopback() {
-		if forwarded, ok := forwardedClientIP(r); ok {
+	if trustedProxy && peer != nil {
+		// The proxy-appended last hop is the real client — keeping per-client
+		// rate-limit buckets instead of collapsing everyone behind the proxy
+		// into one bucket. A loopback terminator that forwards no canonical hop
+		// stays keyed to itself; a non-loopback terminator without the canonical
+		// frame falls through to the direct-peer key below.
+		if forwarded, ok := proxyForwardedClientIP(r); ok {
 			return forwarded
 		}
-		return peer.String()
+		if peer.IsLoopback() {
+			return peer.String()
+		}
 	}
 	return clientIP(r, false)
 }

@@ -804,9 +804,11 @@ func TestAttemptLimiterReleasesExactSuccessfulReservation(t *testing.T) {
 	}
 }
 
-func TestForwardedHeadersRequireLoopbackProxyPeer(t *testing.T) {
+func TestForwardedHeadersRequireCanonicalTrustedProxyFrame(t *testing.T) {
 	harness := newOnboardingHarness(t)
 	harness.api.config.TrustedProxy = true
+	// A trusted proxy peer that asserts the scheme but no valid XFF hop (only
+	// X-Real-Ip) still fails closed — the canonical frame requires XFF.
 	forged := httptest.NewRequest(http.MethodPost, "/v1/onboarding/orbits",
 		strings.NewReader(`{"title":"Forged","installation_attempt_id":"forged_attempt_0001"}`))
 	forged.RemoteAddr = "203.0.113.20:1234"
@@ -862,6 +864,29 @@ func TestForwardedHeadersRequireLoopbackProxyPeer(t *testing.T) {
 	if !secureRequest(proxyRequest("127.0.0.1:9000", "", "", ""), true) ||
 		!secureRequest(proxyRequest("[::1]:9000", "", "", ""), false) {
 		t.Fatal("direct loopback local/test request was rejected")
+	}
+	// Production topology (Coolify/Docker): the TLS terminator reaches the
+	// listener over a private container network, so its direct peer is not
+	// loopback. A declared trusted proxy is honored when it presents the
+	// canonical https + single-XFF frame.
+	if !secureRequest(proxyRequest("10.0.1.5:8080", "https", "198.51.100.9", ""), true) {
+		t.Fatal("trusted non-loopback proxy with canonical https frame was rejected")
+	}
+	// The same frame is refused without the operator's trusted-proxy declaration.
+	if secureRequest(proxyRequest("10.0.1.5:8080", "https", "198.51.100.9", ""), false) {
+		t.Fatal("non-loopback proxy trusted without DUET_TRUSTED_PROXY")
+	}
+	// A trusted non-loopback proxy still fails closed on a non-canonical frame.
+	if secureRequest(proxyRequest("10.0.1.5:8080", "https", "", "198.51.100.9"), true) {
+		t.Fatal("trusted non-loopback proxy accepted X-Real-IP without XFF")
+	}
+	if secureRequest(proxyRequest("10.0.1.5:8080", "http", "198.51.100.9", ""), true) {
+		t.Fatal("trusted non-loopback proxy accepted plaintext scheme")
+	}
+	// Its rate-limit source key is the proxy-appended last hop, so per-client
+	// limits are not collapsed into a single shared proxy bucket.
+	if got := onboardingClientIP(proxyRequest("10.0.1.5:8080", "https", "192.0.2.1, 198.51.100.9", ""), true); got != "198.51.100.9" {
+		t.Fatalf("trusted non-loopback proxy source=%q", got)
 	}
 	if got := onboardingClientIP(proxyRequest("127.0.0.1:9000", "https", "192.0.2.1, 198.51.100.9", "203.0.113.99"), true); got != "198.51.100.9" {
 		t.Fatalf("proxy last-hop source=%q", got)

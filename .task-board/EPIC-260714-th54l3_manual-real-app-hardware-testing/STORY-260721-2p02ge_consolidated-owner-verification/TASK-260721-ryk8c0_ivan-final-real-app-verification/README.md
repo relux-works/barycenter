@@ -1,10 +1,10 @@
 # TASK-260721-ryk8c0: ivan-final-real-app-verification
 
 ## Description
-Run the single final owner verification pass after the autonomous desktop engineering packet is published. Follow the supplied exact-build script once on mbpro-win and once on macOS, record only the requested screenshots/logs and return one pass/fail packet.
+Sole current owner verification. Historical checklist rows 1-6 are superseded archival text and must remain unchecked/not-run; they are not requested work. Follow only the single Mac Create to Windows Join sequence below and the attached final-owner-verification.md.
 
 ## Scope
-Windows: normal Start-menu/MSIX launch with no terminal, permission deny/allow, built-in-mic capture, playback/duck/interrupt, hotkey fallback, picker persistence, UI scaling/keyboard/readability, suspend/lock/restart, uninstall cleanup. macOS: normal notarized launch, Keychain/onboarding, permission deny/allow, built-in-mic capture, overlay/interrupt, menu bar/hotkey, Retina UI/keyboard/VoiceOver spot checks, sleep/relaunch/cleanup. Cross-service: one real target/Air/Telegram or equivalent transport path, one streaming/live path when enabled, moderation/delete/recovery smoke, and the final passive soak defined by the handoff. Unsupported or disabled capabilities are recorded honestly, never inferred.
+Two ordinary app screens only: on Mac choose Create, create once, save the one-time recovery file, open Devices, generate and copy one invitation; on Windows open Join, paste that invitation, choose Join securely once, and report the exact visible result. No Terminal, logs, audio, hardware, accessibility, soak, cleanup matrix, or legacy manual task is requested.
 
 ## Acceptance Criteria
-Ivan Oparin runs only this task, against exact hashes supplied by TASK-260721-2346wf. Every checklist row has PASS, FAIL, BLOCKED or NOT_APPLICABLE plus a timestamp and requested artifact reference. Both apps launch as ordinary GUI applications, primary capture/playback and recovery paths are exercised, critical UI is legible and keyboard reachable, and cleanup is verified. A FAIL creates a focused engineering bug; no individual legacy manual task is revived unless needed for provenance.
+Ivan Oparin reports only the visible Mac state after one invitation copy and the visible Windows state or exact error after Join securely. The installed candidates match the hashes in TASK-260722-1zv67l. No manual row is pre-checked, no manual/hardware PASS is inferred, and a failure is routed to the focused task or bug named in the attached handoff without repeating the flow.

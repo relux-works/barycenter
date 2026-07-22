@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "task": "TASK-260722-1zv67l",
+  "assembledAtUTC": "2026-07-21T23:59:37Z",
+  "status": "pass",
+  "manualEvidence": "not-run",
+  "manualPassClaimed": false,
+  "manualRowsPassed": [],
+  "coordinator": {
+    "endpoint": "https://barycenter.relux.works",
+    "probeMethod": "GET-only",
+    "health": {
+      "httpStatus": 200,
+      "status": "ok",
+      "version": "git-3565c1e1ca0511168026ec2ba72440d23fb1317f",
+      "orbits": 3,
+      "nodesConnected": 0
+    },
+    "routes": {
+      "create": 400,
+      "deviceInvite": 400,
+      "consumeInvite": 400,
+      "unknownControl": 404
+    }
+  },
+  "macos": {
+    "installedPath": "/Applications/Pulsar.app",
+    "sourceCommit": "fb807e1caa40ebb7d206d983e234b626f4457945",
+    "bundleIdentifier": "works.relux.pulsar",
+    "version": "0.3.0",
+    "build": "946",
+    "architecture": "x86_64",
+    "signature": {
+      "codesignVerified": true,
+      "authority": "duet-nodeapp",
+      "certificateSha1": "40DF8747F4232A938A57313718A71748A553388D",
+      "cdHash": "020f0a58bdfebb8371fb07bc070787b7615a9450",
+      "localTestOnly": true,
+      "notarized": false,
+      "gatekeeperExitCode": 3
+    },
+    "hashes": {
+      "nodeApp": "a862bfd563ef9956527ad5704e290966b8d8922cea3dbdd54cee2097f53fbabd",
+      "goLibrespot": "a6a6808104129b18e2b660526e4d44c8d1731d89f2e62ea6a2cce30e09c7d61f",
+      "infoPlist": "885b001d33a76ccf95e554e568594d9ae6037459592c45692dbf5d48ca429308",
+      "reviewArchive": "87313d3a64821aebf76b4e8d993041819cd7f9f3df20082d7f95c6383cad6c67"
+    },
+    "tests": {
+      "swiftTestExitCode": 0,
+      "releaseBuildExitCode": 0,
+      "focusedFirstRunExitCode": 0
+    },
+    "package": {
+      "archiveIntegrityExitCode": 0
+    },
+    "ordinaryLaunch": {
+      "openExitCode": 0,
+      "processId": 77965,
+      "parentPID": 1,
+      "finishedLaunching": true,
+      "visibleWindowCount": 1,
+      "windowWidth": 1120,
+      "windowHeight": 812,
+      "responsive": true,
+      "newCrashReports": 0
+    },
+    "firstRun": {
+      "credentialsPresent": false,
+      "createJoinContract": true
+    }
+  },
+  "windows": {
+    "host": "DESKTOP-3PBO632",
+    "osBuild": "10.0.19045.0",
+    "sourceCommit": "76f09a4d8be693d57cd5d47b9b9e5ac06196519c",
+    "hostedCIRun": 29863591495,
+    "packageFullName": "ReluxWorksLLC.PulsarBarycenter_0.1.20.0_x64__q036g2bzd7ngc",
+    "version": "0.1.20.0",
+    "packageStatus": "Ok",
+    "signatureKind": "Developer",
+    "packageArchiveRehashedNow": false,
+    "hashes": {
+      "packageArchive": "f74b5c8d6f8c86443f8c1b64715977be1b0183c39e7fc4dde7567c957b958348",
+      "executable": "0a77f53f026b77dd6abc3b265f18a8d32744847ca23571e97ddd999cc17a0042",
+      "goLibrespot": "1967b76fc6e8e91763cea10c1cac1bb5f97cdb08a6100bdb27c9a01470cf84ca",
+      "captureDLL": "8c1657d035ab738559c91c4c8468d6a4ba663a80dc96aab8951cc4c2d3b52c2f"
+    },
+    "installedComponentsRehashedNow": true,
+    "unpaired": {
+      "protectedCredentialsPresent": false,
+      "legacyCredentialsPresent": false
+    },
+    "ordinaryLaunch": {
+      "desktopShortcut": true,
+      "parentProcess": "explorer.exe",
+      "sessionId": 1,
+      "responding": true,
+      "hung": false,
+      "applicationCrashEvents": 0,
+      "appModelRemovalEvents": 0
+    },
+    "joinSurface": {
+      "navigationAutomationId": "3003",
+      "navigationControlType": "ControlType.Pane",
+      "navigationInvoked": true,
+      "navigationNativeClass": "Button",
+      "navigationNativeClickCompleted": true,
+      "inputAutomationId": "3027",
+      "inputControlType": "ControlType.Pane",
+      "inputVisible": true,
+      "inputEnabled": true,
+      "inputKeyboardFocusable": false,
+      "inputValuePatternAvailable": false,
+      "inputNativeClass": "Edit",
+      "inputNativeVisible": true,
+      "inputNativeEnabled": true,
+      "inputNativeTabStop": true,
+      "actionAutomationId": "3010",
+      "actionControlType": "ControlType.Pane",
+      "actionVisible": true,
+      "actionEnabled": true,
+      "actionInvokePatternAvailable": false,
+      "actionNativeClass": "Button",
+      "actionNativeVisible": true,
+      "actionNativeEnabled": true,
+      "uiaSemanticStatus": "unexpected-pane-no-patterns",
+      "invitationEntered": false,
+      "joinActionInvoked": false
+    }
+  },
+  "ownerHandoff": {
+    "task": "TASK-260721-ryk8c0",
+    "owner": "Ivan Oparin",
+    "terminalRequired": false,
+    "terminalCommands": [],
+    "screens": [
+      {
+        "platform": "macos",
+        "actions": [
+          "open_create",
+          "create",
+          "save_recovery",
+          "open_devices",
+          "generate_invitation",
+          "copy_code"
+        ]
+      },
+      {
+        "platform": "windows",
+        "actions": [
+          "open_join",
+          "paste_invitation",
+          "join_securely"
+        ]
+      }
+    ],
+    "report": "visible_result_only"
+  },
+  "limitations": [
+    "macos-local-signature-not-notarized",
+    "windows-local-developer-signature",
+    "manual-create-invite-join-not-run",
+    "hardware-audio-not-run"
+  ]
+}

@@ -173,7 +173,10 @@ if [[ -n "$CERT_HASH" ]]; then
     if [[ -d "$APP/Contents/Frameworks/Sparkle.framework" ]]; then
       codesign --force --deep --sign "$CERT_HASH" "${SIGN_OPTS[@]}" "$APP/Contents/Frameworks/Sparkle.framework"
     fi
-    codesign --force --sign "$CERT_HASH" --identifier "$BUNDLE_ID" "${SIGN_OPTS[@]}" "$APP"
+    # The main app carries the microphone entitlement so hardened-runtime mic
+    # access (voice capture) is permitted; nested code above does not touch the
+    # mic and is signed without it.
+    codesign --force --sign "$CERT_HASH" --identifier "$BUNDLE_ID" --entitlements "$ROOT/assets/macos/Pulsar.entitlements" "${SIGN_OPTS[@]}" "$APP"
 else
     echo "WARNING: identity '$SIGN_CN' not found (run scripts/setup-signing.sh);" >&2
     echo "         signing ad-hoc — TCC Automation will NOT survive updates (goal DoD-2)" >&2
@@ -183,7 +186,15 @@ else
     if [[ -d "$APP/Contents/Frameworks/Sparkle.framework" ]]; then
       codesign --force --deep --sign - "$APP/Contents/Frameworks/Sparkle.framework"
     fi
-    codesign --force --sign - --identifier "$BUNDLE_ID" "$APP"
+    codesign --force --sign - --identifier "$BUNDLE_ID" --entitlements "$ROOT/assets/macos/Pulsar.entitlements" "$APP"
+fi
+
+# Guard: the mic entitlement must be present on the signed app, or hardened-
+# runtime microphone access (voice capture) is silently denied despite the
+# NSMicrophoneUsageDescription prompt.
+if ! codesign -d --entitlements - --xml "$APP" 2>/dev/null | grep -q "com.apple.security.device.audio-input"; then
+  echo "FATAL: signed app is missing com.apple.security.device.audio-input (mic access would be denied)" >&2
+  exit 1
 fi
 
 echo "built $APP (version $VERSION)"

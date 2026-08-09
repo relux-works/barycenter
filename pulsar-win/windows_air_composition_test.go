@@ -19,6 +19,10 @@ type fakeAirService struct {
 	lastPolicy AirPolicy
 }
 
+func (f *fakeAirService) Availability(context.Context) (AirFeatureAvailability, error) {
+	return AirFeatureAvailability{Enabled: true, AuthorityState: "airs_authoritative"}, nil
+}
+
 type staleAirService struct {
 	*fakeAirService
 	once            sync.Once
@@ -27,6 +31,12 @@ type staleAirService struct {
 	old             AirDetail
 	mu              sync.Mutex
 	staleNextDetail bool
+}
+
+type disabledAirService struct{ *fakeAirService }
+
+func (s *disabledAirService) Availability(context.Context) (AirFeatureAvailability, error) {
+	return AirFeatureAvailability{Enabled: false, AuthorityState: "airs_shadow"}, nil
 }
 
 func (s *staleAirService) List(ctx context.Context) (AirList, error) {
@@ -98,7 +108,12 @@ func (f *fakeAirService) Detail(_ context.Context, id string) (AirDetail, error)
 }
 func (f *fakeAirService) Create(context.Context, string, string) (AirDetail, error) {
 	f.record("create")
-	return AirDetail{}, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.details) == 0 {
+		return AirDetail{}, &AirClientError{Kind: AirInvalidResponse}
+	}
+	return f.details[0], nil
 }
 func (f *fakeAirService) IssueInvite(context.Context, string, AirRole, string) (AirInvite, error) {
 	f.record("invite")
@@ -315,6 +330,44 @@ func TestWindowsAirCompositionPreservesPendingPreviewAndRedactsInvite(t *testing
 	}
 	composition.ConfirmDisruptive()
 	waitForAir(t, func() bool { return fakeHasCall(fake, "confirm") && !composition.Snapshot().Busy })
+}
+
+func TestWindowsAirCompositionGatesDisabledRolloutAndCreatesInitialInvite(t *testing.T) {
+	id := "air_" + strings.Repeat("A", 26)
+	detail := airDetailFixture(id, "B", "Friends", false, AirJoined, AirRoleOwner)
+	disabled, err := NewWindowsAirComposition(
+		&disabledAirService{fakeAirService: &fakeAirService{details: []AirDetail{detail}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer disabled.Close()
+	waitForAir(t, func() bool { return disabled.Snapshot().Failure != "refresh_pending" })
+	var shell ShellSnapshot
+	disabled.ApplyShellSnapshot(&shell)
+	if shell.AirAvailable || len(shell.Airs) != 0 {
+		t.Fatalf("disabled rollout leaked Air controls: %+v", shell)
+	}
+
+	invite := AirInvite{
+		InviteID: "ai_" + strings.Repeat("C", 26),
+		Revision: 1, Expires: time.Now().Add(time.Hour), Code: "initial-secret",
+	}
+	service := &fakeAirService{details: []AirDetail{detail}, invite: invite}
+	enabled, err := NewWindowsAirComposition(service)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer enabled.Close()
+	waitForAir(t, func() bool { return enabled.Snapshot().Available })
+	enabled.Create("Friends")
+	waitForAir(t, func() bool {
+		state := enabled.Snapshot()
+		return !state.Busy && state.Outcome == "created_with_invite"
+	})
+	if enabled.InviteCode() != "initial-secret" ||
+		!fakeHasCall(service, "create") || !fakeHasCall(service, "invite") {
+		t.Fatalf("initial Air workflow state=%+v calls=%v", enabled.Snapshot(), service.calls)
+	}
 }
 
 func TestWindowsAirCompositionHasNoPhaseOneTargetOrInboxDependency(t *testing.T) {

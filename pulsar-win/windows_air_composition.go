@@ -11,6 +11,7 @@ import (
 )
 
 type WindowsAirSnapshot struct {
+	Available     bool
 	Saved         []AirDetail
 	Selected      int
 	Pending       *AirJoinPreview
@@ -34,6 +35,7 @@ type WindowsAirComposition struct {
 	refreshGate chan struct{}
 	epoch       uint64
 	state       WindowsAirSnapshot
+	retryKeys   map[string]string
 }
 
 func NewWindowsAirComposition(service AirAppService) (*WindowsAirComposition, error) {
@@ -43,7 +45,8 @@ func NewWindowsAirComposition(service AirAppService) (*WindowsAirComposition, er
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &WindowsAirComposition{
 		service: service, ctx: ctx, cancel: cancel, refreshGate: make(chan struct{}, 1),
-		state: WindowsAirSnapshot{InviteRole: AirRoleMember, Failure: "refresh_pending"},
+		state:     WindowsAirSnapshot{InviteRole: AirRoleMember, Failure: "refresh_pending"},
+		retryKeys: map[string]string{},
 	}
 	go c.runRefreshLoop()
 	c.Refresh()
@@ -97,7 +100,7 @@ func (c *WindowsAirComposition) ApplyShellSnapshot(shell *ShellSnapshot) {
 	}
 	state := c.Snapshot()
 	shell.SelectedAir = state.Selected
-	shell.AirAvailable = true
+	shell.AirAvailable = state.Available
 	shell.AirBusy = state.Busy
 	shell.AirOutcome = state.Outcome
 	shell.AirFailure = state.Failure
@@ -167,10 +170,35 @@ func (c *WindowsAirComposition) SelectNextInviteRole() {
 }
 
 func (c *WindowsAirComposition) Create(title string) {
-	c.mutate("created", func(ctx context.Context) error {
-		_, err := c.service.Create(ctx, title, airKey("create"))
-		return err
-	})
+	if !c.beginMutation() {
+		return
+	}
+	createOperation := "create:" + title
+	createKey := c.retryKey(createOperation)
+	go func() {
+		detail, err := c.service.Create(c.ctx, title, createKey)
+		if err != nil {
+			c.finishMutation("", airFailureCode(err))
+			return
+		}
+		inviteOperation := "initial-invite:" + detail.AirID
+		invite, err := c.service.IssueInvite(
+			c.ctx, detail.AirID, AirRoleMember, c.retryKey(inviteOperation))
+		if err != nil {
+			c.finishMutation("", airFailureCode(err))
+			return
+		}
+		if refreshErr := c.refreshProjection(nil); refreshErr != nil {
+			c.finishMutation("", airFailureCode(refreshErr))
+			return
+		}
+		c.mu.Lock()
+		c.state.Invite, c.state.InviteAirID = &invite, detail.AirID
+		delete(c.retryKeys, createOperation)
+		delete(c.retryKeys, inviteOperation)
+		c.mu.Unlock()
+		c.finishMutation("created_with_invite", "")
+	}()
 }
 
 func (c *WindowsAirComposition) ConsumeInvite(code string) {
@@ -410,6 +438,23 @@ func (c *WindowsAirComposition) refreshProjection(pendingOverride *AirJoinPrevie
 	c.mu.RLock()
 	epoch := c.epoch
 	c.mu.RUnlock()
+	availability, err := c.service.Availability(c.ctx)
+	if err != nil {
+		if c.currentEpoch(epoch) {
+			c.setFailure(airFailureCode(err))
+		}
+		return err
+	}
+	if !availability.Enabled {
+		c.mu.Lock()
+		if epoch == c.epoch {
+			c.state.Available = false
+			c.state.Saved, c.state.Pending = nil, nil
+			c.state.Failure = ""
+		}
+		c.mu.Unlock()
+		return nil
+	}
 	list, err := c.service.List(c.ctx)
 	if err != nil {
 		if c.currentEpoch(epoch) {
@@ -438,7 +483,7 @@ func (c *WindowsAirComposition) refreshProjection(pendingOverride *AirJoinPrevie
 		selectedID = c.state.Saved[c.state.Selected].AirID
 	}
 	priorPending := c.state.Pending
-	c.state.Saved, c.state.Failure = details, ""
+	c.state.Available, c.state.Saved, c.state.Failure = true, details, ""
 	c.state.Selected = 0
 	for index := range details {
 		if details[index].AirID == selectedID {
@@ -552,6 +597,17 @@ func (c *WindowsAirComposition) armConfirmation(action, airID string) {
 
 func (c *WindowsAirComposition) clearConfirmationLocked() {
 	c.state.ConfirmAction, c.state.ConfirmAirID = "", ""
+}
+
+func (c *WindowsAirComposition) retryKey(operation string) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if existing := c.retryKeys[operation]; existing != "" {
+		return existing
+	}
+	created := airKey("retry")
+	c.retryKeys[operation] = created
+	return created
 }
 
 func (c *WindowsAirComposition) selectedAir() (AirDetail, bool) {

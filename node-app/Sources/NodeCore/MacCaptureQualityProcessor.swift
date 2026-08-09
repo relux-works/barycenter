@@ -26,6 +26,42 @@ public struct MacCaptureQualityRequest: Equatable, Sendable {
         mode: .auto, processingRequested: false, degradedConsent: true)
 }
 
+public struct MacCaptureOneGenerationConsent: Equatable, Sendable {
+    public private(set) var isGranted: Bool
+    public private(set) var wasUsedForCurrentAttempt = false
+
+    public init(isGranted: Bool = false) {
+        self.isGranted = isGranted
+    }
+
+    public var shouldOfferAfterFailure: Bool {
+        !wasUsedForCurrentAttempt
+    }
+
+    public mutating func setGranted(_ granted: Bool) {
+        isGranted = granted
+    }
+
+    public mutating func beginAttempt() {
+        wasUsedForCurrentAttempt = isGranted
+    }
+
+    /// Clear the grant as soon as the backend closes its quality generation,
+    /// but retain whether that attempt used consent until its terminal UI
+    /// event arrives. This prevents a failed consented fallback from prompting
+    /// in a loop.
+    @discardableResult
+    public mutating func resetGrantAfterGeneration() -> Bool {
+        let changed = isGranted
+        isGranted = false
+        return changed
+    }
+
+    public mutating func finishAttempt() {
+        wasUsedForCurrentAttempt = false
+    }
+}
+
 public protocol MacCaptureQualityBackendConfiguring: AnyObject {
     func configureCaptureQuality(
         workflow: String,
@@ -66,8 +102,9 @@ public final class SystemMacCaptureOutputRouteResolver:
             mElement: kAudioObjectPropertyElementMain)
         var device = AudioDeviceID(0)
         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        guard AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device) == noErr,
+        guard
+            AudioObjectGetPropertyData(
+                AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device) == noErr,
             device != 0
         else { return nil }
         address = AudioObjectPropertyAddress(
@@ -77,7 +114,7 @@ public final class SystemMacCaptureOutputRouteResolver:
         var name: Unmanaged<CFString>?
         size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
         guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &name) == noErr,
-              let value = name?.takeUnretainedValue()
+            let value = name?.takeUnretainedValue()
         else { return nil }
         return value as String
     }
@@ -90,8 +127,8 @@ struct MacCaptureInputMetrics: Equatable, Sendable {
     var clippedFraction: Double
 }
 
-/// Thread-confined post-VPIO safety stage shared by clip, local self-test and
-/// live PTT backends. It cannot amplify more than 12 dB, changes gain at most
+/// Thread-confined input safety stage shared by clip, local self-test and live
+/// PTT backends. It cannot amplify more than 12 dB, changes gain at most
 /// 3 dB/s, and always applies the distinct -3 dBFS input ceiling last.
 final class MacCaptureInputSafetyProcessor {
     static let targetRMSDBFS = -20.0
@@ -124,7 +161,8 @@ final class MacCaptureInputSafetyProcessor {
         let inputRMS = sqrt(sum / Double(samples.count))
         let inputDB = Self.db(inputRMS)
         let desired = min(Self.maximumGainDB, Self.targetRMSDBFS - inputDB)
-        let maximumStep = Self.maximumGainChangeDBPerSecond
+        let maximumStep =
+            Self.maximumGainChangeDBPerSecond
             * Double(samples.count) / sampleRate
         gainDB += min(max(desired - gainDB, -maximumStep), maximumStep)
         let gain = pow(10, gainDB / 20)

@@ -7,11 +7,27 @@ public protocol MacCaptureWorkflowCapturing: MacLocalSelfTestCapturing {
 
 extension MacMicrophoneCaptureEngine: MacCaptureWorkflowCapturing {}
 
+public enum MacCaptureWorkflowRecordingFailure: Equatable, Sendable {
+    case explicitUserActionRequired
+    case permissionDenied
+    case permissionRestricted
+    case noInputDevice
+    case selectedDeviceUnavailable
+    case alreadyActive
+    case invalidState
+    case backendUnavailable
+    case backendStartupFailed(MacCaptureStartupDiagnostic)
+    case captureQualityUnsupported
+    case storage
+    case cuePlaybackFailed
+    case startCueFailed
+}
+
 public enum MacCaptureWorkflowRecordingState: Equatable, Sendable {
     case idle
     case processing
     case recording
-    case failed(String)
+    case failed(MacCaptureWorkflowRecordingFailure)
 }
 
 public enum MacCaptureWorkflowEvent: Equatable, Sendable {
@@ -83,7 +99,8 @@ public final class MacCaptureWorkflowController {
         guard !stopped else { return }
         let devices = capture.availableDevices()
         if let selectedDeviceID,
-           !devices.contains(where: { $0.id == selectedDeviceID }) {
+            !devices.contains(where: { $0.id == selectedDeviceID })
+        {
             self.selectedDeviceID = nil
         }
         onEvent?(.devices(devices))
@@ -100,9 +117,15 @@ public final class MacCaptureWorkflowController {
         onEvent?(.devices(devices))
     }
 
-    public func setCaptureQualityRequest(_ request: MacCaptureQualityRequest) {
-        guard !stopped, owner == .idle else { return }
-        (capture as? MacCaptureQualityWorkflowSelecting)?.setCaptureQualityRequest(request)
+    @discardableResult
+    public func setCaptureQualityRequest(_ request: MacCaptureQualityRequest) -> Bool {
+        guard !stopped, owner == .idle,
+            let capture = capture as? MacCaptureQualityWorkflowSelecting
+        else {
+            return false
+        }
+        capture.setCaptureQualityRequest(request)
+        return true
     }
 
     public func toggleNormalRecording() {
@@ -121,7 +144,7 @@ public final class MacCaptureWorkflowController {
                         selectedDeviceID: self.selectedDeviceID,
                         explicitUserAction: true)
                 } catch {
-                    self.finishNormalFailure("capture_\(error)")
+                    self.finishNormalFailure(Self.recordingFailure(from: error))
                 }
             }
         case .normal:
@@ -131,7 +154,7 @@ public final class MacCaptureWorkflowController {
                 try capture.stop()
                 onEvent?(.recording(.processing))
             } catch {
-                finishNormalFailure("capture_\(error)")
+                finishNormalFailure(Self.recordingFailure(from: error))
             }
         case .selfTest:
             return
@@ -161,7 +184,7 @@ public final class MacCaptureWorkflowController {
                     selectedDeviceID: self.selectedDeviceID)
             } catch {
                 self.owner = .idle
-                self.onEvent?(.selfTest(.failure("capture_\(error)")))
+                self.onEvent?(.selfTest(.failure("capture_failed")))
                 self.onEvent?(.selfTest(.phase(.failed)))
             }
         }
@@ -234,11 +257,10 @@ public final class MacCaptureWorkflowController {
                     guard let self, self.owner == .normal else { return }
                     switch result {
                     case .success:
-                        do { try self.capture.startCueCompleted() }
-                        catch { self.finishNormalFailure("capture_start_failed") }
+                        do { try self.capture.startCueCompleted() } catch { self.finishNormalFailure(.startCueFailed) }
                     case .failure:
                         self.capture.cancel()
-                        self.finishNormalFailure("cue_playback_failed")
+                        self.finishNormalFailure(.cuePlaybackFailed)
                     }
                 }
             }
@@ -251,7 +273,7 @@ public final class MacCaptureWorkflowController {
                     self.normalStopCuePlaying = false
                     switch result {
                     case .success: self.finishNormalIfReady()
-                    case .failure: self.finishNormalFailure("cue_playback_failed")
+                    case .failure: self.finishNormalFailure(.cuePlaybackFailed)
                     }
                 }
             }
@@ -267,7 +289,7 @@ public final class MacCaptureWorkflowController {
             onEvent?(.recordingMeter(0))
             onEvent?(.recording(.idle))
         case .failed(let error):
-            finishNormalFailure("capture_\(error)")
+            finishNormalFailure(Self.recordingFailure(from: error))
         }
     }
 
@@ -282,7 +304,7 @@ public final class MacCaptureWorkflowController {
         onEvent?(.recording(.idle))
     }
 
-    private func finishNormalFailure(_ code: String) {
+    private func finishNormalFailure(_ failure: MacCaptureWorkflowRecordingFailure) {
         guard owner == .normal else { return }
         output.cancel()
         capture.cancel()
@@ -291,14 +313,37 @@ public final class MacCaptureWorkflowController {
         owner = .idle
         normalCanStop = false
         onEvent?(.recordingMeter(0))
-        onEvent?(.recording(.failed(code)))
+        onEvent?(.recording(.failed(failure)))
+    }
+
+    private static func recordingFailure(
+        from error: Error
+    ) -> MacCaptureWorkflowRecordingFailure {
+        guard let error = error as? MacCaptureEngineError else {
+            return .backendUnavailable
+        }
+        switch error {
+        case .explicitUserActionRequired: return .explicitUserActionRequired
+        case .permissionDenied: return .permissionDenied
+        case .permissionRestricted: return .permissionRestricted
+        case .noInputDevice: return .noInputDevice
+        case .selectedDeviceUnavailable: return .selectedDeviceUnavailable
+        case .alreadyActive: return .alreadyActive
+        case .invalidState: return .invalidState
+        case .backendUnavailable: return .backendUnavailable
+        case .backendStartupFailed(let diagnostic):
+            return .backendStartupFailed(diagnostic)
+        case .captureQualityUnsupported: return .captureQualityUnsupported
+        case .storage: return .storage
+        }
     }
 
     private func consumeSelfTestEvent(_ event: MacLocalSelfTestEvent) {
         guard !stopped else { return }
         onEvent?(.selfTest(event))
         if case .phase(let phase) = event,
-           phase == .idle || phase == .reviewingDraft || phase == .failed {
+            phase == .idle || phase == .reviewingDraft || phase == .failed
+        {
             owner = .idle
         }
     }

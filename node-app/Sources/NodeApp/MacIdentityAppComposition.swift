@@ -3,10 +3,10 @@ import Foundation
 import NodeAppUI
 import NodeCore
 
-/// Self-service Create/Join binding for the macOS shell. Credential writes are
-/// delegated to the reviewed onboarding service. A newly created orbit is not
-/// activated until the one-time recovery payload is explicitly saved and the
-/// protected metadata acknowledges that backup.
+/// Self-service Barycenter/device binding for the macOS shell. Credential
+/// writes are delegated to the reviewed onboarding service. Recovery export is
+/// a persistent safety action, not a gate that prevents the new device from
+/// becoming usable.
 @MainActor
 final class MacIdentityAppComposition {
     private static let attemptIDKey = "identity.create.attempt-id.v1"
@@ -16,7 +16,8 @@ final class MacIdentityAppComposition {
     private let model: PulsarShellModel
     private let defaults: UserDefaults
     private let onCredentialsActivated: () -> Void
-    private var pendingCreatedOrbit: CreatedOrbit?
+    private var pendingRecovery: OneTimeRecoveryMaterial?
+    private var pendingRecoveryTitle = ""
     private var operation: Task<Void, Never>?
 
     init(
@@ -48,10 +49,12 @@ final class MacIdentityAppComposition {
                     model.setIdentityOperation(.failed("Protected credential storage failed"))
                     return
                 }
-                pendingCreatedOrbit = outcome.value
+                pendingRecovery = outcome.value.recovery
+                pendingRecoveryTitle = outcome.value.title
                 defaults.removeObject(forKey: Self.attemptIDKey)
                 defaults.removeObject(forKey: Self.attemptTitleKey)
                 model.setIdentityOperation(.recoveryExportRequired(""))
+                onCredentialsActivated()
             } catch {
                 guard !Task.isCancelled else { return }
                 model.setIdentityOperation(.failed(identityFailure(error)))
@@ -83,26 +86,75 @@ final class MacIdentityAppComposition {
     }
 
     func exportRecovery() {
-        guard let created = pendingCreatedOrbit else {
-            model.setIdentityOperation(.failed("Recovery material is no longer available"))
+        if let pendingRecovery {
+            presentRecovery(pendingRecovery, title: pendingRecoveryTitle)
             return
         }
+        operation?.cancel()
+        model.setIdentityOperation(.recoveryExportRequired("Preparing a fresh recovery file…"))
+        operation = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let outcome = try await service.rotateRecovery()
+                guard !Task.isCancelled else { return }
+                guard outcome.wasStored else {
+                    model.setIdentityOperation(.failed("Protected recovery metadata could not be saved"))
+                    return
+                }
+                pendingRecovery = outcome.value
+                pendingRecoveryTitle = ""
+                presentRecovery(outcome.value, title: "")
+            } catch {
+                guard !Task.isCancelled else { return }
+                model.setIdentityOperation(.failed(identityFailure(error)))
+            }
+        }
+    }
+
+    func issueDeviceInvite() {
+        operation?.cancel()
+        model.setDeviceInviteState(.init(busy: true))
+        operation = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let invite = try await service.issueDeviceInvite()
+                guard !Task.isCancelled else { return }
+                model.setDeviceInviteState(.init(secret: .init(
+                    code: invite.code,
+                    expiresAt: invite.expiresAt)))
+            } catch {
+                guard !Task.isCancelled else { return }
+                model.setDeviceInviteState(.init(failure: identityFailure(error)))
+            }
+        }
+    }
+
+    func hideDeviceInvite() {
+        model.setDeviceInviteState(.init())
+    }
+
+    private func presentRecovery(_ material: OneTimeRecoveryMaterial, title: String) {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "barycenter-recovery.json"
         panel.canCreateDirectories = true
         panel.isExtensionHidden = false
         panel.begin { [weak self] result in
-            guard let self, result == .OK, let url = panel.url else { return }
+            guard let self else { return }
+            guard result == .OK, let url = panel.url else {
+                model.setIdentityOperation(.recoveryExportRequired(""))
+                return
+            }
             do {
-                try RecoveryExportHelper.save(created.recovery, to: url)
+                try RecoveryExportHelper.save(material, to: url)
                 try service.acknowledgeRecoveryBackup(
-                    actorID: created.recovery.actorId,
-                    recoveryID: created.recovery.recoveryId)
-                pendingCreatedOrbit = nil
-                model.setIdentityOperation(.succeeded(created.title))
-                onCredentialsActivated()
+                    actorID: material.actorId,
+                    recoveryID: material.recoveryId)
+                pendingRecovery = nil
+                pendingRecoveryTitle = ""
+                model.setIdentityOperation(.succeeded(title))
             } catch {
-                model.setIdentityOperation(.failed("Recovery export failed"))
+                model.setIdentityOperation(.recoveryExportRequired(
+                    "Recovery export failed. Choose a destination and try again."))
             }
         }
     }
@@ -110,8 +162,8 @@ final class MacIdentityAppComposition {
     func shutdown() {
         operation?.cancel()
         operation = nil
-        // Deliberately retain pending one-time material only for this live
-        // composition. Replacing it before export would make activation unsafe.
+        // One-time material is retained only for this live composition. After
+        // restart an authenticated primary can rotate it and resume export.
     }
 
     private func createAttemptID(for title: String) -> String {

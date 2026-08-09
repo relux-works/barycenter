@@ -1,10 +1,10 @@
 # Idea: Air rooms — many homes, one broadcast
 
-**STATUS: approved direction for phase 2 (2026-07-12); not implemented.** The
-canonical implementation plan is now `docs/spec-self-contained-audio.md` §13
-and §20. Shipped §12 approaches (pairwise links) remain the runtime canon until
-that migration lands. This note retains the original proposal and its design
-history.
+**STATUS: implemented behind the Phase 2 authority gate; onboarding and
+capability contract clarified on 2026-07-27.** The canonical implementation
+plan is `docs/spec-self-contained-audio.md` §13 and §20. Coordinators expose
+`phase2.air_rooms_enabled` and `phase2.air_authority_state` through `/healthz`;
+clients do not render Air actions before the authoritative cutover.
 
 ## Why not chains of links
 
@@ -22,16 +22,26 @@ wrong shape for "compania of friends listening together".
 
 User flow:
 
-1. A primary creates an air and gets a join code.
-2. Other barycenters enter by code; each primary confirms participation.
-3. The current track keeps playing; newly joined homes catch up seamlessly
+1. First launch creates a private Barycenter or connects the device to an
+   existing Barycenter with a device invite. It does not create or join an Air.
+2. Recovery export is a persistent safety action, not an activation gate. An
+   authenticated primary can rotate and export fresh recovery material after
+   restart.
+3. Once the coordinator advertises Air support, a primary creates an Air and
+   the same idempotent workflow immediately issues its first member invite.
+4. Other barycenters enter by code; each primary confirms participation.
+5. The current track keeps playing; newly joined homes catch up seamlessly
    (the beta.26 join mechanics).
-4. Every track and voice message gets a single ordinal at coordinator
+6. Every track and voice message gets a single ordinal at coordinator
    acceptance time — one deterministic order across all member barycenters.
-5. A home that goes dark becomes *sleeping*: it never pauses the others and
+7. A home that goes dark becomes *sleeping*: it never pauses the others and
    catches up on return (living-air semantics generalized).
-6. `/leave_air` detaches ONE barycenter, preserving its personal state; the
+8. `/leave_air` detaches ONE barycenter, preserving its personal state; the
    air lives on for the rest.
+
+When Air rooms are disabled, mutation routes return
+`air_rooms_not_enabled` (503). `revision_conflict` is reserved for a genuine
+compare-and-swap mismatch on an enabled Air resource.
 
 ## Technical readiness
 

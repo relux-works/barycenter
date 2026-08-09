@@ -314,6 +314,8 @@ func (l *loop) replyTelegramAirError(ev bot.Event, err error) {
 		ev.Reply("Forbidden / Недостаточно прав")
 	case errors.Is(err, store.ErrAirInviteUnavailable):
 		ev.Reply("Invite expired or used / Приглашение истекло или уже использовано")
+	case errors.Is(err, store.ErrAirRoomsDisabled):
+		ev.Reply("Airs are not enabled yet / Эфиры пока не включены")
 	case errors.Is(err, store.ErrAirRevision), errors.Is(err, store.ErrAirActiveChanged),
 		errors.Is(err, store.ErrAirConfirmationRequired), errors.Is(err, store.ErrAirMembershipNotFound):
 		ev.Reply("Air changed; reopen / Air изменился — открой /air заново")
@@ -380,7 +382,8 @@ func (l *loop) handleTelegramAirCallback(ev bot.Event, result store.TelegramAirC
 		case errors.Is(err, store.ErrAirForbidden), errors.Is(err, store.ErrUnauthorized),
 			errors.Is(err, store.ErrInsufficientCapability), errors.Is(err, store.ErrAirPolicyDenied):
 			outcome = store.TelegramCallbackForbidden
-		case errors.Is(err, store.ErrAirRevision), errors.Is(err, store.ErrAirActiveChanged),
+		case errors.Is(err, store.ErrAirRoomsDisabled), errors.Is(err, store.ErrAirRevision),
+			errors.Is(err, store.ErrAirActiveChanged),
 			errors.Is(err, store.ErrAirInviteUnavailable), errors.Is(err, store.ErrAirMembershipNotFound):
 			outcome = store.TelegramCallbackTooLate
 		default:

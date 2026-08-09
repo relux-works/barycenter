@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NodeCore
 
 @Suite("macOS capture quality processor")
@@ -93,5 +94,30 @@ struct MacCaptureQualityProcessorTests {
         let first = MacCaptureQualityGeneration.next()
         let second = MacCaptureQualityGeneration.next()
         #expect(second == first + 1)
+    }
+
+    @Test("Degraded consent is fail-closed, attempt-scoped, and reset after one generation")
+    func oneGenerationConsent() {
+        var consent = MacCaptureOneGenerationConsent()
+        #expect(!consent.isGranted)
+        consent.beginAttempt()
+        #expect(consent.shouldOfferAfterFailure)
+
+        consent.setGranted(true)
+        consent.beginAttempt()
+        #expect(consent.isGranted)
+        #expect(!consent.shouldOfferAfterFailure)
+
+        let didReset = consent.resetGrantAfterGeneration()
+        #expect(didReset)
+        #expect(!consent.isGranted)
+        #expect(!consent.shouldOfferAfterFailure)
+        consent.finishAttempt()
+        #expect(consent.shouldOfferAfterFailure)
+
+        consent.setGranted(false)
+        consent.beginAttempt()
+        #expect(!consent.isGranted)
+        #expect(consent.shouldOfferAfterFailure)
     }
 }

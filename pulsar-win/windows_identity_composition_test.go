@@ -14,6 +14,7 @@ type identityCompositionService struct {
 	attempts     []string
 	createFails  int
 	joinFails    int
+	rotateCalls  int
 	acknowledged bool
 }
 
@@ -39,6 +40,13 @@ func (s *identityCompositionService) Join(context.Context, string) (JoinOrbitRes
 	return JoinOrbitResult{Title: "Joined"}, nil
 }
 
+func (s *identityCompositionService) RotateStoredRecovery(context.Context) (*RecoveryMaterial, error) {
+	s.mu.Lock()
+	s.rotateCalls++
+	s.mu.Unlock()
+	return newRecoveryMaterial(2, "rec_"+strings.Repeat("a", 32), strings.Repeat("A", 27))
+}
+
 func (s *identityCompositionService) AcknowledgeRecoveryBackup(actorID int64, recoveryID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -50,15 +58,18 @@ func (s *identityCompositionService) AcknowledgeRecoveryBackup(actorID int64, re
 }
 
 type identityCompositionExporter struct {
-	mu    sync.Mutex
-	paths []string
+	mu        sync.Mutex
+	paths     []string
+	materials []*RecoveryMaterial
+	err       error
 }
 
-func (e *identityCompositionExporter) SaveSelectedDestination(path string, _ *RecoveryMaterial) error {
+func (e *identityCompositionExporter) SaveSelectedDestination(path string, material *RecoveryMaterial) error {
 	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.paths = append(e.paths, path)
-	e.mu.Unlock()
-	return nil
+	e.materials = append(e.materials, material)
+	return e.err
 }
 
 func waitIdentityState(t *testing.T, composition *WindowsIdentityComposition, state ShellIdentityOperation) WindowsIdentitySnapshot {
@@ -75,7 +86,7 @@ func waitIdentityState(t *testing.T, composition *WindowsIdentityComposition, st
 	return WindowsIdentitySnapshot{}
 }
 
-func TestWindowsIdentityCreateKeepsAttemptAndRequiresRecoveryExport(t *testing.T) {
+func TestWindowsIdentityCreateKeepsAttemptAndLeavesRecoveryExportResumable(t *testing.T) {
 	service := &identityCompositionService{createFails: 1}
 	exporter := &identityCompositionExporter{}
 	activated := make(chan struct{}, 1)
@@ -89,12 +100,12 @@ func TestWindowsIdentityCreateKeepsAttemptAndRequiresRecoveryExport(t *testing.T
 	composition.Create("Home")
 	state := waitIdentityState(t, composition, ShellIdentityRecoveryRequired)
 	if !state.RecoveryExportRequired {
-		t.Fatal("Create activated without explicit recovery export")
+		t.Fatal("Create did not retain the recovery safety action")
 	}
 	select {
 	case <-activated:
-		t.Fatal("Create activated before recovery export")
-	default:
+	case <-time.After(time.Second):
+		t.Fatal("Create remained blocked on recovery export")
 	}
 	service.mu.Lock()
 	if len(service.attempts) != 2 || service.attempts[0] != service.attempts[1] || !installationAttemptPattern.MatchString(service.attempts[0]) {
@@ -103,11 +114,6 @@ func TestWindowsIdentityCreateKeepsAttemptAndRequiresRecoveryExport(t *testing.T
 	service.mu.Unlock()
 	composition.SaveRecovery(`C:\Users\Ivan\pulsar-recovery.json`)
 	waitIdentityState(t, composition, ShellIdentityActive)
-	select {
-	case <-activated:
-	case <-time.After(time.Second):
-		t.Fatal("recovery acknowledgement did not activate identity")
-	}
 	service.mu.Lock()
 	acknowledged := service.acknowledged
 	service.mu.Unlock()
@@ -129,5 +135,61 @@ func TestWindowsIdentityJoinActivatesOnlyAfterServiceSuccess(t *testing.T) {
 	state := waitIdentityState(t, composition, ShellIdentityActive)
 	if state.RecoveryExportRequired {
 		t.Fatal("Join incorrectly requested Create recovery export")
+	}
+}
+
+func TestWindowsIdentityRecoveryExportRotatesAfterRestart(t *testing.T) {
+	service := &identityCompositionService{}
+	exporter := &identityCompositionExporter{}
+	composition, err := NewWindowsIdentityComposition(service, exporter, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer composition.Close()
+	composition.SaveRecovery(`C:\Users\Ivan\replacement-recovery.json`)
+	waitIdentityState(t, composition, ShellIdentityActive)
+	exporter.mu.Lock()
+	paths := append([]string(nil), exporter.paths...)
+	exporter.mu.Unlock()
+	if len(paths) != 1 || paths[0] != `C:\Users\Ivan\replacement-recovery.json` {
+		t.Fatalf("rotated export paths=%v", paths)
+	}
+	service.mu.Lock()
+	acknowledged := service.acknowledged
+	service.mu.Unlock()
+	if !acknowledged {
+		t.Fatal("rotated recovery was not acknowledged")
+	}
+}
+
+func TestWindowsIdentityRetainsRotatedRecoveryWhenExportFails(t *testing.T) {
+	service := &identityCompositionService{}
+	exporter := &identityCompositionExporter{err: errors.New("disk unavailable")}
+	composition, err := NewWindowsIdentityComposition(service, exporter, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer composition.Close()
+
+	composition.SaveRecovery(`C:\Users\Ivan\replacement-recovery.json`)
+	waitIdentityState(t, composition, ShellIdentityRecoveryRequired)
+
+	exporter.mu.Lock()
+	exporter.err = nil
+	firstMaterial := exporter.materials[0]
+	exporter.mu.Unlock()
+	composition.SaveRecovery(`C:\Users\Ivan\replacement-recovery.json`)
+	waitIdentityState(t, composition, ShellIdentityActive)
+
+	service.mu.Lock()
+	rotateCalls := service.rotateCalls
+	service.mu.Unlock()
+	if rotateCalls != 1 {
+		t.Fatalf("retry rotated one-time recovery material: calls=%d", rotateCalls)
+	}
+	exporter.mu.Lock()
+	defer exporter.mu.Unlock()
+	if len(exporter.materials) != 2 || exporter.materials[1] != firstMaterial {
+		t.Fatal("retry did not reuse retained recovery material")
 	}
 }

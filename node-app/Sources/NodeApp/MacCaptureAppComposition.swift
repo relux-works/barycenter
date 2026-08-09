@@ -12,8 +12,6 @@ enum MacCaptureAppCompositionError: Error {
 /// runtime replacement or quit has one idempotent teardown boundary.
 @MainActor
 final class MacCaptureAppComposition {
-    private static let selectedInputKey = "captureInputDevice.v1"
-
     private let model: PulsarShellModel
     private let workflow: MacCaptureWorkflowController
     let mediaStore: CaptureMediaStore
@@ -21,17 +19,13 @@ final class MacCaptureAppComposition {
     private let shortcutStore: MacRecordingShortcutStore
     private let shortcutController: MacRecordingShortcutController
     private let shortcutLifecycle: MacRecordingShortcutLifecycle
-    private let defaults: UserDefaults
+    private let inputSelectionStore: MacCaptureInputSelectionStore
     private var selectedDeviceID: String?
-    private var selectedQualityMode = PulsarCaptureQualityMode.auto
-    private var degradedQualityConsent = false
-    private var consentResetPending = false
     private var selfTestDraftAvailable = false
     private var stopped = false
     var onNormalDraft: ((CaptureMediaHandle) -> Void)?
-    var onCaptureQuality: ((CaptureQualityState?) -> Void)?
 
-    init(
+    convenience init(
         audio: AudioEngine,
         log: Logger,
         supportRoot: URL,
@@ -39,10 +33,31 @@ final class MacCaptureAppComposition {
         defaults: UserDefaults = .standard,
         bundle: Bundle = .main
     ) throws {
-        guard let cueURL = bundle.url(
-            forResource: "pulsar-recording-cue",
-            withExtension: "wav",
-            subdirectory: "Audio") else {
+        try self.init(
+            ducker: AudioEngineCaptureDucker(audio: audio),
+            output: MacProductionLocalClipOutput(audio: audio, log: log),
+            log: log,
+            supportRoot: supportRoot,
+            model: model,
+            defaults: defaults,
+            bundle: bundle)
+    }
+
+    init(
+        ducker: MacCaptureProgramDucking,
+        output: MacLocalClipPlaying,
+        log: Logger,
+        supportRoot: URL,
+        model: PulsarShellModel,
+        defaults: UserDefaults = .standard,
+        bundle: Bundle = .main
+    ) throws {
+        guard
+            let cueURL = bundle.url(
+                forResource: "pulsar-recording-cue",
+                withExtension: "wav",
+                subdirectory: "Audio")
+        else {
             throw MacCaptureAppCompositionError.cueUnavailable
         }
         _ = try BuiltinRecordingCue.load(from: cueURL)
@@ -56,11 +71,10 @@ final class MacCaptureAppComposition {
         let intake = MacShortAudioIntake(inspector: inspector, store: store)
         let capture = MacMicrophoneCaptureEngine(
             permission: SystemMicrophonePermissionAuthorizer(),
-            backend: MacAVAudioCaptureBackend(),
+            backend: MacAVAudioCaptureBackend(log: log),
             mediaStore: store,
-            ducker: AudioEngineCaptureDucker(audio: audio),
+            ducker: ducker,
             qualityRequest: .legacyUnprocessed)
-        let output = MacProductionLocalClipOutput(audio: audio, log: log)
         workflow = try MacCaptureWorkflowController(
             capture: capture,
             output: output,
@@ -68,8 +82,10 @@ final class MacCaptureAppComposition {
             intake: intake,
             cueURL: cueURL)
         self.model = model
-        self.defaults = defaults
-        selectedDeviceID = defaults.string(forKey: Self.selectedInputKey)
+        let inputSelectionStore = MacCaptureInputSelectionStore(defaults: defaults)
+        self.inputSelectionStore = inputSelectionStore
+        selectedDeviceID = inputSelectionStore.load(
+            availableDevices: capture.availableDevices())
 
         shortcutStore = MacRecordingShortcutStore(defaults: defaults)
         let initialShortcut = shortcutStore.load()
@@ -87,7 +103,6 @@ final class MacCaptureAppComposition {
 
     func start() {
         guard !stopped else { return }
-        setCaptureQualityMode(.auto, degradedConsent: false)
         model.setSelfTestAvailable(true)
         model.setRecording(.idle, available: true)
         workflow.selectDevice(selectedDeviceID)
@@ -95,11 +110,14 @@ final class MacCaptureAppComposition {
         shortcutLifecycle.start()
     }
 
-    func toggleRecording() { workflow.toggleNormalRecording() }
+    func toggleRecording() {
+        workflow.toggleNormalRecording()
+    }
     func cancelRecording() { workflow.cancelNormalRecording() }
     func stopActiveCapture() {
         if ![PulsarSelfTestState.idle, .reviewingDraft, .failed]
-            .contains(model.snapshot.selfTestState) {
+            .contains(model.snapshot.selfTestState)
+        {
             workflow.closeSelfTest()
         } else if model.snapshot.recording == .recording {
             workflow.toggleNormalRecording()
@@ -124,29 +142,8 @@ final class MacCaptureAppComposition {
 
     func selectDevice(_ id: String?) {
         selectedDeviceID = id
-        if let id {
-            defaults.set(id, forKey: Self.selectedInputKey)
-        } else {
-            defaults.removeObject(forKey: Self.selectedInputKey)
-        }
+        inputSelectionStore.save(id)
         workflow.selectDevice(id)
-    }
-
-    func setCaptureQualityMode(
-        _ mode: PulsarCaptureQualityMode,
-        degradedConsent: Bool
-    ) {
-        guard !PulsarCaptureQualityPresentation(snapshot: model.snapshot).isActive else { return }
-        selectedQualityMode = mode
-        degradedQualityConsent = degradedConsent
-        model.setCaptureQualityConfiguration(
-            mode: mode,
-            degradedConsent: degradedConsent,
-            backendAvailable: true)
-        workflow.setCaptureQualityRequest(MacCaptureQualityRequest(
-            mode: Self.platformCaptureQualityMode(mode),
-            processingRequested: true,
-            degradedConsent: degradedConsent))
     }
 
     func setShortcut(_ choice: PulsarRecordingShortcutChoice) {
@@ -164,11 +161,8 @@ final class MacCaptureAppComposition {
         shortcutLifecycle.stop()
         workflow.shutdown()
         model.setRecording(.unavailable, available: false)
+        model.setCaptureConsentPrompt(nil)
         model.setSelfTestAvailable(false)
-        model.setCaptureQualityConfiguration(
-            mode: selectedQualityMode,
-            degradedConsent: degradedQualityConsent,
-            backendAvailable: false)
         model.setRecordingShortcut(
             model.snapshot.recordingShortcut,
             state: .inactive)
@@ -177,40 +171,44 @@ final class MacCaptureAppComposition {
     private func consume(_ event: MacCaptureWorkflowEvent) {
         switch event {
         case .recording(let state):
-            model.setRecording(Self.shellRecordingState(state), available: true)
+            consumeRecordingState(state)
         case .recordingMeter(let value):
             model.setRecordingMeter(value)
         case .devices(let devices):
             if let selectedDeviceID,
-               !devices.contains(where: { $0.id == selectedDeviceID }) {
+                !devices.contains(where: { $0.id == selectedDeviceID })
+            {
                 self.selectedDeviceID = nil
-                defaults.removeObject(forKey: Self.selectedInputKey)
+                inputSelectionStore.save(nil)
             }
             model.setCaptureDevices(
                 devices.map {
                     PulsarCaptureDevice(id: $0.id, name: $0.name, isDefault: $0.isDefault)
                 },
                 selectedDeviceID: selectedDeviceID)
-        case .captureQuality(let state):
-            model.setCaptureQualityState(state.map(Self.shellCaptureQualityState))
-            if state == nil, degradedQualityConsent {
-                degradedQualityConsent = false
-                consentResetPending = true
-                model.setCaptureQualityConfiguration(
-                    mode: selectedQualityMode,
-                    degradedConsent: false,
-                    backendAvailable: true)
-                DispatchQueue.main.async { [weak self] in
-                    self?.applyPendingConsentReset()
-                }
-            }
-            onCaptureQuality?(state)
+        case .captureQuality:
+            break
         case .normalDraft(let handle):
             onNormalDraft?(handle)
         case .normalDraftDeleted:
             break
         case .selfTest(let event):
             consume(event)
+        }
+    }
+
+    private func consumeRecordingState(_ state: MacCaptureWorkflowRecordingState) {
+        switch state {
+        case .failed(let failure):
+            model.setRecording(
+                .failed(Self.shellRecordingFailure(failure)),
+                available: true)
+        case .idle:
+            model.setRecording(.idle, available: true)
+        case .processing:
+            model.setRecording(.processing, available: true)
+        case .recording:
+            model.setRecording(.recording, available: true)
         }
     }
 
@@ -221,16 +219,17 @@ final class MacCaptureAppComposition {
         case .meter(let value):
             model.updateSelfTest(state: model.snapshot.selfTestState, meter: value)
         case .fileReview(let review):
-            model.setLocalFileReview(PulsarLocalFileReview(
-                filename: review.filename,
-                format: review.format?.rawValue,
-                durationMs: review.durationMs,
-                sizeBytes: review.sizeBytes,
-                audience: review.audience,
-                deliveryModes: review.deliveryModes,
-                rightsReminder: review.rightsReminder,
-                serverValidationRequired: review.serverValidationRequired,
-                rejection: review.rejection?.rawValue))
+            model.setLocalFileReview(
+                PulsarLocalFileReview(
+                    filename: review.filename,
+                    format: review.format?.rawValue,
+                    durationMs: review.durationMs,
+                    sizeBytes: review.sizeBytes,
+                    audience: review.audience,
+                    deliveryModes: review.deliveryModes,
+                    rightsReminder: review.rightsReminder,
+                    serverValidationRequired: review.serverValidationRequired,
+                    rejection: review.rejection?.rawValue))
         case .draft:
             selfTestDraftAvailable = true
             updateDraftAvailability()
@@ -251,53 +250,24 @@ final class MacCaptureAppComposition {
             draftAvailable: selfTestDraftAvailable)
     }
 
-    private func applyPendingConsentReset() {
-        guard consentResetPending, !stopped else { return }
-        consentResetPending = false
-        workflow.setCaptureQualityRequest(MacCaptureQualityRequest(
-            mode: Self.platformCaptureQualityMode(selectedQualityMode),
-            processingRequested: true,
-            degradedConsent: false))
-    }
-
-    private static func shellRecordingState(
-        _ state: MacCaptureWorkflowRecordingState
-    ) -> PulsarRecordingState {
-        switch state {
-        case .idle: .idle
-        case .processing: .processing
-        case .recording: .recording
-        case .failed(let code): .failed(code)
+    private static func shellRecordingFailure(
+        _ failure: MacCaptureWorkflowRecordingFailure
+    ) -> PulsarRecordingFailure {
+        switch failure {
+        case .explicitUserActionRequired: .explicitUserActionRequired
+        case .permissionDenied: .permissionDenied
+        case .permissionRestricted: .permissionRestricted
+        case .noInputDevice: .noInputDevice
+        case .selectedDeviceUnavailable: .selectedDeviceUnavailable
+        case .alreadyActive: .alreadyActive
+        case .invalidState: .invalidState
+        case .backendUnavailable: .backendUnavailable
+        case .backendStartupFailed: .backendStartupUnavailable
+        case .captureQualityUnsupported: .backendUnavailable
+        case .storage: .storage
+        case .cuePlaybackFailed: .cuePlaybackFailed
+        case .startCueFailed: .startCueFailed
         }
-    }
-
-    private static func platformCaptureQualityMode(
-        _ mode: PulsarCaptureQualityMode
-    ) -> MacCaptureQualityMode {
-        switch mode {
-        case .auto: .auto
-        case .speaker: .speaker
-        case .headphone: .headphone
-        }
-    }
-
-    private static func shellCaptureQualityState(
-        _ state: CaptureQualityState
-    ) -> PulsarCaptureQualityState {
-        PulsarCaptureQualityState(
-            generation: state.generation,
-            workflow: state.workflow,
-            requestedMode: state.requestedMode,
-            resolvedMode: state.resolvedMode,
-            lifecycle: state.lifecycle,
-            quality: state.quality,
-            aec: state.aec,
-            ns: state.ns,
-            agc: state.agc,
-            inputHealth: state.inputHealth,
-            reason: state.reason,
-            inputCeilingDBFS: state.inputCeilingDBFS,
-            outputCeilingDBFS: CaptureQualityContract.outputCeilingDBFS)
     }
 
     private static func shellSelfTestState(_ phase: MacLocalSelfTestPhase) -> PulsarSelfTestState {

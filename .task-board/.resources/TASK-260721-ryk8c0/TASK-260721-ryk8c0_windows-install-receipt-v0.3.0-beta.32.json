@@ -1,0 +1,27 @@
+{
+    "recordedAtUtc":  "2026-07-26T12:08:26.7879929Z",
+    "host":  "DESKTOP-3PBO632",
+    "package":  {
+                    "name":  "ReluxWorksLLC.PulsarBarycenter",
+                    "version":  "0.3.32.0",
+                    "packageFullName":  "ReluxWorksLLC.PulsarBarycenter_0.3.32.0_x64__q036g2bzd7ngc",
+                    "packageFamilyName":  "ReluxWorksLLC.PulsarBarycenter_q036g2bzd7ngc",
+                    "status":  "Ok",
+                    "installLocation":  "C:\\Program Files\\WindowsApps\\ReluxWorksLLC.PulsarBarycenter_0.3.32.0_x64__q036g2bzd7ngc",
+                    "publisher":  "CN=60105954-A0D9-4E89-B32D-18AF2F423ABE"
+                },
+    "packageFiles":  {
+                         "unsignedSha256":  "8f4a733e99cb12ad002db567317271ac731de72218a553994e7394c9b075ea7c",
+                         "unsignedSignature":  "NotSigned",
+                         "signedSha256":  "b487b498280cc4e79ff2deb65d8d0ee5ac0330a76637c3078fa603348d902d97",
+                         "signedSignature":  "Valid",
+                         "executableSha256":  "99d5c034ca4c5ddbdf11d4e445519281ce4063111d104ced0d2e7101ca383a44",
+                         "executableSignature":  "NotSigned"
+                     },
+    "runningProcesses":  [
+
+                         ],
+    "recentApplicationEvents":  [
+
+                                ]
+}

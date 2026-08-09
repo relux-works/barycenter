@@ -10,6 +10,22 @@ struct AirAppClientTests {
   private let memberA = "aim_" + String(repeating: "C", count: 26)
   private let inviteA = "ai_" + String(repeating: "D", count: 26)
 
+  @Test("Coordinator health exposes typed Air availability")
+  func availabilityGate() async throws {
+    let transport = ScriptedTransport { request, _ in
+      #expect(request.httpMethod == "GET")
+      #expect(request.url?.path == "/healthz")
+      return testHTTPResponse(
+        request: request,
+        status: 200,
+        json: #"{"phase2":{"air_rooms_enabled":false,"air_authority_state":"airs_shadow"}}"#)
+    }
+    let client = try AirAppClient(bundle: credentialBundle(), transport: transport)
+    let availability = try await client.availability()
+    #expect(!availability.enabled)
+    #expect(availability.authorityState == "airs_shadow")
+  }
+
   @Test("Every lifecycle action uses the common authenticated Air API")
   func lifecycleWireContract() async throws {
     let index = AirRequestIndex()

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NodeCore
 
 @MainActor
@@ -32,7 +33,10 @@ struct MacCaptureWorkflowControllerTests {
         #expect(fixture.output.playedURLs == [cueURL])
 
         fixture.output.completeNext(.success(()))
-        try await waitUntil { fixture.capture.startCueCompletedCount == 1 }
+        try await waitUntil {
+            fixture.capture.startCueCompletedCount == 1
+                && events.contains(.recording(.recording))
+        }
         #expect(events.contains(.recording(.recording)))
 
         fixture.controller.toggleNormalRecording()
@@ -47,6 +51,35 @@ struct MacCaptureWorkflowControllerTests {
         #expect(events.contains(.normalDraftDeleted))
     }
 
+    @Test("A failing output graph is deferred to the cue and never gates input capture")
+    func outputStartupFailureIsCueFailure() async throws {
+        let factory = FailingOutputFactory()
+        let output = MacDeferredLocalClipOutput {
+            try factory.make()
+        }
+        let fixture = try makeFixture(outputOverride: output)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        var events: [MacCaptureWorkflowEvent] = []
+        fixture.controller.onEvent = { events.append($0) }
+
+        fixture.controller.start()
+        #expect(factory.callCount == 0)
+
+        fixture.controller.toggleNormalRecording()
+        try await waitUntil {
+            events.contains(.recording(.failed(.cuePlaybackFailed)))
+        }
+
+        #expect(fixture.capture.beginCount == 1)
+        #expect(factory.callCount == 1)
+        #expect(fixture.capture.cancelCount >= 1)
+        #expect(
+            !events.contains { event in
+                if case .normalDraft = event { return true }
+                return false
+            })
+    }
+
     @Test("Self-test owns the shared capture gate and shutdown is idempotent")
     func mutualExclusionAndShutdown() async throws {
         let fixture = try makeFixture()
@@ -58,10 +91,11 @@ struct MacCaptureWorkflowControllerTests {
         try await waitUntil { fixture.output.playedURLs.count == 1 }
         fixture.controller.toggleNormalRecording()
         #expect(fixture.capture.beginCount == 1)
-        #expect(!events.contains { event in
-            if case .recording(.failed) = event { return true }
-            return false
-        })
+        #expect(
+            !events.contains { event in
+                if case .recording(.failed) = event { return true }
+                return false
+            })
 
         fixture.controller.shutdown()
         fixture.controller.shutdown()
@@ -70,10 +104,43 @@ struct MacCaptureWorkflowControllerTests {
         #expect(fixture.output.cancelCount >= 1)
     }
 
+    @Test("Quality rejection reaches composition as a typed consent failure")
+    func qualityFailureIsTyped() async throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        var events: [MacCaptureWorkflowEvent] = []
+        fixture.controller.onEvent = { events.append($0) }
+        fixture.capture.beginError = .captureQualityUnsupported
+        let consented = MacCaptureQualityRequest(
+            mode: .speaker,
+            degradedConsent: true)
+        #expect(fixture.controller.setCaptureQualityRequest(consented))
+        #expect(fixture.capture.qualityRequest == consented)
+
+        fixture.controller.toggleNormalRecording()
+        #expect(!fixture.controller.setCaptureQualityRequest(.init(mode: .auto)))
+        try await waitUntil {
+            events.contains(.recording(.failed(.captureQualityUnsupported)))
+        }
+
+        #expect(fixture.capture.beginCount == 1)
+        #expect(events.contains(.recording(.processing)))
+        #expect(events.contains(.recording(.failed(.captureQualityUnsupported))))
+        #expect(
+            !events.contains { event in
+                if case .normalDraft = event { return true }
+                return false
+            })
+        let reset = MacCaptureQualityRequest(mode: .speaker)
+        #expect(fixture.controller.setCaptureQualityRequest(reset))
+        #expect(fixture.capture.qualityRequest == reset)
+    }
+
     @Test("Application capture composition owns no coordinator, upload or network client")
     func applicationBoundaryIsLocal() throws {
-        let source = try String(contentsOf: repositoryRoot.appendingPathComponent(
-            "node-app/Sources/NodeApp/MacCaptureAppComposition.swift"), encoding: .utf8)
+        let source = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "node-app/Sources/NodeApp/MacCaptureAppComposition.swift"), encoding: .utf8)
         for forbidden in ["CoordinatorClient", "URLSession", "beginUpload", "MediaClipClient"] {
             #expect(!source.contains(forbidden))
         }
@@ -81,25 +148,76 @@ struct MacCaptureWorkflowControllerTests {
         #expect(source.contains("MacRecordingShortcutLifecycle"))
     }
 
+    @Test("Application ordinary recording excludes processing consent and output-route UI")
+    func applicationInputOnlyBoundary() throws {
+        let composition = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "node-app/Sources/NodeApp/MacCaptureAppComposition.swift"), encoding: .utf8)
+        #expect(composition.contains("MacAVAudioCaptureBackend(log: log)"))
+        #expect(composition.contains("MacCaptureInputSelectionStore"))
+        #expect(!composition.contains("MacCaptureConsentCoordinator"))
+        #expect(!composition.contains("resolveCaptureConsent"))
+        #expect(!composition.contains("setCaptureQualityMode"))
+        #expect(!composition.contains("onCaptureQuality"))
+
+        let controller = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "node-app/Sources/NodeCore/MacCaptureWorkflowController.swift"), encoding: .utf8)
+        #expect(!controller.contains("capture_\\(error)"))
+        #expect(controller.contains("MacCaptureWorkflowRecordingFailure"))
+
+        let window = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "node-app/Sources/NodeAppUI/PulsarMainWindow.swift"), encoding: .utf8)
+        #expect(window.contains("PulsarRecordingActiveBar"))
+        #expect(!window.contains("PulsarCaptureQualityControls"))
+        #expect(!window.contains("captureConsent"))
+        #expect(!window.contains("allowLimitedRecording"))
+        #expect(!window.contains("useHeadphones"))
+
+        let statusMenu = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "node-app/Sources/NodeApp/StatusMenu.swift"), encoding: .utf8)
+        #expect(statusMenu.contains("PulsarLocalCapturePresentation"))
+        #expect(!statusMenu.contains("PulsarCaptureQualityPresentation"))
+
+        let main = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "node-app/Sources/NodeApp/main.swift"), encoding: .utf8)
+        #expect(main.contains("startMacCaptureComposition(\n        ducker: local"))
+
+        let localRuntime = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "node-app/Sources/NodeApp/LocalCaptureAudioRuntime.swift"), encoding: .utf8)
+        #expect(
+            localRuntime.contains(
+                "lazy var output: MacLocalClipPlaying = MacDeferredLocalClipOutput"))
+    }
+
     @Test("Application data compositions preserve the self-test and recovery boundaries")
     func applicationDataBoundaries() throws {
-        let phaseOne = try String(contentsOf: repositoryRoot.appendingPathComponent(
-            "node-app/Sources/NodeApp/MacPhaseOneAppComposition.swift"), encoding: .utf8)
+        let phaseOne = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "node-app/Sources/NodeApp/MacPhaseOneAppComposition.swift"), encoding: .utf8)
         #expect(phaseOne.contains("PhaseOneDraftOutbox"))
         #expect(phaseOne.contains("onNormalDraft"))
         #expect(!phaseOne.contains("MacLocalSelfTest"))
         #expect(!phaseOne.contains("selfTest"))
 
-        let identity = try String(contentsOf: repositoryRoot.appendingPathComponent(
-            "node-app/Sources/NodeApp/MacIdentityAppComposition.swift"), encoding: .utf8)
+        let identity = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "node-app/Sources/NodeApp/MacIdentityAppComposition.swift"), encoding: .utf8)
         #expect(identity.contains("OnboardingService"))
         #expect(identity.contains("RecoveryExportHelper.save"))
         #expect(identity.contains("acknowledgeRecoveryBackup"))
-        #expect(identity.range(of: "onCredentialsActivated()", options: .backwards)!.lowerBound >
-                identity.range(of: "acknowledgeRecoveryBackup")!.lowerBound)
+        #expect(identity.contains("rotateRecovery"))
+        #expect(
+            identity.range(of: "onCredentialsActivated()")!.lowerBound
+                < identity.range(of: "private func presentRecovery")!.lowerBound)
 
-        let air = try String(contentsOf: repositoryRoot.appendingPathComponent(
-            "node-app/Sources/NodeApp/MacAirAppComposition.swift"), encoding: .utf8)
+        let air = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "node-app/Sources/NodeApp/MacAirAppComposition.swift"), encoding: .utf8)
         #expect(air.contains("AirAppServicing"))
         #expect(air.contains("MacAirAppComposition"))
         for forbidden in ["PhaseOneDraftOutbox", "PhaseOneAppClient", "target", "inbox"] {
@@ -107,7 +225,9 @@ struct MacCaptureWorkflowControllerTests {
         }
     }
 
-    private func makeFixture() throws -> WorkflowFixture {
+    private func makeFixture(
+        outputOverride: MacLocalClipPlaying? = nil
+    ) throws -> WorkflowFixture {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mac-capture-workflow-\(UUID().uuidString)", isDirectory: true)
         let store = CaptureMediaStore(root: root.appendingPathComponent("store"))
@@ -116,7 +236,7 @@ struct MacCaptureWorkflowControllerTests {
         let output = WorkflowOutput()
         let controller = try MacCaptureWorkflowController(
             capture: capture,
-            output: output,
+            output: outputOverride ?? output,
             store: store,
             intake: MacShortAudioIntake(inspector: .init(), store: store),
             cueURL: cueURL)
@@ -149,7 +269,9 @@ private struct WorkflowFixture {
     let controller: MacCaptureWorkflowController
 }
 
-private final class WorkflowCapture: MacCaptureWorkflowCapturing, @unchecked Sendable {
+private final class WorkflowCapture:
+    MacCaptureWorkflowCapturing, MacCaptureQualityWorkflowSelecting, @unchecked Sendable
+{
     var onEvent: (@Sendable (MacCaptureEvent) -> Void)?
     let draft: CaptureMediaHandle
     private(set) var selectedDeviceID: String?
@@ -157,6 +279,9 @@ private final class WorkflowCapture: MacCaptureWorkflowCapturing, @unchecked Sen
     private(set) var startCueCompletedCount = 0
     private(set) var cancelCount = 0
     private(set) var shutdownCount = 0
+    var beginError: MacCaptureEngineError?
+    private(set) var qualityWorkflow: String?
+    private(set) var qualityRequest: MacCaptureQualityRequest?
 
     init(draft: CaptureMediaHandle) { self.draft = draft }
 
@@ -167,10 +292,19 @@ private final class WorkflowCapture: MacCaptureWorkflowCapturing, @unchecked Sen
         ]
     }
 
+    func selectCaptureQualityWorkflow(_ workflow: String) {
+        qualityWorkflow = workflow
+    }
+
+    func setCaptureQualityRequest(_ request: MacCaptureQualityRequest) {
+        qualityRequest = request
+    }
+
     func begin(selectedDeviceID: String?, explicitUserAction: Bool) async throws {
         #expect(explicitUserAction)
         beginCount += 1
         self.selectedDeviceID = selectedDeviceID
+        if let beginError { throw beginError }
         onEvent?(.phase(.requestingPermission))
         onEvent?(.phase(.playingStartCue))
         onEvent?(.playStartCue)
@@ -217,6 +351,18 @@ private final class WorkflowOutput: MacLocalClipPlaying, @unchecked Sendable {
     }
 
     func cancel() { lock.withLock { cancels += 1 } }
+}
+
+private final class FailingOutputFactory: @unchecked Sendable {
+    private let lock = NSLock()
+    private var calls = 0
+
+    var callCount: Int { lock.withLock { calls } }
+
+    func make() throws -> MacLocalClipPlaying {
+        lock.withLock { calls += 1 }
+        throw MacLocalClipOutputError.playbackFailed
+    }
 }
 
 private enum WorkflowWaitError: Error { case timeout }

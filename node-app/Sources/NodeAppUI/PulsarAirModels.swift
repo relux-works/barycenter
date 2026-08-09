@@ -26,6 +26,12 @@ public enum PulsarAirPlaybackPolicy: String, CaseIterable, Identifiable, Sendabl
     public var id: Self { self }
 }
 
+public enum PulsarAirAvailability: Equatable, Sendable {
+    case checking
+    case enabled
+    case disabled
+}
+
 public struct PulsarAirPolicy: Equatable, Sendable {
     public let revision: Int64
     public let invite: PulsarAirInvitePolicy
@@ -147,6 +153,7 @@ public struct PulsarAirInviteSecret: Equatable, Sendable,
 }
 
 public struct PulsarAirState: Equatable, Sendable {
+    public var availability: PulsarAirAvailability
     public var saved: [PulsarAirItem]
     public var pendingJoin: PulsarPendingAirJoin?
     public var inviteSecret: PulsarAirInviteSecret?
@@ -155,10 +162,12 @@ public struct PulsarAirState: Equatable, Sendable {
     public var failure: String?
 
     public init(
+        availability: PulsarAirAvailability = .checking,
         saved: [PulsarAirItem] = [], pendingJoin: PulsarPendingAirJoin? = nil,
         inviteSecret: PulsarAirInviteSecret? = nil, busy: Bool = false,
         outcome: String? = nil, failure: String? = nil
     ) {
+        self.availability = availability
         self.saved = saved
         self.pendingJoin = pendingJoin
         self.inviteSecret = inviteSecret

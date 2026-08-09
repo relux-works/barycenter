@@ -39,12 +39,38 @@ public enum PulsarConnectionState: Equatable, Sendable {
     }
 }
 
+public enum PulsarRecordingFailure: String, CaseIterable, Equatable, Sendable {
+    case explicitUserActionRequired = "explicit_user_action_required"
+    case permissionDenied = "permission_denied"
+    case permissionRestricted = "permission_restricted"
+    case noInputDevice = "no_input_device"
+    case selectedDeviceUnavailable = "selected_device_unavailable"
+    case alreadyActive = "already_active"
+    case invalidState = "invalid_state"
+    case backendUnavailable = "backend_unavailable"
+    case backendStartupUnavailable = "backend_startup_unavailable"
+    case captureQualityConsentRequired = "capture_quality_consent_required"
+    case storage
+    case cuePlaybackFailed = "cue_playback_failed"
+    case startCueFailed = "start_cue_failed"
+    case captureStayedOff = "capture_stayed_off"
+}
+
+public enum PulsarCaptureConsentPrompt:
+    String, CaseIterable, Equatable, Identifiable, Sendable
+{
+    case captureQuality
+    case startupFallback
+
+    public var id: Self { self }
+}
+
 public enum PulsarRecordingState: Equatable, Sendable {
     case unavailable
     case idle
     case recording
     case processing
-    case failed(String)
+    case failed(PulsarRecordingFailure)
 }
 
 public enum PulsarCaptureQualityMode: String, CaseIterable, Identifiable, Sendable {
@@ -147,6 +173,24 @@ public struct PulsarCaptureQualityPresentation: Equatable, Sendable {
         canStop = isActive && lifecycle != "stopping"
         requiresDegradedConsent = ["degraded", "unsupported"].contains(quality)
             && !snapshot.captureQualityDegradedConsent
+    }
+}
+
+public struct PulsarLocalCapturePresentation: Equatable, Sendable {
+    public let isActive: Bool
+    public let canStop: Bool
+    public let isSelfTest: Bool
+
+    public init(snapshot: PulsarShellSnapshot) {
+        isSelfTest = ![
+            PulsarSelfTestState.idle,
+            .reviewingDraft,
+            .failed,
+        ].contains(snapshot.selfTestState)
+        isActive = isSelfTest
+            || snapshot.recording == .recording
+            || snapshot.recording == .processing
+        canStop = isActive
     }
 }
 
@@ -304,6 +348,38 @@ public enum PulsarIdentityOperationState: Equatable, Sendable {
     case succeeded(String)
     case recoveryExportRequired(String)
     case failed(String)
+}
+
+public struct PulsarDeviceInviteSecret: Equatable, Sendable,
+    CustomStringConvertible, CustomDebugStringConvertible {
+    public let code: String
+    public let expiresAt: Date
+
+    public init(code: String, expiresAt: Date) {
+        self.code = code
+        self.expiresAt = expiresAt
+    }
+
+    public var description: String {
+        "PulsarDeviceInviteSecret(expiresAt: \(expiresAt), code: <redacted>)"
+    }
+    public var debugDescription: String { description }
+}
+
+public struct PulsarDeviceInviteState: Equatable, Sendable {
+    public var secret: PulsarDeviceInviteSecret?
+    public var busy: Bool
+    public var failure: String?
+
+    public init(
+        secret: PulsarDeviceInviteSecret? = nil,
+        busy: Bool = false,
+        failure: String? = nil
+    ) {
+        self.secret = secret
+        self.busy = busy
+        self.failure = failure
+    }
 }
 
 public struct PulsarOutgoingDraft: Equatable, Identifiable, Sendable {
@@ -617,10 +693,12 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
     public var phaseOneActionOutcome: String?
     public var phaseOneFailure: String?
     public var identityOperation: PulsarIdentityOperationState
+    public var deviceInvite: PulsarDeviceInviteState
     public var airs: PulsarAirState
     public var dndMode: PulsarDNDMode
     public var recording: PulsarRecordingState
     public var recordingAvailable: Bool
+    public var captureConsentPrompt: PulsarCaptureConsentPrompt?
     public var recordingMeter: Float
     public var captureDevices: [PulsarCaptureDevice]
     public var selectedCaptureDeviceID: String?
@@ -651,10 +729,12 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         phaseOneActionOutcome: String? = nil,
         phaseOneFailure: String? = nil,
         identityOperation: PulsarIdentityOperationState = .idle,
+        deviceInvite: PulsarDeviceInviteState = .init(),
         airs: PulsarAirState = .init(),
         dndMode: PulsarDNDMode = .allowAll,
         recording: PulsarRecordingState = .unavailable,
         recordingAvailable: Bool = false,
+        captureConsentPrompt: PulsarCaptureConsentPrompt? = nil,
         recordingMeter: Float = 0,
         captureDevices: [PulsarCaptureDevice] = [],
         selectedCaptureDeviceID: String? = nil,
@@ -684,10 +764,12 @@ public struct PulsarShellSnapshot: Equatable, Sendable {
         self.phaseOneActionOutcome = phaseOneActionOutcome
         self.phaseOneFailure = phaseOneFailure
         self.identityOperation = identityOperation
+        self.deviceInvite = deviceInvite
         self.airs = airs
         self.dndMode = dndMode
         self.recording = recording
         self.recordingAvailable = recordingAvailable
+        self.captureConsentPrompt = captureConsentPrompt
         self.recordingMeter = min(max(recordingMeter, 0), 1)
         self.captureDevices = captureDevices
         self.selectedCaptureDeviceID = selectedCaptureDeviceID
@@ -774,11 +856,16 @@ public final class PulsarShellModel {
         snapshot.identityOperation = state
     }
 
+    public func setDeviceInviteState(_ state: PulsarDeviceInviteState) {
+        snapshot.deviceInvite = state
+    }
+
     public func setAirState(_ state: PulsarAirState) {
         snapshot.airs = state
     }
 
     public func updateAirState(
+        availability: PulsarAirAvailability? = nil,
         saved: [PulsarAirItem]? = nil,
         pendingJoin: PulsarPendingAirJoin?? = nil,
         inviteSecret: PulsarAirInviteSecret?? = nil,
@@ -786,6 +873,7 @@ public final class PulsarShellModel {
         outcome: String?? = nil,
         failure: String?? = nil
     ) {
+        if let availability { snapshot.airs.availability = availability }
         if let saved { snapshot.airs.saved = saved }
         if let pendingJoin { snapshot.airs.pendingJoin = pendingJoin }
         if let inviteSecret { snapshot.airs.inviteSecret = inviteSecret }
@@ -797,6 +885,10 @@ public final class PulsarShellModel {
     public func setRecording(_ state: PulsarRecordingState, available: Bool) {
         snapshot.recording = state
         snapshot.recordingAvailable = available
+    }
+
+    public func setCaptureConsentPrompt(_ prompt: PulsarCaptureConsentPrompt?) {
+        snapshot.captureConsentPrompt = prompt
     }
 
     public func setRecordingMeter(_ value: Float) {
@@ -870,6 +962,7 @@ public final class PulsarShellActions {
     private let onSetVolume: (Int) -> Void
     private let onToggleRecording: () -> Void
     private let onCancelRecording: () -> Void
+    private let onResolveCaptureConsent: (Bool) -> Void
     private let onSetCaptureDevice: (String?) -> Void
     private let onSetRecordingShortcut: (PulsarRecordingShortcutChoice) -> Void
     private let onSetCaptureQuality: (PulsarCaptureQualityMode, Bool) -> Void
@@ -911,6 +1004,8 @@ public final class PulsarShellActions {
     private let onSubmitCreateOrbit: (String) -> Void
     private let onSubmitJoinOrbit: (String) -> Void
     private let onExportRecovery: () -> Void
+    private let onIssueDeviceInvite: () -> Void
+    private let onHideDeviceInvite: () -> Void
     private let onRefreshAirs: () -> Void
     private let onCreateAir: (String) -> Void
     private let onConsumeAirInvite: (String) -> Void
@@ -933,6 +1028,7 @@ public final class PulsarShellActions {
         setVolume: @escaping @MainActor (Int) -> Void = { _ in },
         toggleRecording: @escaping @MainActor () -> Void = {},
         cancelRecording: @escaping @MainActor () -> Void = {},
+        resolveCaptureConsent: @escaping @MainActor (Bool) -> Void = { _ in },
         setCaptureDevice: @escaping @MainActor (String?) -> Void = { _ in },
         setRecordingShortcut: @escaping @MainActor (PulsarRecordingShortcutChoice) -> Void = { _ in },
         setCaptureQuality: @escaping @MainActor (PulsarCaptureQualityMode, Bool) -> Void = { _, _ in },
@@ -974,6 +1070,8 @@ public final class PulsarShellActions {
         submitCreateOrbit: @escaping @MainActor (String) -> Void = { _ in },
         submitJoinOrbit: @escaping @MainActor (String) -> Void = { _ in },
         exportRecovery: @escaping @MainActor () -> Void = {},
+        issueDeviceInvite: @escaping @MainActor () -> Void = {},
+        hideDeviceInvite: @escaping @MainActor () -> Void = {},
         refreshAirs: @escaping @MainActor () -> Void = {},
         createAir: @escaping @MainActor (String) -> Void = { _ in },
         consumeAirInvite: @escaping @MainActor (String) -> Void = { _ in },
@@ -995,6 +1093,7 @@ public final class PulsarShellActions {
         self.onSetVolume = setVolume
         self.onToggleRecording = toggleRecording
         self.onCancelRecording = cancelRecording
+        self.onResolveCaptureConsent = resolveCaptureConsent
         self.onSetCaptureDevice = setCaptureDevice
         self.onSetRecordingShortcut = setRecordingShortcut
         self.onSetCaptureQuality = setCaptureQuality
@@ -1036,6 +1135,8 @@ public final class PulsarShellActions {
         self.onSubmitCreateOrbit = submitCreateOrbit
         self.onSubmitJoinOrbit = submitJoinOrbit
         self.onExportRecovery = exportRecovery
+        self.onIssueDeviceInvite = issueDeviceInvite
+        self.onHideDeviceInvite = hideDeviceInvite
         self.onRefreshAirs = refreshAirs
         self.onCreateAir = createAir
         self.onConsumeAirInvite = consumeAirInvite
@@ -1058,6 +1159,9 @@ public final class PulsarShellActions {
     public func setVolume(_ volume: Int) { onSetVolume(volume) }
     public func toggleRecording() { onToggleRecording() }
     public func cancelRecording() { onCancelRecording() }
+    public func resolveCaptureConsent(allowLimitedRecording: Bool) {
+        onResolveCaptureConsent(allowLimitedRecording)
+    }
     public func setCaptureDevice(_ id: String?) { onSetCaptureDevice(id) }
     public func setRecordingShortcut(_ shortcut: PulsarRecordingShortcutChoice) {
         onSetRecordingShortcut(shortcut)
@@ -1127,6 +1231,8 @@ public final class PulsarShellActions {
     public func submitCreateOrbit(title: String) { onSubmitCreateOrbit(title) }
     public func submitJoinOrbit(code: String) { onSubmitJoinOrbit(code) }
     public func exportRecovery() { onExportRecovery() }
+    public func issueDeviceInvite() { onIssueDeviceInvite() }
+    public func hideDeviceInvite() { onHideDeviceInvite() }
     public func refreshAirs() { onRefreshAirs() }
     public func createAir(title: String) { onCreateAir(title) }
     public func consumeAirInvite(code: String) { onConsumeAirInvite(code) }
@@ -1166,6 +1272,9 @@ public enum PulsarShellText: String, CaseIterable, Sendable {
     case connectionUnpaired, connectionReconnecting, connectionOnline, connectionDegraded
     case dndAllowAll, dndMessagesOnly, dndMutedUntil
     case recordingIdle, recordingActive, recordingProcessing, recordingFailed
+    case recordingBackendUnavailable, recordingStartupUnavailable
+    case recordingSelectedInputUnavailable, recordingStorageFailed, recordingCueFailed
+    case recordingStayedOff
     case unpairedHelp, degradedHelp, recordingHelp, quit
     case captureQuality, captureMode, captureModeAuto, captureModeSpeaker, captureModeHeadphone
     case captureModeUnknown
@@ -1180,6 +1289,8 @@ public enum PulsarShellText: String, CaseIterable, Sendable {
     case captureReasonNSUnavailable, captureReasonAGCUnavailable, captureReasonTooQuiet
     case captureReasonClipping, captureReasonClockUnstable, captureReasonProcessorOverrun
     case captureReasonDeviceLost, captureReasonUserUnprocessed, captureReasonRearmTimeout
+    case captureConsentTitle, captureConsentQualityMessage, captureConsentStartupMessage
+    case useHeadphones, allowLimitedRecording
     case outgoingDrafts, routeTarget, deliveryMode, uploadRightsConfirm, send, retry, refresh
     case selectedRecipients, sendSelectedRecipients
     case thisPulsar, ownBarycenter, currentAir, overlay, interrupt, afterCurrent
@@ -1248,7 +1359,39 @@ public struct PulsarShellCopy: Sendable {
         case .idle: text(.recordingIdle)
         case .recording: text(.recordingActive)
         case .processing: text(.recordingProcessing)
-        case .failed(let reason): "\(text(.recordingFailed)): \(reason)"
+        case .failed(let failure): recordingFailureLabel(failure)
+        }
+    }
+
+    public func recordingFailureLabel(_ failure: PulsarRecordingFailure) -> String {
+        switch failure {
+        case .permissionDenied, .permissionRestricted:
+            text(.captureReasonPermissionDenied)
+        case .noInputDevice:
+            text(.captureReasonNoDevice)
+        case .selectedDeviceUnavailable:
+            text(.recordingSelectedInputUnavailable)
+        case .backendStartupUnavailable:
+            text(.recordingStartupUnavailable)
+        case .backendUnavailable:
+            text(.recordingBackendUnavailable)
+        case .captureQualityConsentRequired:
+            text(.captureConsentQualityMessage)
+        case .storage:
+            text(.recordingStorageFailed)
+        case .cuePlaybackFailed, .startCueFailed:
+            text(.recordingCueFailed)
+        case .captureStayedOff:
+            text(.recordingStayedOff)
+        case .explicitUserActionRequired, .alreadyActive, .invalidState:
+            text(.recordingFailed)
+        }
+    }
+
+    public func captureConsentMessage(_ prompt: PulsarCaptureConsentPrompt) -> String {
+        switch prompt {
+        case .captureQuality: text(.captureConsentQualityMessage)
+        case .startupFallback: text(.captureConsentStartupMessage)
         }
     }
 
@@ -1451,7 +1594,7 @@ public struct PulsarShellCopy: Sendable {
 
     private static let en: [PulsarShellText: String] = [
         .appName: "Pulsar", .home: "Home", .airs: "Airs", .inbox: "Inbox & targets",
-        .create: "Create", .join: "Join",
+        .create: "Start Barycenter", .join: "Connect device",
         .tryLocally: "Try locally", .soundboard: "Soundboard", .automation: "Automation", .history: "History", .settings: "Settings",
         .openMainWindow: "Open Pulsar", .primaryActions: "Primary actions",
         .status: "Status", .presence: "Presence", .routing: "Routing",
@@ -1481,23 +1624,31 @@ public struct PulsarShellCopy: Sendable {
         .selfTestPermission: "Waiting for microphone permission", .selfTestRecording: "Recording locally",
         .selfTestStopCue: "Finishing recording", .selfTestPlayback: "Playing local recording",
         .selfTestReview: "Local draft is ready", .selfTestFailed: "Local self-test failed",
-        .createTitle: "Create an air", .createBody: "Create a shared audio space directly with Barycenter. You will save a one-time recovery file before it becomes active.",
-        .createAction: "Create securely", .joinTitle: "Join an air",
-        .joinBody: "Enter the invitation code issued for this installation.",
-        .joinAction: "Join securely", .tryTitle: "Try Pulsar locally",
+        .createTitle: "Start a Barycenter", .createBody: "Create your private home for Pulsar devices. Recovery backup is recommended, but it will not block setup.",
+        .createAction: "Start securely", .joinTitle: "Connect this device",
+        .joinBody: "Enter a device invitation issued by your existing Barycenter.",
+        .joinAction: "Connect securely", .tryTitle: "Try Pulsar locally",
         .tryBody: "Record five seconds and play them only on this Mac before sending anything.",
         .tryAction: "Run local self-test", .historyTitle: "Recent activity",
         .settingsTitle: "Pulsar settings", .language: "Language",
         .integrations: "Optional integrations",
         .spotifyOptional: "Spotify is an optional music source; Pulsar audio and local review work without it.",
-        .telegramOptional: "Telegram is an optional companion control; Create, Join, routing, history, and reports remain available in Pulsar.",
+        .telegramOptional: "Telegram is an optional companion control; device setup, routing, history, and reports remain available in Pulsar.",
         .connectionUnpaired: "Not paired", .connectionReconnecting: "Reconnecting",
         .connectionOnline: "Connected", .connectionDegraded: "Needs attention",
         .dndAllowAll: "Allow all audio", .dndMessagesOnly: "Messages only",
         .dndMutedUntil: "Muted", .recordingIdle: "Not recording",
         .recordingActive: "Recording — press Stop to finish",
         .recordingProcessing: "Preparing recording", .recordingFailed: "Recording failed",
-        .unpairedHelp: "Create or join an air, try local audio, or open settings. Pairing is not required for those paths.",
+        .recordingBackendUnavailable: "Recording could not start. Check the microphone and try again.",
+        .recordingStartupUnavailable:
+            "Recording could not start from the microphone. Make sure it is connected and available, then try again.",
+        .recordingSelectedInputUnavailable:
+            "The selected microphone is no longer available. Choose another microphone and try again.",
+        .recordingStorageFailed: "Recording storage is unavailable. Check free space and try again.",
+        .recordingCueFailed: "The recording cue could not play, so recording stayed off.",
+        .recordingStayedOff: "Recording stayed off. Connect headphones and press Record when ready.",
+        .unpairedHelp: "Start a Barycenter, connect this device, or try local audio. Airs are shared rooms you can create later.",
         .degradedHelp: "Local controls and settings remain available while Pulsar reconnects.",
         .recordingHelp: "Recording is active. The Stop control remains available in this window and the menu bar.",
         .captureQuality: "Capture quality", .captureMode: "Capture mode",
@@ -1510,7 +1661,7 @@ public struct PulsarShellCopy: Sendable {
         .captureResolvedRoute: "Resolved route", .captureProcessorState: "Processor state",
         .captureInputCeiling: "Input safety ceiling", .receiverOutputCeiling: "Receiver output ceiling",
         .captureCeilingHelp: "These are separate fixed safety limits. Receiver volume does not change either ceiling.",
-        .allowDegradedCapture: "Allow this degraded capture",
+        .allowDegradedCapture: "Allow this limited recording",
         .degradedCaptureHelp: "Consent applies only to the next local capture generation. Speaker capture remains degraded until its render reference is proven.",
         .captureStopLocal: "Stop local capture",
         .captureAEC: "Echo cancellation", .captureNS: "Noise suppression", .captureAGC: "Input gain control",
@@ -1520,9 +1671,11 @@ public struct PulsarShellCopy: Sendable {
         .captureReasonMixedVersion: "This build cannot expose the reviewed capture-quality contract. Recording stays fail-closed.",
         .captureReasonPermissionDenied: "Microphone permission is denied. Allow Pulsar in System Settings.",
         .captureReasonNoDevice: "No usable microphone is available.",
-        .captureReasonReferenceUnavailable: "The speaker render reference is not proven. Use headphones or explicitly allow degraded capture.",
+        .captureReasonReferenceUnavailable:
+            "The speaker render reference is not proven. Use headphones or allow this limited recording.",
         .captureReasonReferenceStale: "The speaker render reference is stale. Stop or use headphones.",
-        .captureReasonRouteUnknown: "The output route is ambiguous. Choose headphones or explicitly allow degraded capture.",
+        .captureReasonRouteUnknown:
+            "The output route is ambiguous. Choose headphones or allow this limited recording.",
         .captureReasonRouteExcluded: "The resolved route does not match the requested capture mode.",
         .captureReasonAECUnavailable: "Echo cancellation is not verified on this route.",
         .captureReasonNSUnavailable: "Noise suppression is unavailable.",
@@ -1534,6 +1687,13 @@ public struct PulsarShellCopy: Sendable {
         .captureReasonDeviceLost: "The microphone or output device was disconnected.",
         .captureReasonUserUnprocessed: "Processing is disabled for this capture.",
         .captureReasonRearmTimeout: "The route change could not be applied safely. Stop and retry.",
+        .captureConsentTitle: "Choose recording quality",
+        .captureConsentQualityMessage:
+            "The built-in speaker route cannot prove capture processing quality. Use headphones, or allow this one limited recording. Echo cancellation or noise reduction may be limited.",
+        .captureConsentStartupMessage:
+            "Pulsar could not safely stabilize this audio processing route. Reconnect or use headphones, or allow this one limited recording without verified echo cancellation.",
+        .useHeadphones: "Use headphones",
+        .allowLimitedRecording: "Allow this limited recording",
         .quit: "Quit Pulsar",
         .outgoingDrafts: "Ready to send", .routeTarget: "Send to",
         .selectedRecipients: "Selected recipients", .sendSelectedRecipients: "Send to selected recipients",
@@ -1549,17 +1709,17 @@ public struct PulsarShellCopy: Sendable {
         .submitReport: "Submit report", .cancel: "Cancel",
         .confirmDelete: "Delete this media permanently? It can no longer be replayed.",
         .confirmBlock: "Block this sender? New deliveries from this sender will stop.",
-        .orbitTitle: "Air name", .inviteCode: "Invitation code",
-        .createWithAPI: "Create securely", .joinWithAPI: "Join securely",
+        .orbitTitle: "Barycenter name", .inviteCode: "Device invitation code",
+        .createWithAPI: "Start Barycenter", .joinWithAPI: "Connect device",
         .identityBusy: "Contacting Barycenter…", .identitySucceeded: "Credentials saved",
         .identityFailed: "Identity operation failed",
-        .recoveryRequired: "Save the one-time recovery file before continuing.",
+        .recoveryRequired: "Protect your Barycenter with a recovery file. You can keep using Pulsar and save it now or later.",
         .exportRecovery: "Save recovery file",
     ]
 
     private static let ru: [PulsarShellText: String] = [
         .appName: "Пульсар", .home: "Главная", .airs: "Эфиры", .inbox: "Входящие и адресаты",
-        .create: "Создать", .join: "Присоединиться",
+        .create: "Создать Барицентр", .join: "Подключить устройство",
         .tryLocally: "Попробовать локально", .soundboard: "Саундборд", .automation: "Автоматизация", .history: "История", .settings: "Настройки",
         .openMainWindow: "Открыть Пульсар", .primaryActions: "Основные действия",
         .status: "Статус", .presence: "Присутствие", .routing: "Маршрут звука",
@@ -1589,23 +1749,31 @@ public struct PulsarShellCopy: Sendable {
         .selfTestPermission: "Жду разрешения на микрофон", .selfTestRecording: "Записываю локально",
         .selfTestStopCue: "Завершаю запись", .selfTestPlayback: "Воспроизвожу локальную запись",
         .selfTestReview: "Локальный черновик готов", .selfTestFailed: "Ошибка локальной самопроверки",
-        .createTitle: "Создать эфир", .createBody: "Создай общее аудиопространство напрямую в Барицентре. Перед активацией нужно сохранить одноразовый файл восстановления.",
-        .createAction: "Создать безопасно", .joinTitle: "Присоединиться к эфиру",
-        .joinBody: "Введи код приглашения, выпущенный для этой установки.",
-        .joinAction: "Присоединиться безопасно", .tryTitle: "Проверить Пульсар локально",
+        .createTitle: "Создать Барицентр", .createBody: "Создайте свой приватный дом для устройств Пульсара. Резервная копия восстановления рекомендуется, но не блокирует настройку.",
+        .createAction: "Создать безопасно", .joinTitle: "Подключить это устройство",
+        .joinBody: "Введите приглашение для устройства, выпущенное в существующем Барицентре.",
+        .joinAction: "Подключить безопасно", .tryTitle: "Проверить Пульсар локально",
         .tryBody: "Запиши пять секунд и воспроизведи их только на этом маке до любой отправки.",
         .tryAction: "Запустить самопроверку", .historyTitle: "Недавние события",
         .settingsTitle: "Настройки Пульсара", .language: "Язык",
         .integrations: "Необязательные интеграции",
         .spotifyOptional: "Spotify — необязательный источник музыки; звук Пульсара и локальная проверка работают без него.",
-        .telegramOptional: "Telegram — необязательный пульт; создание, присоединение, маршрутизация, история и жалобы доступны в Пульсаре.",
+        .telegramOptional: "Telegram — необязательный пульт; настройка устройств, маршрутизация, история и жалобы доступны в Пульсаре.",
         .connectionUnpaired: "Не подключён", .connectionReconnecting: "Переподключение",
         .connectionOnline: "Подключён", .connectionDegraded: "Нужно внимание",
         .dndAllowAll: "Разрешить весь звук", .dndMessagesOnly: "Только сообщения",
         .dndMutedUntil: "Звук выключен", .recordingIdle: "Запись не идёт",
         .recordingActive: "Идёт запись — нажми «Остановить», чтобы закончить",
         .recordingProcessing: "Подготавливаю запись", .recordingFailed: "Ошибка записи",
-        .unpairedHelp: "Создай эфир, присоединись, проверь локальный звук или открой настройки — для этих путей подключение не требуется.",
+        .recordingBackendUnavailable: "Не удалось начать запись. Проверьте микрофон и повторите.",
+        .recordingStartupUnavailable:
+            "Не удалось начать запись с микрофона. Убедитесь, что он подключён и доступен, затем повторите.",
+        .recordingSelectedInputUnavailable:
+            "Выбранный микрофон больше недоступен. Выберите другой микрофон и повторите.",
+        .recordingStorageFailed: "Хранилище записи недоступно. Проверьте свободное место и повторите.",
+        .recordingCueFailed: "Не удалось воспроизвести сигнал записи, поэтому запись не началась.",
+        .recordingStayedOff: "Запись не началась. Подключите наушники и нажмите «Запись», когда будете готовы.",
+        .unpairedHelp: "Создайте Барицентр, подключите это устройство или проверьте локальный звук. Общий эфир можно создать позже.",
         .degradedHelp: "Локальные настройки остаются доступны, пока Пульсар переподключается.",
         .recordingHelp: "Запись активна. Кнопка остановки остаётся доступна в этом окне и в строке меню.",
         .captureQuality: "Качество записи", .captureMode: "Режим записи",
@@ -1642,6 +1810,13 @@ public struct PulsarShellCopy: Sendable {
         .captureReasonDeviceLost: "Микрофон или устройство вывода отключено.",
         .captureReasonUserUnprocessed: "Обработка для этой записи выключена.",
         .captureReasonRearmTimeout: "Не удалось безопасно применить смену маршрута. Останови и повтори.",
+        .captureConsentTitle: "Выберите качество записи",
+        .captureConsentQualityMessage:
+            "Для встроенных динамиков Пульсар не может подтвердить качество обработки. Используйте наушники или разрешите одну ограниченную запись. Подавление эха или шума может работать ограниченно.",
+        .captureConsentStartupMessage:
+            "Пульсар не смог безопасно стабилизировать этот маршрут обработки звука. Переподключите или используйте наушники либо разрешите одну ограниченную запись без подтверждённого подавления эха.",
+        .useHeadphones: "Использовать наушники",
+        .allowLimitedRecording: "Разрешить эту ограниченную запись",
         .quit: "Выйти из Пульсара",
         .outgoingDrafts: "Готово к отправке", .routeTarget: "Отправить в",
         .selectedRecipients: "Выбранные адресаты", .sendSelectedRecipients: "Отправить выбранным адресатам",
@@ -1657,11 +1832,11 @@ public struct PulsarShellCopy: Sendable {
         .submitReport: "Отправить жалобу", .cancel: "Отмена",
         .confirmDelete: "Удалить это медиа навсегда? Его больше нельзя будет повторить.",
         .confirmBlock: "Заблокировать отправителя? Новые доставки от него остановятся.",
-        .orbitTitle: "Название эфира", .inviteCode: "Код приглашения",
-        .createWithAPI: "Создать безопасно", .joinWithAPI: "Присоединиться безопасно",
+        .orbitTitle: "Название Барицентра", .inviteCode: "Код приглашения устройства",
+        .createWithAPI: "Создать Барицентр", .joinWithAPI: "Подключить устройство",
         .identityBusy: "Связываюсь с Барицентром…", .identitySucceeded: "Данные доступа сохранены",
         .identityFailed: "Не удалось выполнить действие с доступом",
-        .recoveryRequired: "Сохрани одноразовый файл восстановления перед продолжением.",
+        .recoveryRequired: "Защитите Барицентр файлом восстановления. Пульсар уже работает — файл можно сохранить сейчас или позже.",
         .exportRecovery: "Сохранить файл восстановления",
     ]
 }

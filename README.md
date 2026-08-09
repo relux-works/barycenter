@@ -6,10 +6,22 @@ Full specification (Russian, source of truth): [docs/spec.md](docs/spec.md), v1.
 
 ## How it works (short)
 
+- A Pulsar installation is one device. A **Barycenter** is the permanent private home and identity shared by that person's devices. An **Air** is an optional shared playback room between two or more Barycenters.
+- First launch offers three distinct paths: start a Barycenter, connect this device with a device invite, or try audio locally. Air creation appears only after setup and only when `/healthz` reports `phase2.air_rooms_enabled=true`.
+- Starting a Barycenter activates the protected device credentials immediately. Recovery-file export remains visible as a resumable safety action; after restart the authenticated primary can rotate fresh one-time recovery material.
 - Each home has a Mac node: **go-librespot** (headless Spotify Connect client, own Premium account, PCM to a named pipe) -> **NodeApp** (Swift, AVAudioEngine: music + voice drops mixing) -> **Airfoil** (delivery to 1..N speakers of that home).
 - A **coordinator** (Go) owns the session state machine and queue, adopts Spotify selections reported by either Pulsar, and drives playback track-by-track on every connected home with clock-synced starts. It also runs the Telegram onboarding/voice interface and processes voice messages with ffmpeg.
 - Audio never crosses between homes; only control messages and processed voice files travel over the tailnet.
 - Modes: **shared/together** (a selection on either Pulsar becomes the synchronized common track) and **solo** (each Pulsar remains an independent Spotify Connect device; partner can still inject tracks and voice drops).
+
+### Connect a Windows device to a Barycenter created on Mac
+
+1. On the paired Mac, open **Settings → Connect another device** and create an invitation.
+2. Copy the one-time device code.
+3. On the Windows first-launch screen, choose **Connect this device**, paste the code, and confirm.
+4. Save or replace the recovery file from **Settings** when convenient. Recovery export is a safety action, not an activation gate.
+
+Air is a separate collaboration layer. When Air Rooms are enabled by the coordinator, create an Air only to share playback with another Barycenter; the creation flow immediately provides its first member invitation.
 
 ## Repository layout
 
@@ -40,6 +52,7 @@ Gates (docs/goal.md §5): G0 spike: blocked on two user actions (zeroconf login,
 | `make` | Entry point for everything | `make test` (both sides), `make build`, `make app`, `make release VERSION=vX.Y.Z` | dev builds in `.temp/build/`, distribution in `release/` (both gitignored) |
 | `swift` (SwiftPM, 5.10+) | NodeApp and spike prototypes build/test | `swift build` / `swift test` in `node-app/` or `spike/...` | `.build/` (gitignored) |
 | `go` (1.22+) | Coordinator build/test | `go build ./...` / `go test ./...` in `coordinator/` | binary in `.temp/build/` or `release/` |
+| `task-board` | File-backed planning, implementation status and verification evidence | `task-board m '...'` from the repository root | `.task-board/` |
 | `go-librespot` | Headless Spotify Connect playback on nodes | Bundled relux-works fork in the app; manual dev fallback: `brew install go-librespot` | PCM FIFO, local HTTP+WS API on 127.0.0.1:3678; Spotify discovery via `_spotify-connect._tcp` Bonjour using macOS `LocalHostName` |
 | `ffmpeg` | Voice message processing on coordinator (highpass, compressor, loudnorm) | see spec ch. 10 for the exact filter chain | WAV files in coordinator `media_dir` |
 | `tailscale` | Mesh network between 2 Macs + VPS, MagicDNS names `node-a`/`node-b`/`coord`, Tailscale SSH | see spec ch. 11 |: |

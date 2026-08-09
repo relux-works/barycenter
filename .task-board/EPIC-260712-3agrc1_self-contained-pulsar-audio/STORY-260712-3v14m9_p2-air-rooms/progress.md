@@ -1,5 +1,5 @@
 ## Status
-done
+development
 
 ## Assigned To
 (none)
@@ -8,7 +8,7 @@ done
 2026-07-12T15:19:46Z
 
 ## Last Update
-2026-07-15T16:30:43Z
+2026-07-27T23:00:07Z
 
 ## Blocked By
 - STORY-260712-2ve1c8
@@ -43,6 +43,7 @@ agent completed: [analyst] solution-architect (codex) (exit=0)
 agent spawned: codex (pid=77520, exit=0)
 Root decomposition review completed. Added missing secure Telegram Air 2-to-N lifecycle parity; separated saved membership from one active runtime, hardened single-use invites and joining-primary confirmation, made parked rooms lazy, froze join or leave media behavior and versioned policies, and strengthened deterministic link-to-Air authority cutover so rollback cannot run dual runtimes. UI now manages multiple saved Airs with disruptive-action confirmation. Linked Phase 1 identity, scheduler, callbacks, UI and Phase 2 target services; stream task links remain pending its final decomposition.
 Implementation complete: all ten Air tasks accepted. Final regression task passed deterministic 8-Barycenter/20-Pulsar exact-fanout, full race, exact predecessor rollback and hosted CI. Real-app/hardware/audio evidence remains exclusively in the manual-test epic; streamed-track and explicit-target integration remain downstream stories.
+2026-07-27 user-requested acceptance extension: added controlled coordinator rollout TASK-260727-1f2cyl and two-independent-Barycenter Mac-to-Windows Air E2E TASK-260727-1msjz6. This is an engineering acceptance run; it does not create a second open owner-manual task.
 
 ## Precondition Resources
 - [spec-entry.md](file://STORY-260712-3v14m9/spec-entry.md) — Authoritative specification entry point

@@ -48,12 +48,12 @@ public struct PulsarMainView: View {
             PulsarToolbar(model: model, actions: actions)
         }
         .safeAreaInset(edge: .bottom) {
-            if PulsarCaptureQualityPresentation(snapshot: model.snapshot).isActive {
-                PulsarCaptureActiveBar(model: model, actions: actions)
+            if PulsarLocalCapturePresentation(snapshot: model.snapshot).isActive {
+                PulsarRecordingActiveBar(model: model, actions: actions)
             }
         }
         .onExitCommand {
-            if PulsarCaptureQualityPresentation(snapshot: model.snapshot).isActive {
+            if PulsarLocalCapturePresentation(snapshot: model.snapshot).isActive {
                 actions.stopActiveCapture()
             }
         }
@@ -70,7 +70,7 @@ private struct PulsarSidebar: View {
 
     var body: some View {
         let copy = PulsarShellCopy(locale: model.locale)
-        List(PulsarShellSection.allCases, selection: $model.selectedSection) { section in
+        List(visibleSections, selection: $model.selectedSection) { section in
             Label(copy.title(for: section), systemImage: symbol(for: section))
                 .tag(section)
         }
@@ -90,6 +90,18 @@ private struct PulsarSidebar: View {
                 .accessibilityElement(children: .combine)
             }
             .background(.bar)
+        }
+    }
+
+    private var visibleSections: [PulsarShellSection] {
+        PulsarShellSection.allCases.filter { section in
+            if section == .airs {
+                return model.snapshot.airs.availability == .enabled
+            }
+            if model.snapshot.connection.isPaired && (section == .create || section == .join) {
+                return false
+            }
+            return true
         }
     }
 
@@ -684,6 +696,7 @@ private struct PulsarHomeView: View {
         PulsarPage {
             VStack(alignment: .leading, spacing: PulsarDesktopMetrics.sectionSpacing) {
                 PulsarStateBanner(model: model)
+                PulsarRecoverySafetyCard(model: model, actions: actions)
                 Text(copy.text(.primaryActions))
                     .font(.title2.bold())
                 ViewThatFits {
@@ -721,24 +734,26 @@ private struct PulsarHomeView: View {
 
     @ViewBuilder
     private func actionCards(copy: PulsarShellCopy) -> some View {
-        PulsarActionCard(
-            title: copy.text(.create),
-            detail: copy.text(.createBody),
-            symbol: "plus.circle",
-            shortcut: "⌘1"
-        ) {
-            model.selectedSection = .create
+        if !model.snapshot.connection.isPaired {
+            PulsarActionCard(
+                title: copy.text(.create),
+                detail: copy.text(.createBody),
+                symbol: "plus.circle",
+                shortcut: "⌘1"
+            ) {
+                model.selectedSection = .create
+            }
+            .keyboardShortcut("1", modifiers: .command)
+            PulsarActionCard(
+                title: copy.text(.join),
+                detail: copy.text(.joinBody),
+                symbol: "person.2",
+                shortcut: "⌘2"
+            ) {
+                model.selectedSection = .join
+            }
+            .keyboardShortcut("2", modifiers: .command)
         }
-        .keyboardShortcut("1", modifiers: .command)
-        PulsarActionCard(
-            title: copy.text(.join),
-            detail: copy.text(.joinBody),
-            symbol: "person.2",
-            shortcut: "⌘2"
-        ) {
-            model.selectedSection = .join
-        }
-        .keyboardShortcut("2", modifiers: .command)
         PulsarActionCard(
             title: copy.text(.tryLocally),
             detail: copy.text(.tryBody),
@@ -748,6 +763,41 @@ private struct PulsarHomeView: View {
             model.selectedSection = .tryLocally
         }
         .keyboardShortcut("t", modifiers: [.command, .shift])
+    }
+}
+
+private struct PulsarRecoverySafetyCard: View {
+    let model: PulsarShellModel
+    let actions: PulsarShellActions
+    var alwaysVisible = false
+
+    @ViewBuilder
+    var body: some View {
+        if alwaysVisible || recoveryMessage != nil {
+            let copy = PulsarShellCopy(locale: model.locale)
+            GroupBox {
+                HStack(alignment: .center, spacing: 12) {
+                    Image(systemName: "key.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(copy.text(.recoveryRequired)).font(.headline)
+                        if let message = recoveryMessage, !message.isEmpty {
+                            Text(message).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Button(copy.text(.exportRecovery)) { actions.exportRecovery() }
+                        .buttonStyle(.borderedProminent)
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    private var recoveryMessage: String? {
+        guard case .recoveryExportRequired(let message) = model.snapshot.identityOperation
+        else { return nil }
+        return message
     }
 }
 
@@ -1354,7 +1404,6 @@ private struct PulsarSelfTestView: View {
                             .font(.title2.bold())
                         Text(copy.text(.tryBody))
                             .foregroundStyle(.secondary)
-                        PulsarCaptureQualityControls(model: model, actions: actions)
                         PulsarStatusMessage(
                             title: copy.selfTestLabel(model.snapshot.selfTestState),
                             tone: selfTestTone(model.snapshot.selfTestState))
@@ -1480,6 +1529,17 @@ private struct PulsarSettingsView: View {
     var body: some View {
         let copy = PulsarShellCopy(locale: model.locale)
         Form {
+            if model.snapshot.connection.isPaired {
+                Section {
+                    PulsarRecoverySafetyCard(
+                        model: model,
+                        actions: actions,
+                        alwaysVisible: true)
+                }
+                Section {
+                    PulsarDeviceInviteCard(model: model, actions: actions)
+                }
+            }
             Picker(copy.text(.language), selection: $model.locale) {
                 Text("English").tag(PulsarShellLocale.en)
                 Text("Русский").tag(PulsarShellLocale.ru)
@@ -1516,9 +1576,6 @@ private struct PulsarSettingsView: View {
                     }
                 }
             }
-            Section(copy.text(.captureQuality)) {
-                PulsarCaptureQualityControls(model: model, actions: actions)
-            }
             Section(copy.text(.integrations)) {
                 Label(copy.text(.spotifyOptional), systemImage: "music.note")
                 Label(copy.text(.telegramOptional), systemImage: "paperplane")
@@ -1529,6 +1586,56 @@ private struct PulsarSettingsView: View {
         .padding(PulsarDesktopMetrics.pagePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle(copy.text(.settingsTitle))
+    }
+}
+
+private struct PulsarDeviceInviteCard: View {
+    let model: PulsarShellModel
+    let actions: PulsarShellActions
+
+    var body: some View {
+        let state = model.snapshot.deviceInvite
+        VStack(alignment: .leading, spacing: 8) {
+            Text(localized("Connect another device", "Подключить другое устройство"))
+                .font(.headline)
+            Text(localized(
+                "Create a one-time device invitation, then choose “Connect this device” on Windows.",
+                "Создайте одноразовое приглашение, затем выберите «Подключить это устройство» в Windows."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if state.busy {
+                ProgressView(localized("Creating invitation…", "Создаю приглашение…"))
+            } else if let secret = state.secret {
+                Text(secret.code)
+                    .font(.body.monospaced())
+                    .textSelection(.enabled)
+                    .privacySensitive()
+                Text(localized("Expires ", "Истекает ") +
+                    secret.expiresAt.formatted(date: .omitted, time: .shortened))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Button(localized("Copy code", "Скопировать код")) {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(secret.code, forType: .string)
+                    }
+                    Button(localized("Hide", "Скрыть")) { actions.hideDeviceInvite() }
+                }
+            } else {
+                Button(localized("Create device invitation", "Создать приглашение устройства")) {
+                    actions.issueDeviceInvite()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            if let failure = state.failure {
+                Text(failure).font(.caption).foregroundStyle(.orange)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func localized(_ en: String, _ ru: String) -> String {
+        model.locale == .ru ? ru : en
     }
 }
 

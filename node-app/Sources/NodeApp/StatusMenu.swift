@@ -190,22 +190,15 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
             menu.addItem(cancel)
         }
         if let snapshot = shellModel?.snapshot {
-            let quality = PulsarCaptureQualityPresentation(snapshot: snapshot)
-            menu.addItem(disabled(
-                "\(copy.text(.captureQuality)): \(copy.captureQualityLabel(quality.quality))"))
-            menu.addItem(disabled(copy.captureQualityReason(quality.reason)))
-            menu.addItem(disabled(String(
-                format: "%@ %.0f dBFS · %@ %.0f dBFS",
-                copy.text(.captureInputCeiling), quality.inputCeilingDBFS,
-                copy.text(.receiverOutputCeiling), quality.outputCeilingDBFS)))
-            if quality.isActive {
+            let capture = PulsarLocalCapturePresentation(snapshot: snapshot)
+            if capture.isActive {
                 let stop = NSMenuItem(
                     title: copy.text(.captureStopLocal),
                     action: #selector(stopActiveCapture),
                     keyEquivalent: ".")
                 stop.keyEquivalentModifierMask = [.command]
                 stop.target = self
-                stop.isEnabled = quality.canStop
+                stop.isEnabled = capture.canStop
                 menu.addItem(stop)
             }
         }
@@ -342,7 +335,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate, NSMenuItemValidation
             shellModel?.snapshot.recording == .recording
         case #selector(stopActiveCapture):
             shellModel.map {
-                PulsarCaptureQualityPresentation(snapshot: $0.snapshot).canStop
+                PulsarLocalCapturePresentation(snapshot: $0.snapshot).canStop
             } ?? false
         case #selector(toggleDND):
             shellModel?.snapshot.connection.isPaired == true

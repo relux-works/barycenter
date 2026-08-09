@@ -19,14 +19,21 @@ public struct PulsarAirManagementView: View {
             VStack(alignment: .leading, spacing: 18) {
                 header(copy)
                 feedback(copy)
-                if let pending = model.snapshot.airs.pendingJoin {
-                    pendingJoin(pending, copy: copy)
+                if model.snapshot.airs.availability == .disabled {
+                    ContentUnavailableView(
+                        copy.unavailableTitle,
+                        systemImage: "person.3.sequence",
+                        description: Text(copy.unavailableBody))
+                } else {
+                    if let pending = model.snapshot.airs.pendingJoin {
+                        pendingJoin(pending, copy: copy)
+                    }
+                    if let secret = model.snapshot.airs.inviteSecret {
+                        inviteSecret(secret, copy: copy)
+                    }
+                    lifecycleForms(copy)
+                    savedAirs(copy)
                 }
-                if let secret = model.snapshot.airs.inviteSecret {
-                    inviteSecret(secret, copy: copy)
-                }
-                lifecycleForms(copy)
-                savedAirs(copy)
             }
             .padding(24)
             .frame(maxWidth: 760, alignment: .leading)
@@ -432,6 +439,8 @@ private struct PulsarAirCopy {
     var noCurrent: String { l("No Air is active; saved memberships remain available.", "Активного эфира нет; сохранённые участия остаются доступны.") }
     var refresh: String { l("Refresh Airs", "Обновить эфиры") }
     var working: String { l("Updating Airs…", "Обновляю эфиры…") }
+    var unavailableTitle: String { l("Airs are not enabled yet", "Эфиры пока не включены") }
+    var unavailableBody: String { l("This coordinator is still using the previous room model. Your Barycenter and device remain available.", "Этот координатор пока использует прежнюю модель комнат. Ваш Барицентр и устройство продолжают работать.") }
     var addAir: String { l("Create or join", "Создать или присоединиться") }
     var airName: String { l("Air name", "Название эфира") }
     var create: String { l("Create Air", "Создать эфир") }
@@ -504,6 +513,7 @@ private struct PulsarAirCopy {
     func outcome(_ code: String) -> String {
         let values = [
             "created": l("Air created and saved.", "Эфир создан и сохранён."),
+            "created_with_invite": l("Air created. Its one-time invite is ready to share.", "Эфир создан. Одноразовое приглашение готово к отправке."),
             "invite_issued": l("One-time invite created.", "Одноразовое приглашение создано."),
             "invite_withdrawn": l("Invite withdrawn.", "Приглашение отозвано."),
             "invite_reviewed": l("Invite consumed; primary confirmation is still required.", "Приглашение принято; всё ещё нужно подтверждение primary."),
@@ -524,6 +534,7 @@ private struct PulsarAirCopy {
             "invite_unavailable": l("This invite is expired, used, withdrawn or unknown.", "Приглашение истекло, использовано, отозвано или неизвестно."),
             "too_many_attempts": l("Too many invite attempts. Wait before retrying.", "Слишком много попыток. Подождите перед повтором."),
             "revision_conflict": l("The Air changed elsewhere. Refresh and try again.", "Эфир изменился в другом месте. Обновите и повторите."),
+            "air_rooms_not_enabled": l("Airs are not enabled on this coordinator yet.", "Эфиры на этом координаторе пока не включены."),
             "active_air_changed": l("The active Air changed elsewhere. Refresh before switching.", "Активный эфир изменился в другом месте. Обновите перед переключением."),
             "air_barycenter_capacity_reached": l("This Air reached its barycenter capacity.", "Эфир достиг лимита барицентров."),
             "air_online_pulsar_capacity_reached": l("This Air reached its online Pulsar capacity.", "Эфир достиг лимита Пульсаров в сети."),

@@ -126,7 +126,18 @@ public struct AirJoinPreview: Equatable, Sendable {
   public let activationWouldSwitch: Bool
 }
 
+public struct AirFeatureAvailability: Equatable, Sendable {
+  public let enabled: Bool
+  public let authorityState: String
+
+  public init(enabled: Bool, authorityState: String) {
+    self.enabled = enabled
+    self.authorityState = authorityState
+  }
+}
+
 public protocol AirAppServicing: Sendable {
+  func availability() async throws -> AirFeatureAvailability
   func list() async throws -> AirList
   func detail(id: String) async throws -> AirDetail
   func create(title: String, idempotencyKey: String) async throws -> AirDetail
@@ -175,6 +186,17 @@ public final class AirAppClient: AirAppServicing, @unchecked Sendable {
     self.origin = origin
     bearer = control.controlToken
     self.transport = transport
+  }
+
+  public func availability() async throws -> AirFeatureAvailability {
+    let response = try await request(method: "GET", path: "/healthz", success: [200])
+    let wire: AirHealthResponse = try decode(response.data)
+    guard !wire.phase2.airAuthorityState.isEmpty else {
+      throw AirClientError.invalidResponse
+    }
+    return AirFeatureAvailability(
+      enabled: wire.phase2.airRoomsEnabled,
+      authorityState: wire.phase2.airAuthorityState)
   }
 
   public func list() async throws -> AirList {
@@ -487,6 +509,18 @@ public final class AirAppClient: AirAppServicing, @unchecked Sendable {
       CharacterSet(charactersIn: "0123456789ABCDEFGHJKMNPQRSTVWXYZ").contains($0)
     }
   }
+}
+
+private struct AirHealthResponse: Decodable {
+  struct Phase2: Decodable {
+    let airRoomsEnabled: Bool
+    let airAuthorityState: String
+    enum CodingKeys: String, CodingKey {
+      case airRoomsEnabled = "air_rooms_enabled"
+      case airAuthorityState = "air_authority_state"
+    }
+  }
+  let phase2: Phase2
 }
 
 private struct AirCapacityResponse: Decodable {

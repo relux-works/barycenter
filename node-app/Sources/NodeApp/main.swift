@@ -281,22 +281,6 @@ var runtime: CoreRuntime?
 @MainActor var macAirComposition: MacAirAppComposition?
 @MainActor var macIdentityComposition: MacIdentityAppComposition?
 
-final class LocalCaptureAudioRuntime {
-    let log: Logger
-    let engine: AudioEngine
-
-    init(config: NodeConfig) throws {
-        log = Logger(level: Logger.Level(name: config.log.level), path: config.log.path)
-        engine = AudioEngine(
-            fifoPath: config.audio.fifoPath,
-            ringMs: config.audio.ringBufferMs,
-            log: log)
-        try engine.start()
-    }
-
-    func stop() { engine.stopEngine() }
-}
-
 @MainActor var localCaptureAudioRuntime: LocalCaptureAudioRuntime?
 @MainActor var shellRefreshTimer: Timer?
 @MainActor var shellConfiguredRoute: String?
@@ -443,24 +427,17 @@ func bootstrap() {
         if isatty(STDERR_FILENO) == 1 {
             failConfig("""
             Пульсар ещё не спарен с Барицентром.
-            Создай эфир или присоединись в приложении. Необязательный Telegram-путь: @barycenter_bot → /pair, затем NodeApp --pair КОД.
+            Создай Барицентр или подключи это устройство в приложении. Необязательный Telegram-путь: @barycenter_bot → /pair, затем NodeApp --pair КОД.
             """)
         }
         app.setActivationPolicy(.regular)
         shellModel.replaceSnapshot(.init(connection: .unpaired))
         startAccountlessMacCapture(config: config)
-        // First launch: prime the Local Network permission before pairing, so the
-        // system prompt lands on an explained button — not out of nowhere while a
-        // headless daemon touches the LAN (the failure that hid Timur's speaker).
-        onboarding.show(coordinatorBase: defaultCoordinatorBase, promptForNetwork: true) { _ in
-            let paired = try? ConfigLoader.load(
-                path: configPath,
-                credentials: CredentialsStore.load(besideConfig: configPath))
-            guard let paired else {
-                failConfig("креды сохранены, но конфиг не собрался — перезапусти Pulsar")
-            }
-            finishPairing(paired)
-        }
+        // First launch belongs to the primary shell: create a Barycenter,
+        // connect this device, or try locally. The legacy Telegram/Spotify
+        // pairing window remains an explicit optional action and never blocks
+        // the identity flow.
+        mainWindow.show(section: .home)
         return
     }
     startCore(with: config)
@@ -504,9 +481,6 @@ func configureShell() {
         setRecordingShortcut: {
             macCaptureComposition?.setShortcut($0)
             macSoundboardComposition?.recordingShortcutChanged()
-        },
-        setCaptureQuality: {
-            macCaptureComposition?.setCaptureQualityMode($0, degradedConsent: $1)
         },
         stopActiveCapture: { macCaptureComposition?.stopActiveCapture() },
         playBuiltinCue: { macCaptureComposition?.playBuiltinCue() },
@@ -568,6 +542,8 @@ func configureShell() {
         submitCreateOrbit: { macIdentityComposition?.create(title: $0) },
         submitJoinOrbit: { macIdentityComposition?.join(code: $0) },
         exportRecovery: { macIdentityComposition?.exportRecovery() },
+        issueDeviceInvite: { macIdentityComposition?.issueDeviceInvite() },
+        hideDeviceInvite: { macIdentityComposition?.hideDeviceInvite() },
         refreshAirs: { macAirComposition?.refresh(force: true) },
         createAir: { macAirComposition?.create(title: $0) },
         consumeAirInvite: { macAirComposition?.consumeInvite(code: $0) },
@@ -615,6 +591,7 @@ func activateStoredCredentials() {
         shellModel.setIdentityOperation(.failed("Saved credentials could not be activated"))
         return
     }
+    shellModel.selectedSection = .home
     finishPairing(paired)
 }
 
@@ -627,9 +604,28 @@ func startMacCaptureComposition(audio: AudioEngine, log: Logger) {
             supportRoot: URL(fileURLWithPath: ConfigLoader.supportDir, isDirectory: true),
             model: shellModel)
         macCaptureComposition = composition
-        composition.onCaptureQuality = { state in
-            _ = runtime?.player.updateCaptureQualityState(state)
-        }
+        composition.start()
+    } catch {
+        log.error("mac capture composition unavailable", ["reason": "initialization_failed"])
+        shellModel.setRecording(.unavailable, available: false)
+        shellModel.setSelfTestAvailable(false)
+    }
+}
+
+@MainActor
+func startMacCaptureComposition(
+    ducker: MacCaptureProgramDucking,
+    output: MacLocalClipPlaying,
+    log: Logger
+) {
+    do {
+        let composition = try MacCaptureAppComposition(
+            ducker: ducker,
+            output: output,
+            log: log,
+            supportRoot: URL(fileURLWithPath: ConfigLoader.supportDir, isDirectory: true),
+            model: shellModel)
+        macCaptureComposition = composition
         composition.start()
     } catch {
         log.error("mac capture composition unavailable", ["reason": "initialization_failed"])
@@ -749,16 +745,12 @@ func startMacAirComposition(log: Logger) {
 @MainActor
 func startAccountlessMacCapture(config: NodeConfig) {
     materializeSupportTree(config)
-    do {
-        let local = try LocalCaptureAudioRuntime(config: config)
-        localCaptureAudioRuntime = local
-        startMacCaptureComposition(audio: local.engine, log: local.log)
-    } catch {
-        localCaptureAudioRuntime?.stop()
-        localCaptureAudioRuntime = nil
-        shellModel.setRecording(.unavailable, available: false)
-        shellModel.setSelfTestAvailable(false)
-    }
+    let local = LocalCaptureAudioRuntime(config: config)
+    localCaptureAudioRuntime = local
+    startMacCaptureComposition(
+        ducker: local,
+        output: local.output,
+        log: local.log)
 }
 
 @MainActor

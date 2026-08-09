@@ -54,6 +54,7 @@ const (
 	errorAirMembershipNotFound   = "membership_not_found"
 	errorAirInviteUnavailable    = "invite_unavailable"
 	errorAirIdempotency          = "idempotency_conflict"
+	errorAirRoomsDisabled        = "air_rooms_not_enabled"
 	errorAirRevision             = "revision_conflict"
 	errorAirActiveChanged        = "active_air_changed"
 	errorAirDissolved            = "air_dissolved"
@@ -144,6 +145,7 @@ func apiError(w http.ResponseWriter, status int, code string, retry time.Duratio
 		errorAirMembershipNotFound:   "The Air membership was not found.",
 		errorAirInviteUnavailable:    "The Air invite is unavailable.",
 		errorAirIdempotency:          "The idempotency key was already used for different input.",
+		errorAirRoomsDisabled:        "Air rooms are not enabled on this coordinator.",
 		errorAirRevision:             "The Air resource changed; retry with its current revision.",
 		errorAirActiveChanged:        "The active Air changed; refresh before retrying.",
 		errorAirDissolved:            "The Air has been dissolved.",

@@ -274,6 +274,12 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	} else {
 		airs = configured
 	}
+	var identityRecovery *WindowsIdentityComposition
+	if configured, identityErr := newProductionWindowsIdentityComposition(dir, coordinatorBase, nil); identityErr != nil {
+		log.Error("Windows recovery export unavailable")
+	} else {
+		identityRecovery = configured
+	}
 	var targetsInbox *WindowsTargetsInboxComposition
 	if configured, targetsErr := newProductionWindowsTargetsInboxComposition(dir, phaseOne); targetsErr != nil {
 		log.Error("Phase 2 targets and inbox unavailable")
@@ -415,6 +421,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		} else {
 			snapshot.AirFailure = "credential_unavailable"
 		}
+		if identityRecovery != nil {
+			identityRecovery.ApplyShellSnapshot(&snapshot)
+		}
 		if targetsInbox != nil {
 			targetsInbox.ApplyShellSnapshot(&snapshot)
 		} else {
@@ -429,6 +438,11 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 		}
 		return snapshot
 	}, ShellActions{
+		SaveRecovery: func(path string) {
+			if identityRecovery != nil {
+				identityRecovery.SaveRecovery(path)
+			}
+		},
 		TryLocally:         workflow.TryLocally,
 		PlayBuiltinCue:     workflow.PlayBuiltinCue,
 		ChooseLocalFile:    func() { workflow.ChooseFile(currentMainWindowOwner()) },
@@ -904,6 +918,9 @@ func run(dir, coordinatorBase string, log *slog.Logger) {
 	}
 	if airs != nil {
 		airs.Close()
+	}
+	if identityRecovery != nil {
+		identityRecovery.Close()
 	}
 	workflow.Shutdown()
 	drainContext, cancelRecordingDrain := context.WithTimeout(context.Background(), 5*time.Second)

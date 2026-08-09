@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NodeCore
 
 @Suite("macOS microphone capture engine")
@@ -57,7 +58,7 @@ struct MacMicrophoneCaptureEngineTests {
     func normalStopFinalizesExactlyOneCueFreeDraft() async throws {
         let fixture = Fixture(permission: .granted)
         try await fixture.engine.begin(selectedDeviceID: nil, explicitUserAction: true)
-        fixture.backend.emit(Array(repeating: 0.9, count: 12)) // start cue window: discarded
+        fixture.backend.emit(Array(repeating: 0.9, count: 12))  // start cue window: discarded
         try fixture.engine.startCueCompleted()
         let microphone: [Float] = [0.25, -0.25, 0.5, -0.5]
         fixture.backend.emit(microphone)
@@ -80,10 +81,15 @@ struct MacMicrophoneCaptureEngineTests {
         #expect(throws: MacCaptureEngineError.invalidState) { try fixture.engine.stop() }
     }
 
-    @Test("Duration and byte hard limits auto-stop with explicit reasons", arguments: [
-        (MacCaptureLimits(maxDurationSeconds: 1, maxBytes: 1_000_000), 48_100, MacCaptureTerminalReason.durationLimit),
-        (MacCaptureLimits(maxDurationSeconds: 180, maxBytes: 52), 10, MacCaptureTerminalReason.byteLimit),
-    ])
+    @Test(
+        "Duration and byte hard limits auto-stop with explicit reasons",
+        arguments: [
+            (
+                MacCaptureLimits(maxDurationSeconds: 1, maxBytes: 1_000_000), 48_100,
+                MacCaptureTerminalReason.durationLimit
+            ),
+            (MacCaptureLimits(maxDurationSeconds: 180, maxBytes: 52), 10, MacCaptureTerminalReason.byteLimit),
+        ])
     func hardLimits(limits: MacCaptureLimits, sampleCount: Int, reason: MacCaptureTerminalReason) async throws {
         let fixture = Fixture(permission: .granted, limits: limits)
         try await fixture.engine.begin(selectedDeviceID: nil, explicitUserAction: true)
@@ -99,15 +105,17 @@ struct MacMicrophoneCaptureEngineTests {
         #expect(fixture.ducker.values == [true, false])
     }
 
-    @Test("Every unsafe terminal path closes capture and removes the partial", arguments: [
-        MacCaptureTerminalReason.userCancelled,
-        .deviceLost,
-        .permissionRevoked,
-        .systemSleep,
-        .sessionLocked,
-        .appQuit,
-        .backendFailure,
-    ])
+    @Test(
+        "Every unsafe terminal path closes capture and removes the partial",
+        arguments: [
+            MacCaptureTerminalReason.userCancelled,
+            .deviceLost,
+            .permissionRevoked,
+            .systemSleep,
+            .sessionLocked,
+            .appQuit,
+            .backendFailure,
+        ])
     func unsafeTerminalPaths(reason: MacCaptureTerminalReason) async throws {
         let fixture = Fixture(permission: .granted)
         try await fixture.engine.begin(selectedDeviceID: nil, explicitUserAction: true)
@@ -128,10 +136,11 @@ struct MacMicrophoneCaptureEngineTests {
         fixture.waitUntilIdle()
         fixture.flushEvents()
         #expect(fixture.events.contains(.cancelled(reason)))
-        #expect(fixture.events.allSatisfy {
-            if case .finished = $0 { return false }
-            return true
-        })
+        #expect(
+            fixture.events.allSatisfy {
+                if case .finished = $0 { return false }
+                return true
+            })
         let recovery = try fixture.store.recover()
         #expect(recovery.retainedDrafts.isEmpty)
         #expect(recovery.deletedPartialCount == 0, "terminal path removed the partial before restart")
@@ -151,6 +160,63 @@ struct MacMicrophoneCaptureEngineTests {
         }
         #expect(none.backend.startCount == 0)
         #expect(stale.backend.startCount == 0)
+    }
+
+    @Test("Runtime input failure is actionable and never retains a partial draft")
+    func runtimeInputFailureIsTyped() async throws {
+        let cases: [(String?, MacCaptureEngineError)] = [
+            (nil, .backendUnavailable),
+            ("selected", .selectedDeviceUnavailable),
+        ]
+        for (selection, expected) in cases {
+            let fixture = Fixture(permission: .granted)
+            try await fixture.engine.begin(
+                selectedDeviceID: selection,
+                explicitUserAction: true)
+            try fixture.engine.startCueCompleted()
+            fixture.backend.emit([0.2, 0.3, 0.4])
+            fixture.backend.fail()
+            fixture.waitUntilIdle()
+            fixture.flushEvents()
+
+            #expect(fixture.events.contains(.failed(expected)))
+            #expect(fixture.events.contains(.cancelled(.deviceLost)))
+            #expect(
+                fixture.events.allSatisfy {
+                    if case .finished = $0 { return false }
+                    return true
+                })
+            #expect(try fixture.store.recover().retainedDrafts.isEmpty)
+        }
+    }
+
+    @Test("Input-only !dev startup failure removes the partial and preserves typed diagnostics")
+    func inputOnlyDeviceFailureHasNoPartialDraft() async throws {
+        let fixture = Fixture(permission: .granted)
+        let diagnostic = MacCaptureStartupDiagnostic(
+            stage: .inputOnly,
+            attempt: 1,
+            elapsedMilliseconds: 0,
+            cause: .coreAudio(status: 560_227_702))
+        fixture.backend.startError = .backendStartupFailed(diagnostic)
+
+        await #expect(throws: MacCaptureEngineError.backendStartupFailed(diagnostic)) {
+            try await fixture.engine.begin(
+                selectedDeviceID: nil,
+                explicitUserAction: true)
+        }
+        fixture.flushEvents()
+
+        #expect(fixture.events.contains(.failed(.backendStartupFailed(diagnostic))))
+        #expect(
+            fixture.events.allSatisfy {
+                if case .finished = $0 { return false }
+                return true
+            })
+        let recovery = try fixture.store.recover()
+        #expect(recovery.retainedDrafts.isEmpty)
+        #expect(recovery.deletedPartialCount == 0)
+        #expect(fixture.engine.currentPhase() == .idle)
     }
 
     @Test("Meter is local and bounded")
@@ -315,11 +381,16 @@ private final class FakeCaptureBackend:
     private var samples: (@Sendable ([Float]) -> Void)?
     private var failure: (@Sendable () -> Void)?
     private var qualityState: (@Sendable (CaptureQualityState?) -> Void)?
+    private var storedStartError: MacCaptureEngineError?
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var selectedDeviceID: String?
     private(set) var qualityWorkflow: String?
     private(set) var qualityRequest: MacCaptureQualityRequest?
+    var startError: MacCaptureEngineError? {
+        get { lock.withLock { storedStartError } }
+        set { lock.withLock { storedStartError = newValue } }
+    }
 
     init(devices: [MacCaptureDevice]) { self.devices = devices }
     func availableDevices() -> [MacCaptureDevice] { devices }
@@ -341,12 +412,15 @@ private final class FakeCaptureBackend:
         onSamples: @escaping @Sendable ([Float]) -> Void,
         onFailure: @escaping @Sendable () -> Void
     ) throws {
-        lock.withLock {
+        let error = lock.withLock { () -> MacCaptureEngineError? in
             startCount += 1
             self.selectedDeviceID = selectedDeviceID
+            guard storedStartError == nil else { return storedStartError }
             samples = onSamples
             failure = onFailure
+            return nil
         }
+        if let error { throw error }
     }
 
     func stop() {

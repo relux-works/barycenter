@@ -36,6 +36,26 @@ var shellSections = []ShellSection{
 	ShellHome, ShellCreate, ShellJoin, ShellTryLocally, ShellSoundboard, ShellHistory, ShellInbox, ShellAirs, ShellAutomation, ShellSettings,
 }
 
+func shellSectionVisible(section ShellSection, snapshot ShellSnapshot) bool {
+	if section == ShellAirs {
+		return snapshot.AirAvailable
+	}
+	if snapshot.Connection != ShellUnpaired && (section == ShellCreate || section == ShellJoin) {
+		return false
+	}
+	return true
+}
+
+func visibleShellSections(snapshot ShellSnapshot) []ShellSection {
+	result := make([]ShellSection, 0, len(shellSections))
+	for _, section := range shellSections {
+		if shellSectionVisible(section, snapshot) {
+			result = append(result, section)
+		}
+	}
+	return result
+}
+
 type ShellConnection string
 
 const (
@@ -497,8 +517,9 @@ func (s *WindowsShell) Section() ShellSection {
 }
 
 func (s *WindowsShell) Select(section ShellSection) {
+	snapshot := s.Snapshot()
 	for _, candidate := range shellSections {
-		if candidate == section {
+		if candidate == section && shellSectionVisible(section, snapshot) {
 			s.mu.Lock()
 			s.section = section
 			s.mu.Unlock()
@@ -903,11 +924,16 @@ func (c ShellCopy) Body(section ShellSection, snapshot ShellSnapshot) string {
 	case ShellAutomation:
 		return c.AutomationProjection(snapshot)
 	case ShellSettings:
+		recovery := "\r\n\r\nRecovery: create or replace a protected recovery file at any time."
+		if c.locale == ShellRussian {
+			recovery = "\r\n\r\nВосстановление: файл можно создать или заменить в любое время."
+		}
 		return c.Text(txtLanguage) + "\r\n\r\n" + c.Text(txtDND) + ": " + c.DND(snapshot.DND) +
 			"\r\n" + c.Text(txtVolume) + fmt.Sprintf(": %d%%", snapshot.Volume) +
 			"\r\n\r\n" + c.CaptureQualityProjection(snapshot) +
 			"\r\n\r\n" + c.Text(txtIntegrations) + "\r\n" +
-			"• " + c.Text(txtSpotifyOptional) + "\r\n• " + c.Text(txtTelegramOptional)
+			"• " + c.Text(txtSpotifyOptional) + "\r\n• " + c.Text(txtTelegramOptional) +
+			recovery + c.IdentityStatus(snapshot)
 	default:
 		if snapshot.Connection == ShellUnpaired {
 			return c.Text(txtUnpairedHelp)
@@ -1033,11 +1059,11 @@ func (c ShellCopy) IdentityStatus(snapshot ShellSnapshot) string {
 		return ""
 	}
 	labelsEN := map[ShellIdentityOperation]string{
-		ShellIdentityWorking: "Request in progress", ShellIdentityRecoveryRequired: "Save the recovery file before this installation becomes active",
+		ShellIdentityWorking: "Request in progress", ShellIdentityRecoveryRequired: "Save a recovery file now or later; this installation is already active",
 		ShellIdentityActive: "Identity saved securely", ShellIdentityFailed: "Identity request failed",
 	}
 	labelsRU := map[ShellIdentityOperation]string{
-		ShellIdentityWorking: "Запрос выполняется", ShellIdentityRecoveryRequired: "Сохраните файл восстановления до активации установки",
+		ShellIdentityWorking: "Запрос выполняется", ShellIdentityRecoveryRequired: "Сохраните файл восстановления сейчас или позже; установка уже активна",
 		ShellIdentityActive: "Идентификатор защищённо сохранён", ShellIdentityFailed: "Ошибка запроса идентификатора",
 	}
 	label := labelsEN[snapshot.IdentityOperation]
@@ -1864,27 +1890,27 @@ func catalogMissing(locale ShellLocale) []string {
 
 var shellCatalog = map[ShellLocale]map[shellText]string{
 	ShellEnglish: {
-		txtApp: "Pulsar", txtHome: "Home", txtCreate: "Create", txtJoin: "Join", txtTry: "Try locally",
+		txtApp: "Pulsar", txtHome: "Home", txtCreate: "Start Barycenter", txtJoin: "Connect device", txtTry: "Try locally",
 		txtHistory: "History", txtSoundboard: "Soundboard", txtInbox: "Inbox & targets", txtAirs: "Airs", txtSettings: "Settings", txtOpen: "Open Pulsar", txtPrimary: "Get started",
 		txtStatus: "Status", txtPresence: "Presence", txtRouting: "Routing", txtNowPlaying: "Now playing",
 		txtLocalControls: "Local controls", txtNoHistory: "No recent activity", txtNoRoute: "No output route",
 		txtSilence: "Nothing is playing", txtVolume: "Volume", txtDND: "Do Not Disturb", txtRecording: "Recording",
 		txtStartRecording: "Start recording", txtStopRecording: "Stop recording", txtCancelRecording: "Cancel recording",
 		txtRecordingUnavailable: "Recording is not configured yet", txtSelfTestUnavailable: "Local self-test is not configured yet",
-		txtCreateTitle: "Create a Barycenter", txtCreateBody: "Enter a title. Pulsar stores the identity with Windows protection and requires an explicit recovery-file export before activation.",
-		txtCreateAction: "Create securely", txtJoinTitle: "Join a Barycenter",
-		txtJoinBody: "Enter the device invitation. Pulsar activates this installation only after the identity is protected on this PC.", txtJoinAction: "Join securely",
+		txtCreateTitle: "Start a Barycenter", txtCreateBody: "Create your private home for Pulsar devices. Recovery backup is recommended, but it does not block setup.",
+		txtCreateAction: "Start securely", txtJoinTitle: "Connect this device",
+		txtJoinBody: "Enter a device invitation issued by your existing Barycenter.", txtJoinAction: "Connect securely",
 		txtTryTitle: "Try Pulsar locally", txtTryBody: "Record five seconds and play them only on this PC before sending anything.",
 		txtTryAction: "Run local self-test", txtHistoryTitle: "Recent activity", txtSettingsTitle: "Pulsar settings",
 		txtLanguage: "Language", txtIntegrations: "Optional integrations",
 		txtSpotifyOptional:  "Spotify is an optional music source; Pulsar audio and local review work without it.",
-		txtTelegramOptional: "Telegram is an optional companion control; Create, Join, routing, history, and reports remain available in Pulsar.",
+		txtTelegramOptional: "Telegram is an optional companion control; device setup, routing, history, and reports remain available in Pulsar.",
 		txtReport:           "Report",
 		txtUnpaired:         "Not paired", txtReconnecting: "Reconnecting", txtOnline: "Connected",
 		txtDegraded: "Needs attention", txtDNDAllow: "Allow all audio", txtDNDMessages: "Messages only", txtDNDMuted: "Muted",
 		txtRecordingIdle: "Not recording", txtRecordingActive: "Recording - press Stop to finish",
 		txtRecordingProcessing: "Preparing recording", txtRecordingFailed: "Recording failed",
-		txtUnpairedHelp:  "Create an Air, join one, or test audio locally. You can start without connecting an account.",
+		txtUnpairedHelp:  "Start a Barycenter, connect this device, or test audio locally. Airs are shared rooms you can create later.",
 		txtDegradedHelp:  "Local controls and settings remain available while Pulsar reconnects.",
 		txtRecordingHelp: "Recording is active. Stop remains available in this window and the tray.",
 		txtShortcut:      "Recording shortcut", txtShortcutRegistered: "active", txtShortcutConflict: "in use; buttons still work",
@@ -1901,27 +1927,27 @@ var shellCatalog = map[ShellLocale]map[shellText]string{
 		txtCaptureConsentHelp: "Speaker processing is degraded or unsupported. Capture remains blocked until you explicitly allow this one local attempt.",
 	},
 	ShellRussian: {
-		txtApp: "Пульсар", txtHome: "Главная", txtCreate: "Создать", txtJoin: "Присоединиться", txtTry: "Попробовать локально",
+		txtApp: "Пульсар", txtHome: "Главная", txtCreate: "Создать Барицентр", txtJoin: "Подключить устройство", txtTry: "Попробовать локально",
 		txtHistory: "История", txtSoundboard: "Звуки", txtInbox: "Входящие", txtAirs: "Эфиры", txtSettings: "Настройки", txtOpen: "Открыть Пульсар", txtPrimary: "Начало работы",
 		txtStatus: "Статус", txtPresence: "Присутствие", txtRouting: "Маршрут звука", txtNowPlaying: "Сейчас играет",
 		txtLocalControls: "Локальные настройки", txtNoHistory: "Недавних событий нет", txtNoRoute: "Выход звука не выбран",
 		txtSilence: "Сейчас ничего не играет", txtVolume: "Громкость", txtDND: "Не беспокоить", txtRecording: "Запись",
 		txtStartRecording: "Начать запись", txtStopRecording: "Остановить запись", txtCancelRecording: "Отменить запись",
 		txtRecordingUnavailable: "Запись пока не настроена", txtSelfTestUnavailable: "Локальная самопроверка пока не настроена",
-		txtCreateTitle: "Создать Барицентр", txtCreateBody: "Введи название. Пульсар защищённо сохраняет идентификатор средствами Windows и требует явно экспортировать файл восстановления до активации.",
-		txtCreateAction: "Создать защищённо", txtJoinTitle: "Присоединиться к Барицентру",
-		txtJoinBody: "Введи приглашение устройства. Пульсар активирует эту установку только после защищённого сохранения идентификатора на этом ПК.", txtJoinAction: "Присоединиться защищённо",
+		txtCreateTitle: "Создать Барицентр", txtCreateBody: "Создайте приватный дом для устройств Пульсара. Резервная копия восстановления рекомендуется, но не блокирует настройку.",
+		txtCreateAction: "Создать защищённо", txtJoinTitle: "Подключить это устройство",
+		txtJoinBody: "Введите приглашение устройства, выпущенное в существующем Барицентре.", txtJoinAction: "Подключить защищённо",
 		txtTryTitle: "Проверить Пульсар локально", txtTryBody: "Запиши пять секунд и воспроизведи их только на этом ПК до любой отправки.",
 		txtTryAction: "Запустить самопроверку", txtHistoryTitle: "Недавние события", txtSettingsTitle: "Настройки Пульсара",
 		txtLanguage: "Язык", txtIntegrations: "Необязательные интеграции",
 		txtSpotifyOptional:  "Spotify — необязательный источник музыки; звук Пульсара и локальная проверка работают без него.",
-		txtTelegramOptional: "Telegram — необязательный пульт; создание, присоединение, маршрутизация, история и жалобы доступны в Пульсаре.",
+		txtTelegramOptional: "Telegram — необязательный пульт; настройка устройств, маршрутизация, история и жалобы доступны в Пульсаре.",
 		txtReport:           "Пожаловаться",
 		txtUnpaired:         "Не подключён", txtReconnecting: "Переподключение", txtOnline: "Подключён",
 		txtDegraded: "Нужно внимание", txtDNDAllow: "Разрешить весь звук", txtDNDMessages: "Только сообщения", txtDNDMuted: "Звук выключен",
 		txtRecordingIdle: "Запись не идёт", txtRecordingActive: "Идёт запись - нажми «Остановить», чтобы закончить",
 		txtRecordingProcessing: "Подготавливаю запись", txtRecordingFailed: "Ошибка записи",
-		txtUnpairedHelp:  "Создайте эфир, присоединитесь или проверьте звук локально. Начать можно без подключения аккаунта.",
+		txtUnpairedHelp:  "Создайте Барицентр, подключите это устройство или проверьте звук локально. Общий эфир можно создать позже.",
 		txtDegradedHelp:  "Локальные настройки остаются доступны, пока Пульсар переподключается.",
 		txtRecordingHelp: "Запись активна. Остановка остаётся доступна в этом окне и в области уведомлений.",
 		txtShortcut:      "Комбинация записи", txtShortcutRegistered: "активна", txtShortcutConflict: "занята; кнопки продолжают работать",

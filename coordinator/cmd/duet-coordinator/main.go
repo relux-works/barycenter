@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -144,6 +145,10 @@ func main() {
 		"revoke a moderation operator id")
 	moderationOperatorScopes := flag.String("moderation-operator-scopes", "list,evidence,decide",
 		"comma-separated moderation scopes: list,evidence,decide")
+	airCutover := flag.Bool("air-cutover", false,
+		"cut Air authority over from shadow to airs_authoritative, then exit")
+	airRollback := flag.Bool("air-rollback", false,
+		"roll Air authority back to links_authoritative (clean rollback only), then exit")
 	flag.Parse()
 
 	if *showVersion {
@@ -163,6 +168,13 @@ func main() {
 			*configPath, *provisionModerationOperator,
 			*revokeModerationOperator, *moderationOperatorScopes,
 		); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if *airCutover || *airRollback {
+		if err := runAirAuthorityCommand(*configPath, *airCutover, *airRollback); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -506,6 +518,95 @@ func projectIdentityForLegacyRollback(configPath string) error {
 		return fmt.Errorf("close store after identity rollback projection: %w", err)
 	}
 	return nil
+}
+
+// runAirAuthorityCommand is an explicit one-shot operator path that flips the
+// Air authority state machine (--air-cutover shadow->airs_authoritative, or
+// --air-rollback airs_authoritative->links_authoritative). Like the identity
+// rollback path it opens the database with self-service serving disabled so
+// the running coordinator (the normal single writer) must be stopped first and
+// this command is the only writer while the audited, checkpointed transition
+// commits. The store transition already carries the CAS generation guard, WAL
+// checkpoint before the authority flip, and the divergence/rollback-unsafe gate.
+func runAirAuthorityCommand(configPath string, cutover, rollback bool) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(cfg.DBPath), 0o750); err != nil {
+		return fmt.Errorf("create coordinator database directory: %w", err)
+	}
+	st, err := store.Open(cfg.DBPath)
+	if err != nil {
+		return fmt.Errorf("open store for Air authority command: %w", err)
+	}
+	defer st.Close()
+	return applyAirAuthorityTransition(st, cutover, rollback, time.Now().UnixMilli(), os.Stdout)
+}
+
+// applyAirAuthorityTransition performs exactly one Air authority transition and
+// prints a redacted, parseable before/after receipt. It never exposes secrets;
+// the only fields printed are the authority mode, generation, divergence count
+// and the derived air_rooms_enabled bit (mode == airs_authoritative). A rollback
+// that cannot complete cleanly (Airs already diverged from legacy links) leaves
+// the store in rollback_hold and returns a non-zero error so the operator knows
+// a clean revert is impossible and a restore-from-backup is required.
+func applyAirAuthorityTransition(st *store.Store, cutover, rollback bool, now int64, out io.Writer) error {
+	if cutover == rollback {
+		return errors.New("choose exactly one Air authority command: --air-cutover or --air-rollback")
+	}
+	before, err := st.AirAuthority()
+	if err != nil {
+		return fmt.Errorf("read Air authority: %w", err)
+	}
+	command := "cutover"
+	if rollback {
+		command = "rollback"
+	}
+	fmt.Fprintf(out, "air_authority_command=%s\n", command)
+	fmt.Fprintf(out, "before_mode=%s\nbefore_generation=%d\nbefore_divergence=%d\nbefore_air_rooms_enabled=%t\n",
+		before.Mode, before.Generation, before.DivergenceCount, before.Mode == "airs_authoritative")
+
+	if cutover {
+		if before.Mode != "airs_shadow" && before.Mode != "links_authoritative" {
+			fmt.Fprintln(out, "result=refused")
+			return fmt.Errorf("Air cutover refused: authority mode %q is not airs_shadow or links_authoritative", before.Mode)
+		}
+		after, err := st.CutoverLinksToAirs(before.Generation, now)
+		if err != nil {
+			fmt.Fprintln(out, "result=error")
+			return fmt.Errorf("Air cutover failed: %w", err)
+		}
+		printAirAuthorityAfter(out, after)
+		fmt.Fprintln(out, "result=ok")
+		return nil
+	}
+
+	if before.Mode != "airs_authoritative" {
+		fmt.Fprintln(out, "result=refused")
+		return fmt.Errorf("Air rollback refused: authority mode %q is not airs_authoritative", before.Mode)
+	}
+	after, err := st.RollbackAirsToLinks(before.Generation, now)
+	if err != nil {
+		if errors.Is(err, store.ErrAirRollbackUnsafe) {
+			if held, readErr := st.AirAuthority(); readErr == nil {
+				printAirAuthorityAfter(out, held)
+			}
+			fmt.Fprintln(out, "result=rollback_hold")
+			return fmt.Errorf("clean Air rollback unavailable (%w): Airs diverged from legacy links; restore from backup to revert", err)
+		}
+		fmt.Fprintln(out, "result=error")
+		return fmt.Errorf("Air rollback failed: %w", err)
+	}
+	printAirAuthorityAfter(out, after)
+	fmt.Fprintln(out, "result=ok")
+	return nil
+}
+
+func printAirAuthorityAfter(out io.Writer, authority store.AirAuthority) {
+	fmt.Fprintf(out, "after_mode=%s\nafter_generation=%d\nafter_divergence=%d\nafter_air_rooms_enabled=%t\n",
+		authority.Mode, authority.Generation, authority.DivergenceCount,
+		authority.Mode == "airs_authoritative")
 }
 
 // pairHandler is POST /pair {code} -> {orbit_id, slot, token, ws_url}

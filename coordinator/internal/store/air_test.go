@@ -188,6 +188,11 @@ func TestActiveLinkBackfillIsStableExactlyOnceAndReversible(t *testing.T) {
 	if err != nil || authority.Mode != "airs_shadow" || authority.Generation != 1 {
 		t.Fatalf("shadow authority=%+v err=%v", authority, err)
 	}
+	if _, err := s.CreateAir(CreateAirParams{
+		Title: "Unavailable before cutover", OwnerOrbitID: a, CreatedAt: 250,
+	}); !errors.Is(err, ErrAirRoomsDisabled) {
+		t.Fatalf("shadow Air creation error=%v", err)
+	}
 	var airID string
 	if err := s.db.QueryRow(`SELECT air_id FROM air_legacy_link_mappings WHERE link_id = ?`, linkID).Scan(&airID); err != nil {
 		t.Fatal(err)

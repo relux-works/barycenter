@@ -596,6 +596,8 @@ func (api *onboardingAPI) airStoreError(w http.ResponseWriter, operation string,
 		apiError(w, http.StatusNotFound, errorAirInviteUnavailable, 0)
 	case errors.Is(err, store.ErrAirIdempotencyConflict):
 		apiError(w, http.StatusConflict, errorAirIdempotency, 0)
+	case errors.Is(err, store.ErrAirRoomsDisabled):
+		apiError(w, http.StatusServiceUnavailable, errorAirRoomsDisabled, 0)
 	case errors.Is(err, store.ErrAirRevision):
 		apiError(w, http.StatusConflict, errorAirRevision, 0)
 	case errors.Is(err, store.ErrAirActiveChanged):

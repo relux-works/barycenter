@@ -768,7 +768,7 @@ func (ctx *mainWindowCtx) layout() {
 	gap, pad := metrics.Gutter, dip(12, layout.DPI)
 	bannerPad, navGap := dip(8, layout.DPI), dip(6, layout.DPI)
 	navHeight := metrics.ButtonHeight
-	for index, section := range shellSections {
+	for index, section := range visibleShellSections(ctx.shell.Snapshot()) {
 		move(ctx.nav[section], ShellRect{X: layout.Sidebar.X, Y: layout.Sidebar.Y + index*(navHeight+navGap), Width: layout.Sidebar.Width, Height: navHeight})
 	}
 	dndWidth, recordWidth := dip(150, layout.DPI), dip(140, layout.DPI)
@@ -896,6 +896,10 @@ func (ctx *mainWindowCtx) render() {
 	snapshot := ctx.shell.Snapshot()
 	quality := presentWindowsCaptureQuality(snapshot)
 	section := ctx.shell.Section()
+	if !shellSectionVisible(section, snapshot) {
+		ctx.shell.Select(ShellHome)
+		section = ShellHome
+	}
 	sectionChanged := ctx.laidOutSection != section
 	if sectionChanged {
 		// WM_COMMAND runs to completion before Windows services low-priority paint
@@ -913,7 +917,7 @@ func (ctx *mainWindowCtx) render() {
 	}
 	copy := NewShellCopy(ctx.shell.Locale())
 	for candidate, control := range ctx.nav {
-		showControl(control, true)
+		showControl(control, shellSectionVisible(candidate, snapshot))
 		label := copy.Section(candidate)
 		if candidate == section {
 			label = "●  " + label
@@ -966,7 +970,10 @@ func (ctx *mainWindowCtx) render() {
 	if section == ShellCreate || section == ShellJoin || section == ShellTryLocally || section == ShellSettings {
 		identityPage := section == ShellCreate || section == ShellJoin
 		showControl(ctx.identityInput, identityPage)
-		showControl(ctx.recovery, identityPage && snapshot.RecoveryExportRequired)
+		showControl(
+			ctx.recovery,
+			identityPage && snapshot.RecoveryExportRequired ||
+				section == ShellSettings && snapshot.Connection != ShellUnpaired)
 		pEnableWindow.Call(uintptr(ctx.identityInput), boolWord(snapshot.IdentityOperation != ShellIdentityWorking && snapshot.IdentityOperation != ShellIdentityActive && !snapshot.RecoveryExportRequired))
 		if copy.locale == ShellRussian {
 			setText(ctx.recovery, "Сохранить файл восстановления...")
@@ -1491,6 +1498,8 @@ func (ctx *mainWindowCtx) renderHome(copy ShellCopy, snapshot ShellSnapshot) {
 	setText(ctx.home[0], copy.Text(txtCreate)+"  Ctrl+1")
 	setText(ctx.home[1], copy.Text(txtJoin)+"  Ctrl+2")
 	setText(ctx.home[2], copy.Text(txtTry)+"  Ctrl+Shift+T")
+	showControl(ctx.home[0], snapshot.Connection == ShellUnpaired)
+	showControl(ctx.home[1], snapshot.Connection == ShellUnpaired)
 	setText(ctx.cards[0], copy.Text(txtPresence)+"\r\n"+copy.Presence(snapshot))
 	route := snapshot.RouteName
 	if route == "" {

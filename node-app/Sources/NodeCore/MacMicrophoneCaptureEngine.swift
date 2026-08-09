@@ -1,6 +1,6 @@
-import AppKit
 import AVFAudio
 import AVFoundation
+import AppKit
 import AudioToolbox
 import CoreAudio
 import Foundation
@@ -54,6 +54,7 @@ public enum MacCaptureEngineError: Error, Equatable, Sendable {
     case alreadyActive
     case invalidState
     case backendUnavailable
+    case backendStartupFailed(MacCaptureStartupDiagnostic)
     case captureQualityUnsupported
     case storage
 }
@@ -200,7 +201,7 @@ public final class MacMicrophoneCaptureEngine: MacCaptureQualityWorkflowSelectin
     public func selectCaptureQualityWorkflow(_ workflow: String) {
         queue.sync {
             guard phase == .idle,
-                  ["recorded_clip", "local_self_test", "live_ptt"].contains(workflow)
+                ["recorded_clip", "local_self_test", "live_ptt"].contains(workflow)
             else { return }
             qualityWorkflow = workflow
         }
@@ -241,14 +242,16 @@ public final class MacMicrophoneCaptureEngine: MacCaptureQualityWorkflowSelectin
 
         try queue.sync {
             guard generation == attempt, phase == .requestingPermission,
-                  !terminalClaimed else { throw MacCaptureEngineError.invalidState }
+                !terminalClaimed
+            else { throw MacCaptureEngineError.invalidState }
             let devices = backend.availableDevices()
             guard !devices.isEmpty else {
                 resetLocked(error: .noInputDevice)
                 throw MacCaptureEngineError.noInputDevice
             }
             if let selectedDeviceID,
-               !devices.contains(where: { $0.id == selectedDeviceID }) {
+                !devices.contains(where: { $0.id == selectedDeviceID })
+            {
                 resetLocked(error: .selectedDeviceUnavailable)
                 throw MacCaptureEngineError.selectedDeviceUnavailable
             }
@@ -271,7 +274,13 @@ public final class MacMicrophoneCaptureEngine: MacCaptureQualityWorkflowSelectin
                         self?.queue.async { self?.consumeLocked(samples) }
                     },
                     onFailure: { [weak self] in
-                        self?.queue.async { self?.cancelLocked(reason: .deviceLost) }
+                        self?.queue.async {
+                            self?.cancelLocked(
+                                reason: .deviceLost,
+                                error: selectedDeviceID == nil
+                                    ? .backendUnavailable
+                                    : .selectedDeviceUnavailable)
+                        }
                     })
                 ducker.setCaptureDucking(active: true)
                 runtimeActive = true
@@ -334,7 +343,8 @@ public final class MacMicrophoneCaptureEngine: MacCaptureQualityWorkflowSelectin
 
     private func consumeLocked(_ samples: [Float]) {
         guard phase == .recording, commitSamples, !terminalClaimed,
-              let writer else { return }
+            let writer
+        else { return }
         do {
             let remainingFrames = limits.maxFrames - writer.framesWritten
             let remainingBytes = limits.maxPCMBytes - writer.pcmBytesWritten
@@ -448,12 +458,14 @@ public final class MacMicrophoneCaptureEngine: MacCaptureQualityWorkflowSelectin
 
     private func installLifecycleObservers() {
         let center = NSWorkspace.shared.notificationCenter
-        observers.append(center.addObserver(
-            forName: NSWorkspace.willSleepNotification, object: nil, queue: nil
-        ) { [weak self] _ in self?.handleSystemSleep() })
-        observers.append(center.addObserver(
-            forName: NSWorkspace.sessionDidResignActiveNotification, object: nil, queue: nil
-        ) { [weak self] _ in self?.handleSessionLock() })
+        observers.append(
+            center.addObserver(
+                forName: NSWorkspace.willSleepNotification, object: nil, queue: nil
+            ) { [weak self] _ in self?.handleSystemSleep() })
+        observers.append(
+            center.addObserver(
+                forName: NSWorkspace.sessionDidResignActiveNotification, object: nil, queue: nil
+            ) { [weak self] _ in self?.handleSessionLock() })
     }
 
     private func emit(_ event: MacCaptureEvent) {
@@ -528,8 +540,8 @@ private final class MacCaptureWAVWriter {
     }
 }
 
-private extension Data {
-    mutating func writeLE<T: FixedWidthInteger>(_ value: T, at offset: Int) {
+extension Data {
+    fileprivate mutating func writeLE<T: FixedWidthInteger>(_ value: T, at offset: Int) {
         var little = value.littleEndian
         Swift.withUnsafeBytes(of: &little) {
             replaceSubrange(offset..<(offset + $0.count), with: $0)

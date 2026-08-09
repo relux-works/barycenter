@@ -11,6 +11,7 @@ final class MacAirAppComposition {
     private var refreshTask: Task<Void, Never>?
     private var mutationTask: Task<Void, Never>?
     private var mutationInFlight = false
+    private var retryKeys: [String: String] = [:]
     private var lastAutomaticRefresh = Date.distantPast
     private var stopped = false
 
@@ -19,7 +20,10 @@ final class MacAirAppComposition {
         self.model = model
     }
 
-    func start() { refresh(force: true) }
+    func start() {
+        model.updateAirState(availability: .checking)
+        refresh(force: true)
+    }
 
     func refresh(force: Bool = false) {
         guard !stopped, !mutationInFlight else { return }
@@ -27,12 +31,36 @@ final class MacAirAppComposition {
         guard force || now.timeIntervalSince(lastAutomaticRefresh) >= 5 else { return }
         lastAutomaticRefresh = now
         refreshTask?.cancel()
-        refreshTask = Task { [weak self] in await self?.loadProjection() }
+        refreshTask = Task { [weak self] in await self?.loadAvailabilityAndProjection() }
     }
 
     func create(title: String) {
-        mutate(outcome: "created") { [client] in
-            _ = try await client.create(title: title, idempotencyKey: Self.key("create"))
+        let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty, beginMutation() else { return }
+        let createOperation = "create:\(clean)"
+        let createKey = retryKey(createOperation)
+        mutationTask = Task { [weak self] in
+            guard let self else { return }
+            defer { finishMutation() }
+            do {
+                let detail = try await client.create(title: clean, idempotencyKey: createKey)
+                let inviteOperation = "initial-invite:\(detail.id)"
+                let invite = try await client.issueInvite(
+                    airID: detail.id, role: .member,
+                    idempotencyKey: retryKey(inviteOperation))
+                await loadProjection()
+                guard active else { return }
+                clearRetryKey(createOperation)
+                clearRetryKey(inviteOperation)
+                model.updateAirState(
+                    inviteSecret: .some(.init(
+                        airID: detail.id, inviteID: invite.id, revision: invite.revision,
+                        airTitle: detail.title, code: invite.code, expiresAt: invite.expiresAt)),
+                    outcome: .some("created_with_invite"), failure: .some(nil))
+            } catch {
+                await refreshAfterConflict(error)
+                showFailure(error)
+            }
         }
     }
 
@@ -50,6 +78,7 @@ final class MacAirAppComposition {
                 model.updateAirState(
                     pendingJoin: .some(pending), outcome: .some("invite_reviewed"), failure: .some(nil))
             } catch {
+                await refreshAfterConflict(error)
                 showFailure(error)
             }
         }
@@ -94,6 +123,7 @@ final class MacAirAppComposition {
                         airTitle: air.title, code: invite.code, expiresAt: invite.expiresAt)),
                     outcome: .some("invite_issued"), failure: .some(nil))
             } catch {
+                await refreshAfterConflict(error)
                 showFailure(error)
             }
         }
@@ -198,6 +228,7 @@ final class MacAirAppComposition {
                 guard active else { return }
                 model.updateAirState(outcome: .some(outcome), failure: .some(nil))
             } catch {
+                await refreshAfterConflict(error)
                 showFailure(error)
             }
         }
@@ -237,13 +268,37 @@ final class MacAirAppComposition {
         }
     }
 
+    private func loadAvailabilityAndProjection() async {
+        do {
+            let availability = try await client.availability()
+            guard active else { return }
+            if availability.enabled {
+                model.updateAirState(availability: .enabled, failure: .some(nil))
+                await loadProjection()
+            } else {
+                model.setAirState(.init(availability: .disabled))
+                if model.selectedSection == .airs {
+                    model.selectedSection = .home
+                }
+            }
+        } catch {
+            guard active else { return }
+            model.updateAirState(
+                availability: .checking,
+                failure: .some(failureCode(error)))
+        }
+    }
+
+    private func refreshAfterConflict(_ error: Error) async {
+        guard case AirClientError.rejected(_, let code, _) = error,
+              ["revision_conflict", "active_air_changed", "air_dissolved"].contains(code)
+        else { return }
+        await loadProjection()
+    }
+
     private func showFailure(_ error: Error) {
         guard active else { return }
         model.updateAirState(outcome: .some(nil), failure: .some(failureCode(error)))
-        if case AirClientError.rejected(_, let code, _) = error,
-           ["revision_conflict", "active_air_changed", "air_dissolved"].contains(code) {
-            refresh(force: true)
-        }
     }
 
     private func failureCode(_ error: Error) -> String {
@@ -312,5 +367,16 @@ final class MacAirAppComposition {
 
     private static func key(_ operation: String) -> String {
         "mac-air-\(operation)-\(UUID().uuidString.lowercased())"
+    }
+
+    private func retryKey(_ operation: String) -> String {
+        if let existing = retryKeys[operation] { return existing }
+        let created = Self.key("retry")
+        retryKeys[operation] = created
+        return created
+    }
+
+    private func clearRetryKey(_ operation: String) {
+        retryKeys.removeValue(forKey: operation)
     }
 }

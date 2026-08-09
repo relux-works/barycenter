@@ -76,7 +76,7 @@ struct PulsarShellModelTests {
         }
 
         let recordings: [PulsarRecordingState] = [
-            .unavailable, .idle, .recording, .processing, .failed("permission denied"),
+            .unavailable, .idle, .recording, .processing, .failed(.permissionDenied),
         ]
         for state in recordings {
             #expect(!copy.recordingLabel(state).isEmpty)
@@ -333,6 +333,76 @@ struct PulsarShellModelTests {
         }
     }
 
+    @MainActor
+    @Test("Capture consent copy is localized, actionable, and never exposes internal codes")
+    func captureConsentCopyAndState() {
+        let model = PulsarShellModel(locale: .en)
+        model.setRecording(.failed(.captureQualityConsentRequired), available: true)
+        model.setCaptureConsentPrompt(.captureQuality)
+        #expect(model.snapshot.captureConsentPrompt == .captureQuality)
+
+        let english = PulsarShellCopy(locale: .en)
+        let russian = PulsarShellCopy(locale: .ru)
+        #expect(english.captureConsentMessage(.captureQuality).contains("Use headphones"))
+        #expect(english.text(.allowLimitedRecording) == "Allow this limited recording")
+        #expect(russian.captureConsentMessage(.captureQuality).contains("наушники"))
+        #expect(russian.text(.allowLimitedRecording) == "Разрешить эту ограниченную запись")
+        #expect(english.captureConsentMessage(.startupFallback) != english.captureConsentMessage(.captureQuality))
+
+        for locale in PulsarShellLocale.allCases {
+            let copy = PulsarShellCopy(locale: locale)
+            for failure in PulsarRecordingFailure.allCases {
+                let label = copy.recordingLabel(.failed(failure))
+                #expect(!label.isEmpty)
+                #expect(!label.contains("capture_"))
+                #expect(!label.contains("backend_"))
+                #expect(!label.contains("MacCapture"))
+            }
+        }
+
+        model.setCaptureConsentPrompt(nil)
+        #expect(model.snapshot.captureConsentPrompt == nil)
+    }
+
+    @MainActor
+    @Test("Ordinary recording has one-button state and input-only EN/RU recovery copy")
+    func ordinaryRecordingPresentationAndCopy() {
+        let model = PulsarShellModel(locale: .en)
+        var presentation = PulsarLocalCapturePresentation(snapshot: model.snapshot)
+        #expect(!presentation.isActive)
+        #expect(!presentation.canStop)
+
+        model.setRecording(.processing, available: true)
+        presentation = PulsarLocalCapturePresentation(snapshot: model.snapshot)
+        #expect(presentation.isActive)
+        #expect(presentation.canStop)
+        #expect(!presentation.isSelfTest)
+
+        model.setRecording(.recording, available: true)
+        presentation = PulsarLocalCapturePresentation(snapshot: model.snapshot)
+        #expect(presentation.isActive)
+        #expect(presentation.canStop)
+
+        model.setRecording(.idle, available: true)
+        model.updateSelfTest(state: .requestingPermission)
+        presentation = PulsarLocalCapturePresentation(snapshot: model.snapshot)
+        #expect(presentation.isActive)
+        #expect(presentation.isSelfTest)
+
+        let english = PulsarShellCopy(locale: .en)
+            .recordingFailureLabel(.backendStartupUnavailable)
+        let russian = PulsarShellCopy(locale: .ru)
+            .recordingFailureLabel(.backendStartupUnavailable)
+        #expect(english.contains("microphone"))
+        #expect(!english.localizedCaseInsensitiveContains("output"))
+        #expect(!english.localizedCaseInsensitiveContains("headphone"))
+        #expect(!english.localizedCaseInsensitiveContains("quality"))
+        #expect(russian.contains("микрофона"))
+        #expect(!russian.localizedCaseInsensitiveContains("маршрут вывода"))
+        #expect(!russian.localizedCaseInsensitiveContains("наушник"))
+        #expect(!russian.localizedCaseInsensitiveContains("качество"))
+    }
+
     @Test("DND labels map the frozen wire values in both languages")
     func dndWireValuesStayStable() {
         #expect(PulsarDNDMode.allowAll.rawValue == "allow_all")
@@ -358,6 +428,7 @@ struct PulsarShellModelTests {
             setVolume: { calls.append("volume:\($0)") },
             toggleRecording: { calls.append("record") },
             cancelRecording: { calls.append("cancel-record") },
+            resolveCaptureConsent: { calls.append("capture-consent:\($0)") },
             setCaptureDevice: { calls.append("input:\($0 ?? "default")") },
             setRecordingShortcut: { calls.append("shortcut:\($0.rawValue)") },
             setCaptureQuality: { calls.append("quality:\($0.rawValue):consent=\($1)") },
@@ -377,6 +448,8 @@ struct PulsarShellModelTests {
             submitCreateOrbit: { calls.append("create-api:\($0)") },
             submitJoinOrbit: { calls.append("join-api:\($0)") },
             exportRecovery: { calls.append("export-recovery") },
+            issueDeviceInvite: { calls.append("device-invite") },
+            hideDeviceInvite: { calls.append("device-hide") },
             refreshAirs: { calls.append("air-refresh") },
             createAir: { calls.append("air-create:\($0)") },
             consumeAirInvite: { calls.append("air-consume:\($0)") },
@@ -399,6 +472,8 @@ struct PulsarShellModelTests {
         actions.setVolume(45)
         actions.toggleRecording()
         actions.cancelRecording()
+        actions.resolveCaptureConsent(allowLimitedRecording: false)
+        actions.resolveCaptureConsent(allowLimitedRecording: true)
         actions.setCaptureDevice("mic-1")
         actions.setRecordingShortcut(.controlShiftR)
         actions.setCaptureQuality(.speaker, degradedConsent: true)
@@ -422,6 +497,8 @@ struct PulsarShellModelTests {
         actions.submitCreateOrbit(title: "Family")
         actions.submitJoinOrbit(code: "ABCDEFGH")
         actions.exportRecovery()
+        actions.issueDeviceInvite()
+        actions.hideDeviceInvite()
         actions.refreshAirs()
         actions.createAir(title: "Friends")
         actions.consumeAirInvite(code: "secret")
@@ -440,12 +517,14 @@ struct PulsarShellModelTests {
 
         #expect(calls == [
             "create", "join", "self-test", "messages_only", "volume:45", "record",
-            "cancel-record", "input:mic-1", "shortcut:control_shift_r",
+            "cancel-record", "capture-consent:false", "capture-consent:true",
+            "input:mic-1", "shortcut:control_shift_r",
             "quality:speaker:consent=true", "stop-capture", "cue", "five", "review:voice.wav",
             "accept:voice.wav", "delete", "close",
             "send:draft-1:own_barycenter:overlay:rights=true", "delete-outbox:draft-1",
             "refresh-data", "history:history-1:block_actor", "history:history-2:report", "create-api:Family",
-            "join-api:ABCDEFGH", "export-recovery", "air-refresh", "air-create:Friends",
+            "join-api:ABCDEFGH", "export-recovery", "device-invite", "device-hide",
+            "air-refresh", "air-create:Friends",
             "air-consume:secret", "air-confirm:opaque-air:true", "air-decline:opaque-air",
             "air-invite:opaque-air:member", "air-withdraw", "air-hide",
             "air-activate:opaque-air", "air-deactivate:opaque-air", "air-leave:opaque-air",
@@ -481,6 +560,10 @@ struct PulsarShellModelTests {
             airTitle: current.title, code: "secret-canary", expiresAt: .now)
         #expect(!String(describing: secret).contains("secret-canary"))
         #expect(!String(reflecting: secret).contains("secret-canary"))
+        let deviceSecret = PulsarDeviceInviteSecret(
+            code: "device-secret-canary", expiresAt: .now)
+        #expect(!String(describing: deviceSecret).contains("device-secret-canary"))
+        #expect(!String(reflecting: deviceSecret).contains("device-secret-canary"))
 
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -590,8 +673,13 @@ struct PulsarShellModelTests {
             encoding: .utf8)
         #expect(window.contains(".onExitCommand"))
         #expect(window.contains("actions.stopActiveCapture()"))
+        #expect(window.contains("PulsarRecordingActiveBar"))
+        #expect(!window.contains("PulsarCaptureQualityControls"))
+        #expect(!window.contains("resolveCaptureConsent"))
         #expect(menu.contains("#selector(cancelRecording)"))
         #expect(menu.contains("copy.text(.cancelRecording)"))
+        #expect(menu.contains("PulsarLocalCapturePresentation"))
+        #expect(!menu.contains("PulsarCaptureQualityPresentation"))
         #expect(!window.contains("addGlobalMonitorForEvents"))
         #expect(!menu.contains("addGlobalMonitorForEvents"))
     }

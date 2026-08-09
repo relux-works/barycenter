@@ -12,6 +12,7 @@ import (
 
 var (
 	ErrAirNotFound       = errors.New("air not found")
+	ErrAirRoomsDisabled  = errors.New("air rooms are not enabled")
 	ErrAirRevision       = errors.New("air revision conflict")
 	ErrAirActiveChanged  = errors.New("active air changed")
 	ErrAirNotJoined      = errors.New("air membership is not joined")
@@ -1052,7 +1053,7 @@ func requireAirsAuthoritativeTx(tx *sql.Tx) (AirAuthority, error) {
 		return AirAuthority{}, err
 	}
 	if authority.Mode != "airs_authoritative" {
-		return AirAuthority{}, fmt.Errorf("%w: authority mode %s", ErrAirRevision, authority.Mode)
+		return AirAuthority{}, fmt.Errorf("%w: authority mode %s", ErrAirRoomsDisabled, authority.Mode)
 	}
 	return authority, nil
 }

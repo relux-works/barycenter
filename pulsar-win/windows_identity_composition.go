@@ -17,6 +17,7 @@ type WindowsIdentitySnapshot struct {
 type windowsIdentityServicing interface {
 	Create(context.Context, string, string) (CreateOrbitResult, error)
 	Join(context.Context, string) (JoinOrbitResult, error)
+	RotateStoredRecovery(context.Context) (*RecoveryMaterial, error)
 	AcknowledgeRecoveryBackup(int64, string) error
 }
 
@@ -25,10 +26,8 @@ type windowsRecoveryExporting interface {
 }
 
 // WindowsIdentityComposition keeps one installation attempt stable across a
-// retry and never activates Create until the one-time recovery material was
-// written to an explicitly selected destination and acknowledged in DPAPI
-// metadata. Join activates only after the onboarding service confirms the
-// protected save.
+// retry. Protected credentials activate immediately; recovery export remains a
+// resumable safety action and rotates fresh one-time material after restart.
 type WindowsIdentityComposition struct {
 	mu              sync.RWMutex
 	service         windowsIdentityServicing
@@ -85,6 +84,9 @@ func (c *WindowsIdentityComposition) ApplyShellSnapshot(shell *ShellSnapshot) {
 		return
 	}
 	state := c.Snapshot()
+	if state.Operation == ShellIdentityIdle && shell.Connection != ShellUnpaired {
+		return
+	}
 	shell.IdentityOperation = state.Operation
 	shell.IdentityFailure = state.FailureCode
 	shell.RecoveryExportRequired = state.RecoveryExportRequired
@@ -115,7 +117,6 @@ func (c *WindowsIdentityComposition) Create(title string) {
 	go func() {
 		result, err := c.service.Create(c.ctx, title, attempt)
 		c.mu.Lock()
-		defer c.mu.Unlock()
 		c.busy = false
 		if result.Recovery != nil {
 			c.pendingRecovery = result.Recovery
@@ -125,14 +126,21 @@ func (c *WindowsIdentityComposition) Create(title string) {
 			if result.Recovery == nil {
 				c.snapshot.Operation = ShellIdentityFailed
 			}
+			c.mu.Unlock()
 			return
 		}
 		if result.Recovery == nil {
 			c.snapshot = WindowsIdentitySnapshot{Operation: ShellIdentityFailed, FailureCode: windowsIdentityFailureCode(err)}
+			c.mu.Unlock()
 			return
 		}
 		c.attemptTitle, c.attemptID = "", ""
 		c.snapshot = WindowsIdentitySnapshot{Operation: ShellIdentityRecoveryRequired, RecoveryExportRequired: true}
+		onActive := c.onActive
+		c.mu.Unlock()
+		if onActive != nil {
+			onActive()
+		}
 	}()
 }
 
@@ -171,7 +179,7 @@ func (c *WindowsIdentityComposition) SaveRecovery(path string) {
 		return
 	}
 	c.mu.Lock()
-	if c.busy || c.pendingRecovery == nil || c.ctx.Err() != nil {
+	if c.busy || c.ctx.Err() != nil {
 		c.mu.Unlock()
 		return
 	}
@@ -180,6 +188,29 @@ func (c *WindowsIdentityComposition) SaveRecovery(path string) {
 	c.snapshot = WindowsIdentitySnapshot{Operation: ShellIdentityWorking, RecoveryExportRequired: true}
 	c.mu.Unlock()
 	go func() {
+		if material == nil {
+			var err error
+			material, err = c.service.RotateStoredRecovery(c.ctx)
+			if err != nil || material == nil {
+				c.mu.Lock()
+				c.busy = false
+				c.snapshot = WindowsIdentitySnapshot{
+					Operation:              ShellIdentityRecoveryRequired,
+					FailureCode:            windowsIdentityFailureCode(err),
+					RecoveryExportRequired: true,
+				}
+				c.mu.Unlock()
+				return
+			}
+			c.mu.Lock()
+			if c.ctx.Err() != nil {
+				c.mu.Unlock()
+				material.discard()
+				return
+			}
+			c.pendingRecovery = material
+			c.mu.Unlock()
+		}
 		actorID, recoveryID, ok := material.metadata()
 		err := c.exporter.SaveSelectedDestination(path, material)
 		if err == nil && ok {
@@ -195,11 +226,7 @@ func (c *WindowsIdentityComposition) SaveRecovery(path string) {
 		material.discard()
 		c.pendingRecovery = nil
 		c.snapshot = WindowsIdentitySnapshot{Operation: ShellIdentityActive}
-		onActive := c.onActive
 		c.mu.Unlock()
-		if onActive != nil {
-			onActive()
-		}
 	}()
 }
 

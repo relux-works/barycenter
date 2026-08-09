@@ -120,6 +120,11 @@ type AirJoinPreview struct {
 	ActivationWouldSwitch bool
 }
 
+type AirFeatureAvailability struct {
+	Enabled        bool
+	AuthorityState string
+}
+
 type AirClientErrorKind string
 
 const (
@@ -158,6 +163,7 @@ func (e *AirClientError) GoString() string {
 }
 
 type AirAppService interface {
+	Availability(context.Context) (AirFeatureAvailability, error)
 	List(context.Context) (AirList, error)
 	Detail(context.Context, string) (AirDetail, error)
 	Create(context.Context, string, string) (AirDetail, error)
@@ -200,6 +206,25 @@ func NewAirAppClient(bundle CredentialBundle, doer HTTPDoer) (*AirAppClient, err
 
 func (c *AirAppClient) String() string   { return "AirAppClient{<redacted>}" }
 func (c *AirAppClient) GoString() string { return c.String() }
+
+func (c *AirAppClient) Availability(ctx context.Context) (AirFeatureAvailability, error) {
+	raw, err := c.request(ctx, http.MethodGet, "/healthz", "", nil, http.StatusOK)
+	if err != nil {
+		return AirFeatureAvailability{}, err
+	}
+	var wire struct {
+		Phase2 struct {
+			Enabled        bool   `json:"air_rooms_enabled"`
+			AuthorityState string `json:"air_authority_state"`
+		} `json:"phase2"`
+	}
+	if decodeAirJSON(raw, &wire) != nil || wire.Phase2.AuthorityState == "" {
+		return AirFeatureAvailability{}, airError(AirInvalidResponse)
+	}
+	return AirFeatureAvailability{
+		Enabled: wire.Phase2.Enabled, AuthorityState: wire.Phase2.AuthorityState,
+	}, nil
+}
 
 func (c *AirAppClient) List(ctx context.Context) (AirList, error) {
 	raw, err := c.request(ctx, http.MethodGet, "/v1/airs", "", nil, http.StatusOK)

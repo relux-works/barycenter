@@ -214,4 +214,26 @@ func macAVCaptureTapSafety() throws {
     }
     #expect(source.contains("UnsafeMutablePointer<Float>"))
     #expect(source.contains("guard lock.try()"))
+    #expect(source.contains("kAudioDevicePropertyDeviceUID"))
+    #expect(!source.contains("MacCaptureDevice(id: String(id)"))
+    for forbidden in [
+        "outputNode",
+        "setVoiceProcessingEnabled",
+        "isVoiceProcessingBypassed",
+        "isVoiceProcessingAGCEnabled",
+        "MacCaptureOutputRouteResolving",
+        "MacCaptureQualityBackendConfiguring",
+    ] {
+        #expect(
+            !source.contains(forbidden),
+            "ordinary recorded-clip backend contains full-duplex token \(forbidden)")
+    }
+
+    let fullDuplexURL = sourceURL
+        .deletingLastPathComponent()
+        .appendingPathComponent("MacAVAudioFullDuplexCaptureBackend.swift")
+    let fullDuplex = try String(contentsOf: fullDuplexURL, encoding: .utf8)
+    #expect(fullDuplex.contains("engine.outputNode"))
+    #expect(fullDuplex.contains("setVoiceProcessingEnabled(true)"))
+    #expect(fullDuplex.contains("MacCaptureQualityBackendConfiguring"))
 }

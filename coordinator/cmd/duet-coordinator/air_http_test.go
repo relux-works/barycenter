@@ -150,6 +150,23 @@ func TestAirHTTPFrozenLifecycleRoutesAndStableErrors(t *testing.T) {
 	}
 }
 
+func TestAirHTTPReportsDisabledRolloutInsteadOfRevisionConflict(t *testing.T) {
+	harness := newOnboardingHarness(t)
+	owner, err := harness.store.CreateSelfServiceOrbit("Shadow owner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := airAPIRequest(
+		harness.mux, http.MethodPost, "/v1/airs",
+		`{"title":"Unavailable Air"}`, owner.ControlToken, "http-air-shadow-0001")
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("shadow create status=%d body=%q", response.Code, response.Body.String())
+	}
+	if code := decodeObject(t, response)["error"].(map[string]any)["code"]; code != errorAirRoomsDisabled {
+		t.Fatalf("shadow create code=%v", code)
+	}
+}
+
 func TestAirHTTPRejectsLooseShapesAndRateLimitsUnavailableInvites(t *testing.T) {
 	harness := newOnboardingHarness(t)
 	actor, err := harness.store.CreateSelfServiceOrbit("Rate limited actor")

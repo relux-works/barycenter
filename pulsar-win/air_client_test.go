@@ -33,6 +33,24 @@ func airFixture(airID, memberID, title string, current bool, membership AirMembe
 		airID, title, memberID, membership, role, current)
 }
 
+func TestAirClientReadsCoordinatorAvailability(t *testing.T) {
+	doer := &airScriptedDoer{handle: func(request *http.Request, index int) (*http.Response, error) {
+		if index != 0 || request.Method != http.MethodGet || request.URL.Path != "/healthz" {
+			t.Fatalf("availability request %d=%s %s", index, request.Method, request.URL)
+		}
+		return airJSONResponse(request, http.StatusOK,
+			`{"phase2":{"air_rooms_enabled":false,"air_authority_state":"airs_shadow"}}`), nil
+	}}
+	client, err := NewAirAppClient(phaseOneTestBundle(), doer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	availability, err := client.Availability(context.Background())
+	if err != nil || availability.Enabled || availability.AuthorityState != "airs_shadow" {
+		t.Fatalf("availability=%+v err=%v", availability, err)
+	}
+}
+
 func TestAirClientUsesCommonAuthenticatedLifecycleContract(t *testing.T) {
 	airID := "air_" + strings.Repeat("A", 26)
 	memberID := "aim_" + strings.Repeat("B", 26)

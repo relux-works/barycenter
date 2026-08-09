@@ -3,12 +3,208 @@ import AudioToolbox
 import CoreAudio
 import Foundation
 
-/// Fixed-storage handoff from the Core Audio tap to the backend worker. The
-/// tap only downmixes into this bounded ring and uses nonblocking signalling;
-/// resampling, quality processing and client callbacks stay off the realtime
-/// boundary.
-private final class MacAVCaptureSampleMailbox: @unchecked Sendable {
-    enum Offer { case accepted, scheduleDrain, overflow, terminal }
+struct MacCaptureInputDeviceRecord: Equatable, Sendable {
+    let audioDeviceID: AudioDeviceID
+    let device: MacCaptureDevice
+}
+
+protocol MacCaptureInputDeviceDiscovering: AnyObject {
+    func inputDevices() -> [MacCaptureInputDeviceRecord]
+}
+
+protocol MacInputOnlyAudioSession: AnyObject {
+    var configurationChangeObject: AnyObject { get }
+
+    func selectInputDevice(_ id: AudioDeviceID) throws
+    func inputFormat() -> AVAudioFormat
+    func installTap(
+        format: AVAudioFormat,
+        handler: @escaping @Sendable (AVAudioPCMBuffer) -> Void
+    )
+    func removeTap()
+    func prepare()
+    func start() throws
+    func stop()
+    func reset()
+}
+
+final class SystemMacCaptureInputDeviceDiscovery:
+    MacCaptureInputDeviceDiscovering, @unchecked Sendable
+{
+    func inputDevices() -> [MacCaptureInputDeviceRecord] {
+        let defaultID = Self.defaultInputDevice()
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var size: UInt32 = 0
+        let system = AudioObjectID(kAudioObjectSystemObject)
+        guard AudioObjectGetPropertyDataSize(system, &address, 0, nil, &size) == noErr else {
+            return []
+        }
+        var ids = [AudioDeviceID](
+            repeating: 0,
+            count: Int(size) / MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(system, &address, 0, nil, &size, &ids) == noErr else {
+            return []
+        }
+        return ids.compactMap { id in
+            guard Self.hasInputStreams(id),
+                let uid = Self.deviceUID(id),
+                let name = Self.deviceName(id)
+            else {
+                return nil
+            }
+            return MacCaptureInputDeviceRecord(
+                audioDeviceID: id,
+                device: MacCaptureDevice(
+                    id: uid,
+                    name: name,
+                    isDefault: id == defaultID))
+        }.sorted {
+            if $0.device.isDefault != $1.device.isDefault {
+                return $0.device.isDefault
+            }
+            return $0.device.name.localizedCaseInsensitiveCompare($1.device.name)
+                == .orderedAscending
+        }
+    }
+
+    private static func defaultInputDevice() -> AudioDeviceID? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var id = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        guard
+            AudioObjectGetPropertyData(
+                AudioObjectID(kAudioObjectSystemObject),
+                &address,
+                0,
+                nil,
+                &size,
+                &id) == noErr,
+            id != 0
+        else {
+            return nil
+        }
+        return id
+    }
+
+    private static func hasInputStreams(_ id: AudioDeviceID) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreams,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain)
+        var size: UInt32 = 0
+        return AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr
+            && size > 0
+    }
+
+    private static func deviceUID(_ id: AudioDeviceID) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceUID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var uid: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &uid) == noErr,
+            let value = uid?.takeUnretainedValue()
+        else {
+            return nil
+        }
+        return value as String
+    }
+
+    private static func deviceName(_ id: AudioDeviceID) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioObjectPropertyName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var name: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &name) == noErr,
+            let value = name?.takeUnretainedValue()
+        else {
+            return nil
+        }
+        return value as String
+    }
+}
+
+private final class SystemMacInputOnlyAudioSession:
+    MacInputOnlyAudioSession, @unchecked Sendable
+{
+    private let engine = AVAudioEngine()
+
+    var configurationChangeObject: AnyObject { engine }
+
+    func selectInputDevice(_ id: AudioDeviceID) throws {
+        let input = engine.inputNode
+        guard let unit = input.audioUnit else {
+            throw NSError(
+                domain: "works.relux.pulsar.input-only",
+                code: 1)
+        }
+        var selected = id
+        let status = AudioUnitSetProperty(
+            unit,
+            kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global,
+            0,
+            &selected,
+            UInt32(MemoryLayout<AudioDeviceID>.size))
+        guard status == noErr else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+        }
+    }
+
+    func inputFormat() -> AVAudioFormat {
+        engine.inputNode.outputFormat(forBus: 0)
+    }
+
+    func installTap(
+        format: AVAudioFormat,
+        handler: @escaping @Sendable (AVAudioPCMBuffer) -> Void
+    ) {
+        engine.inputNode.installTap(
+            onBus: 0,
+            bufferSize: 1_024,
+            format: format
+        ) { buffer, _ in
+            handler(buffer)
+        }
+    }
+
+    func removeTap() {
+        engine.inputNode.removeTap(onBus: 0)
+    }
+
+    func prepare() {
+        engine.prepare()
+    }
+
+    func start() throws {
+        try engine.start()
+    }
+
+    func stop() {
+        engine.stop()
+    }
+
+    func reset() {
+        engine.reset()
+    }
+}
+
+private final class MacInputCaptureSampleMailbox: @unchecked Sendable {
+    enum Offer {
+        case accepted
+        case scheduleDrain
+        case overflow
+        case terminal
+    }
 
     private let lock = NSLock()
     private let storage: UnsafeMutablePointer<Float>
@@ -47,7 +243,9 @@ private final class MacAVCaptureSampleMailbox: @unchecked Sendable {
         let scale = Float(1.0 / Double(channelCount))
         for frame in 0..<frames {
             var mono: Float = 0
-            for channel in 0..<channelCount { mono += channels[channel][frame] * scale }
+            for channel in 0..<channelCount {
+                mono += channels[channel][frame] * scale
+            }
             storage[head] = mono
             head = (head + 1) % capacity
         }
@@ -73,9 +271,6 @@ private final class MacAVCaptureSampleMailbox: @unchecked Sendable {
         return result
     }
 
-    /// Called only by the worker after a nil pop. A producer racing the drain
-    /// either leaves data for the current worker or observes a cleared signal
-    /// and schedules the next one; no wakeup can be lost.
     func finishDrain() -> Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -99,52 +294,52 @@ private final class MacAVCaptureSampleMailbox: @unchecked Sendable {
     }
 }
 
-/// AVAudioEngine/CoreAudio implementation. The tap is normalized to mono
-/// float samples and linearly resampled to the shared 48 kHz writer contract.
-/// It owns no storage, cue, upload, or lifecycle policy.
+/// Microphone-only AVAudioEngine backend for ordinary recorded clips and the
+/// local recording self-test. Its audio-session interface exposes input
+/// operations only, so this path cannot configure voice processing or inspect,
+/// validate, or gate startup on an output route.
 public final class MacAVAudioCaptureBackend:
-    MacMicrophoneCaptureBackend, MacCaptureQualityBackendConfiguring, @unchecked Sendable
+    MacMicrophoneCaptureBackend, @unchecked Sendable
 {
-    private let queue = DispatchQueue(label: "works.relux.pulsar.mac-capture-backend")
-    private let routeResolver: MacCaptureOutputRouteResolving
+    private let queue = DispatchQueue(label: "works.relux.pulsar.mac-input-capture")
+    private let deviceDiscovery: MacCaptureInputDeviceDiscovering
+    private let makeSession: () -> MacInputOnlyAudioSession
+    private let log: Logger?
     private let safetyProcessor = MacCaptureInputSafetyProcessor()
-    private var engine: AVAudioEngine?
+    private var session: MacInputOnlyAudioSession?
     private var configurationObserver: NSObjectProtocol?
     private var active = false
+    private var tapInstalled = false
     private var sourceRate: Double = 48_000
     private var resamplePosition = 0.0
     private var previousSample: Float?
-    private var qualityWorkflow = "recorded_clip"
-    private var qualityRequest: MacCaptureQualityRequest = .legacyUnprocessed
-    private var qualitySession: MacCaptureQualitySession?
-    private var qualityStateHandler: (@Sendable (CaptureQualityState?) -> Void)?
-    private var sampleMailbox: MacAVCaptureSampleMailbox?
+    private var sampleMailbox: MacInputCaptureSampleMailbox?
     private var drainSignal: DispatchSourceUserDataAdd?
     private var failureSignal: DispatchSourceUserDataAdd?
 
-    public init(
-        routeResolver: MacCaptureOutputRouteResolving = SystemMacCaptureOutputRouteResolver()
-    ) {
-        self.routeResolver = routeResolver
+    public convenience init(log: Logger? = nil) {
+        self.init(
+            deviceDiscovery: SystemMacCaptureInputDeviceDiscovery(),
+            makeSession: { SystemMacInputOnlyAudioSession() },
+            log: log)
     }
 
-    deinit { stop() }
+    init(
+        deviceDiscovery: MacCaptureInputDeviceDiscovering,
+        makeSession: @escaping () -> MacInputOnlyAudioSession,
+        log: Logger? = nil
+    ) {
+        self.deviceDiscovery = deviceDiscovery
+        self.makeSession = makeSession
+        self.log = log
+    }
+
+    deinit {
+        stop()
+    }
 
     public func availableDevices() -> [MacCaptureDevice] {
-        Self.inputDevices()
-    }
-
-    public func configureCaptureQuality(
-        workflow: String,
-        request: MacCaptureQualityRequest,
-        onState: @escaping @Sendable (CaptureQualityState?) -> Void
-    ) {
-        queue.sync {
-            guard !active else { return }
-            qualityWorkflow = workflow
-            qualityRequest = request
-            qualityStateHandler = onState
-        }
+        deviceDiscovery.inputDevices().map(\.device)
     }
 
     public func start(
@@ -153,64 +348,61 @@ public final class MacAVAudioCaptureBackend:
         onFailure: @escaping @Sendable () -> Void
     ) throws {
         try queue.sync {
-            guard !active else { throw MacCaptureEngineError.alreadyActive }
-            let devices = Self.inputDevices()
-            guard !devices.isEmpty else { throw MacCaptureEngineError.noInputDevice }
-            let selected: AudioDeviceID?
+            guard !active else {
+                throw MacCaptureEngineError.alreadyActive
+            }
+            let records = deviceDiscovery.inputDevices()
+            guard !records.isEmpty else {
+                throw MacCaptureEngineError.noInputDevice
+            }
+            let selectedRecord: MacCaptureInputDeviceRecord?
             if let selectedDeviceID {
-                guard let parsed = UInt32(selectedDeviceID),
-                      devices.contains(where: { $0.id == selectedDeviceID }) else {
+                guard let record = records.first(where: { $0.device.id == selectedDeviceID }) else {
                     throw MacCaptureEngineError.selectedDeviceUnavailable
                 }
-                selected = AudioDeviceID(parsed)
+                selectedRecord = record
             } else {
-                selected = nil
+                selectedRecord = nil
             }
 
-            let engine = AVAudioEngine()
-            let input = engine.inputNode
-            if let selected, let unit = input.audioUnit {
-                var device = selected
-                let status = AudioUnitSetProperty(
-                    unit,
-                    kAudioOutputUnitProperty_CurrentDevice,
-                    kAudioUnitScope_Global,
-                    0,
-                    &device,
-                    UInt32(MemoryLayout<AudioDeviceID>.size))
-                guard status == noErr else { throw MacCaptureEngineError.backendUnavailable }
-            }
-            let resolvedMode = routeResolver.resolvedMode()
-            var voiceProcessingEnabled = false
-            if qualityRequest.processingRequested {
+            let session = makeSession()
+            if let selectedRecord {
                 do {
-                    try input.setVoiceProcessingEnabled(true)
-                    input.isVoiceProcessingBypassed = false
-                    input.isVoiceProcessingAGCEnabled = true
-                    _ = engine.outputNode
-                    voiceProcessingEnabled = input.isVoiceProcessingEnabled
+                    try session.selectInputDevice(selectedRecord.audioDeviceID)
                 } catch {
-                    voiceProcessingEnabled = false
+                    release(session: session, tapInstalled: false, mailbox: nil)
+                    let diagnostic = Self.diagnostic(
+                        stage: .inputSelection,
+                        error: error)
+                    logStartupDiagnostic(diagnostic)
+                    throw MacCaptureEngineError.selectedDeviceUnavailable
                 }
             }
-            let session = try makeQualitySession(
-                resolvedMode: resolvedMode,
-                voiceProcessingEnabled: voiceProcessingEnabled)
-            let native = input.outputFormat(forBus: 0)
+
+            let native = session.inputFormat()
             guard native.sampleRate > 0, native.channelCount > 0,
-                  let tapFormat = AVAudioFormat(
+                let tapFormat = AVAudioFormat(
                     commonFormat: .pcmFormatFloat32,
                     sampleRate: native.sampleRate,
                     channels: native.channelCount,
-                    interleaved: false) else {
-                throw MacCaptureEngineError.backendUnavailable
+                    interleaved: false)
+            else {
+                release(session: session, tapInstalled: false, mailbox: nil)
+                let diagnostic = MacCaptureStartupDiagnostic(
+                    stage: .inputOnly,
+                    attempt: 1,
+                    elapsedMilliseconds: 0,
+                    cause: .invalidInputFormat(
+                        sampleRate: native.sampleRate,
+                        channels: native.channelCount))
+                logStartupDiagnostic(diagnostic)
+                throw MacCaptureEngineError.backendStartupFailed(diagnostic)
             }
-            qualitySession = session
+
             safetyProcessor.reset()
-            sourceRate = native.sampleRate
             resamplePosition = 0
             previousSample = nil
-            let mailbox = MacAVCaptureSampleMailbox()
+            let mailbox = MacInputCaptureSampleMailbox()
             let drainSignal = DispatchSource.makeUserDataAddSource(queue: queue)
             let failureSignal = DispatchSource.makeUserDataAddSource(queue: queue)
             drainSignal.setEventHandler { [weak self, mailbox] in
@@ -218,28 +410,12 @@ public final class MacAVAudioCaptureBackend:
             }
             failureSignal.setEventHandler { [weak self] in
                 guard let self, self.active else { return }
-                if let session = self.qualitySession {
-                    self.emitQuality(CaptureQualityState(
-                        generation: session.generation,
-                        workflow: session.workflow,
-                        requestedMode: session.request.mode.rawValue,
-                        resolvedMode: session.resolvedMode,
-                        lifecycle: "failed",
-                        quality: "degraded",
-                        aec: session.aec,
-                        ns: session.ns,
-                        agc: session.agc,
-                        inputHealth: "processor_overrun",
-                        reason: "processor_overrun",
-                        updatedMonotonicMs: Self.monotonicMs(),
-                        processorOverruns: 1))
-                }
                 onFailure()
             }
             drainSignal.resume()
             failureSignal.resume()
-            input.installTap(onBus: 0, bufferSize: 1_024, format: tapFormat) {
-                buffer, _ in
+
+            session.installTap(format: tapFormat) { buffer in
                 // BEGIN MAC AV CAPTURE CALLBACK
                 switch mailbox.offer(buffer) {
                 case .scheduleDrain:
@@ -251,51 +427,60 @@ public final class MacAVAudioCaptureBackend:
                 }
                 // END MAC AV CAPTURE CALLBACK
             }
-            emitQuality(session.state(lifecycle: "preparing", nowMs: Self.monotonicMs()))
-            engine.prepare()
+            var startedSourceRate = native.sampleRate
             do {
-                try engine.start()
+                session.prepare()
+                try session.start()
+                let observed = session.inputFormat()
+                guard observed.sampleRate > 0, observed.channelCount > 0 else {
+                    throw MacCaptureStartupDiagnostic(
+                        stage: .inputOnly,
+                        attempt: 1,
+                        elapsedMilliseconds: 0,
+                        cause: .invalidInputFormat(
+                            sampleRate: observed.sampleRate,
+                            channels: observed.channelCount))
+                }
+                startedSourceRate = observed.sampleRate
             } catch {
-                input.removeTap(onBus: 0)
+                release(session: session, tapInstalled: true, mailbox: mailbox)
                 drainSignal.cancel()
                 failureSignal.cancel()
-                mailbox.reset()
-                qualitySession = nil
                 safetyProcessor.reset()
-                emitQuality(nil)
-                throw MacCaptureEngineError.backendUnavailable
+                let diagnostic: MacCaptureStartupDiagnostic
+                if let typed = error as? MacCaptureStartupDiagnostic {
+                    diagnostic = typed
+                } else {
+                    diagnostic = Self.diagnostic(stage: .inputOnly, error: error)
+                }
+                logStartupDiagnostic(diagnostic)
+                throw MacCaptureEngineError.backendStartupFailed(diagnostic)
             }
+
+            sourceRate = startedSourceRate
             sampleMailbox = mailbox
             self.drainSignal = drainSignal
             self.failureSignal = failureSignal
+            self.session = session
+            tapInstalled = true
             configurationObserver = NotificationCenter.default.addObserver(
                 forName: .AVAudioEngineConfigurationChange,
-                object: engine,
+                object: session.configurationChangeObject,
                 queue: nil
             ) { [weak self] _ in
                 guard let self else { return }
                 self.queue.async {
                     guard self.active else { return }
-                    if let session = self.qualitySession {
-                        self.emitQuality(session.state(
-                            lifecycle: "reconfiguring", nowMs: Self.monotonicMs()))
-                    }
                     onFailure()
                 }
             }
-            self.engine = engine
             active = true
-            emitQuality(session.state(lifecycle: "capturing", nowMs: Self.monotonicMs()))
         }
     }
 
     public func stop() {
         queue.sync {
-            guard active || engine != nil else { return }
-            if let qualitySession {
-                emitQuality(qualitySession.state(
-                    lifecycle: "stopping", nowMs: Self.monotonicMs()))
-            }
+            guard active || session != nil else { return }
             if let observer = configurationObserver {
                 NotificationCenter.default.removeObserver(observer)
             }
@@ -306,71 +491,92 @@ public final class MacAVAudioCaptureBackend:
             failureSignal = nil
             sampleMailbox?.reset()
             sampleMailbox = nil
-            if let engine {
-                engine.inputNode.removeTap(onBus: 0)
-                engine.stop()
-                engine.reset()
+            if let session {
+                release(
+                    session: session,
+                    tapInstalled: tapInstalled,
+                    mailbox: nil)
             }
-            self.engine = nil
+            self.session = nil
+            tapInstalled = false
             active = false
-            qualitySession = nil
             safetyProcessor.reset()
             previousSample = nil
             resamplePosition = 0
-            emitQuality(nil)
         }
     }
 
-    private func makeQualitySession(
-        resolvedMode: String,
-        voiceProcessingEnabled: Bool
-    ) throws -> MacCaptureQualitySession {
-        let request = qualityRequest
-        let decision = MacCaptureQualityDecision.evaluate(
-            request: request,
-            resolvedMode: resolvedMode,
-            voiceProcessingEnabled: voiceProcessingEnabled)
-        if request.processingRequested && decision.quality != "accepted"
-            && !request.degradedConsent
-        {
-            throw MacCaptureEngineError.captureQualityUnsupported
+    private func release(
+        session: MacInputOnlyAudioSession,
+        tapInstalled: Bool,
+        mailbox: MacInputCaptureSampleMailbox?
+    ) {
+        session.stop()
+        if tapInstalled {
+            session.removeTap()
         }
-        return MacCaptureQualitySession(
-            generation: MacCaptureQualityGeneration.next(),
-            workflow: qualityWorkflow,
-            request: request,
-            resolvedMode: resolvedMode,
-            quality: decision.quality,
-            aec: decision.aec,
-            ns: decision.ns,
-            agc: decision.agc,
-            reason: decision.reason)
-    }
-
-    private func emitQuality(_ state: CaptureQualityState?) {
-        qualityStateHandler?(state)
+        session.reset()
+        mailbox?.reset()
     }
 
     private func drain(
-        mailbox: MacAVCaptureSampleMailbox,
+        mailbox: MacInputCaptureSampleMailbox,
         onSamples: @escaping @Sendable ([Float]) -> Void
     ) {
         guard active else { return }
         while active {
             if let mono = mailbox.pop() {
                 var normalized = resampleTo48k(mono)
-                if qualityRequest.processingRequested {
-                    _ = safetyProcessor.process(&normalized)
+                _ = safetyProcessor.process(&normalized)
+                if !normalized.isEmpty {
+                    onSamples(normalized)
                 }
-                if !normalized.isEmpty { onSamples(normalized) }
                 continue
             }
-            if !mailbox.finishDrain() { break }
+            if !mailbox.finishDrain() {
+                break
+            }
         }
     }
 
-    private static func monotonicMs() -> Int64 {
-        Int64((ProcessInfo.processInfo.systemUptime * 1_000).rounded())
+    private func logStartupDiagnostic(_ diagnostic: MacCaptureStartupDiagnostic) {
+        log?.warn(
+            "mac input-only capture startup failed",
+            diagnostic.redactedLogFields(decision: .fail))
+    }
+
+    private static func diagnostic(
+        stage: MacCaptureStartupStage,
+        error: Error
+    ) -> MacCaptureStartupDiagnostic {
+        let cocoa = error as NSError
+        let cause: MacCaptureStartupCause
+        if let status = coreAudioStatus(from: cocoa) {
+            cause = .coreAudio(status: status)
+        } else {
+            cause = .engine(domain: cocoa.domain, code: cocoa.code)
+        }
+        return MacCaptureStartupDiagnostic(
+            stage: stage,
+            attempt: 1,
+            elapsedMilliseconds: 0,
+            cause: cause)
+    }
+
+    private static func coreAudioStatus(
+        from error: NSError,
+        depth: Int = 0
+    ) -> Int32? {
+        guard depth < 4 else { return nil }
+        if error.domain == NSOSStatusErrorDomain,
+            let status = Int32(exactly: error.code)
+        {
+            return status
+        }
+        if let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError {
+            return coreAudioStatus(from: underlying, depth: depth + 1)
+        }
+        return nil
     }
 
     private func resampleTo48k(_ input: [Float]) -> [Float] {
@@ -379,7 +585,9 @@ public final class MacAVAudioCaptureBackend:
             return input
         }
         var source = input
-        if let previousSample { source.insert(previousSample, at: 0) }
+        if let previousSample {
+            source.insert(previousSample, at: 0)
+        }
         guard source.count >= 2 else {
             previousSample = source.last
             return []
@@ -391,71 +599,12 @@ public final class MacAVAudioCaptureBackend:
         while position + 1 < Double(source.count) {
             let lower = Int(position)
             let fraction = Float(position - Double(lower))
-            output.append(source[lower] + (source[lower + 1] - source[lower]) * fraction)
+            output.append(
+                source[lower] + (source[lower + 1] - source[lower]) * fraction)
             position += step
         }
         resamplePosition = position - Double(source.count - 1)
         previousSample = source.last
         return output
-    }
-
-    private static func inputDevices() -> [MacCaptureDevice] {
-        let defaultID = defaultInputDevice()
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDevices,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain)
-        var size: UInt32 = 0
-        let system = AudioObjectID(kAudioObjectSystemObject)
-        guard AudioObjectGetPropertyDataSize(system, &address, 0, nil, &size) == noErr else {
-            return []
-        }
-        var ids = [AudioDeviceID](
-            repeating: 0,
-            count: Int(size) / MemoryLayout<AudioDeviceID>.size)
-        guard AudioObjectGetPropertyData(system, &address, 0, nil, &size, &ids) == noErr else {
-            return []
-        }
-        return ids.compactMap { id in
-            guard hasInputStreams(id), let name = deviceName(id) else { return nil }
-            return MacCaptureDevice(id: String(id), name: name, isDefault: id == defaultID)
-        }.sorted {
-            if $0.isDefault != $1.isDefault { return $0.isDefault }
-            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-        }
-    }
-
-    private static func defaultInputDevice() -> AudioDeviceID? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultInputDevice,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain)
-        var id = AudioDeviceID(0)
-        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        guard AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &id) == noErr,
-              id != 0 else { return nil }
-        return id
-    }
-
-    private static func hasInputStreams(_ id: AudioDeviceID) -> Bool {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyStreams,
-            mScope: kAudioDevicePropertyScopeInput,
-            mElement: kAudioObjectPropertyElementMain)
-        var size: UInt32 = 0
-        return AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr && size > 0
-    }
-
-    private static func deviceName(_ id: AudioDeviceID) -> String? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioObjectPropertyName,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain)
-        var name: Unmanaged<CFString>?
-        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
-        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &name) == noErr,
-              let value = name?.takeUnretainedValue() else { return nil }
-        return value as String
     }
 }

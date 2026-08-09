@@ -103,6 +103,18 @@ func (s *WindowsOnboardingService) RotateRecovery(ctx context.Context, capabilit
 	return material, nil
 }
 
+func (s *WindowsOnboardingService) RotateStoredRecovery(ctx context.Context) (*RecoveryMaterial, error) {
+	bundle, err := s.repository.LoadBundle()
+	if err != nil || bundle == nil {
+		return nil, errCredentialStorageConflict
+	}
+	capability, ok := bundle.ControlCapability()
+	if !ok {
+		return nil, errCredentialStorageConflict
+	}
+	return s.RotateRecovery(ctx, capability)
+}
+
 func (s *WindowsOnboardingService) AcknowledgeRecoveryBackup(actorID int64, recoveryID string) error {
 	return s.repository.AcknowledgeRecoveryBackup(s.client.Origin(), actorID, recoveryID)
 }
